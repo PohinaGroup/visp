@@ -1,5 +1,8 @@
 # Two-box deployment
 
+This guide is for production operators. For local development, use
+[`DEVELOPMENT.md`](../DEVELOPMENT.md).
+
 This directory contains templates, not host-specific secrets. Keep `/etc/visp/*.env`
 root-readable (`chmod 600`) and replace every example domain, IP, and Tailscale
 address before enabling a service.
