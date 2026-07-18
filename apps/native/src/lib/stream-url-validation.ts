@@ -25,6 +25,27 @@ export function validateStreamUrl(input: string): string {
 	return value;
 }
 
+export type PublishCredentials = {
+	password: string;
+	path: string;
+	user: string;
+};
+
+export function parsePublishCredentials(input: string): PublishCredentials {
+	const url = new URL(validateStreamUrl(input));
+	const parts = url.searchParams.get("streamid")?.split(":") ?? [];
+	if (
+		parts.length !== 4 ||
+		parts[0] !== "publish" ||
+		!parts[1] ||
+		!parts[2] ||
+		!parts[3]
+	) {
+		throw new Error("Paste the SRT publish URL supplied by VISP.");
+	}
+	return { path: parts[1], user: parts[2], password: parts[3] };
+}
+
 export function describeStreamUrl(value: string): string {
 	try {
 		return new URL(value).host;

@@ -1,4 +1,4 @@
-import * as SecureStore from "expo-secure-store";
+import { storage } from "./storage";
 import {
 	parseStreamInfoDraft,
 	type StreamInfoDraft,
@@ -11,14 +11,12 @@ function storageKey(userId: string) {
 }
 
 export async function loadStreamInfoDraft(userId: string) {
-	return parseStreamInfoDraft(
-		await SecureStore.getItemAsync(storageKey(userId)),
-	);
+	return parseStreamInfoDraft(await storage.getItem(storageKey(userId)));
 }
 
 export async function saveStreamInfoDraft(
 	userId: string,
 	draft: StreamInfoDraft,
 ) {
-	await SecureStore.setItemAsync(storageKey(userId), JSON.stringify(draft));
+	await storage.setItem(storageKey(userId), JSON.stringify(draft));
 }

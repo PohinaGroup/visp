@@ -51,7 +51,11 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (!body.user || !body.password) {
 				return status(401, "credentials required");
 			}
-			if (body.protocol !== "srt" && body.protocol !== "rtmp") {
+			if (
+				body.protocol !== "srt" &&
+				body.protocol !== "rtmp" &&
+				!(body.protocol === "webrtc" && body.action === "publish")
+			) {
 				return status(403, "forbidden");
 			}
 			if (body.action !== "publish" && body.action !== "read") {

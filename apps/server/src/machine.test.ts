@@ -38,6 +38,16 @@ describe("machine endpoints", () => {
 		expect(
 			(await authRequest({ user: "u", password: "p", action: "api" })).status,
 		).toBe(403);
+		expect(
+			(
+				await authRequest({
+					action: "read",
+					password: "p",
+					protocol: "webrtc",
+					user: "u",
+				})
+			).status,
+		).toBe(403);
 	});
 
 	test("allows only loopback RTSP reads without media credentials", async () => {

@@ -46,7 +46,7 @@ export function createAuth() {
 
 			schema: schema,
 		}),
-		trustedOrigins: [env.CORS_ORIGIN, "visp://"],
+		trustedOrigins: [env.CORS_ORIGIN, env.NATIVE_WEB_ORIGIN, "visp://"],
 		user: {
 			deleteUser: {
 				enabled: true,

@@ -3,6 +3,7 @@ import * as SecureStore from "expo-secure-store";
 
 export {
 	describeStreamUrl,
+	parsePublishCredentials,
 	selectPublishUrl,
 	validateStreamUrl,
 } from "./stream-url-validation";

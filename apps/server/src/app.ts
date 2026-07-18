@@ -50,7 +50,7 @@ export function createApp() {
 		})
 		.use(
 			cors({
-				origin: env.CORS_ORIGIN,
+				origin: [env.CORS_ORIGIN, env.NATIVE_WEB_ORIGIN],
 				methods: ["GET", "POST", "OPTIONS"],
 				allowedHeaders: ["Content-Type", "Authorization", "X-Hook-Secret"],
 				credentials: true,

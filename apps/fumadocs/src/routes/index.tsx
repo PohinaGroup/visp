@@ -38,6 +38,7 @@ function Home() {
           <div className="flex flex-wrap gap-3">
             <DocsLink page="">Read the overview</DocsLink>
             <DocsLink page="broadcaster-setup">Set up a stream</DocsLink>
+            <DocsLink page="development">Develop VISP</DocsLink>
           </div>
         </div>
 

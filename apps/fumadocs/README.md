@@ -9,12 +9,12 @@ adjacent `meta.json`.
 
 ```bash
 bun install
-bun --cwd apps/fumadocs run dev
+bun run --cwd apps/fumadocs dev
 ```
 
 Development runs on <http://localhost:4000>. Build and preview with:
 
 ```bash
-bun --cwd apps/fumadocs run build
-bun --cwd apps/fumadocs run preview
+bun run --cwd apps/fumadocs build
+bun run --cwd apps/fumadocs preview
 ```

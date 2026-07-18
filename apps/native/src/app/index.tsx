@@ -49,7 +49,7 @@ import {
 	type AudioTier,
 	audioTierForLevel,
 } from "../lib/audio-level";
-import { apiClient, authClient } from "../lib/backend";
+import { apiClient, authCallbackURL, authClient } from "../lib/backend";
 import {
 	loadImageStabilizationPreference,
 	saveImageStabilizationPreference,
@@ -88,6 +88,7 @@ const ACTIVE_STATES = new Set<StreamState>([
 ]);
 const MANUAL_STREAM_OWNER = "manual";
 const DEFAULT_AUDIO_INPUT_ID = "default";
+const IS_WEB = Platform.OS === "web";
 
 const SUBTLE = "#8a919c";
 const DESTRUCTIVE = "#e5484d";
@@ -233,7 +234,10 @@ export default function Index() {
 	const [chatBusy, setChatBusy] = useState<"twitch" | "kick">();
 	const orientation = window.width > window.height ? "landscape" : "portrait";
 	const settingsDisabled = state === "preparing" || ACTIVE_STATES.has(state);
-	const cameraSwitchDisabled = state === "preparing" || state === "stopping";
+	const cameraSwitchDisabled =
+		state === "preparing" ||
+		state === "stopping" ||
+		(IS_WEB && ACTIVE_STATES.has(state));
 	const liveChat = useLiveChat(
 		userId,
 		appState === "active" && chatPreferences.mode !== "hidden",
@@ -299,7 +303,13 @@ export default function Index() {
 			return;
 		}
 		loadChatPreferences(userId)
-			.then(setChatPreferences)
+			.then((preferences) =>
+				setChatPreferences(
+					IS_WEB && preferences.mode === "embedded"
+						? { ...preferences, mode: "floating" }
+						: preferences,
+				),
+			)
 			.catch(() => setChatPreferences(DEFAULT_CHAT_PREFERENCES));
 		apiClient.chat.connections.list
 			.query()
@@ -381,7 +391,7 @@ export default function Index() {
 					provider === "twitch"
 						? await authClient.linkSocial({
 								provider,
-								callbackURL: "/",
+								callbackURL: authCallbackURL(),
 								// Twitch tokens keep only the last-requested scopes, so always
 								// re-request the union or one feature's consent drops the other's.
 								scopes: chatConsent
@@ -390,7 +400,7 @@ export default function Index() {
 							})
 						: await authClient.oauth2.link({
 								providerId: provider,
-								callbackURL: "/",
+								callbackURL: authCallbackURL(),
 							});
 				if (result.error)
 					throw new Error(result.error.message ?? `Could not link ${provider}`);
@@ -527,7 +537,7 @@ export default function Index() {
 	useEffect(() => {
 		const subscription = AppState.addEventListener("change", (nextState) => {
 			setAppState(nextState);
-			if (nextState !== "active") {
+			if (!IS_WEB && nextState !== "active") {
 				void cameraRef.current?.stop();
 			}
 		});
@@ -588,9 +598,12 @@ export default function Index() {
 		try {
 			const result =
 				provider === "twitch"
-					? await authClient.signIn.social({ callbackURL: "/", provider })
+					? await authClient.signIn.social({
+							callbackURL: authCallbackURL(),
+							provider,
+						})
 					: await authClient.signIn.oauth2({
-							callbackURL: "/",
+							callbackURL: authCallbackURL(),
 							providerId: provider,
 						});
 			if (result.error) {
@@ -754,6 +767,19 @@ export default function Index() {
 	}, [refreshChatConnections, refreshPublishDevices]);
 
 	const removeUrl = useCallback(() => {
+		const remove = () => {
+			void (async () => {
+				await cameraRef.current?.stop();
+				await deleteStreamUrl();
+				setSettingsOpen(false);
+				setStreamUrl(null);
+				setMessage(undefined);
+			})();
+		};
+		if (IS_WEB) {
+			if (globalThis.confirm("Delete VISP destination?")) remove();
+			return;
+		}
 		Alert.alert(
 			"Delete VISP destination?",
 			"Your linked device stays on your account and can restore this URL later.",
@@ -762,15 +788,7 @@ export default function Index() {
 				{
 					style: "destructive",
 					text: "Delete",
-					onPress: () => {
-						void (async () => {
-							await cameraRef.current?.stop();
-							await deleteStreamUrl();
-							setSettingsOpen(false);
-							setStreamUrl(null);
-							setMessage(undefined);
-						})();
-					},
+					onPress: remove,
 				},
 			],
 		);
@@ -1049,7 +1067,7 @@ export default function Index() {
 
 					<View style={styles.bottomPanel}>
 						{message ? <Text style={styles.message}>{message}</Text> : null}
-						{errorCode === "permission-denied" ? (
+						{errorCode === "permission-denied" && !IS_WEB ? (
 							<Pressable
 								onPress={() => void Linking.openSettings()}
 								style={styles.settingsLink}
@@ -1064,12 +1082,13 @@ export default function Index() {
 								onPress={openSettings}
 							>
 								<Text style={styles.format}>
-									{configuration.cameraId === "front" ? "Front" : "Rear"} ·{" "}
-									{formatLabel(configuration)} · {configuration.fps} fps · SRT
+									{currentCamera?.name ?? "Camera"} ·{" "}
+									{formatLabel(configuration)} · {configuration.fps} fps ·{" "}
+									{IS_WEB ? "WebRTC" : "SRT"}
 								</Text>
 							</Pressable>
 						) : null}
-						{currentCamera ? (
+						{currentCamera && !IS_WEB ? (
 							<View accessibilityRole="toolbar" style={styles.zoomControls}>
 								{currentCamera.zoomLevels.map((level) => (
 									<ZoomButton
@@ -1122,17 +1141,19 @@ export default function Index() {
 									{streaming ? "Stop" : "Go Live"}
 								</Text>
 							</Pressable>
-							<Pressable
-								accessibilityLabel="Change orientation"
-								accessibilityRole="button"
-								onPress={() => void toggleOrientation()}
-								style={({ pressed }) => [
-									styles.roundButton,
-									pressed && styles.buttonPressed,
-								]}
-							>
-								<Text style={styles.roundButtonIcon}>↻</Text>
-							</Pressable>
+							{!IS_WEB ? (
+								<Pressable
+									accessibilityLabel="Change orientation"
+									accessibilityRole="button"
+									onPress={() => void toggleOrientation()}
+									style={({ pressed }) => [
+										styles.roundButton,
+										pressed && styles.buttonPressed,
+									]}
+								>
+									<Text style={styles.roundButtonIcon}>↻</Text>
+								</Pressable>
+							) : null}
 						</View>
 						{session ? <ObsControlButton onError={showToast} /> : null}
 						{streamUrl ? null : (
@@ -1330,10 +1351,15 @@ export default function Index() {
 								>
 									<UI.Picker.Item label="Hidden" value="hidden" />
 									<UI.Picker.Item label="Floating" value="floating" />
-									<UI.Picker.Item label="Embedded in stream" value="embedded" />
+									{!IS_WEB ? (
+										<UI.Picker.Item
+											label="Embedded in stream"
+											value="embedded"
+										/>
+									) : null}
 								</UI.Picker>
 							</SettingRow>
-							{chatPreferences.mode === "embedded" ? (
+							{!IS_WEB && chatPreferences.mode === "embedded" ? (
 								<SettingRow label="Corner">
 									<UI.Picker
 										onValueChange={(corner) =>

@@ -5,5 +5,5 @@
 	header @ping Cache-Control "no-store"
 	respond @ping 204
 
-	respond 404
+	reverse_proxy 127.0.0.1:8889
 }

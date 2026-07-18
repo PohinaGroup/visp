@@ -30,7 +30,7 @@ export type VideoFormatCapability = {
 
 export type CameraCapability = {
 	formats: VideoFormatCapability[];
-	id: "back" | "front";
+	id: string;
 	name: string;
 	zoomLevels: number[];
 };

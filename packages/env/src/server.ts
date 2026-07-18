@@ -19,6 +19,7 @@ export const env = createEnv({
 		KICK_CLIENT_ID: z.string().min(1),
 		KICK_CLIENT_SECRET: z.string().min(1),
 		MEDIAMTX_API_URL: z.url(),
+		NATIVE_WEB_ORIGIN: z.url(),
 		NODE_ENV: z
 			.enum(["development", "production", "test"])
 			.default("development"),

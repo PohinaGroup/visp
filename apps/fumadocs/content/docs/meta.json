@@ -1,5 +1,5 @@
 {
   "title": "VISP Relay",
   "icon": "Radio",
-  "pages": ["index", "broadcaster-setup", "deployment"]
+  "pages": ["index", "development", "broadcaster-setup", "deployment"]
 }

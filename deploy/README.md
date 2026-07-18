@@ -51,14 +51,17 @@ disconnecting either side behaves as expected. Only then install
    MTX_APIADDRESS=100.64.0.10:9997
    ```
 
-   Replace the example origin and Tailscale address. MediaMTX maps the
-   `MTX_*` variables to the matching YAML settings.
+   Replace the example origin and Tailscale address. Set
+   `MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
+   MediaMTX maps the `MTX_*` variables to the matching YAML settings.
 4. Install `systemd/mediamtx.service`. Use Caddy's packaged systemd unit with
    `relay/Caddyfile`; install `systemd/caddy-relay.conf` as the packaged unit's
    `caddy.service.d/visp.conf` drop-in and set `RELAY_DOMAIN` and `APP_DOMAIN` in
    `/etc/visp/caddy.env`.
-5. Permit public UDP 8890, TCP 1935, and TCP 443. Permit TCP 9997 and SSH only on
-   the Tailscale interface. Mirror the same rules in the UpCloud firewall.
+5. Permit public UDP 8890, TCP 1935, TCP 443, and both UDP and TCP 8189. Permit
+   TCP 9997 and SSH only on the Tailscale interface. Mirror the same rules in
+   the UpCloud firewall. Port 8189 carries WebRTC media; TCP is the fallback
+   when UDP is blocked.
 6. In Tailscale ACLs, allow only the app box to reach relay TCP 9997.
 
 The Control API deliberately excludes only the `api` action from HTTP auth. It
@@ -75,18 +78,29 @@ pprof stay disabled.
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
    the other application secrets, and run `bun run db:migrate`.
 3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
-   values available to Vite.
+   values available to Vite. Build the browser broadcaster as static files:
+
+   ```bash
+   cd /opt/visp
+   EXPO_PUBLIC_SERVER_URL=https://app.example.com \
+   EXPO_PUBLIC_RELAY_WEBRTC_URL=https://relay.example.com \
+     bun run --cwd apps/native build:web
+   ```
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
-   `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN` and
-   `RELAY_PUBLIC_IP` in `/etc/visp/caddy.env`.
+   `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
+   `NATIVE_WEB_DOMAIN=stream.arvoitus.com`, and `RELAY_PUBLIC_IP` in
+   `/etc/visp/caddy.env`. Caddy serves `apps/native/dist` directly; no browser
+   broadcaster runtime service is required. Add `https://stream.arvoitus.com`
+   as `NATIVE_WEB_ORIGIN` in `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
    console. In the Kick developer dashboard, register
    `https://APP_DOMAIN/api/auth/oauth2/callback/kick` as the OAuth redirect URL
    and `https://APP_DOMAIN/api/webhooks/kick` as the webhook URL. The Kick app
    needs the `user:read` scope; chat delivery uses the server's app token and
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
-   SSH only over Tailscale. Mirror the rules in UpCloud.
+   SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for
+   `stream.arvoitus.com` before Caddy obtains its certificate.
 
 Do not put the MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relay's direct public IP, and the hook endpoints additionally
@@ -177,9 +191,18 @@ Restart the API or portal at any time. Restart MediaMTX only in a maintenance
 window because it ends active streams. The accepted app-outage behavior is:
 existing streams continue, while new publish/read connections fail authentication.
 
-Before production, run the acceptance sequence in `apps/fumadocs/content/docs/index.mdx`:
-SRT publish/read, RTMP publish/read, state reconciliation, app-outage behavior,
-independent secret rotations, and an OBS scene import.
+Deploy the API auth/CORS change first, then the static broadcaster and Caddy
+rules. Apply the MediaMTX WebRTC configuration in a maintenance window. Test
+current Chrome or Edge and Safari over HTTPS: OAuth must return to
+`https://stream.arvoitus.com/`; camera and microphone selection must work; Go
+Live must mark the path live and update its snapshot; and OBS must continue to
+read that path over SRT with H.264/Opus. Stop must release the publisher and
+media devices. Finally block UDP 8189 at the client and prove TCP ICE fallback.
+
+Before production, also run the acceptance sequence in
+`apps/fumadocs/content/docs/index.mdx`: SRT publish/read, RTMP publish/read,
+state reconciliation, app-outage behavior, independent secret rotations, and
+an OBS scene import.
 
 For snapshot acceptance, start two publishing paths and confirm that each keeps
 one `snapshots/{pathId}.jpg` object whose modification time advances every
