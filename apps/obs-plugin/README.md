@@ -35,7 +35,10 @@ tested; users never need CMake.
 
 ## Developer build and test
 
-Use the existing OBS plugin-template presets:
+The shared monorepo setup is documented in
+[`DEVELOPMENT.md`](../../DEVELOPMENT.md). Plugin builds additionally require OBS
+Studio 31 development files, CMake 3.28+, and the platform toolchain named by
+the preset. Use the existing OBS plugin-template presets:
 
 ```sh
 cmake --preset macos

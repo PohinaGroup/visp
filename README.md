@@ -1,82 +1,99 @@
-# VISP SRT Relay Service
+# VISP
 
-VISP is a self-service SRT/RTMP relay for a small group of trusted Twitch
-streamers. It runs as two boxes:
+VISP is a self-hosted SRT/RTMP relay and control plane for remote live
+streaming. Broadcasters sign in with Twitch or Kick, create independently
+revocable publishing devices, send one H.264/AAC feed to MediaMTX, and read it
+from OBS. The native app can publish directly from a phone, and the OBS plugin
+allows authenticated remote start and stop control.
 
-- **Relay:** MediaMTX, Caddy, and Tailscale.
-- **App:** PostgreSQL, Elysia/tRPC API, TanStack Start portal, Caddy, and
-  Tailscale.
+## Architecture
 
-Users sign in with Twitch, create independently revocable publishing devices,
-measure relay latency, and download an OBS scene collection. Publish URLs are
-encrypted for authenticated re-reveal and retain Argon2id hashes for relay
-authentication; account-wide read credentials remain one-time rotation results.
-The dashboard also shows one private, minute-updated snapshot for each live
-publishing path.
+| Component | Responsibility |
+| --- | --- |
+| Relay host | MediaMTX ingest/read, Caddy RTT probe, stream snapshots, Tailscale-only Control API |
+| App host | PostgreSQL, Elysia/tRPC API, Better Auth, TanStack Start portal, provider integrations |
+| Native app | iOS/Android camera publishing, chat, stream metadata, OBS controls |
+| OBS plugin | Polls the API for authenticated start/stop commands; opens no inbound port |
 
-## Development
+Publish URLs are encrypted for authenticated re-reveal and also stored as
+Argon2id hashes for relay authentication. Read credentials are one-time rotation
+results. The app is required when a new media connection is authenticated, but
+an established stream survives an app outage.
 
-Requirements: Bun 1.3+, PostgreSQL, and a Twitch application.
+## Quick start
+
+Requirements: Bun 1.3.14+, PostgreSQL 17+, and provider credentials for any
+OAuth flow you want to use.
 
 ```bash
 bun install
 cp apps/server/.env.example apps/server/.env
 cp apps/web/.env.example apps/web/.env
-bun run db:migrate
-bun run dev
 ```
 
-Configure the Twitch callback URL as:
+Fill every blank value in `apps/server/.env`, generate
+`PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, then prepare the
+database:
+
+```bash
+bun run db:migrate
+```
+
+Run the API and portal in separate terminals:
+
+```bash
+bun run dev:server
+bun run dev:web
+```
+
+The API listens on <http://127.0.0.1:3000> and the portal on
+<http://127.0.0.1:3001>. See [DEVELOPMENT.md](DEVELOPMENT.md) for PostgreSQL
+setup, OAuth callbacks, environment variables, native development, migrations,
+tests, and troubleshooting.
+
+## Project layout
 
 ```text
-http://localhost:3000/api/auth/callback/twitch
+apps/server       Elysia API, machine endpoints, hooks, and reconciliation
+apps/web          TanStack Start portal
+apps/native       Expo development-build client and native SRT module
+apps/obs-plugin   OBS Studio remote-control plugin
+apps/fumadocs     Broadcaster and operator documentation site
+packages/api      Relay, chat, snapshots, OBS, and tRPC domain logic
+packages/auth     Better Auth and Twitch/Kick OAuth configuration
+packages/db       Drizzle schema and forward migrations
+packages/env      Validated server and browser environments
+packages/ui       Shared UI components
+deploy            MediaMTX, Caddy, systemd, and two-host deployment templates
 ```
-
-The portal runs at <http://localhost:3001> and the API at
-<http://localhost:3000>. A reachable relay `/ping` endpoint is required for the
-browser RTT probe; use the values in the example environment files.
 
 ## Verification
 
 ```bash
 bun test
+bun run test:integration
 bun run check-types
 bun run build
 ```
 
-PostgreSQL-backed machine-auth, hook, reconciliation, cache-invalidation, and
-concurrent path-allocation tests use a disposable Docker database:
+The integration suite starts a disposable PostgreSQL container on port 55432
+and removes it when the run finishes. OBS plugin builds and tests are documented
+in [apps/obs-plugin/README.md](apps/obs-plugin/README.md).
 
-```bash
-bun run test:integration
-```
+## Operations and user documentation
 
-## Project layout
-
-```text
-apps/server       Elysia server, Better Auth, tRPC, and machine endpoints
-apps/web          TanStack Start portal
-apps/fumadocs     Broadcaster and operator documentation
-packages/api      Relay domain logic and tRPC routers
-packages/auth     Twitch-only Better Auth configuration
-packages/db       Drizzle schema and forward migrations
-packages/env      Validated server and browser environments
-packages/ui       Shared shadcn/ui primitives
-deploy            MediaMTX, Caddy, systemd, and two-box setup templates
-```
-
-## Deployment
-
-Follow [deploy/README.md](deploy/README.md). It covers the pinned MediaMTX
-binary and checksum, static-auth bootstrap test, final HTTP authentication,
-Tailscale/firewall rules, systemd services, rollout order, and acceptance smoke
-test.
-
-The intentional v1 outage behavior is that established streams survive an app
-outage while new publish/read connections fail authentication.
+- [Development guide](DEVELOPMENT.md)
+- [Production deployment](deploy/README.md)
+- [Production updates](deploy/UPDATE.md)
+- [Broadcaster and operator docs](apps/fumadocs/content/docs)
 
 ## Scope
 
-VISP v1 has no transcoding, Twitch stream-key handling, hosted OBS, billing,
-quotas, or horizontal scaling. MediaMTX accepts one publisher per path; the
-first publisher remains connected and later publishers are rejected.
+VISP does not transcode, handle Twitch or Kick stream keys, host OBS, bill
+users, or horizontally scale MediaMTX. One publisher owns a path at a time; the
+first connection remains active and later publishers are rejected.
+
+## License
+
+VISP is licensed under [GPL-2.0](LICENSE). Third-party components retain their
+own copyright and license notices.
