@@ -1,0 +1,158 @@
+---
+title: Local development
+description: Set up the monorepo, database, API, portal, native app, and test suite.
+icon: Code
+---
+
+## Prerequisites
+
+- Bun 1.3.14 or newer
+- PostgreSQL 17 or newer
+- Docker with Compose for integration tests
+- A Twitch application for Twitch login
+- A Kick application when testing Kick login, chat, or metadata
+- Xcode or Android Studio when working on the native app
+
+Install every workspace dependency from the repository root:
+
+```bash
+bun install
+```
+
+## Configure the environment
+
+Copy the tracked examples:
+
+```bash
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
+cp apps/native/.env.example apps/native/.env.local
+```
+
+Fill every blank value in `apps/server/.env`; server validation runs at startup.
+Generate the required 32-byte encryption key with:
+
+```bash
+openssl rand -base64 32
+```
+
+Register the callbacks for the providers you exercise locally:
+
+```text
+Twitch: http://127.0.0.1:3000/api/auth/callback/twitch
+Kick:   http://127.0.0.1:3000/api/auth/oauth2/callback/kick
+```
+
+The example relay and S3 values let the API start, but their dependent features
+need real services. Never commit `.env` files.
+
+## Start PostgreSQL
+
+Use an existing PostgreSQL server or start a local container matching the
+example environment:
+
+```bash
+docker run --name visp-postgres \
+  --env POSTGRES_USER=visp \
+  --env POSTGRES_PASSWORD=visp \
+  --env POSTGRES_DB=visp \
+  --publish 5432:5432 \
+  --detach postgres:17-alpine
+
+bun run db:migrate
+```
+
+Restart that container later with `docker start visp-postgres`.
+
+When changing `packages/db/src/schema`, generate and inspect a migration before
+applying it:
+
+```bash
+bun run db:generate
+bun run db:migrate
+```
+
+Use `bun run db:push` only with a disposable development database. Open Drizzle
+Studio with `bun run db:studio`.
+
+## Run the project
+
+For normal API and portal work, use two terminals:
+
+| Process | Command | Address |
+| --- | --- | --- |
+| API | `bun run dev:server` | `http://127.0.0.1:3000` |
+| Portal | `bun run dev:web` | `http://127.0.0.1:3001` |
+| Documentation | `bun run --cwd apps/fumadocs dev` | `http://localhost:4000` |
+| Expo dev server | `bun run --cwd apps/native dev` | Shown by Expo |
+
+`bun run dev` starts every workspace through Turborepo. Use the focused commands
+unless you need the API, portal, Expo, and documentation site simultaneously.
+
+### Native app
+
+Expo Go cannot load the local SRT module. Build a development client instead:
+
+```bash
+bun run --cwd apps/native ios
+bun run --cwd apps/native android
+```
+
+Use a physical device for real camera, microphone, and network testing. A phone
+cannot reach the API through `127.0.0.1`; set `EXPO_PUBLIC_SERVER_URL` to an
+address reachable from the phone.
+
+### Documentation
+
+Pages live in `apps/fumadocs/content/docs`. Add an MDX file and include its slug
+in `meta.json` to place it in the sidebar.
+
+## Tests and checks
+
+Run the smallest relevant check while working, then the full checks before
+submitting a change:
+
+```bash
+bun test
+bun run test:integration
+bun run check-types
+bun run build
+bun run check
+```
+
+The integration suite manages `compose.test.yml`, binds PostgreSQL to
+`127.0.0.1:55432`, and removes its volumes on exit.
+
+## Code map
+
+| Change | Primary location |
+| --- | --- |
+| HTTP routes, hooks, server lifecycle | `apps/server/src` |
+| tRPC procedures and relay rules | `packages/api/src` |
+| Authentication and providers | `packages/auth/src` |
+| Database schema and migrations | `packages/db/src` |
+| Browser portal | `apps/web/src` |
+| Shared UI primitives | `packages/ui/src` |
+| Native client and SRT bridge | `apps/native` |
+| OBS remote control | `apps/obs-plugin` |
+| Operator and broadcaster docs | `apps/fumadocs/content/docs` |
+
+Add environment variables to `packages/env` and the relevant `.env.example` in
+the same change. Extend server log redaction when introducing a new
+credential-shaped field.
+
+## Troubleshooting
+
+- **The server exits during import:** a value in `apps/server/.env` is blank or
+  invalid; the error names it.
+- **The portal cannot authenticate:** verify the API URL and make `CORS_ORIGIN`
+  exactly match the portal origin.
+- **A phone cannot connect:** use a LAN or tunnel address instead of localhost
+  and allow the API port through the host firewall.
+- **Relay or snapshot actions fail:** replace the example relay or S3 values
+  with running services.
+- **Integration tests cannot bind port 55432:** stop the process using that port
+  and rerun the suite.
+
+The repository's `DEVELOPMENT.md` and component READMEs remain the canonical
+reference for implementation-specific details.

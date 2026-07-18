@@ -25,6 +25,7 @@ HOOK_SECRET="integration-hook-secret-at-least-32-characters" \
 KICK_CLIENT_ID="integration-kick-client" \
 KICK_CLIENT_SECRET="integration-kick-secret" \
 MEDIAMTX_API_URL="http://127.0.0.1:9997" \
+	NATIVE_WEB_ORIGIN="http://127.0.0.1:8081" \
 	RELAY_HOST="relay.test" \
 	RELAY_PING_URL="https://relay.test/ping" \
 	TWITCH_CLIENT_ID="integration-client" \

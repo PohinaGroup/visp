@@ -91,7 +91,7 @@ function machineAuth(input: {
 	action: "publish" | "read";
 	password: string;
 	path: string;
-	protocol: "srt" | "rtmp";
+	protocol: "srt" | "rtmp" | "webrtc";
 	user: string;
 }) {
 	return app.handle(
@@ -113,9 +113,9 @@ integration("relay PostgreSQL integration", () => {
 		globalThis.fetch = originalFetch;
 	});
 
-	test("denies cross-tenant and mismatched credentials for SRT and RTMP", async () => {
+	test("denies cross-tenant publish credentials for SRT, RTMP, and WebRTC", async () => {
 		const data = await seed();
-		for (const protocol of ["srt", "rtmp"] as const) {
+		for (const protocol of ["srt", "rtmp", "webrtc"] as const) {
 			expect(
 				(
 					await machineAuth({
@@ -127,22 +127,22 @@ integration("relay PostgreSQL integration", () => {
 					})
 				).status,
 			).toBe(401);
-			expect(
-				(
-					await machineAuth({
-						action: "read",
-						password: data.readA,
-						path: data.pathB.slug,
-						protocol,
-						user: "alpha",
-					})
-				).status,
-			).toBe(401);
 		}
 	});
 
 	test("rejects revoked paths and invalidates cached hashes on rotation", async () => {
 		const data = await seed();
+		expect(
+			(
+				await machineAuth({
+					action: "publish",
+					password: data.publishA,
+					path: data.pathA.slug,
+					protocol: "webrtc",
+					user: "alpha",
+				})
+			).status,
+		).toBe(200);
 		expect(
 			await authenticateMedia({
 				action: "read",
@@ -171,6 +171,17 @@ integration("relay PostgreSQL integration", () => {
 		).toBe(true);
 
 		await revokePath("user-a", data.pathA.id);
+		expect(
+			(
+				await machineAuth({
+					action: "publish",
+					password: data.publishA,
+					path: data.pathA.slug,
+					protocol: "webrtc",
+					user: "alpha",
+				})
+			).status,
+		).toBe(401);
 		expect(
 			await authenticateMedia({
 				action: "read",
@@ -557,8 +568,20 @@ integration("relay PostgreSQL integration", () => {
 		await enableChatConnection("chat-user", "twitch");
 		await enableChatConnection("chat-user", "kick");
 		expect(await listChatConnections("chat-user")).toEqual([
-			{ provider: "twitch", linked: true, enabled: true, needsConsent: false },
-			{ provider: "kick", linked: true, enabled: true, needsConsent: false },
+			{
+				provider: "twitch",
+				linked: true,
+				enabled: true,
+				needsConsent: false,
+				canManageChannel: false,
+			},
+			{
+				provider: "kick",
+				linked: true,
+				enabled: true,
+				needsConsent: false,
+				canManageChannel: false,
+			},
 		]);
 		expect(await db.select().from(chatConnection)).toHaveLength(2);
 

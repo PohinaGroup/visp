@@ -1,5 +1,5 @@
-import * as SecureStore from "expo-secure-store";
 import { type ChatPreferences, parseChatPreferences } from "./chat-model";
+import { storage } from "./storage";
 
 export * from "./chat-model";
 
@@ -8,17 +8,12 @@ function storageKey(userId: string) {
 }
 
 export async function loadChatPreferences(userId: string) {
-	return parseChatPreferences(
-		await SecureStore.getItemAsync(storageKey(userId)),
-	);
+	return parseChatPreferences(await storage.getItem(storageKey(userId)));
 }
 
 export async function saveChatPreferences(
 	userId: string,
 	preferences: ChatPreferences,
 ) {
-	await SecureStore.setItemAsync(
-		storageKey(userId),
-		JSON.stringify(preferences),
-	);
+	await storage.setItem(storageKey(userId), JSON.stringify(preferences));
 }

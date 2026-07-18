@@ -113,8 +113,8 @@ For normal portal/API work, use two terminals:
 | --- | --- | --- |
 | API | `bun run dev:server` | `http://127.0.0.1:3000` |
 | Portal | `bun run dev:web` | `http://127.0.0.1:3001` |
-| Documentation | `bun --cwd apps/fumadocs run dev` | `http://localhost:4000` |
-| Expo dev server | `bun --cwd apps/native run dev` | shown by Expo |
+| Documentation | `bun run --cwd apps/fumadocs dev` | `http://localhost:4000` |
+| Expo dev server | `bun run --cwd apps/native dev` | shown by Expo |
 
 `bun run dev` starts every workspace development task through Turborepo,
 including the API, portal, Expo, and documentation site. Use it only when you
@@ -126,8 +126,8 @@ Expo Go cannot load the local SRT module. Use a development build; use a
 physical device when testing real camera and microphone streaming:
 
 ```bash
-bun --cwd apps/native run ios
-bun --cwd apps/native run android
+bun run --cwd apps/native ios
+bun run --cwd apps/native android
 ```
 
 The iOS project is committed because it includes HaishinKit integration and

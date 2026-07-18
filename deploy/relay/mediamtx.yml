@@ -16,7 +16,14 @@ rtsp: true
 rtspTransports: [tcp]
 rtspAddress: 127.0.0.1:8554
 hls: false
-webrtc: false
+webrtc: true
+webrtcAddress: 127.0.0.1:8889
+webrtcAllowOrigins: ["https://stream.arvoitus.com"]
+webrtcTrustedProxies: ["127.0.0.1/32", "::1/128"]
+webrtcLocalUDPAddress: ":8189"
+webrtcLocalTCPAddress: ":8189"
+# Replace this example or override it with MTX_WEBRTCADDITIONALHOSTS.
+webrtcAdditionalHosts: [relay.example.com]
 moq: false
 
 rtmp: true
