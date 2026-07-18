@@ -21,17 +21,21 @@ Rotating the token disconnects every older plugin configuration. The random
 
 The monorepo workflow uses the pinned official
 [OBS plugin template](https://github.com/obsproject/obs-plugintemplate) helpers
-to build Windows, macOS, and Ubuntu packages. Set the version in
-`buildspec.json`, then push the matching tag:
+to build and test Windows, macOS, and Ubuntu packages on pull requests and
+`main`. A stable unified GitHub Release reuses the same workflow to sign and
+notarize macOS, generate checksums, and attach every package to the existing
+release. Set the version in `buildspec.json` to match the release tag without
+its leading `v`, then publish the release:
 
 ```sh
-git tag obs-v1.0.1
-git push origin obs-v1.0.1
+git tag v1.0.1
+git push origin v1.0.1
 ```
 
-GitHub Actions creates a draft release with the prebuilt `.zip`, `.pkg`, and
-`.deb` downloads and checksums. Publish the draft when the packages have been
-tested; users never need CMake.
+Release assets are uploaded with overwrite semantics, so rerunning a failed job
+is safe. The workflow does not create a second draft or use the old `obs-v*`
+tag convention. Required macOS signing/notarization secrets are listed in
+[`deploy/UPDATE.md`](../../deploy/UPDATE.md). Users never need CMake.
 
 ## Developer build and test
 

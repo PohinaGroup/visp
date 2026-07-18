@@ -39,7 +39,7 @@ import type {
 	VideoConfiguration,
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
-import { VispSrtView } from "../../modules/visp-srt";
+import VispSrtModule, { VispSrtView } from "../../modules/visp-srt";
 import { FloatingChat } from "../components/floating-chat";
 import { ObsControlButton } from "../components/obs-control-button";
 import { StreamInfoSheet } from "../components/stream-info-sheet";
@@ -79,6 +79,7 @@ import {
 	selectPublishUrl,
 	validateStreamUrl,
 } from "../lib/stream-url";
+import { buildWatchSnapshot } from "../lib/watch-snapshot";
 
 const ACTIVE_STATES = new Set<StreamState>([
 	"connecting",
@@ -205,6 +206,7 @@ export default function Index() {
 	const [imageStabilizationEnabled, setImageStabilizationEnabled] =
 		useState<boolean>();
 	const [message, setMessage] = useState<string>();
+	const [liveStartedAt, setLiveStartedAt] = useState<number>();
 	const [previewing, setPreviewing] = useState(false);
 	const [provisioning, setProvisioning] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
@@ -216,6 +218,7 @@ export default function Index() {
 	const [advancedOpen, setAdvancedOpen] = useState(false);
 	const [signingIn, setSigningIn] = useState<"twitch" | "kick">();
 	const [state, setState] = useState<StreamState>("idle");
+	const [reconnectAttempt, setReconnectAttempt] = useState<number>();
 	const [streamUrl, setStreamUrl] = useState<string | null>();
 	const [toast, setToast] = useState<{ spinning: boolean; text: string }>();
 	const [chatPreferences, setChatPreferences] = useState<ChatPreferences>(
@@ -238,10 +241,34 @@ export default function Index() {
 		state === "preparing" ||
 		state === "stopping" ||
 		(IS_WEB && ACTIVE_STATES.has(state));
-	const liveChat = useLiveChat(
-		userId,
-		appState === "active" && chatPreferences.mode !== "hidden",
-	);
+	const liveChat = useLiveChat(userId, appState === "active");
+
+	useEffect(() => {
+		if (Platform.OS !== "ios") return;
+		VispSrtModule.syncWatchSnapshot(
+			JSON.stringify(
+				buildWatchSnapshot({
+					audioTier,
+					configuration,
+					liveStartedAt,
+					message,
+					messages: liveChat.recentMessages,
+					reconnectAttempt,
+					state,
+					statuses: liveChat.statuses,
+				}),
+			),
+		);
+	}, [
+		audioTier,
+		configuration,
+		liveChat.recentMessages,
+		liveChat.statuses,
+		liveStartedAt,
+		message,
+		reconnectAttempt,
+		state,
+	]);
 
 	const showToast = useCallback((text: string, spinning = false) => {
 		clearTimeout(toastTimer.current);
@@ -557,6 +584,18 @@ export default function Index() {
 		({ nativeEvent }: { nativeEvent: StreamStateEvent }) => {
 			setState(nativeEvent.state);
 			setErrorCode(nativeEvent.code);
+			setReconnectAttempt(
+				nativeEvent.state === "reconnecting" ? nativeEvent.attempt : undefined,
+			);
+			setLiveStartedAt((current) => {
+				if (nativeEvent.state === "live") return current ?? Date.now();
+				if (
+					nativeEvent.state === "reconnecting" ||
+					nativeEvent.state === "stopping"
+				)
+					return current;
+				return undefined;
+			});
 			if (!ACTIVE_STATES.has(nativeEvent.state)) {
 				setAudioTier(0);
 			}

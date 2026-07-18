@@ -1,0 +1,94 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly repo=/opt/visp
+readonly app_user=visp
+readonly bun=/usr/local/bin/bun
+readonly app_env=/etc/visp/app.env
+readonly web_env=/etc/visp/web.env
+readonly native_web_env=/etc/visp/native-web.env
+readonly caddy_env=/etc/visp/caddy.env
+
+fail() {
+	echo "visp-release: $*" >&2
+	exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ $# -eq 2 ]] || fail "usage: visp-release <vX.Y.Z> <40-character-commit-sha>"
+
+readonly tag=$1
+readonly expected_sha=$2
+
+[[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid release tag: $tag"
+[[ $expected_sha =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
+
+for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" "$caddy_env"; do
+	[[ -e $path ]] || fail "missing prerequisite: $path"
+done
+
+exec 9>/run/lock/visp-release.lock
+flock -w 1800 9 || fail "another release is still running"
+
+run_as_app() {
+	runuser -u "$app_user" -- "$@"
+}
+
+run_with_env() (
+	local env_file=$1
+	shift
+	set -a
+	# Environment files are root-owned deployment inputs.
+	# shellcheck disable=SC1090
+	source "$env_file"
+	set +a
+	runuser -u "$app_user" -m -- "$@"
+)
+
+if ! run_as_app git -C "$repo" diff --quiet ||
+	! run_as_app git -C "$repo" diff --cached --quiet; then
+	fail "$repo has tracked changes"
+fi
+
+run_as_app git -C "$repo" fetch --force --prune origin \
+	"refs/tags/$tag:refs/tags/$tag"
+readonly actual_sha=$(run_as_app git -C "$repo" rev-parse "$tag^{commit}")
+[[ $actual_sha == "$expected_sha" ]] ||
+	fail "$tag resolves to $actual_sha, expected $expected_sha"
+run_as_app git -C "$repo" checkout --detach "$expected_sha"
+
+run_as_app "$bun" --cwd "$repo" install --frozen-lockfile
+run_with_env "$app_env" "$bun" --cwd "$repo" run db:migrate
+run_with_env "$web_env" "$bun" --cwd "$repo" x turbo run build -F server -F web
+run_with_env "$native_web_env" "$bun" --cwd "$repo/apps/native" run build:web
+run_as_app "$bun" --cwd "$repo/apps/fumadocs" run build
+
+for output in \
+	apps/native/dist/index.html \
+	apps/fumadocs/.output/public/_shell.html \
+	apps/fumadocs/.output/public/docs/index.html \
+	apps/fumadocs/.output/public/docs/deployment/index.html \
+	apps/fumadocs/.output/public/docs/development/index.html \
+	apps/fumadocs/.output/public/api/search \
+	apps/fumadocs/.output/public/llms.txt \
+	apps/fumadocs/.output/public/llms-full.txt; do
+	[[ -f "$repo/$output" ]] || fail "build did not produce $output"
+done
+
+(
+	set -a
+	# shellcheck disable=SC1090
+	source "$caddy_env"
+	set +a
+	caddy validate --config "$repo/deploy/app/Caddyfile" --adapter caddyfile
+)
+install -m 0644 "$repo/deploy/app/Caddyfile" /etc/caddy/Caddyfile
+
+systemctl restart visp-server visp-web
+systemctl reload caddy
+systemctl is-active --quiet visp-server visp-web caddy
+
+curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+curl --fail --silent --show-error http://127.0.0.1:3001/ >/dev/null
+
+echo "VISP $tag ($expected_sha) deployed"
