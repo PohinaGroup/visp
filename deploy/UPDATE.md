@@ -1,127 +1,120 @@
-# Updating the API and portal
+# Releasing VISP
 
-Run these steps on the **app box** only. Existing streams keep running across
-API and portal restarts; do not restart MediaMTX for an app update.
+Stable GitHub Releases are the production deployment interface. Publishing a
+non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
+against that exact tagged commit. It deploys the API, portal, native web app,
+and documentation; starts both EAS store submissions; and attaches the OBS
+packages to the same GitHub Release.
 
-SSH in over Tailscale as a user that can `sudo`.
+## One-time app-server setup
 
-## 1. Fetch the release
-
-```bash
-cd /opt/visp
-sudo -u visp git fetch --prune
-sudo -u visp git checkout <tag-or-branch>
-sudo -u visp git pull --ff-only
-```
-
-
-## 2. Install dependencies
+The repository must be owned by the unprivileged `visp` account and already
+cloned at `/opt/visp`. Install the root-owned release entry point:
 
 ```bash
-sudo bash -lc 'cd /opt/visp && bun install --frozen-lockfile'
+sudo install -m 0755 deploy/visp-release /usr/local/sbin/visp-release
 ```
 
-## 3. Env files (only when they changed)
+Create these root-owned, mode `0600` files:
 
-Compare the release examples with the live files and add any new keys:
+- `/etc/visp/app.env`, including
+  `NATIVE_WEB_ORIGIN=https://stream.arvoitus.com`.
+- `/etc/visp/web.env`, containing the portal's build-time `VITE_*` values.
+- `/etc/visp/native-web.env`, containing
+  `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN` and
+  `EXPO_PUBLIC_RELAY_WEBRTC_URL=https://RELAY_DOMAIN`.
+- `/etc/visp/caddy.env`, containing `APP_DOMAIN`,
+  `NATIVE_WEB_DOMAIN=stream.arvoitus.com`,
+  `DOCS_DOMAIN=docs.arvoitus.com`, and the existing relay values.
 
-- `/etc/visp/app.env` ← `apps/server/.env.example`
-- `/etc/visp/web.env` ← `apps/web/.env.example`
-
-Keep both `chmod 600` and root-owned. Runtime services read these via systemd;
-the portal also needs `VITE_*` values **at build time**.
-
-For the unified chat release, add `KICK_CLIENT_ID` and `KICK_CLIENT_SECRET`, and
-confirm the existing Twitch credentials are present. Register these production
-URLs before enabling chat:
-
-- Twitch OAuth: `https://APP_DOMAIN/api/auth/callback/twitch`
-- Kick OAuth: `https://APP_DOMAIN/api/auth/oauth2/callback/kick`
-- Kick webhook: `https://APP_DOMAIN/api/webhooks/kick`
-
-For linked publishing devices, add a backed-up 32-byte key generated with
-`openssl rand -base64 32` as `PUBLISH_URL_ENCRYPTION_KEY` before restarting the
-API. Browser broadcasting also requires
-`NATIVE_WEB_ORIGIN=https://stream.arvoitus.com`.
-
-For stream snapshots, add `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`,
-`S3_ACCESS_KEY_ID`, and `S3_SECRET_ACCESS_KEY`. The endpoint must be the public
-HTTPS UpCloud S3 endpoint because relay uploads and dashboard image requests use
-short-lived presigned URLs.
-
-## 4. Migrate the database
+Install the app Caddyfile and ensure the two systemd services already exist:
 
 ```bash
-sudo -u visp bash -lc '
-  set -a
-  source /etc/visp/app.env
-  set +a
-  cd /opt/visp && bun run db:migrate
-'
+sudo install -m 0644 deploy/app/Caddyfile /etc/caddy/Caddyfile
+sudo systemctl enable --now visp-server visp-web caddy
 ```
 
-Skip this step only when the release has no new migrations under
-`packages/db/src/migrations`.
+The native web app and Fumadocs are static files. They do not have systemd
+services. Caddy serves `/opt/visp/apps/native/dist` with an `index.html` SPA
+fallback and `/opt/visp/apps/fumadocs/.output/public` with `_shell.html` as its
+fallback.
 
-## 5. Build API and portal
+Give the SSH deployment account passwordless sudo permission for only the
+release helper, for example:
 
-Build just the server and web workspaces (avoids native / fumadocs):
-
-```bash
-sudo bash -lc '
-  set -a
-  source /etc/visp/web.env
-  set +a
-  cd /opt/visp && bun x turbo run build -F server -F web
-'
+```text
+visp-deploy ALL=(root) NOPASSWD: /usr/local/sbin/visp-release *
 ```
 
-Build the static browser broadcaster when its code or public values change:
+Restrict that account to key authentication over Tailscale. Restrict the
+ephemeral `tag:ci` Tailscale identity to SSH on the app server only.
 
-```bash
-sudo -u visp bash -lc '
-  cd /opt/visp
-  EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN \
-  EXPO_PUBLIC_RELAY_WEBRTC_URL=https://RELAY_DOMAIN \
-    bun run --cwd apps/native build:web
-'
-```
+## GitHub production environment
 
-Set `NATIVE_WEB_DOMAIN=stream.arvoitus.com` in `/etc/visp/caddy.env`, install the
-updated app Caddyfile, and reload Caddy. Re-run the portal build whenever
-`apps/web` or its `VITE_*` values change. A pure API change
-still needs the server build; a portal-only change still needs `web.env` sourced.
+Configure these environment variables:
 
-## 6. Restart services
+- `DEPLOY_HOST`: app server Tailscale hostname or address.
+- `DEPLOY_USER`: restricted SSH deployment account.
+- `APP_URL`: public portal origin, including `https://`.
+- `RELAY_WEBRTC_URL`: public relay WebRTC origin.
+- `NATIVE_WEB_URL`: `https://stream.arvoitus.com`.
+- `DOCS_URL`: `https://docs.arvoitus.com`.
 
-```bash
-sudo systemctl restart visp-server visp-web
-sudo systemctl status visp-server visp-web --no-pager
-```
+Configure these environment secrets:
 
-Confirm nothing is crash-looping:
+- `TS_OAUTH_CLIENT_ID` and `TS_OAUTH_SECRET` for an ephemeral tagged Tailscale
+  identity.
+- `DEPLOY_SSH_KEY` and a pinned `DEPLOY_KNOWN_HOSTS` entry.
+- `EXPO_TOKEN` for EAS Build and Submit.
 
-```bash
-sudo journalctl -u visp-server -u visp-web -n 50 --no-pager
-```
+Configure the OBS macOS signing secrets at repository level because the OBS
+workflow is also reusable:
 
-## 7. Smoke check
+- `MACOS_SIGNING_APPLICATION_IDENTITY`
+- `MACOS_SIGNING_INSTALLER_IDENTITY`
+- `MACOS_SIGNING_CERT` (base64-encoded `.p12`)
+- `MACOS_SIGNING_CERT_PASSWORD`
+- `MACOS_KEYCHAIN_PASSWORD`
+- `MACOS_NOTARIZATION_USERNAME`
+- `MACOS_NOTARIZATION_PASSWORD`
 
-1. Open `https://APP_DOMAIN` and sign in.
-2. Confirm the dashboard loads and an existing live path still shows ready.
-3. Optional: `curl -fsS https://APP_DOMAIN/api/auth/ok` (or your usual health
-   probe) if one is configured.
+Create DNS records for `stream.arvoitus.com` and `docs.arvoitus.com` before the
+first release so Caddy can obtain their certificates.
 
-## Quick reference
+## Publish a release
 
-| Change                         | Migrate | Build              | Restart              |
-| ------------------------------ | ------- | ------------------ | -------------------- |
-| API code only                  | if needed | server (+ deps)  | `visp-server`        |
-| Portal code or `VITE_*`        | no      | web (+ deps)       | `visp-web`           |
-| Schema / migrations            | yes     | as needed          | `visp-server`        |
-| `/etc/visp/app.env` only       | no      | no                 | `visp-server`        |
-| `/etc/visp/web.env` (`VITE_*`) | no      | web                | `visp-web`           |
+Before tagging, set the same `X.Y.Z` in:
 
-Full two-box install and acceptance criteria: `deploy/README.md`.
-The relay-side Caddy and MediaMTX WebRTC changes require the separate relay
-rollout described there; restart MediaMTX only in a maintenance window.
+- `apps/native/app.json`
+- `apps/native/package.json`
+- every `MARKETING_VERSION` entry in the committed iOS project
+- `apps/obs-plugin/buildspec.json`
+
+Create `vX.Y.Z` from a commit on `main`, then publish its GitHub Release. Draft
+and prerelease publications are ignored. The workflow serializes releases and
+first runs the repository tests, type checks, and all production builds.
+
+The app-server helper verifies the tag and 40-character commit SHA, locks the
+host, refuses tracked changes, checks out the exact release, installs frozen
+dependencies, migrates the database, and builds all four app-server artifacts
+before restarting either service. It validates Caddy before installing its
+configuration, then restarts `visp-server` and `visp-web`, reloads Caddy, and
+runs local smoke checks. Install, migration, or build failures therefore leave
+the currently running services untouched. Database rollback remains manual and
+migrations must stay backward-compatible.
+
+## First-release acceptance
+
+Confirm the portal and API are healthy, then test a deep native-web route at
+`stream.arvoitus.com`, OAuth return to that origin, and WebRTC through the
+configured relay. At `docs.arvoitus.com`, check `/docs`, `/api/search`,
+`/llms.txt`, and `/llms-full.txt`.
+
+In Expo, confirm Android reached Play internal testing and iOS reached the
+`VISP Internal` TestFlight group. In the GitHub Release, confirm Windows,
+macOS, and Ubuntu OBS packages are present, the macOS package is notarized, and
+every package matches `SHA256SUMS.txt`.
+
+Store promotion to public production, OBS installation, OTA updates, automatic
+database rollback, and relay-server restarts are intentionally outside this
+release workflow.

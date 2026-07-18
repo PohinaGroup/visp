@@ -1,13 +1,13 @@
 name: OBS plugin
 
 on:
+  workflow_call:
   pull_request:
     paths:
       - apps/obs-plugin/**
       - .github/workflows/obs-plugin.yml
   push:
     branches: [main]
-    tags: [obs-v*]
     paths:
       - apps/obs-plugin/**
       - .github/workflows/obs-plugin.yml
@@ -44,11 +44,6 @@ jobs:
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 
-      - name: Check release version
-        if: startsWith(github.ref, 'refs/tags/obs-v')
-        shell: bash
-        run: test "$(jq -r .version "$PLUGIN_DIR/buildspec.json")" = "${GITHUB_REF_NAME#obs-v}"
-
       - name: Fetch pinned OBS build helpers
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -59,9 +54,31 @@ jobs:
       - name: Stage OBS build helpers
         shell: bash
         run: |
-          mkdir -p "$PLUGIN_DIR/.github"
+          mkdir -p "$PLUGIN_DIR/.github/actions"
           cp -R .obs-template/.github/scripts "$PLUGIN_DIR/.github/scripts"
+          cp -R .obs-template/.github/actions/setup-macos-codesigning \
+            "$PLUGIN_DIR/.github/actions/setup-macos-codesigning"
           chmod +x "$PLUGIN_DIR"/.github/scripts/{build,package}-*
+
+      - name: Set up macOS signing
+        if: runner.os == 'macOS' && github.event_name == 'release'
+        id: codesign
+        uses: ./apps/obs-plugin/.github/actions/setup-macos-codesigning
+        with:
+          codesignIdentity: ${{ secrets.MACOS_SIGNING_APPLICATION_IDENTITY }}
+          installerIdentity: ${{ secrets.MACOS_SIGNING_INSTALLER_IDENTITY }}
+          codesignCertificate: ${{ secrets.MACOS_SIGNING_CERT }}
+          certificatePassword: ${{ secrets.MACOS_SIGNING_CERT_PASSWORD }}
+          keychainPassword: ${{ secrets.MACOS_KEYCHAIN_PASSWORD }}
+          notarizationUser: ${{ secrets.MACOS_NOTARIZATION_USERNAME }}
+          notarizationPassword: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
+
+      - name: Require macOS release credentials
+        if: runner.os == 'macOS' && github.event_name == 'release'
+        shell: bash
+        run: |
+          test "${{ steps.codesign.outputs.haveCodesignIdent }}" = true
+          test "${{ steps.codesign.outputs.haveNotarizationUser }}" = true
 
       - name: Install Ubuntu build tools
         if: runner.os == 'Linux'
@@ -74,10 +91,19 @@ jobs:
         run: ./.github/scripts/Build-Windows.ps1 -Target x64 -Configuration Release
 
       - name: Build macOS
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && github.event_name != 'release'
         shell: zsh --no-rcs --errexit --pipefail {0}
         working-directory: apps/obs-plugin
         run: .github/scripts/build-macos --config Release
+
+      - name: Build signed macOS release
+        if: runner.os == 'macOS' && github.event_name == 'release'
+        shell: zsh --no-rcs --errexit --pipefail {0}
+        working-directory: apps/obs-plugin
+        env:
+          CODESIGN_IDENT: ${{ steps.codesign.outputs.codesignIdent }}
+          CODESIGN_TEAM: ${{ steps.codesign.outputs.codesignTeam }}
+        run: .github/scripts/build-macos --config Release --codesign
 
       - name: Build Ubuntu
         if: runner.os == 'Linux'
@@ -96,10 +122,21 @@ jobs:
         run: ./.github/scripts/Package-Windows.ps1 -Target x64 -Configuration Release
 
       - name: Package macOS
-        if: runner.os == 'macOS'
+        if: runner.os == 'macOS' && github.event_name != 'release'
         shell: zsh --no-rcs --errexit --pipefail {0}
         working-directory: apps/obs-plugin
         run: .github/scripts/package-macos --config Release --package
+
+      - name: Package and notarize macOS release
+        if: runner.os == 'macOS' && github.event_name == 'release'
+        shell: zsh --no-rcs --errexit --pipefail {0}
+        working-directory: apps/obs-plugin
+        env:
+          CODESIGN_IDENT: ${{ steps.codesign.outputs.codesignIdent }}
+          CODESIGN_IDENT_INSTALLER: ${{ steps.codesign.outputs.installerIdent }}
+          CODESIGN_IDENT_USER: ${{ secrets.MACOS_NOTARIZATION_USERNAME }}
+          CODESIGN_IDENT_PASS: ${{ secrets.MACOS_NOTARIZATION_PASSWORD }}
+        run: .github/scripts/package-macos --config Release --package --notarize
 
       - name: Package Ubuntu
         if: runner.os == 'Linux'
@@ -120,8 +157,8 @@ jobs:
             apps/obs-plugin/release/*.tar.xz
 
   release:
-    name: Draft release
-    if: startsWith(github.ref, 'refs/tags/obs-v')
+    name: Attach release packages
+    if: github.event_name == 'release'
     needs: build
     runs-on: ubuntu-24.04
     permissions:
@@ -135,8 +172,8 @@ jobs:
       - name: Add checksums
         run: cd dist && sha256sum * > SHA256SUMS.txt
 
-      - name: Create draft release
+      - name: Attach packages to release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release create "$GITHUB_REF_NAME" dist/* --draft --generate-notes --verify-tag --title "VISP OBS plugin ${GITHUB_REF_NAME#obs-v}"
+        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber

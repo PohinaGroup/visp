@@ -78,29 +78,39 @@ pprof stay disabled.
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
    the other application secrets, and run `bun run db:migrate`.
 3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
-   values available to Vite. Build the browser broadcaster as static files:
+   values available to Vite. Put the native web app's public build values in the
+   root-owned, mode `0600` file `/etc/visp/native-web.env`:
 
-   ```bash
-   cd /opt/visp
-   EXPO_PUBLIC_SERVER_URL=https://app.example.com \
-   EXPO_PUBLIC_RELAY_WEBRTC_URL=https://relay.example.com \
-     bun run --cwd apps/native build:web
+   ```text
+   EXPO_PUBLIC_SERVER_URL=https://app.example.com
+   EXPO_PUBLIC_RELAY_WEBRTC_URL=https://relay.example.com
    ```
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
-   `NATIVE_WEB_DOMAIN=stream.arvoitus.com`, and `RELAY_PUBLIC_IP` in
-   `/etc/visp/caddy.env`. Caddy serves `apps/native/dist` directly; no browser
-   broadcaster runtime service is required. Add `https://stream.arvoitus.com`
-   as `NATIVE_WEB_ORIGIN` in `/etc/visp/app.env`.
+   `NATIVE_WEB_DOMAIN=stream.arvoitus.com`,
+   `DOCS_DOMAIN=docs.arvoitus.com`, and `RELAY_PUBLIC_IP` in
+   `/etc/visp/caddy.env`. Caddy serves `apps/native/dist` and
+   `apps/fumadocs/.output/public` directly; neither static site needs a runtime
+   service. Add `NATIVE_WEB_ORIGIN=https://stream.arvoitus.com` to
+   `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
    console. In the Kick developer dashboard, register
    `https://APP_DOMAIN/api/auth/oauth2/callback/kick` as the OAuth redirect URL
    and `https://APP_DOMAIN/api/webhooks/kick` as the webhook URL. The Kick app
    needs the `user:read` scope; chat delivery uses the server's app token and
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
-   SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for
-   `stream.arvoitus.com` before Caddy obtains its certificate.
+   SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for both
+   `stream.arvoitus.com` and `docs.arvoitus.com` before Caddy obtains their
+   certificates.
+6. Install the release helper as a root-owned executable:
+
+   ```bash
+   sudo install -m 0755 deploy/visp-release /usr/local/sbin/visp-release
+   ```
+
+   Configure the restricted CI SSH account and GitHub production environment
+   described in [`UPDATE.md`](UPDATE.md).
 
 Do not put the MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relay's direct public IP, and the hook endpoints additionally
@@ -186,6 +196,11 @@ are ad-hoc signed; sign and notarize release builds before distributing them to
 other users.
 
 ## 6. Maintenance and acceptance
+
+Normal releases are published as stable `vX.Y.Z` GitHub Releases. The unified
+workflow deploys the exact tag to this app box, starts EAS distribution, and
+attaches OBS packages. See [`UPDATE.md`](UPDATE.md) for configuration and the
+release checklist.
 
 Restart the API or portal at any time. Restart MediaMTX only in a maintenance
 window because it ends active streams. The accepted app-outage behavior is:
