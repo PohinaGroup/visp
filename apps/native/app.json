@@ -1,65 +1,70 @@
 {
-	"expo": {
-		"name": "VISP",
-		"slug": "visp",
-		"version": "1.0.0",
-		"orientation": "default",
-		"icon": "./assets/images/icon.png",
-		"scheme": "visp",
-		"userInterfaceStyle": "dark",
-		"ios": {
-			"bundleIdentifier": "com.example.visp",
-			"deploymentTarget": "16.4",
-			"infoPlist": {
-				"NSCameraUsageDescription": "VISP uses the camera to broadcast your video.",
-				"NSMicrophoneUsageDescription": "VISP uses the microphone to include audio in your broadcast."
-			},
-			"supportsTablet": false
-		},
-		"android": {
-			"package": "com.example.visp",
-			"permissions": [
-				"android.permission.CAMERA",
-				"android.permission.RECORD_AUDIO"
-			],
-			"adaptiveIcon": {
-				"backgroundColor": "#E6F4FE",
-				"foregroundImage": "./assets/images/android-icon-foreground.png",
-				"backgroundImage": "./assets/images/android-icon-background.png",
-				"monochromeImage": "./assets/images/android-icon-monochrome.png"
-			},
-			"predictiveBackGestureEnabled": false
-		},
-		"web": {
-			"output": "static",
-			"favicon": "./assets/images/icon.png"
-		},
-		"plugins": [
-			"expo-router",
-			"expo-secure-store",
-			"./modules/visp-srt/with-root-encoder.cjs",
-			[
-				"expo-splash-screen",
-				{
-					"backgroundColor": "#000000",
-					"image": "./assets/images/splash-icon.png",
-					"imageWidth": 176
-				}
-			],
-			"expo-web-browser"
-		],
-		"experiments": {
-			"inlineModules": {
-				"watchedDirectories": [
-					"modules/visp-srt/ios",
-					"modules/visp-srt/android"
-				]
-			},
-			"typedRoutes": true,
-			"reactCompiler": true
-		},
-		"extra": {
-			"router": {}
-		}
-	}
+  "expo": {
+    "name": "VISP",
+    "slug": "visp",
+    "version": "1.0.0",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "visp",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "bundleIdentifier": "com.pohinagroup.visp",
+      "deploymentTarget": "16.4",
+      "infoPlist": {
+        "NSCameraUsageDescription": "VISP uses the camera to broadcast your video.",
+        "NSMicrophoneUsageDescription": "VISP uses the microphone to include audio in your broadcast."
+      },
+      "supportsTablet": false,
+      "appleTeamId": "VKN9G4GC43"
+    },
+    "android": {
+      "package": "com.pohinagroup.visp",
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
+      ],
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/icon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      "./modules/visp-srt/with-root-encoder.cjs",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#000000",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 176
+        }
+      ],
+      "expo-web-browser"
+    ],
+    "experiments": {
+      "inlineModules": {
+        "watchedDirectories": [
+          "modules/visp-srt/ios",
+          "modules/visp-srt/android"
+        ]
+      },
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "cfc5fe91-4281-4ff4-b567-d629bf01637d"
+      }
+    },
+    "owner": "pohina-group-oy"
+  }
 }

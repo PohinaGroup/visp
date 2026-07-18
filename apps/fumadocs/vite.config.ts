@@ -29,10 +29,10 @@ export default defineConfig({
           path: "/api/search",
         },
         {
-          path: "llms-full.txt",
+          path: "/llms-full.txt",
         },
         {
-          path: "llms.txt",
+          path: "/llms.txt",
         },
       ],
     }),
@@ -42,8 +42,16 @@ export default defineConfig({
   ],
   resolve: {
     tsconfigPaths: true,
-    alias: {
-      tslib: "tslib/tslib.es6.js",
-    },
+    dedupe: ["react", "react-dom"],
+    alias: [
+      {
+        find: /^use-sync-external-store\/shim$/,
+        replacement: "react",
+      },
+      {
+        find: "tslib",
+        replacement: "tslib/tslib.es6.js",
+      },
+    ],
   },
 });

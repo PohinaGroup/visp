@@ -1,0 +1,43 @@
+name: Release mobile apps
+
+on:
+  workflow_dispatch: {}
+
+defaults:
+  image: sdk-57
+
+jobs:
+  build_android:
+    name: Build Android
+    type: build
+    environment: production
+    params:
+      platform: android
+      profile: production
+
+  build_ios:
+    name: Build iOS
+    type: build
+    environment: production
+    params:
+      platform: ios
+      profile: production
+
+  submit_android:
+    name: Submit Android to internal testing
+    needs: [build_android]
+    type: submit
+    environment: production
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: production
+
+  submit_ios:
+    name: Distribute iOS to TestFlight
+    needs: [build_ios]
+    type: testflight
+    environment: production
+    params:
+      build_id: ${{ needs.build_ios.outputs.build_id }}
+      profile: production
+      internal_groups: [VISP Internal]

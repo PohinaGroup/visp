@@ -1,0 +1,169 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-release
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify release
+    if: github.event.release.prerelease == false
+    runs-on: ubuntu-24.04
+    environment: production
+    outputs:
+      tag: ${{ steps.release.outputs.tag }}
+      sha: ${{ steps.release.outputs.sha }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag, commit, and component versions
+        id: release
+        env:
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$RELEASE_TAG" =~ ^v([0-9]+\.[0-9]+\.[0-9]+)$ ]]
+          version=${BASH_REMATCH[1]}
+
+          test "$(jq -r .expo.version apps/native/app.json)" = "$version"
+          test "$(jq -r .version apps/native/package.json)" = "$version"
+          test "$(jq -r .version apps/obs-plugin/buildspec.json)" = "$version"
+          marketing_versions=$(sed -nE \
+            's/^[[:space:]]*MARKETING_VERSION = ([^;]+);/\1/p' \
+            apps/native/ios/VISP.xcodeproj/project.pbxproj)
+          test -n "$marketing_versions"
+          test "$(printf '%s\n' "$marketing_versions" | sort -u)" = "$version"
+          test "$(jq -r .expo.ios.bundleIdentifier apps/native/app.json)" = com.pohinagroup.visp
+          test "$(jq -r .expo.android.package apps/native/app.json)" = com.pohinagroup.visp
+
+          git merge-base --is-ancestor "$RELEASE_SHA" origin/main
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test and type-check
+        run: |
+          bun test
+          bun run check-types
+          bun run --cwd apps/fumadocs types:check
+
+      - name: Build API and portal
+        run: bun x turbo run build -F server -F web
+
+      - name: Build browser broadcaster
+        env:
+          EXPO_PUBLIC_SERVER_URL: ${{ vars.APP_URL }}
+          EXPO_PUBLIC_RELAY_WEBRTC_URL: ${{ vars.RELAY_WEBRTC_URL }}
+        run: |
+          test -n "$EXPO_PUBLIC_SERVER_URL"
+          test -n "$EXPO_PUBLIC_RELAY_WEBRTC_URL"
+          bun run --cwd apps/native build:web
+          test -f apps/native/dist/index.html
+
+      - name: Build documentation
+        run: |
+          bun run --cwd apps/fumadocs build
+          test -f apps/fumadocs/.output/public/_shell.html
+          test -f apps/fumadocs/.output/public/docs/index.html
+          test -f apps/fumadocs/.output/public/docs/deployment/index.html
+          test -f apps/fumadocs/.output/public/docs/development/index.html
+          test -f apps/fumadocs/.output/public/api/search
+          test -f apps/fumadocs/.output/public/llms.txt
+          test -f apps/fumadocs/.output/public/llms-full.txt
+
+  deploy_app_server:
+    name: Deploy app server
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - name: Join Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy exact release
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            sudo /usr/local/sbin/visp-release "$RELEASE_TAG" "$RELEASE_SHA"
+
+      - name: Smoke-check public sites
+        env:
+          APP_URL: ${{ vars.APP_URL }}
+          NATIVE_WEB_URL: ${{ vars.NATIVE_WEB_URL }}
+          DOCS_URL: ${{ vars.DOCS_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in \
+            "$APP_URL" \
+            "$NATIVE_WEB_URL" \
+            "$DOCS_URL/docs" \
+            "$DOCS_URL/api/search" \
+            "$DOCS_URL/llms.txt"; do
+            test -n "$url"
+            curl --fail --silent --show-error --retry 12 --retry-all-errors \
+              --retry-delay 5 "$url" >/dev/null
+          done
+
+  mobile:
+    name: Build and distribute mobile apps
+    needs: verify
+    runs-on: ubuntu-24.04
+    environment: production
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Set up EAS
+        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+        with:
+          eas-version: 18.13.0
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Run mobile release workflow
+        working-directory: apps/native
+        env:
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+        run: eas workflow:run .eas/workflows/release.yml --ref "$RELEASE_TAG" --non-interactive --wait
+
+  obs:
+    name: Build and attach OBS packages
+    needs: verify
+    permissions:
+      contents: write
+    uses: ./.github/workflows/obs-plugin.yml
+    secrets: inherit

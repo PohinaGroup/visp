@@ -40,3 +40,18 @@
 	try_files {path} /index.html
 	file_server
 }
+
+{$DOCS_DOMAIN} {
+	root * /opt/visp/apps/fumadocs/.output/public
+	encode zstd gzip
+
+	handle /api/* {
+		header Content-Type application/json
+		file_server
+	}
+
+	handle {
+		try_files {path} {path}/index.html /_shell.html
+		file_server
+	}
+}

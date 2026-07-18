@@ -9,8 +9,8 @@ let package = Package(
     .target(
       name: "VispSrtPolicy",
       path: "ios",
-      exclude: ["VispSrtModule.swift", "VispSrtView.swift"],
-      sources: ["RetryPolicy.swift"]
+      exclude: ["VispSrtModule.swift", "VispSrtView.swift", "WatchBridge.swift"],
+      sources: ["RetryPolicy.swift", "WatchSnapshot.swift"]
     ),
     .testTarget(
       name: "VispSrtPolicyTests",

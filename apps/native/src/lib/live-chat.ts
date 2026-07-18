@@ -104,5 +104,9 @@ export function useLiveChat(userId: string | undefined, active: boolean) {
 		return () => clearInterval(timer);
 	}, [active]);
 
-	return { messages: visibleChatMessages(messages, now), statuses };
+	return {
+		messages: visibleChatMessages(messages, now),
+		recentMessages: messages,
+		statuses,
+	};
 }

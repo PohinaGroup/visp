@@ -4,6 +4,10 @@ final class VispSrtModule: Module {
   func definition() -> ModuleDefinition {
     Name("VispSrt")
 
+    Function("syncWatchSnapshot") { (json: String) in
+      WatchBridge.shared.sync(json)
+    }
+
     View(VispSrtView.self) {
       Events("onStateChange", "onAudioLevel")
 
