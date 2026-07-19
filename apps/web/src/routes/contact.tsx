@@ -69,6 +69,17 @@ function ContactPage() {
 					</a>
 					.
 				</p>
+				<p>
+					The OBS plugin is live in beta. Download builds from{" "}
+					<a
+						href={legalEntity.releasesUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						{legalEntity.releasesUrl}
+					</a>
+					.
+				</p>
 			</section>
 
 			<section className="flex flex-col gap-3">

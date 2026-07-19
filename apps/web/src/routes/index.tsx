@@ -272,7 +272,7 @@ const bentoCards = [
 	{
 		span: "sm:col-span-2",
 		title: "their studio, untouched",
-		body: "scenes, alerts, graphics, and years of muscle memory keep working. nothing to rebuild — VISP plugs into the OBS setup you already have.",
+		body: "scenes, alerts, graphics, and years of muscle memory keep working. nothing to rebuild — VISP plugs into the OBS setup you already have. the OBS plugin is live in beta.",
 	},
 	{
 		span: "sm:col-span-2",
@@ -366,6 +366,18 @@ function HomeComponent() {
 						no credit card required · setup takes three questions, not three
 						weekends
 					</span>
+					<p className="mt-2 max-w-[42ch] font-mono text-[#8b87a3] text-[12.5px] leading-relaxed">
+						OBS plugin is live in beta — download from{" "}
+						<a
+							className="text-[#b6a8ff] underline underline-offset-4 hover:text-white"
+							href={legalEntity.releasesUrl}
+							rel="noreferrer"
+							target="_blank"
+						>
+							GitHub Releases
+						</a>
+						.
+					</p>
 				</div>
 			</section>
 
@@ -394,6 +406,15 @@ function HomeComponent() {
 						target="_blank"
 					>
 						Source
+					</a>
+					<span aria-hidden>·</span>
+					<a
+						className="hover:text-[#cfc9e8]"
+						href={legalEntity.releasesUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						OBS plugin
 					</a>
 				</div>
 				<div className="flex flex-wrap justify-center gap-2.5">
