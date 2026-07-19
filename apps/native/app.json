@@ -2,7 +2,7 @@
   "expo": {
     "name": "VISP",
     "slug": "visp",
-    "version": "1.0.13",
+    "version": "1.0.14",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "visp",
@@ -39,6 +39,8 @@
       "expo-router",
       "expo-secure-store",
       "./modules/visp-srt/with-root-encoder.cjs",
+      "./targets/watch/with-watch-scheme.cjs",
+      "@bacons/apple-targets",
       [
         "expo-splash-screen",
         {

@@ -206,6 +206,7 @@ export function StreamInfoSheet({
 						disabled={updating || !canUpdate || (!title.trim() && !selected)}
 						label={updating ? "Updating…" : "Update stream info"}
 						onPress={() => void update()}
+						variant="text"
 					/>
 					{canUpdate ? null : (
 						<UI.FieldGroup.SectionFooter>

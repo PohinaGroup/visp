@@ -1,9 +1,10 @@
 {
   "name": "@VISP/native",
   "main": "expo-router/entry",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "dependencies": {
     "@VISP/api": "workspace:*",
+    "@bacons/apple-targets": "^5.0.0",
     "@better-auth/expo": "catalog:",
     "@expo/ui": "~57.0.6",
     "@trpc/client": "catalog:",

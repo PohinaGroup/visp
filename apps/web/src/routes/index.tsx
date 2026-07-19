@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
+import { legalEntity } from "@/lib/legal";
 
 export const Route = createFileRoute("/")({
 	head: () => ({
@@ -368,10 +369,38 @@ function HomeComponent() {
 				</div>
 			</section>
 
-			<footer className="flex flex-wrap justify-center gap-2.5 border-[#8a6bff]/10 border-t px-8 py-[26px] font-mono text-[#7d7997] text-[12.5px]">
-				<span>© 2026 VISP</span>
-				<span>·</span>
-				<span>phone is the camera. home is the studio.</span>
+			<footer className="flex flex-col items-center gap-3 border-[#8a6bff]/10 border-t px-8 py-[26px] font-mono text-[#7d7997] text-[12.5px]">
+				<div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+					<Link className="hover:text-[#cfc9e8]" to="/privacy">
+						Privacy
+					</Link>
+					<span aria-hidden>·</span>
+					<Link className="hover:text-[#cfc9e8]" to="/terms">
+						Terms
+					</Link>
+					<span aria-hidden>·</span>
+					<Link className="hover:text-[#cfc9e8]" to="/cookies">
+						Cookies
+					</Link>
+					<span aria-hidden>·</span>
+					<Link className="hover:text-[#cfc9e8]" to="/contact">
+						Contact
+					</Link>
+					<span aria-hidden>·</span>
+					<a
+						className="hover:text-[#cfc9e8]"
+						href={legalEntity.sourceUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						Source
+					</a>
+				</div>
+				<div className="flex flex-wrap justify-center gap-2.5">
+					<span>© 2026 VISP · Pöhinä Group Oy</span>
+					<span aria-hidden>·</span>
+					<span>phone is the camera. home is the studio.</span>
+				</div>
 			</footer>
 		</main>
 	);

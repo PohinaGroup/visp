@@ -7,7 +7,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@VISP/ui/components/card";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -84,6 +84,17 @@ function RouteComponent() {
 					>
 						{pending === "kick" ? "Opening Kick..." : "Continue with Kick"}
 					</Button>
+					<p className="pt-2 text-center text-muted-foreground text-xs leading-relaxed">
+						By continuing, you agree to the{" "}
+						<Link className="underline underline-offset-4" to="/terms">
+							Terms of Service
+						</Link>{" "}
+						and{" "}
+						<Link className="underline underline-offset-4" to="/privacy">
+							Privacy Policy
+						</Link>
+						.
+					</p>
 				</CardFooter>
 			</Card>
 		</main>

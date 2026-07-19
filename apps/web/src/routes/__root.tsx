@@ -14,6 +14,7 @@ import { createMiddleware } from "@tanstack/react-start";
 import type { TRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { evlogErrorHandler } from "evlog/nitro/v3";
 
+import { CookieBanner } from "../components/cookie-banner";
 import Header from "../components/header";
 
 import appCss from "../index.css?url";
@@ -73,6 +74,7 @@ function RootDocument() {
 						<Outlet />
 					</div>
 				)}
+				<CookieBanner />
 				<Toaster richColors />
 				<TanStackRouterDevtools position="bottom-left" />
 				<ReactQueryDevtools position="bottom" buttonPosition="bottom-right" />

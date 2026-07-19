@@ -1,0 +1,1 @@
+../../modules/visp-srt/ios/WatchSnapshot.swift

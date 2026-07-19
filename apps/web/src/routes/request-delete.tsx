@@ -10,12 +10,17 @@ import {
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { toast } from "sonner";
+import { z } from "zod";
 
 import { authClient } from "@/lib/auth-client";
+import { legalEntity } from "@/lib/legal";
 
 export const Route = createFileRoute("/request-delete")({
-	validateSearch: (search: Record<string, unknown>) => ({
-		deleted: search.deleted === "1" || undefined,
+	validateSearch: z.object({
+		deleted: z
+			.literal("1")
+			.optional()
+			.transform((value) => (value === "1" ? true : undefined)),
 	}),
 	head: () => ({
 		meta: [
@@ -193,9 +198,29 @@ function RequestDelete() {
 			</Card>
 
 			<p className="text-muted-foreground text-sm">
-				If you cannot sign in, contact VISP through the developer contact shown
-				on its Google Play listing. Include your Twitch or Kick username and the
-				subject “VISP account deletion.”
+				If you cannot sign in, email{" "}
+				<a
+					className="text-foreground underline underline-offset-4"
+					href={`mailto:${legalEntity.email}?subject=VISP%20account%20deletion`}
+				>
+					{legalEntity.email}
+				</a>{" "}
+				({legalEntity.companyName}) with your Twitch or Kick username and the
+				subject “VISP account deletion.” See also{" "}
+				<Link
+					className="text-foreground underline underline-offset-4"
+					to="/contact"
+				>
+					Contact
+				</Link>{" "}
+				and the{" "}
+				<Link
+					className="text-foreground underline underline-offset-4"
+					to="/privacy"
+				>
+					Privacy Policy
+				</Link>
+				.
 			</p>
 		</main>
 	);
