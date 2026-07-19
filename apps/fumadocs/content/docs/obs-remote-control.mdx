@@ -9,6 +9,9 @@ start or stop your stream and switch scenes while you are away from the
 computer. It polls the API with one outbound HTTPS request every two seconds;
 OBS never opens an inbound port and no port forwarding is needed.
 
+Pairing is step 4 of [Get started](/docs/get-started). This page covers
+install details, security, and recovery.
+
 ## Install
 
 Download the package for your platform from the project's GitHub Release —
@@ -23,6 +26,10 @@ and restart OBS. Building from source is only needed for development; see the
 2. In OBS, open **Tools → VISP Remote Control**.
 3. Paste the token and click **Save**, or download `config.ini` from the
    dashboard and click **Import config.ini**.
+
+![Dashboard OBS remote control card](./images/web-obs-token.png)
+
+![OBS Tools → VISP Remote Control](./images/obs-plugin-tools.png)
 
 The dashboard shows **Connected** within a few seconds, without restarting
 OBS. If the dialog is unavailable, place the values manually: start OBS once,

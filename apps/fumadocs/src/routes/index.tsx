@@ -25,19 +25,19 @@ function Home() {
       <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-center gap-10 px-6 py-20">
         <div className="max-w-3xl space-y-5">
           <p className="font-medium text-fd-muted-foreground text-sm uppercase tracking-wider">
-            SRT and RTMP relay
+            Streamer documentation
           </p>
           <h1 className="font-semibold text-4xl tracking-tight sm:text-6xl">
-            Stream from anywhere. Switch scenes in OBS.
+            Your phone is the camera. OBS stays the studio.
           </h1>
           <p className="max-w-2xl text-fd-muted-foreground text-lg">
-            VISP gives Twitch streamers private publish and read credentials,
-            latency guidance, managed relay paths, and a ready-to-import OBS
-            scene collection.
+            Sign in with Twitch or Kick, import a ready-made OBS scene
+            collection, go live from a phone or browser, and control scenes
+            remotely — without handing VISP your stream key.
           </p>
           <div className="flex flex-wrap gap-3">
-            <DocsLink page="">Read the overview</DocsLink>
-            <DocsLink page="broadcaster-setup">Set up a stream</DocsLink>
+            <DocsLink page="get-started">Get started</DocsLink>
+            <DocsLink page="self-hosting">Self-host</DocsLink>
             <DocsLink page="development">Develop VISP</DocsLink>
           </div>
         </div>
@@ -45,14 +45,17 @@ function Home() {
         <div className="grid gap-4 sm:grid-cols-3">
           {[
             [
-              "Twitch login",
-              "No email/password accounts or Twitch stream keys.",
+              "Phone to OBS",
+              "Publish from iOS, Android, or the browser into your home studio.",
             ],
             [
-              "One-time secrets",
-              "Relay passwords are revealed once and stored as hashes.",
+              "Keep your show",
+              "Scenes, alerts, and graphics stay in the OBS setup you already built.",
             ],
-            ["SRT first", "RTMP remains available when a network blocks UDP."],
+            [
+              "Remote control",
+              "Pair the OBS plugin to start, stop, and switch scenes from your phone.",
+            ],
           ].map(([title, description]) => (
             <section className="rounded-xl border bg-fd-card p-5" key={title}>
               <h2 className="font-medium">{title}</h2>

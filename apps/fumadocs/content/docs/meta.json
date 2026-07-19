@@ -3,12 +3,15 @@
   "icon": "Radio",
   "pages": [
     "index",
-    "architecture",
-    "broadcaster-setup",
+    "---For streamers---",
+    "get-started",
     "phone-app",
     "obs-remote-control",
-    "development",
+    "broadcaster-setup",
+    "---For operators---",
+    "architecture",
     "self-hosting",
+    "development",
     "releases"
   ]
 }
