@@ -54,6 +54,17 @@ export function LegalDoc({
 				<Link className="hover:text-foreground" to="/contact">
 					Contact
 				</Link>
+				<Link className="hover:text-foreground" to="/download">
+					Download
+				</Link>
+				<a
+					className="hover:text-foreground"
+					href={legalEntity.docsUrl}
+					rel="noreferrer"
+					target="_blank"
+				>
+					Docs
+				</a>
 				<a
 					className="hover:text-foreground"
 					href={legalEntity.sourceUrl}

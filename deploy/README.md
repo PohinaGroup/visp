@@ -1,7 +1,8 @@
 # Two-box deployment
 
-This guide is for production operators. For local development, use
-[`DEVELOPMENT.md`](../DEVELOPMENT.md).
+This guide is for production operators. The public docs version lives at
+[`apps/fumadocs/content/docs/self-hosting.mdx`](../apps/fumadocs/content/docs/self-hosting.mdx).
+For local development, use [`DEVELOPMENT.md`](../DEVELOPMENT.md).
 
 This directory contains templates, not host-specific secrets. Keep `/etc/visp/*.env`
 root-readable (`chmod 600`) and replace every example domain, IP, and Tailscale
@@ -215,9 +216,9 @@ read that path over SRT with H.264/Opus. Stop must release the publisher and
 media devices. Finally block UDP 8189 at the client and prove TCP ICE fallback.
 
 Before production, also run the acceptance sequence in
-`apps/fumadocs/content/docs/index.mdx`: SRT publish/read, RTMP publish/read,
-state reconciliation, app-outage behavior, independent secret rotations, and
-an OBS scene import.
+`apps/fumadocs/content/docs/self-hosting.mdx`: SRT publish/read, RTMP
+publish/read, state reconciliation, app-outage behavior, independent secret
+rotations, and an OBS scene import.
 
 For snapshot acceptance, start two publishing paths and confirm that each keeps
 one `snapshots/{pathId}.jpg` object whose modification time advances every

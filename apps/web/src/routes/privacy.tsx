@@ -104,9 +104,14 @@ function PrivacyPage() {
 						data under applicable law.
 					</li>
 					<li>
-						<strong>Optional cookies / analytics</strong> (consent), if and when
-						enabled — see the{" "}
+						<strong>Product analytics</strong> (legitimate interests / privacy
+						design): when configured, cookieless Rybbit analytics for
+						understanding site usage — see the{" "}
 						<Link to="/cookies">Cookie Policy</Link>.
+					</li>
+					<li>
+						<strong>Optional cookies</strong> (consent), if and when enabled —
+						see the <Link to="/cookies">Cookie Policy</Link>.
 					</li>
 				</ul>
 			</section>
@@ -116,10 +121,11 @@ function PrivacyPage() {
 				<p>
 					We use infrastructure and subprocessors necessary to run VISP (for
 					example hosting, database, object storage for snapshots, and OAuth
-					identity providers Twitch and Kick). Data is shared with them only as
-					needed to provide the service. Stream destinations you choose (OBS,
-					platforms) receive the media you publish; VISP does not take ownership
-					of your stream keys.
+					identity providers Twitch and Kick). When analytics is configured, we
+					also use Rybbit for cookieless product analytics. Data is shared with
+					them only as needed to provide the service. Stream destinations you
+					choose (OBS, platforms) receive the media you publish; VISP does not
+					take ownership of your stream keys.
 				</p>
 			</section>
 

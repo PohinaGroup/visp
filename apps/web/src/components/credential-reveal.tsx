@@ -39,7 +39,10 @@ export function RevealedValue({
 	value: string;
 }) {
 	return (
-		<div className="flex flex-col gap-2 border p-3">
+		<div
+			className="rr-block flex flex-col gap-2 border p-3"
+			data-rybbit-block
+		>
 			<div className="flex items-center justify-between gap-3">
 				<strong>{label}</strong>
 				<CopyButton value={value} />

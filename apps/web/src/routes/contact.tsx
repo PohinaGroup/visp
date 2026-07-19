@@ -83,6 +83,25 @@ function ContactPage() {
 			</section>
 
 			<section className="flex flex-col gap-3">
+				<h2>Product links</h2>
+				<ul>
+					<li>
+						<Link to="/download">Download & beta access</Link>
+					</li>
+					<li>
+						<a href={legalEntity.docsUrl} rel="noreferrer" target="_blank">
+							Documentation
+						</a>
+					</li>
+					<li>
+						<a href={legalEntity.sourceUrl} rel="noreferrer" target="_blank">
+							GitHub
+						</a>
+					</li>
+				</ul>
+			</section>
+
+			<section className="flex flex-col gap-3">
 				<h2>Legal documents</h2>
 				<ul>
 					<li>
