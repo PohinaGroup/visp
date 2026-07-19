@@ -63,3 +63,7 @@ skills-lock.json
 
 PLAN1.md
 PIPELINE.md
+
+/.bun/
+/.config/
+/.expo/

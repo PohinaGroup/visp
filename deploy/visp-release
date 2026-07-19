@@ -51,12 +51,19 @@ readonly actual_sha=$(git -C "$repo" rev-parse "$tag^{commit}")
 [[ $actual_sha == "$expected_sha" ]] ||
 	fail "$tag resolves to $actual_sha, expected $expected_sha"
 git -C "$repo" checkout --detach "$expected_sha"
+if ! git -C "$repo" diff --quiet ||
+	! git -C "$repo" diff --cached --quiet; then
+	fail "$repo checkout left tracked changes; repair its ownership and permissions"
+fi
 
-"$bun" --cwd "$repo" install --frozen-lockfile
-run_with_env "$app_env" "$bun" --cwd "$repo" run db:migrate
-run_with_env "$web_env" "$bun" --cwd "$repo" x turbo run build -F server -F web
-run_with_env "$native_web_env" "$bun" --cwd "$repo/apps/native" run build:web
-"$bun" --cwd "$repo/apps/fumadocs" run build
+"$bun" install --cwd "$repo" --frozen-lockfile
+run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
+(
+	cd "$repo"
+	run_with_env "$web_env" "$bun" x turbo run build -F server -F web
+)
+run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
+"$bun" run --cwd "$repo/apps/fumadocs" build
 
 for output in \
 	apps/native/dist/index.html \
