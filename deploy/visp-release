@@ -59,7 +59,7 @@ for output in \
 	apps/fumadocs/.output/public/_shell.html \
 	apps/fumadocs/.output/public/docs/index.html \
 	apps/fumadocs/.output/public/docs/broadcaster-setup/index.html \
-	apps/fumadocs/.output/public/docs/deployment/index.html \
+	apps/fumadocs/.output/public/docs/self-hosting/index.html \
 	apps/fumadocs/.output/public/docs/development/index.html \
 	apps/fumadocs/.output/public/api/search \
 	apps/fumadocs/.output/public/llms.txt \

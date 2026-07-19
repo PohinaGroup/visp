@@ -56,12 +56,47 @@ function ScrambleWord() {
 	return <span className="font-medium font-mono text-[#8a6bff]">{word}</span>;
 }
 
-function ImageSlot({ label }: { label: string }) {
+const productShots = [
+	{
+		src: "/marketing/app-live.jpg",
+		alt: "VISP app live on a phone — Stop control with OBS status",
+	},
+	{
+		src: "/marketing/app-ready.jpg",
+		alt: "VISP app ready to go live with Twitch chat overlay",
+	},
+	{
+		src: "/marketing/app-camera-settings.jpg",
+		alt: "VISP camera settings — resolution, frame rate, and relay",
+	},
+] as const;
+
+function ProductShots() {
 	return (
-		<div className="flex h-full w-full items-center justify-center border border-[#8a6bff]/15 border-dashed bg-[#14121f] p-6">
-			<span className="max-w-[40ch] text-center font-mono text-[#8b87a3] text-xs">
-				{label}
-			</span>
+		<div className="grid h-full min-h-[220px] grid-cols-[1.4fr_1fr] gap-2 sm:min-h-[260px]">
+			<img
+				src={productShots[0].src}
+				alt={productShots[0].alt}
+				className="h-full w-full object-cover object-center"
+				loading="lazy"
+				decoding="async"
+			/>
+			<div className="grid grid-rows-2 gap-2">
+				<img
+					src={productShots[1].src}
+					alt={productShots[1].alt}
+					className="h-full w-full object-cover object-center"
+					loading="lazy"
+					decoding="async"
+				/>
+				<img
+					src={productShots[2].src}
+					alt={productShots[2].alt}
+					className="h-full w-full object-cover object-top"
+					loading="lazy"
+					decoding="async"
+				/>
+			</div>
 		</div>
 	);
 }
@@ -267,7 +302,7 @@ const bentoCards = [
 		span: "sm:col-span-4",
 		title: "the whole show, from a phone",
 		body: "the VISP app — or the camera app you already love — becomes a proper camera for your full production. not a smaller substitute for it.",
-		image: "phone-in-hand shot",
+		shots: true,
 	},
 	{
 		span: "sm:col-span-2",
@@ -294,9 +329,39 @@ const bentoCards = [
 function HomeComponent() {
 	return (
 		<main className="min-h-svh bg-[#0a0a12] font-grotesk text-[#eceaf4] antialiased selection:bg-[#8a6bff]/35">
-			<nav className="mx-auto flex max-w-[1080px] items-center justify-between px-8 pt-[34px] pb-[26px]">
+			<nav className="mx-auto flex max-w-[1080px] items-center justify-between gap-4 px-8 pt-[34px] pb-[26px]">
 				<img src="/visp-logo.png" alt="VISP" className="h-[42px] w-auto" />
-				<TryCta className="rounded-xl border border-[#8a6bff]/45 px-5 py-2.5 font-semibold text-[#b6a8ff] text-[14px] transition-all duration-200 hover:border-[#8a6bff] hover:bg-[#8a6bff]/10 hover:text-white" />
+				<div className="flex flex-wrap items-center justify-end gap-x-4 gap-y-2">
+					<a
+						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8]"
+						href={legalEntity.docsUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						Docs
+					</a>
+					<Link
+						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8]"
+						to="/download"
+					>
+						Download
+					</Link>
+					<a
+						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8] max-sm:hidden"
+						href={legalEntity.sourceUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						GitHub
+					</a>
+					<Link
+						className="font-mono text-[#8b87a3] text-[12.5px] hover:text-[#cfc9e8] max-sm:hidden"
+						to="/contact"
+					>
+						Contact
+					</Link>
+					<TryCta className="rounded-xl border border-[#8a6bff]/45 px-5 py-2.5 font-semibold text-[#b6a8ff] text-[14px] transition-all duration-200 hover:border-[#8a6bff] hover:bg-[#8a6bff]/10 hover:text-white" />
+				</div>
 			</nav>
 
 			<header className="mx-auto flex max-w-[820px] flex-col items-center gap-[26px] px-8 pt-12 pb-10 text-center sm:pt-[72px]">
@@ -341,11 +406,11 @@ function HomeComponent() {
 							<p className="text-pretty text-[#a7a3bd] text-[15.5px] leading-relaxed">
 								{card.body}
 							</p>
-							{card.image && (
-								<div className="mt-1.5 min-h-[180px] w-full flex-1 overflow-hidden">
-									<ImageSlot label={card.image} />
+							{"shots" in card && card.shots ? (
+								<div className="mt-1.5 w-full flex-1 overflow-hidden">
+									<ProductShots />
 								</div>
-							)}
+							) : null}
 						</div>
 					))}
 				</div>
@@ -366,25 +431,49 @@ function HomeComponent() {
 						no credit card required · setup takes three questions, not three
 						weekends
 					</span>
-					<p className="mt-2 max-w-[42ch] font-mono text-[#8b87a3] text-[12.5px] leading-relaxed">
-						OBS plugin is live in beta — download from{" "}
-						<a
+					<p className="mt-2 max-w-[46ch] font-mono text-[#8b87a3] text-[12.5px] leading-relaxed">
+						Phone apps, browser publisher, and OBS plugin — see{" "}
+						<Link
 							className="text-[#b6a8ff] underline underline-offset-4 hover:text-white"
-							href={legalEntity.releasesUrl}
-							rel="noreferrer"
-							target="_blank"
+							to="/download"
 						>
-							GitHub Releases
-						</a>
-						.
+							Download & beta
+						</Link>
+						. You do not need to self-host to try the hosted beta.
 					</p>
 				</div>
 			</section>
 
 			<footer className="flex flex-col items-center gap-3 border-[#8a6bff]/10 border-t px-8 py-[26px] font-mono text-[#7d7997] text-[12.5px]">
 				<div className="flex flex-wrap justify-center gap-x-3 gap-y-1">
+					<a
+						className="hover:text-[#cfc9e8]"
+						href={legalEntity.docsUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						Docs
+					</a>
+					<span aria-hidden>·</span>
+					<Link className="hover:text-[#cfc9e8]" to="/download">
+						Download
+					</Link>
+					<span aria-hidden>·</span>
+					<a
+						className="hover:text-[#cfc9e8]"
+						href={legalEntity.sourceUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						GitHub
+					</a>
+					<span aria-hidden>·</span>
 					<Link className="hover:text-[#cfc9e8]" to="/privacy">
 						Privacy
+					</Link>
+					<span aria-hidden>·</span>
+					<Link className="hover:text-[#cfc9e8]" to="/contact">
+						Contact
 					</Link>
 					<span aria-hidden>·</span>
 					<Link className="hover:text-[#cfc9e8]" to="/terms">
@@ -394,28 +483,6 @@ function HomeComponent() {
 					<Link className="hover:text-[#cfc9e8]" to="/cookies">
 						Cookies
 					</Link>
-					<span aria-hidden>·</span>
-					<Link className="hover:text-[#cfc9e8]" to="/contact">
-						Contact
-					</Link>
-					<span aria-hidden>·</span>
-					<a
-						className="hover:text-[#cfc9e8]"
-						href={legalEntity.sourceUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
-						Source
-					</a>
-					<span aria-hidden>·</span>
-					<a
-						className="hover:text-[#cfc9e8]"
-						href={legalEntity.releasesUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
-						OBS plugin
-					</a>
 				</div>
 				<div className="flex flex-wrap justify-center gap-2.5">
 					<span>© 2026 VISP · Pöhinä Group Oy</span>

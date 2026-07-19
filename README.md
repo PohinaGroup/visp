@@ -83,7 +83,7 @@ in [apps/obs-plugin/README.md](apps/obs-plugin/README.md).
 ## Operations and user documentation
 
 - [Development guide](DEVELOPMENT.md)
-- [Production deployment](deploy/README.md)
+- [Self-hosting](apps/fumadocs/content/docs/self-hosting.mdx) ([deploy templates](deploy/README.md))
 - [Production updates](deploy/UPDATE.md)
 - [Broadcaster and operator docs](apps/fumadocs/content/docs)
 

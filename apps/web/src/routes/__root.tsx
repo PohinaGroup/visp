@@ -1,4 +1,5 @@
 import type { AppRouter } from "@VISP/api/routers/index";
+import { env } from "@VISP/env/web";
 import { Toaster } from "@VISP/ui/components/sonner";
 import type { QueryClient } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
@@ -18,9 +19,29 @@ import { CookieBanner } from "../components/cookie-banner";
 import Header from "../components/header";
 
 import appCss from "../index.css?url";
+
 export interface RouterAppContext {
 	trpc: TRPCOptionsProxy<AppRouter>;
 	queryClient: QueryClient;
+}
+
+function rybbitHeadScripts() {
+	const siteId = env.VITE_RYBBIT_SITE_ID;
+	if (!siteId) {
+		return [];
+	}
+
+	return [
+		{
+			src: "https://app.rybbit.io/api/script.js",
+			async: true,
+			"data-site-id": siteId,
+			// Keep publish URLs and similar secrets out of session replay.
+			"data-replay-block-selector": ".rr-block, [data-rybbit-block]",
+			"data-replay-mask-text-selectors": '["[data-pii]"]',
+			"data-replay-mask-all-inputs": "true",
+		},
+	];
 }
 
 export const Route = createRootRouteWithContext<RouterAppContext>()({
@@ -52,6 +73,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 				href: "/favicon.png",
 			},
 		],
+		scripts: rybbitHeadScripts(),
 	}),
 
 	component: RootDocument,

@@ -83,7 +83,7 @@ jobs:
           test -f apps/fumadocs/.output/public/_shell.html
           test -f apps/fumadocs/.output/public/docs/index.html
           test -f apps/fumadocs/.output/public/docs/broadcaster-setup/index.html
-          test -f apps/fumadocs/.output/public/docs/deployment/index.html
+          test -f apps/fumadocs/.output/public/docs/self-hosting/index.html
           test -f apps/fumadocs/.output/public/docs/development/index.html
           test -f apps/fumadocs/.output/public/api/search
           test -f apps/fumadocs/.output/public/llms.txt

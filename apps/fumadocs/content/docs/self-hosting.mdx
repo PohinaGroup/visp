@@ -1,0 +1,277 @@
+---
+title: Self-hosting
+description: Run VISP on your own two hosts with the versioned deploy templates.
+icon: Server
+---
+
+VISP is designed to be self-hosted. The hosted beta at visp-stream.com is the
+easy path for broadcasters; this page is for operators who want to run the
+relay and control plane themselves.
+
+You need **two Linux hosts**:
+
+| Host | Runs |
+| --- | --- |
+| Relay | MediaMTX, Caddy (RTT probe), snapshot hook |
+| App | PostgreSQL, API, portal, browser publisher, docs, Caddy |
+
+Templates live in the repository's `deploy/` directory. Keep domains, IPs, and
+secrets out of Git. Put production env files under `/etc/visp/` with mode
+`0600`.
+
+## Prerequisites
+
+- Two hosts with public IPv4 (relay also needs UDP open for SRT and WebRTC)
+- [Tailscale](https://tailscale.com/) on both hosts for admin and the MediaMTX
+  Control API
+- [Caddy](https://caddyserver.com/) on both hosts
+- [Bun](https://bun.sh/) 1.3.14+ and PostgreSQL 17+ on the app host
+- `ffmpeg` and `curl` on the relay host
+- Twitch and Kick developer applications for OAuth (and Kick chat webhooks)
+- A private S3-compatible bucket for live-path JPEG snapshots
+- DNS for your app, relay, browser-publisher, and docs hostnames
+
+Clone the repository as `root` into `/opt/visp` on the app host. The systemd
+units expect that path.
+
+## 1. Prove the relay with static credentials
+
+Install MediaMTX **v1.19.2**. For Linux amd64, the pinned archive SHA-256 is:
+
+```text
+f9c601cc303ceca8fad2883917b022882672c5bc56311e92dbceb16e5f20c60c  mediamtx_v1.19.2_linux_amd64.tar.gz
+```
+
+Download the archive and `checksums.sha256` from the official v1.19.2 release,
+then:
+
+```bash
+grep 'mediamtx_v1.19.2_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
+sudo install -m 0755 mediamtx /usr/local/bin/mediamtx
+```
+
+Start with `deploy/relay/mediamtx.static-auth.yml`, replace both bootstrap
+passwords, and verify one real SRT publisher and reader against the `bootstrap`
+path. Only after that works, install `deploy/relay/mediamtx.yml` and switch to
+HTTP authentication against the app.
+
+## 2. Relay host
+
+1. Install Tailscale, Caddy, `curl`, `ffmpeg`, and the pinned MediaMTX binary.
+2. Install the snapshot hook and production config:
+
+   ```bash
+   sudo install -D -m 0755 deploy/relay/visp-snapshot \
+     /usr/local/libexec/visp-snapshot
+   sudo install -D -m 0644 deploy/relay/mediamtx.yml \
+     /etc/mediamtx/mediamtx.yml
+   ```
+
+   RTSP binds only to `127.0.0.1` for the snapshot hook. Do not expose TCP 8554.
+3. Create `/etc/visp/relay.env`:
+
+   ```text
+   HOOK_SECRET=replace-with-a-random-secret
+   APP_ORIGIN=https://app.example.com
+   MTX_AUTHHTTPADDRESS=https://app.example.com/api/mediamtx/auth
+   MTX_APIADDRESS=100.64.0.10:9997
+   MTX_WEBRTCADDITIONALHOSTS=relay.example.com
+   ```
+
+   Use the app's public HTTPS origin, the relay's Tailscale address for the
+   Control API bind, and the relay's public hostname for WebRTC. MediaMTX maps
+   `MTX_*` variables onto the matching YAML settings. `HOOK_SECRET` must match
+   the app host.
+4. Install `deploy/systemd/mediamtx.service`. Use Caddy's packaged unit with
+   `deploy/relay/Caddyfile`, install `deploy/systemd/caddy-relay.conf` as a
+   `caddy.service.d/visp.conf` drop-in, and set `RELAY_DOMAIN` and `APP_DOMAIN`
+   in `/etc/visp/caddy.env`.
+5. Open public **UDP 8890** (SRT), **TCP 1935** (RTMP), **TCP 443** (RTT
+   probe), and **UDP/TCP 8189** (WebRTC; TCP is the ICE fallback). Allow SSH
+   and MediaMTX **TCP 9997** only on the Tailscale interface. Mirror the same
+   rules in your cloud firewall.
+6. In Tailscale ACLs, allow only the app host to reach relay TCP 9997.
+
+The Control API excludes only the `api` action from HTTP auth. It stays
+protected by the Tailscale bind, ACL, and host firewall. Metrics and pprof
+remain disabled.
+
+## 3. App host
+
+1. Install PostgreSQL, Bun, Tailscale, and Caddy. Clone the repository as
+   `root` into `/opt/visp`.
+2. Fill `/etc/visp/app.env` from `apps/server/.env.example`:
+
+   - Set Twitch and Kick credentials and the snapshot bucket settings.
+   - Point `MEDIAMTX_API_URL` at the relay's Tailscale Control API
+     (`http://100.x.x.x:9997`).
+   - Generate `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32` and
+     back it up with the other secrets.
+   - Set `NATIVE_WEB_ORIGIN` to the browser publisher's public origin
+     (for example `https://stream.example.com`).
+   - Set `HOOK_SECRET` to the same value as on the relay.
+   - Set `BETTER_AUTH_URL` and `CORS_ORIGIN` to the public app and portal
+     origins (same host when Caddy terminates TLS for both).
+
+   Then install dependencies and migrate:
+
+   ```bash
+   cd /opt/visp
+   bun install --frozen-lockfile
+   bun run db:migrate
+   ```
+3. Fill `/etc/visp/web.env` from `apps/web/.env.example` (`VITE_SERVER_URL`,
+   `VITE_RELAY_PING_URL`). Create `/etc/visp/native-web.env`:
+
+   ```text
+   EXPO_PUBLIC_SERVER_URL=https://app.example.com
+   EXPO_PUBLIC_RELAY_WEBRTC_URL=https://relay.example.com
+   ```
+4. Build and install services:
+
+   ```bash
+   bun run build
+   sudo install -m 0644 deploy/systemd/visp-server.service \
+     /etc/systemd/system/visp-server.service
+   sudo install -m 0644 deploy/systemd/visp-web.service \
+     /etc/systemd/system/visp-web.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now visp-server visp-web
+   ```
+
+   Use Caddy's packaged unit with `deploy/app/Caddyfile` and
+   `deploy/systemd/caddy-app.conf` as the drop-in. In `/etc/visp/caddy.env` set
+   `APP_DOMAIN`, `NATIVE_WEB_DOMAIN`, `DOCS_DOMAIN`, and `RELAY_PUBLIC_IP`.
+   Caddy serves `apps/native/dist` and `apps/fumadocs/.output/public` as static
+   files; neither needs its own systemd unit.
+5. Register provider callbacks:
+
+   ```text
+   Twitch: https://APP_DOMAIN/api/auth/callback/twitch
+   Kick OAuth: https://APP_DOMAIN/api/auth/oauth2/callback/kick
+   Kick webhook: https://APP_DOMAIN/api/webhooks/kick
+   ```
+
+   The Kick app needs the `user:read` scope. Chat delivery uses the server's
+   app token and `chat.message.sent` webhook subscriptions.
+6. Expose only public **TCP 443**. Allow SSH only over Tailscale. Create DNS
+   for the app, browser-publisher, and docs hostnames before Caddy obtains
+   certificates.
+
+Do not put MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
+them only from the relay's direct public IP (`RELAY_PUBLIC_IP`), and the hook
+endpoints also require the shared secret. The Kick webhook is a separate public
+route protected by Kick's RSA signature, timestamp window, and replay
+detection. `/api/obs/control` must stay publicly reachable over HTTPS so the
+OBS plugin can poll from the broadcaster's computer.
+
+## 4. Snapshot storage
+
+Use a private S3-compatible bucket (UpCloud Managed Object Storage works) with
+its public HTTPS endpoint. Grant the app credential GET, HEAD, PUT, and DELETE
+only on the `snapshots/` prefix. Keep versioning disabled.
+
+Apply a lifecycle rule so stopped paths disappear after one day:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "ExpireVispSnapshots",
+      "Status": "Enabled",
+      "Prefix": "snapshots/",
+      "Expiration": { "Days": 1 }
+    }
+  ]
+}
+```
+
+If versioning was previously enabled, suspend it and add
+`"NoncurrentVersionExpiration": { "NoncurrentDays": 1 }`. The relay receives
+only 60-second presigned PUT URLs; S3 access keys never leave the app host.
+
+## 5. OBS plugin
+
+Deploy the API and Caddy rules, and apply migrations, before pairing OBS.
+Build the plugin on the OS that runs OBS, or download packages from a
+[GitHub Release](https://github.com/PohinaGroup/visp/releases).
+
+Local macOS example:
+
+```bash
+cd apps/obs-plugin
+cmake --preset macos
+cmake --build --preset macos
+mkdir -p "$HOME/Library/Application Support/obs-studio/plugins"
+cp -R build_macos/RelWithDebInfo/visp-obs.plugin \
+  "$HOME/Library/Application Support/obs-studio/plugins/"
+```
+
+Windows uses the `windows-x64` preset; Linux uses `ubuntu-x86_64`. See
+[OBS remote control](/docs/obs-remote-control) for install paths and pairing.
+
+Then:
+
+1. Open **OBS remote control** in the portal and generate a token.
+2. Start OBS once so it logs the `config.ini` path.
+3. Close OBS and write:
+
+   ```ini
+   [visp]
+   control_url=https://APP_DOMAIN/api/obs/control
+   token=the-token-shown-by-visp
+   ```
+4. Restart OBS. The dashboard should show **Connected** within a few seconds.
+
+OBS must already have a working streaming service and stream key. The plugin
+only invokes start and stop. Treat `config.ini` as a machine credential.
+
+## 6. Rollout order
+
+Bring the stack up in this order so each layer is proven before the next:
+
+1. Static MediaMTX publish/read proof
+2. Twitch (and Kick) login plus schema migration
+3. MediaMTX HTTP authentication
+4. Path and credential portal
+5. Hooks and ten-second reconciliation
+6. Snapshot uploads
+7. RTT guidance and OBS scene export
+8. Browser WebRTC publisher and OBS remote control
+
+## Maintenance
+
+Restart the API or portal at any time — established streams keep running.
+Restart MediaMTX only in a maintenance window; it ends active streams. Path
+provisioning and credential rotation do not require a relay restart.
+
+The accepted app-outage behavior: existing streams continue, new publish/read
+connections fail authentication.
+
+For ongoing updates on a host that uses the release bootstrap, see
+[Releases and updates](/docs/releases). Manual updates are the same sequence
+the helper runs: install frozen dependencies, migrate, build, then restart
+`visp-server` and `visp-web` and reload Caddy.
+
+## Acceptance test
+
+1. Publish and read one feed over SRT, then repeat over RTMP.
+2. Confirm dashboard state converges within ten seconds of reality.
+3. Stop the app while streaming: the stream must survive; a new connection must
+   fail.
+4. Rotate one publishing device and verify other device URLs still connect;
+   rotate the read credential separately and verify only readers are affected.
+5. Import the generated scene collection and play every source in OBS.
+6. Start two live paths and confirm each keeps a
+   `snapshots/{pathId}.jpg` object whose modification time advances about once
+   a minute; stopping a path hides its dashboard tile.
+7. From a current Chrome/Edge or Safari over HTTPS: OAuth returns to the
+   browser-publisher origin, Go Live marks the path live, and OBS can read that
+   path over SRT. Block UDP 8189 at the client and confirm TCP ICE fallback.
+
+## Scope
+
+Self-hosting assumes this two-host layout. VISP does not transcode, bill users,
+enforce quotas, host OBS, or scale MediaMTX horizontally. Phone store builds
+and notarized OBS packages are optional extras from the project's release
+pipeline; you can still run the relay and portal without them.

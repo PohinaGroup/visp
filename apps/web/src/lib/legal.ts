@@ -9,6 +9,8 @@ export const legalEntity = {
 	license: "GPL-2.0",
 	sourceUrl: "https://github.com/PohinaGroup/visp",
 	releasesUrl: "https://github.com/PohinaGroup/visp/releases",
+	docsUrl: "https://docs.visp-stream.com",
+	browserAppUrl: "https://stream.visp-stream.com",
 	supervisoryAuthority: {
 		name: "Office of the Data Protection Ombudsman",
 		url: "https://tietosuoja.fi/en",

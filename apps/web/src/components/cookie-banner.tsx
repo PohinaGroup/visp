@@ -44,8 +44,8 @@ export function CookieBanner() {
 						className="text-muted-foreground text-sm leading-relaxed"
 					>
 						We use essential cookies to keep you signed in and run the service.
-						Optional cookies (for example analytics) are only used if you accept
-						them. See our{" "}
+						Optional cookies are only used if you accept them. Cookieless
+						analytics (when enabled) is described in our Cookie Policy. See our{" "}
 						<Link className="text-foreground underline underline-offset-4" to="/cookies">
 							Cookie Policy
 						</Link>{" "}

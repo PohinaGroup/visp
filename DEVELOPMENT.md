@@ -67,9 +67,10 @@ validation runs at startup. Important groups are:
 
 Never commit the resulting `.env` files.
 
-The browser reads `VITE_SERVER_URL` and `VITE_RELAY_PING_URL` at build time. A
-physical phone cannot reach your computer through `127.0.0.1`; set
-`EXPO_PUBLIC_SERVER_URL` to your computer's LAN or tunnel address instead.
+The browser reads `VITE_SERVER_URL`, `VITE_RELAY_PING_URL`, and optional
+`VITE_RYBBIT_SITE_ID` at build time. A physical phone cannot reach your
+computer through `127.0.0.1`; set `EXPO_PUBLIC_SERVER_URL` to your computer's
+LAN or tunnel address instead.
 
 ### OAuth callbacks
 

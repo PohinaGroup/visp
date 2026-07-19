@@ -90,12 +90,30 @@ function CookiesPage() {
 			</section>
 
 			<section className="flex flex-col gap-3">
-				<h2>4. Optional cookies</h2>
+				<h2>4. Analytics (cookieless)</h2>
 				<p>
-					Optional cookies (for example product analytics) are used only if you
-					choose <strong>Accept all</strong>. VISP does not currently load
-					third-party analytics tags by default. If we add optional analytics
-					later, they will respect the preference stored by the cookie banner.
+					When configured, VISP loads{" "}
+					<a
+						href="https://rybbit.com"
+						rel="noopener noreferrer"
+						target="_blank"
+					>
+						Rybbit
+					</a>{" "}
+					for privacy-oriented product analytics (page views, basic usage
+					metrics). Rybbit is designed to operate without cookies or local
+					storage for tracking, so it is not gated by the optional-cookie choice
+					below. Sensitive values shown in the dashboard (for example publish
+					URLs) are excluded from session replay where that feature is enabled.
+				</p>
+			</section>
+
+			<section className="flex flex-col gap-3">
+				<h2>5. Optional cookies</h2>
+				<p>
+					Optional cookies are used only if you choose{" "}
+					<strong>Accept all</strong>. VISP does not currently set additional
+					optional cookies beyond remembering this preference.
 				</p>
 				<p>
 					Your choice is stored in local storage under{" "}
@@ -105,7 +123,7 @@ function CookiesPage() {
 			</section>
 
 			<section className="flex flex-col gap-3">
-				<h2>5. Manage your choice</h2>
+				<h2>6. Manage your choice</h2>
 				<p>
 					Current preference:{" "}
 					<strong>
@@ -126,7 +144,7 @@ function CookiesPage() {
 			</section>
 
 			<section className="flex flex-col gap-3">
-				<h2>6. More information</h2>
+				<h2>7. More information</h2>
 				<p>
 					See the <Link to="/privacy">Privacy Policy</Link> for broader data
 					processing details, or <Link to="/contact">Contact</Link> us at{" "}
