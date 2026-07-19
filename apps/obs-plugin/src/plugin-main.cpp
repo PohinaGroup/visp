@@ -46,17 +46,27 @@ static bool parse_control_response(const char *json, struct control_response *re
 
 #ifdef VISP_PROTOCOL_TEST
 
-#include <assert.h>
+#include <stdio.h>
+
+/* assert() is compiled out under -DNDEBUG (Release), so use a check that is
+ * always evaluated and reports failure regardless of the build configuration. */
+#define CHECK(expr)                                            \
+	do {                                                  \
+		if (!(expr)) {                                \
+			fprintf(stderr, "check failed: %s\n", #expr); \
+			return 1;                             \
+		}                                             \
+	} while (0)
 
 int main(void)
 {
 	struct control_response response = {};
-	assert(parse_control_response("{\"commandVersion\":7,\"desiredStreaming\":true,\"pollAfterMs\":2000}",
-				      &response));
-	assert(response.command_version == 7 && response.desired_streaming);
-	assert(parse_control_response("{\"desiredStreaming\": false, \"commandVersion\": 8}", &response));
-	assert(response.command_version == 8 && !response.desired_streaming);
-	assert(!parse_control_response("{\"commandVersion\":9}", &response));
+	CHECK(parse_control_response("{\"commandVersion\":7,\"desiredStreaming\":true,\"pollAfterMs\":2000}",
+				     &response));
+	CHECK(response.command_version == 7 && response.desired_streaming);
+	CHECK(parse_control_response("{\"desiredStreaming\": false, \"commandVersion\": 8}", &response));
+	CHECK(response.command_version == 8 && !response.desired_streaming);
+	CHECK(!parse_control_response("{\"commandVersion\":9}", &response));
 	return 0;
 }
 
