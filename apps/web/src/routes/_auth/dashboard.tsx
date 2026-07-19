@@ -322,7 +322,10 @@ function ObsControlCard() {
 
 	const downloadConfig = () => {
 		if (!pairing) return;
-		const contents = `[visp]\ncontrol_url=${env.VITE_SERVER_URL.replace(/\/$/, "")}/api/obs/control\ntoken=${pairing.token}\n`;
+		const serverUrl = import.meta.env.PROD
+			? window.location.origin
+			: env.VITE_SERVER_URL.replace(/\/$/, "");
+		const contents = `[visp]\ncontrol_url=${serverUrl}/api/obs/control\ntoken=${pairing.token}\n`;
 		const anchor = document.createElement("a");
 		anchor.href = URL.createObjectURL(
 			new Blob([contents], { type: "text/plain" }),
