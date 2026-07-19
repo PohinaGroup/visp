@@ -1,7 +1,7 @@
 {
   "name": "@VISP/native",
   "main": "expo-router/entry",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "dependencies": {
     "@VISP/api": "workspace:*",
     "@better-auth/expo": "catalog:",

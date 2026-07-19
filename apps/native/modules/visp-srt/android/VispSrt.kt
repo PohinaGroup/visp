@@ -51,50 +51,6 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.round
-import org.json.JSONObject
-import android.util.Log
-
-// #region agent log
-private fun agentDebugLog(
-  hypothesisId: String,
-  location: String,
-  message: String,
-  data: Map<String, Any?> = emptyMap(),
-) {
-  try {
-    val payload =
-      JSONObject()
-        .put("sessionId", "9d2c99")
-        .put("runId", "post-fix")
-        .put("hypothesisId", hypothesisId)
-        .put("location", location)
-        .put("message", message)
-        .put("data", JSONObject(data))
-        .put("timestamp", System.currentTimeMillis())
-    Log.i("VispDebug9d2c99", payload.toString())
-    Thread {
-      try {
-        val conn =
-          (URL("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c")
-              .openConnection() as HttpURLConnection)
-            .apply {
-              requestMethod = "POST"
-              setRequestProperty("Content-Type", "application/json")
-              setRequestProperty("X-Debug-Session-Id", "9d2c99")
-              doOutput = true
-              connectTimeout = 500
-              readTimeout = 500
-            }
-        conn.outputStream.use { it.write(payload.toString().toByteArray()) }
-        conn.responseCode
-        conn.disconnect()
-      } catch (_: Throwable) {
-      }
-    }.start()
-  } catch (_: Throwable) {
-  }
-}
-// #endregion
 
 /**
  * Peak mic amplitude on the encoder audio thread (0-100), without Pedro's AmplitudeEffect
@@ -127,8 +83,6 @@ private class PeakAmplitudeEffect(
   fun stop() {
     running = false
   }
-
-  fun isRunning() = running
 }
 
 class VispSrt : Module() {
@@ -225,14 +179,6 @@ class VispSrt : Module() {
     }
 
     OnActivityEntersBackground {
-      // #region agent log
-      agentDebugLog(
-        "B",
-        "VispSrt.kt:OnActivityEntersBackground",
-        "background cleanup about to run",
-        mapOf("hasView" to (currentView?.get() != null)),
-      )
-      // #endregion
       currentView?.get()?.cleanup()
     }
 
@@ -616,37 +562,11 @@ class VispSrtView(context: Context, appContext: AppContext) :
     intentionalStop = true
     retryAttempt = 0
     val current = stream
-    // #region agent log
-    agentDebugLog(
-      "F",
-      "VispSrt.kt:stop",
-      "user stop requested",
-      mapOf(
-        "isStreaming" to (current?.isStreaming == true),
-        "isOnPreview" to (current?.isOnPreview == true),
-        "hasEffect" to (amplitudeEffect != null),
-        "effectRunning" to (amplitudeEffect?.isRunning() == true),
-        "state" to state.name,
-      ),
-    )
-    // #endregion
     try {
       if (current?.isStreaming == true) {
         emit(StreamState.STOPPING)
         // Keep camera preview alive (iOS parity). cleanup() is for teardown only.
         val encodersReady = current.stopStream()
-        // #region agent log
-        agentDebugLog(
-          "F",
-          "VispSrt.kt:stop",
-          "stopStream finished; preview should remain",
-          mapOf(
-            "encodersReady" to encodersReady,
-            "isStreaming" to current.isStreaming,
-            "isOnPreview" to current.isOnPreview,
-          ),
-        )
-        // #endregion
         if (!encodersReady) {
           configure(isPortrait())
         }
@@ -655,14 +575,6 @@ class VispSrtView(context: Context, appContext: AppContext) :
       emit(StreamState.IDLE)
       promise.resolve()
     } catch (error: Throwable) {
-      // #region agent log
-      agentDebugLog(
-        "F",
-        "VispSrt.kt:stop",
-        "stop failed; falling back to cleanup",
-        mapOf("error" to (error.message ?: error.javaClass.simpleName)),
-      )
-      // #endregion
       cleanup()
       fail("capture-failed", CAMERA_UNAVAILABLE, promise, error)
     }
@@ -671,29 +583,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
   fun cleanup() {
     intentionalStop = true
     retryAttempt = 0
-    // #region agent log
-    agentDebugLog(
-      "A",
-      "VispSrt.kt:cleanup",
-      "about to stop AmplitudeEffect",
-      mapOf(
-        "hasEffect" to (amplitudeEffect != null),
-        "effectRunning" to (amplitudeEffect?.isRunning() == true),
-        "isStreaming" to (stream?.isStreaming == true),
-        "state" to state.name,
-        "caller" to Throwable().stackTraceToString().lineSequence().take(8).joinToString(" | "),
-      ),
-    )
-    // #endregion
     amplitudeEffect?.stop()
-    // #region agent log
-    agentDebugLog(
-      "A",
-      "VispSrt.kt:cleanup",
-      "AmplitudeEffect.stop returned",
-      mapOf("state" to state.name),
-    )
-    // #endregion
     amplitudeEffect = null
     stream?.let { current ->
       if (current.isOnPreview) current.stopPreview(true)
@@ -707,9 +597,6 @@ class VispSrtView(context: Context, appContext: AppContext) :
   }
 
   override fun onDetachedFromWindow() {
-    // #region agent log
-    agentDebugLog("E", "VispSrt.kt:onDetachedFromWindow", "detach cleanup", emptyMap())
-    // #endregion
     cleanup()
     super.onDetachedFromWindow()
   }
@@ -819,40 +706,10 @@ class VispSrtView(context: Context, appContext: AppContext) :
       if (selected.cameraId == "front") switchCamera()
     }
     val microphoneSource = MicrophoneSource()
-    // #region agent log
-    agentDebugLog(
-      "C",
-      "VispSrt.kt:configure",
-      "about to stop previous AmplitudeEffect before recreate",
-      mapOf(
-        "hasEffect" to (amplitudeEffect != null),
-        "effectRunning" to (amplitudeEffect?.isRunning() == true),
-        "portrait" to portrait,
-      ),
-    )
-    // #endregion
     amplitudeEffect?.stop()
-    // #region agent log
-    agentDebugLog(
-      "C",
-      "VispSrt.kt:configure",
-      "previous AmplitudeEffect.stop returned; starting new effect",
-      emptyMap(),
-    )
-    // #endregion
     // Peak amplitude 0-100 per PCM buffer on the audio thread (no interruptible worker).
     val effect =
       PeakAmplitudeEffect { amplitude ->
-        // #region agent log
-        if (lastAudioLevelAt == 0L) {
-          agentDebugLog(
-            "D",
-            "VispSrt.kt:onAmplitude",
-            "first amplitude callback after start",
-            mapOf("amplitude" to amplitude, "effect" to "PeakAmplitudeEffect"),
-          )
-        }
-        // #endregion
         val now = SystemClock.uptimeMillis()
         if (now - lastAudioLevelAt >= 150) {
           lastAudioLevelAt = now
@@ -862,14 +719,6 @@ class VispSrtView(context: Context, appContext: AppContext) :
     microphoneSource.setAudioEffect(effect)
     effect.start()
     amplitudeEffect = effect
-    // #region agent log
-    agentDebugLog(
-      "D",
-      "VispSrt.kt:configure",
-      "new PeakAmplitudeEffect started",
-      mapOf("running" to effect.isRunning()),
-    )
-    // #endregion
     audioInputId?.let { selectedId ->
       val input = audioInputs().firstOrNull { it.id == selectedId }
       if (input == null) {
