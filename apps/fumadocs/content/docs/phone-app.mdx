@@ -8,6 +8,11 @@ The VISP app turns a phone into a full camera for the home studio. It publishes
 the selected camera and microphone over SRT to your relay path; OBS at home
 reads that path and runs the show.
 
+For the first-run path — sign in, import OBS scenes, go live, and pair remote
+control — follow [Get started](/docs/get-started).
+
+![Phone app ready to go live](./images/app-ready.png)
+
 ## Platforms
 
 | Client | Requirement | Transport |
@@ -17,17 +22,25 @@ reads that path and runs the show.
 | Browser app | Current Chrome, Edge, or Safari at `stream.visp-stream.com` | WebRTC (H.264/Opus) |
 
 The iOS build ships through the `VISP Internal` TestFlight group and Android
-through Play internal testing. The browser app is a static site served by the
-app host; it publishes over WHIP through the relay's WebRTC port.
+through Play internal testing. Client links live on
+[visp-stream.com/download](https://visp-stream.com/download). The browser app
+is a static site served by the app host; it publishes over WHIP through the
+relay's WebRTC port.
+
+![Browser publisher](./images/browser-publish.png)
 
 ## Sign in and go live
 
 1. Sign in with Twitch or Kick. The app creates a publishing device for this
    phone automatically and stores its publish URL in the platform's secure
    storage — you never copy credentials by hand.
-2. Pick the camera and microphone, then go live. The stream appears in OBS as
-   the corresponding relay path's Media Source.
+2. Open settings to pick the camera, resolution, and frame rate, then go live.
+   The stream appears in OBS as the corresponding relay path's Media Source.
 3. Stopping releases the publisher and the media devices.
+
+![Camera settings sheet](./images/app-settings.png)
+
+![Live over SRT](./images/app-live.png)
 
 Each phone is its own publishing device: revoking or rotating one phone in the
 portal never disconnects the others. Use two signed-in phones to feed two
@@ -35,7 +48,7 @@ scenes of the same broadcast, each with its own microphone.
 
 A short signal drop does not end the broadcast. The home studio keeps the show
 alive on its fallback scene (see
-[Broadcaster setup](/docs/broadcaster-setup)) while the phone reconnects.
+[Encoders and fallback](/docs/broadcaster-setup)) while the phone reconnects.
 
 ## While live
 
@@ -44,9 +57,11 @@ alive on its fallback scene (see
   without keeping a Kick tab open anywhere.
 - **Stream info sheet** edits the title and metadata on the provider without
   leaving the app.
-- **OBS control button** starts and stops the home OBS stream and switches
-  scenes through the paired [OBS plugin](/docs/obs-remote-control). The button
+- **OBS control** starts and stops the home OBS stream and switches scenes
+  through the paired [OBS plugin](/docs/obs-remote-control). The control
   reflects whether OBS is currently connected.
+
+![OBS program scene picker on the phone](./images/app-obs-control.png)
 
 ## Apple Watch companion
 

@@ -1,21 +1,29 @@
 ---
-title: Broadcaster setup
-description: Generate credentials, configure an encoder, and import the OBS collection.
+title: Encoders and fallback
+description: Use Larix or Moblin, tune SRT latency, and switch to Fallback when a feed drops.
 icon: Video
 ---
 
-## Generate credentials
+The fastest path for most streamers is the phone or browser app — see
+[Get started](/docs/get-started). This page covers third-party encoders, the
+dashboard latency probe, and Advanced Scene Switcher macros that keep the show
+on a fallback scene while a remote feed reconnects.
+
+## Third-party encoders
+
+If you publish with Larix, Moblin, or another SRT/RTMP encoder instead of the
+VISP app:
 
 1. Sign in to the portal with Twitch or Kick.
 2. Open **Publishing devices** and create a device.
-3. Copy that device's publish URL into the sending encoder.
-4. Download the OBS scene collection while the read secret is still visible.
+3. Copy that device's publish URL into the sending encoder (**Reveal URL**
+   shows the secret).
+4. Download a fresh OBS scene collection after the read secret is visible, or
+   add a Media Source by hand with the read URL.
 
 Publish URLs stay hidden until you choose **Reveal URL**. Each device has an
 independent credential, so rotating or revoking one does not interrupt the
 others. OBS read credentials are still rotated separately.
-
-## Configure the encoder
 
 Use SRT by default and RTMP only when the network blocks UDP. Configure H.264
 video, AAC audio, constant bitrate, and a two-second keyframe interval. Enable
@@ -38,11 +46,15 @@ profile and keep the rounded recommendation:
 
 Cellular jitter is bursty; do not tune below the recommendation.
 
-## Import into OBS
+## OBS scene collection
 
 In OBS, choose **Scene Collection → Import** and select the downloaded JSON. It
 contains a fallback scene and one Media Source scene per active relay path. The
 sources use `ffmpeg_source`, MPEG-TS, low buffering, and automatic reconnects.
+
+![OBS Scene Collection Import](./images/obs-import.png)
+
+![Imported Scene, Fallback, and Media source](./images/obs-scenes.png)
 
 Creating a path later requires rotating the read secret and downloading a fresh
 collection. VISP cannot recreate the old file because it never stores plaintext.

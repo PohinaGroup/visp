@@ -53,7 +53,6 @@ import {
 	UrlWithFallback,
 } from "@/components/credential-reveal";
 import { authClient } from "@/lib/auth-client";
-import { legalEntity } from "@/lib/legal";
 import { probeRelayRtt } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 
@@ -351,14 +350,12 @@ function ObsControlCard() {
 				<CardDescription>
 					Start or stop your OBS stream and watch what each live feed is
 					sending. The OBS plugin is live in beta —{" "}
-					<a
+					<Link
 						className="text-foreground underline underline-offset-4"
-						href={legalEntity.releasesUrl}
-						rel="noreferrer"
-						target="_blank"
+						to="/download"
 					>
-						download from GitHub Releases
-					</a>
+						download the plugin
+					</Link>
 					.
 				</CardDescription>
 				<CardAction>
@@ -422,15 +419,13 @@ function ObsControlCard() {
 					</summary>
 					<div className="flex flex-col gap-3 border-t p-3">
 						<p className="text-muted-foreground text-sm">
-							Install the beta plugin from{" "}
-							<a
+							Install the beta plugin from the{" "}
+							<Link
 								className="text-foreground underline underline-offset-4"
-								href={legalEntity.releasesUrl}
-								rel="noreferrer"
-								target="_blank"
+								to="/download"
 							>
-								GitHub Releases
-							</a>
+								download page
+							</Link>
 							, then generate a token and open Tools → VISP Remote Control in
 							OBS. Paste the token there or import the downloaded config.ini.
 							VISP stores only a one-way hash, and generating another token

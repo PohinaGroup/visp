@@ -8,7 +8,9 @@ import {
 } from "@VISP/ui/components/card";
 import { createFileRoute, Link } from "@tanstack/react-router";
 
+import { getObsPluginRelease } from "@/functions/get-obs-releases";
 import { legalEntity } from "@/lib/legal";
+import type { ObsPluginRelease } from "@/lib/obs-releases";
 
 export const Route = createFileRoute("/download")({
 	head: () => ({
@@ -21,10 +23,13 @@ export const Route = createFileRoute("/download")({
 			},
 		],
 	}),
+	loader: () => getObsPluginRelease(),
 	component: DownloadPage,
 });
 
 function DownloadPage() {
+	const obsRelease = Route.useLoaderData();
+
 	return (
 		<main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-12 sm:py-16">
 			<header className="flex flex-col gap-4">
@@ -67,11 +72,11 @@ function DownloadPage() {
 						</Link>
 						<a
 							className={buttonVariants({ variant: "outline" })}
-							href={`${legalEntity.docsUrl}/docs/broadcaster-setup`}
+							href={`${legalEntity.docsUrl}/docs/get-started`}
 							rel="noreferrer"
 							target="_blank"
 						>
-							Broadcaster setup docs
+							Get started docs
 						</a>
 					</div>
 				</CardContent>
@@ -106,17 +111,11 @@ function DownloadPage() {
 							<CardTitle>OBS plugin</CardTitle>
 							<CardDescription>
 								Remote start/stop and scene control. Live in beta.
+								{obsRelease ? ` Latest: ${obsRelease.tagName}.` : null}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3">
-							<a
-								className={buttonVariants({ variant: "outline" })}
-								href={legalEntity.releasesUrl}
-								rel="noreferrer"
-								target="_blank"
-							>
-								Download from GitHub Releases
-							</a>
+							<ObsPluginDownloadLinks release={obsRelease} />
 							<p className="text-muted-foreground text-xs">
 								Install, then pair from the dashboard OBS card. Docs:{" "}
 								<a
@@ -272,5 +271,51 @@ function DownloadPage() {
 				</a>
 			</nav>
 		</main>
+	);
+}
+
+function ObsPluginDownloadLinks({
+	release,
+}: {
+	release: ObsPluginRelease | null;
+}) {
+	if (!release || release.assets.length === 0) {
+		return (
+			<a
+				className={buttonVariants({ variant: "outline" })}
+				href={legalEntity.releasesUrl}
+				rel="noreferrer"
+				target="_blank"
+			>
+				Download from GitHub Releases
+			</a>
+		);
+	}
+
+	return (
+		<div className="flex flex-col gap-2">
+			<div className="flex flex-wrap gap-2">
+				{release.assets.map((asset) => (
+					<a
+						key={asset.platform}
+						className={buttonVariants({ variant: "outline" })}
+						download={asset.fileName}
+						href={asset.downloadUrl}
+						rel="noreferrer"
+						target="_blank"
+					>
+						{asset.label}
+					</a>
+				))}
+			</div>
+			<a
+				className="text-muted-foreground text-xs underline underline-offset-4 hover:text-foreground"
+				href={release.htmlUrl}
+				rel="noreferrer"
+				target="_blank"
+			>
+				All assets on GitHub ({release.tagName})
+			</a>
+		</div>
 	);
 }

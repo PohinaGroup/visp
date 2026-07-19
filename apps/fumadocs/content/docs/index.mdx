@@ -1,53 +1,40 @@
 ---
-title: VISP Relay
-description: How the two-box SRT and RTMP relay works.
+title: VISP
+description: Your phone is the camera. Your OBS setup stays the studio.
 icon: Radio
 ---
 
-VISP is a self-service media relay for streamers. It moves
-an H.264/AAC feed between a remote encoder and OBS without transcoding it.
+VISP turns phones into remote cameras for the OBS production you already
+built. Sign in with Twitch or Kick, import a ready-made scene collection, go
+live from a phone or browser, and keep scenes, alerts, and graphics running at
+home.
 
-## Architecture
-
-| Box | Responsibilities |
-| --- | --- |
-| Relay | MediaMTX accepts SRT on UDP 8890 and RTMP on TCP 1935. Caddy serves the HTTPS RTT probe. |
-| App | Twitch and Kick login, path and credential management, PostgreSQL state, the portal, and MediaMTX authentication. |
-
-Both boxes communicate over Tailscale for administration and reconciliation.
-Media traffic uses the relay's public SRT or RTMP ports.
+VISP never asks for your Twitch or Kick stream key. The hosted beta is free.
 
 ## Start here
 
-- [Architecture](/docs/architecture) covers hosts and clients, media
-  authentication, hooks and reconciliation, snapshots, and OBS control flow.
-- [Broadcaster setup](/docs/broadcaster-setup) covers credential generation,
-  encoders, RTT guidance, OBS import, and Advanced Scene Switcher.
-- [Phone and browser app](/docs/phone-app) covers publishing from iOS,
-  Android, or a browser, chat, metadata, and the Apple Watch companion.
-- [OBS remote control](/docs/obs-remote-control) covers installing and pairing
-  the plugin, its security model, and troubleshooting.
-- [Local development](/docs/development) covers dependencies, environment
-  files, PostgreSQL, focused dev servers, migrations, and checks.
-- [Self-hosting](/docs/self-hosting) covers the two-host production layout,
-  MediaMTX bootstrap, firewalls, env files, rollout, and acceptance testing.
-- [Releases and updates](/docs/releases) covers the unified GitHub Release
-  workflow, version bumps, and the safe server-update path.
+- **[Get started](/docs/get-started)** — the end-to-end streamer path: sign in,
+  import OBS scenes, publish from phone or browser, and control OBS remotely.
+- [Phone and browser app](/docs/phone-app) — platforms, chat, stream info, and
+  the Apple Watch companion.
+- [OBS remote control](/docs/obs-remote-control) — install and pair the plugin
+  for start, stop, and scene switching.
+- [Encoders and fallback](/docs/broadcaster-setup) — Larix/Moblin, SRT latency
+  tuning, and Advanced Scene Switcher.
 
-## Security model
+## Operators
 
-Users authenticate with Twitch or Kick. VISP never asks for a provider stream
-key. Each path has an independently revocable publish credential, encrypted for
-authenticated re-reveal and stored with an Argon2id hash for relay
-authentication. Read credentials remain account-wide. A path always belongs to
-one user, and MediaMTX asks the app for permission before every new publish or
-read connection.
+- [Architecture](/docs/architecture) — hosts, media authentication, hooks, and
+  OBS control flow.
+- [Self-hosting](/docs/self-hosting) — two-host production layout, MediaMTX,
+  firewalls, and acceptance testing.
+- [Local development](/docs/development) — dependencies, env files, and focused
+  dev servers.
+- [Releases and updates](/docs/releases) — GitHub Release workflow and safe
+  server updates.
 
-The app intentionally sits on the connection-establishment path. If it is down,
-active streams survive but new connections fail authentication.
+## What VISP does not do
 
-## v1 boundaries
-
-VISP does not transcode, enforce quotas, bill users, host OBS, or run a custom
-scheduler. MediaMTX accepts one publisher per path: the first wins and a second
-publisher is rejected until the first disconnects.
+VISP does not transcode, bond networks, host OBS, or manage your destination
+stream key. MediaMTX accepts one publisher per path: the first wins until it
+disconnects.
