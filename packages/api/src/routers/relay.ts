@@ -14,6 +14,7 @@ import {
 	listPaths,
 	renamePath,
 	revealPublishPath,
+	revealReadUrls,
 	revokePath,
 	rotatePublishPath,
 	rotateReadSecret,
@@ -153,6 +154,7 @@ export const relayRoutes = {
 		status: relayProcedure.query(({ ctx }) => ({
 			handle: ctx.relayUser.handle,
 			readConfigured: Boolean(ctx.relayUser.readSecretHash),
+			readRevealable: Boolean(ctx.relayUser.readSecretEncrypted),
 			rotatedAt: ctx.relayUser.secretsRotatedAt?.toISOString() ?? null,
 			onboardedAt: ctx.relayUser.onboardedAt?.toISOString() ?? null,
 			deviceCount: ctx.relayUser.deviceCount,
@@ -161,6 +163,16 @@ export const relayRoutes = {
 		rotate: relayProcedure
 			.input(z.object({ kind: z.literal("read") }))
 			.mutation(({ ctx }) => rotateReadSecret(ctx.relayUser.id)),
+		revealRead: relayProcedure.mutation(async ({ ctx }) => {
+			const bundle = await revealReadUrls(ctx.relayUser.id);
+			if (!bundle) {
+				throw new TRPCError({
+					code: "NOT_FOUND",
+					message: "Rotate read credentials once to make them revealable",
+				});
+			}
+			return bundle;
+		}),
 	}),
 	onboarding: router({
 		complete: relayProcedure

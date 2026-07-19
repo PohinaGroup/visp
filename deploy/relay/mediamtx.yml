@@ -18,7 +18,7 @@ rtspAddress: 127.0.0.1:8554
 hls: false
 webrtc: true
 webrtcAddress: 127.0.0.1:8889
-webrtcAllowOrigins: ["https://stream.arvoitus.com"]
+webrtcAllowOrigins: ["https://stream.visp-stream.com"]
 webrtcTrustedProxies: ["127.0.0.1/32", "::1/128"]
 webrtcLocalUDPAddress: ":8189"
 webrtcLocalTCPAddress: ":8189"

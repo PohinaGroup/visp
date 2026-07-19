@@ -85,7 +85,10 @@ function RouteComponent() {
 			<ChainStrip />
 			<PublishingDevicesCard />
 			<ObsControlCard />
-			<section aria-labelledby="advanced-heading" className="flex flex-col gap-3">
+			<section
+				aria-labelledby="advanced-heading"
+				className="flex flex-col gap-3"
+			>
 				<h2
 					className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]"
 					id="advanced-heading"
@@ -166,7 +169,10 @@ function ChainNode({
 			href={href}
 		>
 			<span className="flex items-center gap-1.5 font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">
-				<span aria-hidden className={`size-1.5 rounded-full ${nodeDot[state]}`} />
+				<span
+					aria-hidden
+					className={`size-1.5 rounded-full ${nodeDot[state]}`}
+				/>
 				{label}
 			</span>
 			<span className="font-display text-lg uppercase leading-tight tracking-wide">
@@ -178,7 +184,10 @@ function ChainNode({
 
 function Connector() {
 	return (
-		<span aria-hidden className="h-px w-3 shrink-0 self-center bg-border sm:w-6" />
+		<span
+			aria-hidden
+			className="h-px w-3 shrink-0 self-center bg-border sm:w-6"
+		/>
 	);
 }
 
@@ -199,7 +208,10 @@ function ChainStrip() {
 	const obsStatus = obs.data;
 
 	return (
-		<nav aria-label="Signal chain" className="flex items-stretch overflow-x-auto">
+		<nav
+			aria-label="Signal chain"
+			className="flex items-stretch overflow-x-auto"
+		>
 			<ChainNode
 				href="#devices"
 				label="Sources"
@@ -241,6 +253,7 @@ type Outputs = inferRouterOutputs<AppRouter>;
 type PathView = Outputs["paths"]["list"][number];
 type SecretBundle = Outputs["secrets"]["rotate"];
 type PublishUrls = Outputs["paths"]["reveal"]["urls"];
+type CreatedDevice = Outputs["paths"]["create"];
 type Guidance = Outputs["rtt"]["submit"];
 type ObsPairing = Outputs["obs"]["pair"];
 type SnapshotView = Outputs["obs"]["snapshots"][number];
@@ -504,74 +517,74 @@ function ConnectionsCard() {
 				separately.
 			</p>
 			{connections.data?.map((connection) => {
-					const label = connection.provider === "twitch" ? "Twitch" : "Kick";
-					return (
-						<div
-							className="flex flex-wrap items-center justify-between gap-3 border p-3"
-							key={connection.provider}
-						>
-							<div className="flex flex-col gap-1">
-								<div className="flex items-center gap-2">
-									<span className="font-medium">{label}</span>
-									<Badge variant={connection.linked ? "secondary" : "outline"}>
-										{connection.linked ? "Linked" : "Not linked"}
-									</Badge>
-									{connection.enabled ? <Badge>Chat on</Badge> : null}
-								</div>
-								<span className="text-muted-foreground text-sm">
-									{connection.enabled
-										? "Messages can appear in VISP Native."
-										: "Chat is disabled."}
-								</span>
+				const label = connection.provider === "twitch" ? "Twitch" : "Kick";
+				return (
+					<div
+						className="flex flex-wrap items-center justify-between gap-3 border p-3"
+						key={connection.provider}
+					>
+						<div className="flex flex-col gap-1">
+							<div className="flex items-center gap-2">
+								<span className="font-medium">{label}</span>
+								<Badge variant={connection.linked ? "secondary" : "outline"}>
+									{connection.linked ? "Linked" : "Not linked"}
+								</Badge>
+								{connection.enabled ? <Badge>Chat on</Badge> : null}
 							</div>
-							<div className="flex flex-wrap gap-2">
-								{!connection.linked ? (
-									<Button
-										variant="outline"
-										onClick={() => void link(connection.provider)}
-									>
-										<LinkIcon data-icon="inline-start" />
-										Link
-									</Button>
-								) : connection.needsConsent ? (
-									<Button onClick={() => void link("twitch", true)}>
-										<MessageCircleIcon data-icon="inline-start" />
-										Authorize chat
-									</Button>
-								) : connection.enabled ? (
-									<Button
-										disabled={disable.isPending}
-										variant="outline"
-										onClick={() =>
-											disable.mutate({ provider: connection.provider })
-										}
-									>
-										Disable chat
-									</Button>
-								) : (
-									<Button
-										disabled={enable.isPending}
-										onClick={() =>
-											enable.mutate({ provider: connection.provider })
-										}
-									>
-										<MessageCircleIcon data-icon="inline-start" />
-										Enable chat
-									</Button>
-								)}
-								{connection.linked ? (
-									<Button
-										disabled={linkedCount < 2 || disable.isPending}
-										variant="ghost"
-										onClick={() =>
-											void unlink(connection.provider, connection.enabled)
-										}
-									>
-										<UnlinkIcon data-icon="inline-start" />
-										Unlink
-									</Button>
-								) : null}
-							</div>
+							<span className="text-muted-foreground text-sm">
+								{connection.enabled
+									? "Messages can appear in VISP Native."
+									: "Chat is disabled."}
+							</span>
+						</div>
+						<div className="flex flex-wrap gap-2">
+							{!connection.linked ? (
+								<Button
+									variant="outline"
+									onClick={() => void link(connection.provider)}
+								>
+									<LinkIcon data-icon="inline-start" />
+									Link
+								</Button>
+							) : connection.needsConsent ? (
+								<Button onClick={() => void link("twitch", true)}>
+									<MessageCircleIcon data-icon="inline-start" />
+									Authorize chat
+								</Button>
+							) : connection.enabled ? (
+								<Button
+									disabled={disable.isPending}
+									variant="outline"
+									onClick={() =>
+										disable.mutate({ provider: connection.provider })
+									}
+								>
+									Disable chat
+								</Button>
+							) : (
+								<Button
+									disabled={enable.isPending}
+									onClick={() =>
+										enable.mutate({ provider: connection.provider })
+									}
+								>
+									<MessageCircleIcon data-icon="inline-start" />
+									Enable chat
+								</Button>
+							)}
+							{connection.linked ? (
+								<Button
+									disabled={linkedCount < 2 || disable.isPending}
+									variant="ghost"
+									onClick={() =>
+										void unlink(connection.provider, connection.enabled)
+									}
+								>
+									<UnlinkIcon data-icon="inline-start" />
+									Unlink
+								</Button>
+							) : null}
+						</div>
 					</div>
 				);
 			})}
@@ -598,7 +611,14 @@ function CredentialsCard() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const reveal = useMutation(
+		trpc.secrets.revealRead.mutationOptions({
+			onSuccess: setBundle,
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const configured = statusQuery.data?.readConfigured;
+	const revealable = statusQuery.data?.readRevealable;
 
 	const downloadScene = () => {
 		if (!bundle?.sceneCollection) {
@@ -631,29 +651,46 @@ function CredentialsCard() {
 				device above.
 			</p>
 			{bundle ? (
-					<div className="flex flex-col gap-4">
-						<RevealedValue label="Read secret" value={bundle.revealed.read} />
-						{bundle.urls.read.map((url) => (
-							<div className="flex flex-col gap-2" key={url.slug}>
-								<span className="font-medium">Read: {url.slug}</span>
-								<RevealedValue label="Read SRT URL" value={url.srt} />
-								<RevealedValue label="Read RTMP fallback" value={url.rtmp} />
-							</div>
-						))}
-					</div>
+				<div className="flex flex-col gap-4">
+					<RevealedValue label="Read secret" value={bundle.revealed.read} />
+					{bundle.urls.read.map((url) => (
+						<div className="flex flex-col gap-2" key={url.slug}>
+							<span className="font-medium">Read: {url.slug}</span>
+							<RevealedValue label="Read SRT URL" value={url.srt} />
+							<RevealedValue label="Read RTMP fallback" value={url.rtmp} />
+						</div>
+					))}
+				</div>
 			) : (
 				<p className="text-muted-foreground text-sm">
 					{configured
-						? "Read credentials are stored as Argon2id hashes. Rotate them to create a new OBS collection."
+						? revealable
+							? "Reveal your read URLs anytime — one per device, including newly added ones. Rotating replaces the secret and breaks existing OBS sources."
+							: "Read credentials from before revealing was supported can only be replaced. Rotate once to make them revealable."
 						: "Generate read credentials to receive your device feeds in OBS."}
 				</p>
 			)}
 			<div className="flex flex-wrap gap-2">
+				{configured && revealable ? (
+					<Button disabled={reveal.isPending} onClick={() => reveal.mutate()}>
+						<EyeIcon data-icon="inline-start" />
+						Reveal read URLs
+					</Button>
+				) : null}
 				{configured ? (
 					<Button
 						disabled={rotate.isPending}
 						variant="outline"
-						onClick={() => rotate.mutate({ kind: "read" })}
+						onClick={() => {
+							if (
+								!revealable ||
+								window.confirm(
+									"Rotate read credentials? Existing OBS sources will stop working until you update them.",
+								)
+							) {
+								rotate.mutate({ kind: "read" });
+							}
+						}}
 					>
 						<RotateCwIcon data-icon="inline-start" />
 						Rotate read
@@ -882,14 +919,14 @@ function PublishingDevicesCard() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [label, setLabel] = useState("");
-	const [created, setCreated] = useState<PublishUrls | null>(null);
+	const [created, setCreated] = useState<CreatedDevice | null>(null);
 	const pathsQuery = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
 	);
 	const create = useMutation(
 		trpc.paths.create.mutationOptions({
 			onSuccess: async (result) => {
-				setCreated(result.urls);
+				setCreated(result);
 				setLabel("");
 				await queryClient.invalidateQueries();
 				toast.success("Publishing device created");
@@ -910,10 +947,53 @@ function PublishingDevicesCard() {
 			</CardHeader>
 			<CardContent className="flex flex-col gap-3">
 				{created ? (
-					<div className="flex flex-col gap-2">
-						<p className="font-medium">New device URL</p>
-						<RevealedValue label="Publish SRT URL" value={created.srt} />
-						<RevealedValue label="Publish RTMP fallback" value={created.rtmp} />
+					<div className="flex flex-col gap-4 border border-signal/40 bg-signal/5 p-3">
+						<div className="flex flex-col gap-2">
+							<p className="font-medium">
+								{created.path.label} — publish from your device
+							</p>
+							<RevealedValue label="Publish SRT URL" value={created.urls.srt} />
+							<RevealedValue
+								label="Publish RTMP fallback"
+								value={created.urls.rtmp}
+							/>
+						</div>
+						<div className="flex flex-col gap-2">
+							<p className="font-medium">
+								{created.path.label} — receive in OBS
+							</p>
+							{created.read ? (
+								<>
+									<p className="text-muted-foreground text-sm">
+										Add this as a Media Source in OBS to see the feed.
+									</p>
+									<RevealedValue
+										label="Read SRT URL"
+										value={created.read.srt}
+									/>
+									<RevealedValue
+										label="Read RTMP fallback"
+										value={created.read.rtmp}
+									/>
+								</>
+							) : (
+								<p className="text-muted-foreground text-sm">
+									To receive this feed in OBS, rotate your{" "}
+									<a className="underline" href="#obs-read">
+										OBS read credentials
+									</a>{" "}
+									once — after that, read URLs appear here automatically.
+								</p>
+							)}
+						</div>
+						<Button
+							className="self-start"
+							size="sm"
+							variant="ghost"
+							onClick={() => setCreated(null)}
+						>
+							Done, hide URLs
+						</Button>
 					</div>
 				) : null}
 				{pathsQuery.data?.length ? (
@@ -996,37 +1076,37 @@ function GuidanceCard() {
 				upward.
 			</p>
 			<FieldGroup>
-					<Field>
-						<FieldLabel htmlFor="network-profile">Network profile</FieldLabel>
-						<NativeSelect
-							className="w-full"
-							id="network-profile"
-							value={profile}
-							onChange={(event) =>
-								setProfile(event.target.value as "wired" | "wifi" | "cellular")
-							}
-						>
-							<NativeSelectOption value="wired">Wired</NativeSelectOption>
-							<NativeSelectOption value="wifi">Wi-Fi</NativeSelectOption>
-							<NativeSelectOption value="cellular">Cellular</NativeSelectOption>
-						</NativeSelect>
-					</Field>
-					<Field>
-						<FieldLabel htmlFor="rtt-ms">Estimated RTT (ms)</FieldLabel>
-						<Input
-							id="rtt-ms"
-							inputMode="numeric"
-							min={1}
-							max={10000}
-							type="number"
-							value={rtt}
-							onChange={(event) => setRtt(event.target.value)}
-						/>
-						<FieldDescription>
-							Use the relay probe or enter a measured value.
-						</FieldDescription>
-					</Field>
-				</FieldGroup>
+				<Field>
+					<FieldLabel htmlFor="network-profile">Network profile</FieldLabel>
+					<NativeSelect
+						className="w-full"
+						id="network-profile"
+						value={profile}
+						onChange={(event) =>
+							setProfile(event.target.value as "wired" | "wifi" | "cellular")
+						}
+					>
+						<NativeSelectOption value="wired">Wired</NativeSelectOption>
+						<NativeSelectOption value="wifi">Wi-Fi</NativeSelectOption>
+						<NativeSelectOption value="cellular">Cellular</NativeSelectOption>
+					</NativeSelect>
+				</Field>
+				<Field>
+					<FieldLabel htmlFor="rtt-ms">Estimated RTT (ms)</FieldLabel>
+					<Input
+						id="rtt-ms"
+						inputMode="numeric"
+						min={1}
+						max={10000}
+						type="number"
+						value={rtt}
+						onChange={(event) => setRtt(event.target.value)}
+					/>
+					<FieldDescription>
+						Use the relay probe or enter a measured value.
+					</FieldDescription>
+				</Field>
+			</FieldGroup>
 			{guidance ? (
 				<div className="flex flex-col gap-2 border p-3">
 					<strong>Recommended SRT latency: {guidance.ms} ms</strong>
@@ -1064,28 +1144,30 @@ function GuidanceCard() {
 
 function SetupCard() {
 	return (
-		<AdvancedSection tag="Advanced · Reference" title="OBS and scene switcher setup">
+		<AdvancedSection
+			tag="Advanced · Reference"
+			title="OBS and scene switcher setup"
+		>
 			<p className="text-muted-foreground text-sm">
 				Import the generated scene collection, then configure Advanced Scene
 				Switcher manually.
 			</p>
 			<ol className="list-decimal pl-5">
-					<li>
-						Use the Media condition, not Source, to detect whether bytes are
-						arriving.
-					</li>
-					<li>
-						Ensure every condition and action toggle is enabled (blue, not
-						grey).
-					</li>
-					<li>
-						Keep 2 second and 3 second debounces to avoid scene flapping during
-						reconnects.
-					</li>
-					<li>
-						Set a 2 second keyframe interval; enable adaptive bitrate in Larix
-						on cellular.
-					</li>
+				<li>
+					Use the Media condition, not Source, to detect whether bytes are
+					arriving.
+				</li>
+				<li>
+					Ensure every condition and action toggle is enabled (blue, not grey).
+				</li>
+				<li>
+					Keep 2 second and 3 second debounces to avoid scene flapping during
+					reconnects.
+				</li>
+				<li>
+					Set a 2 second keyframe interval; enable adaptive bitrate in Larix on
+					cellular.
+				</li>
 				<li>
 					Only one publisher can own a path at once; RTMP is the fallback when
 					UDP is blocked.

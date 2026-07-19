@@ -7,30 +7,30 @@ export const Route = createFileRoute("/")({
 	component: HomeComponent,
 });
 
-const scenarios = [
+const reasons = [
 	[
-		"On location",
-		"Street, venue, or travel coverage that still looks like a produced show — because OBS is running it.",
+		"Look produced",
+		"Alerts, overlays, stingers, scene switches — viewers see your full show, not a raw phone feed.",
 	],
 	[
-		"No phone-app limits",
-		"Alerts, scenes, stingers, and layout control. The phone feeds OBS instead of going live on its own.",
+		"No backpack",
+		"The phone you own and the OBS you already run. No encoder box, no IRL rig, nothing new to buy.",
 	],
 	[
-		"Guest cam",
-		"A friend's phone or a co-host on the road shows up as a proper scene, not a call window.",
+		"Survive dead zones",
+		"A signal dip doesn't kill the broadcast. Viewers stay in the stream while your phone recovers.",
 	],
 	[
-		"Venue Wi-Fi is trash",
-		"The camera rides mobile data. The actual stream leaves your stable home connection.",
+		"Keep your key safe",
+		"Your stream key stays in OBS at home — never on your phone, never lost with it.",
 	],
 	[
-		"Signal dips",
-		"A short mobile blip doesn't end the broadcast. Viewers stay in the stream while the phone recovers.",
+		"Bring a guest",
+		"A friend's phone drops into your show as a proper scene, not a call window.",
 	],
 	[
-		"Multiplatform",
-		"One phone feed; OBS sends the show to Twitch and anywhere else at once.",
+		"Go live everywhere",
+		"One phone feed, and OBS pushes the show to Twitch and every other platform at once.",
 	],
 ] as const;
 
@@ -41,24 +41,29 @@ function HomeComponent() {
 	return (
 		<main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-16 sm:py-24">
 			<div className="flex flex-col gap-5">
+				<img
+					src="/visp-logo.png"
+					alt="VISP"
+					className="-ml-2 h-24 w-24 object-contain"
+				/>
 				<div aria-hidden className="smpte-bars h-1.5 w-28" />
 				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					IRL relay for OBS
+					IRL streaming for OBS
 				</p>
 				<h1 className="font-bold font-display text-6xl uppercase leading-[0.92] tracking-tight sm:text-7xl">
-					Phone is the camera.
+					Go outside.
 					<br />
-					Home is the studio.
+					Keep the whole show.
 				</h1>
 				<p className="max-w-prose text-lg text-muted-foreground">
-					You're out with a phone on mobile data. Your OBS — overlays, alerts,
-					scene switches — stays on the PC at home. VISP carries the feed
-					between them, so going mobile never means giving up your production.
+					Stream IRL from just your phone — and still look like the produced
+					broadcast your viewers expect. Your alerts, overlays, and scenes stay
+					in, your stream survives bad signal, and you don't buy any new gear.
 				</p>
 			</div>
 
 			<dl className="flex flex-col border-t">
-				{scenarios.map(([term, detail]) => (
+				{reasons.map(([term, detail]) => (
 					<div
 						className="grid gap-1 border-b py-3 sm:grid-cols-[11rem_1fr] sm:gap-4"
 						key={term}
@@ -86,7 +91,7 @@ function HomeComponent() {
 					)}
 				</div>
 				<p className="font-mono text-muted-foreground/70 text-xs uppercase tracking-[0.2em]">
-					SRT/RTMP · no re-encode · your stream key never leaves OBS
+					SRT/RTMP · no re-encode · open source
 				</p>
 			</div>
 		</main>

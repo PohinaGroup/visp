@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=visp
-Group=visp
+User=root
+Group=root
 WorkingDirectory=/opt/visp/apps/server
 EnvironmentFile=/etc/visp/app.env
 ExecStart=/usr/local/bin/bun run dist/index.mjs

@@ -64,18 +64,10 @@ function secret() {
 	return randomBytes(24).toString("hex");
 }
 
-function publishSecretAad(userId: string, pathId: number) {
-	return Buffer.from(`${userId}:${pathId}`, "utf8");
-}
-
-export function encryptPublishSecret(
-	plaintext: string,
-	userId: string,
-	pathId: number,
-) {
+function encryptSecret(plaintext: string, aad: string) {
 	const iv = randomBytes(12);
 	const cipher = createCipheriv("aes-256-gcm", publishEncryptionKey, iv);
-	cipher.setAAD(publishSecretAad(userId, pathId));
+	cipher.setAAD(Buffer.from(aad, "utf8"));
 	const encrypted = Buffer.concat([
 		cipher.update(plaintext, "utf8"),
 		cipher.final(),
@@ -88,14 +80,10 @@ export function encryptPublishSecret(
 	].join(".");
 }
 
-export function decryptPublishSecret(
-	value: string,
-	userId: string,
-	pathId: number,
-) {
+function decryptSecret(value: string, aad: string) {
 	const [version, ivValue, tagValue, encryptedValue] = value.split(".");
 	if (version !== "v1" || !ivValue || !tagValue || !encryptedValue) {
-		throw new Error("Stored publish URL cannot be revealed");
+		throw new Error("Stored secret cannot be revealed");
 	}
 	try {
 		const decipher = createDecipheriv(
@@ -103,15 +91,40 @@ export function decryptPublishSecret(
 			publishEncryptionKey,
 			Buffer.from(ivValue, "base64url"),
 		);
-		decipher.setAAD(publishSecretAad(userId, pathId));
+		decipher.setAAD(Buffer.from(aad, "utf8"));
 		decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
 		return Buffer.concat([
 			decipher.update(Buffer.from(encryptedValue, "base64url")),
 			decipher.final(),
 		]).toString("utf8");
 	} catch {
-		throw new Error("Stored publish URL cannot be revealed");
+		throw new Error("Stored secret cannot be revealed");
 	}
+}
+
+export function encryptPublishSecret(
+	plaintext: string,
+	userId: string,
+	pathId: number,
+) {
+	return encryptSecret(plaintext, `${userId}:${pathId}`);
+}
+
+export function decryptPublishSecret(
+	value: string,
+	userId: string,
+	pathId: number,
+) {
+	return decryptSecret(value, `${userId}:${pathId}`);
+}
+
+// AAD "read" cannot collide with a pathId, so the read secret shares the key.
+function encryptReadSecret(plaintext: string, userId: string) {
+	return encryptSecret(plaintext, `${userId}:read`);
+}
+
+function decryptReadSecret(value: string, userId: string) {
+	return decryptSecret(value, `${userId}:read`);
 }
 
 export async function ensureRelayUser(userId: string, displayName: string) {
@@ -473,7 +486,24 @@ export async function createPublishDevice(userId: string, label: string) {
 	const path = await createPath(userId, label);
 	const device = await rotatePublishPath(userId, path.id);
 	if (!device) throw new Error("Failed to create publishing device");
-	return device;
+
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.id, userId),
+	});
+	let read = null;
+	if (owner?.readSecretEncrypted) {
+		try {
+			const readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
+			read = {
+				slug: path.slug,
+				srt: buildSrtUrl("read", path.slug, owner.handle, readSecret, 300_000),
+				rtmp: buildRtmpUrl(path.slug, owner.handle, readSecret),
+			};
+		} catch {
+			// Read secret predates encrypted storage; device creation still succeeds.
+		}
+	}
+	return { ...device, read };
 }
 
 function parseLegacyPublishUrl(value: string) {
@@ -621,6 +651,34 @@ export function buildSceneCollection(input: {
 	};
 }
 
+async function buildReadBundle(
+	userId: string,
+	handle: string,
+	readSecret: string,
+) {
+	const paths = await listPaths(userId);
+	const readUrls = paths.map((path) => ({
+		slug: path.slug,
+		srt: buildSrtUrl("read", path.slug, handle, readSecret, 300_000),
+		rtmp: buildRtmpUrl(path.slug, handle, readSecret),
+	}));
+
+	return {
+		handle,
+		revealed: { read: readSecret },
+		urls: { read: readUrls },
+		sceneCollection: {
+			filename: `${handle}-relay.json`,
+			json: buildSceneCollection({
+				handle,
+				latencyMicros: 300_000,
+				paths,
+				readSecret,
+			}),
+		},
+	};
+}
+
 export async function rotateReadSecret(userId: string) {
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.id, userId),
@@ -638,32 +696,22 @@ export async function rotateReadSecret(userId: string) {
 		.update(appUser)
 		.set({
 			readSecretHash,
+			readSecretEncrypted: encryptReadSecret(readSecret, userId),
 			secretsRotatedAt: new Date(),
 		})
 		.where(eq(appUser.id, userId));
 	invalidateAuthCacheForUser(userId);
 
-	const paths = await listPaths(userId);
-	const readUrls = paths.map((path) => ({
-		slug: path.slug,
-		srt: buildSrtUrl("read", path.slug, owner.handle, readSecret, 300_000),
-		rtmp: buildRtmpUrl(path.slug, owner.handle, readSecret),
-	}));
+	return buildReadBundle(userId, owner.handle, readSecret);
+}
 
-	return {
-		handle: owner.handle,
-		revealed: { read: readSecret },
-		urls: { read: readUrls },
-		sceneCollection: {
-			filename: `${owner.handle}-relay.json`,
-			json: buildSceneCollection({
-				handle: owner.handle,
-				latencyMicros: 300_000,
-				paths,
-				readSecret,
-			}),
-		},
-	};
+export async function revealReadUrls(userId: string) {
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.id, userId),
+	});
+	if (!owner?.readSecretEncrypted) return null;
+	const readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
+	return buildReadBundle(userId, owner.handle, readSecret);
 }
 
 export async function completeOnboarding(
