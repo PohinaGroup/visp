@@ -1,6 +1,24 @@
 #!/usr/bin/env bash
-# Ask whether to bump the shared release version before committing.
+# Ask whether to bump the shared release version, then verify the commit.
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
-exec "$root/scripts/bump-release-version.sh" --prompt
+cd "$root"
+
+"$root/scripts/bump-release-version.sh" --prompt
+
+version="$(git show :apps/native/app.json | jq -r .expo.version)"
+native_version="$(git show :apps/native/package.json | jq -r .version)"
+obs_version="$(git show :apps/obs-plugin/buildspec.json | jq -r .version)"
+ios_versions="$(git show :apps/native/ios/VISP.xcodeproj/project.pbxproj |
+	sed -nE 's/^[[:space:]]*MARKETING_VERSION = ([^;]+);/\1/p' | sort -u)"
+
+if [[ "$native_version" != "$version" || "$obs_version" != "$version" || "$ios_versions" != "$version" ]]; then
+	echo "error: staged release versions do not match (Expo=$version, native=$native_version, iOS=$ios_versions, OBS=$obs_version)" >&2
+	exit 1
+fi
+
+bun install --frozen-lockfile
+bun test
+bun run check-types
+bun run build

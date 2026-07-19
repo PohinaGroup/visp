@@ -1,11 +1,6 @@
 name: OBS plugin
 
 on:
-  workflow_call:
-  pull_request:
-    paths:
-      - apps/obs-plugin/**
-      - .github/workflows/obs-plugin.yml
   push:
     branches: [main]
     paths:

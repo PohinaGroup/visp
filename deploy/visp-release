@@ -91,7 +91,9 @@ systemctl restart visp-server visp-web
 systemctl reload caddy
 systemctl is-active --quiet visp-server visp-web caddy
 
-curl --fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
-curl --fail --silent --show-error http://127.0.0.1:3001/ >/dev/null
+curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
+curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3001/ >/dev/null
 
 echo "VISP $tag ($expected_sha) deployed"

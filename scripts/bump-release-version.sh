@@ -97,6 +97,11 @@ set_version() {
 		local pending_tag_file
 		pending_tag_file="$(git rev-parse --git-dir)/VISP_PENDING_RELEASE_TAG"
 		git add -- "$app_json" "$native_pkg" "$pbxproj" "$buildspec"
+		if ! git diff --quiet -- "$app_json" "$native_pkg" "$pbxproj" "$buildspec" ||
+			[[ "$(git show ":${app_json}" | jq -r .expo.version)" != "$version" ]]; then
+			echo "error: version bump was not added to the commit index" >&2
+			exit 1
+		fi
 		printf '%s\n' "$version" >"$pending_tag_file"
 		echo "Will create annotated tag v${version} after this commit succeeds."
 	fi
@@ -125,7 +130,7 @@ create_pending_tag() {
 		return 0
 	fi
 
-	head_version="$(jq -r .expo.version "$app_json")"
+	head_version="$(git show "HEAD:${app_json}" | jq -r .expo.version)"
 	if [[ "$head_version" != "$version" ]]; then
 		echo "warning: pending tag v${version} does not match HEAD version ${head_version}; skipping tag" >&2
 		return 0

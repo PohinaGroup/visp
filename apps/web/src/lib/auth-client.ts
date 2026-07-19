@@ -32,11 +32,6 @@ function getServerUrl(url: string) {
 	return `http://localhost:3000${normalized}`;
 }
 export const authClient = createAuthClient({
-	// better-auth derives its route-matching base from this URL's path, so the
-	// browser must use the current origin; SSR still needs an absolute URL.
-	baseURL:
-		typeof window === "undefined"
-			? new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString()
-			: "/api/auth",
+	baseURL: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
 	plugins: [genericOAuthClient()],
 });
