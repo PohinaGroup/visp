@@ -100,7 +100,6 @@ jobs:
         with:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
-          tags: tag:ci
 
       - name: Deploy exact release
         env:
@@ -141,25 +140,25 @@ jobs:
               --retry-delay 5 "$url" >/dev/null
           done
 
-  mobile:
-    name: Build and distribute mobile apps
-    needs: verify
-    runs-on: blacksmith-4vcpu-ubuntu-2404
-    environment: production
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
-
-      - name: Set up EAS
-        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
-        with:
-          eas-version: 18.13.0
-          token: ${{ secrets.EXPO_TOKEN }}
-
-      - name: Run mobile release workflow
-        working-directory: apps/native
-        env:
-          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
-        run: eas workflow:run .eas/workflows/release.yml --ref "$RELEASE_TAG" --non-interactive --wait
+#  mobile:
+#    name: Build and distribute mobile apps
+#    needs: verify
+#    runs-on: blacksmith-4vcpu-ubuntu-2404
+#    environment: production
+#    steps:
+#      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+#
+#      - name: Set up EAS
+#        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+#        with:
+#          eas-version: 18.13.0
+#          token: ${{ secrets.EXPO_TOKEN }}
+#
+#      - name: Run mobile release workflow
+#        working-directory: apps/native
+#        env:
+#          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+#        run: eas workflow:run .eas/workflows/release.yml --ref "$RELEASE_TAG" --non-interactive --wait
 
   obs:
     name: Build and attach OBS packages
