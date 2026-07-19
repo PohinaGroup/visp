@@ -2,7 +2,6 @@
 set -Eeuo pipefail
 
 readonly repo=/opt/visp
-readonly app_user=visp
 readonly bun=/usr/local/bin/bun
 readonly app_env=/etc/visp/app.env
 readonly web_env=/etc/visp/web.env
@@ -30,10 +29,6 @@ done
 exec 9>/run/lock/visp-release.lock
 flock -w 1800 9 || fail "another release is still running"
 
-run_as_app() {
-	runuser -u "$app_user" -- "$@"
-}
-
 run_with_env() (
 	local env_file=$1
 	shift
@@ -42,31 +37,32 @@ run_with_env() (
 	# shellcheck disable=SC1090
 	source "$env_file"
 	set +a
-	runuser -u "$app_user" -m -- "$@"
+	"$@"
 )
 
-if ! run_as_app git -C "$repo" diff --quiet ||
-	! run_as_app git -C "$repo" diff --cached --quiet; then
+if ! git -C "$repo" diff --quiet ||
+	! git -C "$repo" diff --cached --quiet; then
 	fail "$repo has tracked changes"
 fi
 
-run_as_app git -C "$repo" fetch --force --prune origin \
+git -C "$repo" fetch --force --prune origin \
 	"refs/tags/$tag:refs/tags/$tag"
-readonly actual_sha=$(run_as_app git -C "$repo" rev-parse "$tag^{commit}")
+readonly actual_sha=$(git -C "$repo" rev-parse "$tag^{commit}")
 [[ $actual_sha == "$expected_sha" ]] ||
 	fail "$tag resolves to $actual_sha, expected $expected_sha"
-run_as_app git -C "$repo" checkout --detach "$expected_sha"
+git -C "$repo" checkout --detach "$expected_sha"
 
-run_as_app "$bun" --cwd "$repo" install --frozen-lockfile
+"$bun" --cwd "$repo" install --frozen-lockfile
 run_with_env "$app_env" "$bun" --cwd "$repo" run db:migrate
 run_with_env "$web_env" "$bun" --cwd "$repo" x turbo run build -F server -F web
 run_with_env "$native_web_env" "$bun" --cwd "$repo/apps/native" run build:web
-run_as_app "$bun" --cwd "$repo/apps/fumadocs" run build
+"$bun" --cwd "$repo/apps/fumadocs" run build
 
 for output in \
 	apps/native/dist/index.html \
 	apps/fumadocs/.output/public/_shell.html \
 	apps/fumadocs/.output/public/docs/index.html \
+	apps/fumadocs/.output/public/docs/broadcaster-setup/index.html \
 	apps/fumadocs/.output/public/docs/deployment/index.html \
 	apps/fumadocs/.output/public/docs/development/index.html \
 	apps/fumadocs/.output/public/api/search \

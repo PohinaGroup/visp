@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Create vX.Y.Z after a commit that bumped the shared release version.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+exec "$root/scripts/bump-release-version.sh" --tag-pending

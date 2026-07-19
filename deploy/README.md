@@ -70,8 +70,8 @@ pprof stay disabled.
 
 ## 3. App box
 
-1. Install PostgreSQL, Bun, Tailscale, and Caddy; create the unprivileged `visp`
-   account and deploy the monorepo to `/opt/visp`.
+1. Install PostgreSQL, Bun, Tailscale, and Caddy; clone `PohinaGroup/visp` as
+   `root` into `/opt/visp`. The API and portal services run as `root`.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`, including the
    Twitch and Kick application credentials and snapshot bucket settings. Use
    the relay's Tailscale address for `MEDIAMTX_API_URL`, generate
@@ -88,11 +88,11 @@ pprof stay disabled.
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
-   `NATIVE_WEB_DOMAIN=stream.arvoitus.com`,
-   `DOCS_DOMAIN=docs.arvoitus.com`, and `RELAY_PUBLIC_IP` in
+   `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
+   `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IP` in
    `/etc/visp/caddy.env`. Caddy serves `apps/native/dist` and
    `apps/fumadocs/.output/public` directly; neither static site needs a runtime
-   service. Add `NATIVE_WEB_ORIGIN=https://stream.arvoitus.com` to
+   service. Add `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` to
    `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
    console. In the Kick developer dashboard, register
@@ -101,7 +101,7 @@ pprof stay disabled.
    needs the `user:read` scope; chat delivery uses the server's app token and
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
    SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for both
-   `stream.arvoitus.com` and `docs.arvoitus.com` before Caddy obtains their
+   `stream.visp-stream.com` and `docs.visp-stream.com` before Caddy obtains their
    certificates.
 6. Install the release helper as a root-owned executable:
 
@@ -109,8 +109,8 @@ pprof stay disabled.
    sudo install -m 0755 deploy/visp-release /usr/local/sbin/visp-release
    ```
 
-   Configure the restricted CI SSH account and GitHub production environment
-   described in [`UPDATE.md`](UPDATE.md).
+   Configure root key authentication over Tailscale and the GitHub production
+   environment described in [`UPDATE.md`](UPDATE.md).
 
 Do not put the MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relay's direct public IP, and the hook endpoints additionally
@@ -209,7 +209,7 @@ existing streams continue, while new publish/read connections fail authenticatio
 Deploy the API auth/CORS change first, then the static broadcaster and Caddy
 rules. Apply the MediaMTX WebRTC configuration in a maintenance window. Test
 current Chrome or Edge and Safari over HTTPS: OAuth must return to
-`https://stream.arvoitus.com/`; camera and microphone selection must work; Go
+`https://stream.visp-stream.com/`; camera and microphone selection must work; Go
 Live must mark the path live and update its snapshot; and OBS must continue to
 read that path over SRT with H.264/Opus. Stop must release the publisher and
 media devices. Finally block UDP 8189 at the client and prove TCP ICE fallback.

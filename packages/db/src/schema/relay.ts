@@ -32,6 +32,7 @@ export const appUser = pgTable("app_user", {
 	handle: text("handle").notNull().unique(),
 	publishSecretHash: text("publish_secret_hash"),
 	readSecretHash: text("read_secret_hash"),
+	readSecretEncrypted: text("read_secret_encrypted"),
 	secretsRotatedAt: timestamp("secrets_rotated_at", { withTimezone: true }),
 	deviceCount: integer("device_count"),
 	streamingSoftware: streamingSoftware("streaming_software"),

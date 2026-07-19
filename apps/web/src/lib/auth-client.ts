@@ -33,7 +33,10 @@ function getServerUrl(url: string) {
 }
 export const authClient = createAuthClient({
 	// better-auth derives its route-matching base from this URL's path, so the
-	// public auth path must equal the server-side mount (/api/auth everywhere)
-	baseURL: new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString(),
+	// browser must use the current origin; SSR still needs an absolute URL.
+	baseURL:
+		typeof window === "undefined"
+			? new URL("/api/auth", getServerUrl(env.VITE_SERVER_URL)).toString()
+			: "/api/auth",
 	plugins: [genericOAuthClient()],
 });

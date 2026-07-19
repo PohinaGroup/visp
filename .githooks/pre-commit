@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Ask whether to bump the shared release version before committing.
+set -euo pipefail
+
+root="$(git rev-parse --show-toplevel)"
+exec "$root/scripts/bump-release-version.sh" --prompt
