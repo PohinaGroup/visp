@@ -192,7 +192,12 @@ const styles = StyleSheet.create({
 		paddingHorizontal: 16,
 		paddingVertical: 9,
 	},
-	controls: { flexDirection: "row", gap: 8, justifyContent: "center" },
+	controls: {
+		flexDirection: "row",
+		gap: 8,
+		justifyContent: "center",
+		width: "100%",
+	},
 	disabled: { opacity: 0.45 },
 	label: {
 		color: "white",

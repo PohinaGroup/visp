@@ -61,7 +61,7 @@ function createQueryClient() {
 const trpcClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
-			url: `${getServerUrl(env.VITE_SERVER_URL)}/trpc`,
+			url: `${import.meta.env.PROD && typeof window !== "undefined" ? window.location.origin : getServerUrl(env.VITE_SERVER_URL)}/trpc`,
 			fetch(url, options) {
 				return fetch(url, {
 					...options,
