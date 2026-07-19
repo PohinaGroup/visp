@@ -64,3 +64,5 @@ outputs/
 .agents/
 .claude/skills/
 skills-lock.json
+
+PLAN1.md

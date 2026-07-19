@@ -5,8 +5,8 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=visp
-Group=visp
+User=root
+Group=root
 WorkingDirectory=/opt/visp/apps/web
 EnvironmentFile=/etc/visp/web.env
 Environment=HOST=127.0.0.1

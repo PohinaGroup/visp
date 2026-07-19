@@ -7,7 +7,7 @@ phone; Expo Go does not include the native SRT module.
 Start with the repository's [development guide](../../DEVELOPMENT.md) for the
 API, database, provider callbacks, and shared environment setup.
 
-Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch sign-in, the app creates and securely stores its publish URL automatically.
+Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch or Kick sign-in, the app creates and securely stores its publish URL automatically.
 
 Expo SDK 57 sets the deployment target to iOS 16.4, so this app cannot retain the original iOS 15 target without downgrading Expo. The upstream libsrt 1.5.4 x86_64 simulator slice is incomplete; arm64 iPhones and Apple-silicon simulators are supported.
 
@@ -58,5 +58,5 @@ committed iOS `MARKETING_VERSION` setting equal to the GitHub tag without its
 leading `v`.
 
 The browser build is released separately as static files at
-`https://stream.arvoitus.com`. Its two public URLs come from
+`https://stream.visp-stream.com`. Its two public URLs come from
 `/etc/visp/native-web.env`; see [`deploy/UPDATE.md`](../../deploy/UPDATE.md).

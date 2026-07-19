@@ -4,7 +4,7 @@ description: How the two-box SRT and RTMP relay works.
 icon: Radio
 ---
 
-VISP is a small self-service media relay for trusted Twitch streamers. It moves
+VISP is a self-service media relay for streamers. It moves
 an H.264/AAC feed between a remote encoder and OBS without transcoding it.
 
 ## Architecture
@@ -12,7 +12,7 @@ an H.264/AAC feed between a remote encoder and OBS without transcoding it.
 | Box | Responsibilities |
 | --- | --- |
 | Relay | MediaMTX accepts SRT on UDP 8890 and RTMP on TCP 1935. Caddy serves the HTTPS RTT probe. |
-| App | Twitch login, path and credential management, PostgreSQL state, the portal, and MediaMTX authentication. |
+| App | Twitch and Kick login, path and credential management, PostgreSQL state, the portal, and MediaMTX authentication. |
 
 Both boxes communicate over Tailscale for administration and reconciliation.
 Media traffic uses the relay's public SRT or RTMP ports.

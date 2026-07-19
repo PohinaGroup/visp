@@ -40,7 +40,9 @@
 		"db:studio": "turbo run db:studio -F @VISP/db",
 		"db:generate": "turbo run db:generate -F @VISP/db",
 		"db:migrate": "turbo run db:migrate -F @VISP/db",
-		"check": "biome check --write ."
+		"check": "biome check --write .",
+		"version:bump": "bash scripts/bump-release-version.sh",
+		"prepare": "git rev-parse --is-inside-work-tree >/dev/null 2>&1 && git config core.hooksPath .githooks || true"
 	},
 	"dependencies": {
 		"@VISP/env": "workspace:*",
