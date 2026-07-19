@@ -113,7 +113,9 @@ jobs:
 
       - name: Test
         shell: bash
-        run: ctest --test-dir "$PLUGIN_DIR/${{ matrix.build_dir }}" -C Release --output-on-failure
+        run: |
+          cmake --build "$PLUGIN_DIR/${{ matrix.build_dir }}" --config Release --target visp-protocol-test
+          ctest --test-dir "$PLUGIN_DIR/${{ matrix.build_dir }}" -C Release --output-on-failure
 
       - name: Package Windows
         if: runner.os == 'Windows'
@@ -160,7 +162,7 @@ jobs:
     name: Attach release packages
     if: github.event_name == 'release'
     needs: build
-    runs-on: ubuntu-24.04
+    runs-on: blacksmith-4vcpu-ubuntu-2404
     permissions:
       contents: write
     steps:
