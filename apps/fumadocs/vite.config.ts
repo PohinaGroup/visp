@@ -6,7 +6,6 @@ import { nitro } from "nitro/vite";
 import { defineConfig } from "vite";
 
 export default defineConfig({
-  preview: { port: 4173 },
   server: {
     host: process.env.HOST ?? "127.0.0.1",
     port: Number(process.env.PORT ?? 4000),
@@ -42,6 +41,12 @@ export default defineConfig({
     react(),
     // please see https://tanstack.com/start/latest/docs/framework/react/guide/hosting#nitro for guides on hosting
     nitro(),
+    // ponytail: Nitro turns port 0 into 3000; remove when it preserves ephemeral preview ports.
+    {
+      name: "restore-random-prerender-port",
+      apply: (_, { isPreview }) => Boolean(isPreview),
+      config: () => ({ preview: { port: 0 } }),
+    },
   ],
   resolve: {
     tsconfigPaths: true,

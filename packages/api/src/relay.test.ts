@@ -40,9 +40,10 @@ describe("relay guidance", () => {
 		expect(() => decryptPublishSecret(encrypted, "user-a", 2)).toThrow(
 			"cannot be revealed",
 		);
+		const ciphertextStart = encrypted.lastIndexOf(".") + 1;
 		expect(() =>
 			decryptPublishSecret(
-				`${encrypted.slice(0, -1)}${encrypted.endsWith("x") ? "y" : "x"}`,
+				`${encrypted.slice(0, ciphertextStart)}${encrypted[ciphertextStart] === "x" ? "y" : "x"}${encrypted.slice(ciphertextStart + 1)}`,
 				"user-a",
 				1,
 			),
