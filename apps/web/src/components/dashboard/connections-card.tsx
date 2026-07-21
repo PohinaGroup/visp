@@ -123,6 +123,9 @@ export function ConnectionsCard() {
 				: await authClient.oauth2.link({
 						providerId: provider,
 						callbackURL: authRedirectURL("/dashboard"),
+						errorCallbackURL: authRedirectURL(
+							"/dashboard?error=kick_link_failed",
+						),
 					});
 		if (result.error) {
 			toast.error(result.error.message ?? `Could not link ${provider}`);

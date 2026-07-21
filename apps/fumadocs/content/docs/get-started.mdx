@@ -4,8 +4,6 @@ description: Sign in, import OBS scenes, go live from a phone or browser, and co
 icon: Rocket
 ---
 
-Your phone is the camera. Your existing OBS setup stays the studio. Follow
-these steps once to reach first picture.
 
 ## 1. Sign in
 
@@ -17,13 +15,15 @@ only to identify your account — it never receives your stream key.
 
 ## 2. Finish setup and download the OBS scene file
 
-Answer the short setup questions (how many devices, what you stream with). When
-credentials appear, download the **OBS scene file**. Keep that download — VISP
-does not store the plaintext read secret for a later re-download.
+Choose your use case, publisher (**VISP app**, browser, OBS, Larix, Moblin, or
+another encoder), and destination. When the credentials step appears, download
+the OBS scene collection or copy the labeled URLs you need.
 
-![Setup wizard asking how many devices will stream](./images/web-setup.png)
-
-![Credentials step with Download OBS scene file](./images/web-credentials.png)
+The dashboard opens in **Simple** mode, where each video source has a copyable
+OBS URL and publish URL. Switch to **Advanced** for RTMP fallbacks, OBS read
+credential management, and the latency probe. You can reveal the read URLs and
+download the scene collection again later. Use **Rotate read** only when you
+intend to invalidate every existing OBS Media Source.
 
 ## 3. Import the scenes into OBS
 
@@ -50,8 +50,6 @@ for OBS Studio 31.
 The dashboard should show **Connected** within a few seconds. The OBS dialog can
 now add any device feed to the selected scene or create a VISP publishing
 device for this OBS profile.
-
-![Dashboard OBS remote control card](./images/web-obs-token.png)
 
 ![OBS Tools → VISP Remote Control dialog](./images/obs-plugin-tools.png)
 
@@ -85,10 +83,8 @@ Edge, or Safari, sign in, and publish over WebRTC.
 
 With the phone or browser live, select the imported device scene in OBS. The
 Media Source should show your camera feed. If the preview is black, wait a few
-seconds for SRT/WebRTC to connect, then check that the matching publishing
-device is live in the dashboard.
-
-![Dashboard with publishing devices and OBS status](./images/web-dashboard.png)
+seconds for SRT/WebRTC to connect, then check that the matching video source is
+live in the dashboard.
 
 ## 7. Control OBS from your phone
 

@@ -33,6 +33,16 @@ const PLATFORM_LABELS: Record<ObsPluginPlatform, string> = {
 	linux: "Ubuntu",
 };
 
+export function detectObsPluginPlatform(
+	userAgent: string,
+): ObsPluginPlatform | null {
+	if (/windows/i.test(userAgent)) return "windows";
+	if (/macintosh|macintel/i.test(userAgent)) return "macos";
+	if (!/android/i.test(userAgent) && /linux|x11/i.test(userAgent))
+		return "linux";
+	return null;
+}
+
 /** Classify a release asset name into a user-facing OBS install package. */
 export function classifyObsPluginAsset(
 	fileName: string,

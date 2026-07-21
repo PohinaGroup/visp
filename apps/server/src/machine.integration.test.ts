@@ -33,6 +33,7 @@ import {
 	rotatePublishPath,
 	rotateReadSecret,
 } from "@VISP/api/relay";
+import { appRouter } from "@VISP/api/routers/index";
 import { listSnapshots, snapshotKey } from "@VISP/api/snapshots";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
@@ -317,6 +318,49 @@ integration("relay PostgreSQL integration", () => {
 			userId: "user-a",
 		});
 		expect(await listPaths("user-a")).toHaveLength(1);
+	});
+
+	test("logs streaming clients out when setup is redone with a wipe", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ onboardedAt: new Date() })
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(authSession).values([
+			{
+				id: "dashboard-session",
+				token: "dashboard-token",
+				userId: "user-a",
+				expiresAt: new Date(Date.now() + 60_000),
+				updatedAt: new Date(),
+			},
+			{
+				id: "streaming-session",
+				token: "streaming-token",
+				userId: "user-a",
+				expiresAt: new Date(Date.now() + 60_000),
+				updatedAt: new Date(),
+			},
+		]);
+		const headers = new Headers({ authorization: "Bearer dashboard-token" });
+		const session = await auth.api.getSession({ headers });
+		if (!session) throw new Error("dashboard session was not created");
+
+		await appRouter
+			.createCaller({ auth: null, headers, session })
+			.onboarding.complete({
+				software: "visp",
+				useCase: "phone_to_obs",
+				destination: "twitch",
+				advancedMode: false,
+				createDevice: false,
+				redoMode: "wipe",
+			});
+
+		const sessions = await db.query.session.findMany({
+			where: eq(authSession.userId, "user-a"),
+		});
+		expect(sessions.map(({ token }) => token)).toEqual(["dashboard-token"]);
 	});
 
 	test("clamps reader counts and ignores unknown paths", async () => {

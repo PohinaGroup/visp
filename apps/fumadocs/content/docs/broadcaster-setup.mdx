@@ -15,15 +15,14 @@ If you publish with Larix, Moblin, or another SRT/RTMP encoder instead of the
 VISP app:
 
 1. Sign in to the portal with Twitch or Kick.
-2. Open **Publishing devices** and create a device.
-3. Copy that device's publish URL into the sending encoder (**Reveal URL**
-   shows the secret).
-4. Download a fresh OBS scene collection after the read secret is visible, or
-   add a Media Source by hand with the read URL.
+2. Open **Video sources** and choose **Add device**.
+3. Choose **Copy** next to **Add this to video source** and paste the URL into
+   the sending encoder.
+4. To use RTMP instead of the default SRT URL, switch the dashboard to
+   **Advanced**.
 
-Publish URLs stay hidden until you choose **Reveal URL**. Each device has an
-independent credential, so rotating or revoking one does not interrupt the
-others. OBS read credentials are still rotated separately.
+Each device has an independent publish credential, so rotating or revoking one
+does not interrupt the others. OBS read credentials are managed separately.
 
 Use SRT by default and RTMP only when the network blocks UDP. Configure H.264
 video, AAC audio, constant bitrate, and a two-second keyframe interval. Enable
@@ -56,8 +55,11 @@ sources use `ffmpeg_source`, MPEG-TS, low buffering, and automatic reconnects.
 
 ![Imported Scene, Fallback, and Media source](./images/obs-scenes.png)
 
-Creating a path later requires rotating the read secret and downloading a fresh
-collection. VISP cannot recreate the old file because it never stores plaintext.
+After creating a path, open **Advanced → OBS read credentials**, choose
+**Reveal read URLs**, and either copy the new path's OBS URL or download a fresh
+scene collection. You do not need to rotate the read credential. **Rotate
+read** invalidates every existing OBS Media Source, so use it only when you
+intend to replace them.
 
 ## Advanced Scene Switcher
 

@@ -31,8 +31,8 @@ MediaMTX asks the app before every new connection by calling
 2. Everything else must present a username and password.
 3. Allowed combinations are SRT publish/read, RTMP publish/read, and WebRTC
    publish. Other protocols and actions are rejected.
-4. The app verifies the credential against the path's Argon2id hash and answers
-   allow or deny.
+4. The app verifies the credential against the matching Argon2id hash and
+   answers allow or deny.
 
 Because the app sits only on connection establishment, an app outage leaves
 established streams running while new publish and read attempts fail
@@ -44,8 +44,10 @@ authentication. This is the accepted failure mode.
   stored twice: encrypted for authenticated re-reveal in the portal, and as an
   Argon2id hash for relay authentication. Rotating one device never interrupts
   the others.
-- The **read credential** is account-wide and returned only at rotation time.
-  VISP keeps no plaintext, so a new OBS scene collection requires a rotation.
+- The **read credential** is account-wide. Like publish credentials, its secret
+  is encrypted for authenticated re-reveal and stored as an Argon2id hash for
+  MediaMTX authentication. Revealing it can regenerate OBS URLs and scene
+  collections; rotating it invalidates every existing OBS Media Source.
 - A path always belongs to exactly one user, and MediaMTX accepts one publisher
   per path: the first connection wins until it disconnects.
 

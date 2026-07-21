@@ -6,13 +6,7 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { bearer, deviceAuthorization, genericOAuth } from "better-auth/plugins";
-
-type KickUser = {
-	email: string;
-	name: string;
-	profile_picture?: string | null;
-	user_id: number;
-};
+import { fetchKickAuthUser } from "./kick-user-info";
 
 const snapshots = new Bun.S3Client({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
@@ -99,24 +93,10 @@ export function createAuth() {
 						pkce: true,
 						scopes: ["user:read", "channel:write"],
 						getUserInfo: async ({ accessToken }) => {
-							const response = await fetch(
-								"https://api.kick.com/public/v1/users",
-								{
-									headers: { Authorization: `Bearer ${accessToken}` },
-								},
-							);
-							if (!response.ok) return null;
-							const payload = (await response.json()) as { data?: KickUser[] };
-							const profile = payload.data?.[0];
-							if (!profile?.email || !profile.name || !profile.user_id)
-								return null;
-							return {
-								id: String(profile.user_id),
-								email: profile.email,
-								emailVerified: false,
-								name: profile.name,
-								image: profile.profile_picture ?? undefined,
-							};
+							if (!accessToken) return null;
+							// Kick often omits email; better-auth still requires one, so we
+							// synthesize a stable placeholder when the API leaves it blank.
+							return fetchKickAuthUser(accessToken);
 						},
 					},
 				],

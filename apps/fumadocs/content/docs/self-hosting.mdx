@@ -25,7 +25,8 @@ secrets out of Git. Put production env files under `/etc/visp/` with mode
 - [Tailscale](https://tailscale.com/) on both hosts for admin and the MediaMTX
   Control API
 - [Caddy](https://caddyserver.com/) on both hosts
-- [Bun](https://bun.sh/) 1.3.14+ and PostgreSQL 17+ on the app host
+- [Bun](https://bun.sh/) 1.3.14+ and PostgreSQL 18 on the app host (matching
+  the local Compose target)
 - `ffmpeg` and `curl` on the relay host
 - Twitch and Kick developer applications for OAuth (and Kick chat webhooks)
 - A private S3-compatible bucket for live-path JPEG snapshots

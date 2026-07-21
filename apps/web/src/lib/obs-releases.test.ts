@@ -2,22 +2,34 @@ import { describe, expect, test } from "bun:test";
 
 import {
 	classifyObsPluginAsset,
+	detectObsPluginPlatform,
 	githubRepoFromSourceUrl,
 	parseObsPluginRelease,
 	pickObsPluginAssets,
 } from "./obs-releases";
 
+test("detects desktop OBS platforms without treating Android as Linux", () => {
+	expect(detectObsPluginPlatform("Windows NT 10.0; Win64; x64")).toBe(
+		"windows",
+	);
+	expect(detectObsPluginPlatform("Macintosh; Intel Mac OS X 10_15_7")).toBe(
+		"macos",
+	);
+	expect(detectObsPluginPlatform("X11; Linux x86_64")).toBe("linux");
+	expect(detectObsPluginPlatform("Linux; Android 15")).toBeNull();
+});
+
 describe("classifyObsPluginAsset", () => {
 	test("maps install packages to platforms", () => {
-		expect(
-			classifyObsPluginAsset("visp-obs-1.0.12-windows-x64.zip"),
-		).toBe("windows");
-		expect(
-			classifyObsPluginAsset("visp-obs-1.0.12-macos-universal.pkg"),
-		).toBe("macos");
-		expect(
-			classifyObsPluginAsset("visp-obs-1.0.12-x86_64-linux-gnu.deb"),
-		).toBe("linux");
+		expect(classifyObsPluginAsset("visp-obs-1.0.12-windows-x64.zip")).toBe(
+			"windows",
+		);
+		expect(classifyObsPluginAsset("visp-obs-1.0.12-macos-universal.pkg")).toBe(
+			"macos",
+		);
+		expect(classifyObsPluginAsset("visp-obs-1.0.12-x86_64-linux-gnu.deb")).toBe(
+			"linux",
+		);
 	});
 
 	test("ignores debug, source, and checksum assets", () => {

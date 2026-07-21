@@ -8,7 +8,10 @@ import { DownloadIcon, ExternalLinkIcon } from "lucide-react";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
 import { legalEntity } from "@/lib/legal";
-import type { ObsPluginRelease } from "@/lib/obs-releases";
+import {
+	detectObsPluginPlatform,
+	type ObsPluginRelease,
+} from "@/lib/obs-releases";
 
 export function ObsPluginPromo({
 	release,
@@ -40,32 +43,28 @@ export function ObsPluginPromo({
 				<List listStyle="decimal">
 					<ListItem label="Install the VISP OBS plugin for your OS (beta)." />
 					<ListItem label="In OBS, open Tools → VISP and sign in with Twitch or Kick in your browser." />
-					<ListItem label='Approve the plugin, then use “Add to current scene” for your phone or other device.' />
+					<ListItem label="Approve the plugin, then use “Add to current scene” for your phone or other device." />
 					<ListItem label="Go live from OBS as usual — your provider stream key never enters VISP." />
 				</List>
 				<HStack gap={2} wrap="wrap">
-					{release?.assets.length ? (
-						release.assets.map((asset) => (
-							<Button
-								key={asset.platform}
-								icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
-								label={asset.label}
-								variant="primary"
-								onClick={() =>
-									window.open(asset.downloadUrl, "_blank", "noreferrer")
-								}
-							/>
-						))
-					) : (
-						<Button
-							icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
-							label="Download from GitHub Releases"
-							variant="primary"
-							onClick={() =>
-								window.open(legalEntity.releasesUrl, "_blank", "noreferrer")
-							}
-						/>
-					)}
+					<Button
+						icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
+						label="Download OBS plugin"
+						variant="primary"
+						onClick={() => {
+							const platform = detectObsPluginPlatform(navigator.userAgent);
+							const asset = release?.assets.find(
+								(candidate) => candidate.platform === platform,
+							);
+							window.open(
+								asset?.downloadUrl ??
+									release?.htmlUrl ??
+									legalEntity.releasesUrl,
+								"_blank",
+								"noreferrer",
+							);
+						}}
+					/>
 					<Button
 						icon={<Icon color="inherit" icon={ExternalLinkIcon} size="sm" />}
 						label="Plugin docs"

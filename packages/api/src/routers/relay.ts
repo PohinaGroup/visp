@@ -1,3 +1,4 @@
+import { auth } from "@VISP/auth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
@@ -221,7 +222,11 @@ export const relayRoutes = {
 			)
 			.mutation(async ({ ctx, input }) => {
 				try {
-					return await completeOnboarding(ctx.relayUser.id, input);
+					const result = await completeOnboarding(ctx.relayUser.id, input);
+					if (input.redoMode === "wipe") {
+						await auth.api.revokeOtherSessions({ headers: ctx.headers });
+					}
+					return result;
 				} catch (error) {
 					if (
 						error instanceof Error &&
