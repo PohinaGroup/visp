@@ -51,46 +51,10 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				.delete(authSession)
 				.where(eq(authSession.id, activeSession.session.id));
 			const pairing = await rotateObsControlToken(relayUser.id);
-			// Public HTTPS origin — request.url is http:// behind Caddy TLS termination.
-			const controlUrl = new URL(
-				"/api/obs/control",
-				env.BETTER_AUTH_URL,
-			).toString();
-			// #region agent log
-			const connectUrl = new URL(request.url);
-			const tokenId = pairing.token.split(".")[0] ?? "";
-			fetch(
-				"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-Debug-Session-Id": "b39b08",
-					},
-					body: JSON.stringify({
-						sessionId: "b39b08",
-						runId: "post-fix",
-						hypothesisId: "A",
-						location: "machine.ts:connect",
-						message: "obs connect issued pairing",
-						data: {
-							requestScheme: connectUrl.protocol,
-							requestHost: connectUrl.host,
-							controlUrl,
-							controlScheme: new URL(controlUrl).protocol,
-							controlHost: new URL(controlUrl).host,
-							userIdPrefix: activeSession.user.id.slice(0, 8),
-							tokenIdPrefix: tokenId.slice(0, 6),
-							tokenLen: pairing.token.length,
-						},
-						timestamp: Date.now(),
-					}),
-				},
-			).catch(() => {});
-			// #endregion
 			return {
 				account: { handle: relayUser.handle, name: activeSession.user.name },
-				controlUrl,
+				// Public HTTPS origin — request.url is http:// behind Caddy TLS termination.
+				controlUrl: new URL("/api/obs/control", env.BETTER_AUTH_URL).toString(),
 				token: pairing.token,
 			};
 		} catch (error) {
@@ -106,41 +70,6 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 	.get("/api/obs/devices", async ({ headers }) => {
 		try {
 			const owner = await authenticateObsControlToken(headers.authorization);
-			// #region agent log
-			const parsed = headers.authorization?.startsWith("Bearer ")
-				? headers.authorization.slice(7).split(".")
-				: [];
-			fetch(
-				"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-Debug-Session-Id": "b39b08",
-					},
-					body: JSON.stringify({
-						sessionId: "b39b08",
-						runId: "pre-fix",
-						hypothesisId: "C",
-						location: "machine.ts:devices",
-						message: owner
-							? "obs devices auth ok"
-							: "obs devices auth rejected",
-						data: {
-							hasAuthorization: Boolean(headers.authorization),
-							authPrefix: headers.authorization?.slice(0, 10) ?? null,
-							tokenParts: parsed.length,
-							idLen: parsed[0]?.length ?? 0,
-							secretLen: parsed[1]?.length ?? 0,
-							idPrefix: parsed[0]?.slice(0, 6) ?? null,
-							authenticated: Boolean(owner),
-							userIdPrefix: owner?.id.slice(0, 8) ?? null,
-						},
-						timestamp: Date.now(),
-					}),
-				},
-			).catch(() => {});
-			// #endregion
 			if (!owner) return status(401, "unauthorized");
 			const paths = await listPaths(owner.id);
 			return {

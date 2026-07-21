@@ -339,7 +339,6 @@ int main(void)
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
-#include <fstream>
 #include <functional>
 #include <obs-frontend-api.h>
 #include <obs-hotkey.h>
@@ -349,42 +348,6 @@ int main(void)
 
 #define CONFIG_SECTION "visp"
 #define DEFAULT_CONTROL_URL "https://visp-stream.com/api/obs/control"
-
-// #region agent log
-static void agent_dbg(const char *hypothesisId, const char *location, const char *message,
-		      const QJsonObject &data)
-{
-	QJsonObject payload{{"sessionId", "b39b08"},
-			    {"runId", "pre-fix"},
-			    {"hypothesisId", hypothesisId},
-			    {"location", location},
-			    {"message", message},
-			    {"data", data},
-			    {"timestamp", QDateTime::currentMSecsSinceEpoch()}};
-	std::ofstream out("/Users/joni/koodaus/VISP/.cursor/debug-b39b08.log", std::ios::app);
-	if (!out)
-		return;
-	out << QJsonDocument(payload).toJson(QJsonDocument::Compact).constData() << '\n';
-}
-
-static QJsonObject token_meta(const QString &token)
-{
-	const QStringList parts = token.split('.');
-	return QJsonObject{{"len", token.size()},
-			   {"parts", parts.size()},
-			   {"idLen", parts.value(0).size()},
-			   {"secretLen", parts.value(1).size()},
-			   {"idPrefix", parts.value(0).left(6)}};
-}
-
-static QJsonObject url_meta(const QUrl &url)
-{
-	return QJsonObject{{"scheme", url.scheme()},
-			   {"host", url.host()},
-			   {"port", url.port()},
-			   {"path", url.path()}};
-}
-// #endregion
 
 OBS_DECLARE_MODULE()
 OBS_MODULE_USE_DEFAULT_LOCALE(PLUGIN_NAME, "en-US")
@@ -728,32 +691,13 @@ private:
 	{
 		const plugin_config value = settings();
 		if (value.token.isEmpty() || !secure_url(value.control_url)) {
-			// #region agent log
-			agent_dbg("B", "plugin-main.cpp:load_devices", "missing token or insecure control url",
-				  QJsonObject{{"tokenEmpty", value.token.isEmpty()},
-					      {"secure", secure_url(value.control_url)},
-					      {"control", url_meta(QUrl(value.control_url))},
-					      {"token", token_meta(value.token)}});
-			// #endregion
 			account_status.setText("Sign in or enter a valid pairing token.");
 			clear_devices();
 			return;
 		}
 		account_status.setText("Loading publishing devices…");
-		const QUrl devices_url = endpoint_url(value.control_url, "/api/obs/devices");
-		// #region agent log
-		agent_dbg("A", "plugin-main.cpp:load_devices", "requesting devices",
-			  QJsonObject{{"control", url_meta(QUrl(value.control_url))},
-				      {"endpoint", url_meta(devices_url)},
-				      {"token", token_meta(value.token)}});
-		// #endregion
-		send(devices_url, false, {}, value.token, [this](int status, const QByteArray &body) {
-			     // #region agent log
-			     agent_dbg("A", "plugin-main.cpp:load_devices:response", "devices response",
-				       QJsonObject{{"status", status},
-						   {"bodyLen", body.size()},
-						   {"bodyPrefix", QString::fromUtf8(body.left(80))}});
-			     // #endregion
+		send(endpoint_url(value.control_url, "/api/obs/devices"), false, {}, value.token,
+		     [this](int status, const QByteArray &body) {
 			     devices_response response;
 			     if (status >= 200 && status < 300 && parse_devices_response(body, &response)) {
 				     render_devices(response);
@@ -830,28 +774,11 @@ private:
 	void exchange_session(const QString &access_token)
 	{
 		account_status.setText("Finishing VISP connection…");
-		const QUrl connect_url = endpoint_url(url.text().trimmed(), "/api/obs/connect");
-		// #region agent log
-		agent_dbg("A", "plugin-main.cpp:exchange_session", "calling connect",
-			  QJsonObject{{"fromUrl", url_meta(QUrl(url.text().trimmed()))},
-				      {"endpoint", url_meta(connect_url)},
-				      {"accessTokenLen", access_token.size()}});
-		// #endregion
-		send(connect_url, true, {}, access_token, [this](int status, const QByteArray &body) {
+		send(endpoint_url(url.text().trimmed(), "/api/obs/connect"), true, {}, access_token,
+		     [this](int status, const QByteArray &body) {
 			     connection_response response;
-			     const bool parsed = parse_connection_response(body, &response);
-			     const bool secure = parsed && secure_url(response.control_url);
-			     // #region agent log
-			     agent_dbg("A", "plugin-main.cpp:exchange_session:response", "connect response",
-				       QJsonObject{{"status", status},
-						   {"parsed", parsed},
-						   {"secure", secure},
-						   {"control", parsed ? url_meta(QUrl(response.control_url))
-								      : QJsonObject{}},
-						   {"token", parsed ? token_meta(response.token) : QJsonObject{}},
-						   {"bodyPrefix", QString::fromUtf8(body.left(120))}});
-			     // #endregion
-			     if (status < 200 || status >= 300 || !parsed || !secure) {
+			     if (status < 200 || status >= 300 || !parse_connection_response(body, &response) ||
+				 !secure_url(response.control_url)) {
 				     account_status.setText(response_error(body, "Could not finish VISP connection."));
 				     return;
 			     }
