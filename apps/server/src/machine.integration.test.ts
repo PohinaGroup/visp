@@ -588,7 +588,13 @@ integration("relay PostgreSQL integration", () => {
 			}),
 		);
 		expect(connect.status).toBe(200);
-		const connected = (await connect.json()) as { token: string };
+		const connected = (await connect.json()) as {
+			token: string;
+			controlUrl: string;
+		};
+		expect(connected.controlUrl).toBe(
+			new URL("/api/obs/control", process.env.BETTER_AUTH_URL).toString(),
+		);
 		expect(
 			await db.query.session.findFirst({
 				where: eq(authSession.token, temporary.access_token),

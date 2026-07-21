@@ -75,17 +75,95 @@ export async function authenticateObsControlToken(
 	authorization: string | undefined,
 ) {
 	const token = parseObsControlToken(authorization);
-	if (!token) return null;
+	if (!token) {
+		// #region agent log
+		fetch(
+			"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Debug-Session-Id": "b39b08",
+				},
+				body: JSON.stringify({
+					sessionId: "b39b08",
+					runId: "pre-fix",
+					hypothesisId: "C",
+					location: "obs-control.ts:authenticate",
+					message: "token parse failed",
+					data: {
+						hasAuthorization: Boolean(authorization),
+						startsWithBearer: Boolean(
+							authorization?.startsWith("Bearer "),
+						),
+						rawLen: authorization?.length ?? 0,
+					},
+					timestamp: Date.now(),
+				}),
+			},
+		).catch(() => {});
+		// #endregion
+		return null;
+	}
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.obsControlTokenId, token.id),
 	});
-	if (!owner?.obsControlTokenHash) return null;
+	if (!owner?.obsControlTokenHash) {
+		// #region agent log
+		fetch(
+			"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
+			{
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Debug-Session-Id": "b39b08",
+				},
+				body: JSON.stringify({
+					sessionId: "b39b08",
+					runId: "pre-fix",
+					hypothesisId: "D",
+					location: "obs-control.ts:authenticate",
+					message: "token id not found or hash missing",
+					data: {
+						idPrefix: token.id.slice(0, 6),
+						ownerFound: Boolean(owner),
+						hasHash: Boolean(owner?.obsControlTokenHash),
+					},
+					timestamp: Date.now(),
+				}),
+			},
+		).catch(() => {});
+		// #endregion
+		return null;
+	}
 	const providedHash = Buffer.from(hashToken(token.secret), "hex");
 	const storedHash = Buffer.from(owner.obsControlTokenHash, "hex");
-	return storedHash.length === providedHash.length &&
-		timingSafeEqual(providedHash, storedHash)
-		? owner
-		: null;
+	const ok =
+		storedHash.length === providedHash.length &&
+		timingSafeEqual(providedHash, storedHash);
+	// #region agent log
+	fetch("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Debug-Session-Id": "b39b08",
+		},
+		body: JSON.stringify({
+			sessionId: "b39b08",
+			runId: "pre-fix",
+			hypothesisId: "D",
+			location: "obs-control.ts:authenticate",
+			message: ok ? "token hash matched" : "token hash mismatch",
+			data: {
+				idPrefix: token.id.slice(0, 6),
+				userIdPrefix: owner.id.slice(0, 8),
+				ok,
+			},
+			timestamp: Date.now(),
+		}),
+	}).catch(() => {});
+	// #endregion
+	return ok ? owner : null;
 }
 
 export async function revokeObsControlToken(userId: string) {
