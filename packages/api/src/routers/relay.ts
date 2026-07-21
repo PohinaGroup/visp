@@ -8,6 +8,7 @@ import {
 	setObsStreaming,
 } from "../obs-control";
 import {
+	buildMaskedPathUrls,
 	claimNativePublishDevice,
 	completeOnboarding,
 	createPublishDevice,
@@ -85,6 +86,11 @@ export const relayRoutes = {
 					!path.lastEventAt || Date.now() - path.lastEventAt.getTime() > 60_000;
 				return {
 					...path,
+					maskedUrls: buildMaskedPathUrls(
+						path,
+						ctx.relayUser.handle,
+						Boolean(ctx.relayUser.readSecretEncrypted),
+					),
 					lastEventAt: path.lastEventAt?.toISOString() ?? null,
 					publishLastConnectedAt:
 						path.publishLastConnectedAt?.toISOString() ?? null,
@@ -209,6 +215,7 @@ export const relayRoutes = {
 					]),
 					destination: z.enum(["twitch", "kick", "other"]),
 					advancedMode: z.boolean(),
+					createDevice: z.boolean().optional(),
 					redoMode: z.enum(["additive", "wipe"]).optional(),
 				}),
 			)

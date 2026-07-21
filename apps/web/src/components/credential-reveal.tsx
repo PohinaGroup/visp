@@ -5,6 +5,7 @@ import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
 import { CopyIcon } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 
 export function CopyButton({
@@ -13,28 +14,89 @@ export function CopyButton({
 	variant = "secondary",
 	size = "sm",
 }: {
-	value: string;
+	value: string | (() => Promise<string>);
 	label?: string;
 	variant?: "primary" | "secondary" | "ghost";
 	size?: "sm" | "md";
 }) {
+	const [isLoading, setIsLoading] = useState(false);
 	const copy = async () => {
+		setIsLoading(true);
 		try {
-			await navigator.clipboard.writeText(value);
+			await navigator.clipboard.writeText(
+				typeof value === "function" ? await value() : value,
+			);
 			toast.success("Copied");
-		} catch {
-			toast.error("Could not copy to the clipboard");
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Could not copy to the clipboard",
+			);
+		} finally {
+			setIsLoading(false);
 		}
 	};
 
 	return (
 		<Button
 			icon={<Icon color="inherit" icon={CopyIcon} size="sm" />}
+			isLoading={isLoading}
 			label={label}
 			size={size}
 			variant={variant}
 			onClick={copy}
 		/>
+	);
+}
+
+export function MaskedUrlWithFallback({
+	label,
+	srt,
+	rtmp,
+	getSrt,
+	getRtmp,
+}: {
+	label: string;
+	srt: string;
+	rtmp: string;
+	getSrt: () => Promise<string>;
+	getRtmp: () => Promise<string>;
+}) {
+	return (
+		<VStack gap={2}>
+			<Card padding={3} variant="muted">
+				<VStack gap={2}>
+					<HStack gap={3} hAlign="between" vAlign="center">
+						<Text type="label">{label}</Text>
+						<CopyButton label="Copy URL" value={getSrt} />
+					</HStack>
+					<Text type="code" wordBreak="break-all">
+						{srt}
+					</Text>
+				</VStack>
+			</Card>
+			<Collapsible
+				defaultIsOpen={false}
+				trigger={
+					<Text color="secondary" type="supporting">
+						App doesn't accept SRT? Show the RTMP URL
+					</Text>
+				}
+			>
+				<Card padding={3} variant="muted">
+					<VStack gap={2}>
+						<HStack gap={3} hAlign="between" vAlign="center">
+							<Text type="label">RTMP fallback</Text>
+							<CopyButton label="Copy URL" value={getRtmp} />
+						</HStack>
+						<Text type="code" wordBreak="break-all">
+							{rtmp}
+						</Text>
+					</VStack>
+				</Card>
+			</Collapsible>
+		</VStack>
 	);
 }
 

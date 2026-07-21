@@ -35,7 +35,7 @@ const LANDING_SUGGESTION_RESPONSES: Record<string, string> = {
 };
 
 const SETUP_PROMPT = `You are Seppo, the concise and friendly VISP setup assistant.
-Help users finish VISP setup. Setup always creates one publishing device; they can add more later on the dashboard.
+Help users finish VISP setup. Setup creates one publishing device unless they choose the VISP mobile app, which creates its device automatically after sign-in. They can add more later on the dashboard.
 
 Wizard steps:
 1. Use case: phone camera into OBS, remote guest/friend feed into OBS, multi-cam (start with one), or something else.

@@ -48,6 +48,7 @@ import { Fragment, type ReactNode, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
 	downloadSceneCollection,
+	MaskedUrlWithFallback,
 	RevealedValue,
 	UrlWithFallback,
 } from "@/components/credential-reveal";
@@ -401,8 +402,7 @@ function ChainStrip() {
 type Outputs = inferRouterOutputs<AppRouter>;
 type PathView = Outputs["paths"]["list"][number];
 type SecretBundle = Outputs["secrets"]["rotate"];
-type PublishUrls = Outputs["paths"]["reveal"]["urls"];
-type CreatedDevice = Outputs["paths"]["create"];
+type CreatedDevice = Outputs["paths"]["create"]["path"];
 type Guidance = Outputs["rtt"]["submit"];
 type ObsPairing = Outputs["obs"]["pair"];
 type SnapshotView = Outputs["obs"]["snapshots"][number];
@@ -929,7 +929,6 @@ function PathRow({ path }: { path: PathView }) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [label, setLabel] = useState(path.label);
-	const [revealed, setRevealed] = useState<PublishUrls | null>(null);
 	const rename = useMutation(
 		trpc.paths.rename.mutationOptions({
 			onSuccess: async () => {
@@ -939,22 +938,26 @@ function PathRow({ path }: { path: PathView }) {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const reveal = useMutation(
-		trpc.paths.reveal.mutationOptions({
-			onSuccess: (result) => setRevealed(result.urls),
-			onError: (error) => toast.error(error.message),
-		}),
-	);
+	const reveal = useMutation(trpc.paths.reveal.mutationOptions());
+	const revealRead = useMutation(trpc.secrets.revealRead.mutationOptions());
 	const rotate = useMutation(
 		trpc.paths.rotatePublish.mutationOptions({
-			onSuccess: async (result) => {
-				setRevealed(result.urls);
+			onSuccess: async () => {
 				await queryClient.invalidateQueries();
 				toast.success("Publish URL rotated for this device");
 			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const publishUrl = async (protocol: "srt" | "rtmp") =>
+		(await reveal.mutateAsync({ pathId: path.id })).urls[protocol];
+	const readUrl = async (protocol: "srt" | "rtmp") => {
+		const url = (await revealRead.mutateAsync()).urls.read.find(
+			(candidate) => candidate.slug === path.slug,
+		);
+		if (!url) throw new Error("Read URL is not available");
+		return url[protocol];
+	};
 	const revoke = useMutation(
 		trpc.paths.revoke.mutationOptions({
 			onSuccess: async () => {
@@ -978,6 +981,24 @@ function PathRow({ path }: { path: PathView }) {
 				</VStack>
 				<PathStatus path={path} />
 			</HStack>
+			{path.maskedUrls.publish ? (
+				<MaskedUrlWithFallback
+					getRtmp={() => publishUrl("rtmp")}
+					getSrt={() => publishUrl("srt")}
+					label="Sending URL"
+					rtmp={path.maskedUrls.publish.rtmp}
+					srt={path.maskedUrls.publish.srt}
+				/>
+			) : null}
+			{path.maskedUrls.read ? (
+				<MaskedUrlWithFallback
+					getRtmp={() => readUrl("rtmp")}
+					getSrt={() => readUrl("srt")}
+					label="OBS read URL"
+					rtmp={path.maskedUrls.read.rtmp}
+					srt={path.maskedUrls.read.srt}
+				/>
+			) : null}
 			<Collapsible
 				defaultIsOpen={false}
 				trigger={
@@ -1017,15 +1038,6 @@ function PathRow({ path }: { path: PathView }) {
 						/>
 					</HStack>
 					<HStack gap={2} wrap="wrap">
-						{path.publishRevealable ? (
-							<Button
-								icon={<Icon color="inherit" icon={EyeIcon} size="sm" />}
-								isLoading={reveal.isPending}
-								label="Reveal URL"
-								size="sm"
-								onClick={() => reveal.mutate({ pathId: path.id })}
-							/>
-						) : null}
 						<Button
 							icon={<Icon color="inherit" icon={RotateCwIcon} size="sm" />}
 							isLoading={rotate.isPending}
@@ -1061,13 +1073,6 @@ function PathRow({ path }: { path: PathView }) {
 							}}
 						/>
 					</HStack>
-					{revealed ? (
-						<UrlWithFallback
-							label="Sending URL"
-							rtmp={revealed.rtmp}
-							srt={revealed.srt}
-						/>
-					) : null}
 				</VStack>
 			</Collapsible>
 		</VStack>
@@ -1085,7 +1090,7 @@ function PublishingDevicesCard({ onRedoSetup }: { onRedoSetup: () => void }) {
 	const create = useMutation(
 		trpc.paths.create.mutationOptions({
 			onSuccess: async (result) => {
-				setCreated(result);
+				setCreated(result.path);
 				setLabel("");
 				await queryClient.invalidateQueries();
 				toast.success("Publishing device created");
@@ -1112,45 +1117,16 @@ function PublishingDevicesCard({ onRedoSetup }: { onRedoSetup: () => void }) {
 					<Banner
 						defaultIsExpanded
 						status="success"
-						title={`${created.path.label} is ready`}
+						title={`${created.label} is ready`}
 					>
-						<VStack gap={4}>
-							<VStack gap={2}>
-								<Text type="label">Send the stream</Text>
-								<Text color="secondary" type="supporting">
-									Add this URL to the app that sends the video — your phone, a
-									friend's phone, or any streaming software.
-								</Text>
-								<UrlWithFallback
-									label="Sending URL"
-									rtmp={created.urls.rtmp}
-									srt={created.urls.srt}
-								/>
-							</VStack>
-							<VStack gap={2}>
-								<Text type="label">Watch in OBS</Text>
-								{created.read ? (
-									<>
-										<Text color="secondary" type="supporting">
-											Add this URL as a Media Source in OBS to see the feed.
-										</Text>
-										<UrlWithFallback
-											label="OBS URL"
-											rtmp={created.read.rtmp}
-											srt={created.read.srt}
-										/>
-									</>
-								) : (
-									<Text color="secondary" type="supporting">
-										To receive this feed in OBS, rotate your{" "}
-										<a href="#obs-read">OBS read credentials</a> once — after
-										that, read URLs appear here automatically.
-									</Text>
-								)}
-							</VStack>
+						<VStack gap={3}>
+							<Text color="secondary" type="supporting">
+								Its masked sending and OBS URLs are listed below. Copying one
+								fetches the credential securely.
+							</Text>
 							<HStack>
 								<Button
-									label="Done, hide URLs"
+									label="Dismiss"
 									size="sm"
 									variant="ghost"
 									onClick={() => setCreated(null)}

@@ -373,7 +373,7 @@ function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
 				onClick={() => onPick("additive")}
 			/>
 			<OptionCard
-				description="Revoke every device path, create one fresh device, and rotate publish and OBS read credentials."
+				description="Revoke every device path and rotate OBS read credentials. Your chosen publisher creates a fresh device when needed."
 				title="Wipe and start over"
 				onClick={() => onPick("wipe")}
 			/>
@@ -853,6 +853,7 @@ function CredentialsStepWithCreateRef({
 			useCase,
 			destination,
 			advancedMode: false,
+			createDevice: publisher !== "visp",
 			...(redoMode ? { redoMode } : {}),
 		});
 	}, [complete, destination, publisher, redoMode, useCase]);
@@ -884,6 +885,7 @@ function CredentialsStepWithCreateRef({
 	return (
 		<CredentialsPrompt
 			isLoading={complete.isPending}
+			publisher={publisher}
 			redoMode={redoMode}
 			useCase={useCase}
 			onBack={onBack}
@@ -894,12 +896,14 @@ function CredentialsStepWithCreateRef({
 
 function CredentialsPrompt({
 	isLoading,
+	publisher,
 	redoMode,
 	useCase,
 	onBack,
 	onCreate,
 }: {
 	isLoading: boolean;
+	publisher: Publisher;
 	redoMode: RedoMode | null;
 	useCase: SetupUseCase;
 	onBack: () => void;
@@ -908,10 +912,18 @@ function CredentialsPrompt({
 	return (
 		<VStack gap={4}>
 			<StepIntro
-				description="One device link for publishing, plus OBS read credentials for your streaming PC."
-				title="Ready to create your stream links"
+				description={
+					publisher === "visp"
+						? "The mobile app creates its device automatically. Setup only prepares OBS read credentials."
+						: "One device link for publishing, plus OBS read credentials for your streaming PC."
+				}
+				title={
+					publisher === "visp"
+						? "Ready to prepare OBS"
+						: "Ready to create your stream links"
+				}
 			/>
-			{useCase === "multi_cam" ? (
+			{useCase === "multi_cam" && publisher !== "visp" ? (
 				<Banner
 					description="Setup creates one device now. Add more phones from the dashboard when you're ready."
 					status="info"
@@ -929,13 +941,21 @@ function CredentialsPrompt({
 				<Banner
 					status="info"
 					title="Existing devices stay linked"
-					description="Primary-device credentials are refreshed; other paths keep their URLs."
+					description={
+						publisher === "visp"
+							? "The mobile app links its own device; existing paths keep their URLs."
+							: "Primary-device credentials are refreshed; other paths keep their URLs."
+					}
 				/>
 			) : null}
 			<HStack gap={2} wrap="wrap">
 				<Button
 					isLoading={isLoading}
-					label="Create my stream links"
+					label={
+						publisher === "visp"
+							? "Prepare OBS credentials"
+							: "Create my stream links"
+					}
 					variant="primary"
 					onClick={onCreate}
 				/>
@@ -980,7 +1000,11 @@ function CredentialsReady({
 			<Banner
 				description="They stay hidden on the dashboard until you choose Reveal. Each device can be rotated independently later."
 				status="success"
-				title="Your device link is ready"
+				title={
+					publisher === "visp"
+						? "Your OBS credentials are ready"
+						: "Your device link is ready"
+				}
 			/>
 
 			{publisher === "visp" ? (

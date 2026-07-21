@@ -717,6 +717,8 @@ private:
 			return;
 		}
 		auth_timer.stop();
+		token.clear();
+		clear_devices();
 		account_status.setText("Starting browser sign-in…");
 		send(endpoint_url(control_url, "/api/auth/device/code"), true,
 		     {{"client_id", "visp-obs"}, {"scope", "obs"}}, {},

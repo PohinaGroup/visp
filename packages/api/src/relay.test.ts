@@ -3,6 +3,7 @@ import "./test-env";
 import { describe, expect, test } from "bun:test";
 
 const {
+	buildMaskedPathUrls,
 	buildSceneCollection,
 	decryptPublishSecret,
 	encryptPublishSecret,
@@ -10,6 +11,28 @@ const {
 } = await import("./relay");
 
 describe("relay guidance", () => {
+	test("builds display-safe path URLs without exposing credentials", () => {
+		const urls = buildMaskedPathUrls(
+			{ slug: "streamer-1", publishRevealable: true },
+			"streamer",
+			true,
+		);
+
+		expect(urls.publish?.srt).toContain(
+			"streamid=publish:streamer-1:streamer:*****",
+		);
+		expect(urls.read?.srt).toContain("streamid=read:streamer-1:streamer:*****");
+		expect(urls.publish?.rtmp).toContain("pass=*****");
+		expect(urls.read?.rtmp).toContain("pass=*****");
+		expect(
+			buildMaskedPathUrls(
+				{ slug: "legacy-1", publishRevealable: false },
+				"legacy",
+				false,
+			),
+		).toEqual({ publish: null, read: null });
+	});
+
 	test("encrypts publish secrets with user and path binding", () => {
 		const encrypted = encryptPublishSecret("publish-secret", "user-a", 1);
 		expect(encrypted).not.toContain("publish-secret");

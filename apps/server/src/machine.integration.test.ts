@@ -22,9 +22,11 @@ import {
 	authenticateMedia,
 	claimNativePublishDevice,
 	clearAuthCacheForTests,
+	completeOnboarding,
 	createPath,
 	createPublishDevice,
 	ensureRelayUser,
+	listPaths,
 	reconcilePathState,
 	revealPublishPath,
 	revokePath,
@@ -293,6 +295,28 @@ integration("relay PostgreSQL integration", () => {
 				userId: "user-b",
 			}),
 		).toBeNull();
+	});
+
+	test("lets the Native app create its own device after onboarding", async () => {
+		const data = await seed();
+		await revokePath("user-a", data.pathA.id);
+
+		const onboarding = await completeOnboarding("user-a", {
+			software: "visp",
+			useCase: "phone_to_obs",
+			destination: "twitch",
+			advancedMode: false,
+			createDevice: false,
+		});
+		expect(onboarding.urls.publish).toEqual([]);
+		expect(await listPaths("user-a")).toHaveLength(0);
+
+		await claimNativePublishDevice({
+			installationId: "df01a142-0f32-4e93-a768-c81e95ea5ceb",
+			label: "Joni's iPhone",
+			userId: "user-a",
+		});
+		expect(await listPaths("user-a")).toHaveLength(1);
 	});
 
 	test("clamps reader counts and ignores unknown paths", async () => {

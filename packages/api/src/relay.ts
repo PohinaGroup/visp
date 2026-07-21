@@ -379,6 +379,25 @@ function buildPublishUrls(
 	};
 }
 
+export function buildMaskedPathUrls(
+	path: { slug: string; publishRevealable: boolean },
+	handle: string,
+	readRevealable: boolean,
+) {
+	return {
+		publish: path.publishRevealable
+			? buildPublishUrls(path, handle, "*****")
+			: null,
+		read: readRevealable
+			? {
+					slug: path.slug,
+					srt: buildSrtUrl("read", path.slug, handle, "*****", 300_000),
+					rtmp: buildRtmpUrl(path.slug, handle, "*****"),
+				}
+			: null,
+	};
+}
+
 async function ownedPath(userId: string, pathId: number) {
 	const [record] = await db
 		.select({
@@ -782,6 +801,7 @@ export async function completeOnboarding(
 		useCase: SetupUseCase;
 		destination: StreamDestination;
 		advancedMode: boolean;
+		createDevice?: boolean;
 		redoMode?: OnboardingRedoMode;
 	},
 ) {
@@ -794,33 +814,35 @@ export async function completeOnboarding(
 		throw new Error("Choose wipe or keep existing devices to redo setup");
 	}
 
+	const createDevice = input.createDevice ?? true;
+
 	if (input.redoMode === "wipe") {
 		const active = await listPaths(userId);
 		for (const path of active) {
 			await revokePath(userId, path.id);
 		}
-		await createPath(userId, "main");
 	}
 
 	let paths = await listPaths(userId);
-	if (paths.length === 0) {
+	if (createDevice && paths.length === 0) {
 		await createPath(userId, "main");
 		paths = await listPaths(userId);
 	}
 
 	const primary = paths[0];
-	if (!primary) throw new Error("Failed to configure publishing device");
-
-	const device =
-		input.redoMode === "wipe" || !primary.publishRevealable
-			? await rotatePublishPath(userId, primary.id)
-			: await revealPublishPath(userId, primary.id);
-	if (!device) throw new Error("Failed to configure publishing device");
+	const device = createDevice
+		? input.redoMode === "wipe" || !primary?.publishRevealable
+			? primary && (await rotatePublishPath(userId, primary.id))
+			: await revealPublishPath(userId, primary.id)
+		: null;
+	if (createDevice && !device) {
+		throw new Error("Failed to configure publishing device");
+	}
 
 	await db
 		.update(appUser)
 		.set({
-			deviceCount: 1,
+			deviceCount: paths.length,
 			streamingSoftware: input.software,
 			setupUseCase: input.useCase,
 			streamDestination: input.destination,
@@ -831,7 +853,7 @@ export async function completeOnboarding(
 	const read = await rotateReadSecret(userId);
 	return {
 		...read,
-		urls: { ...read.urls, publish: [device.urls] },
+		urls: { ...read.urls, publish: device ? [device.urls] : [] },
 	};
 }
 
