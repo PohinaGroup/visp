@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
+import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { providerLabel } from "./format";
 import type { ChatConnection } from "./types";
@@ -33,11 +34,12 @@ function ConnectionActions({
 	onDisable: () => void;
 	onUnlink: () => void;
 }) {
+	const t = useT();
 	if (!connection.linked) {
 		return (
 			<Button
 				icon={<Icon color="inherit" icon={LinkIcon} size="sm" />}
-				label="Link"
+				label={t("Link")}
 				onClick={() => onLink()}
 			/>
 		);
@@ -47,7 +49,7 @@ function ConnectionActions({
 		<Button
 			icon={<Icon color="inherit" icon={MessageCircleIcon} size="sm" />}
 			isLoading={isEnablePending}
-			label="Enable chat"
+			label={t("Enable chat")}
 			variant="primary"
 			onClick={onEnable}
 		/>
@@ -56,7 +58,7 @@ function ConnectionActions({
 		chatAction = (
 			<Button
 				icon={<Icon color="inherit" icon={MessageCircleIcon} size="sm" />}
-				label="Authorize chat"
+				label={t("Authorize chat")}
 				variant="primary"
 				onClick={() => onLink(true)}
 			/>
@@ -65,7 +67,7 @@ function ConnectionActions({
 		chatAction = (
 			<Button
 				isLoading={isDisablePending}
-				label="Disable chat"
+				label={t("Disable chat")}
 				onClick={onDisable}
 			/>
 		);
@@ -77,7 +79,7 @@ function ConnectionActions({
 			<Button
 				icon={<Icon color="inherit" icon={UnlinkIcon} size="sm" />}
 				isDisabled={!canUnlink || isDisablePending}
-				label="Unlink"
+				label={t("Unlink")}
 				variant="ghost"
 				onClick={onUnlink}
 			/>
@@ -86,6 +88,8 @@ function ConnectionActions({
 }
 
 export function ConnectionsCard() {
+	const t = useT();
+	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const connections = useQuery(trpc.chat.connections.list.queryOptions());
@@ -93,7 +97,7 @@ export function ConnectionsCard() {
 		trpc.chat.connections.enable.mutationOptions({
 			onSuccess: async () => {
 				await queryClient.invalidateQueries();
-				toast.success("Chat enabled");
+				toast.success(t("Chat enabled"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -102,7 +106,7 @@ export function ConnectionsCard() {
 		trpc.chat.connections.disable.mutationOptions({
 			onSuccess: async () => {
 				await queryClient.invalidateQueries();
-				toast.success("Chat disabled");
+				toast.success(t("Chat disabled"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -113,7 +117,7 @@ export function ConnectionsCard() {
 			provider === "twitch"
 				? await authClient.linkSocial({
 						provider,
-						callbackURL: authRedirectURL("/dashboard"),
+						callbackURL: authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`),
 						// Twitch tokens keep only the last-requested scopes, so always
 						// re-request the union or one feature's consent drops the other's.
 						scopes: chatConsent
@@ -122,9 +126,9 @@ export function ConnectionsCard() {
 					})
 				: await authClient.oauth2.link({
 						providerId: provider,
-						callbackURL: authRedirectURL("/dashboard"),
+						callbackURL: authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`),
 						errorCallbackURL: authRedirectURL(
-							"/dashboard?error=kick_link_failed",
+							`/dashboard?error=kick_link_failed${fi ? "&lang=fi" : ""}`,
 						),
 					});
 		if (result.error) {
@@ -140,7 +144,7 @@ export function ConnectionsCard() {
 			return;
 		}
 		await queryClient.invalidateQueries();
-		toast.success(`${providerLabel(provider)} unlinked`);
+		toast.success(`${providerLabel(provider)} ${t("unlinked")}`);
 	};
 
 	const linkedCount =
@@ -151,15 +155,16 @@ export function ConnectionsCard() {
 			<VStack gap={4}>
 				<VStack gap={1}>
 					<HStack gap={1.5} vAlign="center">
-						<Heading level={2}>Chat connections</Heading>
+						<Heading level={2}>{t("Chat connections")}</Heading>
 						<DocsHelpLink
 							href={docs.phoneApp}
-							label="See how chat works in the phone and browser app"
+							label={t("See how chat works in the phone and browser app")}
 						/>
 					</HStack>
 					<Text color="secondary" type="supporting">
-						Link either provider for login, then opt into its read-only live chat
-						separately.
+						{t(
+							"Link either provider for login, then opt into its read-only live chat separately.",
+						)}
 					</Text>
 				</VStack>
 				{connections.data?.map((connection) => {
@@ -171,17 +176,17 @@ export function ConnectionsCard() {
 									<HStack gap={2} vAlign="center">
 										<Text type="label">{label}</Text>
 										<Badge
-											label={connection.linked ? "Linked" : "Not linked"}
+											label={t(connection.linked ? "Linked" : "Not linked")}
 											variant="neutral"
 										/>
 										{connection.enabled ? (
-											<Badge label="Chat on" variant="success" />
+											<Badge label={t("Chat on")} variant="success" />
 										) : null}
 									</HStack>
 									<Text color="secondary" type="supporting">
 										{connection.enabled
-											? "Messages can appear in VISP Native."
-											: "Chat is disabled."}
+											? t("Messages can appear in VISP Native.")
+											: t("Chat is disabled.")}
 									</Text>
 								</VStack>
 								<HStack gap={2} wrap="wrap">
@@ -209,8 +214,9 @@ export function ConnectionsCard() {
 					);
 				})}
 				<Text color="secondary" type="supporting">
-					Disabling chat keeps the provider available for sign-in. At least one
-					login must remain linked.
+					{t(
+						"Disabling chat keeps the provider available for sign-in. At least one login must remain linked.",
+					)}
 				</Text>
 			</VStack>
 		</Card>

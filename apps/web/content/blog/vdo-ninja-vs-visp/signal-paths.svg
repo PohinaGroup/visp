@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#0b0d10"/><text x="100" y="105" fill="#f2f3f5" font-family="Arial" font-size="46" font-weight="700">TWO WAYS TO BRING A REMOTE CAMERA INTO OBS</text>
+  <text x="100" y="210" fill="#d8ff52" font-family="monospace" font-size="30">VDO.NINJA — INTERACTIVE SESSION</text>
+  <g fill="none" stroke="#f2f3f5" stroke-width="3"><rect x="100" y="260" width="300" height="130"/><rect x="650" y="260" width="300" height="130"/><rect x="1200" y="260" width="300" height="130"/></g>
+  <g fill="#f2f3f5" font-family="Arial" font-size="30" text-anchor="middle"><text x="250" y="335">Guest browser</text><text x="800" y="335">WebRTC peers</text><text x="1350" y="335">OBS Browser Source</text></g>
+  <g stroke="#d8ff52" stroke-width="5"><path d="M400 325H650"/><path d="M950 325H1200"/></g>
+  <text x="100" y="540" fill="#72d7ff" font-family="monospace" font-size="30">VISP — MANAGED DEVICE PATH</text>
+  <g fill="none" stroke="#f2f3f5" stroke-width="3"><rect x="100" y="590" width="300" height="130"/><rect x="650" y="590" width="300" height="130"/><rect x="1200" y="590" width="300" height="130"/></g>
+  <g fill="#f2f3f5" font-family="Arial" font-size="30" text-anchor="middle"><text x="250" y="665">Phone or encoder</text><text x="800" y="665">Authenticated relay</text><text x="1350" y="665">OBS Media Source</text></g>
+  <g stroke="#72d7ff" stroke-width="5"><path d="M400 655H650"/><path d="M950 655H1200"/></g>
+</svg>

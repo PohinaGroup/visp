@@ -8,9 +8,9 @@ import { sanitizeDashboardStatus } from "@/lib/seppo-dashboard";
 import { useTRPC } from "@/utils/trpc";
 import {
 	type AdvancedSectionId,
+	DASHBOARD_AREA_TARGETS,
 	type DashboardArea,
 	type DashboardMode,
-	DASHBOARD_AREA_TARGETS,
 	type NetworkProfile,
 } from "./types";
 
@@ -78,9 +78,9 @@ export function useDashboardSeppo(advancedMode: boolean) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
-	const [advancedSections, setAdvancedSections] = useState<
-		AdvancedSectionId[]
-	>([]);
+	const [advancedSections, setAdvancedSections] = useState<AdvancedSectionId[]>(
+		[],
+	);
 
 	const setAdvanced = useMutation(
 		trpc.secrets.setAdvancedMode.mutationOptions({

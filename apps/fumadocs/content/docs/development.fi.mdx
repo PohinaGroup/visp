@@ -1,0 +1,12 @@
+---
+title: Paikallinen kehitys
+description: Ota monorepo, tietokanta, API, portaali, mobiilisovellus ja testit käyttöön paikallisesti.
+---
+
+# Paikallinen kehitys
+
+Asenna repositoryn määrittämä Bun-versio ja projektin riippuvuudet. Kopioi ympäristömuuttujaesimerkit paikallisiin tiedostoihin, käynnistä PostgreSQL sekä muut kehityspalvelut ja suorita tietokantamigraatiot ennen sovelluksia.
+
+Käynnistä vain työn kannalta tarpeelliset sovellukset. Web-portaali, dokumentaatio, API ja mobiilisovellus voidaan ajaa erikseen. Käytä paikallisia OAuth-paluuosoitteita ja testitunnuksia; älä kopioi tuotannon salaisuuksia kehitysympäristöön.
+
+Ennen muutoksen lähettämistä suorita tyypintarkistus ja muutosta lähinnä oleva testi. Media- tai OBS-muutoksessa testaa lisäksi koko polku julkaisevasta laitteesta OBS-lähteeseen sekä yhteyden palautuminen katkon jälkeen.

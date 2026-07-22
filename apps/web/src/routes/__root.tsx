@@ -19,8 +19,8 @@ import { evlogErrorHandler } from "evlog/nitro/v3";
 
 import { CookieBanner } from "../components/cookie-banner";
 import Header from "../components/header";
-
 import appCss from "../index.css?url";
+import { useLocale } from "../lib/i18n";
 
 export interface RouterAppContext {
 	trpc: TRPCOptionsProxy<AppRouter>;
@@ -84,14 +84,18 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 function RootDocument() {
 	// ponytail: landing brings its own nav; every other route keeps app chrome
 	const isLanding = useLocation({ select: (l) => l.pathname === "/" });
+	const locale = useLocale();
+	const isLocalizedLanding = useLocation({
+		select: (l) => l.pathname === "/fi" || l.pathname === "/fi/",
+	});
 	return (
-		<html lang="en" className="dark">
+		<html lang={locale} className="dark">
 			<head>
 				<HeadContent />
 			</head>
 			<body>
 				<Theme mode="dark" theme={neutralTheme}>
-					{isLanding ? (
+					{isLanding || isLocalizedLanding ? (
 						<Outlet />
 					) : (
 						<div className="app-shell grid h-svh grid-rows-[auto_1fr]">

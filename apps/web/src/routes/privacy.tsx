@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { LegalDoc } from "@/components/legal-doc";
 import { legalEntity } from "@/lib/legal";
+import { localizedHead } from "@/lib/i18n";
 
 export const Route = createFileRoute("/privacy")({
 	head: () => ({
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/privacy")({
 					"How VISP and Pöhinä Group Oy collect, use, and protect your personal data.",
 			},
 		],
+		links: localizedHead("en", "/privacy"),
 	}),
 	component: PrivacyPage,
 });

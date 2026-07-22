@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <rect width="1600" height="900" fill="#0b0d10"/><text x="100" y="110" fill="#f2f3f5" font-family="Arial" font-size="50" font-weight="700">THE DESTINATION KEY STAYS AT HOME</text>
+  <g fill="none" stroke="#f2f3f5" stroke-width="4"><rect x="100" y="300" width="280" height="260" rx="28"/><rect x="520" y="340" width="300" height="180"/><rect x="960" y="300" width="300" height="260"/><rect x="1400" y="340" width="120" height="180"/></g>
+  <g fill="#f2f3f5" font-family="Arial" font-size="34" text-anchor="middle"><text x="240" y="440">PHONE</text><text x="670" y="440">VISP RELAY</text><text x="1110" y="420">OBS STUDIO</text><text x="1110" y="470" fill="#d8ff52">STREAM KEY</text><text x="1460" y="440">OUT</text></g>
+  <g stroke="#72d7ff" stroke-width="6"><path d="M380 430H520"/><path d="M820 430H960"/></g><path d="M1260 430H1400" stroke="#d8ff52" stroke-width="6"/>
+  <text x="240" y="650" fill="#9299a3" font-family="monospace" font-size="25" text-anchor="middle">SRT / WEBRTC</text><text x="1110" y="650" fill="#9299a3" font-family="monospace" font-size="25" text-anchor="middle">SCENES · ALERTS · GRAPHICS</text>
+</svg>

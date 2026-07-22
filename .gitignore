@@ -61,7 +61,8 @@ outputs/
 .claude/skills/
 skills-lock.json
 
-PLAN1.md
+PLAN*.md
+TODO*.md
 PIPELINE.md
 
 /.bun/

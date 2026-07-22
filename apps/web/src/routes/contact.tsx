@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { LegalDoc } from "@/components/legal-doc";
 import { legalEntity } from "@/lib/legal";
+import { localizedHead } from "@/lib/i18n";
 
 export const Route = createFileRoute("/contact")({
 	head: () => ({
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/contact")({
 					"Contact Pöhinä Group Oy, the company behind VISP.",
 			},
 		],
+		links: localizedHead("en", "/contact"),
 	}),
 	component: ContactPage,
 });

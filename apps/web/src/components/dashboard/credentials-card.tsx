@@ -13,12 +13,14 @@ import {
 	UrlWithFallback,
 } from "@/components/credential-reveal";
 import { docs } from "@/lib/docs";
+import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { AdvancedSection } from "./advanced-section";
 import { credentialsHint } from "./format";
 import type { SecretBundle } from "./types";
 
 export function CredentialsCard() {
+	const t = useT();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
@@ -46,16 +48,16 @@ export function CredentialsCard() {
 		<AdvancedSection
 			action={
 				configured ? (
-					<Badge label="Configured" variant="success" />
+					<Badge label={t("Configured")} variant="success" />
 				) : (
-					<Badge label="Setup required" variant="warning" />
+					<Badge label={t("Setup required")} variant="warning" />
 				)
 			}
 			docsHref={docs.getStarted}
 			docsLabel="See how OBS read credentials fit into setup"
 			id="obs-read"
 			tag="Advanced · Relay to OBS"
-			title="OBS read credentials"
+			title={t("OBS read credentials")}
 			value="obs-read"
 		>
 			<Text color="secondary" type="supporting">
@@ -64,14 +66,17 @@ export function CredentialsCard() {
 			</Text>
 			{bundle ? (
 				<VStack gap={4}>
-					<RevealedValue label="Read secret" value={bundle.revealed.read} />
+					<RevealedValue
+						label={t("Read secret")}
+						value={bundle.revealed.read}
+					/>
 					{bundle.urls.read.map((url) => (
 						<VStack gap={2} key={url.slug}>
 							<Text type="label">Read: {url.slug}</Text>
 							<UrlWithFallback
 								docsHref={docs.getStarted}
 								docsLabel="See how to import this into OBS"
-								label="OBS URL"
+								label={t("OBS URL")}
 								rtmp={url.rtmp}
 								srt={url.srt}
 							/>
@@ -80,7 +85,7 @@ export function CredentialsCard() {
 				</VStack>
 			) : (
 				<Text color="secondary" type="supporting">
-					{credentialsHint({ configured, revealable })}
+					{t(credentialsHint({ configured, revealable }))}
 				</Text>
 			)}
 			<HStack gap={2} wrap="wrap">
@@ -88,7 +93,7 @@ export function CredentialsCard() {
 					<Button
 						icon={<Icon color="inherit" icon={EyeIcon} size="sm" />}
 						isLoading={reveal.isPending}
-						label="Reveal read URLs"
+						label={t("Reveal read URLs")}
 						variant="primary"
 						onClick={() => reveal.mutate()}
 					/>
@@ -97,7 +102,7 @@ export function CredentialsCard() {
 					<Button
 						icon={<Icon color="inherit" icon={RotateCwIcon} size="sm" />}
 						isLoading={rotate.isPending}
-						label="Rotate read"
+						label={t("Rotate read")}
 						onClick={() => {
 							if (
 								!revealable ||
@@ -112,7 +117,7 @@ export function CredentialsCard() {
 				) : (
 					<Button
 						isLoading={rotate.isPending}
-						label="Generate OBS credentials"
+						label={t("Generate OBS credentials")}
 						variant="primary"
 						onClick={() => rotate.mutate({ kind: "read" })}
 					/>
@@ -120,7 +125,7 @@ export function CredentialsCard() {
 				{bundle?.sceneCollection ? (
 					<Button
 						icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
-						label="Download OBS collection"
+						label={t("Download OBS collection")}
 						onClick={() => downloadSceneCollection(bundle.sceneCollection)}
 					/>
 				) : null}

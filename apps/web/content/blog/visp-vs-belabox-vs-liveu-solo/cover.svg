@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0d10"/><text x="70" y="90" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">IRL SETUP DECISION</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial" font-size="64" font-weight="700">VISP vs BELABOX</text><text x="70" y="270" fill="#f2f3f5" font-family="Arial" font-size="64" font-weight="700">vs LIVEU SOLO</text>
+  <circle cx="235" cy="455" r="62" fill="none" stroke="#72d7ff" stroke-width="5"/><circle cx="600" cy="455" r="62" fill="none" stroke="#d8ff52" stroke-width="5"/><circle cx="965" cy="455" r="62" fill="none" stroke="#ff9d66" stroke-width="5"/>
+  <text x="235" y="465" fill="#f2f3f5" font-family="monospace" font-size="24" text-anchor="middle">PHONE</text><text x="600" y="465" fill="#f2f3f5" font-family="monospace" font-size="24" text-anchor="middle">DIY</text><text x="965" y="465" fill="#f2f3f5" font-family="monospace" font-size="24" text-anchor="middle">PRO</text>
+</svg>

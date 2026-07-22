@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { RevealedValue } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
+import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { obsStatusMessage } from "./format";
 import type { ObsPairing } from "./types";
@@ -33,6 +34,7 @@ function downloadObsConfig(token: string) {
 }
 
 export function ObsControlCard() {
+	const t = useT();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery(
@@ -44,7 +46,7 @@ export function ObsControlCard() {
 			onSuccess: async (result) => {
 				setPairing(result);
 				await queryClient.invalidateQueries();
-				toast.success("OBS pairing token created");
+				toast.success(t("OBS pairing token created"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -67,45 +69,47 @@ export function ObsControlCard() {
 				<VStack gap={1}>
 					<HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
 						<HStack gap={1.5} vAlign="center">
-							<Heading level={2}>OBS</Heading>
+							<Heading level={2}>{t("OBS")}</Heading>
 							<DocsHelpLink
 								href={docs.obsRemoteControl}
-								label="See how to pair the OBS plugin"
+								label={t("See how to pair the OBS plugin")}
 							/>
 						</HStack>
 						<HStack gap={1.5} vAlign="center">
 							<StatusDot
-								label={connected ? "Connected" : "Disconnected"}
+								label={t(connected ? "Connected" : "Disconnected")}
 								variant={connected ? "success" : "neutral"}
 							/>
 							<Text color="secondary" type="supporting">
-								{connected ? "Connected" : "Disconnected"}
+								{t(connected ? "Connected" : "Disconnected")}
 							</Text>
 						</HStack>
 					</HStack>
 					<Text type="supporting">
-						The OBS plugin is live in beta{" "}
+						{t("The OBS plugin is live in beta")}{" "}
 						<Link to="/download" style={{ textDecoration: "underline" }}>
-							Download the plugin
+							{t("Download the plugin")}
 						</Link>
 					</Text>
 				</VStack>
 
-				<Text color="secondary">{obsStatusMessage(status)}</Text>
+				<Text color="secondary">{t(obsStatusMessage(status))}</Text>
 
 				<Collapsible
 					defaultIsOpen={false}
-					trigger={<Text type="label">Plugin pairing</Text>}
+					trigger={<Text type="label">{t("Plugin pairing")}</Text>}
 				>
 					<VStack gap={3} paddingBlock={2}>
 						<Text color="secondary" type="supporting">
-							Install the beta plugin from the{" "}
-							<Link to="/download">download page</Link>, then in OBS open Tools
-							→ VISP Remote Control and click Sign in with browser. Approve the
-							code here, and the dashboard shows Connected within a few seconds.
+							{t(
+								"Install the beta plugin from the download page, then in OBS open Tools → VISP Remote Control and click Sign in with browser. Approve the code here, and the dashboard shows Connected within a few seconds.",
+							)}
 						</Text>
 						{pairing ? (
-							<RevealedValue label="OBS pairing token" value={pairing.token} />
+							<RevealedValue
+								label={t("OBS pairing token")}
+								value={pairing.token}
+							/>
 						) : null}
 						<HStack gap={2} wrap="wrap">
 							<Button
@@ -113,13 +117,13 @@ export function ObsControlCard() {
 								isLoading={pair.isPending}
 								label={
 									status?.configured
-										? "Rotate pairing token"
-										: "Generate pairing token"
+										? t("Rotate pairing token")
+										: t("Generate pairing token")
 								}
 								onClick={() => {
 									if (
 										!status?.configured ||
-										window.confirm("Replace the current OBS pairing token?")
+										window.confirm(t("Replace the current OBS pairing token?"))
 									) {
 										pair.mutate();
 									}
@@ -128,7 +132,7 @@ export function ObsControlCard() {
 							{pairing ? (
 								<Button
 									icon={<Icon color="inherit" icon={DownloadIcon} size="sm" />}
-									label="Download plugin config"
+									label={t("Download plugin config")}
 									onClick={() => downloadObsConfig(pairing.token)}
 								/>
 							) : null}
@@ -142,7 +146,7 @@ export function ObsControlCard() {
 						isDisabled={
 							!connected || Boolean(status?.pending) || setStreaming.isPending
 						}
-						label={streaming ? "Stop OBS stream" : "Start OBS stream"}
+						label={t(streaming ? "Stop OBS stream" : "Start OBS stream")}
 						variant="primary"
 						onClick={() => setStreaming.mutate({ streaming: !streaming })}
 					/>

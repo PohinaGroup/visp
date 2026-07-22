@@ -1,0 +1,180 @@
+---
+title: "VDO.Ninja vs VISP: Which Is Better for Remote Cameras in OBS?"
+description: "Compare VDO.Ninja and VISP for remote cameras, guests, latency, security, and repeatable phone-to-OBS live production workflows."
+publishedAt: 2026-07-22
+coverAlt: "Two signal paths compare VDO.Ninja with VISP for bringing remote cameras into OBS"
+---
+
+VDO.Ninja and VISP can both bring a camera from another device into OBS, but
+they are built around different production ideas. **Choose VDO.Ninja when a
+guest needs a fast browser link, two-way interaction, and the lowest practical
+latency. Choose VISP when a phone or encoder should behave like a persistent,
+authenticated field camera feeding an OBS studio that stays at home.**
+
+Neither choice replaces OBS. Both are ways to get remote video and audio into
+the production you assemble there. The useful comparison is therefore not a
+feature-count contest. It is whether your remote contributor is participating
+in a call or operating as a camera source.
+
+![VDO.Ninja and VISP signal paths into OBS](./signal-paths.svg)
+
+## The short comparison
+
+| Need | VDO.Ninja | VISP |
+| --- | --- | --- |
+| Guest joins from a browser link | Excellent fit | Supported through the browser publisher, but not a group-call room |
+| Two-way conversation between guests | Built for this | Not currently a call platform |
+| Very low interactive latency | Core strength | SRT trades some latency for recovery; browser publishing uses WebRTC |
+| Repeat phone camera used across streams | Possible, with flexible links and options | Core workflow with named, revocable devices |
+| Native mobile SRT publishing | Not the main workflow | Built into the VISP iOS and Android apps |
+| Feed reaches OBS | Browser source or other VDO.Ninja output | Authenticated SRT/RTMP media source or OBS plugin |
+| Remote OBS commands | Available through VDO.Ninja options | Authenticated start, stop, and scene commands through the VISP plugin |
+| Destination stream key on the phone | Not required | Not required |
+| Network bonding | No | No |
+
+The final row matters for IRL streaming. WebRTC and SRT can respond to packet
+loss in different ways, but neither product combines two mobile carriers into
+one bonded connection. If a stream must cross repeated dead zones, read our
+[guide to mobile-stream resilience](/blog/keep-stream-live-bad-mobile-network)
+before choosing the transport.
+
+## How VDO.Ninja works
+
+[VDO.Ninja](https://docs.vdo.ninja/) is a browser-based system for sending
+camera, microphone, screen, and other media into OBS. In the simplest workflow,
+a contributor opens a push link, allows camera and microphone access, and sends
+the resulting view link to the producer. The producer places that link in an
+OBS Browser Source.
+
+Its normal design uses WebRTC and direct peer-to-peer media when the network
+allows it. That is valuable for interviews, podcasts, remote commentators, and
+other situations where people need to react to one another. VDO.Ninja also has
+rooms, a director view, extensive URL parameters, recording options, and OBS
+control features. Its [official use-case
+guide](https://docs.vdo.ninja/readme/use-cases) shows how far it reaches beyond
+a simple wireless webcam.
+
+That flexibility is a genuine advantage, but it also means an advanced setup
+can become a collection of carefully constructed URLs and parameters. For an
+experienced VDO.Ninja producer, that is power. For a creator who only wants
+three named phones to reappear as the same OBS sources every week, a device
+model can be easier to reason about.
+
+## How VISP works
+
+VISP treats each phone, browser, OBS installation, or third-party encoder as a
+publishing device. The device sends H.264/AAC over SRT from the native app,
+WebRTC from the browser publisher, or SRT/RTMP from software such as Larix or
+Moblin. A VISP relay authenticates that device and exposes the feed for OBS to
+read.
+
+The OBS plugin can sign in through a browser, list publishing devices, and add
+their feeds to scenes. It can also receive authenticated start, stop, and scene
+commands over outbound HTTPS. OBS does not expose a public control port, and
+the phone never receives the Twitch or Kick destination stream key.
+
+This architecture makes the home computer the continuity point. If a phone
+briefly loses signal, OBS can remain live to the destination and show a local
+fallback scene while the field source reconnects. VISP does not transcode the
+feed or bond networks; the encoder and available connection still determine
+what reaches the relay.
+
+![VISP dashboard showing managed publishing devices](./visp-dashboard.png)
+
+## Latency and reliability are different goals
+
+VDO.Ninja prioritizes interactive latency. A guest should be able to hear a
+question and answer naturally. WebRTC responds dynamically to network
+conditions and may route through a TURN server when a direct connection cannot
+be established. Every network and browser combination is different, but the
+goal is real-time conversation.
+
+VISP's native workflow uses SRT. SRT deliberately holds packets for a configured
+latency window so missing packets have time to be retransmitted. A larger
+window can tolerate more jitter at the cost of delay. That trade is often
+acceptable when the field operator is contributing a camera to a produced
+show, rather than speaking in a delay-sensitive call.
+
+The browser side of VISP uses WebRTC, so protocol alone does not distinguish
+every workflow. The more important difference is the surrounding system:
+VDO.Ninja organizes interactive sessions and rooms, while VISP organizes
+authenticated devices and relay paths.
+
+## Security and repeat access
+
+VDO.Ninja is designed to work without requiring a normal account. Producers
+protect rooms and links according to the options they choose. That makes guest
+onboarding fast: the person with the right link can join without creating a
+profile.
+
+VISP requires the broadcaster to sign in with Twitch or Kick. Every publishing
+device receives independent access that can be revoked without replacing the
+credentials used by other cameras. OBS read access is separate from publish
+access. This is useful when a camera belongs to a contractor, guest, or old
+phone that should stop working after an event.
+
+Neither pattern is universally safer. A single-use interview link and a
+persistent camera credential solve different problems. Decide how long access
+should last, who needs to revoke it, and whether the same source must return to
+the same OBS scene later.
+
+## Which should you choose?
+
+Choose VDO.Ninja when:
+
+- guests need to see or hear each other;
+- interaction delay matters more than buffering against jitter;
+- sending one browser link is the desired onboarding flow;
+- you want VDO.Ninja's rooms, director controls, or deep URL configuration.
+
+Choose VISP when:
+
+- a phone should act as a named field camera rather than a call participant;
+- OBS scenes and media sources should survive between sessions;
+- you want native SRT publishing and latency tuning;
+- each device needs independently revocable access;
+- the field operator should control the home OBS without an inbound port.
+
+Use both when the production contains both types of contributor. A host and
+guest can talk through VDO.Ninja while dedicated roaming cameras reach OBS
+through VISP. OBS is the common production surface, so the feeds do not need to
+come from one transport.
+
+## Frequently asked questions
+
+### Is VISP a VDO.Ninja replacement?
+
+Only for overlapping remote-camera workflows. VISP is not currently a
+multi-person call room, and VDO.Ninja is not organized around VISP's persistent
+publishing devices and SRT relay paths.
+
+### Which has lower latency?
+
+VDO.Ninja's interactive WebRTC workflow is normally the better starting point
+when minimum conversational latency is the priority. VISP's SRT workflow adds a
+configurable recovery window, while its browser publisher also uses WebRTC.
+
+### Can a VDO.Ninja guest control OBS?
+
+VDO.Ninja documents OBS control options, including permissions that can be
+given to a remote participant. VISP provides start, stop, and scene commands
+through its paired OBS plugin. Review the access model before granting either.
+
+### Does either product bond Wi-Fi and cellular?
+
+No. Add a bonding product or dedicated encoder if losing one network must not
+interrupt the feed.
+
+### Can I try VISP without replacing my OBS setup?
+
+Yes. VISP is designed to feed the scenes, alerts, graphics, and destination
+configuration already running in OBS. Start with the [phone-to-OBS
+guide](/blog/use-phone-as-remote-camera-obs).
+
+## Sources and further reading
+
+- [VDO.Ninja documentation](https://docs.vdo.ninja/)
+- [VDO.Ninja basics](https://docs.vdo.ninja/getting-started/vdo.ninja-basics)
+- [VISP get-started documentation](https://docs.visp-stream.com/docs/get-started)
+- [VISP OBS remote-control documentation](https://docs.visp-stream.com/docs/obs-remote-control)
+

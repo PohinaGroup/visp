@@ -7,9 +7,12 @@ import {
 	readCookieConsent,
 	writeCookieConsent,
 } from "@/lib/cookie-consent";
+import { useLocale } from "@/lib/i18n";
 
 export function CookieBanner() {
 	const [visible, setVisible] = useState(false);
+	const locale = useLocale();
+	const fi = locale === "fi";
 
 	useEffect(() => {
 		setVisible(readCookieConsent() === null);
@@ -37,30 +40,63 @@ export function CookieBanner() {
 						id="cookie-banner-title"
 						className="font-display font-semibold text-sm uppercase tracking-wide"
 					>
-						Cookies on VISP
+						{fi ? "VISP ja evästeet" : "Cookies on VISP"}
 					</p>
 					<p
 						id="cookie-banner-desc"
 						className="text-muted-foreground text-sm leading-relaxed"
 					>
-						We use essential cookies to keep you signed in and run the service.
-						Optional cookies are only used if you accept them. Cookieless
-						analytics (when enabled) is described in our Cookie Policy. See our{" "}
-						<Link className="text-foreground underline underline-offset-4" to="/cookies">
-							Cookie Policy
-						</Link>{" "}
-						and{" "}
-						<Link className="text-foreground underline underline-offset-4" to="/privacy">
-							Privacy Policy
-						</Link>
-						.
+						{fi ? (
+							<>
+								Käytämme välttämättömiä evästeitä kirjautumiseen ja palvelun
+								toimintaan. Valinnaisia evästeitä käytetään vain
+								suostumuksellasi. Evästeetön analytiikka on kuvattu{" "}
+								<Link
+									className="text-foreground underline underline-offset-4"
+									to="/fi/cookies"
+								>
+									evästekäytännössä
+								</Link>
+								. Tutustu myös{" "}
+								<Link
+									className="text-foreground underline underline-offset-4"
+									to="/fi/privacy"
+								>
+									tietosuojakäytäntöömme
+								</Link>
+								.
+							</>
+						) : (
+							<>
+								We use essential cookies to keep you signed in and run the
+								service. Optional cookies are only used if you accept them.
+								Cookieless analytics (when enabled) is described in our Cookie
+								Policy. See our{" "}
+								<Link
+									className="text-foreground underline underline-offset-4"
+									to="/cookies"
+								>
+									Cookie Policy
+								</Link>{" "}
+								and{" "}
+								<Link
+									className="text-foreground underline underline-offset-4"
+									to="/privacy"
+								>
+									Privacy Policy
+								</Link>
+								.
+							</>
+						)}
 					</p>
 				</div>
 				<div className="flex shrink-0 flex-wrap gap-2">
 					<Button variant="outline" onClick={() => choose("necessary")}>
-						Necessary only
+						{fi ? "Vain välttämättömät" : "Necessary only"}
 					</Button>
-					<Button onClick={() => choose("all")}>Accept all</Button>
+					<Button onClick={() => choose("all")}>
+						{fi ? "Hyväksy kaikki" : "Accept all"}
+					</Button>
 				</div>
 			</div>
 		</div>

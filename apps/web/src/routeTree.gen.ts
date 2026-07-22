@@ -10,21 +10,37 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RequestDeleteRouteImport } from './routes/request-delete'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as FiIndexRouteImport } from './routes/fi/index'
+import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as FiTermsRouteImport } from './routes/fi/terms'
+import { Route as FiPrivacyRouteImport } from './routes/fi/privacy'
+import { Route as FiCookiesRouteImport } from './routes/fi/cookies'
+import { Route as FiContactRouteImport } from './routes/fi/contact'
+import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
 import { Route as AuthSetupRouteImport } from './routes/_auth/setup'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
+import { Route as FiBlogIndexRouteImport } from './routes/fi/blog/index'
+import { Route as FiBlogSlugRouteImport } from './routes/fi/blog/$slug'
 
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
 const RequestDeleteRoute = RequestDeleteRouteImport.update({
@@ -40,6 +56,11 @@ const PrivacyRoute = PrivacyRouteImport.update({
 const LoginRoute = LoginRouteImport.update({
   id: '/login',
   path: '/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
+  id: '/llms.txt',
+  path: '/llms.txt',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DownloadRoute = DownloadRouteImport.update({
@@ -71,6 +92,41 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FiIndexRoute = FiIndexRouteImport.update({
+  id: '/fi/',
+  path: '/fi/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogIndexRoute = BlogIndexRouteImport.update({
+  id: '/blog/',
+  path: '/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiTermsRoute = FiTermsRouteImport.update({
+  id: '/fi/terms',
+  path: '/fi/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiPrivacyRoute = FiPrivacyRouteImport.update({
+  id: '/fi/privacy',
+  path: '/fi/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiCookiesRoute = FiCookiesRouteImport.update({
+  id: '/fi/cookies',
+  path: '/fi/cookies',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiContactRoute = FiContactRouteImport.update({
+  id: '/fi/contact',
+  path: '/fi/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BlogSlugRoute = BlogSlugRouteImport.update({
+  id: '/blog/$slug',
+  path: '/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthSetupRoute = AuthSetupRouteImport.update({
   id: '/setup',
   path: '/setup',
@@ -81,6 +137,16 @@ const AuthDashboardRoute = AuthDashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const FiBlogIndexRoute = FiBlogIndexRouteImport.update({
+  id: '/fi/blog/',
+  path: '/fi/blog/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiBlogSlugRoute = FiBlogSlugRouteImport.update({
+  id: '/fi/blog/$slug',
+  path: '/fi/blog/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -88,12 +154,23 @@ export interface FileRoutesByFullPath {
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/fi/contact': typeof FiContactRoute
+  '/fi/cookies': typeof FiCookiesRoute
+  '/fi/privacy': typeof FiPrivacyRoute
+  '/fi/terms': typeof FiTermsRoute
+  '/blog/': typeof BlogIndexRoute
+  '/fi/': typeof FiIndexRoute
+  '/fi/blog/$slug': typeof FiBlogSlugRoute
+  '/fi/blog/': typeof FiBlogIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -101,12 +178,23 @@ export interface FileRoutesByTo {
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/fi/contact': typeof FiContactRoute
+  '/fi/cookies': typeof FiCookiesRoute
+  '/fi/privacy': typeof FiPrivacyRoute
+  '/fi/terms': typeof FiTermsRoute
+  '/blog': typeof BlogIndexRoute
+  '/fi': typeof FiIndexRoute
+  '/fi/blog/$slug': typeof FiBlogSlugRoute
+  '/fi/blog': typeof FiBlogIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -116,12 +204,23 @@ export interface FileRoutesById {
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
+  '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
+  '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/setup': typeof AuthSetupRoute
+  '/blog/$slug': typeof BlogSlugRoute
+  '/fi/contact': typeof FiContactRoute
+  '/fi/cookies': typeof FiCookiesRoute
+  '/fi/privacy': typeof FiPrivacyRoute
+  '/fi/terms': typeof FiTermsRoute
+  '/blog/': typeof BlogIndexRoute
+  '/fi/': typeof FiIndexRoute
+  '/fi/blog/$slug': typeof FiBlogSlugRoute
+  '/fi/blog/': typeof FiBlogIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,12 +230,23 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/device'
     | '/download'
+    | '/llms.txt'
     | '/login'
     | '/privacy'
     | '/request-delete'
+    | '/sitemap.xml'
     | '/terms'
     | '/dashboard'
     | '/setup'
+    | '/blog/$slug'
+    | '/fi/contact'
+    | '/fi/cookies'
+    | '/fi/privacy'
+    | '/fi/terms'
+    | '/blog/'
+    | '/fi/'
+    | '/fi/blog/$slug'
+    | '/fi/blog/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -144,12 +254,23 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/device'
     | '/download'
+    | '/llms.txt'
     | '/login'
     | '/privacy'
     | '/request-delete'
+    | '/sitemap.xml'
     | '/terms'
     | '/dashboard'
     | '/setup'
+    | '/blog/$slug'
+    | '/fi/contact'
+    | '/fi/cookies'
+    | '/fi/privacy'
+    | '/fi/terms'
+    | '/blog'
+    | '/fi'
+    | '/fi/blog/$slug'
+    | '/fi/blog'
   id:
     | '__root__'
     | '/'
@@ -158,12 +279,23 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/device'
     | '/download'
+    | '/llms.txt'
     | '/login'
     | '/privacy'
     | '/request-delete'
+    | '/sitemap.xml'
     | '/terms'
     | '/_auth/dashboard'
     | '/_auth/setup'
+    | '/blog/$slug'
+    | '/fi/contact'
+    | '/fi/cookies'
+    | '/fi/privacy'
+    | '/fi/terms'
+    | '/blog/'
+    | '/fi/'
+    | '/fi/blog/$slug'
+    | '/fi/blog/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -173,10 +305,21 @@ export interface RootRouteChildren {
   CookiesRoute: typeof CookiesRoute
   DeviceRoute: typeof DeviceRoute
   DownloadRoute: typeof DownloadRoute
+  LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   PrivacyRoute: typeof PrivacyRoute
   RequestDeleteRoute: typeof RequestDeleteRoute
+  SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
+  BlogSlugRoute: typeof BlogSlugRoute
+  FiContactRoute: typeof FiContactRoute
+  FiCookiesRoute: typeof FiCookiesRoute
+  FiPrivacyRoute: typeof FiPrivacyRoute
+  FiTermsRoute: typeof FiTermsRoute
+  BlogIndexRoute: typeof BlogIndexRoute
+  FiIndexRoute: typeof FiIndexRoute
+  FiBlogSlugRoute: typeof FiBlogSlugRoute
+  FiBlogIndexRoute: typeof FiBlogIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -186,6 +329,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/request-delete': {
@@ -207,6 +357,13 @@ declare module '@tanstack/react-router' {
       path: '/login'
       fullPath: '/login'
       preLoaderRoute: typeof LoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/llms.txt': {
+      id: '/llms.txt'
+      path: '/llms.txt'
+      fullPath: '/llms.txt'
+      preLoaderRoute: typeof LlmsDottxtRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/download': {
@@ -251,6 +408,55 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/fi/': {
+      id: '/fi/'
+      path: '/fi'
+      fullPath: '/fi/'
+      preLoaderRoute: typeof FiIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/': {
+      id: '/blog/'
+      path: '/blog'
+      fullPath: '/blog/'
+      preLoaderRoute: typeof BlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/terms': {
+      id: '/fi/terms'
+      path: '/fi/terms'
+      fullPath: '/fi/terms'
+      preLoaderRoute: typeof FiTermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/privacy': {
+      id: '/fi/privacy'
+      path: '/fi/privacy'
+      fullPath: '/fi/privacy'
+      preLoaderRoute: typeof FiPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/cookies': {
+      id: '/fi/cookies'
+      path: '/fi/cookies'
+      fullPath: '/fi/cookies'
+      preLoaderRoute: typeof FiCookiesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/contact': {
+      id: '/fi/contact'
+      path: '/fi/contact'
+      fullPath: '/fi/contact'
+      preLoaderRoute: typeof FiContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/blog/$slug': {
+      id: '/blog/$slug'
+      path: '/blog/$slug'
+      fullPath: '/blog/$slug'
+      preLoaderRoute: typeof BlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_auth/setup': {
       id: '/_auth/setup'
       path: '/setup'
@@ -264,6 +470,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/dashboard'
       preLoaderRoute: typeof AuthDashboardRouteImport
       parentRoute: typeof AuthRouteRoute
+    }
+    '/fi/blog/': {
+      id: '/fi/blog/'
+      path: '/fi/blog'
+      fullPath: '/fi/blog/'
+      preLoaderRoute: typeof FiBlogIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/blog/$slug': {
+      id: '/fi/blog/$slug'
+      path: '/fi/blog/$slug'
+      fullPath: '/fi/blog/$slug'
+      preLoaderRoute: typeof FiBlogSlugRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -289,10 +509,21 @@ const rootRouteChildren: RootRouteChildren = {
   CookiesRoute: CookiesRoute,
   DeviceRoute: DeviceRoute,
   DownloadRoute: DownloadRoute,
+  LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   PrivacyRoute: PrivacyRoute,
   RequestDeleteRoute: RequestDeleteRoute,
+  SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
+  BlogSlugRoute: BlogSlugRoute,
+  FiContactRoute: FiContactRoute,
+  FiCookiesRoute: FiCookiesRoute,
+  FiPrivacyRoute: FiPrivacyRoute,
+  FiTermsRoute: FiTermsRoute,
+  BlogIndexRoute: BlogIndexRoute,
+  FiIndexRoute: FiIndexRoute,
+  FiBlogSlugRoute: FiBlogSlugRoute,
+  FiBlogIndexRoute: FiBlogIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

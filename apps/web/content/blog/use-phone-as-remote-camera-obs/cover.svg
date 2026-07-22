@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0d10"/><text x="70" y="90" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">PHONE → OBS</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial" font-size="68" font-weight="700">USE YOUR PHONE AS</text><text x="70" y="270" fill="#f2f3f5" font-family="Arial" font-size="68" font-weight="700">A REMOTE CAMERA</text>
+  <rect x="90" y="370" width="120" height="190" rx="18" fill="none" stroke="#72d7ff" stroke-width="5"/><circle cx="150" cy="530" r="8" fill="#72d7ff"/><path d="M210 465H520" stroke="#72d7ff" stroke-width="6"/><rect x="520" y="405" width="220" height="120" fill="none" stroke="#f2f3f5" stroke-width="4"/><path d="M740 465H1050" stroke="#d8ff52" stroke-width="6"/><rect x="1050" y="405" width="90" height="120" fill="none" stroke="#d8ff52" stroke-width="4"/>
+</svg>

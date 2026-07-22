@@ -1,0 +1,28 @@
+---
+title: Itse ylläpito
+description: Suorita VISP omilla palvelimillasi versionhallituilla julkaisu- ja määritystiedostoilla.
+---
+
+# Itse ylläpito
+
+Itse ylläpito on tarkoitettu operaattorille, joka hallitsee DNS:ää, TLS-varmenteita, tietokantaa, varmuuskopioita ja palvelinten valvontaa. Tavalliselle käyttäjälle ylläpidetty palvelu on nopeampi ja turvallisempi valinta.
+
+## Tarvittavat osat
+
+- julkinen web/API-palvelin HTTPS-yhteydellä
+- mediarelay, jolla on tarvittavat UDP/TCP-portit
+- PostgreSQL-tietokanta ja pysyvä tallennus
+- Twitch- tai Kick-OAuth-sovellus oikeilla paluuosoitteilla
+- DNS-nimet portaalille, API:lle ja medialle
+
+Käytä julkaisuun repositoryn versionhallittuja Docker Compose -malleja ja saman version ympäristömuuttujaesimerkkiä. Luo salaisuudet erikseen tuotantoon, rajoita tietokannan ja hallintaporttien verkkoyhteydet ja ota varmuuskopio ennen päivitystä.
+
+## Päivitys
+
+1. Lue version julkaisutiedot ja tietokantamuutokset.
+2. Ota varmuuskopio.
+3. Vedä kaikki palvelukuvat samasta versiosta.
+4. Suorita migraatiot kerran.
+5. Tarkista kirjautuminen, laitteen julkaisu, OBS-luku ja etäohjaus.
+
+Älä julkaise `.env`-tiedostoja, OAuth-salaisuuksia, allekirjoitusavaimia tai laitteiden julkaisuosoitteita.

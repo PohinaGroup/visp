@@ -1,0 +1,121 @@
+---
+title: "Etävieras OBS:ään ilman lähetysavaimen jakamista"
+description: "Tuo etävieraan kamera OBS:ään peruutettavalla VISP-oikeudella ja pidä Twitch- tai Kick-tunnukset sekä lopullinen tuotanto kotona."
+publishedAt: 2026-07-22
+coverAlt: "Suojausraja pitää suoratoistopalvelun lähetysavaimen OBS:ssä vieraan julkaistessa VISPin kautta"
+---
+
+Etävieras tarvitsee oikeuden lähettää oma kameransa tuotantoosi, mutta ei
+oikeutta Twitch- tai Kick-tiliisi. Luo vieraalle erillinen VISP-laite, anna
+hänen julkaista siihen selaimella ja peruuta laitteen tunnus esiintymisen jälkeen.
+
+![Vieraan ja OBS:n välinen suojausraja](./guest-security.svg)
+
+## Erota kuvan tuominen ohjelman jakelusta
+
+Vieraan selain lähettää kameran ja mikrofonin VISP-relaylle. OBS lukee suojatun
+syötteen, yhdistää sen kohtauksiin ja lähettää valmiin ohjelman kohdepalveluun.
+Vieraan ei tarvitse nähdä kohdeavainta, OBS:n tunnuksia tai muita kameroita.
+
+Tämä pienimmän oikeuden malli rajaa virheen tai vuodon yhteen vieraaseen. Sen
+tunnus voidaan vaihtaa vaikuttamatta muuhun tuotantoon.
+
+## Luo vieraalle julkaiseva laite
+
+Luo VISP-hallintapaneelissa uusi laite ja nimeä se vieraan tai ohjelmaosuuden
+mukaan. Älä käytä vakituisen kuvaajan polkua tilapäiselle vieraalle. Lähetä
+vieraille vain selainjulkaisijan kutsu tai kyseisen laitteen julkaisuosoite.
+
+Sovi samalla käyttöaika ja kerro, että oikeus poistetaan esiintymisen jälkeen.
+Älä lähetä salaisia osoitteita julkisessa chatissa tai kalenterikutsun avoimessa
+kuvauksessa.
+
+## Käytä selainjulkaisijaa
+
+Selain on vieraalle helpoin vaihtoehto, koska asennusta ei tarvita. Vieras avaa
+kutsun, kirjautuu tarvittaessa, sallii kameran ja mikrofonin, valitsee oikeat
+laitteet ja aloittaa lähetyksen.
+
+Pyydä vierasta käyttämään kuulokkeita ja sulkemaan muut kameraa käyttävät
+sovellukset. Tee tekninen testi samalla laitteella ja verkolla, jota vieras
+käyttää ohjelmassa. Yritysverkko voi estää WebRTC-median, jolloin varavaihtoehto
+on SRT:tä tukeva sovellus.
+
+![Vieraan selainjulkaisija](./browser-publish.png)
+
+## Lisää vieras OBS:ään
+
+Lisää vieraan laite VISP OBS -lisäosalla tai suojattuna medialähteenä. Tee oma
+peruskohtaus, jossa rajaus, värikorjaus, äänenvoimakkuus ja viive säädetään.
+Käytä sitä ohjelman varsinaisissa kohtauksissa sisäkkäisenä lähteenä.
+
+Varmista ennen lähetystä huulisynkroni, äänen taso, kuvasuhde ja palautuminen
+lyhyestä verkkokatkosta. Pidä paikallinen varakuva valmiina.
+
+## Päätä erikseen, tarvitseeko vieras puheluyhteyden
+
+Kamerasyöte ei yksin ole kaksisuuntainen tuotantopuhelu. Jos juontajan ja
+vieraan pitää keskustella, käytä erillistä puhelua tai intercomia ja kuulokkeita.
+Estä puheluäänen kierto takaisin vieraan mikrofoniin ja sovita sen viive
+ohjelmakuvaan.
+
+## Pidä myös OBS-ohjaus erillisenä
+
+Useimmat vieraat tarvitsevat vain julkaisu-oikeuden. Jos vieras toimii samalla
+etäohjaajana, anna hänelle erikseen rajattu OBS-ohjaus VISP-lisäosan kautta.
+Älä jaa OBS WebSocket -salasanaa tai avaa ohjausporttia julkiseen internetiin.
+
+## Hoida katkokset päättämättä ohjelmaa
+
+OBS:n pitää jatkaa kohdelähetystä, vaikka vieraan kamera katoaa. Vaihda
+paikalliseen varakohtaukseen, pidä keskustelu käynnissä toisella äänireitillä tai
+siirry seuraavaan ohjelmaosuuteen. Kun vieras yhdistää uudelleen samaan
+laitteeseen, lähteen pitäisi palautua ilman OBS-muutoksia.
+
+## Peru oikeus esiintymisen jälkeen
+
+Kierrätä tai poista vieraan julkaisutunnus heti ohjelman jälkeen. Poista myös
+mahdollinen OBS-ohjausoikeus ja varmista, ettei kutsua voi käyttää uudelleen.
+Tallennetta ei tarvitse poistaa OBS:stä, ellei tuotannon oma käytäntö niin vaadi.
+
+## Tuottajan tarkistuslista
+
+### Ennen ohjelmaa
+
+- Luo vieraalle oma nimetty laite ja lähetä rajattu kutsu.
+- Testaa kamera, mikrofoni, kuulokkeet, verkko ja selaimen oikeudet.
+- Rakenna OBS-kohtaus ja paikallinen varatila.
+- Sovi puheluyhteys ja toimintatapa katkon varalle.
+
+### Ohjelman aikana
+
+- Seuraa vieraan syötettä ja ääntä erillään OBS:n kohdelähetyksestä.
+- Kerro vieraalle, milloin hän on ohjelmassa.
+- Vaihda varakohtaukseen ennen kuin rikkinäinen kuva jää näkyviin.
+
+### Ohjelman jälkeen
+
+- Kierrätä vieraan julkaisutunnus.
+- Poista mahdollinen etäohjausoikeus.
+- Kirjaa havaitut verkko- ja viiveongelmat seuraavaa kertaa varten.
+
+## Usein kysyttyä
+
+### Tarvitseeko vieras Twitch- tai Kick-tunnukseni?
+
+Ei. Vieras saa vain oman kameransa julkaisu-oikeuden. OBS säilyttää kohdepalvelun
+lähetysavaimen.
+
+### Voiko vieras liittyä asentamatta sovellusta?
+
+Kyllä, jos selain ja verkko tukevat kameraa, mikrofonia ja WebRTC-mediaa.
+
+### Mitä oikeuksia perun vieraan lähdettyä?
+
+Vähintään vieraan laitteen julkaisutunnuksen ja mahdollisen erillisen
+OBS-etäohjausoikeuden.
+
+## Lisätietoja
+
+- [Lisää videolähde](https://docs.visp-stream.com/fi/docs/video-source)
+- [OBS-etäohjaus](https://docs.visp-stream.com/fi/docs/obs-remote-control)

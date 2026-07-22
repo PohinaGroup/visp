@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { LegalDoc } from "@/components/legal-doc";
 import { legalEntity } from "@/lib/legal";
+import { localizedHead } from "@/lib/i18n";
 
 export const Route = createFileRoute("/terms")({
 	head: () => ({
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/terms")({
 					"Terms governing use of VISP, operated by Pöhinä Group Oy.",
 			},
 		],
+		links: localizedHead("en", "/terms"),
 	}),
 	component: TermsPage,
 });

@@ -11,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
 import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
+import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { ChainStrip } from "./chain-strip";
 import { ConnectionsCard } from "./connections-card";
@@ -26,12 +27,13 @@ import {
 } from "./use-dashboard-seppo";
 
 function isAdvancedSectionId(value: string): value is AdvancedSectionId {
-	return (
-		value === "obs-read" || value === "tuning" || value === "reference"
-	);
+	return value === "obs-read" || value === "tuning" || value === "reference";
 }
 
 export function DashboardPage() {
+	const t = useT();
+	const locale = useLocale();
+	const fi = locale === "fi";
 	const trpc = useTRPC();
 	const navigate = useNavigate();
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
@@ -54,25 +56,33 @@ export function DashboardPage() {
 					<PageHeader
 						actions={
 							<SegmentedControl
-								label="Dashboard detail level"
+								label={t("Dashboard detail level")}
 								value={mode}
 								onChange={(value) =>
 									setAdvanced.mutate({ advancedMode: value === "advanced" })
 								}
 							>
-								<SegmentedControlItem label="Simple" value="simple" />
-								<SegmentedControlItem label="Advanced" value="advanced" />
+								<SegmentedControlItem label={t("Simple")} value="simple" />
+								<SegmentedControlItem label={t("Advanced")} value="advanced" />
 							</SegmentedControl>
 						}
-						eyebrow="Live signal path"
-						subtitle="Devices publish to the relay, OBS reads the feeds, you go on air. Your provider stream key never enters VISP."
-						title="Dashboard"
+						eyebrow={t("Live signal path")}
+						subtitle={t(
+							"Devices publish to the relay, OBS reads the feeds, you go on air. Your provider stream key never enters VISP.",
+						)}
+						title={t("Dashboard")}
 					/>
 					<ChainStrip />
 					<Grid columns={{ minWidth: 440, repeat: "fit" }} gap={4}>
 						<PublishingDevicesCard
 							onRedoSetup={() =>
-								navigate({ to: "/setup", search: { redo: true } })
+								navigate({
+									to: "/setup",
+									search: {
+										lang: locale === "fi" ? "fi" : undefined,
+										redo: true,
+									},
+								})
 							}
 						/>
 						<VStack gap={4}>
@@ -81,7 +91,7 @@ export function DashboardPage() {
 							{advancedMode ? (
 								<VStack gap={2}>
 									<Text color="secondary" type="supporting">
-										Advanced
+										{t("Advanced")}
 									</Text>
 									<CollapsibleGroup
 										hasDividers
@@ -105,14 +115,32 @@ export function DashboardPage() {
 			<SeppoWidget
 				context="dashboard"
 				open={seppoOpen}
-				placeholder="Ask about your dashboard…"
-				subtitle="Dashboard help — can inspect status and guide setup"
-				suggestions={[
-					"Why is my device offline?",
-					"Help me connect OBS",
-					"Check my dashboard setup",
-				]}
-				welcome="Hi, I'm Seppo. I can inspect the safe status shown on this dashboard, troubleshoot your signal path, and open the right setup controls."
+				placeholder={
+					fi ? "Kysy hallintapaneelistasi…" : "Ask about your dashboard…"
+				}
+				subtitle={
+					fi
+						? "Hallintapaneelin apu — voi tarkistaa tilan ja opastaa käyttöönotossa"
+						: "Dashboard help — can inspect status and guide setup"
+				}
+				suggestions={
+					fi
+						? [
+								"Miksi laitteeni ei ole yhteydessä?",
+								"Auta yhdistämään OBS",
+								"Tarkista hallintapaneelini asetukset",
+							]
+						: [
+								"Why is my device offline?",
+								"Help me connect OBS",
+								"Check my dashboard setup",
+							]
+				}
+				welcome={
+					fi
+						? "Hei, olen Seppo. Voin tarkistaa hallintapaneelin turvalliset tilatiedot, selvittää signaalipolun ongelmia ja avata oikeat käyttöönoton ohjaimet."
+						: "Hi, I'm Seppo. I can inspect the safe status shown on this dashboard, troubleshoot your signal path, and open the right setup controls."
+				}
 				onOpenChange={setSeppoOpen}
 				onToolCall={handleToolCall}
 				toolActivityLabel={seppoToolActivityLabel}

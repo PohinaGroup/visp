@@ -1,6 +1,7 @@
 import { List, ListItem } from "@astryxdesign/core/List";
 import { Text } from "@astryxdesign/core/Text";
 import { docs } from "@/lib/docs";
+import { useLocale, useT } from "@/lib/i18n";
 import { AdvancedSection } from "./advanced-section";
 
 const SETUP_TIPS = [
@@ -12,21 +13,33 @@ const SETUP_TIPS = [
 ] as const;
 
 export function SetupCard() {
+	const t = useT();
+	const fi = useLocale() === "fi";
+	const tips = fi
+		? [
+				"Käytä Media-ehtoa, ei Source-ehtoa, saapuvien tavujen tunnistamiseen.",
+				"Varmista, että kaikki ehdot ja toiminnot ovat käytössä.",
+				"Pidä 2 ja 3 sekunnin viiveet, jotta kohtaus ei vaihdu edestakaisin yhteyden palautuessa.",
+				"Aseta kahden sekunnin avainruutuväli ja ota Larixin mukautuva bittinopeus käyttöön mobiiliverkossa.",
+				"Vain yksi julkaisija voi omistaa polun kerrallaan; RTMP on vara, kun UDP on estetty.",
+			]
+		: SETUP_TIPS;
 	return (
 		<AdvancedSection
 			docsHref={docs.broadcasterSetup}
 			docsLabel="See the full encoders and fallback guide"
 			id="dashboard-setup"
 			tag="Advanced · Reference"
-			title="OBS and scene switcher setup"
+			title={t("OBS and scene switcher setup")}
 			value="reference"
 		>
 			<Text color="secondary" type="supporting">
-				Import the generated scene collection, then configure Advanced Scene
-				Switcher manually.
+				{fi
+					? "Tuo luotu kohtauskokoelma ja määritä sitten Advanced Scene Switcher käsin."
+					: "Import the generated scene collection, then configure Advanced Scene Switcher manually."}
 			</Text>
 			<List listStyle="decimal">
-				{SETUP_TIPS.map((tip) => (
+				{tips.map((tip) => (
 					<ListItem key={tip} label={tip} />
 				))}
 			</List>

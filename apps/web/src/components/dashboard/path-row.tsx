@@ -15,17 +15,19 @@ import {
 	SimpleUrl,
 } from "@/components/credential-reveal";
 import { docs } from "@/lib/docs";
+import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { formatUtc, publishOriginLabel } from "./format";
 import type { PathView } from "./types";
 
 function PathStatus({ path }: { path: PathView }) {
+	const t = useT();
 	if (path.stale) {
 		return (
 			<HStack gap={1.5} vAlign="center">
-				<StatusDot label="Status unknown" variant="warning" />
+				<StatusDot label={t("Status unknown")} variant="warning" />
 				<Text color="secondary" type="supporting">
-					Status unknown
+					{t("Status unknown")}
 				</Text>
 			</HStack>
 		);
@@ -33,18 +35,18 @@ function PathStatus({ path }: { path: PathView }) {
 	if (path.publishing) {
 		return (
 			<HStack gap={1.5} vAlign="center">
-				<StatusDot isPulsing label="Live" variant="error" />
+				<StatusDot isPulsing label={t("Live")} variant="error" />
 				<Text type="supporting" weight="semibold">
-					Live
+					{t("Live")}
 				</Text>
 			</HStack>
 		);
 	}
 	return (
 		<HStack gap={1.5} vAlign="center">
-			<StatusDot label="Offline" variant="neutral" />
+			<StatusDot label={t("Offline")} variant="neutral" />
 			<Text color="secondary" type="supporting">
-				Offline
+				{t("Offline")}
 			</Text>
 		</HStack>
 	);
@@ -57,6 +59,7 @@ export function PathRow({
 	path: PathView;
 	advancedMode: boolean;
 }) {
+	const t = useT();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [label, setLabel] = useState(path.label);
@@ -134,7 +137,7 @@ export function PathRow({
 								docsLabel="See how to add this to your video source"
 								getRtmp={() => publishUrl("rtmp")}
 								getSrt={() => publishUrl("srt")}
-								label="Sending URL"
+								label={t("Sending URL")}
 								rtmp={path.maskedUrls.publish.rtmp}
 								srt={path.maskedUrls.publish.srt}
 							/>
@@ -145,7 +148,7 @@ export function PathRow({
 								docsLabel="See how to import this into OBS"
 								getRtmp={() => readUrl("rtmp")}
 								getSrt={() => readUrl("srt")}
-								label="OBS read URL"
+								label={t("OBS read URL")}
 								rtmp={path.maskedUrls.read.rtmp}
 								srt={path.maskedUrls.read.srt}
 							/>
@@ -158,7 +161,7 @@ export function PathRow({
 								copyValue={() => readUrl("srt")}
 								docsHref={docs.getStarted}
 								docsLabel="See how to import this into OBS"
-								label="Add this to OBS or other streaming software"
+								label={t("Add this to OBS or other streaming software")}
 								url={path.maskedUrls.read.srt}
 							/>
 						) : null}
@@ -167,7 +170,7 @@ export function PathRow({
 								copyValue={() => publishUrl("srt")}
 								docsHref={docs.videoSource}
 								docsLabel="See how to add this to your video source"
-								label="Add this to video source"
+								label={t("Add this to video source")}
 								url={path.maskedUrls.publish.srt}
 							/>
 						) : null}
@@ -191,7 +194,7 @@ export function PathRow({
 						</HStack>
 						<HStack gap={2} vAlign="end" wrap="wrap">
 							<TextInput
-								label="Device name"
+								label={t("Device name")}
 								size="sm"
 								value={label}
 								onChange={setLabel}
@@ -200,7 +203,7 @@ export function PathRow({
 								isDisabled={
 									rename.isPending || !label.trim() || label === path.label
 								}
-								label="Save"
+								label={t("Save")}
 								size="sm"
 								onClick={() => rename.mutate({ pathId: path.id, label })}
 							/>
@@ -227,7 +230,7 @@ export function PathRow({
 							<Button
 								icon={<Icon color="inherit" icon={Trash2Icon} size="sm" />}
 								isLoading={revoke.isPending}
-								label="Revoke"
+								label={t("Revoke")}
 								size="sm"
 								variant="destructive"
 								onClick={() => {

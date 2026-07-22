@@ -14,36 +14,60 @@ import {
 import { Suspense } from "react";
 
 import { getMDXComponents } from "@/components/mdx";
+import { alternateLinks } from "@/lib/i18n";
 import { baseOptions } from "@/lib/layout.shared";
+import { docsSiteUrl } from "@/lib/shared";
 import { slugsToMarkdownPath, source } from "@/lib/source";
 
-export const Route = createFileRoute("/docs/$")({
-  component: Page,
-  loader: async ({ params }) => {
-    const slugs = params._splat?.split("/") ?? [];
-    const data = await loader({ data: slugs });
-    await clientLoader.preload(data.path);
-    return data;
-  },
-});
-
-const loader = createServerFn({
+export const loadDocsPage = createServerFn({
   method: "GET",
 })
-  .validator((slugs: string[]) => slugs)
+  .validator((data: { locale: "en" | "fi"; slugs: string[] }) => data)
   .middleware([staticFunctionMiddleware])
-  .handler(async ({ data: slugs }) => {
-    const page = source.getPage(slugs);
+  .handler(async ({ data: { locale, slugs } }) => {
+    const page = source.getPage(slugs, locale);
     if (!page) throw notFound();
 
     return {
       path: page.path,
+      title: page.data.title,
+      description: page.data.description,
+      url: page.url,
       markdownUrl: slugsToMarkdownPath(page.slugs).url,
-      pageTree: await source.serializePageTree(source.getPageTree()),
+      pageTree: await source.serializePageTree(source.getPageTree(locale)),
     };
   });
 
-const clientLoader = browserCollections.docs.createClientLoader({
+export const Route = createFileRoute("/docs/$")({
+  loader: async ({ params }) => {
+    const slugs = params._splat?.split("/") ?? [];
+    const data = await loadDocsPage({ data: { locale: "en", slugs } });
+    await clientLoader.preload(data.path);
+    return data;
+  },
+  head: ({ loaderData }) => {
+    if (!loaderData) return {};
+    const canonical = `${docsSiteUrl}${loaderData.url}`;
+    return {
+      meta: [
+        { title: `${loaderData.title} | VISP Documentation` },
+        { name: "description", content: loaderData.description },
+        { property: "og:type", content: "article" },
+        { property: "og:title", content: loaderData.title },
+        { property: "og:description", content: loaderData.description },
+        { property: "og:url", content: canonical },
+        { name: "twitter:card", content: "summary" },
+      ],
+      links: [
+        { rel: "canonical", href: canonical },
+        ...alternateLinks(loaderData.url),
+      ],
+    };
+  },
+  component: Page,
+});
+
+export const clientLoader = browserCollections.docs.createClientLoader({
   component(
     { toc, frontmatter, default: MDX },
     { markdownUrl }: { markdownUrl: string },
@@ -64,12 +88,20 @@ const clientLoader = browserCollections.docs.createClientLoader({
 });
 
 function Page() {
-  const { pageTree, path, markdownUrl } = useFumadocsLoader(
-    Route.useLoaderData(),
-  );
+  return <LocalizedDocsPage data={Route.useLoaderData()} locale="en" />;
+}
+
+export function LocalizedDocsPage({
+  data,
+  locale,
+}: {
+  data: Awaited<ReturnType<typeof loadDocsPage>>;
+  locale: "en" | "fi";
+}) {
+  const { pageTree, path, markdownUrl } = useFumadocsLoader(data);
 
   return (
-    <DocsLayout {...baseOptions()} tree={pageTree}>
+    <DocsLayout {...baseOptions(locale)} tree={pageTree}>
       <Link to={markdownUrl} hidden />
       <Suspense>{clientLoader.useContent(path, { markdownUrl })}</Suspense>
     </DocsLayout>

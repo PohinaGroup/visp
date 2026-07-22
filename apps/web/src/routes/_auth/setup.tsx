@@ -38,12 +38,14 @@ import {
 	getAdvancedSetupAction,
 } from "@/lib/advanced-setup";
 import { docs } from "@/lib/docs";
+import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/setup")({
 	validateSearch: (search: Record<string, unknown>) => ({
+		lang: search.lang === "fi" ? ("fi" as const) : undefined,
 		redo: search.redo === true || search.redo === "true" || search.redo === "1",
 	}),
 	beforeLoad: async ({ context, search }) => {
@@ -51,7 +53,10 @@ export const Route = createFileRoute("/_auth/setup")({
 			context.trpc.secrets.status.queryOptions(),
 		);
 		if (status.onboardedAt && !search.redo) {
-			throw redirect({ to: "/dashboard" });
+			throw redirect({
+				to: "/dashboard",
+				search: localeSearch(search.lang === "fi" ? "fi" : "en"),
+			});
 		}
 	},
 	loader: () => getObsPluginRelease(),
@@ -311,10 +316,11 @@ function OptionCard({
 }
 
 function BackButton({ onBack }: { onBack: () => void }) {
+	const t = useT();
 	return (
 		<Button
 			icon={<Icon color="inherit" icon={ArrowLeftIcon} size="sm" />}
-			label="Back"
+			label={t("Back")}
 			variant="ghost"
 			onClick={onBack}
 		/>
@@ -373,39 +379,90 @@ function ExternalLinkButton({ href, label }: { href: string; label: string }) {
 }
 
 function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
+	const fi = useLocale() === "fi";
 	return (
 		<VStack gap={4}>
 			<StepIntro
-				description="Choose whether to keep your current devices or revoke them and start clean."
-				title="Redo setup"
+				description={
+					fi
+						? "Valitse, säilytetäänkö nykyiset laitteet vai perutaanko niiden oikeudet ja aloitetaan alusta."
+						: "Choose whether to keep your current devices or revoke them and start clean."
+				}
+				title={fi ? "Tee käyttöönotto uudelleen" : "Redo setup"}
 			/>
 			<OptionCard
-				description="Keep existing linked devices and their URLs. Setup refreshes credentials for your primary device."
-				title="Keep existing devices"
+				description={
+					fi
+						? "Säilytä yhdistetyt laitteet ja niiden osoitteet. Käyttöönotto päivittää ensisijaisen laitteen tunnukset."
+						: "Keep existing linked devices and their URLs. Setup refreshes credentials for your primary device."
+				}
+				title={fi ? "Säilytä nykyiset laitteet" : "Keep existing devices"}
 				onClick={() => onPick("additive")}
 			/>
 			<OptionCard
-				description="Revoke every device path and rotate OBS read credentials. Your chosen publisher creates a fresh device when needed."
-				title="Wipe and start over"
+				description={
+					fi
+						? "Peru kaikkien laitepolkujen oikeudet ja vaihda OBS-lukutunnukset. Valittu julkaisija luo tarvittaessa uuden laitteen."
+						: "Revoke every device path and rotate OBS read credentials. Your chosen publisher creates a fresh device when needed."
+				}
+				title={fi ? "Tyhjennä ja aloita alusta" : "Wipe and start over"}
 				onClick={() => onPick("wipe")}
 			/>
 			<Banner
-				description="Wipe disconnects native app bindings and invalidates old publish URLs."
+				description={
+					fi
+						? "Tyhjentäminen katkaisee sovellusten sidokset ja mitätöi vanhat julkaisuosoitteet."
+						: "Wipe disconnects native app bindings and invalidates old publish URLs."
+				}
 				status="warning"
-				title="Wipe cannot be undone"
+				title={fi ? "Tyhjentämistä ei voi perua" : "Wipe cannot be undone"}
 			/>
 		</VStack>
 	);
 }
 
 function UseCaseStep({ onPick }: { onPick: (useCase: SetupUseCase) => void }) {
+	const fi = useLocale() === "fi";
+	const options = fi
+		? [
+				{
+					value: "phone_to_obs" as const,
+					title: "Puhelimen kamera OBS:ään",
+					description:
+						"Käytä puhelinta kamerana ja mikrofonina OBS-lähetyskoneella.",
+				},
+				{
+					value: "remote_guest" as const,
+					title: "Ystävä tai toinen tietokone",
+					description: "Tuo etäpuhelimen tai -tietokoneen syöte OBS:ään.",
+				},
+				{
+					value: "multi_cam" as const,
+					title: "Useita puhelimia kameroina",
+					description:
+						"Aloita yhdellä laitteella ja lisää muut myöhemmin hallintapaneelista.",
+				},
+				{
+					value: "other" as const,
+					title: "Keskustele Sepon kanssa",
+					description:
+						"Etkö ole vielä varma? Avaa avustaja ja kuvaile tarpeesi.",
+				},
+			]
+		: USE_CASE_OPTIONS;
 	return (
 		<VStack gap={4}>
 			<StepIntro
-				description="VISP relays one camera into OBS first. You can add more devices later. Stuck? Pick Talk with Seppo or tap the chat ball."
-				title="What do you want VISP for?"
+				description={
+					fi
+						? "VISP välittää ensin yhden kameran OBS:ään. Voit lisätä laitteita myöhemmin. Jos jäät jumiin, keskustele Sepon kanssa."
+						: "VISP relays one camera into OBS first. You can add more devices later. Stuck? Pick Talk with Seppo or tap the chat ball."
+				}
+				title={
+					fi ? "Mihin haluat käyttää VISPiä?" : "What do you want VISP for?"
+				}
 			/>
-			{USE_CASE_OPTIONS.map((option) => (
+			{options.map((option) => (
 				<OptionCard
 					key={option.value}
 					description={option.description}
@@ -424,16 +481,46 @@ function PublisherStep({
 	onBack: () => void;
 	onPick: (publisher: Publisher) => void;
 }) {
+	const fi = useLocale() === "fi";
+	const options = fi
+		? [
+				{
+					value: "visp" as const,
+					title: "VISP-mobiilisovellus",
+					description:
+						"Suositus. Asenna ja kirjaudu; VISP yhdistää laitteen automaattisesti ilman osoitteen liittämistä.",
+					recommended: true,
+				},
+				{
+					value: "web" as const,
+					title: "Selainjulkaisija",
+					description:
+						"Julkaise Chromella, Edgellä tai Safarilla WebRTC:n kautta ilman asennusta.",
+				},
+				{
+					value: "other" as const,
+					title: "Muu SRT/RTMP-sovellus",
+					description:
+						"Mikä tahansa sovellus, jossa on mukautetun palvelimen asetus.",
+				},
+			]
+		: SIMPLE_PUBLISHER_OPTIONS;
 	return (
 		<VStack gap={4}>
 			<StepIntro
-				description="Choose the VISP app or browser for guided setup. Next you'll pull the feed into OBS with the VISP OBS plugin."
-				title="How will you send video?"
+				description={
+					fi
+						? "Valitse ohjattuun käyttöönottoon VISP-sovellus tai selain. Seuraavaksi tuot syötteen OBS:ään VISP-lisäosalla."
+						: "Choose the VISP app or browser for guided setup. Next you'll pull the feed into OBS with the VISP OBS plugin."
+				}
+				title={fi ? "Miten lähetät videon?" : "How will you send video?"}
 			/>
-			{SIMPLE_PUBLISHER_OPTIONS.map((option) => (
+			{options.map((option) => (
 				<OptionCard
 					key={option.value}
-					badge={option.recommended ? "Recommended" : undefined}
+					badge={
+						option.recommended ? (fi ? "Suositus" : "Recommended") : undefined
+					}
 					description={option.description}
 					title={option.title}
 					onClick={() => onPick(option.value)}
@@ -453,13 +540,38 @@ function DestinationStep({
 	onBack: () => void;
 	onPick: (destination: Destination) => void;
 }) {
+	const fi = useLocale() === "fi";
+	const options = fi
+		? [
+				{
+					value: "twitch" as const,
+					title: "Twitch",
+					description: "Aloitat Twitch-lähetyksen OBS:stä.",
+				},
+				{
+					value: "kick" as const,
+					title: "Kick",
+					description: "Aloitat Kick-lähetyksen OBS:stä.",
+				},
+				{
+					value: "other" as const,
+					title: "Muu kohde",
+					description:
+						"YouTube, mukautettu RTMP-kohde tai et ole vielä päättänyt.",
+				},
+			]
+		: DESTINATION_OPTIONS;
 	return (
 		<VStack gap={4}>
 			<StepIntro
-				description="This only shapes guidance — your relay links stay the same either way."
-				title="Where do you go live?"
+				description={
+					fi
+						? "Valinta vaikuttaa vain ohjeisiin — relay-osoitteesi pysyvät samoina."
+						: "This only shapes guidance — your relay links stay the same either way."
+				}
+				title={fi ? "Missä lähetät suorana?" : "Where do you go live?"}
 			/>
-			{DESTINATION_OPTIONS.map((option) => (
+			{options.map((option) => (
 				<OptionCard
 					key={option.value}
 					description={option.description}
@@ -481,6 +593,8 @@ function TestStreamStep({
 	onBack: () => void;
 	onDone: () => void;
 }) {
+	const t = useT();
+	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
 	const paths = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5_000 }),
@@ -492,35 +606,47 @@ function TestStreamStep({
 	return (
 		<VStack gap={4}>
 			<StepIntro
-				description="Start publishing from your phone, browser, or app. If you installed the VISP OBS plugin, open Tools → VISP and add the device to your scene while you wait."
-				title="Test your connection"
+				description={
+					fi
+						? "Aloita julkaisu puhelimesta, selaimesta tai sovelluksesta. Jos asensit VISP OBS -lisäosan, avaa Tools → VISP ja lisää laite kohtaukseen odottaessasi."
+						: "Start publishing from your phone, browser, or app. If you installed the VISP OBS plugin, open Tools → VISP and add the device to your scene while you wait."
+				}
+				title={t("Test your connection")}
 			/>
 			<Card variant="muted">
 				<HStack gap={3} vAlign="center" wrap="wrap">
 					{live ? (
 						<>
-							<StatusDot isPulsing label="Live" variant="error" />
-							<Text type="label">Live — VISP sees your publish feed</Text>
+							<StatusDot isPulsing label={t("Live")} variant="error" />
+							<Text type="label">
+								{fi
+									? "Suora — VISP näkee julkaisusyötteesi"
+									: "Live — VISP sees your publish feed"}
+							</Text>
 						</>
 					) : unknown ? (
 						<>
-							<StatusDot label="Status unknown" variant="warning" />
+							<StatusDot label={t("Status unknown")} variant="warning" />
 							<Text type="label">
-								Status unknown — keep the publisher running
+								{fi
+									? "Tila ei ole tiedossa — pidä julkaisija käynnissä"
+									: "Status unknown — keep the publisher running"}
 							</Text>
 						</>
 					) : (
 						<>
-							<StatusDot label="Offline" variant="neutral" />
+							<StatusDot label={t("Offline")} variant="neutral" />
 							<Text type="label">
-								Offline — waiting for a publish connection
+								{fi
+									? "Ei yhteyttä — odotetaan julkaisuyhteyttä"
+									: "Offline — waiting for a publish connection"}
 							</Text>
 						</>
 					)}
 				</HStack>
 				{path?.publishLastConnectedAt ? (
 					<Text color="secondary" type="supporting">
-						Last connected{" "}
+						{fi ? "Yhdistetty viimeksi " : "Last connected "}
 						{new Date(path.publishLastConnectedAt)
 							.toISOString()
 							.replace("T", " ")
@@ -529,26 +655,42 @@ function TestStreamStep({
 					</Text>
 				) : (
 					<Text color="secondary" type="supporting">
-						Never connected yet
+						{fi ? "Ei vielä koskaan yhdistetty" : "Never connected yet"}
 					</Text>
 				)}
 			</Card>
 			{live ? (
 				<Banner
-					description="You're ready for the dashboard. Add more devices there if you need multi-cam."
+					description={
+						fi
+							? "Olet valmis hallintapaneeliin. Lisää siellä laitteita, jos tarvitset useita kameroita."
+							: "You're ready for the dashboard. Add more devices there if you need multi-cam."
+					}
 					status="success"
-					title="Connection looks good"
+					title={t("Connection looks good")}
 				/>
 			) : (
 				<Banner
-					description="You can skip and finish setup anyway — the dashboard shows live status too."
+					description={
+						fi
+							? "Voit ohittaa testin ja viimeistellä käyttöönoton — hallintapaneeli näyttää myös suoran tilan."
+							: "You can skip and finish setup anyway — the dashboard shows live status too."
+					}
 					status="info"
-					title="No live feed yet"
+					title={t("No live feed yet")}
 				/>
 			)}
 			<HStack gap={2} wrap="wrap">
 				<Button
-					label={live ? "Go to my dashboard" : "Skip and go to dashboard"}
+					label={
+						live
+							? fi
+								? "Siirry hallintapaneeliin"
+								: "Go to my dashboard"
+							: fi
+								? "Ohita ja siirry hallintapaneeliin"
+								: "Skip and go to dashboard"
+					}
 					variant="primary"
 					onClick={onDone}
 				/>
@@ -569,6 +711,9 @@ type WizardActions = {
 
 function SetupWizard() {
 	const { redo } = Route.useSearch();
+	const locale = useLocale();
+	const fi = locale === "fi";
+	const t = useT();
 	const obsRelease = Route.useLoaderData();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -585,8 +730,8 @@ function SetupWizard() {
 
 	const openAdvancedDashboard = useCallback(async () => {
 		await queryClient.invalidateQueries();
-		await navigate({ to: "/dashboard" });
-	}, [navigate, queryClient]);
+		await navigate({ to: "/dashboard", search: localeSearch(locale) });
+	}, [locale, navigate, queryClient]);
 
 	const completeAdvanced = useMutation(
 		trpc.onboarding.complete.mutationOptions({
@@ -729,29 +874,38 @@ function SetupWizard() {
 							<VStack gap={1} hAlign="end">
 								<SegmentedControl
 									isDisabled={openingAdvanced || !status.data}
-									label="Setup mode"
+									label={t("Setup mode")}
 									value={openingAdvanced ? "advanced" : "simple"}
 									onChange={(value) => setSetupMode(value === "advanced")}
 								>
-									<SegmentedControlItem label="Simple" value="simple" />
-									<SegmentedControlItem label="Advanced" value="advanced" />
+									<SegmentedControlItem label={t("Simple")} value="simple" />
+									<SegmentedControlItem
+										label={t("Advanced")}
+										value="advanced"
+									/>
 								</SegmentedControl>
 								{openingAdvanced ? (
 									<Text color="secondary" type="supporting">
-										Opening advanced dashboard…
+										{fi
+											? "Avataan edistynyttä hallintapaneelia…"
+											: "Opening advanced dashboard…"}
 									</Text>
 								) : null}
 							</VStack>
 						}
 						eyebrow={
 							step === "redo"
-								? "Redo setup"
-								: `Step ${String(questionNumber).padStart(2, "0")} / ${String(
+								? t("Redo setup")
+								: `${fi ? "Vaihe" : "Step"} ${String(questionNumber).padStart(2, "0")} / ${String(
 										questionTotal,
 									).padStart(2, "0")}`
 						}
-						subtitle="Real-world questions, one device to start, then your stream links. The VISP mobile app links automatically."
-						title="Let's get you streaming"
+						subtitle={
+							fi
+								? "Käytännön kysymykset, aluksi yksi laite ja sitten lähetysosoitteesi. VISP-mobiilisovellus yhdistyy automaattisesti."
+								: "Real-world questions, one device to start, then your stream links. The VISP mobile app links automatically."
+						}
+						title={t("Let's get you streaming")}
 					/>
 
 					<VStack gap={4}>
@@ -800,7 +954,9 @@ function SetupWizard() {
 						{step === "test" ? (
 							<TestStreamStep
 								onBack={() => setStep("credentials")}
-								onDone={() => navigate({ to: "/dashboard" })}
+								onDone={() =>
+									navigate({ to: "/dashboard", search: localeSearch(locale) })
+								}
 							/>
 						) : null}
 					</VStack>
@@ -809,10 +965,28 @@ function SetupWizard() {
 			<SeppoWidget
 				context="setup"
 				open={seppoOpen}
-				placeholder="Describe your streaming setup…"
-				subtitle="Setup help — can fill answers and move steps"
-				suggestions={SEPPO_SUGGESTIONS}
-				welcome={SEPPO_WELCOME}
+				placeholder={
+					fi ? "Kuvaile lähetyskokoonpanosi…" : "Describe your streaming setup…"
+				}
+				subtitle={
+					fi
+						? "Käyttöönottoapu — voi täyttää vastauksia ja siirtää vaiheita"
+						: "Setup help — can fill answers and move steps"
+				}
+				suggestions={
+					fi
+						? [
+								"Käytä puhelintani OBS-kamerana",
+								"Tuo ystävän syöte lähetykseeni",
+								"Millä sovelluksella minun kannattaa julkaista?",
+							]
+						: SEPPO_SUGGESTIONS
+				}
+				welcome={
+					fi
+						? "Hei, olen Seppo. Kerro, mitä haluat lähettää — puhelimen OBS:ään, etävieraan tai monta kameraa — niin ohjaan käyttöönoton."
+						: SEPPO_WELCOME
+				}
 				onOpenChange={setSeppoOpen}
 				onToolCall={handleSeppoTool}
 				toolActivityLabel={toolActivityLabel}
@@ -920,38 +1094,65 @@ function CredentialsPrompt({
 	onBack: () => void;
 	onCreate: () => void;
 }) {
+	const fi = useLocale() === "fi";
 	return (
 		<VStack gap={4}>
 			<StepIntro
 				description={
 					publisher === "visp"
-						? "The mobile app creates its device automatically. Setup only prepares OBS read credentials."
+						? fi
+							? "Mobiilisovellus luo laitteensa automaattisesti. Käyttöönotto valmistelee vain OBS-lukutunnukset."
+							: "The mobile app creates its device automatically. Setup only prepares OBS read credentials."
 						: "One device link for publishing, plus OBS read credentials for your streaming PC."
 				}
 				title={
 					publisher === "visp"
-						? "Ready to prepare OBS"
-						: "Ready to create your stream links"
+						? fi
+							? "Valmis valmistelemaan OBS:n"
+							: "Ready to prepare OBS"
+						: fi
+							? "Valmis luomaan lähetysosoitteet"
+							: "Ready to create your stream links"
 				}
 			/>
 			{useCase === "multi_cam" && publisher !== "visp" ? (
 				<Banner
-					description="Setup creates one device now. Add more phones from the dashboard when you're ready."
+					description={
+						fi
+							? "Käyttöönotto luo nyt yhden laitteen. Lisää puhelimia hallintapaneelista myöhemmin."
+							: "Setup creates one device now. Add more phones from the dashboard when you're ready."
+					}
 					status="info"
-					title="Multi-cam starts with one feed"
+					title={
+						fi
+							? "Monikamera alkaa yhdestä syötteestä"
+							: "Multi-cam starts with one feed"
+					}
 				/>
 			) : null}
 			{redoMode === "wipe" ? (
 				<Banner
 					status="warning"
-					title="Wipe will revoke existing devices"
-					description="Native app bindings and old publish URLs stop working."
+					title={
+						fi
+							? "Tyhjennys peruu nykyiset laitteet"
+							: "Wipe will revoke existing devices"
+					}
+					description={
+						fi
+							? "Sovellusten sidokset ja vanhat julkaisuosoitteet lakkaavat toimimasta."
+							: "Native app bindings and old publish URLs stop working."
+					}
 				/>
 			) : null}
 			{redoMode === "additive" ? (
 				<Banner
 					status="info"
-					title="Existing devices stay linked"
+					title={
+						fi
+							? "Nykyiset laitteet säilyvät yhdistettyinä"
+							: "Existing devices stay linked"
+					}
 					description={
 						publisher === "visp"
 							? "The mobile app links its own device; existing paths keep their URLs."
@@ -964,8 +1165,12 @@ function CredentialsPrompt({
 					isLoading={isLoading}
 					label={
 						publisher === "visp"
-							? "Prepare OBS credentials"
-							: "Create my stream links"
+							? fi
+								? "Valmistele OBS-tunnukset"
+								: "Prepare OBS credentials"
+							: fi
+								? "Luo lähetysosoitteeni"
+								: "Create my stream links"
 					}
 					variant="primary"
 					onClick={onCreate}
@@ -989,6 +1194,8 @@ function CredentialsReady({
 	publisher: Publisher;
 	onContinue: () => void;
 }) {
+	const fi = useLocale() === "fi";
+	const t = useT();
 	const publishUrl = bundle.urls.publish[0];
 	const readUrl = bundle.urls.read[0];
 	const manual =
@@ -1004,45 +1211,74 @@ function CredentialsReady({
 			? "Twitch"
 			: destination === "kick"
 				? "Kick"
-				: "your platform";
+				: fi
+					? "palveluusi"
+					: "your platform";
 
 	return (
 		<VStack gap={6}>
 			<Banner
-				description="They stay hidden on the dashboard until you choose Reveal. Each device can be rotated independently later."
+				description={
+					fi
+						? "Tunnukset pysyvät piilossa hallintapaneelissa, kunnes valitset Näytä. Jokaisen laitteen tunnuksen voi vaihtaa erikseen."
+						: "They stay hidden on the dashboard until you choose Reveal. Each device can be rotated independently later."
+				}
 				status="success"
 				title={
 					publisher === "visp"
-						? "Your OBS credentials are ready"
-						: "Your device link is ready"
+						? fi
+							? "OBS-tunnuksesi ovat valmiit"
+							: "Your OBS credentials are ready"
+						: fi
+							? "Laitteesi osoite on valmis"
+							: "Your device link is ready"
 				}
 			/>
 
 			{publisher === "visp" ? (
 				<VStack gap={3}>
 					<StepIntro
-						description="The VISP app creates the publish link automatically after you sign in — no paste required."
+						description={
+							fi
+								? "VISP-sovellus luo julkaisuosoitteen automaattisesti kirjautumisen jälkeen — osoitetta ei tarvitse liittää."
+								: "The VISP app creates the publish link automatically after you sign in — no paste required."
+						}
 						docsHref={docs.phoneApp}
-						docsLabel="See phone and browser app docs"
-						title="On your phone"
+						docsLabel={
+							fi
+								? "Katso puhelin- ja selainsovelluksen ohje"
+								: "See phone and browser app docs"
+						}
+						title={t("On your phone")}
 					/>
 					<NumberedSteps
-						steps={[
-							"Install the VISP beta for iOS (TestFlight) or Android (Play open testing).",
-							"Open the app and sign in with the same Twitch or Kick account.",
-							"Allow camera and mic — VISP claims this device and starts publishing over SRT.",
-						]}
+						steps={
+							fi
+								? [
+										"Asenna VISP-beta iOS:lle TestFlightista tai Androidille Play-testauksesta.",
+										"Avaa sovellus ja kirjaudu samalla Twitch- tai Kick-tilillä.",
+										"Salli kamera ja mikrofoni — VISP ottaa laitteen käyttöön ja aloittaa SRT-julkaisun.",
+									]
+								: [
+										"Install the VISP beta for iOS (TestFlight) or Android (Play open testing).",
+										"Open the app and sign in with the same Twitch or Kick account.",
+										"Allow camera and mic — VISP claims this device and starts publishing over SRT.",
+									]
+						}
 					/>
 					<HStack gap={2} wrap="wrap">
 						<ExternalLinkButton
 							href={legalEntity.iosTestFlightUrl}
-							label="Join on TestFlight"
+							label={fi ? "Liity TestFlightissa" : "Join on TestFlight"}
 						/>
 						<ExternalLinkButton
 							href={legalEntity.androidPlayTestingUrl}
-							label="Join on Google Play"
+							label={fi ? "Liity Google Playssa" : "Join on Google Play"}
 						/>
-						<ExternalLinkButton href="/download" label="All downloads" />
+						<ExternalLinkButton
+							href={fi ? "/download?lang=fi" : "/download"}
+							label={fi ? "Kaikki lataukset" : "All downloads"}
+						/>
 					</HStack>
 				</VStack>
 			) : null}
@@ -1050,22 +1286,38 @@ function CredentialsReady({
 			{publisher === "web" ? (
 				<VStack gap={3}>
 					<StepIntro
-						description="Open the browser publisher, sign in, and start the camera — no native install."
+						description={
+							fi
+								? "Avaa selainjulkaisija, kirjaudu ja käynnistä kamera ilman sovelluksen asennusta."
+								: "Open the browser publisher, sign in, and start the camera — no native install."
+						}
 						docsHref={docs.phoneApp}
-						docsLabel="See phone and browser app docs"
-						title="In your browser"
+						docsLabel={
+							fi
+								? "Katso puhelin- ja selainsovelluksen ohje"
+								: "See phone and browser app docs"
+						}
+						title={t("In your browser")}
 					/>
 					<NumberedSteps
-						steps={[
-							"Open the VISP browser publisher.",
-							"Sign in with the same Twitch or Kick account.",
-							"Allow camera and mic, then start publishing.",
-						]}
+						steps={
+							fi
+								? [
+										"Avaa VISP-selainjulkaisija.",
+										"Kirjaudu samalla Twitch- tai Kick-tilillä.",
+										"Salli kamera ja mikrofoni ja aloita julkaisu.",
+									]
+								: [
+										"Open the VISP browser publisher.",
+										"Sign in with the same Twitch or Kick account.",
+										"Allow camera and mic, then start publishing.",
+									]
+						}
 					/>
 					<HStack gap={2} wrap="wrap">
 						<ExternalLinkButton
 							href={legalEntity.browserAppUrl}
-							label="Open browser publisher"
+							label={fi ? "Avaa selainjulkaisija" : "Open browser publisher"}
 						/>
 					</HStack>
 				</VStack>
@@ -1081,13 +1333,13 @@ function CredentialsReady({
 						}
 						docsHref={docs.videoSource}
 						docsLabel="See how to add this to your video source"
-						title="On your publishing device"
+						title={t("On your publishing device")}
 					/>
 					<NumberedSteps steps={manual.steps} />
 					<RevealedValue
 						docsHref={docs.videoSource}
 						docsLabel="See how to add this to your video source"
-						label="Publish link"
+						label={t("Publish link")}
 						value={primary}
 					/>
 				</VStack>
@@ -1095,10 +1347,18 @@ function CredentialsReady({
 
 			<VStack gap={3}>
 				<StepIntro
-					description={`Install the VISP OBS plugin to pull feeds into OBS and go live to ${destinationLabel} without hand-pasting Media Source URLs.`}
+					description={
+						fi
+							? `Asenna VISP OBS -lisäosa, tuo syötteet OBS:ään ja aloita lähetys ${destinationLabel} ilman medialähdeosoitteiden käsin liittämistä.`
+							: `Install the VISP OBS plugin to pull feeds into OBS and go live to ${destinationLabel} without hand-pasting Media Source URLs.`
+					}
 					docsHref={docs.obsRemoteControl}
-					docsLabel="See how to pair the OBS plugin"
-					title="On your streaming PC (OBS)"
+					docsLabel={
+						fi
+							? "Katso OBS-lisäosan yhdistämisohje"
+							: "See how to pair the OBS plugin"
+					}
+					title={t("On your streaming PC (OBS)")}
 				/>
 				<ObsPluginPromo
 					destinationLabel={destinationLabel}
@@ -1108,26 +1368,36 @@ function CredentialsReady({
 					defaultIsOpen={false}
 					trigger={
 						<Text color="secondary" type="supporting">
-							Prefer not to install the plugin? Manual OBS setup
+							{fi
+								? "Etkö halua asentaa lisäosaa? OBS:n manuaalinen käyttöönotto"
+								: "Prefer not to install the plugin? Manual OBS setup"}
 						</Text>
 					}
 				>
 					<Grid columns={{ minWidth: 280, repeat: "fit" }} gap={3}>
 						<Card>
 							<VStack gap={3}>
-								<Heading level={3}>By hand</Heading>
+								<Heading level={3}>{t("By hand")}</Heading>
 								<NumberedSteps
-									steps={[
-										"In OBS, add a Media Source.",
-										"Turn off the “Local File” checkbox.",
-										'Paste the URL below into the "Input" field.',
-									]}
+									steps={
+										fi
+											? [
+													"Lisää OBS:ssä Media Source -lähde.",
+													"Poista Local File -valinta käytöstä.",
+													"Liitä alla oleva osoite Input-kenttään.",
+												]
+											: [
+													"In OBS, add a Media Source.",
+													"Turn off the “Local File” checkbox.",
+													'Paste the URL below into the "Input" field.',
+												]
+									}
 								/>
 								{readUrl ? (
 									<RevealedValue
 										docsHref={docs.getStarted}
 										docsLabel="See how to import this into OBS"
-										label="Media source URL"
+										label={t("Media source URL")}
 										value={readUrl.srt}
 									/>
 								) : null}
@@ -1137,20 +1407,28 @@ function CredentialsReady({
 						{bundle.sceneCollection ? (
 							<Card>
 								<VStack gap={3}>
-									<Heading level={3}>Download the scene file</Heading>
+									<Heading level={3}>{t("Download the scene file")}</Heading>
 									<NumberedSteps
-										steps={[
-											"Download the file below.",
-											"In OBS, open Scene Collection → Import and pick the downloaded file.",
-											"Your device shows up as a ready-made scene.",
-										]}
+										steps={
+											fi
+												? [
+														"Lataa alla oleva tiedosto.",
+														"Avaa OBS:ssä Scene Collection → Import ja valitse ladattu tiedosto.",
+														"Laitteesi näkyy valmiina kohtauksena.",
+													]
+												: [
+														"Download the file below.",
+														"In OBS, open Scene Collection → Import and pick the downloaded file.",
+														"Your device shows up as a ready-made scene.",
+													]
+										}
 									/>
 									<HStack>
 										<Button
 											icon={
 												<Icon color="inherit" icon={DownloadIcon} size="sm" />
 											}
-											label="Download OBS scene file"
+											label={t("Download OBS scene file")}
 											onClick={() =>
 												downloadSceneCollection(bundle.sceneCollection)
 											}
@@ -1165,7 +1443,7 @@ function CredentialsReady({
 
 			<HStack gap={2} wrap="wrap">
 				<Button
-					label="Check for a live connection"
+					label={t("Check for a live connection")}
 					variant="primary"
 					onClick={onContinue}
 				/>

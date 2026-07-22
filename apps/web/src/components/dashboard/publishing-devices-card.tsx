@@ -14,6 +14,7 @@ import { toast } from "sonner";
 import { SimpleUrl, UrlWithFallback } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
+import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { PathRow } from "./path-row";
 import type { CreatedDevice } from "./types";
@@ -23,6 +24,7 @@ export function PublishingDevicesCard({
 }: {
 	onRedoSetup: () => void;
 }) {
+	const t = useT();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [label, setLabel] = useState("");
@@ -38,7 +40,7 @@ export function PublishingDevicesCard({
 				setCreated(result);
 				setLabel("");
 				await queryClient.invalidateQueries();
-				toast.success("Publishing device created");
+				toast.success(t("Publishing device created"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -50,10 +52,10 @@ export function PublishingDevicesCard({
 		<Card>
 			<VStack gap={4}>
 				<HStack gap={1.5} vAlign="center">
-					<Heading level={2}>Video sources</Heading>
+					<Heading level={2}>{t("Video sources")}</Heading>
 					<DocsHelpLink
 						href={docs.videoSource}
-						label="See how to add a video source"
+						label={t("See how to add a video source")}
 					/>
 				</HStack>
 
@@ -75,7 +77,7 @@ export function PublishingDevicesCard({
 									<UrlWithFallback
 										docsHref={docs.getStarted}
 										docsLabel="See how to import this into OBS"
-										label="Receiving URL"
+										label={t("Receiving URL")}
 										rtmp={created.read.rtmp}
 										srt={created.read.srt}
 									/>
@@ -84,7 +86,7 @@ export function PublishingDevicesCard({
 										copyValue={created.read.srt}
 										docsHref={docs.getStarted}
 										docsLabel="See how to import this into OBS"
-										label="Add this to OBS or other streaming software"
+										label={t("Add this to OBS or other streaming software")}
 										url={created.read.srt}
 									/>
 								)
@@ -98,7 +100,7 @@ export function PublishingDevicesCard({
 								<UrlWithFallback
 									docsHref={docs.videoSource}
 									docsLabel="See how to add this to your video source"
-									label="Sending URL"
+									label={t("Sending URL")}
 									rtmp={created.urls.rtmp}
 									srt={created.urls.srt}
 								/>
@@ -107,13 +109,13 @@ export function PublishingDevicesCard({
 									copyValue={created.urls.srt}
 									docsHref={docs.videoSource}
 									docsLabel="See how to add this to your video source"
-									label="Add this to video source"
+									label={t("Add this to video source")}
 									url={created.urls.srt}
 								/>
 							)}
 							<HStack>
 								<Button
-									label="Dismiss"
+									label={t("Dismiss")}
 									size="sm"
 									variant="ghost"
 									onClick={() => setCreated(null)}
@@ -133,9 +135,9 @@ export function PublishingDevicesCard({
 					</VStack>
 				) : (
 					<EmptyState
-						description="Create a device for your first video source."
+						description={t("Create a device for your first video source.")}
 						isCompact
-						title="No publishing devices"
+						title={t("No publishing devices")}
 					/>
 				)}
 
@@ -143,22 +145,22 @@ export function PublishingDevicesCard({
 
 				<HStack gap={2} vAlign="end" wrap="wrap">
 					<TextInput
-						label="Device name"
-						placeholder="Main phone"
+						label={t("Device name")}
+						placeholder={t("Main phone")}
 						value={label}
 						onChange={setLabel}
 					/>
 					<Button
 						icon={<Icon color="inherit" icon={PlusIcon} size="sm" />}
 						isDisabled={create.isPending || !label.trim()}
-						label="Add device"
+						label={t("Add device")}
 						variant="primary"
 						onClick={() => create.mutate({ label })}
 					/>
 				</HStack>
 				<HStack gap={2} wrap="wrap">
 					<Button
-						label="Redo setup"
+						label={t("Redo setup")}
 						variant="secondary"
 						onClick={onRedoSetup}
 					/>

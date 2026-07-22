@@ -9,13 +9,14 @@ import { useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { docs } from "@/lib/docs";
+import { useT } from "@/lib/i18n";
 import { probeRelayRtt } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 import { AdvancedSection } from "./advanced-section";
 import {
 	type Guidance,
-	type NetworkProfile,
 	NETWORK_PROFILE_OPTIONS,
+	type NetworkProfile,
 } from "./types";
 
 function isNetworkProfile(value: string): value is NetworkProfile {
@@ -23,6 +24,7 @@ function isNetworkProfile(value: string): value is NetworkProfile {
 }
 
 export function GuidanceCard() {
+	const t = useT();
 	const trpc = useTRPC();
 	const [profile, setProfile] = useState<NetworkProfile>("wifi");
 	const [rtt, setRtt] = useState<number | null>(null);
@@ -63,7 +65,7 @@ export function GuidanceCard() {
 			docsLabel="See how to tune SRT latency"
 			id="dashboard-tuning"
 			tag="Advanced · Tuning"
-			title="Connection guidance"
+			title={t("Connection guidance")}
 			value="tuning"
 		>
 			<Text color="secondary" type="supporting">
@@ -71,7 +73,7 @@ export function GuidanceCard() {
 				upward.
 			</Text>
 			<Selector
-				label="Network profile"
+				label={t("Network profile")}
 				options={[...NETWORK_PROFILE_OPTIONS]}
 				value={profile}
 				onChange={(value) => {
@@ -79,8 +81,8 @@ export function GuidanceCard() {
 				}}
 			/>
 			<NumberInput
-				description="Use the relay probe or enter a measured value."
-				label="Estimated RTT (ms)"
+				description={t("Use the relay probe or enter a measured value.")}
+				label={t("Estimated RTT (ms)")}
 				value={rtt}
 				onChange={setRtt}
 			/>
@@ -106,13 +108,13 @@ export function GuidanceCard() {
 			<HStack gap={2} wrap="wrap">
 				<Button
 					isLoading={measuring || submit.isPending}
-					label="Measure relay RTT"
+					label={t("Measure relay RTT")}
 					variant="primary"
 					onClick={measure}
 				/>
 				<Button
 					isDisabled={!canSubmitManual}
-					label="Use manual RTT"
+					label={t("Use manual RTT")}
 					onClick={() => {
 						if (rtt === null) return;
 						submit.mutate({ rttMs: rtt, profile, method: "manual" });

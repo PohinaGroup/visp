@@ -1,0 +1,15 @@
+{
+  "title": "VISP-dokumentaatio",
+  "pages": [
+    "index",
+    "get-started",
+    "phone-app",
+    "video-source",
+    "obs-remote-control",
+    "broadcaster-setup",
+    "self-hosting",
+    "architecture",
+    "releases",
+    "development"
+  ]
+}

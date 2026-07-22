@@ -1,0 +1,12 @@
+---
+title: Arkkitehtuuri
+description: VISPin palvelimet, asiakasohjelmat, mediatodennus, tilannekuvat ja OBS-ohjaus.
+---
+
+# Arkkitehtuuri
+
+VISP erottaa hallintatason ja median siirron. Web-portaali ja API hallitsevat käyttäjiä, laitteita ja lyhytikäistä tilaa. Mediarelay vastaanottaa kameran syötteen ja tarjoaa sen OBS:lle laitekohtaisilla tunnuksilla.
+
+Jokaisella julkaisevalla laitteella on oma peruutettava polku. OBS käyttää erillisiä vain lukuun tarkoitettuja tunnuksia. Twitchin, Kickin tai muun kohteen lähetysavain pysyy OBS-koneella eikä kulje VISPin kautta.
+
+Tilapäiset yhteyskatkot näkyvät tapahtumina, joista palvelu muodostaa viimeisimmän tilannekuvan. Asiakasohjelmat sovittavat tilan uudelleen yhteyden palautuessa. OBS-etäohjaus käyttää erillistä valtuutettua kanavaa eikä muuta median käyttöoikeuksia.

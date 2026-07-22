@@ -1,32 +1,52 @@
-import { Link, createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 import { MeterMark } from "@/components/meter-mark";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { authClient } from "@/lib/auth-client";
+import { type Locale, localeSearch, localizedHead } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import { scheduleLandingSeppoAutoOpen } from "@/lib/seppo-landing";
 
 export const Route = createFileRoute("/")({
 	head: () => ({
-		meta: [{ title: "VISP — streaming without the leash" }],
+		meta: [
+			{ title: "VISP — streaming without the leash" },
+			{
+				name: "description",
+				content:
+					"Use phones as remote cameras in OBS, keep your production at home, and stay live through mobile network drops.",
+			},
+			{ property: "og:locale", content: "en_US" },
+		],
+		links: localizedHead("en"),
 	}),
-	component: HomeComponent,
+	component: () => <HomeComponent locale="en" />,
 });
 
-function TryCta({ size = "sm" }: { size?: "sm" | "lg" }) {
+function TryCta({
+	locale,
+	size = "sm",
+}: {
+	locale: Locale;
+	size?: "sm" | "lg";
+}) {
 	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
 	const lg = size === "lg";
 	return (
 		<button
 			type="button"
-			onClick={() => navigate({ to: session ? "/dashboard" : "/login" })}
+			onClick={() =>
+				session
+					? navigate({ to: "/dashboard", search: localeSearch(locale) })
+					: navigate({ to: "/login", search: localeSearch(locale) })
+			}
 			className={`inline-flex items-center justify-center rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
 				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
 			}`}
 		>
-			Try VISP free
+			{locale === "fi" ? "Kokeile VISPiä ilmaiseksi" : "Try VISP free"}
 		</button>
 	);
 }
@@ -39,11 +59,19 @@ const CHAIN = [
 	{ x: 900, tag: "OUT", label: "everywhere" },
 ] as const;
 
-function SignalChain() {
+function SignalChain({ locale }: { locale: Locale }) {
+	const labels =
+		locale === "fi"
+			? ["puhelin", "sovellus", "obs", "kaikkialle"]
+			: CHAIN.map((item) => item.label);
 	return (
 		<svg
 			role="img"
-			aria-label="Signal chain: phone camera through the app to your home OBS studio, out to everywhere."
+			aria-label={
+				locale === "fi"
+					? "Signaaliketju puhelimen kamerasta sovelluksen kautta kodin OBS-studioon ja suoratoistopalveluihin."
+					: "Signal chain: phone camera through the app to your home OBS studio, out to everywhere."
+			}
 			viewBox="0 0 1000 80"
 			className="block w-full text-foreground"
 		>
@@ -56,7 +84,7 @@ function SignalChain() {
 				strokeOpacity="0.28"
 				strokeWidth="1"
 			/>
-			{CHAIN.map((n) => (
+			{CHAIN.map((n, index) => (
 				<g key={n.tag}>
 					<rect
 						x={n.x - 6}
@@ -87,7 +115,7 @@ function SignalChain() {
 						fill="currentColor"
 						fillOpacity="0.5"
 					>
-						{n.label}
+						{labels[index]}
 					</text>
 				</g>
 			))}
@@ -140,6 +168,7 @@ const channels = [
 ];
 
 const footerLinks = [
+	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
 	{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
@@ -150,6 +179,7 @@ const footerLinks = [
 ];
 
 const navLinks = [
+	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
 	{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
@@ -165,8 +195,63 @@ const LANDING_SEPPO_SUGGESTIONS = [
 const eyebrow =
 	"font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground";
 
-function HomeComponent() {
+export function HomeComponent({ locale }: { locale: Locale }) {
 	const [seppoOpen, setSeppoOpen] = useState(false);
+	const fi = locale === "fi";
+	const localizedChannels = fi
+		? [
+				{
+					tag: "CAM",
+					title: "Kaksi kameraa, yksi lähetys",
+					body: "Aja useita puhelinkameroita omine mikrofoneineen samaan lähetykseen. Toinen puhelin on oikea kohtaus, ei videopuheluikkuna.",
+				},
+				{
+					tag: "OBS",
+					title: "Studiosi säilyy ennallaan",
+					body: "Kohtaukset, hälytykset, grafiikat ja opitut työtavat jatkavat toimintaansa. VISP liittyy nykyiseen OBS-kokoonpanoosi.",
+				},
+				{
+					tag: "NET",
+					title: "Lähetys, joka kestää",
+					body: "Lyhyt yhteyskatko ei lopeta lähetystä. Kotistudio pitää ohjelman käynnissä, kun puhelin muodostaa yhteyden uudelleen.",
+				},
+				{
+					tag: "KEY",
+					title: "Avaimet pysyvät kotona",
+					body: "Jokainen kamera saa oman peruutettavan käyttöoikeuden. Lähetysavaimesi ei koskaan siirry VISPille.",
+				},
+			]
+		: channels;
+	const localizedShots = fi
+		? [
+				{ ...productShots[0], alt: "Suoran lähetyksen ohjaus ja OBS-tila" },
+				{
+					...productShots[1],
+					alt: "Valmis aloittamaan lähetys chat-näkymällä",
+				},
+				{
+					...productShots[2],
+					alt: "Kameran tarkkuus-, kuvataajuus- ja relay-asetukset",
+				},
+			]
+		: productShots;
+	const localizedNavLinks = fi
+		? [
+				{ label: "Blogi", href: "/blog", external: false },
+				{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
+				{ label: "Lataa", href: "/download", external: false },
+				{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
+				{ label: "Yhteystiedot", href: "/contact", external: false },
+			]
+		: navLinks;
+	const localizedFooterLinks = fi
+		? [
+				...localizedNavLinks,
+				{ label: "Tietosuoja", href: "/privacy", external: false },
+				{ label: "Käyttöehdot", href: "/terms", external: false },
+				{ label: "Evästeet", href: "/cookies", external: false },
+			]
+		: footerLinks;
 
 	useEffect(
 		() =>
@@ -180,7 +265,7 @@ function HomeComponent() {
 				<div className="mx-auto max-w-[1100px] px-6">
 					{/* Top nav */}
 					<header className="flex items-center justify-between border-border border-b py-5">
-						<Link to="/" className="flex items-center gap-3">
+						<Link to={fi ? "/fi" : "/"} className="flex items-center gap-3">
 							<span className="font-bold font-display text-xl uppercase leading-none tracking-[0.28em]">
 								VISP
 							</span>
@@ -188,7 +273,7 @@ function HomeComponent() {
 						</Link>
 						<nav className="flex items-center gap-7 text-sm">
 							<span className="hidden items-center gap-7 sm:flex">
-								{navLinks.map((l) =>
+								{localizedNavLinks.map((l) =>
 									l.external ? (
 										<a
 											key={l.label}
@@ -210,7 +295,14 @@ function HomeComponent() {
 									),
 								)}
 							</span>
-							<TryCta />
+							<a
+								href={fi ? "/" : "/fi"}
+								hrefLang={fi ? "en" : "fi"}
+								className="text-muted-foreground hover:text-foreground"
+							>
+								{fi ? "EN" : "FI"}
+							</a>
+							<TryCta locale={locale} />
 						</nav>
 					</header>
 
@@ -218,22 +310,25 @@ function HomeComponent() {
 					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-28">
 						<div className="flex flex-col gap-7">
 							<h1 className="font-display font-semibold text-6xl uppercase leading-[0.92] tracking-tight sm:text-7xl md:text-[5.5rem]">
-								Go live from
+								{fi ? "Lähetä suorana" : "Go live from"}
 								<br />
-								anywhere
+								{fi ? "missä tahansa" : "anywhere"}
 							</h1>
 							<p className="max-w-md text-lg text-muted-foreground leading-relaxed">
-								Run multiple phone cams with their own mics, pull a guest onto
-								the stream, and keep broadcasting when the signal dips.
+								{fi
+									? "Käytä useita puhelinkameroita omine mikrofoneineen, tuo vieras mukaan ja jatka lähetystä myös yhteyden heiketessä."
+									: "Run multiple phone cams with their own mics, pull a guest onto the stream, and keep broadcasting when the signal dips."}
 							</p>
 							<p className="font-medium text-base">
-								Full production. Zero leash.
+								{fi
+									? "Täysi tuotanto. Ei talutushihnaa."
+									: "Full production. Zero leash."}
 							</p>
 						</div>
 
 						{/* Product shots — real captures, reframed in hairline device slabs */}
 						<div className="flex justify-center gap-3 md:justify-end">
-							{productShots.map((shot, i) => (
+							{localizedShots.map((shot, i) => (
 								<figure
 									key={shot.src}
 									className="relative w-1/3 max-w-[140px] overflow-hidden rounded-[10px] border border-border bg-card"
@@ -248,7 +343,7 @@ function HomeComponent() {
 										decoding="async"
 										className="aspect-[9/16] w-full object-cover"
 									/>
-									<figcaption className="absolute top-2 left-2 rounded-sm bg-background/85 px-1.5 py-0.5 font-mono text-[10px] uppercase tracking-wider text-foreground backdrop-blur-sm">
+									<figcaption className="absolute top-2 left-2 rounded-sm bg-background/85 px-1.5 py-0.5 font-mono text-[10px] text-foreground uppercase tracking-wider backdrop-blur-sm">
 										{shot.tag}
 									</figcaption>
 								</figure>
@@ -258,27 +353,32 @@ function HomeComponent() {
 
 					{/* Signature: the signal chain */}
 					<section className="border-border border-y py-14">
-						<span className={eyebrow}>Signal chain</span>
+						<span className={eyebrow}>
+							{fi ? "Signaaliketju" : "Signal chain"}
+						</span>
 						<div className="mt-8">
-							<SignalChain />
+							<SignalChain locale={locale} />
 						</div>
 						<p className="mt-6 max-w-xl text-muted-foreground text-sm leading-relaxed">
-							Phones in the field. OBS at home. Platforms get the feed — one
-							chain, no truck in between.
+							{fi
+								? "Puhelimet kentällä. OBS kotona. Palvelut saavat valmiin kuvan — yksi ketju ilman tuotantoautoa."
+								: "Phones in the field. OBS at home. Platforms get the feed — one chain, no truck in between."}
 						</p>
 					</section>
 
 					{/* Channels */}
 					<section className="py-20">
 						<h2 className="max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
-							Not for everyone.
+							{fi ? "Ei kaikille." : "Not for everyone."}
 							<br />
-							For creators who want more.
+							{fi
+								? "Tekijöille, jotka haluavat enemmän."
+								: "For creators who want more."}
 						</h2>
 						<ul className="mt-14 grid gap-px border border-border bg-border sm:grid-cols-2">
-							{channels.map((c) => (
+							{localizedChannels.map((c) => (
 								<li key={c.tag} className="bg-background p-8">
-									<span className="font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground">
+									<span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">
 										{c.tag}
 									</span>
 									<h3 className="mt-4 font-display font-semibold text-2xl uppercase leading-tight tracking-tight">
@@ -294,20 +394,23 @@ function HomeComponent() {
 
 					{/* Closing CTA */}
 					<section className="border-border border-t py-24 text-center">
-						<span className={eyebrow}>Join the beta</span>
+						<span className={eyebrow}>
+							{fi ? "Liity betaan" : "Join the beta"}
+						</span>
 						<h2 className="mt-5 font-display font-semibold text-6xl uppercase leading-none tracking-tight sm:text-7xl">
-							It's free
+							{fi ? "Se on ilmainen" : "It's free"}
 						</h2>
 						<div className="mt-8 flex flex-col items-center gap-3">
-							<TryCta size="lg" />
+							<TryCta locale={locale} size="lg" />
 							<p className="max-w-md text-muted-foreground text-sm leading-relaxed">
-								Setup takes three questions, not three weekends. Phone apps,
-								browser publisher, and OBS plugin —{" "}
+								{fi
+									? "Käyttöönotto vie kolme kysymystä, ei kolmea viikonloppua. Puhelinsovellukset, selainjulkaisu ja OBS-lisäosa — "
+									: "Setup takes three questions, not three weekends. Phone apps, browser publisher, and OBS plugin — "}
 								<Link
 									to="/download"
 									className="text-foreground underline underline-offset-4"
 								>
-									see Download &amp; beta
+									{fi ? "katso Lataus ja beta" : "see Download & beta"}
 								</Link>
 								.
 							</p>
@@ -317,7 +420,7 @@ function HomeComponent() {
 					{/* Footer */}
 					<footer className="flex flex-col gap-4 border-border border-t py-10">
 						<nav className="flex flex-wrap gap-x-6 gap-y-2 text-sm">
-							{footerLinks.map((l) =>
+							{localizedFooterLinks.map((l) =>
 								l.external ? (
 									<a
 										key={l.label}
@@ -340,8 +443,9 @@ function HomeComponent() {
 							)}
 						</nav>
 						<p className="font-mono text-muted-foreground text-xs">
-							© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the
-							studio.
+							{fi
+								? "© 2026 VISP · Pöhinä Group Oy · puhelin on kamera. koti on studio."
+								: "© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the studio."}
 						</p>
 					</footer>
 				</div>
@@ -349,10 +453,26 @@ function HomeComponent() {
 			<SeppoWidget
 				context="landing"
 				open={seppoOpen}
-				placeholder="Ask about VISP…"
-				subtitle="Product guide — ask what VISP can do"
-				suggestions={LANDING_SEPPO_SUGGESTIONS}
-				welcome="Hi, I'm Seppo. Curious whether VISP fits your stream? Ask me what it does, what you need, or how phones and remote guests reach OBS."
+				placeholder={fi ? "Kysy VISPistä…" : "Ask about VISP…"}
+				subtitle={
+					fi
+						? "Tuoteopas — kysy, mitä VISP osaa"
+						: "Product guide — ask what VISP can do"
+				}
+				suggestions={
+					fi
+						? [
+								"Mihin VISPiä käytetään?",
+								"Voinko käyttää puhelintani OBS:n kanssa?",
+								"Mitä tarvitsen aloittamiseen?",
+							]
+						: LANDING_SEPPO_SUGGESTIONS
+				}
+				welcome={
+					fi
+						? "Hei, olen Seppo. Mietitkö, sopiiko VISP lähetykseesi? Kysy, mitä se tekee, mitä tarvitset tai miten puhelimet ja etävieraat yhdistetään OBS:ään."
+						: "Hi, I'm Seppo. Curious whether VISP fits your stream? Ask me what it does, what you need, or how phones and remote guests reach OBS."
+				}
 				onOpenChange={setSeppoOpen}
 			/>
 		</>

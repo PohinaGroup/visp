@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0d10"/><text x="70" y="90" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">MOBILE NETWORK RESILIENCE</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial" font-size="68" font-weight="700">KEEP THE SHOW LIVE</text><text x="70" y="270" fill="#f2f3f5" font-family="Arial" font-size="68" font-weight="700">WHEN SIGNAL DROPS</text>
+  <path d="M90 450H310L350 390L410 510L470 420L520 450H720" fill="none" stroke="#d8ff52" stroke-width="6"/><path d="M720 450H1110" stroke="#72d7ff" stroke-width="6" stroke-dasharray="30 18"/><text x="90" y="560" fill="#9299a3" font-family="monospace" font-size="22">SRT · RECONNECT · OBS FALLBACK · BONDING</text>
+</svg>

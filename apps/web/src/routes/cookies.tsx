@@ -10,6 +10,7 @@ import {
 	writeCookieConsent,
 } from "@/lib/cookie-consent";
 import { legalEntity } from "@/lib/legal";
+import { localizedHead } from "@/lib/i18n";
 
 export const Route = createFileRoute("/cookies")({
 	head: () => ({
@@ -20,6 +21,7 @@ export const Route = createFileRoute("/cookies")({
 				content: "How VISP uses cookies and similar technologies.",
 			},
 		],
+		links: localizedHead("en", "/cookies"),
 	}),
 	component: CookiesPage,
 });

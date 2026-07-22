@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Fragment } from "react";
 
 import { EYEBROW } from "@/components/page-header";
+import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 
 type NodeState = "live" | "ok" | "warn" | "idle";
@@ -50,6 +51,7 @@ function ChainNode({
 // The dashboard's signature: the live signal path as one hairline patch strip,
 // echoing the lander's phone → studio → out schematic with real state.
 export function ChainStrip() {
+	const t = useT();
 	const trpc = useTRPC();
 	const secrets = useQuery(trpc.secrets.status.queryOptions());
 	const obs = useQuery(
@@ -65,41 +67,45 @@ export function ChainStrip() {
 	const readConfigured = secrets.data?.readConfigured ?? false;
 	const obsStatus = obs.data;
 
-	const nodes: { href: string; label: string; value: string; state: NodeState }[] =
-		[
-			{
-				href: "#devices",
-				label: "Sources",
-				state: live > 0 ? "live" : total > 0 ? "idle" : "warn",
-				value: total === 0 ? "No devices" : `${live} of ${total} live`,
-			},
-			{
-				href: "#obs-read",
-				label: "Relay",
-				state: readConfigured ? "ok" : "warn",
-				value: readConfigured ? "Keys set" : "Setup needed",
-			},
-			{
-				href: "#obs-control",
-				label: "OBS",
-				state: obsStatus?.connected ? "ok" : "idle",
-				value: obsStatus?.connected ? "Connected" : "Not connected",
-			},
-			{
-				href: "#obs-control",
-				label: "Output",
-				state: obsStatus?.streaming ? "live" : "idle",
-				value: obsStatus?.configured
-					? obsStatus.streaming
-						? "On air"
-						: "Off air"
-					: "Not paired",
-			},
-		];
+	const nodes: {
+		href: string;
+		label: string;
+		value: string;
+		state: NodeState;
+	}[] = [
+		{
+			href: "#devices",
+			label: t("Sources"),
+			state: live > 0 ? "live" : total > 0 ? "idle" : "warn",
+			value: total === 0 ? t("No devices") : `${live}/${total} ${t("live")}`,
+		},
+		{
+			href: "#obs-read",
+			label: t("Relay"),
+			state: readConfigured ? "ok" : "warn",
+			value: readConfigured ? t("Keys set") : t("Setup needed"),
+		},
+		{
+			href: "#obs-control",
+			label: "OBS",
+			state: obsStatus?.connected ? "ok" : "idle",
+			value: obsStatus?.connected ? t("Connected") : t("Not connected"),
+		},
+		{
+			href: "#obs-control",
+			label: t("Output"),
+			state: obsStatus?.streaming ? "live" : "idle",
+			value: obsStatus?.configured
+				? obsStatus.streaming
+					? t("On air")
+					: t("Off air")
+				: t("Not paired"),
+		},
+	];
 
 	return (
 		<nav
-			aria-label="Signal path"
+			aria-label={t("Signal path")}
 			className="w-full overflow-x-auto rounded-[var(--radius)] border border-border"
 		>
 			<ol className="flex min-w-max items-center p-2">

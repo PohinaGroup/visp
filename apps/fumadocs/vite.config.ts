@@ -28,6 +28,12 @@ export default defineConfig({
           path: "/docs",
         },
         {
+          path: "/fi",
+        },
+        {
+          path: "/fi/docs",
+        },
+        {
           path: "/api/search",
         },
         {
@@ -35,6 +41,12 @@ export default defineConfig({
         },
         {
           path: "/llms.txt",
+        },
+        {
+          path: "/robots.txt",
+        },
+        {
+          path: "/sitemap.xml",
         },
       ],
     }),

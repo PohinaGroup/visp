@@ -22,6 +22,105 @@
 @import "@astryxdesign/theme-neutral/theme.css" layer(components);
 
 /* Streamdown (Seppo chat markdown) styles itself with Tailwind classes. */
+
+.blog-prose {
+	color: var(--foreground);
+	font-size: 1.0625rem;
+	line-height: 1.8;
+}
+
+.blog-prose > * + * {
+	margin-top: 1.4rem;
+}
+
+.blog-prose h2,
+.blog-prose h3 {
+	font-family: var(--font-display);
+	font-weight: 600;
+	line-height: 1.1;
+	letter-spacing: -0.02em;
+	text-transform: uppercase;
+}
+
+.blog-prose h2 {
+	margin-top: 3.5rem;
+	font-size: 2rem;
+}
+
+.blog-prose h3 {
+	margin-top: 2.25rem;
+	font-size: 1.35rem;
+}
+
+.blog-prose a {
+	text-decoration: underline;
+	text-underline-offset: 0.2em;
+}
+
+.blog-prose a:hover {
+	opacity: 0.75;
+}
+
+.blog-prose strong {
+	font-weight: 600;
+}
+
+.blog-prose ul,
+.blog-prose ol {
+	padding-left: 1.5rem;
+}
+
+.blog-prose ul {
+	list-style: square;
+}
+
+.blog-prose ol {
+	list-style: decimal;
+}
+
+.blog-prose li + li {
+	margin-top: 0.55rem;
+}
+
+.blog-prose img {
+	width: 100%;
+	height: auto;
+	margin-block: 2.5rem;
+	border: 1px solid var(--border);
+	background: var(--card);
+}
+
+.blog-prose table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 0.925rem;
+}
+
+.blog-prose th,
+.blog-prose td {
+	padding: 0.75rem;
+	border-bottom: 1px solid var(--border);
+	text-align: left;
+	vertical-align: top;
+}
+
+.blog-prose th {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.08em;
+	text-transform: uppercase;
+}
+
+@media (max-width: 640px) {
+	.blog-prose {
+		font-size: 1rem;
+	}
+
+	.blog-prose table {
+		display: block;
+		overflow-x: auto;
+	}
+}
 @source "../node_modules/streamdown/dist/*.js";
 
 /*

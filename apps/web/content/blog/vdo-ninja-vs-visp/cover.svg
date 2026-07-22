@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <text x="70" y="90" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">REMOTE CAMERA / OBS</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="72" font-weight="700">VDO.NINJA</text>
+  <text x="70" y="275" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="72" font-weight="700">VS VISP</text>
+  <path d="M90 430H480" stroke="#737b87" stroke-width="4"/><circle cx="90" cy="430" r="18" fill="#d8ff52"/><rect x="480" y="392" width="130" height="76" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <path d="M700 430H1090" stroke="#737b87" stroke-width="4"/><circle cx="700" cy="430" r="18" fill="#72d7ff"/><rect x="960" y="392" width="130" height="76" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="480" y="525" fill="#9299a3" font-family="monospace" font-size="20">BROWSER → OBS</text>
+  <text x="790" y="525" fill="#9299a3" font-family="monospace" font-size="20">DEVICE → RELAY → OBS</text>
+</svg>

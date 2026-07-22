@@ -3,10 +3,13 @@ import {
   HeadContent,
   Outlet,
   Scripts,
+  useLocation,
+  useNavigate,
 } from "@tanstack/react-router";
 import { RootProvider } from "fumadocs-ui/provider/tanstack";
 
 import SearchDialog from "@/components/search";
+import { i18nUI } from "@/lib/i18n";
 
 import appCss from "@/styles/app.css?url";
 
@@ -35,13 +38,32 @@ export const Route = createRootRoute({
 });
 
 function RootComponent() {
+  const pathname = useLocation({ select: (location) => location.pathname });
+  const navigate = useNavigate();
+  const locale =
+    pathname === "/fi" || pathname.startsWith("/fi/") ? "fi" : "en";
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang={locale} suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body className="flex flex-col min-h-screen">
-        <RootProvider search={{ SearchDialog }}>
+        <RootProvider
+          i18n={{
+            ...i18nUI.provider(locale),
+            onLocaleChange: (nextLocale) => {
+              const englishPath = pathname.replace(/^\/fi(?=\/|$)/, "") || "/";
+              const nextPath =
+                nextLocale === "fi"
+                  ? englishPath === "/"
+                    ? "/fi"
+                    : `/fi${englishPath}`
+                  : englishPath;
+              navigate({ href: nextPath });
+            },
+          }}
+          search={{ SearchDialog }}
+        >
           <Outlet />
         </RootProvider>
         <Scripts />

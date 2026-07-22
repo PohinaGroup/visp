@@ -55,7 +55,7 @@
     },
     "apps/native": {
       "name": "@VISP/native",
-      "version": "1.0.21",
+      "version": "1.0.24",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@bacons/apple-targets": "^5.0.0",
@@ -150,6 +150,8 @@
         "better-auth": "catalog:",
         "dotenv": "catalog:",
         "evlog": "catalog:",
+        "fumadocs-core": "16.11.5",
+        "fumadocs-mdx": "15.2.0",
         "lucide-react": "catalog:",
         "next-themes": "catalog:",
         "nitro": "^3.0.260610-beta",
@@ -168,6 +170,7 @@
         "@tanstack/react-router-devtools": "^1.167.0",
         "@testing-library/dom": "^10.4.1",
         "@testing-library/react": "^16.3.2",
+        "@types/mdx": "^2.0.14",
         "@types/react": "catalog:",
         "@types/react-dom": "catalog:",
         "@vitejs/plugin-react": "^6.0.3",

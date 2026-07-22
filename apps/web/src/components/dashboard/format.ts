@@ -21,12 +21,17 @@ export function publishOriginLabel(
 	}
 }
 
-export function obsStatusMessage(status: {
-	configured: boolean;
-	connected: boolean;
-	pending: boolean;
-	streaming: boolean;
-} | null | undefined) {
+export function obsStatusMessage(
+	status:
+		| {
+				configured: boolean;
+				connected: boolean;
+				pending: boolean;
+				streaming: boolean;
+		  }
+		| null
+		| undefined,
+) {
 	if (!status?.configured) {
 		return "OBS is not paired yet. Open plugin pairing below to connect it.";
 	}

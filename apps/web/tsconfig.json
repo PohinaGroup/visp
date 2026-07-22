@@ -21,7 +21,8 @@
     "noUncheckedSideEffectImports": true,
     "paths": {
       "@/*": ["./src/*"],
-      "@VISP/ui/*": ["../../packages/ui/src/*"]
+      "@VISP/ui/*": ["../../packages/ui/src/*"],
+      "collections/*": ["./.source/*"]
     }
   }
 }

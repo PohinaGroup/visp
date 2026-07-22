@@ -1,0 +1,104 @@
+---
+title: "Näin pidät lähetyksen käynnissä mobiiliverkon katketessa"
+description: "Rakenna kestävä IRL-lähetys SRT-palautuksella, mukautuvalla bittinopeudella, automaattisella yhdistämisellä ja OBS-varakohtauksilla."
+publishedAt: 2026-07-22
+coverAlt: "Useat suojauskerrokset pitävät OBS-lähetyksen käynnissä mobiiliverkon katkon aikana"
+---
+
+Luotettava IRL-lähetys ei perustu yhteen taika-asetukseen. Se syntyy kerroksista:
+verkkoon jätetystä kapasiteettimarginaalista, SRT:n pakettipalautuksesta,
+automaattisesta uudelleenyhdistämisestä ja OBS:n paikallisesta varakohtauksesta.
+
+![Lähetyksen kestävyyden kerrokset](./resilience-layers.svg)
+
+## Selvitä ensin, mikä yhteys katkeaa
+
+Ketjussa on vähintään puhelimen lähetysyhteys, relay-palvelu, OBS:n lukuyhteys ja
+OBS:n yhteys suoratoistopalveluun. Mittaa niitä erikseen. Puhelimen heikko
+lähetys ei korjaannu muuttamalla OBS:n Twitch-asetuksia, eikä relay-yhteyden
+katko välttämättä tarkoita, että varsinainen OBS-lähetys olisi päättynyt.
+
+## Jätä bittinopeudelle hengitysvaraa
+
+Älä aseta videon bittinopeutta nopeustestin parhaaseen tulokseen. Mobiiliverkon
+kapasiteetti vaihtelee sijainnin, solun kuorman ja liikkeen mukaan. Käytä
+tasoa, jonka heikoin odotettu kohta kestää, ja ota mukautuva bittinopeus käyttöön
+enkooderissa, jos se on saatavilla.
+
+720p30 kohtuullisella bittinopeudella on usein parempi tuotantovalinta kuin
+epävakaa 1080p60. Vakaa kuva näyttää katsojalle laadukkaammalta kuin suurempi
+tarkkuus, joka pysähtyy jatkuvasti.
+
+## Käytä SRT:tä palautumiseen, älä ihmeisiin
+
+SRT voi lähettää kadonneita paketteja uudelleen viiveikkunan sisällä. Suurempi
+viive sietää enemmän vaihtelua mutta lisää kameran ja OBS:n välistä viivettä.
+Mittaa edestakainen viive todellisessa käyttöverkossa ja jätä sille turvamarginaali.
+
+SRT ei luo kaistanleveyttä tyhjästä. Jos yhteys katoaa kokonaan tai kapasiteetti
+alittaa bittinopeuden pitkäksi aikaa, kuva katkeaa viiveasetuksesta riippumatta.
+
+## Yhdistä molemmat päät automaattisesti
+
+Puhelimen on yritettävä julkaisua uudelleen verkon palatessa, ja OBS:n
+medialähteen on jäätävä valmiiksi odottamaan samaa polkua. Testaa lentotilan
+käyttö, verkkotyypin vaihtaminen ja sovelluksen paluu taustalta. Palautumisen
+pitää onnistua ilman uuden osoitteen kopiointia tai lähteen luomista.
+
+## Pidä OBS käynnissä varakohtauksella
+
+Kenttäkameran katkos ei saa päättää OBS:n ja Twitchin tai Kickin välistä
+lähetystä. Tee paikallinen varakohtaus, jossa on esimerkiksi kuva, musiikki ja
+selkeä ilmoitus yhteyden palautumisesta.
+
+Advanced Scene Switcher voi vaihtaa varakohtaukseen, kun medialähteeseen ei tule
+tavuja, ja palata vasta kun kuva on ollut vakaana hetken. Käytä **Media**-
+ehtoa, pidä ehdot ja toiminnot käytössä ja lisää muutaman sekunnin viive, jotta
+kohtaus ei vaihdu edestakaisin lyhyen heilahtelun aikana.
+
+![OBS-kohtaukset kenttäkameralle ja varalle](./obs-scenes.png)
+
+## Seuraa oikeita signaaleja
+
+Seuraa lähettävän laitteen tilaa, relayn vastaanottamia tavuja, OBS-lähteen
+dekoodausta ja suoratoistopalvelun ulosmenevää bittinopeutta erikseen. Yksi
+vihreä “live”-valo ei todista koko ketjun toimintaa.
+
+## Tunnista, milloin tarvitset bonding-ratkaisun
+
+Jos reitti kulkee alueilla, joilla yksi yhteys katoaa usein kokonaan, asetukset
+eivät riitä. Verkkobonding jakaa liikenteen usean itsenäisen yhteyden yli ja
+vaatii sitä tukevan lähettimen sekä vastaanottavan palvelun. VISP välittää yhden
+yhteyden liikenteen eikä tee bondingia.
+
+## Tarkistuslista ennen lähetystä
+
+- Mittaa verkko siellä, missä kuvaat, myös reitin heikoissa kohdissa.
+- Jätä bittinopeudelle selvä kapasiteettimarginaali.
+- Aseta kahden sekunnin avainruutuväli.
+- Mittaa SRT-viive ja testaa automaattinen palautuminen.
+- Tee paikallinen OBS-varakohtaus ja harjoittele sen vaihto.
+- Varmista, että OBS:n kohdelähetys jatkuu puhelimen katketessa.
+- Päätä etukäteen, milloin keskeytät tai vaihdat toiseen verkkoon.
+
+## Usein kysyttyä
+
+### Estääkö SRT kaikki katkokset?
+
+Ei. Se korjaa viiveikkunaan mahtuvia pakettihäviöitä, mutta ei kokonaan kadonnutta
+yhteyttä tai pitkäaikaista kapasiteettivajetta.
+
+### Kannattaako SRT-viive asettaa mahdollisimman suureksi?
+
+Ei. Liian suuri arvo hidastaa ohjausta ja keskustelua. Käytä mittaukseen ja
+käyttötilanteeseen perustuvaa pienintä vakaata arvoa.
+
+### Miksi OBS pysyy live-tilassa puhelimen katketessa?
+
+Koska puhelin on vain yksi OBS:n lähteistä. OBS:n oma yhteys kohdepalveluun voi
+jatkua ja näyttää paikallista varakohtausta.
+
+## Lisätietoja
+
+- [Enkooderit ja varayhteys](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [OBS:n reconnecting-ongelmat](https://obsproject.com/kb/stream-connection-troubleshooting)

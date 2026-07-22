@@ -1,9 +1,25 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { HomeLayout } from "fumadocs-ui/layouts/home";
 
+import { alternateLinks } from "@/lib/i18n";
 import { baseOptions } from "@/lib/layout.shared";
+import { docsSiteUrl } from "@/lib/shared";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "VISP Relay Documentation" },
+      {
+        name: "description",
+        content:
+          "Set up VISP remote cameras, phone publishing, OBS control, SRT fallback, and self-hosting.",
+      },
+    ],
+    links: [
+      { rel: "canonical", href: `${docsSiteUrl}/` },
+      ...alternateLinks("/"),
+    ],
+  }),
   component: Home,
 });
 

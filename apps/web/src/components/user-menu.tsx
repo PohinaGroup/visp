@@ -12,8 +12,11 @@ import { Skeleton } from "@VISP/ui/components/skeleton";
 import { Link, useNavigate } from "@tanstack/react-router";
 
 import { authClient } from "@/lib/auth-client";
+import { localeSearch, useLocale } from "@/lib/i18n";
 
 export default function UserMenu() {
+	const locale = useLocale();
+	const fi = locale === "fi";
 	const navigate = useNavigate();
 	const { data: session, isPending } = authClient.useSession();
 
@@ -23,8 +26,8 @@ export default function UserMenu() {
 
 	if (!session) {
 		return (
-			<Link to="/login">
-				<Button variant="outline">Sign In</Button>
+			<Link to="/login" search={localeSearch(locale)}>
+				<Button variant="outline">{fi ? "Kirjaudu" : "Sign In"}</Button>
 			</Link>
 		);
 	}
@@ -36,7 +39,9 @@ export default function UserMenu() {
 			</DropdownMenuTrigger>
 			<DropdownMenuContent className="bg-card">
 				<DropdownMenuGroup>
-					<DropdownMenuLabel>My Account</DropdownMenuLabel>
+					<DropdownMenuLabel>
+						{fi ? "Oma tili" : "My Account"}
+					</DropdownMenuLabel>
 					<DropdownMenuSeparator />
 					<DropdownMenuItem>{session.user.email}</DropdownMenuItem>
 					<DropdownMenuItem
@@ -46,14 +51,14 @@ export default function UserMenu() {
 								fetchOptions: {
 									onSuccess: () => {
 										navigate({
-											to: "/",
+											to: fi ? "/fi" : "/",
 										});
 									},
 								},
 							});
 						}}
 					>
-						Sign Out
+						{fi ? "Kirjaudu ulos" : "Sign Out"}
 					</DropdownMenuItem>
 				</DropdownMenuGroup>
 			</DropdownMenuContent>

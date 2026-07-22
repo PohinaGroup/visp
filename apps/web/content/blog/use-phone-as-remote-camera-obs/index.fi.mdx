@@ -1,0 +1,149 @@
+---
+title: "Puhelimen käyttäminen OBS:n etäkamerana"
+description: "Lähetä iPhonen tai Android-puhelimen kamera internetin yli OBS:ään VISPillä ja pidä kohtaukset, ohjaukset sekä lähetysavain kotona."
+publishedAt: 2026-07-22
+coverAlt: "Puhelin lähettää videon VISPin kautta OBS-studioon ja suoratoistopalveluihin"
+---
+
+Voit käyttää puhelinta OBS:n etäkamerana julkaisemalla sen kameran ja
+mikrofonin VISP-laitteeseen, lisäämällä laitteen OBS:n medialähteeksi ja
+lähettämällä valmiin ohjelman OBS:stä Twitchiin tai Kickiin. Puhelin ei tarvitse
+kohdepalvelun lähetysavainta, ja nykyiset kohtaukset, hälytykset, grafiikat sekä
+enkoodausasetukset pysyvät kotikoneella.
+
+![Puhelimen, VISPin ja OBS:n muodostama signaaliketju](./phone-to-obs.svg)
+
+## Mitä tarvitset
+
+- Twitch- tai Kick-tunnuksella luodun VISP-tilin
+- OBS Studion kotikoneella
+- helpointa käyttöönottoa varten VISP Remote Control -lisäosan
+- vähintään iOS 16.4:ää tai Android 7:ää käyttävän puhelimen tai modernin selaimen
+- vakaan lähetysyhteyden puhelimelle ja vakaan yhteyden OBS:lle
+
+Ylläpidetty beta on nopein tapa aloittaa. VISPin voi myös ylläpitää itse, mutta
+palvelinten, relay-yhteyden, TLS:n, palomuurin ja kirjautumisen hoitaminen on
+erillinen infrastruktuuritehtävä.
+
+## Ymmärrä signaaliketju
+
+Puhelin on kuvalähde, ei lopullinen lähettäjä. VISP-sovellus enkoodaa H.264-kuvan
+ja AAC-äänen ja julkaisee ne SRT:llä. Selainjulkaisija käyttää WebRTC:tä. Relay
+tunnistaa laitteen ja antaa OBS:lle suojatun lukuosoitteen.
+
+OBS yhdistää kameran paikallisiin lähteisiin ja lähettää valmiin ohjelman
+suoratoistopalveluun. Siksi puhelimen lyhyt verkkokatko ei automaattisesti päätä
+lähetystä: OBS voi näyttää paikallista varakohtausta yhteyden palautuessa.
+
+VISP ei transkoodaa eikä yhdistä useita verkkoyhteyksiä. Valitse tarkkuus,
+kuvataajuus ja bittinopeus, jotka puhelin ja mobiiliyhteys kestävät.
+
+## 1. Kirjaudu ja luo puhelimelle laite
+
+Kirjaudu VISPiin tuotannossa käyttämälläsi Twitch- tai Kick-tunnuksella. Valitse
+käyttöönotossa puhelimesta OBS:ään -työnkulku ja julkaisijaksi VISP-sovellus.
+Jokainen laite vastaa yhtä kuvalähdettä ja saa oman peruutettavan tunnuksen.
+
+Anna laitteelle kuvaava nimi, kuten ”liikkuva puhelin”, ”lava vasen” tai
+”vieraskamera”. Nimet helpottavat työskentelyä, kun OBS:ssä on useita lähteitä.
+
+## 2. Yhdistä OBS-lisäosa
+
+Asenna käyttöjärjestelmääsi sopiva VISP Remote Control -lisäosa. Avaa OBS:ssä
+**Tools → VISP Remote Control**, valitse **Sign in with browser** ja hyväksy
+näytetty laitekoodi selaimessa.
+
+Lisäosa käyttää rajattua satunnaista konetunnusta ja muodostaa vain ulospäin
+suuntautuvan HTTPS-yhteyden. OBS ei avaa julkista etäohjausporttia. Valitse
+puhelin ja lisää se haluttuun kohtaukseen; lisäosa luo medialähteen oikealla
+lukuosoitteella ja palautumisasetuksilla.
+
+![VISP-työkaluikkuna OBS:ssä](./obs-plugin-tools.png)
+
+## 3. Määritä puhelimen kamera
+
+Salli kameran ja mikrofonin käyttö ja valitse objektiivi. Aloita asetuksilla,
+joille verkossa jää riittävästi marginaalia. Mobiilikäytössä 720p tai maltillinen
+1080p on usein luotettavampi kuin sensorin suurin tarkkuus.
+
+Tarkista kuvan suunta, mikrofoni ja äänitaso ennen lähetystä. Mittaa viive
+kentällä käytettävästä verkosta. SRT tarvitsee riittävän viiveikkunan pakettien
+uudelleenlähetykseen, kun mobiiliverkon viive vaihtelee.
+
+## 4. Testaa ennen julkista lähetystä
+
+Käynnistä puhelimen julkaisu ennen kuin OBS lähettää Twitchiin tai Kickiin.
+Varmista OBS:ssä, että:
+
+1. oikea kamera näkyy oikeassa kohtauksessa;
+2. liike pysyy tasaisena useita minuutteja;
+3. ääni päätyy oikealle mikserikanavalle;
+4. ääni ja kuva pysyvät synkronissa;
+5. puhelimen pysäytys ja uudelleenkäynnistys palauttavat lähteen;
+6. pakotettu verkkokatko käynnistää suunnitellun varatoiminnon.
+
+Käytä ääntä tarkistaessasi kuulokkeita. Jos sama tila kuuluu kahden mikrofonin
+kautta, mykistä tai viivästä toinen lähde kaiun poistamiseksi.
+
+## 5. Aloita lähetys ja ohjaa etänä
+
+Kun puhelimen kuva toimii vakaasti OBS:ssä, aloita varsinainen lähetys.
+VISP-sovellus voi näyttää chatin ja lähetyksen tilan sekä lähettää tunnistettuja
+käynnistys-, pysäytys- ja kohtauskomentoja yhdistetylle lisäosalle.
+
+Vahvista aina sovelluksen näyttämä OBS-tila sen sijaan, että painaisit komentoa
+toistuvasti. Nimeä live-, vara- ja muut kohtaukset yksiselitteisesti.
+
+![VISP-puhelinsovelluksen lähetys- ja OBS-ohjaimet](./app-live.jpg)
+
+## Selain ja muut enkooderit
+
+Selainjulkaisija sopii vieraalle tai laitteelle, johon sovellusta ei haluta
+asentaa. Se julkaisee H.264-mediaa WHIP/WebRTC:llä. Jos verkko estää sekä UDP-
+että TCP-pohjaisen WebRTC-median, käytä natiivia SRT-sovellusta.
+
+Larix Broadcaster ja Moblin voivat julkaista VISPiin generoidulla SRT-osoitteella.
+RTMP kannattaa jättää varavaihtoehdoksi tilanteisiin, joissa sovellus ei tue
+SRT:tä tai verkko estää UDP:n.
+
+## Ongelmatilanteet
+
+### Puhelin näyttää live-tilaa, mutta OBS on tyhjä
+
+Varmista VISPistä, että sama laite on aktiivinen ja OBS käyttää sen
+lukuosoitetta. Odota seuraavaa avainruutua. Jos tunnukset on vaihdettu, päivitä
+medialähde tai tuo uusi kohtauskokoelma.
+
+### Kuva jäätyy mobiiliverkossa
+
+Pienennä bittinopeutta, ota mukautuva bittinopeus käyttöön ja kasvata SRT-viivettä
+todellisessa käyttöverkossa tehdyn mittauksen perusteella.
+
+### Ääni kaikuu
+
+Etsi päällekkäinen äänireitti. Tavallisia syitä ovat OBS-paluuääni puhelimen
+kaiuttimessa, kaksi samassa tilassa olevaa puhelinta tai yhtä aikaa avoinna oleva
+paikallinen ja etämikrofoni.
+
+## Usein kysyttyä
+
+### Tarvitseeko puhelimeen asentaa OBS?
+
+Ei. OBS toimii kotikoneella. Puhelin julkaisee vain kameran ja mikrofonin ja voi
+haluttaessa lähettää etäkomentoja.
+
+### Voiko kaksi puhelinta käyttää samaa VISP-laitetta?
+
+Ei samanaikaisesti. Yksi julkaisija omistaa yhden polun. Luo jokaiselle
+puhelimelle oma laite.
+
+### Lähettääkö VISP suoraan Twitchiin tai Kickiin?
+
+Ei. OBS lähettää valmiin ohjelman kohteeseen, joten kohtaukset, grafiikat ja
+lähetysavain pysyvät kotona.
+
+## Lisätietoja
+
+- [VISP: aloita tästä](https://docs.visp-stream.com/fi/docs/get-started)
+- [Puhelin- ja selainsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [OBS-etäohjaus](https://docs.visp-stream.com/fi/docs/obs-remote-control)
