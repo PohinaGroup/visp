@@ -1,0 +1,292 @@
+---
+title: "Larix Broadcasterin yhdistäminen OBS:ään SRT:llä"
+description: "Yhdistä Larix Broadcaster OBS:ään SRT:llä VISPin kautta, säädä mobiiliverkon bittinopeus ja viive sekä testaa palautuminen ennen lähetystä."
+publishedAt: 2026-07-22
+coverAlt: "Puhelinkamera lähettää yhden SRT-syötteen relay-palvelimen kautta OBS-tuotantoon"
+---
+
+Saat Larix Broadcasterin kuvan OBS:ään internetin yli näin: **luo VISPiin
+videolähde, liitä sen SRT-julkaisuosoite Larixin yhteydeksi ja lisää erillinen
+OBS-lukuosoite medialähteeksi.** Larix kuvaa ja enkoodaa mobiililaitteella,
+VISP tunnistaa ja välittää syötteen, ja OBS hallitsee valmista Twitch- tai
+Kick-lähetystä.
+
+Relay-palvelimen kautta kulkeva reitti ei vaadi julkisen SRT-portin avaamista
+kotiverkkoon. Myöskään Twitchin tai Kickin lähetysavainta ei tarvitse siirtää
+kenttäpuhelimeen. Puhelin on tuotannon kamera, ei kohdepalvelun lähettäjä.
+
+![Larix lähettää yhden SRT-syötteen VISPin kautta OBS:ään, joka tuottaa valmiin Twitch- tai Kick-lähetyksen](./larix-visp-obs-flow.svg)
+
+## Miksi Larix kannattaa yhdistää OBS:ään VISPin kautta?
+
+Larix voi lähettää SRT:tä suoraan kuuntelevalle OBS-koneelle, kun koneella on
+tavoitettava osoite ja UDP-portti. Hallitussa lähiverkossa tämä voi olla toimiva
+ratkaisu. Julkisessa internetissä se vaatii yleensä porttiohjauksen,
+palomuurisäännöt ja pysyvän osoitteen kotikoneelle.
+
+VISP sijoittaa julkisesti tavoitettavan relay-palvelimen väliin. Sekä Larix että
+OBS muodostavat siihen ulospäin suuntautuvan yhteyden. Jokaisella kenttälaitteella
+on oma peruutettava julkaisutunnus, ja OBS käyttää erillistä lukutunnusta. Yhden
+kadonneen puhelimen oikeudet voi vaihtaa rakentamatta muiden kameroiden lähteitä
+uudelleen.
+
+VISP ei korvaa Larixin kamerasäätöjä eikä OBS:n tuotantotyökaluja. Larix pysyy
+enkooderina ja OBS mikserinä, grafiikkajärjestelmänä, tallentimena sekä lopullisena
+lähettäjänä. Jos haluat yksinkertaisemman natiivin työnkulun, aloita oppaasta
+[puhelimen käyttäminen OBS:n etäkamerana](/fi/blog/use-phone-as-remote-camera-obs).
+
+## Mitä tarvitset
+
+- Larix Broadcasterin kenttäpuhelimeen
+- OBS Studion tuotantokoneelle
+- Twitch- tai Kick-tunnuksella luodun VISP-tilin
+- riittävän tasaisen lähetyskaistan Larixille ja vastaanottokaistan OBS:lle
+- kuulokkeet äänen tarkistamiseen ilman kiertoa
+- paikallisen varakohtauksen OBS:ään verkkokatkojen varalle
+
+Testaa samalla puhelimella, operaattorilla, reitillä ja kellonajalla, joita aiot
+käyttää lähetyksessä. Nopea harjoitus Wi-Fi-verkossa ei kerro liikkuvan
+mobiilituotannon toimivuudesta.
+
+## 1. Luo Larix-videolähde VISPiin
+
+Kirjaudu VISPiin ja valitse käyttöönotossa julkaisijaksi **Larix Broadcaster**.
+Jos tili on jo määritetty, avaa **Video sources**, valitse **Add device** ja anna
+laitteelle käytännöllinen nimi, kuten ”liikkuva Larix” tai ”maaliviivan kamera”.
+Yksi VISP-laite vastaa yhtä julkaisupolkua.
+
+Valitse **Copy** kohdasta **Add this to video source**. Arvo alkaa `srt://` ja
+sisältää polun julkaisutunnuksen. Käsittele koko osoitetta salasanana: älä näytä
+sitä kuvakaappauksessa, chatissa, lähetysgrafiikassa tai julkisessa
+ongelmanratkaisuketjussa.
+
+VISP näyttää oletuksena SRT-osoitteen. Käytä sitä, ellei lähetysverkko estä
+UDP:tä. Hallintapaneelin **Advanced**-tila tarjoaa RTMP-varavaihtoehdon, mutta
+protokollan vaihtaminen ei auta, jos lähetyskaistaa on yksinkertaisesti liian
+vähän.
+
+Tarkka hallintapaneelin työnkulku löytyy VISPin ohjeesta [videolähteen
+lisääminen](https://docs.visp-stream.com/fi/docs/video-source).
+
+## 2. Lisää SRT-yhteys Larixiin
+
+Avaa Larix Broadcasterissa **Settings → Connections → New connection**. Nimeä
+yhteys selkeästi, liitä koko VISP-julkaisuosoite **URL**-kenttään ja tallenna.
+Varmista yhteysluettelossa, että uusi kohde on valittu, ennen kuin palaat
+kameran esikatseluun.
+
+Larixissa tallennettu kohde pitää myös aktivoida, jotta päänäkymän
+lähetyspainike käyttää sitä. Softvelumin [Larix-dokumentaatio](https://softvelum.com/larix/docs/)
+sisältää ajantasaiset iOS- ja Android-ohjeet, jos valikon nimi on muuttunut
+asentamassasi versiossa.
+
+Älä pilko VISP-osoitetta palvelimeksi, stream ID:ksi, käyttäjänimeksi ja
+salasanaksi. Generoitu arvo sisältää jo SRT:n stream ID:n ja tunnistustiedot
+relay-palvelimen odottamassa muodossa. Liitä se yhtenä osoitteena.
+
+## 3. Valitse mobiiliyhteydelle sopivat asetukset
+
+Käytä H.264-videota ja AAC-ääntä, jotta VISPistä OBS:ään kulkeva polku on
+ennustettava. Aseta avainruutuväliksi kaksi sekuntia ja aloita kiinteällä
+tavoitebittinopeudella. Valitse kuvan suunta ennen lähteen sommittelua OBS:ssä;
+vaihto vaaka- ja pystykuvan välillä voi rikkoa rajauksen tai kohtauksen.
+
+Älä valitse bittinopeutta yhden nopeustestin huipputuloksesta. Mittaa oikea
+reitti ja jätä marginaalia toistuvasti saavutetun lähetysnopeuden alle. Vakaa
+720p30-kuva on käyttökelpoisempi kuin nimellinen 1080p-syöte, joka jonoutuu,
+jäätyy tai yhdistää jatkuvasti uudelleen.
+
+| Verkon käyttäytyminen | Ensimmäinen korjaus |
+| --- | --- |
+| Bittinopeus lähestyy jatkuvasti käytettävissä olevaa kaistaa | Pienennä tavoitebittinopeutta |
+| Lyhyet pakettihäviö- tai jitteripiikit | Kasvata SRT-viivettä |
+| Kapasiteetti vaihtelee liikkeessä | Ota Larixin mukautuva bittinopeus käyttöön |
+| Pitkä katve tai koko operaattorin yhteyskatko | Käytä OBS-varakohtausta tai oikeaa bonding-ratkaisua |
+
+Larix tarjoaa useita mukautuvan bittinopeuden toimintatapoja. Sen [virallinen
+UKK](https://softvelum.com/larix/faq/) selittää, miten logarithmic-, ladder- ja
+hybrid-tilat pienentävät bittinopeutta ja palauttavat sitä myöhemmin. Sopiva
+vaihtoehto riippuu puhelimesta ja reitistä, joten testaa valittu tila myös
+heikoimmalla hyväksyttävällä kuvanlaadulla. Mukautuva bittinopeus voi vaihtaa
+tarkkuutta jatkuvuuteen, mutta se ei lähetä kuvaa, jos aktiivisella yhteydellä
+ei ole käyttökelpoista reittiä.
+
+VISP **ei transkoodaa** saapuvaa syötettä. Larixin lähettämä koodekki, tarkkuus,
+kuvataajuus, avainruutuväli ja bittinopeus välitetään kohti OBS:ää. Korjaa
+yhteensopimaton tai liian raskas syöte enkooderissa; relay ei muuta sitä
+automaattisesti.
+
+## 4. Säädä SRT-viive kenttäverkon mukaan
+
+SRT voi lähettää puuttuvia UDP-paketteja uudelleen niin kauan kuin ne ehtivät
+käyttöön. Viiveikkuna antaa uudelleenlähetyksille aikaa, joten pienin arvo ei ole
+aina paras. Liian pieni ikkuna näkyy kuvavirheinä, mutta tarpeettoman suuri arvo
+hidastaa kentän ja studion välistä yhteyttä.
+
+Suorita VISPin viivemittaus Larixin oikeasti käyttämässä verkossa ja valitse
+oikea verkkoprofiili. VISP muodostaa seitsemän peräkkäisen edestakaisen
+mittauksen mediaanista seuraavat aloitussuositukset:
+
+| Profiili | Suositus | Vähimmäisarvo |
+| --- | ---: | ---: |
+| Kaapeli | 3× mitattu RTT | 120 ms |
+| Wi-Fi | 4× mitattu RTT | 300 ms |
+| Mobiiliverkko | 6× mitattu RTT | 600 ms |
+
+Syötä suositeltu millisekuntiarvo tallennetun Larix-yhteyden SRT-viiveeksi.
+Mobiiliverkko tarvitsee enemmän marginaalia, koska sen jitteri on usein
+ryöpsähtelevää. Älä pienennä arvoa vain viivelukeman vuoksi, vaan tarkkaile
+liikettä ja palautumista oikealla reitillä.
+
+[OBS:n SRT-ohje](https://obsproject.com/kb/srt-protocol-streaming-guide) kuvaa
+samoin viiveen tärkeimpänä palautusasetuksena ja selittää sen suhteen
+edestakaiseen viiveeseen. VISP käyttää tässä mobiilisyötteen työnkulussa
+varovaisempia verkkoprofiilikohtaisia vähimmäisarvoja.
+
+## 5. Tuo Larix-syöte OBS:ään
+
+Larix käyttää **julkaisuosoitetta**. OBS:n pitää käyttää erillistä
+**lukuosoitetta**. Eri tunnukset ovat tarkoituksellinen suojausraja.
+
+Nopein tapa on yhdistää VISP OBS -lisäosa, valita Larix-laite ja lisätä se
+nykyiseen kohtaukseen. Lisäosa luo tunnistetun medialähteen avaamatta julkista
+ohjausporttia. Voit myös ladata generoidun kohtauskokoelman ja valita OBS:ssä
+**Scene Collection → Import**. Kokoelma sisältää Fallback-kohtauksen ja yhden
+uudelleenyhdistävän medialähdekohtauksen jokaista aktiivista VISP-laitetta kohti.
+
+Manuaalinen lähde luodaan näin:
+
+1. Näytä tai kopioi laitteen OBS-osoite VISPistä.
+2. Lisää OBS:ään **Media Source**.
+3. Poista **Local File** käytöstä.
+4. Liitä OBS-lukuosoite **Input**-kenttään.
+5. Aseta **Input Format** -arvoksi `mpegts`, jos se ei ole jo mukana.
+6. Varmista, että lähde palautuu Larixin pysäytyksen ja käynnistyksen jälkeen.
+
+Vaiheet vastaavat OBS:n virallista SRT-ohjetta. VISPin generoima lähde käyttää
+lisäksi pientä puskurointia ja automaattista uudelleenyhdistämistä. OBS:n
+lukutunnuksen vaihtaminen mitätöi tilin kaikki nykyiset OBS-lähteet, joten tee
+se vain, kun aiot päivittää ne kaikki. Yhden Larix-laitteen julkaisutunnuksen
+vaihto vaikuttaa vain siihen laitteeseen.
+
+## 6. Testaa palautuminen ennen oikeaa lähetystä
+
+Käynnistä Larix ennen OBS:n Twitch- tai Kick-lähetystä. Oikean VISP-laitteen
+tilan pitäisi vaihtua **Live**-tilaan, ja OBS-kuvan pitäisi liikkua SRT-yhteyden
+sekä dekoodattavan avainruudun saavuttua.
+
+Tee lyhyt vikatesti:
+
+1. Varmista liike ja ääni OBS:ssä usean minuutin ajan.
+2. Katkaise puhelimen aktiivinen verkkoyhteys.
+3. Tarkista, että OBS pysyy Twitchissä tai Kickissä ja näyttää paikallista varaa.
+4. Palauta puhelimen verkko ja seuraa Larixin uudelleenyhdistämistä.
+5. Varmista, että sama OBS-medialähde jatkaa ilman uutta osoitetta.
+6. Odota vakaata toistoa ennen kuin leikkaat takaisin kenttäkameralle.
+
+Valitse Larixin yhteyden lisäasetuksista käytännöllinen uudelleenyhdistämisen
+odotusaika. Tuetuissa versioissa verkkoyhteyden tarkistuksen asetus voi sallia
+yritykset myös silloin, kun laite ilmoittaa verkon kadonneen. Säätimet eroavat
+iOS:n ja Androidin välillä, joten varmista toiminta oikealla puhelimella.
+
+Jos ohjelman pitää jatkua kameran ollessa poissa verkosta, seuraa
+[mobiiliverkon katkoihin varautumisen opasta](/fi/blog/keep-stream-live-bad-mobile-network)
+ja käytä Advanced Scene Switcherissä medialähteen tilaan perustuvaa ehtoa.
+
+## Mitä tämä ratkaisu ei tee
+
+VISP välittää tunnistetun syötteen. Se ei transkoodaa videota eikä yhdistä
+Wi-Fiä ja mobiilidataa yhdeksi verkkoyhteydeksi. Larix voi julkaista useaan
+kohteeseen, mutta rinnakkaiset lähdöt eivät ole bondingia: jokainen lähtö
+kulkee edelleen puhelimen käytettävissä olevan verkkoreitin kautta.
+
+Jos yhden operaattorin vian pitää olla katsojalle näkymätön, lisää oikea
+bonding-kerros tai useita yhteyksiä yhdistävä enkooderijärjestelmä. Jos lyhyt
+katko on hyväksyttävä, SRT-palautus, Larixin mukautuva bittinopeus,
+uudelleenyhdistäminen ja hyvä OBS-varakohtaus ovat pienempi kokonaisuus.
+
+Vain yksi julkaisija voi omistaa VISP-laitteen polun kerrallaan. Toinen puhelin
+ei voi odottaa samalla osoitteella valmiiksi yhdistettynä. Luo jokaiselle
+puhelimelle tai enkooderille oma VISP-laite ja OBS-lähde.
+
+## Ongelmatilanteet
+
+### Larix käynnistyy, mutta VISP ei näytä Live-tilaa
+
+Varmista, että tallennettu yhteys on aktiivinen, koko nykyinen julkaisuosoite on
+liitetty ja toinen enkooderi ei käytä samaa laitepolkua. Jos tunnus on vaihdettu
+tai peruttu, korvaa Larixin vanha osoite.
+
+### VISP näyttää Live-tilaa, mutta OBS on tyhjä
+
+Varmista, että OBS käyttää lukuosoitetta eikä Larixin julkaisuosoitetta. Tarkista,
+että medialähteen **Local File** ei ole käytössä, ja odota avainruutua. Jos OBS:n
+lukutunnus vaihdettiin, lataa uusi kohtauskokoelma tai päivitä lähteen osoite.
+
+### Kuva jäätyy liikkeessä
+
+Pienennä tavoitebittinopeutta, ota Larixin mukautuva bittinopeus käyttöön ja
+suorita VISPin viivemittaus uudelleen kenttäverkossa. Suurempi viive auttaa
+lyhyisiin pakettihäviöihin, mutta ei korvaa jatkuvasti enkoodattua bittinopeutta
+pienempää lähetyskaistaa.
+
+### Kuva toimii, mutta OBS:ssä ei ole ääntä
+
+Varmista, että Larix lähettää kuvan lisäksi ääntä, valitulla mikrofonilla on lupa
+ja syöte käyttää AAC:tä. Tarkista sitten, ettei OBS-medialähde ole mykistetty ja
+ettei mikserin monitorointi aiheuta kiertoa puhelimessa.
+
+### Tapahtumaverkko estää SRT:n
+
+Vaihda VISP **Advanced**-tilaan, kopioi laitteen RTMP-julkaisuosoite ja luo
+Larixiin RTMP-yhteys. Pidä OBS:n generoitu lukupolku ennallaan. RTMP on
+TCP-pohjainen yhteensopivuusvaihtoehto, ei ratkaisu riittämättömään kaistaan.
+
+## Tarkistuslista ennen lähetystä
+
+- Larix-yhteys käyttää nykyistä VISP-julkaisuosoitetta ja on aktiivinen.
+- H.264, AAC, kuvan suunta, avainruutuväli ja bittinopeus on testattu.
+- SRT-viive perustuu oikeassa kenttäverkossa tehtyyn mittaukseen.
+- Mukautuva bittinopeus on testattu, jos mobiilikapasiteetti vaihtelee.
+- OBS käyttää erillistä lukuosoitetta ja vastaanottaa kuvan sekä äänen.
+- Kohdepalvelun lähetysavain on vain OBS:ssä.
+- Pakotettu katko vaihtaa varakohtaukseen ja sama lähde palautuu.
+- Jokaisella lisäkameralla on oma VISP-laite ja tunnukset.
+
+## Usein kysyttyä
+
+### Lähettääkö Larix tässä työnkulussa suoraan Twitchiin tai Kickiin?
+
+Ei. Larix lähettää kenttäsyötteen VISPiin, OBS vastaanottaa sen ja lähettää
+valmiin tuotannon Twitchiin tai Kickiin. Kohtaukset, hälytykset, tallennus ja
+kohdepalvelun lähetysavain pysyvät studiossa.
+
+### Kannattaako Larixista käyttää SRT:tä vai RTMP:tä?
+
+Käytä oletuksena SRT:tä epävakaan verkon pakettipalautuksen vuoksi. Käytä
+RTMP:tä, jos lähetysverkko tai enkooderipolku ei salli UDP:tä. Kumpikaan
+protokolla ei luo kaistaa, transkoodaa videota tai bondaa yhteyksiä.
+
+### Voiko samaa Larix-osoitetta käyttää useassa puhelimessa?
+
+Ei samanaikaisesti. Luo jokaiselle puhelimelle oma VISP-laite. Silloin lähteiden
+nimet, tila, oikeuksien peruminen ja OBS-kohtaukset pysyvät erillisinä.
+
+### Onko Larix pakollinen VISPin käyttämiseen?
+
+Ei. Larix on vahva vaihtoehto, kun sen kamera-, enkoodaus-, mukautuva
+bittinopeus- ja yhteyssäätimet sopivat kuvaukseen. VISPin natiivi- ja
+selainsovellukset kattavat yksinkertaisemmat työnkulut.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP: lisää videolähde](https://docs.visp-stream.com/fi/docs/video-source)
+- [VISP: enkooderit, viive ja varakohtaus](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [Larix-dokumentaatio](https://softvelum.com/larix/docs/)
+- [Larixin mukautuvan bittinopeuden UKK](https://softvelum.com/larix/faq/)
+- [OBS:n SRT-ohje](https://obsproject.com/kb/srt-protocol-streaming-guide)
+- [SRT Alliancen teknologiaesittely](https://www.srtalliance.org/about-srt-technology/)
+
+Jos tuotat jo OBS:llä ja haluat Larixista hallitun kenttäkameran,
+[kokeile VISPiä](https://visp-stream.com): luo yksi laite, liitä sen SRT-osoite
+Larixiin ja testaa koko polku ennen seuraavaa lähetystä.

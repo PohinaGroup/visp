@@ -43,9 +43,9 @@ async function loadPosts() {
 }
 
 describe("blog content", () => {
-	test("ships six uniquely addressed, SEO-sized launch articles", async () => {
+	test("ships seven uniquely addressed, SEO-sized articles", async () => {
 		const posts = await loadPosts();
-		expect(posts).toHaveLength(6);
+		expect(posts).toHaveLength(7);
 		expect(new Set(posts.map((post) => post.slug)).size).toBe(posts.length);
 
 		for (const { frontmatter, slug, source } of posts) {

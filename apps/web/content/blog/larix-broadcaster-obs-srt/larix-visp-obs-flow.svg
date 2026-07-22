@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Larix to VISP to OBS signal flow</title>
+  <desc id="desc">A phone running Larix sends one SRT contribution feed through VISP to OBS, which sends the finished program to Twitch or Kick.</desc>
+  <rect width="1600" height="900" rx="44" fill="#0b0f12"/>
+  <path d="M340 450H640M960 450h300" stroke="#67d7ff" stroke-width="18" stroke-linecap="round"/>
+  <path d="m590 410 60 40-60 40M1210 410l60 40-60 40" fill="none" stroke="#67d7ff" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="110" y="240" width="230" height="420" rx="42" fill="#12191f" stroke="#f2f5f7" stroke-width="12"/>
+  <rect x="140" y="285" width="170" height="260" rx="18" fill="#173541"/>
+  <circle cx="225" cy="605" r="14" fill="#baff3d"/>
+  <rect x="650" y="310" width="300" height="280" rx="56" fill="#12191f" stroke="#baff3d" stroke-width="12"/>
+  <path d="M710 395h180M710 450h180M710 505h180" stroke="#67d7ff" stroke-width="14" stroke-linecap="round" opacity=".75"/>
+  <rect x="1270" y="260" width="230" height="300" rx="24" fill="#12191f" stroke="#f2f5f7" stroke-width="12"/>
+  <path d="M1305 305h160v165h-160z" fill="#173541"/>
+  <path d="m1305 470 65-58 36 30 59-74v102z" fill="#67d7ff" opacity=".7"/>
+  <path d="M1385 560v80M1305 640h160" stroke="#f2f5f7" stroke-width="12" stroke-linecap="round"/>
+  <text x="225" y="735" fill="#f2f5f7" font-family="system-ui, sans-serif" font-size="44" font-weight="700" text-anchor="middle">LARIX</text>
+  <text x="500" y="415" fill="#9aa4af" font-family="ui-monospace, monospace" font-size="34" font-weight="700" text-anchor="middle">SRT</text>
+  <text x="800" y="685" fill="#f2f5f7" font-family="system-ui, sans-serif" font-size="44" font-weight="700" text-anchor="middle">VISP</text>
+  <text x="1385" y="735" fill="#f2f5f7" font-family="system-ui, sans-serif" font-size="44" font-weight="700" text-anchor="middle">OBS</text>
+  <text x="800" y="120" fill="#9aa4af" font-family="ui-monospace, monospace" font-size="34" font-weight="700" letter-spacing="5" text-anchor="middle">ONE AUTHENTICATED CONTRIBUTION PATH</text>
+  <text x="1385" y="800" fill="#baff3d" font-family="ui-monospace, monospace" font-size="30" font-weight="700" text-anchor="middle">TWITCH / KICK</text>
+</svg>
