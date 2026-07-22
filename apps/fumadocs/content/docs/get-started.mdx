@@ -7,17 +7,14 @@ icon: Rocket
 
 ## 1. Sign in
 
-Open [visp-stream.com](https://visp-stream.com), go to **Download & beta** if
-you need client links, then sign in with Twitch or Kick. VISP uses that login
-only to identify your account — it never receives your stream key.
+Open [visp-stream.com](https://visp-stream.com), press **Try VISP free**, then sign in with Twitch or Kick. VISP uses that login
+only to identify your account.
 
 ![Sign in to VISP with Twitch or Kick](./images/web-login.png)
 
 ## 2. Finish setup and download the OBS scene file
 
-Choose your use case, publisher (**VISP app**, browser, OBS, Larix, Moblin, or
-another encoder), and destination. When the credentials step appears, download
-the OBS scene collection or copy the labeled URLs you need.
+Follow the instructions provided in the setup. If you have some questions, feel free to ask those from SEPPO, our AI assistant.
 
 The dashboard opens in **Simple** mode, where each video source has a copyable
 OBS URL and publish URL. Switch to **Advanced** for RTMP fallbacks, OBS read
@@ -25,17 +22,7 @@ credential management, and the latency probe. You can reveal the read URLs and
 download the scene collection again later. Use **Rotate read** only when you
 intend to invalidate every existing OBS Media Source.
 
-## 3. Import the scenes into OBS
-
-In OBS Studio, choose **Scene Collection → Import** and select the downloaded
-JSON. You should see a **Fallback** scene plus one scene per publishing path,
-each with a Media Source ready to reconnect automatically.
-
-![OBS Scene Collection Import dialog](./images/obs-import.png)
-
-![OBS scenes after import: Scene, Fallback, and Media source](./images/obs-scenes.png)
-
-## 4. Pair the OBS plugin
+## 3. Pair the OBS plugin
 
 Device setup, one-click Media Sources, and remote control use the VISP plugin
 for OBS Studio 31.
@@ -53,14 +40,14 @@ device for this OBS profile.
 
 ![OBS Tools → VISP Remote Control dialog](./images/obs-plugin-tools.png)
 
-## 5. Publish from a phone or browser
+## 4. Publish from a phone or browser
 
 ### Phone app
 
 Install the iOS (TestFlight) or Android (Play internal) build from the
 [download page](https://visp-stream.com/download). Sign in with the same Twitch
 or Kick account. The app creates a publishing device for that phone
-automatically — you do not paste a publish URL.
+automatically.
 
 Pick the camera and microphone in settings, confirm **READY**, then tap
 **Go Live**.
@@ -69,15 +56,11 @@ Pick the camera and microphone in settings, confirm **READY**, then tap
 
 ![Phone app ready to go live](./images/app-ready.png)
 
-![Phone app live over SRT](./images/app-live.png)
-
 ### Browser app
 
 Prefer a quick test without installing? Open
 [stream.visp-stream.com](https://stream.visp-stream.com) in current Chrome,
 Edge, or Safari, sign in, and publish over WebRTC.
-
-![Browser publisher at stream.visp-stream.com](./images/browser-publish.png)
 
 ## 6. Confirm first picture
 

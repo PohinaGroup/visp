@@ -4,8 +4,9 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["VITE_SERVER_URL", "VITE_RELAY_PING_URL", "VITE_RYBBIT_SITE_ID"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
-      "outputs": ["dist/**"]
+      "outputs": ["dist/**", ".output/**"]
     },
     "lint": {
       "dependsOn": ["^lint"]
