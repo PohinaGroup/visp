@@ -1,0 +1,302 @@
+---
+title: "OBS-kuvan lähettäminen toiseen OBS:ään internetin yli SRT:llä"
+description: "Lähetä OBS-tuotanto toiseen OBS:ään internetin yli SRT:llä VISPin kautta ilman porttiohjausta tai lopullisen lähetysavaimen siirtämistä."
+publishedAt: 2026-07-23
+coverAlt: "Kaksi erillistä suoratoistotyöpistettä vaihtaa yhden ohjelmasyötteen internet-relayn kautta"
+---
+
+Saat yhden OBS-tuotannon toiseen OBS:ään internetin yli näin: **tee ensimmäisestä
+OBS:stä VISPin julkaisulaite ja lisää laite toiseen OBS:ään medialähteeksi.**
+Ensimmäinen tietokone sommittelee ja enkoodaa etäohjelman, VISP tunnistaa ja
+välittää SRT-syötteen, ja toinen tietokone liittää sen valmiiseen Twitch- tai
+Kick-tuotantoon.
+
+Molemmat OBS-koneet muodostavat yhteyden ulospäin relay-palvelimelle.
+Vastaanottavan studion ei siis tarvitse avata SRT-porttia tai tehdä
+porttiohjausta reitittimeen. Twitchin tai Kickin lähetysavain pysyy
+vastaanottavan OBS:n profiilissa.
+
+![Etä-OBS julkaisee yhden SRT-ohjelmasyötteen VISPin kautta vastaanottavaan OBS:ään, joka lähettää valmiin tuotannon Twitchiin tai Kickiin](./obs-to-obs-flow.svg)
+
+## Milloin OBS:stä OBS:ään -syöte on oikea ratkaisu?
+
+Työnkulku sopii tilanteeseen, jossa etäkohteen pitää toimittaa enemmän kuin yksi
+raaka kamera. Lähettävä OBS voi yhdistää pelikaappauksen, kameran, esityksen,
+tulostaulun, paikalliset mikrofonit ja muut lähteet yhdeksi valmiiksi
+tuotantosyötteeksi. Vastaanottava OBS voi lisätä sen studiokameroiden,
+selostuksen, hälytysten ja grafiikoiden rinnalle ennen lopullista lähetystä.
+
+Tyypillisiä käyttötapoja ovat:
+
+- turnauksen tarkkailijan tuottama puhdas pelisyöte etätuottajalle;
+- tapahtumapaikan paikallinen kameramiksaus kotistudioon;
+- valmiin kohtauksen lähettävä yhteislähettäjä yksittäisten lähteiden sijaan;
+- toinen tuotantokone, joka hoitaa kaappauksen pää-OBS:n hallitessa kohdepalvelua.
+
+Raja on tärkeä ymmärtää: vastaanottava OBS saa lähettävän OBS:n ohjelman yhtenä
+yhdistettynä kuva- ja äänilähteenä. Etäkameraa, pelikaappausta ja grafiikkaa ei
+voi enää siirtää erikseen vastaanottavassa studiossa. Jos tuottajan pitää
+hallita kameroita erillisinä, luo jokaiselle enkooderille oma VISP-laite. Jos
+osallistujat tarvitsevat luontevan kaksisuuntaisen keskustelun ja paluukuvan,
+selainpuhelu voi sopia paremmin. Vaihtoehtoja käsitellään oppaassa
+[VDO.Ninja vai VISP](/fi/blog/vdo-ninja-vs-visp).
+
+## Mitä tarvitset?
+
+- OBS Studion lähettävälle ja vastaanottavalle tietokoneelle
+- Twitch- tai Kick-tunnuksella luodun VISP-tilin
+- VISP OBS -lisäosan molemmille tietokoneille tai hallintapaneelin osoitteet
+  manuaalista määritystä varten
+- riittävän tasaisen lähetyskaistan etäkohteen syötteelle
+- vastaanottopaikkaan kaistaa sekä syötteen lataamiseen että valmiin
+  Twitch- tai Kick-ohjelman lähettämiseen
+- kuulokkeet tai suunnitellun äänen monitoroinnin kierron estämiseksi
+- paikallisen varakohtauksen vastaanottavaan OBS:ään
+
+Nimeä koneet selkeästi ennen aloittamista. Tässä oppaassa **lähettävä OBS**
+tuottaa etäohjelman. **Vastaanottava OBS** omistaa lopullisen lähetyksen.
+
+## 1. Luo lähettävälle OBS:lle VISP-laite
+
+Lyhin reitti käyttää VISP-lisäosaa. Asenna OBS Studio 31:lle sopiva paketti,
+käynnistä OBS uudelleen ja avaa lähettävällä koneella **Tools → VISP Remote
+Control**. Valitse **Sign in with browser**, hyväksy selaimessa näkyvä koodi ja
+palaa OBS:ään.
+
+Anna laitteelle käytännöllinen nimi, kuten ”tapahtumapaikan OBS” tai
+”pelitarkkailija”, ja valitse **Create and use as OBS output**. Hyväksy varoitus.
+Lisäosa luo erikseen peruutettavan julkaisulaitteen ja korvaa nykyisen
+OBS-profiilin suoratoistopalvelun sekä avaimen sen SRT-julkaisuosoitteella.
+
+Pysäytä lähetys ennen muutosta. Lisäosa ei vaihda kohdetta OBS:n ollessa
+suorana, ja vahvistus on olennainen: valittu profiili ei enää osoita suoraan
+Twitchiin tai Kickiin. VISP ei vastaanota eikä säilytä korvattua kohdepalvelun
+lähetysavainta.
+
+Lisäosan toiminta ja yhdistämisen suojausmalli kuvataan tarkemmin
+[VISPin OBS-etäohjausohjeessa](https://docs.visp-stream.com/fi/docs/obs-remote-control).
+
+### Manuaalinen vaihtoehto
+
+Jos et käytä lisäosaa lähettävällä koneella:
+
+1. Avaa VISPin hallintapaneeli ja luo tälle OBS-asennukselle oma laite.
+2. Kopioi **Add this to video source** -osoite. Käsittele koko arvoa salasanana.
+3. Avaa lähettävässä OBS:ssä **Settings → Stream**.
+4. Valitse **Service**-kenttään **Custom**.
+5. Liitä SRT-julkaisuosoite **Server**-kenttään.
+6. Jätä **Stream Key** tyhjäksi ja tallenna.
+
+Samat lähetysvaiheet löytyvät
+[OBS:n virallisesta SRT-ohjeesta](https://obsproject.com/kb/srt-protocol-streaming-guide).
+Älä liitä lähettävään OBS:ään lukuosoitetta, pilko SRT:n stream ID:tä eri
+kenttiin tai näytä julkaisuosoitetta kuvakaappauksessa. VISPin
+[videolähdeohje](https://docs.visp-stream.com/fi/docs/video-source) näyttää,
+mistä nykyinen julkaisuosoite kopioidaan.
+
+## 2. Määritä kenttäsyötteen laatu lähettävässä OBS:ssä
+
+Valitse asetukset kahden studion välisen yhteyden perusteella, älä yhden
+nopeustestin huipputuloksen mukaan. Aloita H.264-videolla, AAC-äänellä ja kahden
+sekunnin avainruutuvälillä. Valitse tarkkuus, kuvataajuus ja bittinopeus, jotka
+lähettävä yhteys pystyy ylläpitämään jatkuvasti riittävällä marginaalilla.
+
+Etäsyöte ja kohdepalvelun lähetys ovat eri verkkoreiteillä tehtäviä erillisiä
+enkoodauksia. Lähettävä OBS ratkaisee VISPiin saapuvan laadun. Vastaanottava OBS
+enkoodaa myöhemmin koko ohjelmansa Twitchiä tai Kickiä varten. Etäsyötettä ei
+kannata tehdä tarpeettomasti lopullista lähetystä raskaammaksi, mutta tekstin,
+peliliikkeen ja pienten yksityiskohtien pitää säilyä studion käyttöön.
+
+VISP **ei transkoodaa** syötettä. Se ei muuta kuvan kokoa tai koodekkia, korjaa
+ylikuormittunutta enkooderia eikä rakenna eri laatutasoja. Jos vastaanottava OBS
+ei dekoodaa syötettä luotettavasti, korjaa lähettävän OBS:n asetukset.
+
+Tallenna lyhyt paikallinen näyte lähettävästä kohtauksesta ennen verkkotestiä.
+Tarkista liike, pieni teksti, mikrofonitasot ja synkronointi. Näin erotat
+kaappaus- ja enkoodausongelmat siirtoyhteyden ongelmista.
+
+## 3. Käynnistä lähettävä OBS ja tarkista VISP
+
+Valitse lähettävässä OBS:ssä **Start Streaming**. Tässä profiilissa painike
+käynnistää VISP-etäsyötteen, ei Twitch- tai Kick-lähetystä.
+
+Oikean laitteen pitäisi vaihtua VISPin hallintapaneelissa **Live**-tilaan. Jos
+näin ei käy, varmista profiilin käyttävän nykyistä julkaisuosoitetta ja tarkista,
+ettei toinen OBS tai enkooderi ole jo yhdistetty samaan laitteeseen. Vain yksi
+julkaisija voi omistaa VISP-polun kerrallaan.
+
+Anna jokaiselle lähettävälle OBS:lle oma laite. Erilliset polut pitävät nimet,
+tilat, tunnukset, oikeuksien perumisen ja vastaanottavat lähteet toisistaan
+riippumattomina.
+
+## 4. Lisää syöte vastaanottavaan OBS:ään
+
+Yhdistä VISP-lisäosa vastaanottavalla koneella kohdasta **Tools → VISP Remote
+Control → Sign in with browser**. Valitse lähettävä laite ja **Add to scene**.
+Lisäosa luo tunnistetun medialähteen valittuna olevaan kohtaukseen.
+
+Manuaalinen määritys:
+
+1. Näytä tai kopioi laitteen OBS-lukuosoite VISPistä.
+2. Lisää vastaanottavaan OBS:ään **Media Source**.
+3. Poista **Local File** käytöstä.
+4. Liitä lukuosoite **Input**-kenttään.
+5. Anna **Input Format** -arvoksi `mpegts`, ellei se ole jo määritetty.
+6. Varmista lähteen palautuvan lähettäjän pysäytyksen ja käynnistyksen jälkeen.
+
+Julkaisuosoite kuuluu vain lähettävään OBS:ään ja lukuosoite vain
+vastaanottavaan OBS:ään. Yhden laitteen julkaisutunnuksen voi vaihtaa
+vaikuttamatta muihin laitteisiin. Tilin yhteisen OBS-lukutunnuksen vaihtaminen
+puolestaan mitätöi kaikki tilin nykyiset VISP-medialähteet.
+
+Sommittele uusi lähde kuten muutkin OBS-lähteet. Päätä ennen Program-lähtöä,
+onko etä-ääni käytössä, monitoroituna vai mykistettynä. Jos etäkohde kuuntelee
+vastaanottavaa ohjelmaa, rakenna paluumiksaus, joka ei lähetä sen omaa
+viivästynyttä ääntä takaisin kaiuttimiin.
+
+## 5. Pidä Twitch tai Kick vastaanottavassa OBS:ssä
+
+Määritä kohdepalvelu ja lähetysavain vain vastaanottavan OBS:n profiiliin. Lisää
+siellä hälytykset, paikallinen selostus, grafiikat, tallennus ja varakohtaus.
+Valitse kyseisellä koneella **Start Streaming**, kun koko ohjelma on valmis.
+
+Signaaliketju on nyt:
+
+1. lähettävä OBS enkoodaa yhden etäsyötteen;
+2. VISP tunnistaa ja välittää sen;
+3. vastaanottava OBS dekoodaa syötteen medialähteenä;
+4. vastaanottava OBS sommittelee ja enkoodaa lopullisen ohjelman;
+5. Twitch tai Kick vastaanottaa lopullisen ohjelman.
+
+Erottelu antaa vastaanottavan OBS:n pysyä suorana, vaikka etäkoneen yhteys
+katkeaisi. Tuottaja voi vaihtaa paikalliseen kohtaukseen kohdepalvelun
+lähetyksen lopettamisen sijaan.
+
+## Säädä SRT-viive oikean reitin mukaan
+
+SRT voi pyytää puuttuvia paketteja uudelleen, jos ne ehtivät vielä käyttöön.
+Viivepuskuri antaa palautukselle aikaa, joten pienin mahdollinen arvo ei aina
+ole paras. [SRT-projekti](https://github.com/Haivision/srt) dokumentoi
+uudelleenlähetykset ja viiveohjatun toimituksen. OBS:n SRT-ohjeessa osoitteen
+viiveasetukset annetaan mikrosekunteina.
+
+Suorita VISPin hallintapaneelin viivemittaus lähettävästä verkosta ja aloita
+kaapeli-, Wi-Fi- tai mobiiliprofiilin suosituksesta. Testaa oikea reitti siinä
+paikassa ja kellonaikana, jossa sitä käytetään. Suurempi viive voi sietää
+lyhyitä pakettihäviö- ja jitteripiikkejä, mutta se ei korvaa jatkuvasti
+käytettävissä olevaa lähetyskaistaa suurempaa bittinopeutta.
+
+Kiinteässä studioyhteydessä vakaa toisto on tärkeämpi kuin mahdollisimman pieni
+viivelukema. Etäkeskustelussa SRT-syöte on vain yksi osa edestakaista reittiä;
+myös puheyhteyden paluupolku pitää suunnitella ja testata erikseen.
+
+## Testaa katko ja palautuminen ennen lähetystä
+
+Tee harjoitus kohdepalvelun lähetyksen ollessa vielä pysäytettynä:
+
+1. Käynnistä lähettävä OBS ja varmista vakaa liike sekä ääni vastaanottimessa.
+2. Pysäytä lähettävä OBS ja tarkista medialähteen pysähtyvän.
+3. Vaihda vastaanottava OBS paikalliseen varakohtaukseen.
+4. Käynnistä lähettäjä ja varmista saman lähteen yhdistyvän uudelleen.
+5. Katkaise lähettävä verkko hetkeksi ja palauta se.
+6. Tarkista palautuminen ilman uutta laitetta tai osoitetta.
+7. Tarkista äänen synkronointi uudelleen palautumisen jälkeen.
+
+Automaattista vaihtoa varten seuraa
+[verkkokatkoihin varautumisen opasta](/fi/blog/keep-stream-live-bad-mobile-network).
+Sen Advanced Scene Switcher -määritys tarkkailee medialähteen toistotilaa ja
+viivästää vaihtoa, jotta lyhyt dekooderin tilamuutos ei sahaa kohtausten välillä.
+
+## Mitä VISP ei lisää OBS:stä OBS:ään -yhteyteen?
+
+VISP toimii tässä työnkulussa tunnistettuna relay-palvelimena ja ohjaustasona.
+Se ei transkoodaa syötettä eikä bondaa verkkoyhteyksiä. SRT:n
+uudelleenlähetys voi palauttaa osan kadonneista paketeista, mutta se ei yhdistä
+kahta internetliittymää tai jatka lähetystä täydellisen katkon läpi. Käytä
+oikeaa bonding-kerrosta, jos yhden yhteyden pitää voida vikaantua katkaisematta
+etäsyötettä.
+
+VISP ei myöskään tee yksisuuntaisesta ohjelmasyötteestä videopuhelua, rakenna
+mix-minus-ääntä, synkronoi toisistaan riippumattomia etäsyötteitä tai pura
+yhdistettyä OBS-ohjelmaa takaisin alkuperäisiksi lähteiksi. Nämä ovat relayta
+ympäröivän tuotannon suunnittelutehtäviä.
+
+## Ongelmatilanteet
+
+### Lähettävä OBS käynnistyy, mutta VISP pysyy offline-tilassa
+
+Varmista, että **Service** on Custom, koko nykyinen SRT-julkaisuosoite on
+**Server**-kentässä ja **Stream Key** on tyhjä. Pysäytä muut samaa laitetta
+käyttävät enkooderit. Jos julkaisutunnus vaihdettiin, korvaa vanha osoite.
+
+### VISP näyttää Live-tilaa, mutta vastaanottava OBS on tyhjä
+
+Varmista vastaanottimen käyttävän lukuosoitetta. Poista **Local File** käytöstä
+ja käytä Input Format -arvoa `mpegts`. Odota seuraavaa avainruutua. Jos tilin
+lukutunnus vaihdettiin, päivitä lisäosan lähde tai liitä uusi lukuosoite.
+
+### Kuva saapuu, mutta ääni puuttuu
+
+Varmista lähettävän OBS:n mikserin liikkuvan ja lähdön sisältävän AAC-ääniraidan.
+Tarkista vastaanottavassa OBS:ssä, ettei medialähde ole mykistetty ja että se on
+reititetty oikealle raidalle. Testaa monitorointi kuulokkeilla ennen voimakkuuden
+muuttamista.
+
+### Syöte jäätyy tai hajoaa
+
+Pienennä ensin lähettävää bittinopeutta. Testaa sen jälkeen suurempaa
+SRT-viiveikkunaa lyhyiden häviöpiikkien varalta. Puskurointi ei korjaa
+enkooderin ylikuormitusta tai jatkuvaa kaistavajetta.
+
+### Lähettäjä korvasi väärän suoratoistokohteen
+
+Pysäytä lähetys ja palauta oikea palvelu kyseiseen OBS-profiiliin. Toistuvassa
+tuotannossa VISPille kannattaa omistaa selkeästi nimetty lähetysprofiili sen
+sijaan, että käytät normaalisti suoraan kohdepalveluun lähettävää profiilia.
+
+## Tarkistuslista ennen lähetystä
+
+- Lähettävän OBS:n profiili julkaisee omaan VISP-laitteeseensa.
+- H.264, AAC, avainruutuväli, tarkkuus, kuvataajuus ja bittinopeus on testattu.
+- Laite näkyy Live-tilassa eikä toinen julkaisija jaa sen polkua.
+- Vastaanottava OBS käyttää erillistä lukuosoitetta.
+- Etä-ääni on reititetty ilman kiertoa.
+- Twitchin tai Kickin avain on vain vastaanottavan OBS:n profiilissa.
+- Paikallinen varakohtaus toimii lähettäjän ollessa offline-tilassa.
+- Pakotettu katko palautuu samaan medialähteeseen.
+- Tiimi tietää, ettei VISP transkoodaa tai bondaa yhteyksiä.
+
+## Usein kysyttyä
+
+### Pitääkö vastaanottavaan tietokoneeseen avata SRT-portti?
+
+Ei. VISPiä käytettäessä molemmat OBS-koneet muodostavat yhteyden relaylle.
+Kotireitittimen ei tarvitse ohjata julkista SRT-porttia OBS:lle.
+
+### Voiko vastaanottava OBS muokata lähettäjän yksittäisiä lähteitä?
+
+Ei. Se saa lähettävän OBS:n ohjelman yhtenä medialähteenä. Julkaise lähteet
+eri VISP-laitteilla, jos vastaanottavan tuottajan pitää hallita niitä erikseen.
+
+### Meneekö molempien koneiden Start Streaming Twitchiin tai Kickiin?
+
+Ei. Lähettävän profiilin painike lähettää VISPiin. Vastaanottavan profiilin
+painike lähettää valmiin ohjelman Twitchiin tai Kickiin.
+
+### Kannattaako käyttää SRT:tä vai RTMP-varavaihtoehtoa?
+
+Käytä tällä internetin yli kulkevalla etäreitillä oletuksena SRT:tä. Käytä
+VISPin RTMP-varavaihtoehtoa, jos lähettävä verkko estää UDP:n. Kumpikaan
+vaihtoehto ei transkoodaa syötettä, luo kaistaa tai bondaa yhteyksiä.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP: lisää videolähde](https://docs.visp-stream.com/fi/docs/video-source)
+- [VISP: OBS-etäohjaus ja julkaisulaitteet](https://docs.visp-stream.com/fi/docs/obs-remote-control)
+- [VISP: enkooderit, SRT-viive ja varakohtaus](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [OBS:n SRT-suoratoisto-ohje](https://obsproject.com/kb/srt-protocol-streaming-guide)
+- [Haivisionin avoimen lähdekoodin SRT-projekti](https://github.com/Haivision/srt)
+
+Jos kaksi sijaintia käyttää jo OBS:ää ja niiden väliin tarvitaan hallittu
+SRT-polku, [kokeile VISPiä](https://visp-stream.com): luo yksi lähettävä laite,
+lisää se vastaanottavaan kohtaukseen ja tee katkotesti ennen seuraavaa lähetystä.

@@ -1,0 +1,65 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">OBS-to-OBS signal flow through VISP</title>
+  <desc id="desc">A sending OBS publishes one SRT program feed to VISP. A receiving OBS reads the feed, adds local production elements, and sends the final broadcast to Twitch or Kick.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#090d14"/>
+      <stop offset="1" stop-color="#111b26"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#182432"/>
+      <stop offset="1" stop-color="#0d151f"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#50d8ff"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" rx="52" fill="url(#bg)"/>
+  <text x="800" y="92" fill="#f2f7fb" font-family="system-ui, sans-serif" font-size="48" font-weight="700" text-anchor="middle">One program feed, two OBS studios</text>
+  <text x="800" y="140" fill="#9bb0c2" font-family="system-ui, sans-serif" font-size="24" text-anchor="middle">The destination stream key stays in the receiving studio</text>
+
+  <rect x="80" y="240" width="430" height="390" rx="30" fill="url(#panel)" stroke="#2f4558" stroke-width="3"/>
+  <text x="295" y="302" fill="#50d8ff" font-family="system-ui, sans-serif" font-size="26" font-weight="700" text-anchor="middle">SENDING OBS</text>
+  <rect x="140" y="346" width="310" height="174" rx="14" fill="#070b10" stroke="#52697b" stroke-width="3"/>
+  <rect x="164" y="372" width="130" height="88" rx="8" fill="#16354a"/>
+  <circle cx="229" cy="416" r="30" fill="#38bdf8" opacity=".75"/>
+  <rect x="312" y="372" width="114" height="38" rx="6" fill="#183126"/>
+  <path d="M326 397l16-12 17 8 18-16 18 10 17-7" fill="none" stroke="#62e89a" stroke-width="5"/>
+  <rect x="312" y="424" width="114" height="36" rx="6" fill="#17263b"/>
+  <path d="M326 443h86" stroke="#50d8ff" stroke-width="5" stroke-dasharray="26 10"/>
+  <text x="295" y="567" fill="#f2f7fb" font-family="system-ui, sans-serif" font-size="28" font-weight="650" text-anchor="middle">Remote scene + audio</text>
+  <text x="295" y="602" fill="#9bb0c2" font-family="system-ui, sans-serif" font-size="21" text-anchor="middle">Encodes H.264/AAC</text>
+
+  <rect x="635" y="300" width="330" height="270" rx="40" fill="#101b25" stroke="#50d8ff" stroke-width="4" filter="url(#glow)"/>
+  <path d="M710 422c0-42 34-76 76-76 29 0 54 16 67 39 9-5 20-8 31-8 35 0 64 29 64 64 0 5-1 10-2 15H710c0-11 0-22 0-34z" fill="#123447" stroke="#50d8ff" stroke-width="3"/>
+  <text x="800" y="493" fill="#f2f7fb" font-family="system-ui, sans-serif" font-size="34" font-weight="750" text-anchor="middle">VISP relay</text>
+  <text x="800" y="530" fill="#9bb0c2" font-family="system-ui, sans-serif" font-size="20" text-anchor="middle">Authenticates + forwards</text>
+
+  <rect x="1090" y="240" width="430" height="390" rx="30" fill="url(#panel)" stroke="#2f4558" stroke-width="3"/>
+  <text x="1305" y="302" fill="#62e89a" font-family="system-ui, sans-serif" font-size="26" font-weight="700" text-anchor="middle">RECEIVING OBS</text>
+  <rect x="1150" y="346" width="310" height="174" rx="14" fill="#070b10" stroke="#52697b" stroke-width="3"/>
+  <rect x="1174" y="372" width="172" height="100" rx="8" fill="#16354a"/>
+  <circle cx="1260" cy="422" r="34" fill="#38bdf8" opacity=".75"/>
+  <rect x="1362" y="372" width="74" height="45" rx="6" fill="#2b2139"/>
+  <rect x="1362" y="427" width="74" height="45" rx="6" fill="#183126"/>
+  <path d="M1178 492h254" stroke="#62e89a" stroke-width="6" stroke-dasharray="44 12"/>
+  <text x="1305" y="567" fill="#f2f7fb" font-family="system-ui, sans-serif" font-size="28" font-weight="650" text-anchor="middle">Final production</text>
+  <text x="1305" y="602" fill="#9bb0c2" font-family="system-ui, sans-serif" font-size="21" text-anchor="middle">Scenes, alerts + destination</text>
+
+  <path d="M510 435H625" fill="none" stroke="#50d8ff" stroke-width="8" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <path d="M975 435h105" fill="none" stroke="#50d8ff" stroke-width="8" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <text x="567" y="402" fill="#bcefff" font-family="system-ui, sans-serif" font-size="21" font-weight="650" text-anchor="middle">SRT publish</text>
+  <text x="1027" y="402" fill="#bcefff" font-family="system-ui, sans-serif" font-size="21" font-weight="650" text-anchor="middle">SRT read</text>
+
+  <path d="M1305 640v92" fill="none" stroke="#62e89a" stroke-width="8" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <rect x="1105" y="746" width="400" height="82" rx="24" fill="#13251d" stroke="#62e89a" stroke-width="3"/>
+  <text x="1305" y="798" fill="#eafff1" font-family="system-ui, sans-serif" font-size="28" font-weight="700" text-anchor="middle">Twitch or Kick</text>
+
+  <rect x="104" y="714" width="640" height="114" rx="24" fill="#121b24" stroke="#2f4558" stroke-width="2"/>
+  <text x="136" y="758" fill="#f2f7fb" font-family="system-ui, sans-serif" font-size="22" font-weight="700">Boundary</text>
+  <text x="136" y="794" fill="#9bb0c2" font-family="system-ui, sans-serif" font-size="20">VISP relays one encoded feed. It does not transcode or bond connections.</text>
+</svg>
