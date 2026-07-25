@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="A field phone's Wi-Fi and cellular links are bonded by Speedify into one tunnel, which carries a single SRT feed to the VISP relay, then to OBS, and out to Twitch or Kick">
+  <rect width="1600" height="900" fill="#0b0d10"/>
+  <text x="80" y="96" fill="#9299a3" font-family="monospace" font-size="26" letter-spacing="6">SIGNAL CHAIN</text>
+  <text x="80" y="150" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="46" font-weight="700">Speedify bonds the links · VISP relays the feed</text>
+  <line x1="80" y1="182" x2="1520" y2="182" stroke="#2a2f36" stroke-width="2"/>
+
+  <!-- Field phone -->
+  <rect x="90" y="380" width="150" height="230" rx="14" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <rect x="118" y="418" width="94" height="150" fill="#151a20"/>
+  <text x="165" y="668" fill="#9299a3" font-family="monospace" font-size="22" text-anchor="middle">FIELD PHONE</text>
+  <text x="165" y="694" fill="#737b87" font-family="monospace" font-size="18" text-anchor="middle">ENCODER · SRT</text>
+
+  <!-- Two uplinks converging into Speedify -->
+  <path d="M240 445 H360 Q430 445 430 500" fill="none" stroke="#7fb8c4" stroke-width="4"/>
+  <path d="M240 545 H360 Q430 545 430 500" fill="none" stroke="#c9a35b" stroke-width="4"/>
+  <circle cx="240" cy="445" r="9" fill="#7fb8c4"/>
+  <circle cx="240" cy="545" r="9" fill="#c9a35b"/>
+  <text x="252" y="430" fill="#7fb8c4" font-family="monospace" font-size="19">WI-FI</text>
+  <text x="252" y="576" fill="#c9a35b" font-family="monospace" font-size="19">CELLULAR</text>
+
+  <!-- Speedify bonded tunnel -->
+  <rect x="430" y="400" width="290" height="190" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="575" y="470" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">SPEEDIFY</text>
+  <text x="575" y="506" fill="#9299a3" font-family="monospace" font-size="20" text-anchor="middle">BONDED TUNNEL</text>
+  <text x="575" y="536" fill="#737b87" font-family="monospace" font-size="17" text-anchor="middle">packet-level · VPN</text>
+
+  <!-- One bonded path out to VISP -->
+  <path d="M720 495 H840" fill="none" stroke="#f2f3f5" stroke-width="4"/>
+  <text x="732" y="480" fill="#9299a3" font-family="monospace" font-size="18">ONE SRT FEED</text>
+
+  <!-- VISP relay -->
+  <rect x="840" y="400" width="290" height="190" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="985" y="470" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">VISP RELAY</text>
+  <text x="985" y="506" fill="#9299a3" font-family="monospace" font-size="20" text-anchor="middle">SRT · RTMP</text>
+  <text x="985" y="536" fill="#737b87" font-family="monospace" font-size="17" text-anchor="middle">no bond · no transcode</text>
+
+  <!-- Relay out to OBS -->
+  <path d="M1130 495 H1250" fill="none" stroke="#f2f3f5" stroke-width="4"/>
+  <text x="1142" y="480" fill="#9299a3" font-family="monospace" font-size="18">READ URL</text>
+
+  <!-- OBS studio -->
+  <rect x="1250" y="400" width="270" height="190" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="1385" y="475" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="middle">OBS STUDIO</text>
+  <text x="1385" y="512" fill="#9299a3" font-family="monospace" font-size="20" text-anchor="middle">HOME PRODUCTION</text>
+
+  <!-- Output to platforms -->
+  <path d="M1385 590 V700 H1385" fill="none" stroke="#737b87" stroke-width="3"/>
+  <circle cx="1385" cy="700" r="10" fill="#d24b4b"/>
+  <text x="1410" y="706" fill="#9299a3" font-family="monospace" font-size="22">TWITCH / KICK</text>
+  <text x="1410" y="732" fill="#737b87" font-family="monospace" font-size="17">stream key stays in OBS</text>
+</svg>
