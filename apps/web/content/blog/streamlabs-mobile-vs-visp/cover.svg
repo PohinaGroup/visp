@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <text x="70" y="90" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">PHONE STREAMING / OBS</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="72" font-weight="700">STREAMLABS</text>
+  <text x="70" y="275" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="72" font-weight="700">MOBILE VS VISP</text>
+  <path d="M90 430H1090" stroke="#1c2128" stroke-width="2"/>
+  <path d="M90 400H470" stroke="#737b87" stroke-width="4"/><circle cx="90" cy="400" r="18" fill="#d8ff52"/><circle cx="470" cy="400" r="14" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="90" y="470" fill="#9299a3" font-family="monospace" font-size="20">PHONE → PLATFORMS</text>
+  <path d="M90 540H700" stroke="#737b87" stroke-width="4"/><circle cx="90" cy="540" r="18" fill="#72d7ff"/><rect x="470" y="512" width="120" height="56" fill="none" stroke="#f2f3f5" stroke-width="3"/><circle cx="700" cy="540" r="14" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="90" y="590" fill="#9299a3" font-family="monospace" font-size="20">PHONE → RELAY → OBS → PLATFORMS</text>
+</svg>

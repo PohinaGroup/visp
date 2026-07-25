@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" font-family="Arial, sans-serif">
+  <rect width="1600" height="900" fill="#0b0d10"/>
+  <text x="80" y="90" fill="#9299a3" font-family="monospace" font-size="28" letter-spacing="3">TWO WAYS TO STREAM FROM A PHONE</text>
+
+  <!-- Streamlabs Mobile: direct publish -->
+  <text x="80" y="200" fill="#d8ff52" font-family="monospace" font-size="26">STREAMLABS MOBILE — DIRECT PUBLISH</text>
+  <rect x="80" y="240" width="360" height="150" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="110" y="300" fill="#f2f3f5" font-size="30" font-weight="700">Phone</text>
+  <text x="110" y="340" fill="#9299a3" font-family="monospace" font-size="22">capture · encode</text>
+  <text x="110" y="368" fill="#9299a3" font-family="monospace" font-size="22">overlays · stream key</text>
+  <line x1="440" y1="315" x2="700" y2="315" stroke="#737b87" stroke-width="4"/>
+  <polygon points="700,315 680,305 680,325" fill="#737b87"/>
+  <rect x="700" y="240" width="360" height="150" rx="10" fill="none" stroke="#d8ff52" stroke-width="3"/>
+  <text x="730" y="300" fill="#f2f3f5" font-size="30" font-weight="700">Twitch · Kick</text>
+  <text x="730" y="345" fill="#9299a3" font-family="monospace" font-size="22">YouTube · TikTok…</text>
+
+  <!-- VISP: phone as OBS source -->
+  <text x="80" y="520" fill="#72d7ff" font-family="monospace" font-size="26">VISP — PHONE AS AN OBS SOURCE</text>
+  <rect x="80" y="560" width="300" height="150" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="110" y="620" fill="#f2f3f5" font-size="30" font-weight="700">Phone</text>
+  <text x="110" y="660" fill="#9299a3" font-family="monospace" font-size="22">capture · encode</text>
+  <text x="110" y="688" fill="#9299a3" font-family="monospace" font-size="22">SRT / RTMP</text>
+  <line x1="380" y1="635" x2="500" y2="635" stroke="#737b87" stroke-width="4"/>
+  <polygon points="500,635 480,625 480,645" fill="#737b87"/>
+  <rect x="500" y="560" width="300" height="150" rx="10" fill="none" stroke="#72d7ff" stroke-width="3"/>
+  <text x="530" y="620" fill="#f2f3f5" font-size="30" font-weight="700">VISP relay</text>
+  <text x="530" y="660" fill="#9299a3" font-family="monospace" font-size="22">authenticated</text>
+  <text x="530" y="688" fill="#9299a3" font-family="monospace" font-size="22">no transcode</text>
+  <line x1="800" y1="635" x2="920" y2="635" stroke="#737b87" stroke-width="4"/>
+  <polygon points="920,635 900,625 900,645" fill="#737b87"/>
+  <rect x="920" y="560" width="300" height="150" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="950" y="620" fill="#f2f3f5" font-size="30" font-weight="700">OBS studio</text>
+  <text x="950" y="660" fill="#9299a3" font-family="monospace" font-size="22">scenes · alerts</text>
+  <text x="950" y="688" fill="#9299a3" font-family="monospace" font-size="22">stream key</text>
+  <line x1="1220" y1="635" x2="1340" y2="635" stroke="#737b87" stroke-width="4"/>
+  <polygon points="1340,635 1320,625 1320,645" fill="#737b87"/>
+  <rect x="1340" y="560" width="200" height="150" rx="10" fill="none" stroke="#d8ff52" stroke-width="3"/>
+  <text x="1370" y="628" fill="#f2f3f5" font-size="28" font-weight="700">Twitch</text>
+  <text x="1370" y="666" fill="#f2f3f5" font-size="28" font-weight="700">Kick</text>
+
+  <text x="80" y="820" fill="#9299a3" font-family="monospace" font-size="22">Streamlabs Mobile owns the whole path from the phone. VISP keeps OBS as the studio and the phone as one source.</text>
+</svg>
