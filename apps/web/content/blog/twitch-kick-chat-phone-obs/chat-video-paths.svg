@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">VISP chat and camera paths</title>
+  <desc id="desc">Twitch and Kick chat reach the phone through the VISP app host, separately from the phone camera's SRT path through the relay into OBS.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0 0 14 7 0 14Z" fill="#d7e2ea"/>
+    </marker>
+    <style>
+      .label { fill: #edf5f9; font: 700 28px system-ui, sans-serif; }
+      .small { fill: #aabac5; font: 500 22px system-ui, sans-serif; }
+      .box { fill: #111a20; stroke: #637783; stroke-width: 3; rx: 22; }
+      .path { fill: none; stroke: #d7e2ea; stroke-width: 5; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect width="1600" height="900" fill="#080d10"/>
+  <text x="90" y="86" fill="#edf5f9" font-family="system-ui, sans-serif" font-size="42" font-weight="800">Chat and video use separate paths</text>
+  <text x="90" y="126" class="small">Floating chat stays on the operator's screen. Embedded chat is added on the phone before SRT.</text>
+
+  <text x="90" y="215" fill="#55a8ff" font-family="system-ui, sans-serif" font-size="24" font-weight="800">LIVE CHAT DATA</text>
+  <rect class="box" x="90" y="250" width="255" height="120"/>
+  <text class="label" x="128" y="304">Twitch</text>
+  <text class="small" x="128" y="340">EventSub</text>
+  <rect class="box" x="90" y="405" width="255" height="120"/>
+  <text class="label" x="128" y="459">Kick</text>
+  <text class="small" x="128" y="495">Signed webhook</text>
+  <path class="path" d="M345 310H510"/>
+  <path class="path" d="M345 465H430Q470 465 470 425V370Q470 310 510 310"/>
+  <rect class="box" x="530" y="250" width="305" height="120"/>
+  <text class="label" x="570" y="304">VISP app host</text>
+  <text class="small" x="570" y="340">Normalize + fan out</text>
+  <path class="path" d="M835 310H1020"/>
+  <text x="885" y="270" fill="#aabac5" font-family="system-ui, sans-serif" font-size="18" font-weight="600">WebSocket</text>
+  <rect class="box" x="1040" y="230" width="300" height="160"/>
+  <rect x="1082" y="259" width="72" height="104" rx="12" fill="#0a1014" stroke="#4fc3e8" stroke-width="4"/>
+  <rect x="1098" y="278" width="42" height="10" rx="5" fill="#55a8ff"/>
+  <rect x="1098" y="299" width="34" height="10" rx="5" fill="#72cf72"/>
+  <rect x="1098" y="320" width="42" height="10" rx="5" fill="#55a8ff"/>
+  <text class="label" x="1180" y="298">Phone</text>
+  <text class="small" x="1180" y="334">Floating view</text>
+  <text class="small" x="1180" y="362">Operator only</text>
+
+  <line x1="90" y1="595" x2="1510" y2="595" stroke="#24323a" stroke-width="3"/>
+  <text x="90" y="660" fill="#70d6a4" font-family="system-ui, sans-serif" font-size="24" font-weight="800">ENCODED VIDEO + AUDIO</text>
+  <rect class="box" x="90" y="700" width="250" height="120"/>
+  <text class="label" x="130" y="753">Phone camera</text>
+  <text class="small" x="130" y="789">H.264 + AAC</text>
+  <path class="path" d="M340 760H505"/>
+  <text class="small" x="395" y="731">SRT</text>
+  <rect class="box" x="525" y="700" width="260" height="120"/>
+  <text class="label" x="565" y="753">VISP relay</text>
+  <text class="small" x="565" y="789">No transcoding</text>
+  <path class="path" d="M785 760H950"/>
+  <rect class="box" x="970" y="700" width="250" height="120"/>
+  <text class="label" x="1010" y="753">OBS Studio</text>
+  <text class="small" x="1010" y="789">Final production</text>
+  <path class="path" d="M1220 760H1370"/>
+  <rect class="box" x="1390" y="700" width="120" height="120"/>
+  <text x="1417" y="748" fill="#edf5f9" font-family="system-ui, sans-serif" font-size="24" font-weight="800">Twitch</text>
+  <text x="1434" y="784" fill="#edf5f9" font-family="system-ui, sans-serif" font-size="24" font-weight="800">or</text>
+  <text x="1431" y="812" fill="#edf5f9" font-family="system-ui, sans-serif" font-size="24" font-weight="800">Kick</text>
+
+  <path d="M1190 390V500Q1190 555 1135 555H245Q215 555 215 585V700" fill="none" stroke="#f2c96d" stroke-width="4" stroke-dasharray="12 10" marker-end="url(#arrow)"/>
+  <text x="760" y="535" fill="#f2c96d" font-family="system-ui, sans-serif" font-size="22" font-weight="700">Embedded mode adds chat to the phone video</text>
+</svg>
