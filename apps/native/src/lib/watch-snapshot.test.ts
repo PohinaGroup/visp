@@ -16,7 +16,7 @@ function message(id: string): ChatMessage {
 }
 
 describe("watch snapshot", () => {
-	test("keeps four text-only messages and current stream health", () => {
+	test("keeps three text-only messages and current stream health", () => {
 		const snapshot = buildWatchSnapshot({
 			audioTier: 2,
 			configuration: { cameraId: "back", width: 1280, height: 720, fps: 30 },
@@ -37,14 +37,9 @@ describe("watch snapshot", () => {
 			updatedAt: 200,
 		});
 
-		expect(snapshot.chat.messages.map(({ id }) => id)).toEqual([
-			"2",
-			"3",
-			"4",
-			"5",
-		]);
+		expect(snapshot.chat.messages.map(({ id }) => id)).toEqual(["3", "4", "5"]);
 		expect(snapshot.chat.messages[0]).toEqual({
-			id: "2",
+			id: "3",
 			provider: "twitch",
 			senderName: "Viewer",
 			senderColor: "#AABBCC",

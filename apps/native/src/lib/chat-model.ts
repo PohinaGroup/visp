@@ -10,6 +10,7 @@ export type FloatingPosition = { x: number; y: number };
 export type ChatPreferences = {
 	mode: ChatDisplayMode;
 	corner: ChatCorner;
+	disappearingMessages: boolean;
 	floating: { portrait: FloatingPosition; landscape: FloatingPosition };
 };
 export type VisibleChatMessage = ChatMessage & {
@@ -20,6 +21,7 @@ export type VisibleChatMessage = ChatMessage & {
 export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = {
 	mode: "hidden",
 	corner: "bottom-left",
+	disappearingMessages: false,
 	floating: {
 		portrait: { x: 16, y: 120 },
 		landscape: { x: 24, y: 60 },
@@ -58,6 +60,7 @@ export function parseChatPreferences(value: string | null): ChatPreferences {
 			corner: corners.has(parsed.corner as ChatCorner)
 				? (parsed.corner as ChatCorner)
 				: DEFAULT_CHAT_PREFERENCES.corner,
+			disappearingMessages: parsed.disappearingMessages === true,
 			floating: {
 				portrait: position(
 					parsed.floating?.portrait,
@@ -76,16 +79,21 @@ export function parseChatPreferences(value: string | null): ChatPreferences {
 
 export function visibleChatMessages(
 	messages: Array<ChatMessage & { receivedAt: number }>,
+	disappearingMessages: boolean,
 	now = Date.now(),
 ): VisibleChatMessage[] {
 	return messages
-		.filter((message) => now - message.receivedAt < 12_000)
-		.slice(-4)
+		.filter(
+			(message) => !disappearingMessages || now - message.receivedAt < 12_000,
+		)
+		.slice(-3)
 		.map((message) => ({
 			...message,
-			opacity: Math.min(
-				1,
-				Math.max(0, (12_000 - (now - message.receivedAt)) / 4_000),
-			),
+			opacity: disappearingMessages
+				? Math.min(
+						1,
+						Math.max(0, (12_000 - (now - message.receivedAt)) / 4_000),
+					)
+				: 1,
 		}));
 }

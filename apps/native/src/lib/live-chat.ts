@@ -22,7 +22,11 @@ function liveEvent(value: unknown): value is ChatLiveEvent {
 	return Boolean(value && typeof value === "object" && "type" in value);
 }
 
-export function useLiveChat(userId: string | undefined, active: boolean) {
+export function useLiveChat(
+	userId: string | undefined,
+	active: boolean,
+	disappearingMessages: boolean,
+) {
 	const [messages, setMessages] = useState<
 		Array<ChatMessage & { receivedAt: number }>
 	>([]);
@@ -72,7 +76,7 @@ export function useLiveChat(userId: string | undefined, active: boolean) {
 										message.provider !== event.message.provider,
 								),
 								{ ...event.message, receivedAt },
-							].slice(-4),
+							].slice(-3),
 						);
 					} catch {
 						// Invalid chat frames are ignored and never affect the media stream.
@@ -99,13 +103,14 @@ export function useLiveChat(userId: string | undefined, active: boolean) {
 	}, [active, userId]);
 
 	useEffect(() => {
-		if (!active) return;
+		if (!active || !disappearingMessages) return;
+		setNow(Date.now());
 		const timer = setInterval(() => setNow(Date.now()), 250);
 		return () => clearInterval(timer);
-	}, [active]);
+	}, [active, disappearingMessages]);
 
 	return {
-		messages: visibleChatMessages(messages, now),
+		messages: visibleChatMessages(messages, disappearingMessages, now),
 		recentMessages: messages,
 		statuses,
 	};
