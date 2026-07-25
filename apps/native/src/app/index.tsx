@@ -258,7 +258,11 @@ export default function Index() {
 		pathId: publishPathId,
 		userId,
 	});
-	const liveChat = useLiveChat(userId, appState === "active");
+	const liveChat = useLiveChat(
+		userId,
+		appState === "active",
+		chatPreferences.disappearingMessages,
+	);
 
 	useEffect(() => {
 		if (Platform.OS !== "ios") return;
@@ -1438,6 +1442,17 @@ export default function Index() {
 									</UI.Picker>
 								</SettingRow>
 							) : null}
+							<SettingRow label="Disappearing messages">
+								<UI.Switch
+									onValueChange={(disappearingMessages) =>
+										updateChatPreferences((current) => ({
+											...current,
+											disappearingMessages,
+										}))
+									}
+									value={chatPreferences.disappearingMessages}
+								/>
+							</SettingRow>
 						</UI.FieldGroup.Section>
 					) : null}
 

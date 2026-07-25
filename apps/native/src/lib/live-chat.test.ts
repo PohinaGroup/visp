@@ -14,18 +14,24 @@ const message = (
 	receivedAt,
 });
 
-describe("chat message expiry", () => {
-	test("keeps four, fades after eight seconds, and removes at twelve", () => {
+describe("visible chat messages", () => {
+	test("keeps the latest three indefinitely by default", () => {
 		const messages = [1, 2, 3, 4, 5].map((id) => message(String(id), id * 100));
-		expect(visibleChatMessages(messages, 1_000).map(({ id }) => id)).toEqual([
-			"2",
-			"3",
-			"4",
-			"5",
+		expect(visibleChatMessages(messages, false, 20_000)).toEqual([
+			{ ...messages[2], opacity: 1 },
+			{ ...messages[3], opacity: 1 },
+			{ ...messages[4], opacity: 1 },
 		]);
-		expect(visibleChatMessages([message("fade", 0)], 10_000)[0]?.opacity).toBe(
-			0.5,
-		);
-		expect(visibleChatMessages([message("gone", 0)], 12_000)).toEqual([]);
+	});
+
+	test("fades after eight seconds and removes at twelve when enabled", () => {
+		const messages = [1, 2, 3, 4].map((id) => message(String(id), id * 100));
+		expect(
+			visibleChatMessages(messages, true, 1_000).map(({ id }) => id),
+		).toEqual(["2", "3", "4"]);
+		expect(
+			visibleChatMessages([message("fade", 0)], true, 10_000)[0]?.opacity,
+		).toBe(0.5);
+		expect(visibleChatMessages([message("gone", 0)], true, 12_000)).toEqual([]);
 	});
 });
