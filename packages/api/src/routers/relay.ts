@@ -2,6 +2,7 @@ import { auth } from "@VISP/auth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { protectedProcedure, router } from "../index";
+import { linkStatsFromPath } from "../link-stats";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
@@ -24,6 +25,7 @@ import {
 	setAdvancedMode,
 	submitRtt,
 } from "../relay";
+import { reportLinkStats } from "../report-link-stats";
 import { listSnapshots } from "../snapshots";
 
 const relayProcedure = protectedProcedure.use(async ({ ctx, next }) => {
@@ -86,7 +88,16 @@ export const relayRoutes = {
 				const unknown =
 					!path.lastEventAt || Date.now() - path.lastEventAt.getTime() > 60_000;
 				return {
-					...path,
+					id: path.id,
+					label: path.label,
+					slug: path.slug,
+					seq: path.seq,
+					nativeInstallationId: path.nativeInstallationId,
+					publishRevealable: path.publishRevealable,
+					publishing: path.publishing,
+					readerCount: path.readerCount,
+					sourceType: path.sourceType,
+					linkStats: linkStatsFromPath(path),
 					maskedUrls: buildMaskedPathUrls(
 						path,
 						ctx.relayUser.handle,
@@ -169,6 +180,26 @@ export const relayRoutes = {
 					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });
 				}
 				return path;
+			}),
+		reportLinkStats: relayProcedure
+			.input(
+				z.object({
+					pathId: z.number().int().positive(),
+					bitrateKbps: z.number().int().min(0).max(50_000),
+					targetBitrateKbps: z.number().int().min(0).max(50_000),
+					rttMs: z.number().int().min(0).max(60_000),
+					packetLossPct: z.number().min(0).max(100),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				const result = await reportLinkStats({
+					...input,
+					userId: ctx.relayUser.id,
+				});
+				if (!result) {
+					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });
+				}
+				return result;
 			}),
 	}),
 	secrets: router({

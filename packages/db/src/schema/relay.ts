@@ -8,6 +8,7 @@ import {
 	integer,
 	pgEnum,
 	pgTable,
+	real,
 	text,
 	timestamp,
 	unique,
@@ -118,6 +119,11 @@ export const pathState = pgTable(
 		lastEventAt: timestamp("last_event_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
+		linkBitrateKbps: integer("link_bitrate_kbps"),
+		linkTargetBitrateKbps: integer("link_target_bitrate_kbps"),
+		linkRttMs: integer("link_rtt_ms"),
+		linkPacketLossPct: real("link_packet_loss_pct"),
+		linkStatsAt: timestamp("link_stats_at", { withTimezone: true }),
 	},
 	(table) => [
 		check(

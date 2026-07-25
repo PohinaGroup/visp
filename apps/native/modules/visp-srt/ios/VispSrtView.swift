@@ -110,6 +110,7 @@ private final class AudioLevelTap: MediaMixerOutput, @unchecked Sendable {
 final class VispSrtView: ExpoView {
   let onStateChange = EventDispatcher()
   let onAudioLevel = EventDispatcher()
+  let onStats = EventDispatcher()
 
   private let preview = MTHKView(frame: .zero)
   private var audioInputID: String?
@@ -120,6 +121,8 @@ final class VispSrtView: ExpoView {
   private var desiredURL: URL?
   private var intentionalStop = true
   private var imageStabilizationEnabled = true
+  private var lastPktSndLossTotal: Int32 = 0
+  private var lastPktSentTotal: Int64 = 0
   private var lockedOrientation: AVCaptureVideoOrientation?
   private var lastAppliedOrientation: AVCaptureVideoOrientation?
   private var mixer: MediaMixer?
@@ -131,7 +134,9 @@ final class VispSrtView: ExpoView {
   private var retryPolicy = RetryPolicy()
   private var retryTask: Task<Void, Never>?
   private var selectedZoom = 1.0
+  private var statsTask: Task<Void, Never>?
   private var stream: SRTStream?
+  private var videoBitrateCeiling = 3_500_000
   private var videoDevice: AVCaptureDevice?
 
   required init(appContext: AppContext? = nil) {
@@ -431,7 +436,13 @@ final class VispSrtView: ExpoView {
     ["top-left", "top-right", "bottom-left", "bottom-right"].contains(value)
   }
 
-  func configure(cameraID: String, width: Int, height: Int, frameRate: Int) async throws {
+  func configure(
+    cameraID: String,
+    width: Int,
+    height: Int,
+    frameRate: Int,
+    maxVideoBitrateKbps: Int
+  ) async throws {
     guard currentState == .idle || currentState == .error else {
       throw VispSrtFailure.configurationUnavailable
     }
@@ -454,6 +465,7 @@ final class VispSrtView: ExpoView {
       position: position,
       width: width
     )
+    videoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
     await suspend()
     try await prepare()
   }
@@ -581,6 +593,7 @@ final class VispSrtView: ExpoView {
     retryPolicy.cancel()
     retryTask?.cancel()
     retryTask = nil
+    stopStatsLoop()
 
     if currentState != .idle {
       emit(.stopping)
@@ -619,7 +632,7 @@ final class VispSrtView: ExpoView {
       try await stream.setVideoSettings(
         VideoCodecSettings(
           videoSize: size,
-          bitRate: 3_500_000,
+          bitRate: videoBitrateCeiling,
           profileLevel: kVTProfileLevel_H264_Baseline_AutoLevel as String,
           maxKeyFrameIntervalDuration: 2,
           allowFrameReordering: false,
@@ -635,6 +648,9 @@ final class VispSrtView: ExpoView {
           sampleRate: 48_000,
           format: .aac
         )
+      )
+      await stream.setBitRateStrategy(
+        StreamVideoAdaptiveBitRateStrategy(mamimumVideoBitrate: videoBitrateCeiling)
       )
       await stream.setExpectedMedias([.video, .audio])
       await mixer.addOutput(stream)
@@ -660,10 +676,12 @@ final class VispSrtView: ExpoView {
       }
 
     UIApplication.shared.isIdleTimerDisabled = true
+    startStatsLoop()
     emit(.live)
   }
 
   private func closeConnection() async {
+    stopStatsLoop()
     connectionCancellable?.cancel()
     connectionCancellable = nil
     if let mixer, let stream {
@@ -1003,6 +1021,51 @@ final class VispSrtView: ExpoView {
     payload["code"] = code
     payload["message"] = message
     onStateChange(payload)
+  }
+
+  private func startStatsLoop() {
+    stopStatsLoop()
+    lastPktSndLossTotal = 0
+    lastPktSentTotal = 0
+    statsTask = Task { @MainActor [weak self] in
+      while let self, !Task.isCancelled {
+        await self.emitStats()
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+      }
+    }
+  }
+
+  private func stopStatsLoop() {
+    statsTask?.cancel()
+    statsTask = nil
+  }
+
+  private func emitStats() async {
+    guard currentState == .live, let connection, let stream else {
+      return
+    }
+    guard let performance = await connection.performanceData else {
+      return
+    }
+    let sentDelta = max(0, performance.pktSentTotal - lastPktSentTotal)
+    let lossDelta = max(0, Int64(performance.pktSndLossTotal) - Int64(lastPktSndLossTotal))
+    lastPktSentTotal = performance.pktSentTotal
+    lastPktSndLossTotal = performance.pktSndLossTotal
+    let packetLossPct: Double
+    if sentDelta + lossDelta > 0 {
+      packetLossPct = 100.0 * Double(lossDelta) / Double(sentDelta + lossDelta)
+    } else {
+      packetLossPct = 0
+    }
+    let targetBitrateKbps = await stream.videoSettings.bitRate / 1_000
+    let bitrateKbps = max(0, Int((performance.mbpsSendRate * 1_000).rounded()))
+    let rttMs = max(0, Int(performance.msRTT.rounded()))
+    onStats([
+      "bitrateKbps": bitrateKbps,
+      "targetBitrateKbps": targetBitrateKbps,
+      "rttMs": rttMs,
+      "packetLossPct": packetLossPct,
+    ])
   }
 
   @objc private func orientationDidChange() {

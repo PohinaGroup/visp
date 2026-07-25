@@ -1,3 +1,4 @@
+import { formatLinkStats } from "@VISP/api/link-stats";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Collapsible } from "@astryxdesign/core/Collapsible";
@@ -34,12 +35,20 @@ function PathStatus({ path }: { path: PathView }) {
 	}
 	if (path.publishing) {
 		return (
-			<HStack gap={1.5} vAlign="center">
-				<StatusDot isPulsing label={t("Live")} variant="error" />
-				<Text type="supporting" weight="semibold">
-					{t("Live")}
-				</Text>
-			</HStack>
+			<VStack gap={0.5} hAlign="end">
+				<HStack gap={1.5} vAlign="center">
+					<StatusDot isPulsing label={t("Live")} variant="error" />
+					<Text type="supporting" weight="semibold">
+						{t("Live")}
+					</Text>
+				</HStack>
+				{path.linkStats ? (
+					<Text color="secondary" type="supporting">
+						{formatLinkStats(path.linkStats)}
+						{path.linkStats.congested ? ` · ${t("Congested")}` : ""}
+					</Text>
+				) : null}
+			</VStack>
 		);
 	}
 	return (

@@ -1,3 +1,4 @@
+import { formatLiveLinkHud } from "@VISP/api/link-stats";
 import * as UI from "@expo/ui";
 import * as Device from "expo-device";
 import {
@@ -11,6 +12,7 @@ import {
 	type ReactNode,
 	useCallback,
 	useEffect,
+	useMemo,
 	useRef,
 	useState,
 } from "react";
@@ -69,6 +71,10 @@ import {
 	loadChatPreferences,
 	saveChatPreferences,
 } from "../lib/chat-preferences";
+import {
+	configureVideoCapture,
+	resolvePublishPathId,
+} from "../lib/configure-video-capture";
 import { useLiveChat } from "../lib/live-chat";
 import {
 	deleteStreamUrl,
@@ -79,6 +85,7 @@ import {
 	selectPublishUrl,
 	validateStreamUrl,
 } from "../lib/stream-url";
+import { useLinkStatsReporter } from "../lib/use-link-stats-reporter";
 import { buildWatchSnapshot } from "../lib/watch-snapshot";
 
 const ACTIVE_STATES = new Set<StreamState>([
@@ -242,6 +249,15 @@ export default function Index() {
 		state === "preparing" ||
 		state === "stopping" ||
 		(IS_WEB && ACTIVE_STATES.has(state));
+	const publishPathId = useMemo(
+		() => resolvePublishPathId(streamUrl ?? undefined, publishDevices),
+		[publishDevices, streamUrl],
+	);
+	const { clearLinkStats, linkStats, onStats } = useLinkStatsReporter({
+		live: state === "live",
+		pathId: publishPathId,
+		userId,
+	});
 	const liveChat = useLiveChat(userId, appState === "active");
 
 	useEffect(() => {
@@ -291,9 +307,11 @@ export default function Index() {
 			const requestedPermissions = await cameraRef.current?.prepare();
 			const capabilities = await cameraRef.current?.getCapabilities();
 			if (capabilities) {
+				const selected = capabilities.selected;
+				await configureVideoCapture(cameraRef.current, selected);
 				setAudioInputs(capabilities.audioInputs);
 				setCameras(capabilities.cameras);
-				setConfiguration(capabilities.selected);
+				setConfiguration(selected);
 				setSelectedAudioInputId(capabilities.selectedAudioInputId);
 				setSelectedZoom(capabilities.selectedZoom);
 				if (requestedPermissions) {
@@ -602,6 +620,7 @@ export default function Index() {
 			});
 			if (!ACTIVE_STATES.has(nativeEvent.state)) {
 				setAudioTier(0);
+				clearLinkStats();
 			}
 			if (nativeEvent.state === "live") {
 				showToast(
@@ -616,7 +635,7 @@ export default function Index() {
 					: nativeEvent.message,
 			);
 		},
-		[showToast],
+		[clearLinkStats, showToast],
 	);
 
 	const save = useCallback(async () => {
@@ -700,12 +719,7 @@ export default function Index() {
 
 	const applyConfiguration = useCallback(async (next: VideoConfiguration) => {
 		try {
-			await cameraRef.current?.configure(
-				next.cameraId,
-				next.width,
-				next.height,
-				next.fps,
-			);
+			await configureVideoCapture(cameraRef.current, next);
 			setConfiguration(next);
 			return true;
 		} catch {
@@ -1035,6 +1049,7 @@ export default function Index() {
 			<VispSrtView
 				onAudioLevel={onAudioLevel}
 				onStateChange={onStateChange}
+				onStats={onStats}
 				ref={cameraRef}
 				style={StyleSheet.absoluteFill}
 			/>
@@ -1128,6 +1143,7 @@ export default function Index() {
 									{currentCamera?.name ?? "Camera"} ·{" "}
 									{formatLabel(configuration)} · {configuration.fps} fps ·{" "}
 									{IS_WEB ? "WebRTC" : "SRT"}
+									{formatLiveLinkHud(linkStats, state === "live")}
 								</Text>
 							</Pressable>
 						) : null}

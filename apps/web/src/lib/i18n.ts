@@ -53,6 +53,7 @@ const finnishUi: Record<string, string> = {
 	Revoke: "Peruuta",
 	Live: "Suora",
 	Offline: "Ei yhteyttä",
+	Congested: "Tukkoinen",
 	"Status unknown": "Tila ei ole tiedossa",
 	OBS: "OBS",
 	"Plugin pairing": "Lisäosan yhdistäminen",
@@ -173,11 +174,11 @@ export function localizedHead(locale: Locale, path = "/") {
 	const canonicalPath = locale === "fi" ? finnishPath : englishPath;
 	return [
 		{ rel: "canonical", href: `${siteUrl}${canonicalPath}` },
-		{ rel: "alternate", hreflang: "en", href: `${siteUrl}${englishPath}` },
-		{ rel: "alternate", hreflang: "fi", href: `${siteUrl}${finnishPath}` },
+		{ rel: "alternate", hrefLang: "en", href: `${siteUrl}${englishPath}` },
+		{ rel: "alternate", hrefLang: "fi", href: `${siteUrl}${finnishPath}` },
 		{
 			rel: "alternate",
-			hreflang: "x-default",
+			hrefLang: "x-default",
 			href: `${siteUrl}${englishPath}`,
 		},
 	];

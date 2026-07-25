@@ -27,20 +27,22 @@ final class VispSrtModule: Module {
     }
 
     View(VispSrtView.self) {
-      Events("onStateChange", "onAudioLevel")
+      Events("onStateChange", "onAudioLevel", "onStats")
 
       AsyncFunction("configure") { (
         view: VispSrtView,
         cameraID: String,
         width: Int,
         height: Int,
-        frameRate: Int
+        frameRate: Int,
+        maxVideoBitrateKbps: Int
       ) in
         try await view.configure(
           cameraID: cameraID,
           width: width,
           height: height,
-          frameRate: frameRate
+          frameRate: frameRate,
+          maxVideoBitrateKbps: maxVideoBitrateKbps
         )
       }
 

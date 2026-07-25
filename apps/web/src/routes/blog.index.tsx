@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
-import { absoluteSiteUrl, BLOG_AUTHOR, formatBlogDate } from "@/lib/blog";
+import { absoluteSiteUrl, formatBlogDate } from "@/lib/blog";
 import { listBlogPosts } from "@/lib/blog.server";
 import { type Locale, localizedHead } from "@/lib/i18n";
 
@@ -47,18 +47,13 @@ export function BlogIndex({
 	return (
 		<main className="min-h-full bg-background px-6 py-14 text-foreground">
 			<div className="mx-auto max-w-[1100px]">
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">
-					{fi ? "Kenttämuistiinpanot" : "Field notes"} · {BLOG_AUTHOR}
-				</p>
 				<h1 className="mt-4 max-w-3xl font-display font-semibold text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{fi
-						? "IRL-suoratoiston ja OBS:n oppaat"
-						: "IRL streaming & OBS guides"}
+					{fi ? "blogit, oppaat ja vertailut" : "IRL streaming & OBS guides"}
 				</h1>
 				<p className="mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
 					{fi
-						? "Rakenna luotettava etäkameratuotanto luopumatta tutusta OBS-studiosta, kohtauksista, hälytyksistä tai ohjauksista."
-						: "Build reliable remote-camera workflows without giving up the OBS studio, scenes, alerts, and controls you already know."}
+						? "Rakenna luotettava IRL striimisetuppi luopumatta tutusta OBSista, skeneistä, alerteista tai kontrolleista."
+						: "Build reliable IRL stream setup without giving up the OBS studio, scenes, alerts, and controls you already know."}
 				</p>
 
 				<ul className="mt-14 grid gap-8 md:grid-cols-2">
@@ -98,20 +93,10 @@ export function BlogIndex({
 				</ul>
 
 				<section className="mt-20 border-border border-t pt-14 text-center">
-					<h2 className="font-display font-semibold text-4xl uppercase tracking-tight">
-						{fi
-							? "Tuo puhelin osaksi OBS-studiotasi"
-							: "Put a phone in your OBS studio"}
-					</h2>
-					<p className="mx-auto mt-4 max-w-xl text-muted-foreground">
-						{fi
-							? "VISP on betan ajan ilmainen. Pidä kohdepalvelun lähetysavain kotona ja tuo kentän kuva sen luo."
-							: "VISP is free during beta. Keep your destination stream key at home and bring the field feed to it."}
-					</p>
 					<Link
 						to="/login"
 						search={fi ? { lang: "fi" } : {}}
-						className="mt-7 inline-flex h-11 items-center justify-center bg-primary px-6 font-medium text-primary-foreground hover:opacity-90"
+						className="mt-7 mb-12 inline-flex h-11 items-center justify-center bg-primary px-6 font-medium text-primary-foreground hover:opacity-90"
 					>
 						{fi ? "Kokeile VISPiä ilmaiseksi" : "Try VISP free"}
 					</Link>

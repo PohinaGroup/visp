@@ -1,3 +1,4 @@
+import type { LinkMetrics } from "@VISP/api/link-stats";
 import type { StyleProp, ViewStyle } from "react-native";
 
 export type StreamState =
@@ -20,6 +21,9 @@ export type StreamStateEvent = {
 export type AudioLevelEvent = {
 	level: number;
 };
+
+/** Live outbound link / ABR sample (~1 Hz while publishing). */
+export type StreamStatsEvent = LinkMetrics;
 
 export type VideoFormatCapability = {
 	fps: number[];
@@ -79,6 +83,7 @@ export type VispSrtViewRef = {
 		width: number,
 		height: number,
 		fps: number,
+		maxVideoBitrateKbps: number,
 	): Promise<void>;
 	configureAudioInput(audioInputId: string): Promise<void>;
 	switchCamera(cameraId: CameraCapability["id"]): Promise<void>;
@@ -98,5 +103,6 @@ export type VispSrtViewRef = {
 export type VispSrtViewProps = {
 	onAudioLevel?: (event: { nativeEvent: AudioLevelEvent }) => void;
 	onStateChange?: (event: { nativeEvent: StreamStateEvent }) => void;
+	onStats?: (event: { nativeEvent: StreamStatsEvent }) => void;
 	style?: StyleProp<ViewStyle>;
 };

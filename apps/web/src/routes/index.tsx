@@ -167,7 +167,14 @@ const channels = [
 	},
 ];
 
-const footerLinks = [
+type LandingLink = {
+	label: string;
+	href: string;
+	external: boolean;
+	search?: { lang: "fi" };
+};
+
+const footerLinks: LandingLink[] = [
 	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
@@ -178,7 +185,7 @@ const footerLinks = [
 	{ label: "Cookies", href: "/cookies", external: false },
 ];
 
-const navLinks = [
+const navLinks: LandingLink[] = [
 	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
@@ -202,13 +209,13 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 		? [
 				{
 					tag: "CAM",
-					title: "Kaksi kameraa, yksi lähetys",
-					body: "Aja useita puhelinkameroita omine mikrofoneineen samaan lähetykseen. Toinen puhelin on oikea kohtaus, ei videopuheluikkuna.",
+					title: "Kaksi puhelinta striimaamassa, yksi striimi ulos",
+					body: "Aja useita puhelinkameroita omine mikrofoneineen samaan striimiin.",
 				},
 				{
 					tag: "OBS",
-					title: "Studiosi säilyy ennallaan",
-					body: "Kohtaukset, hälytykset, grafiikat ja opitut työtavat jatkavat toimintaansa. VISP liittyy nykyiseen OBS-kokoonpanoosi.",
+					title: "Overlayt ja grafiikat säilyy ennallaan",
+					body: "Kohtaukset, alertit, grafiikat ja plugarit jatkaa toimintaansa. VISPin tarkoitus on täydentää kokonaisuutta, ei korvata sitä.",
 				},
 				{
 					tag: "NET",
@@ -217,8 +224,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				},
 				{
 					tag: "KEY",
-					title: "Avaimet pysyvät kotona",
-					body: "Jokainen kamera saa oman peruutettavan käyttöoikeuden. Lähetysavaimesi ei koskaan siirry VISPille.",
+					title: "Streamkeyt pysyy turvassa",
+					body: "Jokainen kamera saa oman helposti hallittavan käyttöoikeuden.",
 				},
 			]
 		: channels;
@@ -235,16 +242,21 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				},
 			]
 		: productShots;
-	const localizedNavLinks = fi
+	const localizedNavLinks: LandingLink[] = fi
 		? [
 				{ label: "Blogi", href: "/blog", external: false },
 				{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
-				{ label: "Lataa", href: "/download", external: false },
+				{
+					label: "Lataa",
+					href: "/download",
+					external: false,
+					search: { lang: "fi" },
+				},
 				{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
 				{ label: "Yhteystiedot", href: "/contact", external: false },
 			]
 		: navLinks;
-	const localizedFooterLinks = fi
+	const localizedFooterLinks: LandingLink[] = fi
 		? [
 				...localizedNavLinks,
 				{ label: "Tietosuoja", href: "/privacy", external: false },
@@ -288,6 +300,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 										<Link
 											key={l.label}
 											to={l.href}
+											search={l.search}
 											className="text-muted-foreground transition-colors hover:text-foreground"
 										>
 											{l.label}
@@ -310,19 +323,17 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-28">
 						<div className="flex flex-col gap-7">
 							<h1 className="font-display font-semibold text-6xl uppercase leading-[0.92] tracking-tight sm:text-7xl md:text-[5.5rem]">
-								{fi ? "Lähetä suorana" : "Go live from"}
+								{fi ? "Livetä" : "Go live from"}
 								<br />
-								{fi ? "missä tahansa" : "anywhere"}
+								{fi ? "mistä tahansa" : "anywhere"}
 							</h1>
 							<p className="max-w-md text-lg text-muted-foreground leading-relaxed">
 								{fi
-									? "Käytä useita puhelinkameroita omine mikrofoneineen, tuo vieras mukaan ja jatka lähetystä myös yhteyden heiketessä."
+									? "Käytä useita puhelinkameroita yhdessä skenessä, jaa myös kaverin ruutu striimissä ja jatka lähetystä myös kun yhteys tippuu."
 									: "Run multiple phone cams with their own mics, pull a guest onto the stream, and keep broadcasting when the signal dips."}
 							</p>
 							<p className="font-medium text-base">
-								{fi
-									? "Täysi tuotanto. Ei talutushihnaa."
-									: "Full production. Zero leash."}
+								{fi ? "Helposti parempi" : "Full production. Zero leash."}
 							</p>
 						</div>
 
@@ -361,7 +372,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</div>
 						<p className="mt-6 max-w-xl text-muted-foreground text-sm leading-relaxed">
 							{fi
-								? "Puhelimet kentällä. OBS kotona. Palvelut saavat valmiin kuvan — yksi ketju ilman tuotantoautoa."
+								? "Puhelin mukana. OBS kotona."
 								: "Phones in the field. OBS at home. Platforms get the feed — one chain, no truck in between."}
 						</p>
 					</section>
@@ -369,13 +380,16 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 					{/* Channels */}
 					<section className="py-20">
 						<h2 className="max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
-							{fi ? "Ei kaikille." : "Not for everyone."}
+							{fi ? "Ei ehkä kaikille." : "Not for everyone."}
 							<br />
 							{fi
-								? "Tekijöille, jotka haluavat enemmän."
+								? "Mutta tekijöille, jotka haluavat enemmän."
 								: "For creators who want more."}
 						</h2>
-						<ul className="mt-14 grid gap-px border border-border bg-border sm:grid-cols-2">
+						<h3 className="mt-14 mb-4 font-display font-semibold text-2xl uppercase leading-none tracking-tight">
+							{fi ? "Käyttötarkoituksia" : "Use cases"}
+						</h3>
+						<ul className="grid gap-px border border-border bg-border sm:grid-cols-2">
 							{localizedChannels.map((c) => (
 								<li key={c.tag} className="bg-background p-8">
 									<span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">
@@ -394,20 +408,19 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 
 					{/* Closing CTA */}
 					<section className="border-border border-t py-24 text-center">
-						<span className={eyebrow}>
-							{fi ? "Liity betaan" : "Join the beta"}
-						</span>
+						<span className={eyebrow}>{fi ? "" : "Join the beta"}</span>
 						<h2 className="mt-5 font-display font-semibold text-6xl uppercase leading-none tracking-tight sm:text-7xl">
-							{fi ? "Se on ilmainen" : "It's free"}
+							{fi ? "Liity betaan" : "It's free"}
 						</h2>
 						<div className="mt-8 flex flex-col items-center gap-3">
 							<TryCta locale={locale} size="lg" />
 							<p className="max-w-md text-muted-foreground text-sm leading-relaxed">
 								{fi
-									? "Käyttöönotto vie kolme kysymystä, ei kolmea viikonloppua. Puhelinsovellukset, selainjulkaisu ja OBS-lisäosa — "
+									? "Käyttöönotto vaatii kolme kysymystä, ei kolmea viikonloppua. Puhelinsovellukset, selainjulkaisu ja OBS-lisäosa "
 									: "Setup takes three questions, not three weekends. Phone apps, browser publisher, and OBS plugin — "}
 								<Link
 									to="/download"
+									search={fi ? { lang: "fi" } : {}}
 									className="text-foreground underline underline-offset-4"
 								>
 									{fi ? "katso Lataus ja beta" : "see Download & beta"}
@@ -435,6 +448,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 									<Link
 										key={l.label}
 										to={l.href}
+										search={l.search}
 										className="text-muted-foreground transition-colors hover:text-foreground"
 									>
 										{l.label}

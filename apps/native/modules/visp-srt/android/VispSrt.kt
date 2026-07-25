@@ -35,6 +35,7 @@ import com.pedro.encoder.input.gl.render.filters.NoFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.utils.gl.TranslateTo
 import com.pedro.library.srt.SrtStream
+import com.pedro.library.util.BitrateAdapter
 import expo.modules.interfaces.permissions.PermissionsResponseListener
 import expo.modules.interfaces.permissions.PermissionsStatus
 import expo.modules.kotlin.AppContext
@@ -92,7 +93,7 @@ class VispSrt : Module() {
     Name("VispSrt")
 
     View(VispSrtView::class) {
-      Events("onStateChange", "onAudioLevel")
+      Events("onStateChange", "onAudioLevel", "onStats")
 
       AsyncFunction("configure") {
           view: VispSrtView,
@@ -100,10 +101,11 @@ class VispSrt : Module() {
           width: Int,
           height: Int,
           fps: Int,
+          maxVideoBitrateKbps: Int,
           promise: Promise,
         ->
         remember(view)
-        view.configure(cameraId, width, height, fps, promise)
+        view.configure(cameraId, width, height, fps, maxVideoBitrateKbps, promise)
       }
 
       AsyncFunction("configureAudioInput") {
@@ -235,6 +237,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
   ExpoView(context, appContext), ConnectChecker {
   private val onStateChange by EventDispatcher()
   private val onAudioLevel by EventDispatcher()
+  private val onStats by EventDispatcher()
   private val preview = SurfaceView(context).also {
     addView(it, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
   }
@@ -242,12 +245,19 @@ class VispSrtView(context: Context, appContext: AppContext) :
   @Volatile private var intentionalStop = true
   @Volatile private var state = StreamState.IDLE
   private var audioInputId: Int? = null
+  private var bitrateAdapter: BitrateAdapter? = null
   private var configuration: VideoConfiguration? = null
   private var imageStabilizationEnabled = true
+  private var lastPacketsLost = 0
+  private var lastSentFrames = 0L
+  private var measuredBitrateBps = 0L
   private var preparedPortrait: Boolean? = null
   private var reconfigurePosted = false
   private var retryAttempt = 0
   private var selectedZoom = 1f
+  private var statsRunnable: Runnable? = null
+  private var targetBitrateBps = VIDEO_BITRATE
+  private var videoBitrateCeilingBps = VIDEO_BITRATE
   private var stream: SrtStream? = null
   private val chatExecutor = Executors.newSingleThreadExecutor()
   private val chatGeneration = AtomicInteger()
@@ -415,6 +425,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     width: Int,
     height: Int,
     fps: Int,
+    maxVideoBitrateKbps: Int,
     promise: Promise,
   ) {
     if (state != StreamState.IDLE && state != StreamState.ERROR) {
@@ -431,6 +442,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
           if (fps !in format.fps) throw IllegalArgumentException()
           if (configuration?.cameraId != cameraId) selectedZoom = defaultZoom(camera.zoomLevels)
           configuration = VideoConfiguration(cameraId, width, height, fps)
+          videoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
+          targetBitrateBps = videoBitrateCeilingBps
           cleanup()
           configure(isPortrait())
           promise.resolve()
@@ -561,6 +574,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
   fun stop(promise: Promise) {
     intentionalStop = true
     retryAttempt = 0
+    stopStatsLoop()
+    bitrateAdapter = null
     val current = stream
     try {
       if (current?.isStreaming == true) {
@@ -583,6 +598,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
   fun cleanup() {
     intentionalStop = true
     retryAttempt = 0
+    stopStatsLoop()
+    bitrateAdapter = null
     amplitudeEffect?.stop()
     amplitudeEffect = null
     stream?.let { current ->
@@ -633,6 +650,17 @@ class VispSrtView(context: Context, appContext: AppContext) :
       if (!intentionalStop) {
         retryAttempt = 0
         keepScreenOn = true
+        val ceiling = videoBitrateCeilingBps
+        targetBitrateBps = ceiling
+        bitrateAdapter = BitrateAdapter { adapted ->
+          targetBitrateBps = adapted
+          stream?.setVideoBitrateOnFly(adapted)
+        }.also { it.setMaxBitrate(ceiling) }
+        lastPacketsLost = stream?.getStreamClient()?.getPacketsLost() ?: 0
+        lastSentFrames =
+          (stream?.getStreamClient()?.getSentVideoFrames() ?: 0L) +
+            (stream?.getStreamClient()?.getSentAudioFrames() ?: 0L)
+        startStatsLoop()
         emit(StreamState.LIVE)
       }
     }
@@ -649,6 +677,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
       post {
         if (!intentionalStop) {
           keepScreenOn = false
+          stopStatsLoop()
+          bitrateAdapter = null
           emit(StreamState.RECONNECTING, attempt = attempt)
         }
       }
@@ -659,11 +689,18 @@ class VispSrtView(context: Context, appContext: AppContext) :
     post {
       if (current.isStreaming) current.stopStream()
       keepScreenOn = false
+      stopStatsLoop()
+      bitrateAdapter = null
       emit(StreamState.ERROR, code = "connection-failed", message = CONNECTION_FAILED)
     }
   }
 
-  override fun onNewBitrate(bitrate: Long) = Unit
+  override fun onNewBitrate(bitrate: Long) {
+    measuredBitrateBps = bitrate
+    val adapter = bitrateAdapter ?: return
+    val congested = stream?.getStreamClient()?.hasCongestion() == true
+    adapter.adaptBitrate(bitrate, congested)
+  }
 
   override fun onDisconnect() = Unit
 
@@ -699,6 +736,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val cameras = cameraCapabilities()
     val selected = resolvedConfiguration(cameras)
     configuration = selected
+    targetBitrateBps = videoBitrateCeilingBps
     val zoomLevels = cameras.first { it.id == selected.cameraId }.zoomLevels
     selectedZoom = zoomLevels.firstOrNull { abs(it - selectedZoom) < 0.051f }
       ?: defaultZoom(zoomLevels)
@@ -744,7 +782,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val videoReady = next.prepareVideo(
       selected.width,
       selected.height,
-      VIDEO_BITRATE,
+      videoBitrateCeilingBps,
       selected.fps,
       KEYFRAME_INTERVAL,
       rotation,
@@ -1112,6 +1150,51 @@ class VispSrtView(context: Context, appContext: AppContext) :
     code?.let { payload["code"] = it }
     message?.let { payload["message"] = it }
     onStateChange(payload)
+  }
+
+  private fun startStatsLoop() {
+    stopStatsLoop()
+    val runnable =
+      object : Runnable {
+        override fun run() {
+          emitStats()
+          if (state == StreamState.LIVE && !intentionalStop) {
+            postDelayed(this, 1_000L)
+          }
+        }
+      }
+    statsRunnable = runnable
+    post(runnable)
+  }
+
+  private fun stopStatsLoop() {
+    statsRunnable?.let { removeCallbacks(it) }
+    statsRunnable = null
+  }
+
+  private fun emitStats() {
+    val client = stream?.getStreamClient() ?: return
+    val rttMs = (client.getRtt() / 1_000).coerceAtLeast(0)
+    val packetsLost = client.getPacketsLost()
+    val sent = client.getSentVideoFrames() + client.getSentAudioFrames()
+    val lostDelta = (packetsLost - lastPacketsLost).coerceAtLeast(0)
+    val sentDelta = (sent - lastSentFrames).coerceAtLeast(0L)
+    lastPacketsLost = packetsLost
+    lastSentFrames = sent
+    val packetLossPct =
+      if (sentDelta + lostDelta > 0) {
+        100.0 * lostDelta / (sentDelta + lostDelta)
+      } else {
+        0.0
+      }
+    onStats(
+      mapOf(
+        "bitrateKbps" to (measuredBitrateBps / 1_000L).toInt().coerceAtLeast(0),
+        "targetBitrateKbps" to (targetBitrateBps / 1_000).coerceAtLeast(0),
+        "rttMs" to rttMs,
+        "packetLossPct" to packetLossPct,
+      ),
+    )
   }
 
   private companion object {

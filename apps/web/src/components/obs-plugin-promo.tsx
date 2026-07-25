@@ -16,9 +16,11 @@ import {
 export function ObsPluginPromo({
 	release,
 	destinationLabel,
+	downloadHref = "/download",
 }: {
 	release: ObsPluginRelease | null;
 	destinationLabel: string;
+	downloadHref?: string;
 }) {
 	return (
 		<Card>
@@ -77,7 +79,7 @@ export function ObsPluginPromo({
 						icon={<Icon color="inherit" icon={ExternalLinkIcon} size="sm" />}
 						label="All downloads"
 						variant="ghost"
-						onClick={() => window.location.assign("/download")}
+						onClick={() => window.location.assign(downloadHref)}
 					/>
 				</HStack>
 				{release ? (

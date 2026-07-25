@@ -10,6 +10,8 @@ import { env } from "@VISP/env/server";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
 
+export { applyPathHook, reconcilePathState } from "./path-hooks";
+
 const AUTH_CACHE_TTL_MS = 60_000;
 
 type AuthCacheEntry = {
@@ -206,6 +208,11 @@ export async function listPaths(userId: string) {
 			readerCount: pathState.readerCount,
 			sourceType: pathState.sourceType,
 			lastEventAt: pathState.lastEventAt,
+			linkBitrateKbps: pathState.linkBitrateKbps,
+			linkTargetBitrateKbps: pathState.linkTargetBitrateKbps,
+			linkRttMs: pathState.linkRttMs,
+			linkPacketLossPct: pathState.linkPacketLossPct,
+			linkStatsAt: pathState.linkStatsAt,
 		})
 		.from(relayPath)
 		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
@@ -891,113 +898,6 @@ export async function submitRtt(input: {
 			"1080p60": input.profile === "cellular" ? null : 8000,
 		},
 	};
-}
-
-export async function applyPathHook(
-	event: "ready" | "not-ready" | "read" | "unread",
-	input: { path: string; sourceType?: string },
-) {
-	const [path] = await db
-		.select({ id: relayPath.id })
-		.from(relayPath)
-		.where(and(eq(relayPath.slug, input.path), isNull(relayPath.revokedAt)))
-		.limit(1);
-	if (!path) {
-		return false;
-	}
-
-	const now = new Date();
-	if (event === "ready" || event === "not-ready") {
-		const publishing = event === "ready";
-		await db
-			.insert(pathState)
-			.values({
-				pathId: path.id,
-				publishing,
-				readerCount: 0,
-				sourceType: publishing ? input.sourceType : null,
-				lastEventAt: now,
-			})
-			.onConflictDoUpdate({
-				target: pathState.pathId,
-				set: {
-					publishing,
-					sourceType: publishing ? input.sourceType : null,
-					lastEventAt: now,
-				},
-			});
-		return true;
-	}
-
-	const readerCount = event === "read" ? 1 : 0;
-	await db
-		.insert(pathState)
-		.values({ pathId: path.id, readerCount, lastEventAt: now })
-		.onConflictDoUpdate({
-			target: pathState.pathId,
-			set: {
-				readerCount:
-					event === "read"
-						? sql`${pathState.readerCount} + 1`
-						: sql`greatest(${pathState.readerCount} - 1, 0)`,
-				lastEventAt: now,
-			},
-		});
-	return true;
-}
-
-type MediaMtxPath = {
-	name?: string;
-	readers?: unknown[];
-	ready?: boolean;
-	source?: { type?: string } | null;
-};
-
-export async function reconcilePathState(apiUrl = env.MEDIAMTX_API_URL) {
-	const response = await fetch(`${apiUrl.replace(/\/$/, "")}/v3/paths/list`, {
-		signal: AbortSignal.timeout(2000),
-	});
-	if (!response.ok) {
-		throw new Error(`MediaMTX reconciliation failed with ${response.status}`);
-	}
-	const payload = (await response.json()) as { items?: MediaMtxPath[] };
-	if (!Array.isArray(payload.items)) {
-		throw new Error("MediaMTX reconciliation returned an invalid payload");
-	}
-
-	const live = new Map(
-		payload.items.flatMap((item) => (item.name ? [[item.name, item]] : [])),
-	);
-	const paths = await db
-		.select({ id: relayPath.id, slug: relayPath.slug })
-		.from(relayPath)
-		.where(isNull(relayPath.revokedAt));
-	const now = new Date();
-
-	await db.transaction(async (tx) => {
-		// ponytail: O(n) upserts are fine for trusted v1; bulk-upsert when path count becomes material.
-		for (const path of paths) {
-			const state = live.get(path.slug);
-			await tx
-				.insert(pathState)
-				.values({
-					pathId: path.id,
-					publishing: state?.ready ?? false,
-					readerCount: state?.readers?.length ?? 0,
-					sourceType: state?.source?.type ?? null,
-					lastEventAt: now,
-				})
-				.onConflictDoUpdate({
-					target: pathState.pathId,
-					set: {
-						publishing: state?.ready ?? false,
-						readerCount: state?.readers?.length ?? 0,
-						sourceType: state?.source?.type ?? null,
-						lastEventAt: now,
-					},
-				});
-		}
-	});
 }
 
 export function clearAuthCacheForTests() {

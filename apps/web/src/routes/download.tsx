@@ -7,13 +7,18 @@ import {
 	CardTitle,
 } from "@VISP/ui/components/card";
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { z } from "zod";
 
 import { getObsPluginRelease } from "@/functions/get-obs-releases";
 import { docs } from "@/lib/docs";
+import { localeSearch, useLocale } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
 
 export const Route = createFileRoute("/download")({
+	validateSearch: z.object({
+		lang: z.literal("fi").optional(),
+	}),
 	head: () => ({
 		meta: [
 			{ title: "Download & beta access — VISP" },
@@ -28,56 +33,81 @@ export const Route = createFileRoute("/download")({
 	component: DownloadPage,
 });
 
+function docsForLocale(fi: boolean) {
+	if (!fi) {
+		return {
+			getStarted: docs.getStarted,
+			obsRemoteControl: docs.obsRemoteControl,
+			selfHosting: docs.selfHosting,
+			docsHome: legalEntity.docsUrl,
+		};
+	}
+	const base = `${legalEntity.docsUrl}/fi`;
+	return {
+		getStarted: `${base}/docs/get-started`,
+		obsRemoteControl: `${base}/docs/obs-remote-control`,
+		selfHosting: `${base}/docs/self-hosting`,
+		docsHome: base,
+	};
+}
+
 function DownloadPage() {
 	const obsRelease = Route.useLoaderData();
+	const locale = useLocale();
+	const fi = locale === "fi";
+	const localeDocs = docsForLocale(fi);
+	const search = localeSearch(locale);
 
 	return (
 		<main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-12 sm:py-16">
 			<header className="flex flex-col gap-4">
 				<div aria-hidden className="smpte-bars h-1.5 w-28" />
 				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					Get started
+					{fi ? "Aloita" : "Get started"}
 				</p>
 				<h1 className="font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					Download & beta
+					{fi ? "Lataus ja beta" : "Download & beta"}
 				</h1>
 				<p className="max-w-prose text-muted-foreground">
-					The hosted beta at visp-stream.com is the fastest way to try VISP.
-					Sign in, pick a client, and send a phone or browser camera into your
-					home OBS setup. Self-hosting is available for operators who want to
-					run their own relay.
+					{fi
+						? "Hostattu beta on nopein tapa kokeilla VISPiä. Kirjaudu sisään, valitse striimausohjelma ja lähetä puhelimen tai selaimen kamera kotona olevaan OBS-setuppiin."
+						: "The hosted beta is the fastest way to try VISP. Sign in, pick a client, and send a phone or browser camera into your home OBS setup. Self-hosting is available for operators who want to run their own relay."}
 				</p>
 			</header>
 
 			<Card>
 				<CardHeader>
-					<CardTitle>1. Join the hosted beta</CardTitle>
-					<CardDescription>
-						Free while in beta. No credit card. Twitch or Kick sign-in only.
-					</CardDescription>
+					<CardTitle>{fi ? "1. Liity betaan" : "1. Join the beta"}</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-4 text-muted-foreground text-sm">
 					<ol className="list-decimal space-y-2 pl-5">
-						<li>Sign in with Twitch or Kick to create your VISP account.</li>
 						<li>
-							Answer the short setup questions so your relay path and OBS read
-							credentials are ready.
+							{fi
+								? "Kirjaudu Twitchillä tai Kickillä luodaksesi VISP-tilin."
+								: "Sign in with Twitch or Kick to create your VISP account."}
 						</li>
 						<li>
-							Publish from a supported client below, then watch the feed in OBS.
+							{fi
+								? "Vastaa lyhyisiin käyttöönottokysymyksii"
+								: "Answer the short setup questions."}
+						</li>
+						<li>
+							{fi
+								? "Striimaa tuetulla softalla, ja näät feedin OBS:ssä."
+								: "Publish from a supported client below, then watch the feed in OBS."}
 						</li>
 					</ol>
 					<div className="flex flex-wrap gap-2">
-						<Link className={buttonVariants()} to="/login">
-							Sign in to start
+						<Link className={buttonVariants()} to="/login" search={search}>
+							{fi ? "Kirjaudu aloittaaksesi" : "Sign in to start"}
 						</Link>
 						<a
 							className={buttonVariants({ variant: "outline" })}
-							href={docs.getStarted}
+							href={localeDocs.getStarted}
 							rel="noreferrer"
 							target="_blank"
 						>
-							Get started docs
+							{fi ? "Lisää ohjeita" : "Get started docs"}
 						</a>
 					</div>
 				</CardContent>
@@ -85,14 +115,16 @@ function DownloadPage() {
 
 			<section className="flex flex-col gap-4">
 				<h2 className="font-display text-2xl uppercase tracking-tight">
-					2. Supported clients
+					{fi ? "2. Tuetut ohjelmistot" : "2. Supported clients"}
 				</h2>
 				<div className="grid gap-4 sm:grid-cols-2">
 					<Card>
 						<CardHeader>
-							<CardTitle>Browser app</CardTitle>
+							<CardTitle>{fi ? "Selainsovellus" : "Browser app"}</CardTitle>
 							<CardDescription>
-								Publish from Chrome, Edge, or Safari over WebRTC — no install.
+								{fi
+									? "Julkaise Chromesta, Edgestä tai Safarista — ei vaadi asennusta."
+									: "Publish from Chrome, Edge, or Safari — no install."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent>
@@ -102,31 +134,40 @@ function DownloadPage() {
 								rel="noreferrer"
 								target="_blank"
 							>
-								Open stream.visp-stream.com
+								{fi
+									? "Avaa stream.visp-stream.com"
+									: "Open stream.visp-stream.com"}
 							</a>
 						</CardContent>
 					</Card>
 
 					<Card>
 						<CardHeader>
-							<CardTitle>OBS plugin</CardTitle>
+							<CardTitle>{fi ? "OBS-plugari" : "OBS plugin"}</CardTitle>
 							<CardDescription>
-								Sign in from OBS, list publishing devices, add Media Sources in
-								one click, and start/stop going live. Live in beta.
-								{obsRelease ? ` Latest: ${obsRelease.tagName}.` : null}
+								{fi
+									? "Kirjaudu OBS:stä, lisää lähteet yhdellä klikkauksella, vaihda scenejä, aloita tai lopeta lähetys etänä verkosta tai sovelluksesta."
+									: "Sign in from OBS, add Sources with one click, change scenes, and start/stop going live from web or mobile."}
+								{obsRelease
+									? fi
+										? ` Uusin: ${obsRelease.tagName}.`
+										: ` Latest: ${obsRelease.tagName}.`
+									: null}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3">
-							<ObsPluginDownloadLinks release={obsRelease} />
+							<ObsPluginDownloadLinks release={obsRelease} fi={fi} />
 							<p className="text-muted-foreground text-xs">
-								Install, then pair from the dashboard OBS card. Docs:{" "}
+								{fi
+									? "Asennuksen ja yhdistämisen ohjeet: "
+									: "Install, then pair from the dashboard OBS card. Docs: "}
 								<a
 									className="text-foreground underline underline-offset-4"
-									href={docs.obsRemoteControl}
+									href={localeDocs.obsRemoteControl}
 									rel="noreferrer"
 									target="_blank"
 								>
-									OBS remote control
+									{fi ? "OBS-ohjaus" : "OBS remote control"}
 								</a>
 								.
 							</p>
@@ -135,16 +176,18 @@ function DownloadPage() {
 
 					<Card>
 						<CardHeader>
-							<CardTitle>iOS app</CardTitle>
+							<CardTitle>{fi ? "iOS-sovellus" : "iOS app"}</CardTitle>
 							<CardDescription>
-								iOS 16.4+ via TestFlight open testing. SRT publish from a real
-								iPhone.
+								{fi
+									? "Astetta helpompi tapa striimata iOS-puhelimelta. iOS 16.4+ TestFlightin avoimessa testauksessa."
+									: "A bit easier way to stream from mobile. iOS 16.4+ via TestFlight open testing."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
-								Install the TestFlight app, then join the VISP beta directly —
-								no invite needed.
+								{fi
+									? "Asenna TestFlight-sovellus ja liity VISP-betaan."
+									: "Install the TestFlight app, then join the VISP beta."}
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
@@ -152,23 +195,25 @@ function DownloadPage() {
 								rel="noreferrer"
 								target="_blank"
 							>
-								Join on TestFlight
+								{fi ? "Liity TestFlightissa" : "Join on TestFlight"}
 							</a>
 						</CardContent>
 					</Card>
 
 					<Card>
 						<CardHeader>
-							<CardTitle>Android app</CardTitle>
+							<CardTitle>{fi ? "Android-sovellus" : "Android app"}</CardTitle>
 							<CardDescription>
-								Android 7+ via Play open testing. SRT publish from a physical
-								device.
+								{fi
+									? "Astetta helpompi tapa striimata Android-puhelimelta. Android 7+ Playn avoimessa testauksessa. SRT-julkaisu fyysiseltä laitteelta."
+									: "A bit easier way to stream from mobile. Android 7+ via Play open testing. SRT publish from a physical device."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
-								Join the open testing program with any Google account, then
-								install VISP from Google Play.
+								{fi
+									? "Liity avoimeen testausohjelmaan millä tahansa Google-tilillä ja asenna VISP Google Playsta."
+									: "Join the open testing program with any Google account, then install VISP from Google Play."}
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
@@ -176,7 +221,7 @@ function DownloadPage() {
 								rel="noreferrer"
 								target="_blank"
 							>
-								Join on Google Play
+								{fi ? "Liity Google Playssa" : "Join on Google Play"}
 							</a>
 						</CardContent>
 					</Card>
@@ -185,30 +230,21 @@ function DownloadPage() {
 
 			<Card>
 				<CardHeader>
-					<CardTitle>3. Docs, source, and self-hosting</CardTitle>
-					<CardDescription>
-						You do not need to self-host to use the beta.
-					</CardDescription>
+					<CardTitle>
+						{fi
+							? "3. Dokumentaatio, lähdekoodi ja self-hosting"
+							: "3. Docs, source, and self-hosting"}
+					</CardTitle>
 				</CardHeader>
 				<CardContent className="flex flex-col gap-4 text-muted-foreground text-sm">
-					<p>
-						<strong className="text-foreground">Hosted beta</strong> — use
-						visp-stream.com, the browser publisher, and the clients above. Best
-						for creators testing the workflow.
-					</p>
-					<p>
-						<strong className="text-foreground">Self-host</strong> — the full
-						stack is open source under {legalEntity.license}. Aimed at technical
-						operators; current deployment assumes a two-host relay + app setup.
-					</p>
 					<div className="flex flex-wrap gap-2">
 						<a
 							className={buttonVariants({ variant: "outline" })}
-							href={legalEntity.docsUrl}
+							href={localeDocs.docsHome}
 							rel="noreferrer"
 							target="_blank"
 						>
-							Documentation
+							{fi ? "Dokumentaatio" : "Documentation"}
 						</a>
 						<a
 							className={buttonVariants({ variant: "outline" })}
@@ -220,31 +256,43 @@ function DownloadPage() {
 						</a>
 						<a
 							className={buttonVariants({ variant: "outline" })}
-							href={docs.selfHosting}
+							href={localeDocs.selfHosting}
 							rel="noreferrer"
 							target="_blank"
 						>
-							Self-hosting docs
+							{fi ? "Itsehostausohjeet" : "Self-hosting docs"}
 						</a>
 					</div>
 				</CardContent>
 			</Card>
 
 			<nav
-				aria-label="Site links"
+				aria-label={fi ? "Sivuston linkit" : "Site links"}
 				className="flex flex-wrap gap-x-4 gap-y-2 border-border border-t pt-6 font-mono text-muted-foreground text-xs"
 			>
-				<Link className="hover:text-foreground" to="/privacy">
-					Privacy
+				<Link
+					className="hover:text-foreground"
+					to={fi ? "/fi/privacy" : "/privacy"}
+				>
+					{fi ? "Tietosuoja" : "Privacy"}
 				</Link>
-				<Link className="hover:text-foreground" to="/terms">
-					Terms
+				<Link
+					className="hover:text-foreground"
+					to={fi ? "/fi/terms" : "/terms"}
+				>
+					{fi ? "Käyttöehdot" : "Terms"}
 				</Link>
-				<Link className="hover:text-foreground" to="/cookies">
-					Cookies
+				<Link
+					className="hover:text-foreground"
+					to={fi ? "/fi/cookies" : "/cookies"}
+				>
+					{fi ? "Evästeet" : "Cookies"}
 				</Link>
-				<Link className="hover:text-foreground" to="/contact">
-					Contact
+				<Link
+					className="hover:text-foreground"
+					to={fi ? "/fi/contact" : "/contact"}
+				>
+					{fi ? "Yhteystiedot" : "Contact"}
 				</Link>
 				<a
 					className="hover:text-foreground"
@@ -252,15 +300,15 @@ function DownloadPage() {
 					rel="noreferrer"
 					target="_blank"
 				>
-					Source
+					{fi ? "Lähdekoodi" : "Source"}
 				</a>
 				<a
 					className="hover:text-foreground"
-					href={legalEntity.docsUrl}
+					href={localeDocs.docsHome}
 					rel="noreferrer"
 					target="_blank"
 				>
-					Docs
+					{fi ? "Ohjeet" : "Docs"}
 				</a>
 			</nav>
 		</main>
@@ -269,8 +317,10 @@ function DownloadPage() {
 
 function ObsPluginDownloadLinks({
 	release,
+	fi,
 }: {
 	release: ObsPluginRelease | null;
+	fi: boolean;
 }) {
 	if (!release || release.assets.length === 0) {
 		return (
@@ -280,7 +330,7 @@ function ObsPluginDownloadLinks({
 				rel="noreferrer"
 				target="_blank"
 			>
-				Download from GitHub Releases
+				{fi ? "Lataa GitHub Releasesistä" : "Download from GitHub Releases"}
 			</a>
 		);
 	}
@@ -307,7 +357,9 @@ function ObsPluginDownloadLinks({
 				rel="noreferrer"
 				target="_blank"
 			>
-				All assets on GitHub ({release.tagName})
+				{fi
+					? `Kaikki tiedostot GitHubissa (${release.tagName})`
+					: `All assets on GitHub (${release.tagName})`}
 			</a>
 		</div>
 	);

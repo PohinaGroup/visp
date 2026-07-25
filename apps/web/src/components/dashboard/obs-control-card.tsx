@@ -14,7 +14,7 @@ import { toast } from "sonner";
 import { RevealedValue } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
-import { useT } from "@/lib/i18n";
+import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { obsStatusMessage } from "./format";
 import type { ObsPairing } from "./types";
@@ -35,6 +35,7 @@ function downloadObsConfig(token: string) {
 
 export function ObsControlCard() {
 	const t = useT();
+	const locale = useLocale();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery(
@@ -87,7 +88,11 @@ export function ObsControlCard() {
 					</HStack>
 					<Text type="supporting">
 						{t("The OBS plugin is live in beta")}{" "}
-						<Link to="/download" style={{ textDecoration: "underline" }}>
+						<Link
+							to="/download"
+							search={localeSearch(locale)}
+							style={{ textDecoration: "underline" }}
+						>
 							{t("Download the plugin")}
 						</Link>
 					</Text>

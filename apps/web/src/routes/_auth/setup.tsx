@@ -1362,6 +1362,7 @@ function CredentialsReady({
 				/>
 				<ObsPluginPromo
 					destinationLabel={destinationLabel}
+					downloadHref={fi ? "/download?lang=fi" : "/download"}
 					release={obsRelease}
 				/>
 				<Collapsible

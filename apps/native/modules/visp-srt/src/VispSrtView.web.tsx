@@ -10,11 +10,19 @@ import { View } from "react-native";
 import type {
 	CameraCapability,
 	StreamStateEvent,
+	StreamStatsEvent,
 	VideoCapabilities,
 	VideoConfiguration,
 	VispSrtViewProps,
 	VispSrtViewRef,
 } from "./VispSrt.types";
+import {
+	applyVideoMaxBitrate,
+	deriveWebStats,
+	publisherPeerConnection,
+	readOutboundStats,
+	type WebRtcStatsSample,
+} from "./web-rtc-stats";
 import {
 	sanitizedMediaError,
 	stopMediaStream,
@@ -36,7 +44,7 @@ type PublisherOptions = {
 	videoCodec: string;
 };
 
-type Publisher = { close(): void };
+type Publisher = { close(): void; pc?: RTCPeerConnection | null };
 type PublisherConstructor = new (options: PublisherOptions) => Publisher;
 type WakeLockSentinelLike = { release(): Promise<void> };
 
@@ -90,10 +98,11 @@ function h264Supported(): boolean {
 }
 
 export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
-	function VispSrtView({ onAudioLevel, onStateChange, style }, ref) {
+	function VispSrtView({ onAudioLevel, onStateChange, onStats, style }, ref) {
 		const videoRef = useRef<HTMLVideoElement>(null);
 		const streamRef = useRef<MediaStream | undefined>(undefined);
 		const publisherRef = useRef<Publisher | undefined>(undefined);
+		const peerConnectionRef = useRef<RTCPeerConnection | null>(null);
 		const audioContextRef = useRef<AudioContext | undefined>(undefined);
 		const audioFrameRef = useRef<number | undefined>(undefined);
 		const wakeLockRef = useRef<WakeLockSentinelLike | undefined>(undefined);
@@ -108,13 +117,70 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 		const capabilitiesRef = useRef<VideoCapabilities | undefined>(undefined);
 		const stateCallbackRef = useRef(onStateChange);
 		const audioCallbackRef = useRef(onAudioLevel);
+		const statsCallbackRef = useRef(onStats);
+		const statsTimerRef = useRef<ReturnType<typeof setInterval> | undefined>(
+			undefined,
+		);
+		const previousStatsRef = useRef<WebRtcStatsSample | null>(null);
+		const previousStatsAtRef = useRef<number>(0);
+		const targetBitrateRef = useRef(3500);
+		const ceilingBitrateRef = useRef(3500);
 
 		stateCallbackRef.current = onStateChange;
 		audioCallbackRef.current = onAudioLevel;
+		statsCallbackRef.current = onStats;
 
 		const emitState = useCallback((event: StreamStateEvent) => {
 			stateCallbackRef.current?.({ nativeEvent: event });
 		}, []);
+
+		const emitStats = useCallback((event: StreamStatsEvent) => {
+			statsCallbackRef.current?.({ nativeEvent: event });
+		}, []);
+
+		const stopStatsLoop = useCallback(() => {
+			if (statsTimerRef.current !== undefined) {
+				clearInterval(statsTimerRef.current);
+				statsTimerRef.current = undefined;
+			}
+			previousStatsRef.current = null;
+			previousStatsAtRef.current = 0;
+		}, []);
+
+		const pollStats = useCallback(async () => {
+			const pc = peerConnectionRef.current;
+			if (!pc || !activeRef.current) return;
+			const report = await pc.getStats();
+			const sample = readOutboundStats(report);
+			if (!sample) return;
+			const now = Date.now();
+			const previous = previousStatsRef.current;
+			const elapsedMs = previousStatsAtRef.current
+				? now - previousStatsAtRef.current
+				: 1000;
+			const { nextTargetKbps, stats } = deriveWebStats({
+				ceilingKbps: ceilingBitrateRef.current,
+				elapsedMs,
+				previous,
+				sample,
+				targetBitrateKbps: targetBitrateRef.current,
+			});
+			previousStatsRef.current = sample;
+			previousStatsAtRef.current = now;
+			if (nextTargetKbps !== targetBitrateRef.current) {
+				targetBitrateRef.current = nextTargetKbps;
+				await applyVideoMaxBitrate(pc, nextTargetKbps).catch(() => undefined);
+			}
+			emitStats(stats);
+		}, [emitStats]);
+
+		const startStatsLoop = useCallback(() => {
+			stopStatsLoop();
+			void pollStats();
+			statsTimerRef.current = setInterval(() => {
+				void pollStats();
+			}, 1000);
+		}, [pollStats, stopStatsLoop]);
 
 		const stopAudioMeter = useCallback(() => {
 			if (audioFrameRef.current !== undefined) {
@@ -277,23 +343,27 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 			async (emit = true) => {
 				if (emit) emitState({ state: "stopping" });
 				activeRef.current = false;
+				stopStatsLoop();
+				peerConnectionRef.current = null;
 				publisherRef.current?.close();
 				publisherRef.current = undefined;
 				await releaseWakeLock();
 				stopMedia();
 				if (emit) emitState({ state: "idle" });
 			},
-			[emitState, releaseWakeLock, stopMedia],
+			[emitState, releaseWakeLock, stopMedia, stopStatsLoop],
 		);
 
 		useImperativeHandle(
 			ref,
 			() => ({
 				async clearChatOverlay() {},
-				async configure(cameraId, width, height, fps) {
+				async configure(cameraId, width, height, fps, maxVideoBitrateKbps) {
 					if (activeRef.current)
 						throw new Error("Camera settings cannot change while live.");
 					configurationRef.current = { cameraId, fps, height, width };
+					ceilingBitrateRef.current = Math.max(500, maxVideoBitrateKbps);
+					targetBitrateRef.current = ceilingBitrateRef.current;
 					await acquireMedia();
 				},
 				async configureAudioInput(audioInputId) {
@@ -330,6 +400,8 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 						const PublisherClass = await publisherClass(
 							target.publisherScriptUrl,
 						);
+						const ceiling = ceilingBitrateRef.current;
+						targetBitrateRef.current = ceiling;
 						activeRef.current = true;
 						emitState({ state: "connecting" });
 						publisherRef.current = new PublisherClass({
@@ -339,9 +411,17 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 							onConnected: () => {
 								emitState({ state: "live" });
 								void requestWakeLock();
+								const pc = publisherPeerConnection(publisherRef.current);
+								peerConnectionRef.current = pc;
+								if (pc) {
+									void applyVideoMaxBitrate(pc, ceiling).catch(() => undefined);
+								}
+								startStatsLoop();
 							},
 							onError: () => {
 								if (activeRef.current) {
+									stopStatsLoop();
+									peerConnectionRef.current = null;
 									emitState({
 										message: "Reconnecting to the relay…",
 										state: "reconnecting",
@@ -352,11 +432,13 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 							stream: streamRef.current,
 							url: target.whipUrl,
 							user: target.user,
-							videoBitrate: 3500,
+							videoBitrate: ceiling,
 							videoCodec: "h264/90000",
 						});
 					} catch {
 						activeRef.current = false;
+						stopStatsLoop();
+						peerConnectionRef.current = null;
 						emitState({
 							code: "connection-failed",
 							message: "The browser could not connect to the relay.",
@@ -377,7 +459,15 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 				},
 				async updateChatOverlay() {},
 			}),
-			[acquireMedia, emitState, prepare, requestWakeLock, stopPublisher],
+			[
+				acquireMedia,
+				emitState,
+				prepare,
+				requestWakeLock,
+				startStatsLoop,
+				stopPublisher,
+				stopStatsLoop,
+			],
 		);
 
 		useEffect(() => {
