@@ -73,7 +73,7 @@ export function buildWatchSnapshot({
 		},
 		chat: {
 			statuses,
-			messages: messages.slice(-4).map((chatMessage) => ({
+			messages: messages.slice(-3).map((chatMessage) => ({
 				id: chatMessage.id,
 				provider: chatMessage.provider,
 				senderName: chatMessage.sender.name,

@@ -9,6 +9,21 @@ describe("chat display preferences", () => {
 		).toEqual(DEFAULT_CHAT_PREFERENCES);
 	});
 
+	test("defaults old preferences to non-disappearing messages", () => {
+		expect(
+			parseChatPreferences(JSON.stringify({ mode: "floating" })),
+		).toMatchObject({
+			mode: "floating",
+			disappearingMessages: false,
+		});
+	});
+
+	test("preserves disappearing messages when enabled", () => {
+		expect(
+			parseChatPreferences(JSON.stringify({ disappearingMessages: true })),
+		).toMatchObject({ disappearingMessages: true });
+	});
+
 	test("clamps floating positions", () => {
 		const parsed = parseChatPreferences(
 			JSON.stringify({
