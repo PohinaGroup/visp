@@ -1,0 +1,55 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">VISP outbound OBS control path</title>
+  <desc id="desc">A phone sends an authenticated command to the VISP app, and the OBS plugin receives it in the response to its outbound HTTPS poll.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081323"/>
+      <stop offset="1" stop-color="#111b31"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#40c9ff"/>
+      <stop offset="1" stop-color="#6177ff"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="9" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0 0 12 6 0 12Z" fill="#58b7ff"/></marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto"><path d="M0 0 12 6 0 12Z" fill="#6ce3a1"/></marker>
+  </defs>
+  <rect width="1600" height="900" rx="44" fill="url(#bg)"/>
+  <g opacity=".16" stroke="#8bb9dc"><path d="M0 190H1600M0 450H1600M0 710H1600"/><path d="M210 0V900M800 0V900M1390 0V900"/></g>
+  <text x="800" y="98" fill="#f5f8ff" font-family="system-ui,sans-serif" font-size="42" font-weight="700" text-anchor="middle">OUTBOUND OBS CONTROL PATH</text>
+  <g transform="translate(140 245)">
+    <rect width="290" height="430" rx="48" fill="#101d34" stroke="#58b7ff" stroke-width="5"/>
+    <rect x="25" y="55" width="240" height="300" rx="24" fill="#0b1427"/>
+    <circle cx="145" cy="28" r="7" fill="#58b7ff"/>
+    <circle cx="145" cy="390" r="18" fill="none" stroke="#8ea7c7" stroke-width="4"/>
+    <path d="M82 175h126M82 215h126M82 255h78" stroke="#58b7ff" stroke-width="18" stroke-linecap="round"/>
+    <text x="145" y="485" fill="#f5f8ff" font-family="system-ui,sans-serif" font-size="30" font-weight="700" text-anchor="middle">VISP PHONE</text>
+  </g>
+  <g transform="translate(640 270)">
+    <path d="M115 290H28c-59 0-75-82-23-110 2-90 112-128 171-64 67-52 169-5 167 82 59 21 42 92-14 92Z" fill="#152747" stroke="#6177ff" stroke-width="5"/>
+    <path d="M96 206h156" stroke="url(#blue)" stroke-width="18" stroke-linecap="round" filter="url(#glow)"/>
+    <circle cx="174" cy="206" r="42" fill="#101b31" stroke="#6ce3a1" stroke-width="6"/>
+    <path d="m156 205 13 14 27-31" fill="none" stroke="#6ce3a1" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="174" y="370" fill="#f5f8ff" font-family="system-ui,sans-serif" font-size="30" font-weight="700" text-anchor="middle">VISP APP</text>
+  </g>
+  <g transform="translate(1120 270)">
+    <rect width="350" height="250" rx="24" fill="#101d34" stroke="#6ce3a1" stroke-width="5"/>
+    <rect x="28" y="28" width="294" height="165" rx="12" fill="#081323"/>
+    <rect x="56" y="60" width="105" height="105" rx="10" fill="#214563"/>
+    <rect x="180" y="60" width="115" height="46" rx="8" fill="#273859"/>
+    <rect x="180" y="119" width="115" height="46" rx="8" fill="#446e63"/>
+    <path d="M135 250v45M215 250v45M85 295h180" stroke="#8ea7c7" stroke-width="12" stroke-linecap="round"/>
+    <text x="175" y="370" fill="#f5f8ff" font-family="system-ui,sans-serif" font-size="30" font-weight="700" text-anchor="middle">OBS PLUGIN</text>
+  </g>
+  <path d="M440 390C520 330 568 330 645 380" fill="none" stroke="#58b7ff" stroke-width="8" stroke-dasharray="18 14" marker-end="url(#arrowBlue)"/>
+  <text x="540" y="308" fill="#a8dfff" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Authenticated command</text>
+  <path d="M1120 455C1040 520 985 518 955 480" fill="none" stroke="#6ce3a1" stroke-width="8" stroke-dasharray="18 14" marker-end="url(#arrowGreen)"/>
+  <text x="1040" y="570" fill="#9ff1bd" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Outbound HTTPS poll</text>
+  <path d="M955 380C1010 330 1060 335 1120 390" fill="none" stroke="#58b7ff" stroke-width="8" marker-end="url(#arrowBlue)"/>
+  <text x="1040" y="308" fill="#a8dfff" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Command response</text>
+  <g transform="translate(155 760)" font-family="system-ui,sans-serif" font-size="26">
+    <circle cx="14" cy="-8" r="10" fill="#6ce3a1"/><text x="42" fill="#d7e4f4">No inbound OBS port</text>
+    <circle cx="510" cy="-8" r="10" fill="#58b7ff"/><text x="538" fill="#d7e4f4">Start, stop, or switch scene</text>
+    <circle cx="1080" cy="-8" r="10" fill="#8f9db6"/><text x="1108" fill="#d7e4f4">Twitch/Kick key stays in OBS</text>
+  </g>
+</svg>
