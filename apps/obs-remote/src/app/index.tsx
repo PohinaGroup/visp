@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Pressable,
@@ -17,8 +17,11 @@ type Provider = "twitch" | "kick";
 function SignIn() {
 	const [error, setError] = useState<string>();
 	const [signingIn, setSigningIn] = useState<Provider>();
+	const signInLock = useRef(false);
 
 	async function signIn(provider: Provider) {
+		if (signInLock.current) return;
+		signInLock.current = true;
 		setSigningIn(provider);
 		setError(undefined);
 		const callbackURL = authCallbackURL();
@@ -31,8 +34,8 @@ function SignIn() {
 			},
 			body: JSON.stringify({
 				sessionId: "c83a20",
-				runId: "pre-fix",
-				hypothesisId: "H1-H5",
+				runId: "post-fix",
+				hypothesisId: "H7",
 				location: "apps/obs-remote/src/app/index.tsx:signIn:entry",
 				message: "sign-in start",
 				data: {
@@ -47,6 +50,7 @@ function SignIn() {
 							? globalThis.location.href
 							: null,
 					serverUrl: process.env.EXPO_PUBLIC_SERVER_URL ?? null,
+					hasCookieBefore: Boolean(authClient.getCookie()),
 					platform:
 						typeof navigator !== "undefined" ? navigator.userAgent : null,
 				},
@@ -65,6 +69,8 @@ function SignIn() {
 							callbackURL,
 							providerId: provider,
 						});
+			const hasCookieAfter = Boolean(authClient.getCookie());
+			const sessionAfter = await authClient.getSession();
 			// #region agent log
 			fetch(
 				"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
@@ -76,8 +82,8 @@ function SignIn() {
 					},
 					body: JSON.stringify({
 						sessionId: "c83a20",
-						runId: "pre-fix",
-						hypothesisId: "H3",
+						runId: "post-fix",
+						hypothesisId: "H7",
 						location: "apps/obs-remote/src/app/index.tsx:signIn:result",
 						message: "sign-in result",
 						data: {
@@ -96,6 +102,9 @@ function SignIn() {
 								result.data && typeof result.data === "object"
 									? Object.keys(result.data)
 									: null,
+							hasCookieAfter,
+							hasSessionUser: Boolean(sessionAfter.data?.user?.id),
+							sessionError: sessionAfter.error?.message ?? null,
 						},
 						timestamp: Date.now(),
 					}),
@@ -104,6 +113,10 @@ function SignIn() {
 			// #endregion
 			if (result.error) {
 				setError(result.error.message ?? `${provider} sign-in failed`);
+			} else if (!hasCookieAfter && !sessionAfter.data?.user) {
+				setError(
+					`${provider} sign-in did not establish a session. Try again.`,
+				);
 			}
 		} catch (error) {
 			// #region agent log
@@ -117,8 +130,8 @@ function SignIn() {
 					},
 					body: JSON.stringify({
 						sessionId: "c83a20",
-						runId: "pre-fix",
-						hypothesisId: "H1-H2-H4",
+						runId: "post-fix",
+						hypothesisId: "H7",
 						location: "apps/obs-remote/src/app/index.tsx:signIn:catch",
 						message: "sign-in threw",
 						data: {
@@ -132,8 +145,13 @@ function SignIn() {
 				},
 			).catch(() => {});
 			// #endregion
-			setError(`${provider} sign-in failed`);
+			setError(
+				error instanceof Error
+					? error.message
+					: `${provider} sign-in failed`,
+			);
 		} finally {
+			signInLock.current = false;
 			setSigningIn(undefined);
 		}
 	}

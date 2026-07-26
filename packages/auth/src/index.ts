@@ -50,6 +50,11 @@ export function createAuth() {
 				allowDifferentEmails: true,
 				disableImplicitLinking: true,
 			},
+			// Expo opens the OAuth proxy on EXPO_PUBLIC_SERVER_URL (often
+			// http://127.0.0.1:3000 or a LAN IP) while Twitch returns to
+			// BETTER_AUTH_URL (https://api.visp.localhost). The state cookie
+			// cannot cross that host boundary; database state still validates.
+			skipStateCookieCheck: env.NODE_ENV === "development",
 		},
 		database: drizzleAdapter(db, {
 			provider: "pg",

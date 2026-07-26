@@ -18,8 +18,8 @@ fetch("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c", {
 	},
 	body: JSON.stringify({
 		sessionId: "c83a20",
-		runId: "pre-fix",
-		hypothesisId: "H4-H5",
+		runId: "post-fix",
+		hypothesisId: "H2",
 		location: "apps/obs-remote/src/lib/backend.ts:init",
 		message: "native backend init",
 		data: { serverUrl, authBaseURL: `${serverUrl}/api/auth`, scheme: "obsremote" },
