@@ -174,7 +174,7 @@ jobs:
           path: dist
 
       - name: Add checksums
-        run: cd dist && sha256sum * > SHA256SUMS.txt
+        run: cd dist && find . -type f ! -name SHA256SUMS.txt -exec sha256sum {} + > SHA256SUMS.txt
 
       - name: Attach packages to release
         env:
