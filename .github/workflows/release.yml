@@ -39,6 +39,8 @@ jobs:
           test "$(jq -r .expo.version apps/native/app.json)" = "$version"
           test "$(jq -r .version apps/native/package.json)" = "$version"
           test "$(jq -r .version apps/obs-plugin/buildspec.json)" = "$version"
+          test "$(jq -r .expo.version apps/obs-remote/app.json)" = "$version"
+          test "$(jq -r .version apps/obs-remote/package.json)" = "$version"
           marketing_versions=$(sed -nE \
             's/^[[:space:]]*MARKETING_VERSION = ([^;]+);/\1/p' \
             apps/native/ios/VISP.xcodeproj/project.pbxproj)
@@ -46,6 +48,8 @@ jobs:
           test "$(printf '%s\n' "$marketing_versions" | sort -u)" = "$version"
           test "$(jq -r .expo.ios.bundleIdentifier apps/native/app.json)" = com.pohinagroup.visp
           test "$(jq -r .expo.android.package apps/native/app.json)" = com.pohinagroup.visp
+          test "$(jq -r .expo.ios.bundleIdentifier apps/obs-remote/app.json)" = com.pohinagroup.visp.obsremote
+          test "$(jq -r .expo.android.package apps/obs-remote/app.json)" = com.pohinagroup.visp.obsremote
 
           git merge-base --is-ancestor "$RELEASE_SHA" origin/main
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
@@ -64,8 +68,10 @@ jobs:
           bun run check-types
           bun run --cwd apps/fumadocs types:check
 
-      - name: Build API and portal
-        run: bun x turbo run build -F server -F web
+      - name: Build API, portal, and admin
+        run: |
+          bun x turbo run build -F server -F web -F admin
+          test -f apps/admin/dist/index.html
 
       - name: Build browser broadcaster
         env:
@@ -76,6 +82,21 @@ jobs:
           test -n "$EXPO_PUBLIC_RELAY_WEBRTC_URL"
           bun run --cwd apps/native build:web
           test -f apps/native/dist/index.html
+
+      - name: Build OBS Remote exports
+        env:
+          EXPO_PUBLIC_SERVER_URL: ${{ vars.APP_URL }}
+        run: |
+          test -n "$EXPO_PUBLIC_SERVER_URL"
+          bun run --cwd apps/obs-remote build
+          test -f apps/obs-remote/dist/index.html
+
+      - name: Upload OBS Remote verification export
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: obs-remote-${{ steps.release.outputs.tag }}
+          if-no-files-found: error
+          path: apps/obs-remote/dist
 
       - name: Build documentation
         run: |
@@ -125,6 +146,7 @@ jobs:
 
       - name: Smoke-check public sites
         env:
+          ADMIN_URL: ${{ vars.ADMIN_URL }}
           APP_URL: ${{ vars.APP_URL }}
           NATIVE_WEB_URL: ${{ vars.NATIVE_WEB_URL }}
           DOCS_URL: ${{ vars.DOCS_URL }}
@@ -132,6 +154,7 @@ jobs:
         run: |
           set -euo pipefail
           for url in \
+            "$ADMIN_URL" \
             "$APP_URL" \
             "$NATIVE_WEB_URL" \
             "$DOCS_URL/docs" \

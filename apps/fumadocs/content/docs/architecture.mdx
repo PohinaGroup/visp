@@ -12,9 +12,10 @@ transcoding it; the app decides who may connect and tracks what is live.
 | Piece | Runs | Responsibility |
 | --- | --- | --- |
 | Relay host | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
-| App host | PostgreSQL, Elysia/tRPC API, TanStack Start portal | Twitch and Kick login, path and credential state, MediaMTX authentication, OBS control |
+| App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch and Kick login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
+| OBS Remote | iOS, Android, or web | Dedicated stream and scene control surface using the broadcaster's VISP account |
 | OBS plugin | Broadcaster's OBS Studio 31 | Device management, Media Source setup, and outbound-only remote control |
 
 The hosts talk over Tailscale for administration and the MediaMTX Control API.
@@ -81,18 +82,20 @@ New plugin connections use Better Auth's device-authorization flow. The user
 approves OBS in the portal, OBS exchanges the temporary session for a scoped
 machine token, and the server immediately revokes that temporary session. The
 same machine token authenticates device listing, creation, Media Source setup,
-and the control poll; it does not grant general account API access.
+and a short-lived live-socket ticket; it does not grant general account API
+access.
 
-The plugin makes one outbound HTTPS `POST /api/obs/control` every two seconds
-and opens no inbound port. Each poll authenticates with a bearer token of the
-form `id.secret` (12-byte id, 32-byte secret); the app stores only a SHA-256
-hash and compares in constant time. The poll body reports the applied command
-version, current streaming state, the scene list, and the active scene; the
-response carries at most one pending command (start, stop, or switch scene).
+The plugin obtains a 30-second, one-use ticket over authenticated HTTPS, then
+opens outbound `WSS /api/obs/live`. The long-lived `id.secret` machine token is
+never placed in the WebSocket URL. The plugin reports applied command version,
+streaming state, scenes, and the active scene on changes and five-second
+heartbeats. The server pushes the latest desired state immediately. OBS Remote
+uses its normal VISP session to obtain a separate user ticket, receives status
+over WSS, and sends commands through authenticated tRPC mutations.
 
-A pairing counts as **Connected** when its last poll is under ten seconds old.
-Rotating the token invalidates every previously paired OBS instance at the
-next poll.
+A pairing counts as **Connected** while its last state report is under ten
+seconds old. Rotating the machine token invalidates existing tickets and socket
+writes. Both clients reconnect with bounded backoff; no inbound OBS port opens.
 
 ## Chat and metadata
 

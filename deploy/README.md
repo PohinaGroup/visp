@@ -77,7 +77,9 @@ pprof stay disabled.
    Twitch and Kick application credentials and snapshot bucket settings. Use
    the relay's Tailscale address for `MEDIAMTX_API_URL`, generate
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
-   the other application secrets, and run `bun run db:migrate`.
+   the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`
+   and `ADMIN_USER_IDS` to the comma-separated Better Auth user IDs that need
+   break-glass access, and run `bun run db:migrate`.
 3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
    values available to Vite. Put the native web app's public build values in the
    root-owned, mode `0600` file `/etc/visp/native-web.env`:
@@ -89,11 +91,12 @@ pprof stay disabled.
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
+   `ADMIN_DOMAIN=admin.visp-stream.com`,
    `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
    `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IP` in
-   `/etc/visp/caddy.env`. Caddy serves `apps/native/dist` and
-   `apps/fumadocs/.output/public` directly; neither static site needs a runtime
-   service. Add `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` to
+   `/etc/visp/caddy.env`. Caddy serves `apps/admin/dist`, `apps/native/dist`,
+   and `apps/fumadocs/.output/public` directly; these static sites need no
+   runtime service. Add `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` to
    `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
    console. In the Kick developer dashboard, register
@@ -101,9 +104,9 @@ pprof stay disabled.
    and `https://APP_DOMAIN/api/webhooks/kick` as the webhook URL. The Kick app
    needs the `user:read` scope; chat delivery uses the server's app token and
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
-   SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for both
-   `stream.visp-stream.com` and `docs.visp-stream.com` before Caddy obtains their
-   certificates.
+   SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for
+   `admin.visp-stream.com`, `stream.visp-stream.com`, and
+   `docs.visp-stream.com` before Caddy obtains their certificates.
 6. Install the stable release bootstrap as a root-owned executable:
 
    ```bash
@@ -152,8 +155,9 @@ receives only 60-second presigned PUT URLs; S3 access keys remain on the app box
 
 Deploy the updated `app/Caddyfile` and apply the database migrations before
 pairing OBS. `/api/obs/*` and `/api/auth/*` must be publicly reachable over
-HTTPS: the OBS plugin uses them for browser pairing, device setup, and control,
-authenticated by its machine token rather than the relay IP allowlist.
+HTTPS, and the proxy must preserve WebSocket upgrades for `/api/obs/live`. The
+plugin uses HTTPS for browser pairing, device setup, and a one-use socket ticket,
+then authenticated outbound WSS for live control.
 
 Build the plugin on the operating system that runs OBS. For a local macOS test:
 
@@ -195,6 +199,9 @@ token=the-token-shown-by-visp
 
 Restart OBS after a manual import. The dashboard should show **Connected**
 within a few seconds; test both start and stop from web or native.
+The configured `control_url` remains an HTTPS API base; current plugins derive
+`/api/obs/live-ticket` and `/api/obs/live` from it. `POST /api/obs/control`
+remains only for older polling clients.
 
 OBS must already have a working streaming service and stream key. The plugin
 only invokes OBS's existing start and stop actions. Treat `config.ini` as a
@@ -213,13 +220,15 @@ Restart the API or portal at any time. Restart MediaMTX only in a maintenance
 window because it ends active streams. The accepted app-outage behavior is:
 existing streams continue, while new publish/read connections fail authentication.
 
-Deploy the API auth/CORS change first, then the static broadcaster and Caddy
-rules. Apply the MediaMTX WebRTC configuration in a maintenance window. Test
-current Chrome or Edge and Safari over HTTPS: OAuth must return to
-`https://stream.visp-stream.com/`; camera and microphone selection must work; Go
-Live must mark the path live and update its snapshot; and OBS must continue to
-read that path over SRT with H.264/Opus. Stop must release the publisher and
-media devices. Finally block UDP 8189 at the client and prove TCP ICE fallback.
+Deploy the API auth/CORS change first, then the static sites and Caddy rules.
+Verify `admin.visp-stream.com` reuses the main login, permits an admin, and
+denies an ordinary user. Apply the MediaMTX WebRTC configuration in a
+maintenance window. Test current Chrome or Edge and Safari over HTTPS: OAuth
+must return to `https://stream.visp-stream.com/`; camera and microphone
+selection must work; Go Live must mark the path live and update its snapshot;
+and OBS must continue to read that path over SRT with H.264/Opus. Stop must
+release the publisher and media devices. Finally block UDP 8189 at the client
+and prove TCP ICE fallback.
 
 Before production, also run the acceptance sequence in
 `apps/fumadocs/content/docs/self-hosting.mdx`: SRT publish/read, RTMP

@@ -1,0 +1,78 @@
+@import "@VISP/ui/globals.css";
+
+:root {
+  color-scheme: dark;
+  --background: oklch(0.12 0.012 260);
+  --foreground: oklch(0.95 0.006 260);
+  --card: oklch(0.16 0.014 260);
+  --card-foreground: oklch(0.95 0.006 260);
+  --popover: oklch(0.16 0.014 260);
+  --popover-foreground: oklch(0.95 0.006 260);
+  --primary: oklch(0.78 0.16 165);
+  --primary-foreground: oklch(0.12 0.02 165);
+  --secondary: oklch(0.22 0.016 260);
+  --secondary-foreground: oklch(0.92 0.006 260);
+  --muted: oklch(0.2 0.014 260);
+  --muted-foreground: oklch(0.67 0.018 260);
+  --accent: oklch(0.24 0.02 260);
+  --accent-foreground: oklch(0.95 0.006 260);
+  --destructive: oklch(0.66 0.2 25);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 14%);
+  --ring: oklch(0.78 0.16 165);
+  --radius: 0;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, oklch(0.2 0.04 165 / 35%), transparent 28rem),
+    var(--background);
+}
+
+button,
+input,
+select {
+  font: inherit;
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+  border-bottom: 1px solid var(--border);
+  padding: 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.admin-table th {
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.admin-table tbody tr {
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.admin-table tbody tr:hover,
+.admin-table tbody tr[data-selected="true"] {
+  background: oklch(1 0 0 / 4%);
+}
+
+@media (max-width: 900px) {
+  .admin-table th:nth-child(3),
+  .admin-table td:nth-child(3),
+  .admin-table th:nth-child(5),
+  .admin-table td:nth-child(5) {
+    display: none;
+  }
+}

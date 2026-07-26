@@ -49,12 +49,13 @@ fi
 run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
 (
 	cd "$repo"
-	run_with_env "$web_env" "$bun" x turbo run build -F server -F web
+	run_with_env "$web_env" "$bun" x turbo run build -F server -F web -F admin
 )
 run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
 "$bun" run --cwd "$repo/apps/fumadocs" build
 
 for output in \
+	apps/admin/dist/index.html \
 	apps/native/dist/index.html \
 	apps/fumadocs/.output/public/_shell.html \
 	apps/fumadocs/.output/public/docs/index.html \

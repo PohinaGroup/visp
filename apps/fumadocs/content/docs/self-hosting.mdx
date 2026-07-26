@@ -13,7 +13,7 @@ You need **two Linux hosts**:
 | Host | Runs |
 | --- | --- |
 | Relay | MediaMTX, Caddy (RTT probe), snapshot hook |
-| App | PostgreSQL, API, portal, browser publisher, docs, Caddy |
+| App | PostgreSQL, API, portal, admin console, browser publisher, docs, Caddy |
 
 Templates live in the repository's `deploy/` directory. Keep domains, IPs, and
 secrets out of Git. Put production env files under `/etc/visp/` with mode
@@ -30,7 +30,7 @@ secrets out of Git. Put production env files under `/etc/visp/` with mode
 - `ffmpeg` and `curl` on the relay host
 - Twitch and Kick developer applications for OAuth (and Kick chat webhooks)
 - A private S3-compatible bucket for live-path JPEG snapshots
-- DNS for your app, relay, browser-publisher, and docs hostnames
+- DNS for your app, admin, relay, browser-publisher, and docs hostnames
 
 Clone the repository as `root` into `/opt/visp` on the app host. The systemd
 units expect that path.
@@ -113,6 +113,8 @@ remain disabled.
    - Set `HOOK_SECRET` to the same value as on the relay.
    - Set `BETTER_AUTH_URL` and `CORS_ORIGIN` to the public app and portal
      origins (same host when Caddy terminates TLS for both).
+   - Set `ADMIN_ORIGIN` to the admin console origin and `ADMIN_USER_IDS` to
+     comma-separated Better Auth user IDs that need break-glass access.
 
    Then install dependencies and migrate:
 
@@ -142,9 +144,10 @@ remain disabled.
 
    Use Caddy's packaged unit with `deploy/app/Caddyfile` and
    `deploy/systemd/caddy-app.conf` as the drop-in. In `/etc/visp/caddy.env` set
-   `APP_DOMAIN`, `NATIVE_WEB_DOMAIN`, `DOCS_DOMAIN`, and `RELAY_PUBLIC_IP`.
-   Caddy serves `apps/native/dist` and `apps/fumadocs/.output/public` as static
-   files; neither needs its own systemd unit.
+   `APP_DOMAIN`, `ADMIN_DOMAIN`, `NATIVE_WEB_DOMAIN`, `DOCS_DOMAIN`, and
+   `RELAY_PUBLIC_IP`. Caddy serves `apps/admin/dist`, `apps/native/dist`, and
+   `apps/fumadocs/.output/public` as static files; none needs its own systemd
+   unit.
 5. Register provider callbacks:
 
    ```text
@@ -156,8 +159,8 @@ remain disabled.
    The Kick app needs the `user:read` scope. Chat delivery uses the server's
    app token and `chat.message.sent` webhook subscriptions.
 6. Expose only public **TCP 443**. Allow SSH only over Tailscale. Create DNS
-   for the app, browser-publisher, and docs hostnames before Caddy obtains
-   certificates.
+   for the app, admin, browser-publisher, and docs hostnames before Caddy
+   obtains certificates.
 
 Do not put MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relay's direct public IP (`RELAY_PUBLIC_IP`), and the hook
@@ -196,7 +199,8 @@ only 60-second presigned PUT URLs; S3 access keys never leave the app host.
 
 Deploy the API and the `/api/obs/*` Caddy rule, and apply migrations, before
 pairing OBS. The device-authorization endpoints under `/api/auth/*` must also
-remain publicly reachable.
+remain publicly reachable. The reverse proxy must preserve WebSocket upgrades
+for `/api/obs/live`; pairing and one-use ticket acquisition stay on HTTPS.
 Build the plugin on the OS that runs OBS, or download packages from a
 [GitHub Release](https://github.com/PohinaGroup/visp/releases).
 
@@ -224,6 +228,8 @@ manual recovery or older installations, start OBS once so it logs the
    token=the-token-shown-by-visp
    ```
 Restart OBS. The dashboard should show **Connected** within a few seconds.
+`control_url` remains the HTTPS API base for setup and legacy clients; current
+plugins derive `/api/obs/live-ticket` and the outbound WSS endpoint from it.
 
 Treat `config.ini` as a machine credential. Creating an OBS publishing device
 from the plugin replaces the active profile's streaming service only after an

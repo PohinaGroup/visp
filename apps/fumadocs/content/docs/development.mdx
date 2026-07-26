@@ -1,6 +1,6 @@
 ---
 title: Local development
-description: Set up the monorepo, database, API, portal, native app, and test suite.
+description: Set up the monorepo, database, API, portal, admin console, Expo clients, and test suite.
 icon: Code
 ---
 
@@ -11,7 +11,7 @@ icon: Code
 - Docker with Compose
 - A Twitch application for Twitch login
 - A Kick application when testing Kick login, chat, or metadata
-- Xcode or Android Studio when working on the native app
+- Xcode or Android Studio when working on either native Expo app
 
 Install every workspace dependency from the repository root:
 
@@ -21,8 +21,8 @@ bun install
 
 ## Configure the environment
 
-The local launcher creates and validates the server and web env files. Copy only
-the native example manually because its address depends on your device:
+The local launcher creates and validates the server, web, and OBS Remote env
+files. Copy the broadcaster example manually because its address depends on your device:
 
 ```bash
 cp apps/native/.env.example apps/native/.env.local
@@ -44,8 +44,8 @@ files.
 
 ## Start the local stack
 
-One command starts PostgreSQL 18, MinIO, MediaMTX, the relay gateway, API, and
-portal, then applies migrations:
+One command starts PostgreSQL 18, MinIO, MediaMTX, the relay gateway, API,
+portal, admin console, OBS Remote web app, and docs, then applies migrations:
 
 ```bash
 bun run dev:local
@@ -72,14 +72,25 @@ For normal API and portal work:
 | --- | --- | --- |
 | Complete local stack | `bun run dev:local` | `https://visp.localhost` |
 | API | Managed by the launcher | `https://api.visp.localhost` |
+| Admin console | Managed by the launcher | `https://admin.visp.localhost` |
+| OBS Remote web | Managed by the launcher | `http://localhost:8083` |
 | Relay | Managed by the launcher | `https://relay.visp.localhost` |
 | MinIO console | Managed by the launcher | `https://minio.visp.localhost` |
 | PostgreSQL | Managed by the launcher | `127.0.0.1:54320` |
-| Documentation | `bun run --cwd apps/fumadocs dev` | `http://localhost:4000` |
+| Documentation | `bun run --cwd apps/fumadocs dev` | `https://docs.visp.localhost` |
 | Expo dev server | `bun run --cwd apps/native dev` | Shown by Expo |
 
 `bun run dev` starts every workspace through Turborepo. Use the focused commands
-unless you need the API, portal, Expo, and documentation site simultaneously.
+unless you need the API, portal, admin console, Expo, and documentation site
+simultaneously.
+
+### OBS Remote
+
+Run only the dedicated control surface with `bun run dev:obs-remote`. Web uses
+port 8083. For a physical phone, set `EXPO_PUBLIC_SERVER_URL` in
+`apps/obs-remote/.env.local` to `http://LAN_IP:3000`, then run its `ios` or
+`android` script. Browser authentication requires `OBS_REMOTE_WEB_ORIGIN` to
+exactly match the served origin.
 
 ### Native app
 
@@ -124,9 +135,11 @@ The integration suite manages `compose.test.yml`, binds PostgreSQL to
 | Authentication and providers | `packages/auth/src` |
 | Database schema and migrations | `packages/db/src` |
 | Browser portal | `apps/web/src` |
+| Admin support console | `apps/admin/src` |
 | Shared UI primitives | `packages/ui/src` |
 | Native client and SRT bridge | `apps/native` |
-| OBS remote control | `apps/obs-plugin` |
+| OBS Remote control surface | `apps/obs-remote` |
+| OBS-side control transport | `apps/obs-plugin` |
 | Operator and broadcaster docs | `apps/fumadocs/content/docs` |
 
 Add environment variables to `packages/env` and the relevant `.env.example` in
@@ -139,8 +152,12 @@ credential-shaped field.
   invalid; the error names it.
 - **The portal cannot authenticate:** verify the API URL and make `CORS_ORIGIN`
   exactly match the portal origin.
+- **The admin console denies access:** sign in through the portal and confirm
+  the account has role `admin` or is listed in `ADMIN_USER_IDS`.
 - **A phone cannot connect:** use a LAN or tunnel address instead of localhost
-  and allow the API port through the host firewall.
+  and allow API port 3000 through the host firewall.
+- **OBS Remote cannot authenticate:** check `OBS_REMOTE_WEB_ORIGIN`, port 8083,
+  and WebSocket upgrade support for `/api/obs/live`.
 - **Relay or snapshot actions fail:** check `docker compose ps` and the MediaMTX
   and gateway logs.
 - **Integration tests cannot bind port 55432:** stop the process using that port

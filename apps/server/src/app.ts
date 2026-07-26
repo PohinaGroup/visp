@@ -13,6 +13,7 @@ import {
 import { evlog } from "evlog/elysia";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
+import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
 
 initLogger({ env: { service: "VISP-server" } });
@@ -54,7 +55,12 @@ export function createApp() {
 		})
 		.use(
 			cors({
-				origin: [env.CORS_ORIGIN, env.NATIVE_WEB_ORIGIN],
+				origin: [
+					env.CORS_ORIGIN,
+					env.ADMIN_ORIGIN,
+					env.NATIVE_WEB_ORIGIN,
+					...(env.OBS_REMOTE_WEB_ORIGIN ? [env.OBS_REMOTE_WEB_ORIGIN] : []),
+				],
 				methods: ["GET", "POST", "OPTIONS"],
 				allowedHeaders: ["Content-Type", "Authorization", "X-Hook-Secret"],
 				credentials: true,
@@ -62,6 +68,7 @@ export function createApp() {
 		)
 		.use(chatRoutes)
 		.use(machineRoutes)
+		.use(obsLiveRoutes)
 		.use(seppoRoutes)
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {

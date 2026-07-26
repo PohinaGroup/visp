@@ -458,8 +458,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</nav>
 						<p className="font-mono text-muted-foreground text-xs">
 							{fi
-								? "© 2026 VISP · Pöhinä Group Oy · puhelin on kamera. koti on studio."
-								: "© 2026 VISP · Pöhinä Group Oy · phone is the camera. home is the studio."}
+								? "© 2026 VISP · Pöhinä Group Oy"
+								: "© 2026 VISP · Pöhinä Group Oy"}
 						</p>
 					</footer>
 				</div>

@@ -123,7 +123,7 @@ Field phones publish only to their assigned VISP paths. This lets a producer
 switch scenes locally, or lets an authenticated field operator request scene
 changes through the VISP plugin without receiving the destination credential.
 
-The plugin uses outbound HTTPS rather than opening an inbound OBS control port.
+The plugin uses authenticated outbound WSS rather than opening an inbound OBS control port.
 Rotating the plugin credential disconnects older plugin configurations, while
 publishing-device credentials remain separate.
 
@@ -215,4 +215,3 @@ guide](/blog/keep-stream-live-bad-mobile-network) for bonding options.
 - [VISP encoders and fallback](https://docs.visp-stream.com/docs/broadcaster-setup)
 - [VISP OBS remote control](https://docs.visp-stream.com/docs/obs-remote-control)
 - [OBS media sources](https://obsproject.com/kb/media-sources)
-

@@ -5,8 +5,24 @@ import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
-import { bearer, deviceAuthorization, genericOAuth } from "better-auth/plugins";
+import {
+	admin as adminPlugin,
+	bearer,
+	deviceAuthorization,
+	genericOAuth,
+} from "better-auth/plugins";
 import { fetchKickAuthUser } from "./kick-user-info";
+import { adminAccess, adminRoles } from "./permissions";
+
+export const adminUserIds = env.ADMIN_USER_IDS.split(",")
+	.map((id) => id.trim())
+	.filter(Boolean);
+
+export function isAdminUser(user: { id: string; role?: string | null }) {
+	return (
+		user.role?.split(",").includes("admin") || adminUserIds.includes(user.id)
+	);
+}
 
 const snapshots = new Bun.S3Client({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
@@ -40,7 +56,14 @@ export function createAuth() {
 
 			schema: schema,
 		}),
-		trustedOrigins: [env.CORS_ORIGIN, env.NATIVE_WEB_ORIGIN, "visp://"],
+		trustedOrigins: [
+			env.CORS_ORIGIN,
+			env.ADMIN_ORIGIN,
+			env.NATIVE_WEB_ORIGIN,
+			...(env.OBS_REMOTE_WEB_ORIGIN ? [env.OBS_REMOTE_WEB_ORIGIN] : []),
+			"visp://",
+			"obsremote://",
+		],
 		user: {
 			deleteUser: {
 				enabled: true,
@@ -76,6 +99,12 @@ export function createAuth() {
 			},
 		},
 		plugins: [
+			adminPlugin({
+				ac: adminAccess,
+				adminRoles: ["admin"],
+				defaultRole: "user",
+				roles: adminRoles,
+			}),
 			bearer(),
 			deviceAuthorization({
 				verificationUri: `${env.CORS_ORIGIN}/device`,
