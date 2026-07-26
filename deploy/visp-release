@@ -46,6 +46,12 @@ if ! git -C "$repo" diff --quiet ||
 fi
 
 "$bun" install --cwd "$repo" --frozen-lockfile
+
+# Fail before migrating or swapping the live service if app.env no longer
+# satisfies the server env schema (e.g. a newly required var shipped in code).
+# Reuses the same createEnv the server runs at boot, so it can't drift.
+(cd "$repo" && run_with_env "$app_env" "$bun" -e 'await import("@VISP/env/server")')
+
 run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
 (
 	cd "$repo"
