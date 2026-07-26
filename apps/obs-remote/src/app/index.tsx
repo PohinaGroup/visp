@@ -25,39 +25,6 @@ function SignIn() {
 		setSigningIn(provider);
 		setError(undefined);
 		const callbackURL = authCallbackURL();
-		// #region agent log
-		fetch("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Debug-Session-Id": "c83a20",
-			},
-			body: JSON.stringify({
-				sessionId: "c83a20",
-				runId: "post-fix",
-				hypothesisId: "H7",
-				location: "apps/obs-remote/src/app/index.tsx:signIn:entry",
-				message: "sign-in start",
-				data: {
-					provider,
-					callbackURL,
-					locationOrigin:
-						typeof globalThis.location !== "undefined"
-							? globalThis.location.origin
-							: null,
-					locationHref:
-						typeof globalThis.location !== "undefined"
-							? globalThis.location.href
-							: null,
-					serverUrl: process.env.EXPO_PUBLIC_SERVER_URL ?? null,
-					hasCookieBefore: Boolean(authClient.getCookie()),
-					platform:
-						typeof navigator !== "undefined" ? navigator.userAgent : null,
-				},
-				timestamp: Date.now(),
-			}),
-		}).catch(() => {});
-		// #endregion
 		try {
 			const result =
 				provider === "twitch"
@@ -69,82 +36,18 @@ function SignIn() {
 							callbackURL,
 							providerId: provider,
 						});
-			const hasCookieAfter = Boolean(authClient.getCookie());
-			const sessionAfter = await authClient.getSession();
-			// #region agent log
-			fetch(
-				"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-Debug-Session-Id": "c83a20",
-					},
-					body: JSON.stringify({
-						sessionId: "c83a20",
-						runId: "post-fix",
-						hypothesisId: "H7",
-						location: "apps/obs-remote/src/app/index.tsx:signIn:result",
-						message: "sign-in result",
-						data: {
-							provider,
-							hasError: Boolean(result.error),
-							errorMessage: result.error?.message ?? null,
-							errorCode:
-								result.error && "code" in result.error
-									? (result.error as { code?: string }).code
-									: null,
-							errorStatus:
-								result.error && "status" in result.error
-									? (result.error as { status?: number }).status
-									: null,
-							dataKeys:
-								result.data && typeof result.data === "object"
-									? Object.keys(result.data)
-									: null,
-							hasCookieAfter,
-							hasSessionUser: Boolean(sessionAfter.data?.user?.id),
-							sessionError: sessionAfter.error?.message ?? null,
-						},
-						timestamp: Date.now(),
-					}),
-				},
-			).catch(() => {});
-			// #endregion
 			if (result.error) {
 				setError(result.error.message ?? `${provider} sign-in failed`);
-			} else if (!hasCookieAfter && !sessionAfter.data?.user) {
+				return;
+			}
+			const hasCookie = Boolean(authClient.getCookie());
+			const session = await authClient.getSession();
+			if (!hasCookie && !session.data?.user) {
 				setError(
 					`${provider} sign-in did not establish a session. Try again.`,
 				);
 			}
 		} catch (error) {
-			// #region agent log
-			fetch(
-				"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-				{
-					method: "POST",
-					headers: {
-						"Content-Type": "application/json",
-						"X-Debug-Session-Id": "c83a20",
-					},
-					body: JSON.stringify({
-						sessionId: "c83a20",
-						runId: "post-fix",
-						hypothesisId: "H7",
-						location: "apps/obs-remote/src/app/index.tsx:signIn:catch",
-						message: "sign-in threw",
-						data: {
-							provider,
-							errorName: error instanceof Error ? error.name : typeof error,
-							errorMessage:
-								error instanceof Error ? error.message : String(error),
-						},
-						timestamp: Date.now(),
-					}),
-				},
-			).catch(() => {});
-			// #endregion
 			setError(
 				error instanceof Error
 					? error.message
