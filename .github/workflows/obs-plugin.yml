@@ -180,4 +180,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/* --clobber
+        run: find dist -type f -exec gh release upload "$GITHUB_REF_NAME" {} + --clobber
