@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Sync the release version across native app + OBS plugin files.
+# Sync the release version across both Expo apps and the OBS plugin.
 # Usage:
 #   scripts/bump-release-version.sh              # interactive
 #   scripts/bump-release-version.sh 1.2.3        # set explicit version
@@ -13,6 +13,9 @@ app_json="apps/native/app.json"
 native_pkg="apps/native/package.json"
 pbxproj="apps/native/ios/VISP.xcodeproj/project.pbxproj"
 buildspec="apps/obs-plugin/buildspec.json"
+obs_remote_app_json="apps/obs-remote/app.json"
+obs_remote_pkg="apps/obs-remote/package.json"
+lockfile="bun.lock"
 
 version_re='^[0-9]+\.[0-9]+\.[0-9]+$'
 
@@ -71,6 +74,10 @@ set_version() {
 		echo "Version is already $version; nothing to update."
 		return 0
 	fi
+	if git rev-parse --is-inside-work-tree >/dev/null 2>&1 && ! git diff --quiet -- "$lockfile"; then
+		echo "error: $lockfile has unstaged changes; stage or commit them before bumping the release version" >&2
+		exit 1
+	fi
 
 	tmp="$(mktemp)"
 	jq --indent 2 --arg v "$version" '.expo.version = $v' "$app_json" >"$tmp"
@@ -84,6 +91,16 @@ set_version() {
 	jq --indent 4 --arg v "$version" '.version = $v' "$buildspec" >"$tmp"
 	mv "$tmp" "$buildspec"
 
+	tmp="$(mktemp)"
+	jq --indent 2 --arg v "$version" '.expo.version = $v' "$obs_remote_app_json" >"$tmp"
+	mv "$tmp" "$obs_remote_app_json"
+
+	tmp="$(mktemp)"
+	jq --indent 2 --arg v "$version" '.version = $v' "$obs_remote_pkg" >"$tmp"
+	mv "$tmp" "$obs_remote_pkg"
+
+	bun install --lockfile-only
+
 	sed -i.bak -E "s/^([[:space:]]*MARKETING_VERSION = )[^;]+;/\1${version};/" "$pbxproj"
 	rm -f "${pbxproj}.bak"
 
@@ -92,13 +109,20 @@ set_version() {
 	echo "  - $native_pkg (version)"
 	echo "  - $pbxproj (MARKETING_VERSION)"
 	echo "  - $buildspec (version)"
+	echo "  - $obs_remote_app_json (expo.version)"
+	echo "  - $obs_remote_pkg (version)"
+	echo "  - $lockfile"
 
 	if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
 		local pending_tag_file
 		pending_tag_file="$(git rev-parse --git-dir)/VISP_PENDING_RELEASE_TAG"
-		git add -- "$app_json" "$native_pkg" "$pbxproj" "$buildspec"
-		if ! git diff --quiet -- "$app_json" "$native_pkg" "$pbxproj" "$buildspec" ||
-			[[ "$(git show ":${app_json}" | jq -r .expo.version)" != "$version" ]]; then
+		git add -- "$app_json" "$native_pkg" "$pbxproj" "$buildspec" \
+			"$obs_remote_app_json" "$obs_remote_pkg" "$lockfile"
+		if ! git diff --quiet -- "$app_json" "$native_pkg" "$pbxproj" "$buildspec" \
+			"$obs_remote_app_json" "$obs_remote_pkg" "$lockfile" ||
+			[[ "$(git show ":${app_json}" | jq -r .expo.version)" != "$version" ]] ||
+			[[ "$(git show ":${obs_remote_app_json}" | jq -r .expo.version)" != "$version" ]] ||
+			[[ "$(git show ":${obs_remote_pkg}" | jq -r .version)" != "$version" ]]; then
 			echo "error: version bump was not added to the commit index" >&2
 			exit 1
 		fi
@@ -197,6 +221,9 @@ Sync the VISP release version across:
   apps/native/package.json                     version
   apps/native/ios/VISP.xcodeproj/project.pbxproj  MARKETING_VERSION
   apps/obs-plugin/buildspec.json               version
+  apps/obs-remote/app.json                     expo.version
+  apps/obs-remote/package.json                 version
+  bun.lock                                     workspace version
 
 Usage:
   scripts/bump-release-version.sh              Interactive yes/no + version

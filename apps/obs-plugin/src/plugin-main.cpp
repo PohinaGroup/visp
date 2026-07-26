@@ -1,11 +1,15 @@
 #include <QByteArray>
+#include <QCryptographicHash>
+#include <QDateTime>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QList>
 #include <QString>
+#include <QStringDecoder>
 #include <QStringList>
 #include <QUrl>
+#include <QUrlQuery>
 #include <cmath>
 #include <cstdint>
 
@@ -13,6 +17,19 @@ struct control_response {
 	uint64_t command_version;
 	bool desired_streaming;
 	QString desired_scene;
+};
+
+struct ticket_response {
+	QString ticket;
+	QDateTime expires_at;
+};
+
+enum class websocket_parse_result { incomplete, text, close, ping, pong, error };
+
+struct websocket_frame {
+	websocket_parse_result result = websocket_parse_result::incomplete;
+	QByteArray payload;
+	qsizetype consumed = 0;
 };
 
 struct publishing_device {
@@ -216,6 +233,169 @@ static bool parse_control_response(const QByteArray &json, struct control_respon
 	return true;
 }
 
+static bool parse_ticket_response(const QByteArray &json, struct ticket_response *response)
+{
+	const QJsonDocument document = QJsonDocument::fromJson(json);
+	if (!document.isObject())
+		return false;
+	const QJsonObject object = document.object();
+	if (!object.value("ticket").isString() || !object.value("expiresAt").isString())
+		return false;
+	response->ticket = object.value("ticket").toString();
+	response->expires_at = QDateTime::fromString(object.value("expiresAt").toString(), Qt::ISODateWithMs);
+	if (!response->expires_at.isValid())
+		response->expires_at = QDateTime::fromString(object.value("expiresAt").toString(), Qt::ISODate);
+	return !response->ticket.isEmpty() && response->expires_at.isValid();
+}
+
+static QUrl live_websocket_url(const QString &control_url, const QString &ticket)
+{
+	QUrl result(control_url);
+	const bool local_http = result.scheme() == "http" &&
+				(result.host() == "localhost" || result.host() == "127.0.0.1" || result.host() == "::1");
+	if (!result.isValid() || ticket.isEmpty() || (result.scheme() != "https" && !local_http))
+		return {};
+	result.setScheme(result.scheme() == "https" ? "wss" : "ws");
+	result.setPath("/api/obs/live");
+	QUrlQuery query;
+	query.addQueryItem("ticket", ticket);
+	result.setQuery(query);
+	result.setFragment({});
+	return result;
+}
+
+static QByteArray websocket_accept(const QByteArray &key)
+{
+	return QCryptographicHash::hash(key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11", QCryptographicHash::Sha1)
+		.toBase64();
+}
+
+static bool header_has_token(const QByteArray &value, const QByteArray &wanted)
+{
+	for (const QByteArray &token : value.split(',')) {
+		if (token.trimmed().compare(wanted, Qt::CaseInsensitive) == 0)
+			return true;
+	}
+	return false;
+}
+
+static bool valid_websocket_handshake(const QByteArray &headers, const QByteArray &key)
+{
+	const QList<QByteArray> lines = headers.split('\n');
+	const QList<QByteArray> status = lines.isEmpty() ? QList<QByteArray>() : lines.first().trimmed().split(' ');
+	if (status.size() < 2 || status.at(0) != "HTTP/1.1" || status.at(1) != "101")
+		return false;
+	QByteArray upgrade;
+	QByteArray connection;
+	QByteArray accept;
+	for (qsizetype index = 1; index < lines.size(); index++) {
+		const QByteArray line = lines.at(index).trimmed();
+		const qsizetype separator = line.indexOf(':');
+		if (line.isEmpty())
+			break;
+		if (separator < 1)
+			return false;
+		const QByteArray name = line.first(separator).trimmed().toLower();
+		const QByteArray value = line.sliced(separator + 1).trimmed();
+		if (name == "upgrade")
+			upgrade += (upgrade.isEmpty() ? "" : ",") + value;
+		else if (name == "connection")
+			connection += (connection.isEmpty() ? "" : ",") + value;
+		else if (name == "sec-websocket-accept")
+			accept = value;
+	}
+	return header_has_token(upgrade, "websocket") && header_has_token(connection, "upgrade") &&
+	       accept == websocket_accept(key);
+}
+
+static QByteArray make_websocket_frame(quint8 opcode, const QByteArray &payload, quint32 mask)
+{
+	QByteArray frame;
+	frame.append(char(0x80 | opcode));
+	const quint64 size = static_cast<quint64>(payload.size());
+	if (size < 126) {
+		frame.append(char(0x80 | size));
+	} else if (size <= 0xffff) {
+		frame.append(char(0x80 | 126));
+		frame.append(char(size >> 8));
+		frame.append(char(size));
+	} else {
+		frame.append(char(0x80 | 127));
+		for (int shift = 56; shift >= 0; shift -= 8)
+			frame.append(char(size >> shift));
+	}
+	const char mask_bytes[] = {char(mask >> 24), char(mask >> 16), char(mask >> 8), char(mask)};
+	frame.append(mask_bytes, 4);
+	for (qsizetype index = 0; index < payload.size(); index++)
+		frame.append(char(payload.at(index) ^ mask_bytes[index % 4]));
+	return frame;
+}
+
+static websocket_frame parse_websocket_frame(const QByteArray &data, quint64 maximum_payload = 64 * 1024)
+{
+	websocket_frame result;
+	if (data.size() < 2)
+		return result;
+	const quint8 first = static_cast<quint8>(data.at(0));
+	const quint8 second = static_cast<quint8>(data.at(1));
+	const quint8 opcode = first & 0x0f;
+	if ((first & 0x70) || !(first & 0x80) || (second & 0x80) ||
+	    (opcode != 1 && opcode != 8 && opcode != 9 && opcode != 10)) {
+		result.result = websocket_parse_result::error;
+		return result;
+	}
+	quint64 size = second & 0x7f;
+	qsizetype offset = 2;
+	if (size == 126) {
+		if (data.size() < 4)
+			return result;
+		size = (static_cast<quint8>(data.at(2)) << 8) | static_cast<quint8>(data.at(3));
+		offset = 4;
+		if (size < 126)
+			result.result = websocket_parse_result::error;
+	} else if (size == 127) {
+		if (data.size() < 10)
+			return result;
+		size = 0;
+		for (int index = 2; index < 10; index++)
+			size = (size << 8) | static_cast<quint8>(data.at(index));
+		offset = 10;
+		if (size < 65536 || (size >> 63))
+			result.result = websocket_parse_result::error;
+	}
+	if (result.result == websocket_parse_result::error || size > maximum_payload ||
+	    (opcode >= 8 && size > 125) || (opcode == 8 && size == 1)) {
+		result.result = websocket_parse_result::error;
+		return result;
+	}
+	if (size > static_cast<quint64>(data.size() - offset))
+		return result;
+	result.payload = data.sliced(offset, static_cast<qsizetype>(size));
+	if (opcode == 1 || (opcode == 8 && size > 2)) {
+		QStringDecoder decoder(QStringDecoder::Utf8);
+		decoder.decode(opcode == 1 ? result.payload : result.payload.sliced(2));
+		if (decoder.hasError()) {
+			result.result = websocket_parse_result::error;
+			return result;
+		}
+	}
+	if (opcode == 8 && size >= 2) {
+		const quint16 code = (static_cast<quint8>(result.payload.at(0)) << 8) |
+				     static_cast<quint8>(result.payload.at(1));
+		if (code < 1000 || code >= 5000 || code == 1004 || code == 1005 || code == 1006 ||
+		    (code >= 1015 && code < 3000)) {
+			result.result = websocket_parse_result::error;
+			return result;
+		}
+	}
+	result.consumed = offset + static_cast<qsizetype>(size);
+	result.result = opcode == 1   ? websocket_parse_result::text
+			: opcode == 8 ? websocket_parse_result::close
+			: opcode == 9 ? websocket_parse_result::ping
+				      : websocket_parse_result::pong;
+	return result;
+}
+
 static QByteArray make_control_request(bool streaming, uint64_t applied_version, const QStringList &scene_names,
 				       const QString &current_scene)
 {
@@ -257,6 +437,38 @@ int main(void)
 				     &response));
 	CHECK(response.command_version == 8 && !response.desired_streaming && response.desired_scene.isNull());
 	CHECK(!parse_control_response("{\"commandVersion\":9}", &response));
+	struct ticket_response ticket = {};
+	CHECK(parse_ticket_response("{\"ticket\":\"one use + secret\",\"expiresAt\":\"2026-07-26T12:00:00Z\"}",
+				    &ticket));
+	const QUrl live = live_websocket_url("https://visp.example/api/obs/control?old=1", ticket.ticket);
+	CHECK(live.scheme() == "wss" && live.path() == "/api/obs/live" &&
+	      QUrlQuery(live).queryItemValue("ticket") == ticket.ticket);
+	CHECK(live_websocket_url("http://localhost:3000/api/obs/control", "local").scheme() == "ws");
+	CHECK(!live_websocket_url("http://visp.example/api/obs/control", "ticket").isValid());
+	CHECK(!live_websocket_url("ftp://visp.example/control", "ticket").isValid());
+	const QByteArray key = "dGhlIHNhbXBsZSBub25jZQ==";
+	CHECK(websocket_accept(key) == "s3pPLMBiTxaQ9kYGzzhZRbK+xOo=");
+	CHECK(valid_websocket_handshake(
+		"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: keep-alive, Upgrade\r\nSec-WebSocket-Accept: s3pPLMBiTxaQ9kYGzzhZRbK+xOo=\r\n\r\n",
+		key));
+	CHECK(!valid_websocket_handshake(
+		"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: wrong\r\n\r\n",
+		key));
+	const QByteArray client_frame = make_websocket_frame(1, "hello", 0x01020304);
+	CHECK(client_frame.toHex() == "81850102030469676f686e");
+	websocket_frame frame = parse_websocket_frame(QByteArray("\x81\x05hello", 7));
+	CHECK(frame.result == websocket_parse_result::text && frame.payload == "hello" && frame.consumed == 7);
+	CHECK(parse_websocket_frame(QByteArray("\x81\x05hel", 5)).result == websocket_parse_result::incomplete);
+	CHECK(parse_websocket_frame(QByteArray("\x89\x01x", 3)).result == websocket_parse_result::ping);
+	CHECK(parse_websocket_frame(QByteArray("\x82\x00", 2)).result == websocket_parse_result::error);
+	CHECK(parse_websocket_frame(QByteArray("\x81\x80", 2)).result == websocket_parse_result::error);
+	CHECK(parse_websocket_frame(QByteArray("\x01\x00", 2)).result == websocket_parse_result::error);
+	QByteArray extended("\x81\x7e\x00\x7e", 4);
+	extended.append(QByteArray(126, 'x'));
+	frame = parse_websocket_frame(extended + QByteArray("\x8a\x00", 2));
+	CHECK(frame.result == websocket_parse_result::text && frame.payload.size() == 126 && frame.consumed == 130);
+	CHECK(parse_websocket_frame(QByteArray("\x81\x7e\x00\x7d", 4)).result == websocket_parse_result::error);
+	CHECK(parse_websocket_frame(QByteArray("\x81\x7e\xff\xff", 4), 1024).result == websocket_parse_result::error);
 	const QJsonObject first_poll = QJsonDocument::fromJson(
 		make_control_request(false, 8, {"Old scene", "Removed scene"}, QString()))
 					       .object();
@@ -322,7 +534,8 @@ int main(void)
 #include <QNetworkAccessManager>
 #include <QNetworkReply>
 #include <QNetworkRequest>
-#include <QDateTime>
+#include <QRandomGenerator>
+#include <QSslSocket>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
@@ -943,8 +1156,11 @@ static QStringList scene_names()
 	QStringList names;
 	struct obs_frontend_source_list scenes = {};
 	obs_frontend_get_scenes(&scenes);
-	for (size_t index = 0; index < scenes.sources.num; index++)
-		names.append(QString::fromUtf8(obs_source_get_name(scenes.sources.array[index])));
+	for (size_t index = 0; index < scenes.sources.num && names.size() < 256; index++) {
+		const QString name = QString::fromUtf8(obs_source_get_name(scenes.sources.array[index]));
+		if (!name.isEmpty() && name.size() <= 512)
+			names.append(name);
+	}
 	obs_frontend_source_list_free(&scenes);
 	return names;
 }
@@ -956,7 +1172,7 @@ static QString current_scene_name()
 		return {};
 	const QString name = QString::fromUtf8(obs_source_get_name(scene));
 	obs_source_release(scene);
-	return name;
+	return name.size() <= 512 ? name : QString();
 }
 
 static bool set_current_scene(const QString &name)
@@ -979,88 +1195,317 @@ static bool set_current_scene(const QString &name)
 class VispControl final : public QObject {
 public:
 	VispControl(const plugin_config &settings)
-		: url(QUrl(settings.control_url)),
+		: control_url(settings.control_url),
 		  authorization("Bearer " + settings.token.toUtf8()),
 		  network(this),
-		  timer(this),
-		  streaming(obs_frontend_streaming_active())
+		  socket(this),
+		  reconnect_timer(this),
+		  socket_timeout(this),
+		  report_timer(this)
 	{
-		connect(&timer, &QTimer::timeout, this, [this]() { poll(); });
-		timer.start(2000);
-		poll();
+		reconnect_timer.setSingleShot(true);
+		socket_timeout.setSingleShot(true);
+		report_timer.setInterval(5000);
+		connect(&reconnect_timer, &QTimer::timeout, this, [this]() { fetch_ticket(); });
+		connect(&socket_timeout, &QTimer::timeout, this,
+			[this]() { reconnect("WebSocket connection timed out"); });
+		connect(&report_timer, &QTimer::timeout, this, [this]() { heartbeat(); });
+		connect(&socket, &QSslSocket::connected, this, [this]() {
+			if (live_url.scheme() == "ws")
+				send_handshake();
+		});
+		connect(&socket, &QSslSocket::encrypted, this, [this]() { send_handshake(); });
+		connect(&socket, &QSslSocket::readyRead, this, [this]() { read_socket(); });
+		connect(&socket, &QSslSocket::bytesWritten, this, [this](qint64) { flush_writes(); });
+		connect(&socket, &QSslSocket::disconnected, this, [this]() {
+			if (!stopping)
+				reconnect("WebSocket disconnected");
+		});
+		connect(&socket, &QSslSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
+			if (!stopping)
+				reconnect("WebSocket connection failed");
+		});
+		socket.setReadBufferSize(128 * 1024);
+		QTimer::singleShot(0, this, [this]() { fetch_ticket(); });
 	}
 
 	~VispControl() override
 	{
-		timer.stop();
-		if (pending) {
-			disconnect(pending, nullptr, this, nullptr);
-			pending->abort();
+		stopping = true;
+		reconnect_timer.stop();
+		socket_timeout.stop();
+		report_timer.stop();
+		if (ticket_reply) {
+			disconnect(ticket_reply, nullptr, this, nullptr);
+			ticket_reply->abort();
 		}
+		socket.abort();
 	}
 
-	void set_streaming(bool active) { streaming = active; }
+	void frontend_changed()
+	{
+		apply_pending_command();
+		report_state();
+	}
 
 private:
-	void poll()
+	void fetch_ticket()
 	{
-		if (pending)
-			return;
-		QNetworkRequest request(url);
+		reconnect_scheduled = false;
+		const uint64_t generation = ++ticket_generation;
+		QNetworkRequest request(endpoint_url(control_url, "/api/obs/live-ticket"));
 		request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
 		request.setRawHeader("Authorization", authorization);
 		request.setTransferTimeout(5000);
 		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
-		const QByteArray body = make_control_request(streaming, applied_version, scene_names(), current_scene_name());
-		pending = network.post(request, body);
-		connect(pending, &QNetworkReply::finished, this, [this, reply = pending]() {
-			pending = nullptr;
-			handle_response(reply);
+		QNetworkReply *reply = network.post(request, "{}");
+		ticket_reply = reply;
+		connect(reply, &QNetworkReply::finished, this, [this, generation, reply]() {
+			if (reply != ticket_reply || generation != ticket_generation) {
+				reply->deleteLater();
+				return;
+			}
+			ticket_reply = nullptr;
+			const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+			const QByteArray body = reply->readAll();
+			const bool success = reply->error() == QNetworkReply::NoError && status >= 200 && status < 300;
 			reply->deleteLater();
+			if (status == 401) {
+				obs_log(LOG_ERROR, "VISP pairing credential was rejected");
+				reconnect("ticket request rejected");
+				return;
+			}
+			ticket_response ticket;
+			if (!success || !parse_ticket_response(body, &ticket)) {
+				reconnect("could not obtain a valid WebSocket ticket");
+				return;
+			}
+			live_url = live_websocket_url(control_url, ticket.ticket);
+			if (!live_url.isValid()) {
+				reconnect("could not derive WebSocket URL");
+				return;
+			}
+			connect_socket();
 		});
 	}
 
-	void handle_response(QNetworkReply *reply)
+	void connect_socket()
 	{
-		const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-		if (status == 401) {
-			obs_log(LOG_ERROR, "pairing token was rejected; rotate it in the VISP dashboard");
-			return;
+		handshake_complete = false;
+		awaiting_pong = false;
+		read_buffer.clear();
+		write_buffer.clear();
+		websocket_key = QByteArray(16, Qt::Uninitialized);
+		for (char &byte : websocket_key)
+			byte = char(QRandomGenerator::system()->generate() & 0xff);
+		websocket_key = websocket_key.toBase64();
+		socket_timeout.start(10'000);
+		const quint16 port = static_cast<quint16>(live_url.port(live_url.scheme() == "wss" ? 443 : 80));
+		if (live_url.scheme() == "wss") {
+			socket.setPeerVerifyMode(QSslSocket::VerifyPeer);
+			socket.setPeerVerifyName(live_url.host());
+			socket.connectToHostEncrypted(live_url.host(), port);
+		} else {
+			socket.connectToHost(live_url.host(), port);
 		}
-		if (reply->error() != QNetworkReply::NoError || status < 200 || status >= 300)
-			return;
+	}
 
-		const QByteArray body = reply->readAll();
-		struct control_response response;
+	void send_handshake()
+	{
+		const QByteArray target = live_url.toEncoded(QUrl::RemoveScheme | QUrl::RemoveAuthority |
+							   QUrl::RemoveFragment);
+		const QByteArray request = "GET " + target + " HTTP/1.1\r\nHost: " +
+					   live_url.authority(QUrl::FullyEncoded).toUtf8() +
+					   "\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Key: " +
+					   websocket_key + "\r\nSec-WebSocket-Version: 13\r\n\r\n";
+		queue_bytes(request);
+	}
+
+	void read_socket()
+	{
+		read_buffer += socket.readAll();
+		if (!handshake_complete) {
+			const qsizetype end = read_buffer.indexOf("\r\n\r\n");
+			if (end < 0) {
+				if (read_buffer.size() > 16 * 1024)
+					reconnect("WebSocket handshake headers were oversized");
+				return;
+			}
+			const QByteArray headers = read_buffer.first(end + 4);
+			read_buffer.remove(0, end + 4);
+			if (!valid_websocket_handshake(headers, websocket_key)) {
+				reconnect("WebSocket upgrade was rejected");
+				return;
+			}
+			handshake_complete = true;
+			socket_timeout.stop();
+			reconnect_attempt = 0;
+			report_timer.start();
+			obs_log(LOG_INFO, "VISP WebSocket connected");
+			report_state();
+		}
+		while (handshake_complete && !read_buffer.isEmpty()) {
+			const websocket_frame frame = parse_websocket_frame(read_buffer);
+			if (frame.result == websocket_parse_result::incomplete)
+				return;
+			if (frame.result == websocket_parse_result::error) {
+				reconnect("received an invalid WebSocket frame");
+				return;
+			}
+			read_buffer.remove(0, frame.consumed);
+			if (frame.result == websocket_parse_result::ping) {
+				send_frame(10, frame.payload);
+			} else if (frame.result == websocket_parse_result::close) {
+				send_frame(8, frame.payload);
+				report_timer.stop();
+				socket.disconnectFromHost();
+				return;
+			} else if (frame.result == websocket_parse_result::pong) {
+				awaiting_pong = false;
+			} else if (frame.result == websocket_parse_result::text) {
+				handle_command(frame.payload);
+			}
+		}
+	}
+
+	void handle_command(const QByteArray &body)
+	{
+		control_response response;
 		if (!parse_control_response(body, &response)) {
-			obs_log(LOG_WARNING, "control service returned an invalid response");
+			reconnect("received an invalid VISP command");
 			return;
 		}
-
-		if (response.command_version <= applied_version)
+		if (response.command_version <= applied_version ||
+		    (has_pending_command && response.command_version <= pending_command.command_version))
 			return;
-		if (!response.desired_scene.isNull() && !set_current_scene(response.desired_scene)) {
+		pending_command = response;
+		has_pending_command = true;
+		apply_pending_command();
+	}
+
+	void apply_pending_command()
+	{
+		if (!has_pending_command || applying_command)
+			return;
+		applying_command = true;
+		if (!pending_command.desired_scene.isNull() && pending_command.desired_scene != current_scene_name() &&
+		    !set_current_scene(pending_command.desired_scene)) {
 			obs_log(LOG_WARNING, "requested scene is no longer available: %s",
-				response.desired_scene.toUtf8().constData());
+				pending_command.desired_scene.toUtf8().constData());
+			applying_command = false;
 			return;
 		}
 		const bool active = obs_frontend_streaming_active();
-		if (response.desired_streaming != active) {
-			if (response.desired_streaming)
+		if (pending_command.desired_streaming != active) {
+			if (pending_command.desired_streaming)
 				obs_frontend_streaming_start();
 			else
 				obs_frontend_streaming_stop();
 		}
-		applied_version = response.command_version;
+		applying_command = false;
+		check_acknowledgement();
 	}
 
-	QUrl url;
+	void check_acknowledgement()
+	{
+		if (!has_pending_command || pending_command.desired_streaming != obs_frontend_streaming_active() ||
+		    (!pending_command.desired_scene.isNull() && pending_command.desired_scene != current_scene_name()))
+			return;
+		applied_version = pending_command.command_version;
+		has_pending_command = false;
+		report_state();
+	}
+
+	void report_state()
+	{
+		if (!handshake_complete)
+			return;
+		send_frame(1, make_control_request(obs_frontend_streaming_active(), applied_version, scene_names(),
+						   current_scene_name()));
+	}
+
+	void heartbeat()
+	{
+		if (awaiting_pong) {
+			reconnect("VISP WebSocket heartbeat timed out");
+			return;
+		}
+		awaiting_pong = true;
+		send_frame(9, {});
+		report_state();
+	}
+
+	void send_frame(quint8 opcode, const QByteArray &payload)
+	{
+		queue_bytes(make_websocket_frame(opcode, payload, QRandomGenerator::system()->generate()));
+	}
+
+	void queue_bytes(const QByteArray &bytes)
+	{
+		const bool idle = write_buffer.isEmpty();
+		write_buffer += bytes;
+		if (idle)
+			flush_writes();
+	}
+
+	void flush_writes()
+	{
+		if (write_buffer.isEmpty())
+			return;
+		const qint64 written = socket.write(write_buffer);
+		if (written < 0) {
+			reconnect("could not write WebSocket data");
+			return;
+		}
+		write_buffer.remove(0, written);
+	}
+
+	void reconnect(const char *reason)
+	{
+		if (stopping || reconnect_scheduled)
+			return;
+		reconnect_scheduled = true;
+		handshake_complete = false;
+		awaiting_pong = false;
+		ticket_generation++;
+		socket_timeout.stop();
+		report_timer.stop();
+		if (ticket_reply) {
+			disconnect(ticket_reply, nullptr, this, nullptr);
+			ticket_reply->abort();
+			ticket_reply->deleteLater();
+			ticket_reply = nullptr;
+		}
+		socket.abort();
+		write_buffer.clear();
+		const int base = qMin(30'000, 1000 << qMin(reconnect_attempt++, 5));
+		const int delay = base + QRandomGenerator::global()->bounded(251);
+		obs_log(LOG_WARNING, "%s; reconnecting in %d ms", reason, delay);
+		reconnect_timer.start(delay);
+	}
+
+	QString control_url;
 	QByteArray authorization;
 	QNetworkAccessManager network;
-	QTimer timer;
-	QNetworkReply *pending = nullptr;
+	QSslSocket socket;
+	QTimer reconnect_timer;
+	QTimer socket_timeout;
+	QTimer report_timer;
+	QUrl live_url;
+	QByteArray websocket_key;
+	QByteArray read_buffer;
+	QByteArray write_buffer;
+	QNetworkReply *ticket_reply = nullptr;
+	control_response pending_command = {};
 	uint64_t applied_version = 0;
-	bool streaming;
+	uint64_t ticket_generation = 0;
+	int reconnect_attempt = 0;
+	bool handshake_complete = false;
+	bool has_pending_command = false;
+	bool applying_command = false;
+	bool awaiting_pong = false;
+	bool reconnect_scheduled = false;
+	bool stopping = false;
 };
 
 static VispControl *control;
@@ -1093,10 +1538,10 @@ static void frontend_event(enum obs_frontend_event event, void *private_data)
 	UNUSED_PARAMETER(private_data);
 	if (!control)
 		return;
-	if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED)
-		control->set_streaming(true);
-	else if (event == OBS_FRONTEND_EVENT_STREAMING_STOPPED)
-		control->set_streaming(false);
+	if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED || event == OBS_FRONTEND_EVENT_STREAMING_STOPPED ||
+	    event == OBS_FRONTEND_EVENT_SCENE_CHANGED || event == OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED ||
+	    event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED || event == OBS_FRONTEND_EVENT_FINISHED_LOADING)
+		control->frontend_changed();
 }
 
 const char *obs_module_description(void)

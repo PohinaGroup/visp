@@ -1,0 +1,46 @@
+{
+  "name": "@VISP/obs-remote",
+  "main": "expo-router/entry",
+  "version": "1.0.30",
+  "dependencies": {
+    "@VISP/api": "workspace:*",
+    "@better-auth/expo": "catalog:",
+    "@trpc/client": "catalog:",
+    "better-auth": "catalog:",
+    "expo": "~57.0.8",
+    "expo-constants": "~57.0.7",
+    "expo-linking": "~57.0.4",
+    "expo-network": "~57.0.1",
+    "expo-router": "~57.0.8",
+    "expo-secure-store": "~57.0.1",
+    "expo-splash-screen": "~57.0.5",
+    "expo-status-bar": "~57.0.1",
+    "expo-system-ui": "~57.0.1",
+    "expo-web-browser": "~57.0.2",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.0",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.2.2",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "build": "expo export --platform all",
+    "build:android": "expo export --platform android",
+    "build:ios": "expo export --platform ios",
+    "build:web": "expo export --platform web",
+    "check-types": "tsc --noEmit",
+    "dev": "expo start --web --port 8083",
+    "start": "expo start --port 8083",
+    "android": "expo start --android --port 8083",
+    "ios": "expo start --ios --port 8083",
+    "web": "expo start --web --port 8083",
+    "lint": "biome check src",
+    "test": "bun test src"
+  },
+  "private": true
+}

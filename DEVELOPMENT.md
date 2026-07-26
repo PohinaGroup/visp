@@ -1,7 +1,7 @@
 # Developing VISP
 
-This guide covers the TypeScript monorepo, documentation site, native client,
-and database. The OBS plugin has additional platform toolchains documented in
+This guide covers the TypeScript monorepo, documentation site, broadcaster and
+OBS Remote Expo clients, and database. The OBS plugin has additional platform toolchains documented in
 [`apps/obs-plugin/README.md`](apps/obs-plugin/README.md).
 
 ## Prerequisites
@@ -11,7 +11,7 @@ and database. The OBS plugin has additional platform toolchains documented in
 - Docker with Compose
 - A Twitch application for Twitch login
 - A Kick application to exercise Kick login, chat, and metadata
-- A physical phone or development-build-compatible simulator for the native app
+- A physical phone or compatible simulator for either Expo app
 
 Install all workspace dependencies from the repository root:
 
@@ -28,14 +28,16 @@ local relay gateway:
 bun run dev:local
 ```
 
-Compose data volumes persist across restarts. Ctrl+C stops the API and portal;
-`bun run dev:local:down` stops the containers without deleting their data.
+Compose data volumes persist across restarts. Ctrl+C stops the API, portal,
+admin console, OBS Remote web app, and docs; `bun run dev:local:down` stops the
+containers without deleting their data.
 
 ## Environment files
 
-`bun run dev:local` creates missing server and web env files from the tracked
-examples, generates missing local secrets, and reports every invalid value. The
-native env remains explicit because it needs a device-reachable address:
+`bun run dev:local` creates missing server, web, and OBS Remote env files from
+the tracked examples, generates missing local secrets, and reports every invalid
+value. The broadcaster env remains explicit because it needs a device-reachable
+address:
 
 ```bash
 cp apps/native/.env.example apps/native/.env.local
@@ -45,8 +47,9 @@ The launcher supplies local service values at runtime. Blank Twitch or Kick
 credentials are reported and only affect those provider flows. Direct server
 commands still require every schema-required value. Important groups are:
 
-- `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, and `CORS_ORIGIN`
-  configure the database and browser authentication boundary.
+- `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`,
+  `ADMIN_ORIGIN`, and `ADMIN_USER_IDS` configure the database, browser
+  authentication boundary, and break-glass admin access.
 - `TWITCH_*` and `KICK_*` configure provider OAuth and APIs. Development values
   may be placeholders only when the matching provider flow is not exercised.
 - `AI_GATEWAY_API_KEY` authenticates the server-side Seppo setup assistant with
@@ -112,15 +115,26 @@ For normal portal/API work, use the one-stop launcher:
 | --- | --- | --- |
 | Complete local stack | `bun run dev:local` | `https://visp.localhost` |
 | API | managed by the launcher | `https://api.visp.localhost` |
+| Admin console | managed by the launcher | `https://admin.visp.localhost` |
 | Docs | managed by the launcher | `https://docs.visp.localhost` |
+| OBS Remote web | managed by the launcher | `http://localhost:8083` |
 | Relay | managed by the launcher | `https://relay.visp.localhost` |
 | MinIO console | managed by the launcher | `https://minio.visp.localhost` |
 | PostgreSQL | managed by the launcher | `127.0.0.1:54320` |
 | Expo dev server | `bun run --cwd apps/native dev` | shown by Expo |
 
 `bun run dev` starts every workspace development task through Turborepo,
-including the API, portal, Expo, and documentation site. Use it only when you
-actually want the entire workspace running.
+including the API, portal, admin console, Expo, and documentation site. Use it
+only when you actually want the entire workspace running.
+
+### OBS Remote
+
+The one-stop launcher serves the web control surface on port 8083. Run it alone
+with `bun run dev:obs-remote`. For a physical device, set
+`EXPO_PUBLIC_SERVER_URL=http://LAN_IP:3000` in
+`apps/obs-remote/.env.local`, then use its `ios` or `android` script. Native OAuth
+returns through the `obsremote://` scheme; browser auth requires
+`OBS_REMOTE_WEB_ORIGIN` to exactly match the web origin.
 
 ### Native app
 
@@ -173,10 +187,12 @@ directory, and runs `docker compose down --volumes` on exit.
 | Authentication/provider configuration | `packages/auth/src` |
 | Database schema and migrations | `packages/db/src` |
 | Browser routes and components | `apps/web/src` |
+| Admin support console | `apps/admin/src` |
 | Shared UI primitives | `packages/ui/src` |
 | Native screens and device behavior | `apps/native/src` |
 | Native SRT bridge | `apps/native/modules/visp-srt` |
-| OBS remote control | `apps/obs-plugin` |
+| OBS Remote interface | `apps/obs-remote/src` |
+| OBS-side remote transport | `apps/obs-plugin` |
 | Operator/broadcaster docs | `apps/fumadocs/content/docs` |
 
 Environment variables are validated centrally in `packages/env`; add new
@@ -190,9 +206,15 @@ when introducing a new credential-shaped field.
   blank or invalid. The error names the rejected variable.
 - **The portal cannot authenticate:** confirm `https://api.visp.localhost` is
   available and `CORS_ORIGIN` is exactly `https://visp.localhost`.
+- **The admin console denies access:** sign in through the main portal, then
+  confirm the account has role `admin` or its user ID is in `ADMIN_USER_IDS`.
 - **A phone cannot connect:** `localhost` and `127.0.0.1` refer to the phone.
-  Use an address reachable from the phone and allow the API port through the
+  Use an address reachable from the phone and allow API port 3000 through the
   host firewall.
+- **OBS Remote web cannot authenticate:** confirm it uses port 8083 and
+  `OBS_REMOTE_WEB_ORIGIN` exactly matches `http://localhost:8083`.
+- **OBS Remote stays disconnected:** verify the API supports the `/api/obs/live`
+  WebSocket upgrade and use HTTPS/WSS outside localhost.
 - **RTT or relay actions fail:** run `bun run dev:local`, then check
   `docker compose ps` and `docker compose logs mediamtx gateway`.
 - **Integration tests cannot bind port 55432:** stop the process already using

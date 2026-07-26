@@ -44,12 +44,14 @@ import {
 	chatConnection,
 	pathState,
 	relayPath,
+	relayStreamSession,
 	user,
 } from "@VISP/db/schema/index";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
+import { obsLiveRoutes } from "./obs-live";
 
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
 const originalFetch = globalThis.fetch;
@@ -385,6 +387,160 @@ integration("relay PostgreSQL integration", () => {
 		expect(await applyPathHook("ready", { path: "unknown" })).toBe(false);
 	});
 
+	test("tracks relay sessions idempotently across hooks and reconciliation", async () => {
+		const data = await seed();
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		expect(
+			await db.query.relayStreamSession.findMany({
+				where: eq(relayStreamSession.pathId, data.pathA.id),
+			}),
+		).toHaveLength(1);
+
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		const [closed] = await db.query.relayStreamSession.findMany({
+			where: eq(relayStreamSession.pathId, data.pathA.id),
+		});
+		expect(closed?.endedAt).toBeInstanceOf(Date);
+
+		globalThis.fetch = (async () =>
+			new Response(
+				JSON.stringify({
+					items: [
+						{
+							name: data.pathA.slug,
+							ready: true,
+							source: { type: "rtmpConn" },
+						},
+					],
+				}),
+				{ status: 200 },
+			)) as unknown as typeof fetch;
+		await reconcilePathState("http://relay.test:9997");
+		await reconcilePathState("http://relay.test:9997");
+		const sessions = await db.query.relayStreamSession.findMany({
+			where: eq(relayStreamSession.pathId, data.pathA.id),
+		});
+		expect(sessions).toHaveLength(2);
+		expect(sessions.filter(({ endedAt }) => !endedAt)).toHaveLength(1);
+		await db.delete(user).where(eq(user.id, "user-a"));
+		expect(
+			await db.query.relayStreamSession.findMany({
+				where: eq(relayStreamSession.pathId, data.pathA.id),
+			}),
+		).toHaveLength(0);
+	});
+
+	test("protects admin data and lets a break-glass admin ban users", async () => {
+		await seed();
+		await db.insert(user).values({
+			id: "break-glass-admin",
+			name: "Admin",
+			email: "admin@example.test",
+		});
+		await db.insert(authSession).values([
+			{
+				id: "user-session",
+				token: "user-token",
+				userId: "user-a",
+				expiresAt: new Date(Date.now() + 60_000),
+				updatedAt: new Date(),
+			},
+			{
+				id: "admin-session",
+				token: "admin-token",
+				userId: "break-glass-admin",
+				expiresAt: new Date(Date.now() + 60_000),
+				updatedAt: new Date(),
+			},
+		]);
+
+		const userHeaders = new Headers({ authorization: "Bearer user-token" });
+		const userSession = await auth.api.getSession({ headers: userHeaders });
+		if (!userSession) throw new Error("user session was not created");
+		await expect(
+			appRouter
+				.createCaller({
+					auth: null,
+					headers: userHeaders,
+					session: userSession,
+				})
+				.admin.overview(),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+		const adminHeaders = new Headers({ authorization: "Bearer admin-token" });
+		const adminSession = await auth.api.getSession({ headers: adminHeaders });
+		if (!adminSession) throw new Error("admin session was not created");
+		const caller = appRouter.createCaller({
+			auth: null,
+			headers: adminHeaders,
+			session: adminSession,
+		});
+		expect((await caller.admin.overview()).totalUsers).toBe(3);
+		await applyPathHook("ready", {
+			path: "alpha-1",
+			sourceType: "srtConn",
+		});
+		const listed = await caller.admin.users.list({
+			query: "Alpha",
+			usage: "live",
+			limit: 50,
+		});
+		expect(listed.items).toHaveLength(1);
+		expect(listed.items[0]?.id).toBe("user-a");
+		const detail = await caller.admin.users.get({ userId: "user-a" });
+		expect(detail.usage).toMatchObject({
+			everStreamed: true,
+			live: true,
+			trackedSessions: 1,
+		});
+		const streams = await caller.admin.users.streams({
+			userId: "user-a",
+			limit: 50,
+		});
+		expect(streams.items[0]).toMatchObject({
+			deviceLabel: "main",
+			live: true,
+			sourceType: "srtConn",
+		});
+		await caller.admin.users.setRole({
+			userId: "break-glass-admin",
+			role: "admin",
+		});
+		expect(
+			(await auth.api.getSession({ headers: adminHeaders }))?.user.role,
+		).toBe("admin");
+		await expect(
+			auth.api.removeUser({
+				body: { userId: "user-b" },
+				headers: adminHeaders,
+			}),
+		).rejects.toMatchObject({ status: "FORBIDDEN" });
+		await caller.admin.users.ban({
+			userId: "user-a",
+			reason: "integration test",
+		});
+		expect(
+			await db.query.session.findMany({
+				where: eq(authSession.userId, "user-a"),
+			}),
+		).toHaveLength(0);
+		expect(
+			(
+				await db.query.user.findFirst({
+					where: eq(user.id, "user-a"),
+				})
+			)?.banned,
+		).toBe(true);
+	});
+
 	test("issues snapshot uploads only for live paths", async () => {
 		const data = await seed();
 		const requestUpload = (
@@ -538,6 +694,68 @@ integration("relay PostgreSQL integration", () => {
 			desiredScene: null,
 			scenes: [],
 		});
+	});
+
+	test("authenticates and pushes commands over the OBS WebSocket", async () => {
+		await seed();
+		const pairing = await rotateObsControlToken("user-a");
+		const liveApp = new Elysia().use(obsLiveRoutes).listen({
+			hostname: "127.0.0.1",
+			port: 0,
+		});
+		try {
+			const port = liveApp.server?.port;
+			if (!port) throw new Error("OBS live test server did not start");
+			const ticketResponse = await fetch(
+				`http://127.0.0.1:${port}/api/obs/live-ticket`,
+				{
+					method: "POST",
+					headers: { authorization: `Bearer ${pairing.token}` },
+				},
+			);
+			expect(ticketResponse.status).toBe(200);
+			const { ticket } = (await ticketResponse.json()) as { ticket: string };
+			const socket = new WebSocket(
+				`ws://127.0.0.1:${port}/api/obs/live?ticket=${encodeURIComponent(ticket)}`,
+			);
+			const messages: Array<(value: Record<string, unknown>) => void> = [];
+			const buffered: Record<string, unknown>[] = [];
+			socket.onmessage = ({ data }) => {
+				const value = JSON.parse(String(data)) as Record<string, unknown>;
+				const resolve = messages.shift();
+				if (resolve) resolve(value);
+				else buffered.push(value);
+			};
+			const nextMessage = () => {
+				const value = buffered.shift();
+				return value
+					? Promise.resolve(value)
+					: new Promise<Record<string, unknown>>((resolve) => messages.push(resolve));
+			};
+			await new Promise<void>((resolve, reject) => {
+				socket.onopen = () => resolve();
+				socket.onerror = () => reject(new Error("OBS WebSocket did not open"));
+			});
+			expect(await nextMessage()).toMatchObject({ commandVersion: 0 });
+
+			socket.send(
+				JSON.stringify({
+					appliedVersion: 0,
+					streaming: false,
+					scenes: ["Main"],
+					currentScene: "Main",
+				}),
+			);
+			expect(await nextMessage()).toMatchObject({ commandVersion: 0 });
+			await setObsStreaming("user-a", true);
+			expect(await nextMessage()).toMatchObject({
+				commandVersion: 1,
+				desiredStreaming: true,
+			});
+			socket.close();
+		} finally {
+			await liveApp.stop(true);
+		}
 	});
 
 	test("authorizes OBS in the browser and scopes device management to its owner", async () => {

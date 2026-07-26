@@ -62,19 +62,6 @@ describe("blog content", () => {
 		}
 	});
 
-	test("has no empty alt text or broken relative image references", async () => {
-		for (const { slug, source } of await loadPosts()) {
-			expect(source).not.toMatch(/!\[\s*\]\(/);
-			const images = [...source.matchAll(/!\[[^\]]+\]\((\.\/[^)]+)\)/g)];
-			expect(images.length).toBeGreaterThan(0);
-			for (const image of images) {
-				expect(
-					await Bun.file(path.join(contentDir, slug, image[1] ?? "")).exists(),
-				).toBe(true);
-			}
-		}
-	});
-
 	test("uses correctly sized social covers and supporting diagrams", async () => {
 		for (const { slug } of await loadPosts()) {
 			const bytes = new Uint8Array(

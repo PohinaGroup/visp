@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { LegalDoc } from "@/components/legal-doc";
-import { legalEntity } from "@/lib/legal";
 import { localizedHead } from "@/lib/i18n";
+import { legalEntity } from "@/lib/legal";
 
 export const Route = createFileRoute("/privacy")({
 	head: () => ({
@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Legal"
 			title="Privacy Policy"
 			description="This policy explains how VISP processes personal data when you use the website, dashboard, mobile apps, and related streaming relay services."
-			updated="19 July 2026"
+			updated="26 July 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Controller</h2>
@@ -66,7 +66,9 @@ function PrivacyPage() {
 					</li>
 					<li>
 						<strong>Operational measurements</strong>: connection and latency
-						(RTT) samples associated with your account.
+						(RTT) samples associated with your account, plus relay session
+						start/end times, publishing device, source type, and calculated
+						duration. VISP does not store the streamed audio or video.
 					</li>
 					<li>
 						<strong>Dashboard snapshots</strong>: one private low-resolution
@@ -149,13 +151,20 @@ function PrivacyPage() {
 						deleted from active systems when you delete the account.
 					</li>
 					<li>
+						Relay session metadata and usage totals: kept while your account is
+						active and deleted with the account.
+					</li>
+					<li>
 						Snapshots: replaced while live; expire within about one day after
 						updates stop.
 					</li>
 					<li>
 						Encrypted backups: up to 30 days before overwrite after deletion.
 					</li>
-					<li>Security and service logs: up to 90 days, unless law requires longer.</li>
+					<li>
+						Security and service logs: up to 90 days, unless law requires
+						longer.
+					</li>
 				</ul>
 				<p>
 					Continuous stream recordings and chat content archives are not kept by

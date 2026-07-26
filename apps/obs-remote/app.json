@@ -1,0 +1,56 @@
+{
+  "expo": {
+    "name": "VISP OBS Remote",
+    "slug": "obs-remote",
+    "version": "1.0.30",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "obsremote",
+    "userInterfaceStyle": "dark",
+    "backgroundColor": "#07090d",
+    "ios": {
+      "bundleIdentifier": "com.pohinagroup.visp.obsremote",
+      "icon": "./assets/expo.icon",
+      "supportsTablet": true,
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.pohinagroup.visp.obsremote",
+      "adaptiveIcon": {
+        "backgroundColor": "#07090D",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "static",
+      "favicon": "./assets/images/favicon.png",
+      "name": "VISP OBS Remote",
+      "shortName": "OBS Remote",
+      "display": "standalone",
+      "orientation": "any",
+      "backgroundColor": "#07090D",
+      "themeColor": "#07090D"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-secure-store",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#07090D",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 76
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    }
+  }
+}

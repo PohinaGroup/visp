@@ -6,6 +6,12 @@ on:
     branches: [main]
     paths:
       - apps/obs-plugin/**
+      - apps/server/src/obs-live.ts
+      - apps/server/src/app.ts
+      - packages/api/src/live-tickets.ts
+      - packages/api/src/obs-control.ts
+      - packages/api/src/obs-live.ts
+      - packages/api/src/routers/relay.ts
       - .github/workflows/obs-plugin.yml
   workflow_dispatch:
 

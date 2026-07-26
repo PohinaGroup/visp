@@ -3,7 +3,8 @@
 This OBS Studio 31 plugin signs in to VISP, lists publishing devices, adds their
 feeds as Media Sources, configures this OBS installation as a new publishing
 device, and accepts remote start/stop and scene commands. It uses outbound HTTPS
-only; OBS does not expose a public control port.
+for setup and authenticated outbound WSS for live control (WS on localhost for
+development); OBS does not expose a public control port.
 
 ## Pair OBS
 
@@ -16,8 +17,8 @@ only; OBS does not expose a public control port.
 Dashboard-generated tokens and imported `config.ini` files remain supported
 for self-hosted and older installations.
 
-The dashboard should show **Connected** within a few seconds; OBS does not need
-to restart.
+The dashboard should show **Connected** once the outbound WebSocket connects;
+OBS does not need to restart.
 
 Connecting or rotating the token disconnects every older plugin configuration.
 The browser session is discarded after pairing; OBS stores only the limited

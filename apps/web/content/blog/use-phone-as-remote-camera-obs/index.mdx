@@ -70,8 +70,8 @@ open **Tools → VISP Remote Control**, select **Sign in with browser**, and
 approve the displayed device code after signing in.
 
 The plugin stores a limited random machine credential. VISP stores only its
-hash, and the pairing uses outbound HTTPS. OBS does not listen on a public
-remote-control port.
+hash; HTTPS obtains a one-use ticket and live control uses outbound WSS. OBS
+does not listen on a public remote-control port.
 
 Once paired, select the phone device and add it to the desired OBS scene. The
 plugin creates a media source with the correct authenticated read URL and

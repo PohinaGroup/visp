@@ -9,8 +9,8 @@ Voit ohjata OBS:ää puhelimella ilman porttiohjausta näin: **asenna VISP-lisä
 OBS Studio 31:een, yhdistä se selaimella ja käytä VISP-puhelinsovelluksen
 OBS-ohjaimia.** Puhelimella voi käynnistää tai pysäyttää aktiivisen
 OBS-lähetyksen ja vaihtaa ohjelmassa näkyvää kohtausta. Lisäosa ottaa itse
-HTTPS-yhteyden VISPiin, joten reitittimeen ei tarvitse avata OBS:lle tulevaa
-porttia.
+todennetun WSS-yhteyden VISPiin, joten reitittimeen ei tarvitse avata OBS:lle
+tulevaa porttia.
 
 Ratkaisu sopii Twitch- tai Kick-sisällöntuottajalle, joka kantaa kameraa
 kentällä samalla kun kotikone huolehtii kohtauksista, hälytyksistä,
@@ -19,7 +19,7 @@ kuin OBS WebSocket: VISP tarjoaa kenttäkuvaajalle tavallisimmat
 lähetyskomennot, ei kaikkien lähteiden, suodattimien, mikserien ja
 studioasetusten hallintaa.
 
-![Puhelin lähettää todennetun komennon VISPiin, ja OBS-lisäosa vastaanottaa sen seuraavassa ulospäin suuntautuvassa HTTPS-kyselyssä](./phone-visp-obs-control-flow.svg)
+![Puhelin lähettää todennetun komennon VISPiin, joka välittää sen OBS-lisäosalle ulospäin avatun WSS-yhteyden kautta](./phone-visp-obs-control-flow.svg)
 
 ## Valitse ensin paikallinen tai internetin yli toimiva etäohjaus
 
@@ -104,7 +104,7 @@ syntyvän konetunnuksen, ja VISP tallentaa sen salaisuudesta vain SHA-256-tiivis
 Käsittele lisäosan asetustiedostoa silti tunnuksena. Sen saanut henkilö voi
 pystyä ohjaamaan yhdistettyä OBS-instanssia. Jos tietokone tai asetustiedosto
 paljastuu, kierrätä OBS-tunnus VISPissä ja tee yhdistäminen uudelleen. Kierrätys
-katkaisee vanhojen lisäosa-asetusten yhteyden niiden seuraavalla kyselyllä.
+katkaisee vanhojen lisäosa-asetusten yhteyden heti tai niiden seuraavalla tilaraportilla.
 
 Hallintapaneelin pitäisi näyttää tila **Connected** muutamassa sekunnissa. Jos
 näin ei käy, varmista, että OBS-kone pääsee VISP-sovelluksen julkiseen
@@ -143,8 +143,8 @@ olevan henkilön nähtäväksi, jos se on mahdollista.
 6. Paina pysäytystä kerran ja varmista lopputulos sekä OBS:stä että palvelusta.
 
 Älä napauta painiketta toistuvasti komennon odottaessa. Sovellus estää
-päällekkäiset komennot, ja lisäosa saa yhdellä kyselyllä korkeintaan yhden
-odottavan ohjeen. VISP kertoo komennon välityksestä ja OBS:n tilasta, mutta se
+päällekkäiset komennot, ja lisäosa saa uusimman odottavan tilan reaaliaikaisen
+yhteyden kautta. VISP kertoo komennon välityksestä ja OBS:n tilasta, mutta se
 ei voi luvata, että Twitch tai Kick hyväksyi lähtevän kuvan tai että katsojien
 video on kunnossa. Pidä palvelun oma hallintapaneeli erillisenä tarkistuksena.
 
@@ -160,21 +160,19 @@ Ohjausreitti on tarkoituksella epäsuora:
 1. Tunnistettu puhelin lähettää käynnistys-, pysäytys- tai kohtauspyynnön
    HTTPS:llä VISP-sovellukselle.
 2. VISP tallentaa tilille halutun tilan.
-3. Yhdistetty OBS-lisäosa lähettää ulospäin HTTPS-ohjauskyselyn noin kahden
-   sekunnin välein. Se raportoi lähetyksen tilan, kohtausnimet ja nykyisen
-   kohtauksen.
-4. VISP palauttaa vastauksessa korkeintaan yhden odottavan komennon.
-5. Lisäosa suorittaa komennon OBS:ssä ja kuittaa komentoversion myöhemmässä
-   kyselyssä.
+3. Yhdistetty OBS-lisäosa hakee HTTPS:llä 30 sekuntia voimassa olevan
+   kertakäyttölipun ja avaa ulospäin WSS-yhteyden.
+4. Lisäosa raportoi lähetyksen tilan ja kohtaukset muutosten yhteydessä sekä
+   viiden sekunnin sykkeellä. VISP lähettää uusimman komennon heti.
+5. Lisäosa suorittaa komennon OBS:ssä ja kuittaa komentoversion vasta, kun OBS
+   on saavuttanut pyydetyn tilan.
 
-Koska OBS aloittaa jokaisen ohjauspyynnön, lisäosa ei avaa internetiin
-kuuntelevaa porttia eikä tarvitse reitittimen porttiohjausta. Tavallisen
-komennon saapuminen OBS:ään kestää enintään noin kaksi sekuntia. Ratkaisu sopii
-harkittuihin leikkauksiin ja lähetyksen ohjaamiseen, ei kuvaruudun tarkkaan
-vaihtamiseen.
+Koska OBS avaa yhteyden ulospäin, lisäosa ei avaa internetiin kuuntelevaa porttia
+eikä tarvitse reitittimen porttiohjausta. Komennot välitetään heti, mutta
+internetin ja OBS:n viiveet estävät silti kuvaruudun tarkan vaihtamisen.
 
 Konetunnus on yleistä VISP-istuntoa rajatumpi: se tukee lisäosan laite- ja Media
-Source -työnkulkua sekä ohjauskyselyä, mutta ei anna pääsyä tilin tai
+Source -työnkulkua sekä reaaliaikaista ohjausyhteyttä, mutta ei anna pääsyä tilin tai
 palveluntarjoajan muuhun hallintaan. Puhelin käyttää komentojen pyytämiseen omaa
 tunnistettua käyttäjäistuntoaan.
 
@@ -182,7 +180,7 @@ tunnistettua käyttäjäistuntoaan.
 
 Mikään internet-etäohjaus ei ole hätätakuu. Komento ei saavu perille, jos
 kenttäpuhelimen datayhteys katoaa, VISP-sovelluspalvelin ei vastaa, kotiyhteys
-katkeaa, OBS sulkeutuu tai lisäosa lakkaa kyselemästä. **Offline** tarkoittaa,
+katkeaa, OBS sulkeutuu tai lisäosan WSS-yhteys katkeaa. **Offline** tarkoittaa,
 että pitää siirtyä varasuunnitelmaan, ei painaa nappia uudelleen.
 
 Pidä kriittinen toiminta paikallisena OBS-koneella:
@@ -207,7 +205,7 @@ ristiin.
 
 Etäohjaus ei muuta videon reittiä. VISP-puhelin voi julkaista H.264-videota ja
 AAC-ääntä SRT:llä samalla kun ohjauspyynnöt kulkevat sovellusrajapinnan ja
-OBS-lisäosan HTTPS-kyselyiden kautta. OBS koostaa edelleen valmiit kohtaukset ja
+OBS-lisäosan todennetun WSS-yhteyden kautta. OBS koostaa edelleen valmiit kohtaukset ja
 lähettää ohjelman Twitchiin tai Kickiin.
 
 VISP **ei transkoodaa videota eikä yhdistä verkkoyhteyksiä**. Se ei voi laskea
@@ -226,7 +224,7 @@ sen Twitch- tai Kick-julkaisutunnusta.
 ### Puhelin näyttää OBS:n olevan offline-tilassa
 
 Avaa kotikoneella **Tools → VISP Remote Control** ja varmista, että lisäosa on
-yhdistetty. Tarkista ulospäin toimiva HTTPS-yhteys ja se, ettei tietokone ole
+yhdistetty. Tarkista ulospäin toimiva HTTPS/WSS-yhteys ja se, ettei tietokone ole
 siirtynyt lepotilaan. Jos tunnus on kierrätetty, yhdistä uudelleen. Vanhan
 asetuksen kuuluukin silloin katkaista yhteys.
 
@@ -239,22 +237,22 @@ vaatii paikallista kuittausta.
 
 ### Kohtausluettelo on tyhjä tai vanhentunut
 
-Pidä OBS käynnissä ja yhteydessä seuraavaan kyselyyn asti. Nimeä kohtaukset
+Pidä OBS käynnissä ja yhteydessä seuraavaan tilaraporttiin asti. Nimeä kohtaukset
 OBS:ssä, ei puhelimessa. Jos yhdistäminen ei päivity, avaa lisäosaikkuna ja tee
 paritus uudelleen vanhaan luetteloon luottamisen sijaan.
 
 ### Kohtaus vaihtui odotettua myöhemmin
 
-Varaa seuraavaan lisäosakyselyyn noin kaksi sekuntia äläkä lähetä nopeita
-peräkkäisiä komentoja. Käytä paikan päällä olevaa tuottajaa tai paikallista
-ohjausta, kun ajoituksen pitää olla tarkka.
+Tarkista yhteyden laatu äläkä lähetä uutta komentoa edellisen odottaessa. Käytä
+paikan päällä olevaa tuottajaa tai paikallista ohjausta, kun ajoituksen pitää
+olla tarkka.
 
 ## Usein kysyttyä
 
 ### Pitääkö VISPiä varten avata portti 4455?
 
 Ei. Portti 4455 on OBS WebSocket 5.x:n oletusportti. VISP-lisäosa käyttää omaa
-ulospäin suuntautuvaa HTTPS-kyselyään eikä avaa OBS:lle tulevaa ohjausporttia.
+todennettua ulospäin suuntautuvaa WSS-yhteyttään eikä avaa OBS:lle tulevaa ohjausporttia.
 
 ### Korvaako VISP OBS WebSocketin?
 

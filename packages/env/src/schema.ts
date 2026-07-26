@@ -6,6 +6,8 @@ const encryptionKey = z.string().refine((value) => {
 }, "Must be a base64-encoded 32-byte key");
 
 export const serverEnvSchema = {
+	ADMIN_ORIGIN: z.url(),
+	ADMIN_USER_IDS: z.string().default(""),
 	AI_GATEWAY_API_KEY: z.string().min(1),
 	DATABASE_URL: z.string().min(1),
 	/** PEM path for managed Postgres CA verification (e.g. UpCloud). */
@@ -18,6 +20,7 @@ export const serverEnvSchema = {
 	KICK_CLIENT_SECRET: z.string().min(1),
 	MEDIAMTX_API_URL: z.url(),
 	NATIVE_WEB_ORIGIN: z.url(),
+	OBS_REMOTE_WEB_ORIGIN: z.url().optional(),
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
 		.default("development"),
