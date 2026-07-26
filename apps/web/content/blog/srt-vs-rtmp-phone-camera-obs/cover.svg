@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="A solid line and a dashed line leave a phone marker, meet a relay block and an OBS block, and end at a red destination dot">
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <text x="70" y="88" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="5">CONTRIBUTION PROTOCOLS / OBS</text>
+  <line x1="70" y1="116" x2="1130" y2="116" stroke="#2a2f36" stroke-width="2"/>
+
+  <text x="70" y="204" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="66" font-weight="700">SRT VS RTMP</text>
+  <text x="70" y="282" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="66" font-weight="700">FOR A PHONE CAMERA</text>
+  <text x="70" y="360" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="66" font-weight="700">IN <tspan fill="#7fb8c4">OBS</tspan></text>
+  <text x="70" y="418" fill="#9299a3" font-family="monospace" font-size="22">SRT BY DEFAULT — RTMP WHEN UDP IS BLOCKED</text>
+
+  <circle cx="78" cy="500" r="9" fill="#7fb8c4"/>
+  <path d="M78 500 H300" fill="none" stroke="#7fb8c4" stroke-width="4"/>
+  <circle cx="78" cy="545" r="9" fill="#c9a35b"/>
+  <path d="M78 545 H300" fill="none" stroke="#c9a35b" stroke-width="4" stroke-dasharray="16 11"/>
+  <rect x="300" y="485" width="95" height="75" rx="8" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <path d="M395 522 H470" fill="none" stroke="#f2f3f5" stroke-width="4"/>
+  <rect x="470" y="485" width="130" height="75" rx="8" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <rect x="492" y="505" width="86" height="36" fill="#151a20"/>
+  <path d="M600 522 H655" fill="none" stroke="#737b87" stroke-width="3"/>
+  <circle cx="665" cy="522" r="9" fill="#d24b4b"/>
+  <text x="694" y="530" fill="#9299a3" font-family="monospace" font-size="21">TWITCH / KICK</text>
+
+  <text x="70" y="605" fill="#737b87" font-family="monospace" font-size="20">PHONE -&gt; VISP RELAY -&gt; OBS -&gt; PLATFORM INGEST</text>
+</svg>

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-label="A field phone reaches the VISP relay over SRT on UDP 8890 by default or over RTMP on TCP 1935 as a fallback, the relay hands one authenticated feed to OBS, and OBS sends the finished broadcast to Twitch or Kick over RTMP">
+  <rect width="1600" height="900" fill="#0b0d10"/>
+  <text x="80" y="96" fill="#9299a3" font-family="monospace" font-size="26" letter-spacing="6">PROTOCOL CHOICE</text>
+  <text x="80" y="150" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="46" font-weight="700">One relay path, two ways to reach it</text>
+  <line x1="80" y1="182" x2="1520" y2="182" stroke="#2a2f36" stroke-width="2"/>
+
+  <!-- Field phone -->
+  <rect x="90" y="380" width="150" height="230" rx="14" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <rect x="118" y="418" width="94" height="150" fill="#151a20"/>
+  <text x="165" y="668" fill="#9299a3" font-family="monospace" font-size="22" text-anchor="middle">FIELD PHONE</text>
+  <text x="165" y="694" fill="#737b87" font-family="monospace" font-size="18" text-anchor="middle">H.264 · AAC · CBR</text>
+
+  <!-- Default SRT path -->
+  <path d="M240 450 H700" fill="none" stroke="#7fb8c4" stroke-width="4"/>
+  <text x="256" y="432" fill="#7fb8c4" font-family="monospace" font-size="20">SRT · UDP 8890 · DEFAULT</text>
+  <text x="256" y="412" fill="#737b87" font-family="monospace" font-size="17">packet recovery · latency you set</text>
+
+  <!-- Fallback RTMP path -->
+  <path d="M240 545 H700" fill="none" stroke="#c9a35b" stroke-width="4" stroke-dasharray="18 12"/>
+  <text x="256" y="578" fill="#c9a35b" font-family="monospace" font-size="20">RTMP · TCP 1935 · FALLBACK</text>
+  <text x="256" y="600" fill="#737b87" font-family="monospace" font-size="17">use when the network blocks UDP</text>
+
+  <!-- VISP relay -->
+  <rect x="700" y="390" width="300" height="210" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="850" y="460" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="30" font-weight="700" text-anchor="middle">VISP RELAY</text>
+  <text x="850" y="497" fill="#9299a3" font-family="monospace" font-size="20" text-anchor="middle">ONE PUBLISHER PER PATH</text>
+  <text x="850" y="527" fill="#737b87" font-family="monospace" font-size="17" text-anchor="middle">no transcode · no bonding</text>
+  <text x="850" y="556" fill="#737b87" font-family="monospace" font-size="17" text-anchor="middle">revocable credential</text>
+
+  <!-- Relay out to OBS -->
+  <path d="M1000 495 H1130" fill="none" stroke="#f2f3f5" stroke-width="4"/>
+  <text x="1006" y="477" fill="#9299a3" font-family="monospace" font-size="18">READ URL</text>
+
+  <!-- OBS studio -->
+  <rect x="1130" y="390" width="270" height="210" rx="10" fill="none" stroke="#f2f3f5" stroke-width="3"/>
+  <text x="1265" y="470" fill="#f2f3f5" font-family="Arial, sans-serif" font-size="32" font-weight="700" text-anchor="middle">OBS STUDIO</text>
+  <text x="1265" y="507" fill="#9299a3" font-family="monospace" font-size="20" text-anchor="middle">MEDIA SOURCE</text>
+  <text x="1265" y="537" fill="#737b87" font-family="monospace" font-size="17" text-anchor="middle">scenes · alerts · audio</text>
+
+  <!-- Output to platforms -->
+  <path d="M1265 600 V700" fill="none" stroke="#737b87" stroke-width="3"/>
+  <circle cx="1265" cy="700" r="10" fill="#d24b4b"/>
+  <text x="1290" y="706" fill="#9299a3" font-family="monospace" font-size="22">TWITCH / KICK</text>
+  <text x="1290" y="732" fill="#737b87" font-family="monospace" font-size="17">RTMP ingest</text>
+  <text x="1290" y="756" fill="#737b87" font-family="monospace" font-size="17">key stays in OBS</text>
+
+  <!-- Legs -->
+  <text x="80" y="806" fill="#7fb8c4" font-family="monospace" font-size="20">CONTRIBUTION LEG — you choose the protocol</text>
+  <text x="80" y="838" fill="#c9a35b" font-family="monospace" font-size="20">DISTRIBUTION LEG — the platform chooses it for you</text>
+</svg>
