@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Lakiasiat"
 			title="Tietosuojaseloste"
 			description="Tässä selosteessa kuvataan, miten VISP käsittelee henkilötietoja käyttäessäsi verkkosivustoa, hallintapaneelia, mobiilisovelluksia ja suoratoiston relay-palveluja."
-			updated="19. heinäkuuta 2026"
+			updated="26. heinäkuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Rekisterinpitäjä</h2>
@@ -65,7 +65,9 @@ function PrivacyPage() {
 					</li>
 					<li>
 						<strong>Toimintamittaukset</strong>: tiliisi liittyvät yhteys- ja
-						viivehavainnot (RTT).
+						viivehavainnot (RTT) sekä relay-istuntojen alku- ja loppuajat,
+						julkaisulaite, lähdetyyppi ja laskettu kesto. VISP ei tallenna
+						suoratoistettua ääntä tai videota.
 					</li>
 					<li>
 						<strong>Hallintapaneelin tilannekuvat</strong>: yksi yksityinen,
@@ -141,6 +143,10 @@ function PrivacyPage() {
 					<li>
 						Tili- ja määritystiedot säilytetään tilin ollessa aktiivinen ja
 						poistetaan aktiivijärjestelmistä tilin poistamisen yhteydessä.
+					</li>
+					<li>
+						Relay-istuntojen metatiedot ja käyttömäärät säilytetään tilin
+						ollessa aktiivinen ja poistetaan tilin mukana.
 					</li>
 					<li>
 						Tilannekuvat korvataan lähetyksen aikana ja vanhenevat noin

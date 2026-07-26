@@ -1,7 +1,9 @@
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, lte, sql } from "drizzle-orm";
+import type { ObsCommand, ObsStateReport, ObsStatus } from "./obs-live";
+import { obsLiveHub } from "./obs-live";
 
 const CONNECTED_FOR_MS = 10_000;
 const TOKEN_ID_BYTES = 12;
@@ -21,14 +23,34 @@ export function parseObsControlToken(value: string | undefined) {
 		: null;
 }
 
-function controlStatus(owner: typeof appUser.$inferSelect) {
+type ObsControlRow = Pick<
+	typeof appUser.$inferSelect,
+	| "obsControlTokenHash"
+	| "obsDesiredStreaming"
+	| "obsStreaming"
+	| "obsScenes"
+	| "obsCurrentScene"
+	| "obsDesiredScene"
+	| "obsCommandVersion"
+	| "obsAppliedVersion"
+	| "obsLastSeenAt"
+>;
+
+export function obsControlStatus(
+	owner: ObsControlRow,
+	now = Date.now(),
+): ObsStatus {
+	const connectedUntil = owner.obsLastSeenAt
+		? new Date(owner.obsLastSeenAt.getTime() + CONNECTED_FOR_MS).toISOString()
+		: null;
 	const connected = Boolean(
 		owner.obsLastSeenAt &&
-			Date.now() - owner.obsLastSeenAt.getTime() < CONNECTED_FOR_MS,
+			now < owner.obsLastSeenAt.getTime() + CONNECTED_FOR_MS,
 	);
 	return {
 		configured: Boolean(owner.obsControlTokenHash),
 		connected,
+		connectedUntil,
 		streaming: owner.obsStreaming,
 		desiredStreaming: owner.obsDesiredStreaming,
 		scenes: owner.obsScenes,
@@ -36,6 +58,16 @@ function controlStatus(owner: typeof appUser.$inferSelect) {
 		desiredScene: owner.obsDesiredScene,
 		pending: owner.obsAppliedVersion < owner.obsCommandVersion,
 		lastSeenAt: owner.obsLastSeenAt?.toISOString() ?? null,
+		commandVersion: owner.obsCommandVersion,
+		appliedVersion: owner.obsAppliedVersion,
+	};
+}
+
+function controlCommand(owner: ObsControlRow): ObsCommand {
+	return {
+		commandVersion: owner.obsCommandVersion,
+		desiredStreaming: owner.obsDesiredStreaming,
+		desiredScene: owner.obsDesiredScene,
 	};
 }
 
@@ -44,7 +76,14 @@ export async function getObsControlStatus(userId: string) {
 		where: eq(appUser.id, userId),
 	});
 	if (!owner) throw new Error("Relay user not found");
-	return controlStatus(owner);
+	return obsControlStatus(owner);
+}
+
+export async function getObsControlCommand(userId: string, tokenId: string) {
+	const owner = await db.query.appUser.findFirst({
+		where: and(eq(appUser.id, userId), eq(appUser.obsControlTokenId, tokenId)),
+	});
+	return owner ? controlCommand(owner) : null;
 }
 
 export async function rotateObsControlToken(userId: string) {
@@ -68,7 +107,9 @@ export async function rotateObsControlToken(userId: string) {
 		.where(eq(appUser.id, userId))
 		.returning();
 	if (!owner) throw new Error("Relay user not found");
-	return { token: `${id}.${secret}`, status: controlStatus(owner) };
+	const status = obsControlStatus(owner);
+	obsLiveHub.publishStatus(userId, status);
+	return { token: `${id}.${secret}`, status };
 }
 
 export async function authenticateObsControlToken(
@@ -105,6 +146,7 @@ export async function revokeObsControlToken(userId: string) {
 		})
 		.where(eq(appUser.id, userId))
 		.returning();
+	if (owner) obsLiveHub.publishStatus(userId, obsControlStatus(owner));
 	return Boolean(owner);
 }
 
@@ -118,47 +160,51 @@ export async function setObsStreaming(userId: string, streaming: boolean) {
 		.where(eq(appUser.id, userId))
 		.returning();
 	if (!owner) throw new Error("Relay user not found");
-	return controlStatus(owner);
+	const status = obsControlStatus(owner);
+	obsLiveHub.publishStatus(userId, status);
+	if (owner.obsControlTokenId) {
+		obsLiveHub.publishCommand(
+			userId,
+			owner.obsControlTokenId,
+			controlCommand(owner),
+		);
+	}
+	return status;
 }
 
 export async function setObsScene(userId: string, scene: string) {
-	const owner = await db.query.appUser.findFirst({
-		where: eq(appUser.id, userId),
-	});
-	if (!owner) throw new Error("Relay user not found");
-	if (!owner.obsScenes.includes(scene)) return null;
 	const [updated] = await db
 		.update(appUser)
 		.set({
 			obsDesiredScene: scene,
 			obsCommandVersion: sql`${appUser.obsCommandVersion} + 1`,
 		})
-		.where(eq(appUser.id, userId))
+		.where(
+			and(eq(appUser.id, userId), sql`${scene} = any(${appUser.obsScenes})`),
+		)
 		.returning();
-	return updated ? controlStatus(updated) : null;
+	if (!updated) return null;
+	const status = obsControlStatus(updated);
+	obsLiveHub.publishStatus(userId, status);
+	if (updated.obsControlTokenId) {
+		obsLiveHub.publishCommand(
+			userId,
+			updated.obsControlTokenId,
+			controlCommand(updated),
+		);
+	}
+	return status;
 }
 
-export async function pollObsControl(
-	authorization: string | undefined,
-	input: {
-		appliedVersion: number;
-		streaming: boolean;
-		scenes: string[];
-		currentScene: string | null;
-	},
+export async function reportObsControlState(
+	userId: string,
+	tokenId: string,
+	input: ObsStateReport,
 ) {
-	const owner = await authenticateObsControlToken(authorization);
-	if (!owner) return null;
-
-	// ponytail: one heartbeat write per poll is fine for v1; use leases or long-polling when connection count becomes material.
-	const appliedVersion = Math.min(
-		input.appliedVersion,
-		owner.obsCommandVersion,
-	);
-	const desiredScene =
-		appliedVersion >= owner.obsCommandVersion
-			? input.currentScene
-			: owner.obsDesiredScene;
+	const appliedVersion = sql<number>`greatest(${appUser.obsAppliedVersion}, least(${input.appliedVersion}, ${appUser.obsCommandVersion}))`;
+	const desiredScene = sql<
+		string | null
+	>`case when ${appliedVersion} >= ${appUser.obsCommandVersion} then ${input.currentScene} else ${appUser.obsDesiredScene} end`;
 	const [updated] = await db
 		.update(appUser)
 		.set({
@@ -169,13 +215,29 @@ export async function pollObsControl(
 			obsDesiredScene: desiredScene,
 			obsLastSeenAt: new Date(),
 		})
-		.where(eq(appUser.id, owner.id))
+		.where(
+			and(
+				eq(appUser.id, userId),
+				eq(appUser.obsControlTokenId, tokenId),
+				lte(appUser.obsAppliedVersion, input.appliedVersion),
+			),
+		)
 		.returning();
-	if (!updated) return null;
-	return {
-		commandVersion: updated.obsCommandVersion,
-		desiredStreaming: updated.obsDesiredStreaming,
-		desiredScene: updated.obsDesiredScene,
-		pollAfterMs: 2000,
-	};
+	if (!updated) return getObsControlCommand(userId, tokenId);
+	obsLiveHub.publishStatus(userId, obsControlStatus(updated));
+	return controlCommand(updated);
+}
+
+export async function pollObsControl(
+	authorization: string | undefined,
+	input: ObsStateReport,
+) {
+	const owner = await authenticateObsControlToken(authorization);
+	if (!owner?.obsControlTokenId) return null;
+	const command = await reportObsControlState(
+		owner.id,
+		owner.obsControlTokenId,
+		input,
+	);
+	return command ? { ...command, pollAfterMs: 2000 } : null;
 }

@@ -1,5 +1,9 @@
 import { db } from "@VISP/db";
-import { pathState, relayPath } from "@VISP/db/schema/index";
+import {
+	pathState,
+	relayPath,
+	relayStreamSession,
+} from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { CLEARED_LINK_STATS } from "./link-stats";
@@ -20,24 +24,46 @@ export async function applyPathHook(
 	const now = new Date();
 	if (event === "ready" || event === "not-ready") {
 		const publishing = event === "ready";
-		await db
-			.insert(pathState)
-			.values({
-				pathId: path.id,
-				publishing,
-				readerCount: 0,
-				sourceType: publishing ? input.sourceType : null,
-				lastEventAt: now,
-			})
-			.onConflictDoUpdate({
-				target: pathState.pathId,
-				set: {
+		await db.transaction(async (tx) => {
+			await tx
+				.insert(pathState)
+				.values({
+					pathId: path.id,
 					publishing,
+					readerCount: 0,
 					sourceType: publishing ? input.sourceType : null,
 					lastEventAt: now,
-					...(publishing ? {} : CLEARED_LINK_STATS),
-				},
-			});
+				})
+				.onConflictDoUpdate({
+					target: pathState.pathId,
+					set: {
+						publishing,
+						sourceType: publishing ? input.sourceType : null,
+						lastEventAt: now,
+						...(publishing ? {} : CLEARED_LINK_STATS),
+					},
+				});
+			if (publishing) {
+				await tx
+					.insert(relayStreamSession)
+					.values({
+						pathId: path.id,
+						sourceType: input.sourceType,
+						startedAt: now,
+					})
+					.onConflictDoNothing();
+			} else {
+				await tx
+					.update(relayStreamSession)
+					.set({ endedAt: now })
+					.where(
+						and(
+							eq(relayStreamSession.pathId, path.id),
+							isNull(relayStreamSession.endedAt),
+						),
+					);
+			}
+		});
 		return true;
 	}
 
@@ -110,6 +136,26 @@ export async function reconcilePathState(apiUrl = env.MEDIAMTX_API_URL) {
 						...(publishing ? {} : CLEARED_LINK_STATS),
 					},
 				});
+			if (publishing) {
+				await tx
+					.insert(relayStreamSession)
+					.values({
+						pathId: path.id,
+						sourceType: state?.source?.type,
+						startedAt: now,
+					})
+					.onConflictDoNothing();
+			} else {
+				await tx
+					.update(relayStreamSession)
+					.set({ endedAt: now })
+					.where(
+						and(
+							eq(relayStreamSession.pathId, path.id),
+							isNull(relayStreamSession.endedAt),
+						),
+					);
+			}
 		}
 	});
 }

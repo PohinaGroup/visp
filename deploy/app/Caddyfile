@@ -39,6 +39,13 @@
 	}
 }
 
+{$ADMIN_DOMAIN} {
+	root * /opt/visp/apps/admin/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
 {$NATIVE_WEB_DOMAIN} {
 	root * /opt/visp/apps/native/dist
 	encode zstd gzip

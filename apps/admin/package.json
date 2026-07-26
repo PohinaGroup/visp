@@ -1,0 +1,45 @@
+{
+	"name": "admin",
+	"private": true,
+	"version": "0.0.0",
+	"type": "module",
+	"scripts": {
+		"dev": "portless run --force",
+		"dev:app": "vite",
+		"build": "tsc -b && vite build",
+		"check-types": "tsc -b",
+		"lint": "oxlint",
+		"preview": "vite preview"
+	},
+	"dependencies": {
+		"@VISP/api": "workspace:*",
+		"@VISP/auth": "workspace:*",
+		"@VISP/ui": "workspace:*",
+		"@tanstack/react-query": "^5.101.2",
+		"@trpc/client": "catalog:",
+		"better-auth": "catalog:",
+		"lucide-react": "catalog:",
+		"react": "catalog:",
+		"react-dom": "catalog:",
+		"sonner": "catalog:"
+	},
+	"devDependencies": {
+		"@tailwindcss/vite": "^4.3.2",
+		"@babel/core": "^7.29.7",
+		"@rolldown/plugin-babel": "^0.2.3",
+		"@types/babel__core": "^7.20.5",
+		"@types/node": "^24.13.2",
+		"@types/react": "catalog:",
+		"@types/react-dom": "catalog:",
+		"@vitejs/plugin-react": "^6.0.3",
+		"babel-plugin-react-compiler": "^1.0.0",
+		"oxlint": "^1.71.0",
+		"tailwindcss": "catalog:",
+		"typescript": "catalog:",
+		"vite": "^8.1.1"
+	},
+	"portless": {
+		"name": "admin.visp",
+		"script": "dev:app"
+	}
+}

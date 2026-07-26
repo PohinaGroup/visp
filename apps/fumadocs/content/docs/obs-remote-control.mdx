@@ -6,9 +6,9 @@ icon: Plug
 
 The VISP plugin for OBS Studio 31 connects your VISP account directly to OBS.
 It lists publishing devices, adds relay feeds to scenes, can configure this OBS
-installation as a publishing device, and lets the web or phone app control the
-stream remotely. OBS never opens an inbound port and no port forwarding is
-needed.
+installation as a publishing device, and lets the portal, Native app, or
+dedicated VISP OBS Remote app control the stream. OBS never opens an inbound
+port and no port forwarding is needed.
 
 Pairing is step 4 of [Get started](/docs/get-started). This page covers
 install details, security, and recovery.
@@ -56,10 +56,11 @@ VISP never receives the replaced provider key.
 - The machine token is random and 256-bit. VISP stores only its SHA-256 hash
   and compares in constant time.
 - Rotating the token in the dashboard disconnects every previously paired OBS
-  configuration at its next poll.
+  configuration immediately or on its next state write.
 - Treat `config.ini` as a machine credential: anyone holding it can start and
   stop your stream. Rotate immediately if it is exposed.
-- Transport is ordinary HTTPS with normal TLS certificate verification through
+- Pairing and ticket acquisition use HTTPS; live state and commands use
+  authenticated outbound WSS with normal TLS certificate verification through
   OBS's bundled Qt network stack.
 - The token can list and create publishing devices and obtain read URLs, but it
   cannot manage unrelated account or provider settings. Treat `config.ini` and
@@ -67,20 +68,22 @@ VISP never receives the replaced provider key.
 
 ## How commands flow
 
-Every two seconds the plugin reports its state — streaming or not, the scene
-list, and the current scene — and receives at most one pending command in
-return. The dashboard marks the pairing **Connected** while polls are under
-ten seconds old, and shows a live snapshot tile for each publishing path so
-you can see what OBS would broadcast before pressing start.
+The plugin requests a 30-second, one-use WebSocket ticket with its machine token
+and opens an outbound WSS connection. It reports streaming state, scenes, and
+the current scene immediately after relevant OBS changes and on five-second
+heartbeats. VISP pushes pending start, stop, or scene commands immediately and
+the plugin acknowledges them only after OBS reaches the requested state.
 
-Because commands ride on the next poll, a start or stop takes at most about
-two seconds to reach OBS.
+OBS Remote authenticates as the broadcaster's normal VISP account, obtains its
+own one-use ticket, and receives the same status updates over WSS. Commands stay
+authenticated tRPC mutations and PostgreSQL remains the recovery source if a
+socket disconnects.
 
 ## Troubleshooting
 
-- **Never connects:** verify `control_url` points at the public app origin and
-  that the machine can reach it over HTTPS; the endpoint is authenticated by
-  the token, not by network location.
+- **Never connects:** verify `control_url` points at the public app origin, HTTPS
+  ticket acquisition works, and the reverse proxy permits WSS upgrades under
+  `/api/obs/*`.
 - **Was connected, stopped after a rotation:** expected — re-pair with the new
   token.
 - **Start does nothing in OBS:** configure a streaming service and key in OBS

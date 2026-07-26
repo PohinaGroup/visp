@@ -10,11 +10,14 @@ cd "$root"
 version="$(git show :apps/native/app.json | jq -r .expo.version)"
 native_version="$(git show :apps/native/package.json | jq -r .version)"
 obs_version="$(git show :apps/obs-plugin/buildspec.json | jq -r .version)"
+obs_remote_app_version="$(git show :apps/obs-remote/app.json | jq -r .expo.version)"
+obs_remote_package_version="$(git show :apps/obs-remote/package.json | jq -r .version)"
 ios_versions="$(git show :apps/native/ios/VISP.xcodeproj/project.pbxproj |
 	sed -nE 's/^[[:space:]]*MARKETING_VERSION = ([^;]+);/\1/p' | sort -u)"
 
-if [[ "$native_version" != "$version" || "$obs_version" != "$version" || "$ios_versions" != "$version" ]]; then
-	echo "error: staged release versions do not match (Expo=$version, native=$native_version, iOS=$ios_versions, OBS=$obs_version)" >&2
+if [[ "$native_version" != "$version" || "$obs_version" != "$version" || "$ios_versions" != "$version" ||
+	"$obs_remote_app_version" != "$version" || "$obs_remote_package_version" != "$version" ]]; then
+	echo "error: staged release versions do not match (Expo=$version, native=$native_version, iOS=$ios_versions, OBS=$obs_version, OBS Remote app=$obs_remote_app_version, OBS Remote package=$obs_remote_package_version)" >&2
 	exit 1
 fi
 

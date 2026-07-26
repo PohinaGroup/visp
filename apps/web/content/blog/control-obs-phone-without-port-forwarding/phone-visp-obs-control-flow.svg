@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
   <title id="title">VISP outbound OBS control path</title>
-  <desc id="desc">A phone sends an authenticated command to the VISP app, and the OBS plugin receives it in the response to its outbound HTTPS poll.</desc>
+  <desc id="desc">A phone sends an authenticated command to the VISP app, which pushes it to the OBS plugin over an authenticated outbound WebSocket.</desc>
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#081323"/>
@@ -44,9 +44,9 @@
   <path d="M440 390C520 330 568 330 645 380" fill="none" stroke="#58b7ff" stroke-width="8" stroke-dasharray="18 14" marker-end="url(#arrowBlue)"/>
   <text x="540" y="308" fill="#a8dfff" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Authenticated command</text>
   <path d="M1120 455C1040 520 985 518 955 480" fill="none" stroke="#6ce3a1" stroke-width="8" stroke-dasharray="18 14" marker-end="url(#arrowGreen)"/>
-  <text x="1040" y="570" fill="#9ff1bd" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Outbound HTTPS poll</text>
+  <text x="1040" y="570" fill="#9ff1bd" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">State + heartbeat (WSS)</text>
   <path d="M955 380C1010 330 1060 335 1120 390" fill="none" stroke="#58b7ff" stroke-width="8" marker-end="url(#arrowBlue)"/>
-  <text x="1040" y="308" fill="#a8dfff" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Command response</text>
+  <text x="1040" y="308" fill="#a8dfff" font-family="system-ui,sans-serif" font-size="25" text-anchor="middle">Pushed command (WSS)</text>
   <g transform="translate(155 760)" font-family="system-ui,sans-serif" font-size="26">
     <circle cx="14" cy="-8" r="10" fill="#6ce3a1"/><text x="42" fill="#d7e4f4">No inbound OBS port</text>
     <circle cx="510" cy="-8" r="10" fill="#58b7ff"/><text x="538" fill="#d7e4f4">Start, stop, or switch scene</text>

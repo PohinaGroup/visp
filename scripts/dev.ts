@@ -83,6 +83,10 @@ async function main() {
 	const webFile = parse(
 		await prepareFile(`${root}/apps/web/.env`, `${root}/apps/web/.env.example`),
 	);
+	await prepareFile(
+		`${root}/apps/obs-remote/.env.local`,
+		`${root}/apps/obs-remote/.env.example`,
+	);
 	const missingProviders = [
 		"KICK_CLIENT_ID",
 		"KICK_CLIENT_SECRET",
@@ -97,6 +101,8 @@ async function main() {
 
 	const localServer = {
 		...serverFile,
+		ADMIN_ORIGIN: "https://admin.visp.localhost",
+		ADMIN_USER_IDS: serverFile.ADMIN_USER_IDS ?? "",
 		DATABASE_URL: "postgresql://visp:visp@127.0.0.1:54320/visp",
 		BETTER_AUTH_URL: "https://api.visp.localhost",
 		CORS_ORIGIN: "https://visp.localhost",
@@ -104,6 +110,7 @@ async function main() {
 		KICK_CLIENT_SECRET: serverFile.KICK_CLIENT_SECRET || "local-unconfigured",
 		MEDIAMTX_API_URL: "http://127.0.0.1:9997",
 		NATIVE_WEB_ORIGIN: "http://127.0.0.1:8081",
+		OBS_REMOTE_WEB_ORIGIN: "http://localhost:8083",
 		NODE_ENV: "development",
 		RELAY_HOST: "relay.visp.localhost",
 		RELAY_PING_URL: "https://relay.visp.localhost/ping",
@@ -130,6 +137,7 @@ async function main() {
 		...process.env,
 		...localServer,
 		...localWeb,
+		EXPO_PUBLIC_SERVER_URL: "https://api.visp.localhost",
 	};
 	run(["docker", "compose", "version"], env);
 	run(["bun", "x", "portless", "proxy", "start"], env);
@@ -138,13 +146,15 @@ async function main() {
 		run(["bun", "x", "portless", "alias", name, "8082", "--force"], env);
 	}
 	run(["docker", "compose", "up", "--detach", "--wait", "--build"], env);
-	run(["bun", "run", "--cwd", "packages/db", "db:migrate"], env);
 
 	console.log("\nVISP local environment is ready:");
 	console.log("  Web:           https://visp.localhost");
 	console.log("  API:           https://api.visp.localhost");
+	console.log("  Admin:         https://admin.visp.localhost");
 	console.log("  Docs:          https://docs.visp.localhost");
+	console.log("  OBS Remote:    http://localhost:8083");
 	console.log("  Relay:         https://relay.visp.localhost");
+	console.log("  S3:            https://s3.visp.localhost");
 	console.log("  MinIO console: https://minio.visp.localhost\n");
 	const apps = Bun.spawn(
 		[
@@ -156,6 +166,10 @@ async function main() {
 			"web",
 			"--filter",
 			"fumadocs",
+			"--filter",
+			"admin",
+			"--filter",
+			"@VISP/obs-remote",
 			"--parallel",
 			"dev",
 		],

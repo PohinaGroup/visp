@@ -9,6 +9,7 @@ import {
 	setObsScene,
 	setObsStreaming,
 } from "../obs-control";
+import { obsLiveTickets } from "../obs-live";
 import {
 	buildMaskedPathUrls,
 	claimNativePublishDevice,
@@ -54,6 +55,9 @@ const pathIdInput = z.object({ pathId: z.number().int().positive() });
 
 export const relayRoutes = {
 	obs: router({
+		liveTicket: relayProcedure.mutation(({ ctx }) =>
+			obsLiveTickets.issue({ role: "user", userId: ctx.relayUser.id }),
+		),
 		status: relayProcedure.query(({ ctx }) =>
 			getObsControlStatus(ctx.relayUser.id),
 		),

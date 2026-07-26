@@ -12,6 +12,7 @@ import {
 	text,
 	timestamp,
 	unique,
+	uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 import { user } from "./auth";
@@ -133,6 +134,34 @@ export const pathState = pgTable(
 	],
 );
 
+export const relayStreamSession = pgTable(
+	"relay_stream_session",
+	{
+		id: bigserial("id", { mode: "number" }).primaryKey(),
+		pathId: bigint("path_id", { mode: "number" })
+			.notNull()
+			.references(() => relayPath.id, { onDelete: "cascade" }),
+		startedAt: timestamp("started_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		endedAt: timestamp("ended_at", { withTimezone: true }),
+		sourceType: text("source_type"),
+	},
+	(table) => [
+		index("relay_stream_session_path_started_idx").on(
+			table.pathId,
+			table.startedAt,
+		),
+		uniqueIndex("relay_stream_session_one_open_per_path")
+			.on(table.pathId)
+			.where(sql`${table.endedAt} is null`),
+		check(
+			"relay_stream_session_valid_range",
+			sql`${table.endedAt} is null or ${table.endedAt} >= ${table.startedAt}`,
+		),
+	],
+);
+
 export const rttSample = pgTable(
 	"rtt_sample",
 	{
@@ -162,9 +191,10 @@ export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	rttSamples: many(rttSample),
 }));
 
-export const relayPathRelations = relations(relayPath, ({ one }) => ({
+export const relayPathRelations = relations(relayPath, ({ one, many }) => ({
 	user: one(appUser, { fields: [relayPath.userId], references: [appUser.id] }),
 	state: one(pathState),
+	sessions: many(relayStreamSession),
 }));
 
 export const pathStateRelations = relations(pathState, ({ one }) => ({
@@ -173,6 +203,16 @@ export const pathStateRelations = relations(pathState, ({ one }) => ({
 		references: [relayPath.id],
 	}),
 }));
+
+export const relayStreamSessionRelations = relations(
+	relayStreamSession,
+	({ one }) => ({
+		path: one(relayPath, {
+			fields: [relayStreamSession.pathId],
+			references: [relayPath.id],
+		}),
+	}),
+);
 
 export const rttSampleRelations = relations(rttSample, ({ one }) => ({
 	user: one(appUser, { fields: [rttSample.userId], references: [appUser.id] }),

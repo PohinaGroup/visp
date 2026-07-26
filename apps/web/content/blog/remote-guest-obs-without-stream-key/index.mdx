@@ -116,8 +116,8 @@ comparison](/blog/vdo-ninja-vs-visp) before selecting the guest path.
 ## Keep OBS control separate too
 
 VISP can let an authenticated field operator send start, stop, and scene
-commands through the paired OBS plugin. The plugin polls over outbound HTTPS;
-OBS does not open an inbound control port to the internet.
+commands through the paired OBS plugin. The plugin receives them over an
+authenticated outbound WSS connection; OBS opens no inbound internet port.
 
 Do not grant remote production controls merely because someone can publish a
 camera. Publishing access and operator trust are different decisions. A
@@ -217,4 +217,3 @@ that separately and only when the guest is also a trusted operator.
 - [VISP OBS remote control](https://docs.visp-stream.com/docs/obs-remote-control)
 - [VISP architecture](https://docs.visp-stream.com/docs/architecture)
 - [VDO.Ninja documentation](https://docs.vdo.ninja/)
-
