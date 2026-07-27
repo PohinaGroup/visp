@@ -9,6 +9,7 @@ import {
 import { env } from "@VISP/env/server";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { uniqueViolation } from "./pg-errors";
 
 export { applyPathHook, reconcilePathState } from "./path-hooks";
 
@@ -46,12 +47,7 @@ function slugify(value: string) {
 }
 
 function isUniqueViolation(error: unknown) {
-	return (
-		typeof error === "object" &&
-		error !== null &&
-		"code" in error &&
-		(error as { code?: string }).code === "23505"
-	);
+	return uniqueViolation(error) !== null;
 }
 
 function normalizeLabel(label: string) {
@@ -271,9 +267,15 @@ export async function renamePath(
 }
 
 export async function revokePath(userId: string, pathId: number) {
+	// A revoked path owns no provider, which frees the owner's Direct slot.
 	const [revoked] = await db
 		.update(relayPath)
-		.set({ revokedAt: new Date(), nativeInstallationId: null })
+		.set({
+			revokedAt: new Date(),
+			nativeInstallationId: null,
+			directTwitch: false,
+			directKick: false,
+		})
 		.where(
 			and(
 				eq(relayPath.id, pathId),

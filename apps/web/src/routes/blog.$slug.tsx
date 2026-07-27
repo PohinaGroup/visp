@@ -162,8 +162,8 @@ export function BlogPostPage({
 					</h2>
 					<p className="mx-auto mt-3 max-w-xl text-muted-foreground">
 						{fi
-							? "Kokeile VISPiä ilmaiseksi betan ajan. Twitchin tai Kickin lähetysavaimesi pysyy kotona."
-							: "Try VISP free during beta. Your Twitch or Kick stream key stays at home."}
+							? "Kokeile VISPiä ilmaiseksi betan ajan. Lähetysavainta ei tarvitse liittää mihinkään."
+							: "Try VISP free during beta. You never have to paste a stream key anywhere."}
 					</p>
 					<Link
 						to="/login"

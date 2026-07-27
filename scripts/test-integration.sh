@@ -10,6 +10,9 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
+# The relay forwarder is bash, so its check is bash. No database needed.
+sh deploy/relay/visp-snapshot.test.sh
+
 docker compose --project-name "$compose_project" -f "$compose_file" up --detach --wait
 
 (

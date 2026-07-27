@@ -1,3 +1,4 @@
+import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -113,16 +114,21 @@ export function ConnectionsCard() {
 	);
 
 	const link = async (provider: "twitch" | "kick", chatConsent = false) => {
+		const granted =
+			connections.data?.find((entry) => entry.provider === provider)
+				?.grantedScopes ?? [];
 		const result =
 			provider === "twitch"
 				? await authClient.linkSocial({
 						provider,
 						callbackURL: authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`),
 						// Twitch tokens keep only the last-requested scopes, so always
-						// re-request the union or one feature's consent drops the other's.
-						scopes: chatConsent
-							? ["user:read:chat", "channel:manage:broadcast"]
-							: undefined,
+						// re-request the union of what is already granted.
+						scopes: linkScopes(
+							"twitch",
+							granted,
+							chatConsent ? PROVIDER_SCOPES.twitch.chat : [],
+						),
 					})
 				: await authClient.oauth2.link({
 						providerId: provider,
@@ -130,6 +136,7 @@ export function ConnectionsCard() {
 						errorCallbackURL: authRedirectURL(
 							`/dashboard?error=kick_link_failed${fi ? "&lang=fi" : ""}`,
 						),
+						scopes: linkScopes("kick", granted),
 					});
 		if (result.error) {
 			toast.error(result.error.message ?? `Could not link ${provider}`);

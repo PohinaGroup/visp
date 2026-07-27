@@ -41,9 +41,13 @@ function PrivacyPage() {
 				<h2>2. What VISP is</h2>
 				<p>
 					VISP is a self-hosted SRT/RTMP relay and control plane for remote live
-					streaming. Your broadcast/stream keys stay with you and are not sent
-					to VISP. VISP relays live media and provides account, dashboard, and
-					device features around that relay.
+					streaming. You are never asked to paste a broadcast/stream key. If you
+					turn on VISP Direct for a device, VISP retrieves that platform's
+					stream key from Twitch or Kick using permission you grant in their
+					OAuth screen, uses it only to run the forwarding process while that
+					device is live, and does not store it as a separate value or return it
+					to any client app. VISP relays live media and provides account,
+					dashboard, and device features around that relay.
 				</p>
 			</section>
 
@@ -129,7 +133,8 @@ function PrivacyPage() {
 					runs on our own self-hosted Rybbit instance, so analytics data is not
 					shared with a third-party analytics provider. Stream destinations you
 					choose (OBS, platforms) receive the media you publish; VISP does not
-					take ownership of your stream keys.
+					take ownership of your stream keys, and retrieves them only for the
+					duration of a VISP Direct session you have enabled.
 				</p>
 			</section>
 

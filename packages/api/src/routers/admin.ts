@@ -390,6 +390,35 @@ export const adminRouter = router({
 				return result;
 			}),
 
+		// The only admission control VISP Direct has. Hand it out deliberately:
+		// every Direct forwarder is a full distribution encode on one relay node.
+		setDirectBeta: adminProcedure
+			.input(
+				z.object({
+					userId: z.string().min(1),
+					directBeta: z.boolean(),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				const [result] = await db
+					.update(appUser)
+					.set({ directBeta: input.directBeta })
+					.where(eq(appUser.id, input.userId))
+					.returning({ id: appUser.id, directBeta: appUser.directBeta });
+				if (!result) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Relay user not found",
+					});
+				}
+				audit(
+					ctx.session.user.id,
+					input.userId,
+					`set_direct_beta:${input.directBeta}`,
+				);
+				return result;
+			}),
+
 		ban: adminProcedure
 			.input(
 				z.object({

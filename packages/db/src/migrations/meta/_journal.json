@@ -78,6 +78,13 @@
       "when": 1785170583136,
       "tag": "0010_soft_daredevil",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1785170583137,
+      "tag": "0011_sturdy_vanisher",
+      "breakpoints": true
     }
   ]
 }

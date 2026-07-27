@@ -16,6 +16,7 @@ import { useTRPC } from "@/utils/trpc";
 import { ChainStrip } from "./chain-strip";
 import { ConnectionsCard } from "./connections-card";
 import { CredentialsCard } from "./credentials-card";
+import { DirectCard } from "./direct-card";
 import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
@@ -68,7 +69,7 @@ export function DashboardPage() {
 						}
 						eyebrow={t("Live signal path")}
 						subtitle={t(
-							"Devices publish to the relay, OBS reads the feeds, you go on air. Your provider stream key never enters VISP.",
+							"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.",
 						)}
 						title={t("Dashboard")}
 					/>
@@ -87,6 +88,7 @@ export function DashboardPage() {
 						/>
 						<VStack gap={4}>
 							<ObsControlCard />
+							<DirectCard />
 							<ConnectionsCard />
 							{advancedMode ? (
 								<VStack gap={2}>

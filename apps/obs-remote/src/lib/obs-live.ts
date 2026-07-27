@@ -92,6 +92,50 @@ export function expireConnection(
 		: status;
 }
 
+/** How long the remote UI waits for OBS to acknowledge a command. */
+export const COMMAND_TIMEOUT_MS = 15_000;
+
+export type PendingCommandWatch = {
+	commandVersion: number;
+	startedAt: number;
+};
+
+export function pendingCommandWatch(
+	status: ObsStatus | undefined,
+	previous: PendingCommandWatch | null,
+	now = Date.now(),
+): PendingCommandWatch | null {
+	if (!status?.pending) return null;
+	if (previous?.commandVersion === status.commandVersion) return previous;
+	return { commandVersion: status.commandVersion, startedAt: now };
+}
+
+export function commandAwaitingObs(
+	status: ObsStatus | undefined,
+	watch: PendingCommandWatch | null,
+	now = Date.now(),
+): boolean {
+	return Boolean(
+		status?.pending &&
+			watch &&
+			watch.commandVersion === status.commandVersion &&
+			now - watch.startedAt < COMMAND_TIMEOUT_MS,
+	);
+}
+
+export function commandTimedOut(
+	status: ObsStatus | undefined,
+	watch: PendingCommandWatch | null,
+	now = Date.now(),
+): boolean {
+	return Boolean(
+		status?.pending &&
+			watch &&
+			watch.commandVersion === status.commandVersion &&
+			now - watch.startedAt >= COMMAND_TIMEOUT_MS,
+	);
+}
+
 export function reconnectDelay(attempt: number): number {
 	return Math.min(15_000, 500 * 2 ** Math.min(Math.max(0, attempt), 5));
 }

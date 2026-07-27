@@ -11,6 +11,7 @@ import {
 	handleVerifiedKickPayload,
 	reconcileKickSubscriptions,
 } from "@VISP/api/chat/kick";
+import { resolveDirectDestinations } from "@VISP/api/direct";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
@@ -730,7 +731,9 @@ integration("relay PostgreSQL integration", () => {
 				const value = buffered.shift();
 				return value
 					? Promise.resolve(value)
-					: new Promise<Record<string, unknown>>((resolve) => messages.push(resolve));
+					: new Promise<Record<string, unknown>>((resolve) =>
+							messages.push(resolve),
+						);
 			};
 			await new Promise<void>((resolve, reject) => {
 				socket.onopen = () => resolve();
@@ -1110,15 +1113,19 @@ integration("relay PostgreSQL integration", () => {
 				provider: "twitch",
 				linked: true,
 				enabled: true,
+				grantedScopes: ["user:read:chat"],
 				needsConsent: false,
 				canManageChannel: false,
+				canReadStreamKey: false,
 			},
 			{
 				provider: "kick",
 				linked: true,
 				enabled: true,
+				grantedScopes: ["user:read"],
 				needsConsent: false,
 				canManageChannel: false,
+				canReadStreamKey: false,
 			},
 		]);
 		expect(await db.select().from(chatConnection)).toHaveLength(2);
@@ -1189,5 +1196,327 @@ integration("relay PostgreSQL integration", () => {
 			.where(eq(chatConnection.userId, "kick-reconcile"));
 		expect(await handleVerifiedKickPayload(payload)).toBe("disabled");
 		unsubscribe();
+	});
+});
+
+integration("VISP Direct boundaries", () => {
+	beforeEach(async () => {
+		clearAuthCacheForTests();
+		await db.delete(user);
+	});
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	async function callerFor(userId: string) {
+		await db.insert(authSession).values({
+			id: `${userId}-direct-session`,
+			token: `${userId}-direct-token`,
+			userId,
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		const headers = new Headers({
+			authorization: `Bearer ${userId}-direct-token`,
+		});
+		const session = await auth.api.getSession({ headers });
+		if (!session) throw new Error(`no session for ${userId}`);
+		return appRouter.createCaller({ auth: null, headers, session });
+	}
+
+	async function seedDirect() {
+		const data = await seed();
+		// ensureRelayUser refuses accounts with no streaming provider linked.
+		await db.insert(account).values([
+			{
+				id: "direct-twitch-a",
+				accountId: "tw-a",
+				providerId: "twitch",
+				scope: "user:read:email openid channel:read:stream_key",
+				userId: "user-a",
+			},
+			{
+				id: "direct-kick-a",
+				accountId: "42",
+				providerId: "kick",
+				scope: "user:read channel:write streamkey:read",
+				userId: "user-a",
+			},
+			{
+				id: "direct-twitch-b",
+				accountId: "tw-b",
+				providerId: "twitch",
+				scope: "user:read:email openid",
+				userId: "user-b",
+			},
+		]);
+		return data;
+	}
+
+	const providerFetch = (async (input: Parameters<typeof fetch>[0]) => {
+		const url = String(input);
+		if (url.includes("/streams/key"))
+			return Response.json({ data: [{ stream_key: "live_a_secret" }] });
+		if (url.includes("/channels"))
+			return Response.json({
+				data: [
+					{ stream: { url: "rtmps://stream.kick.com/99", key: "kick_secret" } },
+				],
+			});
+		return new Response(null, { status: 404 });
+	}) as typeof fetch;
+
+	const directDeps = (maxForwarders = 4) => ({
+		fetch: providerFetch,
+		getAccessToken: async () => ({ accessToken: "provider-token" }),
+		maxForwarders,
+	});
+
+	test("a user without the beta flag cannot configure direct outputs", async () => {
+		const data = await seedDirect();
+		const caller = await callerFor("user-a");
+
+		await expect(
+			caller.direct.setOutputs({
+				pathId: data.pathA.id,
+				twitch: true,
+				kick: false,
+			}),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+
+		expect((await caller.direct.list()).betaEnabled).toBe(false);
+		const [path] = await db
+			.select()
+			.from(relayPath)
+			.where(eq(relayPath.id, data.pathA.id));
+		expect(path?.directTwitch).toBe(false);
+	});
+
+	test("a user without the beta flag receives no relay destination URLs", async () => {
+		const data = await seedDirect();
+		// Flags set directly, so only canUseDirect stands between them and the relay.
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true, directKick: true })
+			.where(eq(relayPath.id, data.pathA.id));
+
+		const resolved = await resolveDirectDestinations("alpha-1", directDeps());
+		expect(resolved.destinations).toEqual([]);
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(state?.directTwitchState).toBe("failed");
+		expect(state?.directTwitchError).toBe("VISP Direct is in limited beta");
+	});
+
+	test("returns destination URLs only for a beta user, and never a bare key", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directBeta: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: true,
+		});
+
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(),
+		);
+		expect(destinations).toEqual([
+			{
+				provider: "twitch",
+				url: "rtmps://ingest.global-contribute.live-video.net/app/live_a_secret",
+			},
+			{ provider: "kick", url: "rtmps://stream.kick.com/99/kick_secret" },
+		]);
+
+		// The key is built in memory and never stored as its own value.
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(JSON.stringify(state)).not.toContain("live_a_secret");
+		expect(JSON.stringify(state)).not.toContain("kick_secret");
+		expect(state?.directTwitchState).toBe("starting");
+	});
+
+	test("a user can configure only their own paths", async () => {
+		const data = await seedDirect();
+		await db.update(appUser).set({ directBeta: true });
+		const caller = await callerFor("user-a");
+
+		await expect(
+			caller.direct.setOutputs({
+				pathId: data.pathB.id,
+				twitch: true,
+				kick: false,
+			}),
+		).rejects.toMatchObject({ code: "NOT_FOUND" });
+	});
+
+	test("one path owns Twitch and independently one owns Kick", async () => {
+		await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directBeta: true })
+			.where(eq(appUser.id, "user-a"));
+		const second = await createPath("user-a", "phone two");
+		const caller = await callerFor("user-a");
+		const first = (await caller.direct.list()).paths[0];
+		if (!first) throw new Error("no path to configure");
+
+		await caller.direct.setOutputs({
+			pathId: first.id,
+			twitch: true,
+			kick: false,
+		});
+		// Twitch on one device and Kick on another is permitted.
+		await caller.direct.setOutputs({
+			pathId: second.id,
+			twitch: false,
+			kick: true,
+		});
+		// A second owner for the same provider is not.
+		await expect(
+			caller.direct.setOutputs({
+				pathId: second.id,
+				twitch: true,
+				kick: true,
+			}),
+		).rejects.toMatchObject({ code: "CONFLICT" });
+	});
+
+	test("outputs cannot change while the device is publishing", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directBeta: true })
+			.where(eq(appUser.id, "user-a"));
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		const caller = await callerFor("user-a");
+
+		await expect(
+			caller.direct.setOutputs({
+				pathId: data.pathA.id,
+				twitch: true,
+				kick: false,
+			}),
+		).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+	});
+
+	test("a revoked path owns no provider", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directBeta: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: true,
+		});
+
+		await revokePath("user-a", data.pathA.id);
+
+		const [revoked] = await db
+			.select()
+			.from(relayPath)
+			.where(eq(relayPath.id, data.pathA.id));
+		expect(revoked?.directTwitch).toBe(false);
+		expect(revoked?.directKick).toBe(false);
+		expect(
+			(await resolveDirectDestinations("alpha-1", directDeps())).destinations,
+		).toEqual([]);
+	});
+
+	test("a missing provider scope returns reauthorize without exposing tokens", async () => {
+		const data = await seedDirect();
+		await db.update(appUser).set({ directBeta: true });
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true })
+			.where(eq(relayPath.id, data.pathB.id));
+
+		const { destinations } = await resolveDirectDestinations("beta-1", {
+			...directDeps(),
+			// Twitch refuses the key call once consent is missing or revoked.
+			fetch: (async () =>
+				new Response("token expired", {
+					status: 401,
+				})) as unknown as typeof fetch,
+		});
+		expect(destinations).toEqual([]);
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathB.id));
+		expect(state?.directTwitchState).toBe("failed");
+		expect(state?.directTwitchError).toBe(
+			"Twitch stream key permission is required",
+		);
+		expect(state?.directTwitchError).not.toContain("token");
+	});
+
+	test("the cap refuses the extra forwarder instead of oversubscribing", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directBeta: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: true,
+		});
+
+		// Twitch + Kick is two forwarders against a cap of one.
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(1),
+		);
+		expect(destinations).toHaveLength(1);
+		expect(destinations[0]?.provider).toBe("twitch");
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(state?.directKickState).toBe("failed");
+		expect(state?.directKickError).toBe(
+			"Direct is at capacity, try again shortly",
+		);
+	});
+
+	test("a stopped source frees the slots it held", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directBeta: true })
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true, directKick: true })
+			.where(eq(relayPath.id, data.pathA.id));
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(state?.directTwitchState).toBe("stopped");
+		expect(state?.directKickState).toBe("stopped");
 	});
 });

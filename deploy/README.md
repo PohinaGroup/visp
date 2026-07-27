@@ -55,6 +55,30 @@ disconnecting either side behaves as expected. Only then install
    Replace the example origin and Tailscale address. Set
    `MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
    MediaMTX maps the `MTX_*` variables to the matching YAML settings.
+
+   VISP Direct adds optional distribution-encode knobs to the same file.
+   Defaults are `libx264` at 6000 kbps and 30 fps; set them from a measured
+   CPU-per-forwarder number on this box, not from a guess:
+
+   ```text
+   DIRECT_VIDEO_ENCODER=libx264
+   DIRECT_VIDEO_BITRATE_KBPS=6000
+   DIRECT_VIDEO_FPS=30
+   ```
+
+   The matching cap, `DIRECT_MAX_FORWARDERS`, lives in the app's environment
+   and bounds total concurrent forwarders across the node. Twitch + Kick on one
+   source counts as two.
+
+   **Direct puts platform stream keys in FFmpeg's argv.** FFmpeg has no
+   environment or stdin form for an output URL, and `/proc/<pid>/cmdline` is
+   world-readable. Run MediaMTX as a dedicated unprivileged user and mount
+   `/proc` with `hidepid=invisible` so no other local account can read the
+   forwarders' command lines:
+
+   ```text
+   proc /proc proc nosuid,nodev,noexec,hidepid=invisible,gid=proc 0 0
+   ```
 4. Install `systemd/mediamtx.service`. Use Caddy's packaged systemd unit with
    `relay/Caddyfile`; install `systemd/caddy-relay.conf` as the packaged unit's
    `caddy.service.d/visp.conf` drop-in and set `RELAY_DOMAIN` and `APP_DOMAIN` in

@@ -2,6 +2,7 @@ import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq, inArray } from "drizzle-orm";
 import { hasChannelWriteScope } from "../channel/stream-info";
+import { hasScope, PROVIDER_SCOPES, parseScopes } from "../scopes";
 import type { ChatProvider } from "./contract";
 import { chatHub } from "./hub";
 import { createKickSubscription, deleteKickSubscription } from "./kick";
@@ -43,14 +44,18 @@ export async function listChatConnections(userId: string) {
 			provider,
 			linked: Boolean(linked),
 			enabled: enabledProviders.has(provider),
+			// What the provider actually granted. Link calls build their scope
+			// request from this, never from the caller's intent.
+			grantedScopes: parseScopes(linked?.scope),
 			needsConsent:
 				provider === "twitch" &&
 				Boolean(linked) &&
-				!new Set(linked?.scope?.split(/[ ,]+/).filter(Boolean)).has(
-					"user:read:chat",
-				),
+				!hasScope(linked?.scope, "user:read:chat"),
 			canManageChannel:
 				Boolean(linked) && hasChannelWriteScope(provider, linked?.scope),
+			canReadStreamKey:
+				Boolean(linked) &&
+				hasScope(linked?.scope, PROVIDER_SCOPES[provider].streamKey),
 		};
 	});
 }
@@ -64,10 +69,7 @@ export async function enableChatConnection(
 	});
 	if (!linked)
 		throw new ChatConnectionError("not-linked", `Link ${provider} first`);
-	if (
-		provider === "twitch" &&
-		!new Set(linked.scope?.split(/[ ,]+/).filter(Boolean)).has("user:read:chat")
-	) {
+	if (provider === "twitch" && !hasScope(linked.scope, "user:read:chat")) {
 		throw new ChatConnectionError(
 			"twitch-consent-required",
 			"Twitch chat permission is required",

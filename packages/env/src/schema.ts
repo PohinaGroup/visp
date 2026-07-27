@@ -12,6 +12,13 @@ export const serverEnvSchema = {
 	DATABASE_URL: z.string().min(1),
 	/** PEM path for managed Postgres CA verification (e.g. UpCloud). */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
+	/**
+	 * Total concurrent FFmpeg Direct distribution forwarders on the single relay
+	 * node. Every forwarder is a full video+audio encode and Twitch+Kick counts
+	 * as two, so set this from a measured CPU-per-forwarder number, not a guess.
+	 * A calibration knob: retune it against the real box without a deploy.
+	 */
+	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
 	BETTER_AUTH_SECRET: z.string().min(32),
 	BETTER_AUTH_URL: z.url(),
 	CORS_ORIGIN: z.url(),

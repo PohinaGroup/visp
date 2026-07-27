@@ -107,6 +107,16 @@ metadata on the provider.
 
 ## Boundaries
 
-VISP does not transcode, proxy provider stream keys, enforce quotas, bill
-users, host OBS, or scale MediaMTX horizontally. The relay forwards the
-H.264/AAC (or WebRTC H.264/Opus) feed exactly as published.
+VISP does not enforce quotas, bill users, host OBS, or scale MediaMTX
+horizontally. For the relay-to-OBS path the relay forwards the H.264/AAC (or
+WebRTC H.264/Opus) feed exactly as published — no transcode, no provider stream
+key.
+
+VISP Direct is the one exception, and it is opt-in per publishing device and
+gated to a beta flag. When a device has a Direct output enabled, the relay runs
+a full distribution encode per destination (H.264 + AAC stereo, never a stream
+copy) and retrieves the Twitch or Kick stream key through OAuth consent at
+stream start. The key is built into a destination URL in memory, passed to the
+forwarding process, and never returned to a client app or stored as its own
+database value. What OBS reads stays the contribution feed, not the platform
+encode.

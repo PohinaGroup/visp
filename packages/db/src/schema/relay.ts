@@ -91,6 +91,9 @@ export const appUser = pgTable("app_user", {
 		.notNull(),
 	obsRecordPaused: boolean("obs_record_paused").default(false).notNull(),
 	obsLastSeenAt: timestamp("obs_last_seen_at", { withTimezone: true }),
+	// VISP Direct admission control. The relay is one node and Direct always
+	// runs distribution encode there, so this gates capacity, not payment.
+	directBeta: boolean("direct_beta").default(false).notNull(),
 	onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()
@@ -114,6 +117,8 @@ export const relayPath = pgTable(
 		publishLastConnectedAt: timestamp("publish_last_connected_at", {
 			withTimezone: true,
 		}),
+		directTwitch: boolean("direct_twitch").default(false).notNull(),
+		directKick: boolean("direct_kick").default(false).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -125,6 +130,14 @@ export const relayPath = pgTable(
 			table.userId,
 			table.nativeInstallationId,
 		),
+		// One live source per provider per customer. Partial indexes also make
+		// stale "disabled" rows impossible.
+		uniqueIndex("path_direct_twitch_owner")
+			.on(table.userId)
+			.where(sql`${table.directTwitch}`),
+		uniqueIndex("path_direct_kick_owner")
+			.on(table.userId)
+			.where(sql`${table.directKick}`),
 		check("path_seq_positive", sql`${table.seq} > 0`),
 		check(
 			"path_label_length",
@@ -150,6 +163,12 @@ export const pathState = pgTable(
 		linkRttMs: integer("link_rtt_ms"),
 		linkPacketLossPct: real("link_packet_loss_pct"),
 		linkStatsAt: timestamp("link_stats_at", { withTimezone: true }),
+		// starting|live|retrying|failed|stopped. Errors are sanitized — never a
+		// destination URL, never a stream key.
+		directTwitchState: text("direct_twitch_state"),
+		directTwitchError: text("direct_twitch_error"),
+		directKickState: text("direct_kick_state"),
+		directKickError: text("direct_kick_error"),
 	},
 	(table) => [
 		check(

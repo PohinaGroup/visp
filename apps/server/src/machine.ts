@@ -1,4 +1,10 @@
 import {
+	applyDirectState,
+	DIRECT_PROVIDERS,
+	DIRECT_STATES,
+	resolveDirectDestinations,
+} from "@VISP/api/direct";
+import {
 	authenticateObsControlToken,
 	pollObsControl,
 	revokeObsControlToken,
@@ -236,6 +242,51 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		{
 			params: t.Object({
 				path: t.String({ minLength: 1 }),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-destinations",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				// Destination URLs carry stream keys: returned to the relay only,
+				// never to a client app, never logged. Plain "provider url" lines
+				// so the bash forwarder splits fields instead of parsing JSON.
+				const { destinations } = await resolveDirectDestinations(body.path);
+				return new Response(
+					destinations
+						.map((entry) => `${entry.provider} ${entry.url}\n`)
+						.join(""),
+					{ headers: { "Content-Type": "text/plain; charset=utf-8" } },
+				);
+			} catch {
+				return status(503, "direct destinations unavailable");
+			}
+		},
+		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+	)
+	.post(
+		"/api/hooks/direct-state",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				await applyDirectState({ ...body, slug: body.path });
+				return status(204);
+			} catch {
+				return status(503, "state unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+				state: t.Union(DIRECT_STATES.map((name) => t.Literal(name))),
+				error: t.Optional(t.String({ maxLength: 2048 })),
 			}),
 		},
 	)

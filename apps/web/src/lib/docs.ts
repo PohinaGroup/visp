@@ -5,6 +5,7 @@ export const docs = {
 	getStarted: `${legalEntity.docsUrl}/docs/get-started`,
 	videoSource: `${legalEntity.docsUrl}/docs/video-source`,
 	phoneApp: `${legalEntity.docsUrl}/docs/phone-app`,
+	directOutput: `${legalEntity.docsUrl}/docs/direct-output`,
 	obsRemoteControl: `${legalEntity.docsUrl}/docs/obs-remote-control`,
 	broadcasterSetup: `${legalEntity.docsUrl}/docs/broadcaster-setup`,
 	selfHosting: `${legalEntity.docsUrl}/docs/self-hosting`,

@@ -1,0 +1,81 @@
+---
+title: Direct output
+description: Stream a device straight to Twitch or Kick without running OBS.
+icon: Antenna
+---
+
+VISP Direct forwards one publishing device to Twitch, Kick, or both, without
+OBS in the path. It is opt-in per device and currently limited beta: access is
+handed out per account because the relay is a single node and Direct runs the
+platform encode there.
+
+## What changes
+
+Without Direct, your device does the full encode and the relay forwards that
+bitstream to OBS untouched. With Direct enabled on a device:
+
+- your device still encodes, because SRT needs a compressed feed to upload;
+- the relay runs a **separate distribution encode per destination** — H.264
+  video and stereo AAC audio, always re-encoded, never stream-copied;
+- each destination is its own process, so one platform failing does not
+  interrupt the other.
+
+Streaming to both platforms doubles relay CPU and outbound bandwidth. It does
+not add a second upload from your phone.
+
+## Enable it
+
+1. On the dashboard, open **Direct output**.
+2. Next to Twitch or Kick, choose **Authorize streaming**. This re-opens the
+   provider's consent screen and asks for permission to read your stream key.
+   VISP requests every permission you had already granted at the same time, so
+   authorizing Direct never switches off chat or title and category editing.
+3. Pick **Off**, **Twitch**, **Kick**, or **Both** for the device.
+
+Outputs are saved per device and can only be changed while that device is
+offline. One device may own a given platform at a time — Twitch on your phone
+and Kick on a second device is allowed, two devices publishing to Twitch is
+not.
+
+## Your stream key
+
+You are never asked to paste a stream key. At stream start VISP fetches it from
+Twitch or Kick with the consent you granted, builds the destination URL in
+memory, hands it to the forwarding process, and drops it when the stream ends.
+It is never sent to the web or phone app and never stored as its own database
+value.
+
+The relay-to-OBS workflow is unchanged and still never touches a stream key.
+
+## Using OBS at the same time
+
+OBS can keep reading the feed for monitoring or recording. Do not point OBS at
+a platform that Direct already owns — that is two publishers on one stream key,
+and the platform will reject or interrupt one of them.
+
+What OBS reads is your device's contribution feed, not the encode the platform
+receives. To check what viewers actually see, watch the platform.
+
+## Platform rules
+
+- **Twitch.** Its simulcasting terms prohibit showing another platform's
+  activity on the Twitch stream, so do not burn Kick chat into the video.
+  Floating chat in the phone app stays fine — only you see it.
+- **Kick.** Partners must switch on Kick's own Multistreaming toggle before
+  streaming to both. Kick currently reduces Partner Program payout for the
+  duration of a multistreaming session. VISP does not toggle this for you.
+
+Title and category editing is unchanged; Direct adds no metadata behavior.
+
+## When something fails
+
+Each destination shows its own state and last error under the device.
+
+- **A provider is unavailable.** VISP retries that destination with backoff and
+  leaves the other one running.
+- **Permission was revoked at the platform.** The destination fails and the
+  card offers **Reauthorize**.
+- **"Direct is at capacity."** The relay is at its concurrent-forwarder limit.
+  Your relay-to-OBS path keeps working; try the Direct output again shortly.
+- **VISP is unreachable when your device connects.** No Direct output starts.
+  A stream already running keeps forwarding until the source disconnects.

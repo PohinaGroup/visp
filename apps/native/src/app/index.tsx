@@ -1,4 +1,5 @@
 import { formatLiveLinkHud } from "@VISP/api/link-stats";
+import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import * as UI from "@expo/ui";
 import * as Device from "expo-device";
 import {
@@ -103,6 +104,46 @@ const DESTRUCTIVE = "#e5484d";
 const SUBTLE_TEXT = { color: SUBTLE, fontSize: 13 } as const;
 const LIQUID_GLASS_AVAILABLE =
 	isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
+
+type DirectOutputs = Awaited<ReturnType<typeof apiClient.direct.list.query>>;
+type DirectPath = DirectOutputs["paths"][number];
+
+function directSelectionOf(path: DirectPath) {
+	if (path.twitch && path.kick) return "both";
+	if (path.twitch) return "twitch";
+	if (path.kick) return "kick";
+	return "off";
+}
+
+function directStateSummary(path: DirectPath) {
+	const parts = (["twitch", "kick"] as const).flatMap((provider) => {
+		const state = path.state[provider];
+		if (!state) return [];
+		const label = provider === "twitch" ? "Twitch" : "Kick";
+		return [`${label} ${path.error[provider] ?? state}`];
+	});
+	return parts.length > 0 ? parts.join(" · ") : "No direct output";
+}
+
+function directWarning(outputs: DirectOutputs) {
+	// OBS may still read the feed; it just must not publish to the same
+	// provider, and what it reads is the contribution feed, not the platform
+	// encode. The platform-policy lines only appear once they apply.
+	const lines = [
+		"OBS can still read this feed, but do not let it stream to a provider Direct already owns. What OBS reads is your device's contribution feed, not the encode the platform receives.",
+	];
+	if (outputs.paths.some((path) => path.twitch)) {
+		lines.push(
+			"Twitch's simulcasting terms prohibit showing another platform's activity on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
+		);
+	}
+	if (outputs.paths.some((path) => path.twitch && path.kick)) {
+		lines.push(
+			"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout during a multistreaming session.",
+		);
+	}
+	return lines.join("\n\n");
+}
 
 // ponytail: iOS Forms put picker labels inline; Material dropdowns read better with the label above.
 function SettingRow({
@@ -238,6 +279,8 @@ export default function Index() {
 	const [publishDevices, setPublishDevices] = useState<
 		Awaited<ReturnType<typeof apiClient.paths.list.query>>
 	>([]);
+	const [directOutputs, setDirectOutputs] =
+		useState<Awaited<ReturnType<typeof apiClient.direct.list.query>>>();
 	const [installationId, setInstallationId] = useState<string>();
 	const [revealedDeviceUrls, setRevealedDeviceUrls] = useState<
 		Record<number, string>
@@ -417,6 +460,31 @@ export default function Index() {
 		setPublishDevices(await apiClient.paths.list.query());
 	}, [userId]);
 
+	const refreshDirectOutputs = useCallback(async () => {
+		if (!userId) return;
+		setDirectOutputs(await apiClient.direct.list.query());
+	}, [userId]);
+
+	const applyDirectSelection = useCallback(
+		async (pathId: number, selection: string) => {
+			try {
+				await apiClient.direct.setOutputs.mutate({
+					pathId,
+					twitch: selection === "twitch" || selection === "both",
+					kick: selection === "kick" || selection === "both",
+				});
+				await refreshDirectOutputs();
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? error.message
+						: "Direct output could not be saved",
+				);
+			}
+		},
+		[refreshDirectOutputs, showToast],
+	);
+
 	const revealPublishDevice = useCallback(
 		async (pathId: number) => {
 			try {
@@ -436,24 +504,27 @@ export default function Index() {
 		[showToast],
 	);
 
-	const linkChatProvider = useCallback(
-		async (provider: "twitch" | "kick", chatConsent = false) => {
+	const linkProvider = useCallback(
+		async (provider: "twitch" | "kick", adding: readonly string[] = []) => {
 			setChatBusy(provider);
 			try {
+				// Both providers drop scopes they are not told about on link, so
+				// always request the union of what the provider already granted.
+				const granted =
+					chatConnections.find((entry) => entry.provider === provider)
+						?.grantedScopes ?? [];
+				const scopes = linkScopes(provider, granted, adding);
 				const result =
 					provider === "twitch"
 						? await authClient.linkSocial({
 								provider,
 								callbackURL: authCallbackURL(),
-								// Twitch tokens keep only the last-requested scopes, so always
-								// re-request the union or one feature's consent drops the other's.
-								scopes: chatConsent
-									? ["user:read:chat", "channel:manage:broadcast"]
-									: undefined,
+								scopes,
 							})
 						: await authClient.oauth2.link({
 								providerId: provider,
 								callbackURL: authCallbackURL(),
+								scopes,
 							});
 				if (result.error)
 					throw new Error(result.error.message ?? `Could not link ${provider}`);
@@ -466,7 +537,13 @@ export default function Index() {
 				setChatBusy(undefined);
 			}
 		},
-		[refreshChatConnections, showToast],
+		[chatConnections, refreshChatConnections, showToast],
+	);
+
+	const linkChatProvider = useCallback(
+		(provider: "twitch" | "kick", chatConsent = false) =>
+			linkProvider(provider, chatConsent ? PROVIDER_SCOPES[provider].chat : []),
+		[linkProvider],
 	);
 
 	const toggleChatConnection = useCallback(
@@ -825,7 +902,8 @@ export default function Index() {
 			.catch(() => undefined);
 		void refreshChatConnections();
 		void refreshPublishDevices();
-	}, [refreshChatConnections, refreshPublishDevices]);
+		void refreshDirectOutputs();
+	}, [refreshChatConnections, refreshPublishDevices, refreshDirectOutputs]);
 
 	const removeUrl = useCallback(() => {
 		const remove = () => {
@@ -1583,6 +1661,88 @@ export default function Index() {
 											</UI.Row>
 										);
 									})}
+								</UI.FieldGroup.Section>
+							) : null}
+
+							{session && directOutputs ? (
+								<UI.FieldGroup.Section title="Direct output">
+									{directOutputs.betaEnabled ? (
+										<>
+											{directOutputs.providers.map((provider) => (
+												<UI.Row
+													alignment="center"
+													key={provider.provider}
+													spacing={12}
+												>
+													<UI.Column spacing={2}>
+														<UI.Text>
+															{provider.provider === "twitch"
+																? "Twitch"
+																: "Kick"}
+														</UI.Text>
+														<UI.Text textStyle={SUBTLE_TEXT}>
+															{provider.canReadStreamKey
+																? "Authorized"
+																: provider.linked
+																	? "Needs streaming permission"
+																	: "Not linked"}
+														</UI.Text>
+													</UI.Column>
+													<UI.Spacer flexible />
+													<UI.Button
+														disabled={Boolean(chatBusy)}
+														label={
+															provider.canReadStreamKey
+																? "Reauthorize"
+																: "Authorize"
+														}
+														onPress={() =>
+															void linkProvider(
+																provider.provider,
+																PROVIDER_SCOPES[provider.provider]
+																	.streamKeyRequest,
+															)
+														}
+														variant="outlined"
+													/>
+												</UI.Row>
+											))}
+											{directOutputs.paths.map((path) => (
+												<UI.Row alignment="center" key={path.id} spacing={12}>
+													<UI.Column spacing={2}>
+														<UI.Text>{path.label}</UI.Text>
+														<UI.Text textStyle={SUBTLE_TEXT}>
+															{path.publishing
+																? "Live · stop to change outputs"
+																: directStateSummary(path)}
+														</UI.Text>
+													</UI.Column>
+													<UI.Spacer flexible />
+													<UI.Picker
+														enabled={!path.publishing}
+														onValueChange={(selection) =>
+															void applyDirectSelection(path.id, selection)
+														}
+														selectedValue={directSelectionOf(path)}
+													>
+														<UI.Picker.Item label="Off" value="off" />
+														<UI.Picker.Item label="Twitch" value="twitch" />
+														<UI.Picker.Item label="Kick" value="kick" />
+														<UI.Picker.Item label="Both" value="both" />
+													</UI.Picker>
+												</UI.Row>
+											))}
+											<UI.FieldGroup.SectionFooter>
+												{directWarning(directOutputs)}
+											</UI.FieldGroup.SectionFooter>
+										</>
+									) : (
+										<UI.FieldGroup.SectionFooter>
+											VISP Direct is in limited beta. It runs the platform
+											encode on a single relay node, so access is handed out a
+											few accounts at a time.
+										</UI.FieldGroup.SectionFooter>
+									)}
 								</UI.FieldGroup.Section>
 							) : null}
 

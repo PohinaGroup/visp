@@ -1,6 +1,7 @@
 import { auth } from "@VISP/auth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { DirectError, listDirectOutputs, setDirectOutputs } from "../direct";
 import { protectedProcedure, router } from "../index";
 import { linkStatsFromPath } from "../link-stats";
 import {
@@ -10,8 +11,7 @@ import {
 	setObsStreaming,
 	setObsToggle,
 } from "../obs-control";
-import { obsLiveTickets } from "../obs-live";
-import { OBS_TOGGLES } from "../obs-live";
+import { OBS_TOGGLES, obsLiveTickets } from "../obs-live";
 import {
 	createObsTile,
 	deleteObsTile,
@@ -61,6 +61,14 @@ const relayProcedure = protectedProcedure.use(async ({ ctx, next }) => {
 });
 
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
+
+const DIRECT_ERROR_CODES = {
+	"not-allowed": "FORBIDDEN",
+	"not-found": "NOT_FOUND",
+	"path-live": "PRECONDITION_FAILED",
+	"provider-taken": "CONFLICT",
+	"consent-required": "PRECONDITION_FAILED",
+} as const;
 
 const tileFields = z.object({
 	label: z.string().trim().min(1).max(64),
@@ -144,7 +152,10 @@ export const relayRoutes = {
 						requireSceneTarget(fields),
 					);
 					if (!tile) {
-						throw new TRPCError({ code: "NOT_FOUND", message: "Tile not found" });
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Tile not found",
+						});
 					}
 					return tile;
 				}),
@@ -152,14 +163,15 @@ export const relayRoutes = {
 				.input(z.object({ id: z.number().int().positive() }))
 				.mutation(async ({ ctx, input }) => {
 					if (!(await deleteObsTile(ctx.relayUser.id, input.id))) {
-						throw new TRPCError({ code: "NOT_FOUND", message: "Tile not found" });
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Tile not found",
+						});
 					}
 					return { id: input.id };
 				}),
 			reorder: relayProcedure
-				.input(
-					z.object({ ids: z.array(z.number().int().positive()).max(200) }),
-				)
+				.input(z.object({ ids: z.array(z.number().int().positive()).max(200) }))
 				.mutation(({ ctx, input }) =>
 					reorderObsTiles(ctx.relayUser.id, input.ids),
 				),
@@ -284,6 +296,30 @@ export const relayRoutes = {
 					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });
 				}
 				return result;
+			}),
+	}),
+	direct: router({
+		list: relayProcedure.query(({ ctx }) =>
+			listDirectOutputs(ctx.relayUser.id),
+		),
+		setOutputs: relayProcedure
+			.input(pathIdInput.extend({ twitch: z.boolean(), kick: z.boolean() }))
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setDirectOutputs(ctx.relayUser.id, input.pathId, {
+						twitch: input.twitch,
+						kick: input.kick,
+					});
+				} catch (error) {
+					if (error instanceof DirectError) {
+						throw new TRPCError({
+							code: DIRECT_ERROR_CODES[error.code],
+							message: error.message,
+							cause: error,
+						});
+					}
+					throw error;
+				}
 			}),
 	}),
 	secrets: router({

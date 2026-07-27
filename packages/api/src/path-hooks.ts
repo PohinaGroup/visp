@@ -6,6 +6,7 @@ import {
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { stopDirectForPath } from "./direct";
 import { CLEARED_LINK_STATS } from "./link-stats";
 
 export async function applyPathHook(
@@ -64,6 +65,9 @@ export async function applyPathHook(
 					);
 			}
 		});
+		// The source is gone, so no forwarder can still be running against it.
+		// Leaving them counted would hold slots against the concurrency cap.
+		if (!publishing) await stopDirectForPath(path.id);
 		return true;
 	}
 
@@ -158,4 +162,11 @@ export async function reconcilePathState(apiUrl = env.MEDIAMTX_API_URL) {
 			}
 		}
 	});
+
+	// The reconciler exists to catch hooks that never arrived, so it has to free
+	// Direct slots too. A missed not-ready would otherwise hold them against the
+	// concurrency cap forever.
+	for (const path of paths) {
+		if (!live.get(path.slug)?.ready) await stopDirectForPath(path.id);
+	}
 }
