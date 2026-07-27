@@ -53,6 +53,13 @@
 	file_server
 }
 
+{$OBS_REMOTE_WEB_DOMAIN} {
+	root * /opt/visp/apps/obs-remote/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
 {$DOCS_DOMAIN} {
 	root * /opt/visp/apps/fumadocs/.output/public
 	encode zstd gzip

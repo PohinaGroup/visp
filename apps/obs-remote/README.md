@@ -51,9 +51,8 @@ Static web deployments must use an origin allowed by the server's Better Auth
 and CORS configuration through `OBS_REMOTE_WEB_ORIGIN`.
 `EXPO_PUBLIC_SERVER_URL` is embedded at build time.
 
-Release versions are synchronized in `app.json`, `package.json`, the broadcaster
-app, and the OBS plugin by `bun run version:bump`. The focused
-`.github/workflows/obs-remote.yml` workflow tests the app and uploads web, iOS,
-and Android Expo exports. Those exports verify bundling only: there is currently
-no OBS Remote production hostname, EAS project, store submission, APK, AAB, or
-IPA distribution.
+Production serves the Expo web build at `https://remote.visp-stream.com` from
+`apps/obs-remote/dist`. Release versions are synchronized in `app.json`,
+`package.json`, the broadcaster app, and the OBS plugin by `bun run version:bump`.
+The unified release workflow builds the web app on the app host and smoke-checks
+the public origin. Native store submission is not part of that workflow.

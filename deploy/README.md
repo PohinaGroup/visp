@@ -112,15 +112,25 @@ pprof stay disabled.
    EXPO_PUBLIC_SERVER_URL=https://app.example.com
    EXPO_PUBLIC_RELAY_WEBRTC_URL=https://relay.example.com
    ```
+
+   Put the OBS Remote web app's public build value in
+   `/etc/visp/obs-remote-web.env`:
+
+   ```text
+   EXPO_PUBLIC_SERVER_URL=https://app.example.com
+   ```
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
    `ADMIN_DOMAIN=admin.visp-stream.com`,
    `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
+   `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
    `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IP` in
    `/etc/visp/caddy.env`. Caddy serves `apps/admin/dist`, `apps/native/dist`,
-   and `apps/fumadocs/.output/public` directly; these static sites need no
-   runtime service. Add `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` to
+   `apps/obs-remote/dist`, and `apps/fumadocs/.output/public` directly; these
+   static sites need no runtime service. Add
+   `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` and
+   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com` to
    `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
    console. In the Kick developer dashboard, register
@@ -129,8 +139,9 @@ pprof stay disabled.
    needs the `user:read` scope; chat delivery uses the server's app token and
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
    SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for
-   `admin.visp-stream.com`, `stream.visp-stream.com`, and
-   `docs.visp-stream.com` before Caddy obtains their certificates.
+   `admin.visp-stream.com`, `stream.visp-stream.com`,
+   `remote.visp-stream.com`, and `docs.visp-stream.com` before Caddy obtains
+   their certificates.
 6. Install the stable release bootstrap as a root-owned executable:
 
    ```bash

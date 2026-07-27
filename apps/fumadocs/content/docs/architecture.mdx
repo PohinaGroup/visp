@@ -15,7 +15,7 @@ transcoding it; the app decides who may connect and tracks what is live.
 | App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch and Kick login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
-| OBS Remote | iOS, Android, or web | Dedicated stream and scene control surface using the broadcaster's VISP account |
+| OBS Remote | `remote.visp-stream.com` (also iOS/Android) | Dedicated stream and scene control surface using the broadcaster's VISP account |
 | OBS plugin | Broadcaster's OBS Studio 31 | Device management, Media Source setup, and outbound-only remote control |
 
 The hosts talk over Tailscale for administration and the MediaMTX Control API.

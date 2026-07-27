@@ -3,8 +3,8 @@
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,
-native web app, and documentation; verifies OBS Remote exports; and attaches the
-OBS packages to the same GitHub Release. Native EAS submission remains disabled
+native web app, OBS Remote web app, and documentation; and attaches the OBS
+packages to the same GitHub Release. Native EAS submission remains disabled
 until the commented release job is configured and enabled.
 
 ## One-time app-server setup
@@ -24,15 +24,19 @@ Create these root-owned, mode `0600` files:
 
 - `/etc/visp/app.env`, including
   `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com`,
+  `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com`,
   `ADMIN_ORIGIN=https://admin.visp-stream.com`, and comma-separated
   `ADMIN_USER_IDS`.
 - `/etc/visp/web.env`, containing the portal's build-time `VITE_*` values.
 - `/etc/visp/native-web.env`, containing
   `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN` and
   `EXPO_PUBLIC_RELAY_WEBRTC_URL=https://RELAY_DOMAIN`.
+- `/etc/visp/obs-remote-web.env`, containing
+  `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN`.
 - `/etc/visp/caddy.env`, containing `APP_DOMAIN`,
   `ADMIN_DOMAIN=admin.visp-stream.com`,
   `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
+  `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
   `DOCS_DOMAIN=docs.visp-stream.com`, and the existing relay values.
 
 Install the app Caddyfile and ensure the two systemd services already exist:
@@ -42,11 +46,11 @@ sudo install -m 0644 deploy/app/Caddyfile /etc/caddy/Caddyfile
 sudo systemctl enable --now visp-server visp-web caddy
 ```
 
-The admin app, native web app, and Fumadocs are static files. They do not have
-systemd services. Caddy serves `/opt/visp/apps/admin/dist` and
-`/opt/visp/apps/native/dist` with an `index.html` SPA
-fallback and `/opt/visp/apps/fumadocs/.output/public` with `_shell.html` as its
-fallback.
+The admin app, native web app, OBS Remote web app, and Fumadocs are static
+files. They do not have systemd services. Caddy serves
+`/opt/visp/apps/admin/dist`, `/opt/visp/apps/native/dist`, and
+`/opt/visp/apps/obs-remote/dist` with an `index.html` SPA fallback and
+`/opt/visp/apps/fumadocs/.output/public` with `_shell.html` as its fallback.
 
 Use `root` as the SSH deployment account; no separate deployment account or
 sudoers rule is needed. Restrict root to key authentication over Tailscale and
@@ -62,6 +66,7 @@ Configure these environment variables:
 - `ADMIN_URL`: `https://admin.visp-stream.com`.
 - `RELAY_WEBRTC_URL`: public relay WebRTC origin.
 - `NATIVE_WEB_URL`: `https://stream.visp-stream.com`.
+- `OBS_REMOTE_WEB_URL`: `https://remote.visp-stream.com`.
 - `DOCS_URL`: `https://docs.visp-stream.com`.
 
 Configure these environment secrets:
@@ -82,9 +87,9 @@ workflow is also reusable:
 - `MACOS_NOTARIZATION_USERNAME`
 - `MACOS_NOTARIZATION_PASSWORD`
 
-Create DNS records for `admin.visp-stream.com`, `stream.visp-stream.com`, and
-`docs.visp-stream.com` before the first release so Caddy can obtain their
-certificates.
+Create DNS records for `admin.visp-stream.com`, `stream.visp-stream.com`,
+`remote.visp-stream.com`, and `docs.visp-stream.com` before the first release so
+Caddy can obtain their certificates.
 
 ## Publish a release
 
@@ -104,7 +109,7 @@ first runs the repository tests, type checks, and all production builds.
 The app-server bootstrap verifies the tag and 40-character commit SHA, locks the
 host, refuses tracked changes, checks out the exact release, and executes that
 release's helper. The helper installs frozen dependencies, migrates the database,
-and builds all five app-server artifacts
+and builds all six app-server artifacts
 before restarting either service. It validates Caddy before installing its
 configuration, then restarts `visp-server` and `visp-web`, reloads Caddy, and
 runs local smoke checks. Install, migration, or build failures therefore leave
@@ -117,16 +122,15 @@ Confirm the portal and API are healthy. At `admin.visp-stream.com`, verify the
 main login is reused, an admin can open the console, and an ordinary user is
 denied. Then test a deep native-web route at `stream.visp-stream.com`, OAuth
 return to that origin, and WebRTC through the configured relay. At
-`docs.visp-stream.com`, check `/docs`, `/api/search`, `/llms.txt`, and
-`/llms-full.txt`.
+`remote.visp-stream.com`, confirm OBS Remote signs in with the same VISP
+account and receives live OBS state. At `docs.visp-stream.com`, check `/docs`,
+`/api/search`, `/llms.txt`, and `/llms-full.txt`.
 
 In Expo, confirm Android reached Play internal testing and iOS reached the
-`VISP Internal` TestFlight group only when the EAS release job is enabled. Check
-that the release workflow retained the OBS Remote web/iOS/Android verification
-export; it is not an installable app or deployed site. In the GitHub Release,
-confirm Windows, macOS, and Ubuntu OBS packages are present, the macOS package
-is notarized, and every package matches `SHA256SUMS.txt`.
+`VISP Internal` TestFlight group only when the EAS release job is enabled. In
+the GitHub Release, confirm Windows, macOS, and Ubuntu OBS packages are present,
+the macOS package is notarized, and every package matches `SHA256SUMS.txt`.
 
-OBS Remote hosting/store distribution, store promotion, OBS installation, OTA
+OBS Remote native store distribution, store promotion, OBS installation, OTA
 updates, automatic database rollback, and relay-server restarts are outside this
 release workflow.
