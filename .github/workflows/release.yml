@@ -83,15 +83,15 @@ jobs:
           bun run --cwd apps/native build:web
           test -f apps/native/dist/index.html
 
-      - name: Build OBS Remote exports
+      - name: Build OBS Remote web app
         env:
           EXPO_PUBLIC_SERVER_URL: ${{ vars.APP_URL }}
         run: |
           test -n "$EXPO_PUBLIC_SERVER_URL"
-          bun run --cwd apps/obs-remote build
+          bun run --cwd apps/obs-remote build:web
           test -f apps/obs-remote/dist/index.html
 
-      - name: Upload OBS Remote verification export
+      - name: Upload OBS Remote web build
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: obs-remote-${{ steps.release.outputs.tag }}
@@ -149,6 +149,7 @@ jobs:
           ADMIN_URL: ${{ vars.ADMIN_URL }}
           APP_URL: ${{ vars.APP_URL }}
           NATIVE_WEB_URL: ${{ vars.NATIVE_WEB_URL }}
+          OBS_REMOTE_WEB_URL: ${{ vars.OBS_REMOTE_WEB_URL }}
           DOCS_URL: ${{ vars.DOCS_URL }}
         shell: bash
         run: |
@@ -157,6 +158,7 @@ jobs:
             "$ADMIN_URL" \
             "$APP_URL" \
             "$NATIVE_WEB_URL" \
+            "$OBS_REMOTE_WEB_URL" \
             "$DOCS_URL/docs" \
             "$DOCS_URL/api/search" \
             "$DOCS_URL/llms.txt"; do

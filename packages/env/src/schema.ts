@@ -27,7 +27,7 @@ export const serverEnvSchema = {
 	KICK_CLIENT_SECRET: z.string().min(1),
 	MEDIAMTX_API_URL: z.url(),
 	NATIVE_WEB_ORIGIN: z.url(),
-	OBS_REMOTE_WEB_ORIGIN: z.url().optional(),
+	OBS_REMOTE_WEB_ORIGIN: z.url(),
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
 		.default("development"),

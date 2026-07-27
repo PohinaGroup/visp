@@ -70,7 +70,7 @@ export function createAuth() {
 			env.CORS_ORIGIN,
 			env.ADMIN_ORIGIN,
 			env.NATIVE_WEB_ORIGIN,
-			...(env.OBS_REMOTE_WEB_ORIGIN ? [env.OBS_REMOTE_WEB_ORIGIN] : []),
+			env.OBS_REMOTE_WEB_ORIGIN,
 			"visp://",
 			"obsremote://",
 		],

@@ -62,7 +62,7 @@ export function createApp() {
 					env.CORS_ORIGIN,
 					env.ADMIN_ORIGIN,
 					env.NATIVE_WEB_ORIGIN,
-					...(env.OBS_REMOTE_WEB_ORIGIN ? [env.OBS_REMOTE_WEB_ORIGIN] : []),
+					env.OBS_REMOTE_WEB_ORIGIN,
 				],
 				methods: ["GET", "POST", "OPTIONS"],
 				allowedHeaders: ["Content-Type", "Authorization", "X-Hook-Secret"],

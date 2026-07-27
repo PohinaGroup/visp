@@ -7,8 +7,8 @@ icon: Rocket
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs the unified release workflow
 against that exact commit. One release deploys the API, portal, admin console,
-browser broadcaster, and this documentation site; verifies OBS Remote exports;
-and attaches the OBS plugin packages to the same GitHub Release. Native store
+browser broadcaster, OBS Remote web app, and this documentation site; and
+attaches the OBS plugin packages to the same GitHub Release. Native store
 submission is currently disabled until its EAS release job is enabled.
 
 ## Before tagging
@@ -32,8 +32,7 @@ publications are ignored, and concurrent releases are serialized.
 2. Connects to the app host over an ephemeral Tailscale identity and runs the
    root-owned `visp-release` bootstrap with the tag and its 40-character
    commit SHA.
-3. Exports OBS Remote for web, iOS, and Android and retains the output as a
-   workflow artifact. These are bundle checks, not APK, AAB, IPA, or store releases.
+3. Builds OBS Remote for web and retains the output as a workflow artifact.
 4. Builds, signs, and notarizes the OBS packages and attaches them with
    `SHA256SUMS.txt` — uploads use overwrite semantics, so rerunning a failed
    job is safe.
@@ -46,7 +45,7 @@ release's own helper from `/usr/local/libexec` — so helper fixes take effect i
 the same release that ships them.
 
 The helper installs frozen dependencies, migrates the database, and builds all
-five app-host artifacts **before** restarting anything. It validates the Caddy
+six app-host artifacts **before** restarting anything. It validates the Caddy
 configuration before installing it, restarts `visp-server` and `visp-web`,
 reloads Caddy, and runs local smoke checks. An install, migration, or build
 failure therefore leaves the currently running services untouched.
@@ -64,13 +63,13 @@ Two rules follow from this design:
   admin, and denies an ordinary user.
 - A deep browser-app route and OAuth return work at `stream.visp-stream.com`;
   WebRTC publishes through the relay.
+- OBS Remote signs in and receives live OBS state at `remote.visp-stream.com`.
 - Docs respond at `docs.visp-stream.com`: `/docs`, `/api/search`, `/llms.txt`,
   `/llms-full.txt`.
-- The release workflow contains web, iOS, and Android OBS Remote export artifacts.
 - The GitHub Release carries all three OBS packages, the macOS package is
   notarized, and every file matches `SHA256SUMS.txt`.
 
-OBS Remote hosting/store distribution, native store promotion, OBS plugin
+OBS Remote native store distribution, native store promotion, OBS plugin
 installation on broadcaster machines, OTA updates, automatic database rollback,
 and relay restarts are intentionally outside the workflow. Operator-side
 prerequisites are documented in the repository's `deploy/UPDATE.md`.

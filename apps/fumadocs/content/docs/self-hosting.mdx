@@ -110,6 +110,8 @@ remain disabled.
      back it up with the other secrets.
    - Set `NATIVE_WEB_ORIGIN` to the browser publisher's public origin
      (for example `https://stream.example.com`).
+   - Set `OBS_REMOTE_WEB_ORIGIN` to the OBS Remote web app's public origin
+     (for example `https://remote.example.com`).
    - Set `HOOK_SECRET` to the same value as on the relay.
    - Set `BETTER_AUTH_URL` and `CORS_ORIGIN` to the public app and portal
      origins (same host when Caddy terminates TLS for both).
@@ -130,6 +132,12 @@ remain disabled.
    EXPO_PUBLIC_SERVER_URL=https://app.example.com
    EXPO_PUBLIC_RELAY_WEBRTC_URL=https://relay.example.com
    ```
+
+   Create `/etc/visp/obs-remote-web.env`:
+
+   ```text
+   EXPO_PUBLIC_SERVER_URL=https://app.example.com
+   ```
 4. Build and install services:
 
    ```bash
@@ -144,8 +152,9 @@ remain disabled.
 
    Use Caddy's packaged unit with `deploy/app/Caddyfile` and
    `deploy/systemd/caddy-app.conf` as the drop-in. In `/etc/visp/caddy.env` set
-   `APP_DOMAIN`, `ADMIN_DOMAIN`, `NATIVE_WEB_DOMAIN`, `DOCS_DOMAIN`, and
-   `RELAY_PUBLIC_IP`. Caddy serves `apps/admin/dist`, `apps/native/dist`, and
+   `APP_DOMAIN`, `ADMIN_DOMAIN`, `NATIVE_WEB_DOMAIN`, `OBS_REMOTE_WEB_DOMAIN`,
+   `DOCS_DOMAIN`, and `RELAY_PUBLIC_IP`. Caddy serves `apps/admin/dist`,
+   `apps/native/dist`, `apps/obs-remote/dist`, and
    `apps/fumadocs/.output/public` as static files; none needs its own systemd
    unit.
 5. Register provider callbacks:
@@ -159,8 +168,8 @@ remain disabled.
    The Kick app needs the `user:read` scope. Chat delivery uses the server's
    app token and `chat.message.sent` webhook subscriptions.
 6. Expose only public **TCP 443**. Allow SSH only over Tailscale. Create DNS
-   for the app, admin, browser-publisher, and docs hostnames before Caddy
-   obtains certificates.
+   for the app, admin, browser-publisher, OBS Remote, and docs hostnames before
+   Caddy obtains certificates.
 
 Do not put MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relay's direct public IP (`RELAY_PUBLIC_IP`), and the hook
