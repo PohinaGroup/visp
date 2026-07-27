@@ -1,0 +1,240 @@
+---
+title: "Näin striimaat Kickiin puhelimesta OBS:n kautta"
+description: "Striimaa Kickiin puhelimesta OBS:n kautta ja pidä kohtaukset, hälytykset, varakuva sekä lähetysavain kotona VISPin välittäessä kameran."
+publishedAt: 2026-07-27
+coverAlt: "Puhelimen kamera lähettää syaanin kuvalähteen relayn kautta kotistudioon, josta lähtee yksi vihreä ohjelmavirta katsojille"
+---
+
+Kun haluat striimata Kickiin puhelimesta **OBS:n kautta**, puhelinta kannattaa
+käyttää etäkamerana eikä lopullisena Kick-enkooderina. Kirjaudu VISPiin
+Kick-tunnuksella, tuo puhelimen kuva OBS:ään, määritä Kick vain OBS:ssä ja
+käynnistä valmis lähetys kotikoneelta.
+
+Ylimääräinen vaihe on hyödyllinen, jos lähetys tarvitsee nykyisiä
+OBS-kohtauksia, hälytyksiä, paikallisia mikrofoneja, tallennusta tai varakuvaa.
+Samalla Kickin lähetysavain pysyy kotona. Jos tarvitset vain yhden
+puhelinkameran ja haluat päästä mahdollisimman nopeasti liveen, Kickin oma
+mobiilisovellus tai suoraan Kickiin lähettävä mobiilienkooderi on yksinkertaisempi
+ratkaisu.
+
+![Puhelin julkaisee yhden kuvalähteen VISPin kautta OBS:ään, ja OBS lähettää erikseen määritetyn valmiin ohjelman Kickiin](./kick-phone-obs-path.svg)
+
+## Valitse ensin suora lähetys tai OBS-työnkulku
+
+[Kickin virallinen mobiiliohje](https://help.kick.com/en/articles/7135289-streaming-on-kick-from-your-mobile-phone)
+esittelee kaksi käytännöllistä suoraa vaihtoehtoa: Kick - Go Live -sovelluksen
+ja puhelimessa toimivat enkooderit, jotka lähettävät kuvan suoraan Kickiin.
+Ne sopivat tilanteeseen, jossa puhelin on koko tuotanto.
+
+VISP-työnkulku ratkaisee eri ongelman. Puhelin tuo yhden kameran ja mikrofonin
+OBS-studioon, joka vastaa julkisesta lähetyksestä.
+
+| Tuotannon tarve | Parempi aloitustapa |
+| --- | --- |
+| Yksi puhelin, vähän asetuksia, ei kotikonetta | Kick - Go Live tai muu suora mobiilienkooderi |
+| Nykyiset OBS-kohtaukset, hälytykset, grafiikat ja äänet | Puhelin → VISP → OBS → Kick |
+| Paikallinen varakuva puhelimen yhdistäessä uudelleen | Puhelin → VISP → OBS → Kick |
+| Kickin lähetysavain ei saa olla kenttäpuhelimessa | Puhelin → VISP → OBS → Kick |
+| Useita erillisiä kenttäkameroita | Jokaiselle puhelimelle oma VISP-laite, kuvat miksataan OBS:ssä |
+
+OBS-reitti ei ole automaattisesti luotettavampi. Se lisää tuotantoon
+kotikoneen, kodin internetyhteyden ja relayn. Valitse se, kun tarvitset niiden
+tarjoamaa tuotannon hallintaa — ei siksi, että pidempi signaaliketju olisi
+itsessään parempi.
+
+## Ymmärrä kaksi erillistä lähetysvirtaa
+
+Työnkulussa on kaksi enkooderiyhteyttä:
+
+1. **Kuvalähde:** puhelin enkoodaa kameran ja mikrofonin H.264/AAC-muotoon ja
+   julkaisee ne SRT:llä tunnistettuun VISP-polkuun.
+2. **Jakelu:** OBS lukee syötteen, kokoaa lopullisen kohtauksen, enkoodaa
+   ohjelman ja lähettää sen Kickiin Kickin palvelinosoitteella ja
+   lähetysavaimella.
+
+VISP käsittelee vain ensimmäisen yhteyden. Relay kuljettaa puhelimen kuvan
+OBS:ään, ja hallintataso huolehtii laitteiden käyttöoikeuksista. VISP ei
+vastaanota eikä välitä Kickin lähetysavainta. Avain kuuluu OBS:n kohtaan
+**Settings → Stream**.
+
+Yhteyksillä on myös omat bittinopeusbudjettinsa. Puhelin voi saada yhteyden
+VISPiin samalla, kun OBS:n Kick-lähetyksessä putoaa ruutuja. Vastaavasti OBS:n
+Kick-yhteys voi olla kunnossa, vaikka kenttäkuva yhdistäisi uudelleen.
+[Puhelimen ja OBS:n bittinopeusopas](/blog/best-bitrate-irl-streaming-phone-obs)
+auttaa mitoittamaan nämä yhteydet erikseen.
+
+## Mitä tarvitset
+
+- iPhonen tai Android-puhelimen, jota
+  [VISP-sovellus](https://docs.visp-stream.com/fi/docs/phone-app) tukee
+- OBS Studio 31:n kotikoneella nykyistä VISP-lisäosaa varten tai
+  hallintapaneelista käsin luodun OBS-medialähteen
+- Kick-tunnuksella luodun VISP-tilin
+- pääsyn Kick Creator Dashboardiin
+- riittävän puhelimen lähetysnopeuden sekä kodin latausnopeuden puhelinkuvalle
+  ja lähetysnopeuden valmiille Kick-ohjelmalle
+- kuulokkeet ja toisen mykistetyn laitteen lopputarkistukseen
+
+Pidä käyttöoikeuksien tehtävät erillään. VISP-julkaisuosoite on yhden
+kamerapolun yksityinen tunnus. Kickin lähetysavain on laajempi tunnus, jolla
+kanavalle voi lähettää ohjelmaa. Kumpikaan ei kuulu kuvakaappauksiin, chatiin
+tai vieraan muistiinpanoihin.
+
+## 1. Kirjaudu Kickillä ja luo puhelimen kuvalähde
+
+Avaa VISP-sovellus kenttäpuhelimessa ja valitse **Continue with Kick**.
+Sovellus varaa asennukselle julkaisulaitteen ja tallentaa sen SRT-osoitteen
+käyttöjärjestelmän suojattuun tallennustilaan. Osoitetta ei tavallisesti
+tarvitse kopioida.
+
+Nimeä laite niin, että sen tunnistaa myöhemmin OBS:ssä, esimerkiksi
+”liikkuva puhelin” tai ”tapahtumakamera”. Jokaisella puhelimella pitäisi olla
+oma laite ja tunnus. Saman laitteen jakaminen usealle puhelimelle vaikeuttaa
+käyttöoikeuden peruuttamista eikä muodosta varayhteyttä: yhtä VISP-polkua voi
+käyttää vain yksi julkaisija kerrallaan.
+
+Jos käytät VISP-sovelluksen sijaan Larixia, Moblinia tai muuta enkooderia, luo
+laite hallintapaneelissa ja kopioi lähetysosoite enkooderiin.
+[Kuvalähteen ohje](https://docs.visp-stream.com/fi/docs/video-source) kattaa
+manuaaliset SRT- ja RTMP-reitit.
+
+## 2. Lisää puhelin OBS:ään
+
+Kun käytät lisäosaa, avaa OBS:ssä **Tools → VISP Remote Control**, valitse
+**Sign in with browser** ja hyväksy laitekoodi. Valitse puhelin ja lisää se
+haluttuun kohtaukseen. Lisäosa luo medialähteen oikealla, tunnistetulla
+lukuosoitteella ja palautumisasetuksilla.
+
+Lisäosa muodostaa ulospäin suuntautuvat HTTPS- ja WSS-yhteydet. Se ei tarvitse
+reitittimeen saapuvaa porttiohjausta. Konetunnus on rajattu laitteiden ja
+OBS-ohjauksen tehtäviin yleisen tilikäytön sijaan.
+[OBS-etäohjauksen ohje](https://docs.visp-stream.com/fi/docs/obs-remote-control)
+kuvaa yhdistämisen ja tunnuksen peruuttamisen.
+
+Vaihtoehtoisesti voit ladata VISP-hallintapaneelista generoidun
+kohtauskokoelman ja tuoda sen kohdasta **Scene Collection → Import**. Mukana
+ovat varakohtaus ja yksi medialähde jokaista nykyistä polkua varten. Jos
+paljastat ja liität lukuosoitteen itse, käsittele sitä salasanana. Koko tilin
+lukuavaimen vaihtaminen mitätöi kaikki OBS:n nykyiset VISP-medialähteet.
+
+## 3. Määritä puhelimen kuvalähteen laatu
+
+Valitse kamera, kuvan suunta, tarkkuus, kuvataajuus ja mikrofoni ennen julkisen
+lähetyksen käynnistämistä. Liikkuvassa IRL-lähetyksessä mobiiliverkon yli
+720p30 on järkevä ensimmäinen testi. Nosta laatua vasta, kun todellinen reitti
+kestää valitun bittinopeuden riittävällä marginaalilla.
+
+Nämä ovat kuvalähteen asetuksia, eivät Kick-lähdön asetuksia. VISP ei
+transkoodaa puhelimen kuvaa toiseen tarkkuuteen tai bittinopeuteen. Se ei
+myöskään bondaa eli yhdistä mobiili-, Wi-Fi- ja Ethernet-yhteyksiä yhdeksi
+siirtotieksi. Jos yksi operaattori tai tukiasema ei pysty kuljettamaan valittua
+kuvaa, VISP ei voi luoda puuttuvaa kaistaa.
+
+Käynnistä puhelimen lähetys ja odota, että laitteen tilana näkyy
+hallintapaneelissa **Live**. Tarkkaile liikettä OBS:ssä muutaman minuutin ajan,
+puhu oikeaan mikrofoniin ja tarkista mikseri. Jos kenttä ja studio tallentavat
+saman tilan ääntä, mykistä toinen reitti tai kohdista ne tarkoituksella. Kaksi
+eri aikaan kuuluvaa kopiota aiheuttaa kaiun.
+
+## 4. Määritä Kick OBS:ssä
+
+Avaa Kick Creator Dashboard ja etsi **Channel → Stream URL and Key**. Avaa
+OBS:ssä **Settings → Stream**, valitse **Custom** ja liitä Kickin näyttämä
+palvelinosoite sekä lähetysavain. Älä liitä Kick-avainta VISP-sovellukseen tai
+VISP-hallintapaneeliin.
+
+Kickin nykyinen
+[OBS-asennusohje](https://help.kick.com/en/articles/7066931-how-to-stream-on-kick-com)
+edellyttää H.264-yhteensopivaa enkooderia, vakiobittinopeutta ja kahden
+sekunnin avainruutuväliä. Kick tukee tällä hetkellä enintään 1920 × 1080
+-tarkkuutta, 60 kuvaa sekunnissa ja 8 000 kbit/s bittinopeutta. Tuettu
+enimmäisarvo ei kuitenkaan ole suositus. Valitse bittinopeus, jonka kodin
+lähetysyhteys kestää jatkuvasti, ja tarkista Kickin ohje aina, kun rakennat
+OBS-profiilin uudelleen.
+
+OBS tekee nyt sekä dekoodaus- että enkoodaustyötä: se purkaa etäkuvan, renderöi
+kohtauksen ja enkoodaa valmiin Kick-lähdön. Tarkkaile testissä prosessorin ja
+näytönohjaimen kuormaa. Jos renderöinti tai enkoodaus viivästyy mutta verkon
+pudonneiden ruutujen määrä pysyy nollassa, pelkkä verkkobittinopeuden
+pienentäminen ei todennäköisesti korjaa todellista pullonkaulaa.
+
+## 5. Aseta Kickin otsikko ja kategoria
+
+Aseta otsikko ja kategoria ennen julkista käynnistystä. Kick varoittaa, ettei
+lähetys välttämättä käynnisty oikein, jos tiedot puuttuvat.
+
+Voit muokata niitä Kick Creator Dashboardissa. VISP-sovellus voi myös hakea
+Kick-kategorioita sekä päivittää otsikon ja kategorian, kun annat sille
+kanavatietojen kirjoitusoikeuden. Oikeus koskee lähetyksen metatietoja; se ei
+anna VISPille Kickin lähetysavainta.
+
+Jos seuraat puhelimella sekä Twitch- että Kick-chatia, valitse yksityinen
+**Floating**-näkymä, jotta viestit näkyvät vain kuvaajalle.
+[Mobiilichatin oppaassa](/blog/twitch-kick-chat-phone-obs) selitetään ero
+yksityisen kelluvan näkymän ja puhelimen lähtevään kuvaan tarkoituksella
+upotetun chatin välillä.
+
+## 6. Tee lopputarkistus oikeassa järjestyksessä
+
+Tällä järjestyksellä näet jokaisen rajapinnan ennen katsojien saapumista:
+
+1. Käynnistä puhelimen VISP-kuvalähde.
+2. Varmista, että laite on VISPissä **Live** ja näkyy oikeassa OBS-kohtauksessa.
+3. Tarkista puhelimen ääni OBS-mikserissä kuulokkeilla.
+4. Tee lyhyt paikallinen OBS-tallenne ja tarkista liike, rajaus ja synkronointi.
+5. Pysäytä puhelin tai katkaise sen yhteys kerran ja varmista, että varakohtaus
+   tulee näkyviin.
+6. Yhdistä puhelin uudelleen ja varmista, että medialähde palautuu.
+7. Aseta Kickin otsikko ja kategoria.
+8. Käynnistä Kick-lähtö OBS:stä. Käytä yhdistettyä VISP-ohjausta vasta, kun
+   esikatselu on kunnossa.
+9. Tarkista julkinen kanava toisella mykistetyllä laitteella.
+
+[Enkooderi- ja varakohtausohje](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+sisältää Advanced Scene Switcher -reseptin. Se odottaa, että lähde pysyy
+toistotilassa ennen siihen vaihtamista, ja odottaa uudelleen ennen
+varakohtaukseen siirtymistä. Näin kohtaus ei vaihtele edestakaisin yhteyden
+palautuessa.
+
+## Etsi vika oikeasta lähetysvaiheesta
+
+**Puhelin näyttää live-tilaa, mutta OBS on tyhjä:** tarkista ensin, näkyykö
+laite VISP-hallintapaneelissa Live-tilassa. Jos ei, tutki puhelimen ja relayn
+välistä yhteyttä. Jos näkyy, varmista OBS:n nykyinen lukuosoite ja tarkista,
+ettei toinen julkaisija yritä käyttää samaa polkua.
+
+**OBS:n esikatselu toimii, mutta Kick pysyy offline-tilassa:** VISP-osuus on
+jo kunnossa. Tarkista Kickin palvelinosoite ja avain OBS:ssä. Varmista sen
+jälkeen Kickin nykyisestä ohjeesta otsikko, kategoria, H.264-enkooderi, CBR ja
+kahden sekunnin avainruutuväli.
+
+**OBS ilmoittaa verkossa pudonneista ruuduista:** ongelma on kodin
+Kick-lähetyksessä, ei puhelimen SRT-viiveessä. Pienennä lopullisen lähdön
+bittinopeutta tai korjaa kodin lähetysyhteys.
+
+**Puhelimen kuva jäätyy tai yhdistää uudelleen Kickin pysyessä livessä:**
+ongelma on kuvalähteen yhteydessä. Pienennä puhelimen bittinopeutta, käytä
+hallintapaneelin viivemittausta ja testaa todellista kenttäverkkoa.
+[Mobiiliverkon toimintavarmuusopas](/blog/keep-stream-live-bad-mobile-network)
+näyttää, miten SRT:n palautus, uudelleenyhdistys ja OBS-varakuva täydentävät
+toisiaan.
+
+**Chat tai metatietojen ohjaus ei ole käytettävissä:** yhdistä Kick VISPiin ja
+anna kyseisen toiminnon pyytämä oikeus. Median julkaisu, kanavan metatiedot,
+chat ja Kickin lähetysavain ovat erillisiä käyttöoikeuspolkuja.
+
+## Mitä VISP ei korvaa
+
+VISP on kuvalähteiden tunnistettu SRT/RTMP-relay ja hallintataso. Se ei ylläpidä
+OBS:ää, miksaa kohtauksia palvelimella, lähetä valmista ohjelmaa Kickiin,
+transkoodaa videota eikä bondaa verkkoyhteyksiä. Puhelin enkoodaa edelleen
+kenttäkuvan, OBS rakentaa ja enkoodaa ohjelman, ja Kick vastaanottaa valmiin
+lähdön suoraan OBS:stä.
+
+Juuri tämä työnjako on työnkulun tarkoitus: kenttäpuhelimesta tulee hallittu
+kamera tuotantoon ilman, että siitä tulee Kick-kanavan omistava lähetin.
+
+Jos tämä vastaa tuotantotarvettasi, jatka
+[VISPin aloitusohjeeseen](https://docs.visp-stream.com/fi/docs/get-started),
+lisää puhelin testikohtaukseen ja varmista koko palautumisketju ennen seuraavaa
+Kick-lähetystä.
