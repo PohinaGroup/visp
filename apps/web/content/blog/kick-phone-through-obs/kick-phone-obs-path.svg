@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Phone through VISP and OBS to Kick</title>
+  <desc id="desc">A phone sends one SRT contribution feed to an authenticated VISP relay. OBS reads it, mixes the production, and sends a separate final program to Kick with the Kick stream key kept in OBS.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071019"/>
+      <stop offset="1" stop-color="#11151a"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#68d8ff"/>
+      <stop offset="1" stop-color="#18bdf2"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b6ff55"/>
+      <stop offset="1" stop-color="#73e52d"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="cyan-arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0 0L14 7L0 14Z" fill="#34c9f5"/>
+    </marker>
+    <marker id="green-arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0 0L14 7L0 14Z" fill="#92ef3e"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="40" fill="url(#bg)"/>
+  <text x="100" y="100" fill="#f6f8fa" font-family="Inter, Arial, sans-serif" font-size="42" font-weight="700">Two separate streaming connections</text>
+  <text x="100" y="150" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="24">The phone contributes one source. OBS owns the public Kick broadcast.</text>
+
+  <g transform="translate(90 260)">
+    <rect width="280" height="330" rx="36" fill="#151d25" stroke="#3d4a55" stroke-width="4"/>
+    <rect x="62" y="35" width="156" height="240" rx="24" fill="#05090d" stroke="#68d8ff" stroke-width="5"/>
+    <circle cx="140" cy="292" r="12" fill="#68d8ff"/>
+    <circle cx="140" cy="90" r="34" fill="#20313c"/>
+    <circle cx="140" cy="90" r="17" fill="#68d8ff"/>
+    <text x="140" y="385" text-anchor="middle" fill="#f6f8fa" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="700">Field phone</text>
+    <text x="140" y="425" text-anchor="middle" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="22">H.264 + AAC camera feed</text>
+  </g>
+
+  <path d="M390 420H570" stroke="url(#cyan)" stroke-width="10" stroke-linecap="round" marker-end="url(#cyan-arrow)" filter="url(#glow)"/>
+  <text x="480" y="382" text-anchor="middle" fill="#68d8ff" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">SRT contribution</text>
+  <text x="480" y="462" text-anchor="middle" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="20">Phone upload</text>
+
+  <g transform="translate(600 285)">
+    <rect width="290" height="280" rx="42" fill="#111c23" stroke="#34c9f5" stroke-width="5"/>
+    <path d="M80 95L145 55L210 95V175L145 215L80 175Z" fill="#0b1218" stroke="#68d8ff" stroke-width="5"/>
+    <circle cx="145" cy="135" r="37" fill="#68d8ff" opacity=".18"/>
+    <circle cx="145" cy="135" r="18" fill="#68d8ff"/>
+    <text x="145" y="330" text-anchor="middle" fill="#f6f8fa" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="700">VISP relay</text>
+    <text x="145" y="370" text-anchor="middle" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="22">Authenticated media path</text>
+  </g>
+
+  <path d="M910 420H1070" stroke="url(#cyan)" stroke-width="10" stroke-linecap="round" marker-end="url(#cyan-arrow)" filter="url(#glow)"/>
+  <text x="990" y="382" text-anchor="middle" fill="#68d8ff" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">OBS read</text>
+  <text x="990" y="462" text-anchor="middle" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="20">Home download</text>
+
+  <g transform="translate(1100 235)">
+    <rect width="370" height="370" rx="38" fill="#171d22" stroke="#66727d" stroke-width="4"/>
+    <rect x="45" y="45" width="280" height="175" rx="14" fill="#060a0d" stroke="#c6d0d8" stroke-width="4"/>
+    <rect x="65" y="66" width="112" height="62" rx="6" fill="#163d4d"/>
+    <rect x="190" y="66" width="114" height="62" rx="6" fill="#29442d"/>
+    <rect x="65" y="140" width="239" height="60" rx="6" fill="#1c252c"/>
+    <path d="M82 180L106 154L135 175L165 150L200 182L230 158L286 180" fill="none" stroke="#68d8ff" stroke-width="5"/>
+    <rect x="105" y="246" width="160" height="62" rx="12" fill="#0b1115" stroke="#92ef3e" stroke-width="4"/>
+    <text x="185" y="288" text-anchor="middle" fill="#92ef3e" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700">Kick key stays here</text>
+    <text x="185" y="420" text-anchor="middle" fill="#f6f8fa" font-family="Inter, Arial, sans-serif" font-size="31" font-weight="700">Home OBS</text>
+    <text x="185" y="460" text-anchor="middle" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="22">Scenes · alerts · fallback</text>
+  </g>
+
+  <path d="M1285 690V760H1455" stroke="url(#green)" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" marker-end="url(#green-arrow)" filter="url(#glow)"/>
+  <text x="1340" y="732" text-anchor="middle" fill="#92ef3e" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">Final RTMPS program</text>
+  <text x="1470" y="815" text-anchor="end" fill="#f6f8fa" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="700">Kick viewers</text>
+
+  <g transform="translate(90 720)">
+    <rect width="780" height="100" rx="24" fill="#0b1116" stroke="#2c3943" stroke-width="3"/>
+    <circle cx="55" cy="50" r="20" fill="#68d8ff"/>
+    <text x="95" y="43" fill="#f6f8fa" font-family="Inter, Arial, sans-serif" font-size="24" font-weight="700">VISP forwards the contribution unchanged</text>
+    <text x="95" y="73" fill="#aab5c0" font-family="Inter, Arial, sans-serif" font-size="20">No transcoding · no network bonding · no Kick stream key</text>
+  </g>
+</svg>

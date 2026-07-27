@@ -147,9 +147,10 @@ export default function Index() {
 	const controlsDisabled = Boolean(
 		busy || !status?.connected || status.pending || live.liveState !== "open",
 	);
-	const columns = width >= 1000 ? 4 : width >= 680 ? 3 : 2;
-	const contentWidth = Math.min(width - 32, 1180);
-	const tileWidth = (contentWidth - 18 * (columns - 1)) / columns;
+	const columns = width >= 1000 ? 6 : width >= 680 ? 4 : 3;
+	const contentWidth = Math.min(width - 24, 1180);
+	const keyGap = 10;
+	const keyWidth = (contentWidth - keyGap * (columns - 1)) / columns;
 
 	async function setStreaming() {
 		if (!status || controlsDisabled || !userId) return;
@@ -299,12 +300,7 @@ export default function Index() {
 							</Text>
 						</View>
 					) : (
-						<>
-							<View style={styles.sectionHeading}>
-								<Text style={styles.sectionNumber}>01</Text>
-								<Text style={styles.sectionTitle}>TRANSMISSION</Text>
-								<View style={styles.rule} />
-							</View>
+						<View style={[styles.deck, { gap: keyGap }]}>
 							<Pressable
 								accessibilityHint={
 									connected
@@ -319,98 +315,89 @@ export default function Index() {
 								disabled={controlsDisabled}
 								onPress={() => void setStreaming()}
 								style={({ pressed }) => [
-									styles.streamButton,
-									status?.streaming && styles.streamButtonLive,
+									styles.key,
+									styles.streamKey,
+									{ width: keyWidth },
+									status?.streaming && styles.streamKeyLive,
 									controlsDisabled && styles.controlDisabled,
 									pressed && styles.pressed,
 								]}
 							>
-								<View style={styles.streamIconOuter}>
+								<View style={styles.keyTop}>
+									<Text style={styles.keyIndex}>ON AIR</Text>
 									<View
 										style={[
-											styles.streamIcon,
-											status?.streaming && styles.streamIconLive,
+											styles.led,
+											status?.streaming && styles.ledLive,
 										]}
 									/>
 								</View>
-								<View style={styles.streamButtonCopy}>
-									<Text style={styles.streamButtonTitle}>
-										{status?.pending
-											? "WAITING FOR OBS"
-											: status?.streaming
-												? "STOP STREAM"
-												: connected
-													? "GO LIVE"
-													: "OBS OFFLINE"}
-									</Text>
-									<Text style={styles.streamButtonMeta}>
-										{status?.streaming
-											? "PROGRAM OUTPUT ACTIVE"
-											: "PROGRAM OUTPUT STANDBY"}
-									</Text>
-								</View>
-								<Text style={styles.streamButtonState}>
-									{status?.streaming ? "ON AIR" : "READY"}
+								<Text
+									numberOfLines={2}
+									style={[
+										styles.streamKeyLabel,
+										status?.streaming && styles.streamKeyLabelLive,
+									]}
+								>
+									{status?.pending
+										? "WAIT"
+										: status?.streaming
+											? "STOP"
+											: connected
+												? "GO LIVE"
+												: "OFFLINE"}
+								</Text>
+								<Text style={styles.keyState}>
+									{busy === "stream"
+										? "SENDING"
+										: status?.streaming
+											? "LIVE"
+											: "READY"}
 								</Text>
 							</Pressable>
 
-							<View style={styles.sectionHeading}>
-								<Text style={styles.sectionNumber}>02</Text>
-								<Text style={styles.sectionTitle}>PROGRAM SCENES</Text>
-								<View style={styles.rule} />
-								<Text style={styles.sceneCount}>
-									{status?.scenes.length ?? 0} BANKED
-								</Text>
-							</View>
-							{status?.scenes.length ? (
-								<View style={styles.sceneGrid}>
-									{status.scenes.map((scene, index) => {
-										const selected = scene === status.currentScene;
-										const disabled = controlsDisabled || selected;
-										return (
-											<Pressable
-												accessibilityLabel={`Switch OBS to ${scene}`}
-												accessibilityRole="button"
-												accessibilityState={{ disabled, selected }}
-												disabled={disabled}
-												key={scene}
-												onPress={() => void setScene(scene)}
-												style={({ pressed }) => [
-													styles.sceneTile,
-													{ width: tileWidth },
-													selected && styles.sceneTileSelected,
-													!selected &&
-														controlsDisabled &&
-														styles.controlDisabled,
-													pressed && styles.pressed,
-												]}
-											>
-												<View style={styles.sceneTileTop}>
-													<Text style={styles.sceneIndex}>
-														{String(index + 1).padStart(2, "0")}
-													</Text>
-													<View
-														style={[
-															styles.sceneLed,
-															selected && styles.sceneLedSelected,
-														]}
-													/>
-												</View>
-												<Text numberOfLines={2} style={styles.sceneName}>
-													{scene}
-												</Text>
-												<Text style={styles.sceneState}>
-													{busy === scene
-														? "SENDING"
-														: selected
-															? "PROGRAM"
-															: "STANDBY"}
-												</Text>
-											</Pressable>
-										);
-									})}
-								</View>
-							) : (
+							{status?.scenes.map((scene, index) => {
+								const selected = scene === status.currentScene;
+								const disabled = controlsDisabled || selected;
+								return (
+									<Pressable
+										accessibilityLabel={`Switch OBS to ${scene}`}
+										accessibilityRole="button"
+										accessibilityState={{ disabled, selected }}
+										disabled={disabled}
+										key={scene}
+										onPress={() => void setScene(scene)}
+										style={({ pressed }) => [
+											styles.key,
+											{ width: keyWidth },
+											selected && styles.keySelected,
+											!selected && controlsDisabled && styles.controlDisabled,
+											pressed && styles.pressed,
+										]}
+									>
+										<View style={styles.keyTop}>
+											<Text style={styles.keyIndex}>
+												{String(index + 1).padStart(2, "0")}
+											</Text>
+											<View
+												style={[styles.led, selected && styles.ledSelected]}
+											/>
+										</View>
+										<Text numberOfLines={2} style={styles.keyLabel}>
+											{scene}
+										</Text>
+										<Text style={styles.keyState}>
+											{busy === scene
+												? "SENDING"
+												: selected
+													? "PROGRAM"
+													: "STANDBY"}
+										</Text>
+									</Pressable>
+								);
+							})}
+
+							{!status?.scenes.length ? (
 								<View style={styles.noScenes}>
 									<Text style={styles.noScenesText}>
 										{connected
@@ -418,8 +405,8 @@ export default function Index() {
 											: "SCENES APPEAR WHEN OBS CONNECTS"}
 									</Text>
 								</View>
-							)}
-						</>
+							) : null}
+						</View>
 					)}
 					<Text accessibilityLiveRegion="polite" style={styles.footerStatus}>
 						{status?.pending
@@ -474,7 +461,62 @@ const styles = StyleSheet.create({
 		letterSpacing: 0.8,
 	},
 	controlDisabled: { opacity: 0.42 },
+	deck: { flexDirection: "row", flexWrap: "wrap", marginTop: 24 },
 	disabled: { opacity: 0.45 },
+	key: {
+		aspectRatio: 1,
+		backgroundColor: "#171b22",
+		borderColor: LINE,
+		borderRadius: 16,
+		borderWidth: 1,
+		justifyContent: "space-between",
+		padding: 14,
+	},
+	keyIndex: {
+		color: "#626a77",
+		fontSize: 10,
+		fontWeight: "900",
+		letterSpacing: 1,
+	},
+	keyLabel: {
+		color: "#e9ebef",
+		fontSize: 16,
+		fontWeight: "800",
+		lineHeight: 20,
+	},
+	keySelected: {
+		backgroundColor: "#1d1318",
+		borderColor: RED,
+	},
+	keyState: {
+		color: "#626a77",
+		fontSize: 9,
+		fontWeight: "900",
+		letterSpacing: 1.2,
+	},
+	keyTop: {
+		alignItems: "center",
+		flexDirection: "row",
+		justifyContent: "space-between",
+	},
+	led: {
+		backgroundColor: "#363c46",
+		borderRadius: 4,
+		height: 8,
+		width: 8,
+	},
+	ledLive: {
+		backgroundColor: RED,
+		shadowColor: RED,
+		shadowOpacity: 0.9,
+		shadowRadius: 6,
+	},
+	ledSelected: {
+		backgroundColor: RED,
+		shadowColor: RED,
+		shadowOpacity: 0.9,
+		shadowRadius: 6,
+	},
 	emptyCopy: {
 		color: MUTED,
 		fontSize: 16,
@@ -530,9 +572,11 @@ const styles = StyleSheet.create({
 	},
 	noScenes: {
 		borderColor: LINE,
+		borderRadius: 16,
 		borderStyle: "dashed",
 		borderWidth: 1,
 		padding: 28,
+		width: "100%",
 	},
 	noScenesText: {
 		color: MUTED,
@@ -560,81 +604,8 @@ const styles = StyleSheet.create({
 	},
 	noticeText: { color: "#ffd4db", flex: 1, fontSize: 13 },
 	pressed: { opacity: 0.82, transform: [{ scale: 0.99 }] },
-	rule: { backgroundColor: LINE, flex: 1, height: 1 },
 	safeArea: { flex: 1 },
 	scrollContent: { alignSelf: "center", paddingBottom: 32, paddingTop: 20 },
-	sceneCount: {
-		color: MUTED,
-		fontSize: 9,
-		fontWeight: "800",
-		letterSpacing: 1,
-	},
-	sceneGrid: { flexDirection: "row", flexWrap: "wrap", gap: 18 },
-	sceneIndex: {
-		color: "#626a77",
-		fontSize: 10,
-		fontWeight: "900",
-		letterSpacing: 1,
-	},
-	sceneLed: {
-		backgroundColor: "#363c46",
-		borderRadius: 4,
-		height: 8,
-		width: 8,
-	},
-	sceneLedSelected: {
-		backgroundColor: RED,
-		shadowColor: RED,
-		shadowOpacity: 0.9,
-		shadowRadius: 6,
-	},
-	sceneName: {
-		color: "#e9ebef",
-		fontSize: 17,
-		fontWeight: "800",
-		lineHeight: 22,
-		marginTop: 24,
-	},
-	sceneState: {
-		color: "#626a77",
-		fontSize: 9,
-		fontWeight: "900",
-		letterSpacing: 1.3,
-		marginTop: 18,
-	},
-	sceneTile: {
-		backgroundColor: PANEL,
-		borderColor: LINE,
-		borderTopWidth: 3,
-		borderWidth: 1,
-		minHeight: 150,
-		padding: 18,
-	},
-	sceneTileSelected: {
-		backgroundColor: "#1d1318",
-		borderColor: RED,
-		borderTopColor: RED,
-	},
-	sceneTileTop: { flexDirection: "row", justifyContent: "space-between" },
-	sectionHeading: {
-		alignItems: "center",
-		flexDirection: "row",
-		gap: 12,
-		marginBottom: 16,
-		marginTop: 34,
-	},
-	sectionNumber: {
-		color: RED,
-		fontSize: 10,
-		fontWeight: "900",
-		letterSpacing: 1,
-	},
-	sectionTitle: {
-		color: "#c7ccd4",
-		fontSize: 11,
-		fontWeight: "900",
-		letterSpacing: 1.4,
-	},
 	securityNote: {
 		color: "#636b78",
 		fontSize: 11,
@@ -710,57 +681,21 @@ const styles = StyleSheet.create({
 		shadowOpacity: 0.9,
 		shadowRadius: 6,
 	},
-	streamButton: {
-		alignItems: "center",
-		backgroundColor: "#151921",
-		borderColor: "#343a46",
-		borderLeftColor: "#707988",
-		borderLeftWidth: 5,
-		borderWidth: 1,
-		flexDirection: "row",
-		minHeight: 116,
-		padding: 22,
+	streamKey: {
+		backgroundColor: "#12211a",
+		borderColor: "#1f6f47",
 	},
-	streamButtonCopy: { flex: 1, marginLeft: 18 },
-	streamButtonLive: {
+	streamKeyLabel: {
+		color: "#5bf29a",
+		fontSize: 18,
+		fontWeight: "900",
+		letterSpacing: -0.3,
+		lineHeight: 20,
+	},
+	streamKeyLabelLive: { color: "#ff8fa1" },
+	streamKeyLive: {
 		backgroundColor: "#3a111b",
-		borderColor: "#8d2438",
-		borderLeftColor: RED,
-	},
-	streamButtonMeta: {
-		color: MUTED,
-		fontSize: 9,
-		fontWeight: "800",
-		letterSpacing: 1.2,
-		marginTop: 7,
-	},
-	streamButtonState: {
-		color: "#aeb4be",
-		fontSize: 10,
-		fontWeight: "900",
-		letterSpacing: 1.4,
-	},
-	streamButtonTitle: {
-		color: "white",
-		fontSize: 25,
-		fontWeight: "900",
-		letterSpacing: -0.4,
-	},
-	streamIcon: {
-		backgroundColor: "#aab1bc",
-		borderRadius: 10,
-		height: 20,
-		width: 20,
-	},
-	streamIconLive: { backgroundColor: RED, borderRadius: 2 },
-	streamIconOuter: {
-		alignItems: "center",
-		borderColor: "#4a515d",
-		borderRadius: 32,
-		borderWidth: 1,
-		height: 62,
-		justifyContent: "center",
-		width: 62,
+		borderColor: RED,
 	},
 	topBar: {
 		alignItems: "flex-start",
