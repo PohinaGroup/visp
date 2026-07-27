@@ -1,0 +1,108 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title description">
+  <title id="title">Phone contribution through VISP and OBS to Twitch</title>
+  <desc id="description">A phone sends H.264 and AAC over SRT through the VISP relay to home OBS. OBS composes and encodes a separate final program, then sends it to Twitch with the Twitch account or stream key kept in OBS.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#13112b"/>
+    </linearGradient>
+    <linearGradient id="contribution" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+    <linearGradient id="program" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#a78bfa"/>
+      <stop offset="1" stop-color="#c084fc"/>
+    </linearGradient>
+    <filter id="glow" x="-20%" y="-50%" width="140%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="cyanArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0l12 6-12 6z" fill="#818cf8"/>
+    </marker>
+    <marker id="purpleArrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0l12 6-12 6z" fill="#c084fc"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="40" fill="url(#background)"/>
+  <path d="M0 690C270 610 325 770 590 680s445-40 1010-145" fill="none" stroke="#172554" stroke-width="2"/>
+  <path d="M0 740C300 660 370 810 645 720s465-35 955-125" fill="none" stroke="#27215a" stroke-width="2"/>
+
+  <text x="128" y="116" fill="#a5f3fc" font-family="system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="3">CONTRIBUTION</text>
+  <text x="1090" y="116" fill="#e9d5ff" font-family="system-ui, sans-serif" font-size="27" font-weight="700" letter-spacing="3">DISTRIBUTION</text>
+
+  <g transform="translate(105 224)">
+    <rect width="260" height="420" rx="38" fill="#0b1528" stroke="#22d3ee" stroke-width="5"/>
+    <rect x="22" y="54" width="216" height="286" rx="18" fill="#102c42"/>
+    <circle cx="130" cy="196" r="76" fill="#15364a"/>
+    <path d="M62 261l47-67 36 41 31-34 39 60z" fill="#22d3ee" opacity=".65"/>
+    <circle cx="176" cy="135" r="23" fill="#fbbf24"/>
+    <rect x="92" y="24" width="76" height="8" rx="4" fill="#334155"/>
+    <circle cx="130" cy="379" r="17" fill="none" stroke="#475569" stroke-width="4"/>
+    <text x="130" y="472" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="34" font-weight="750">Phone camera</text>
+    <text x="130" y="512" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="24">H.264/AAC encoder</text>
+  </g>
+
+  <g transform="translate(575 291)">
+    <path d="M122 0l122 70v140l-122 70L0 210V70z" fill="#172554" stroke="#818cf8" stroke-width="5"/>
+    <path d="M122 0v140m122-70-122 70L0 70m122 70v140" fill="none" stroke="#818cf8" stroke-width="4" opacity=".75"/>
+    <circle cx="122" cy="140" r="34" fill="#22d3ee" opacity=".9" filter="url(#glow)"/>
+    <text x="122" y="348" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="34" font-weight="750">VISP relay</text>
+    <text x="122" y="388" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="24">Forwards the published feed</text>
+    <text x="122" y="425" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="24">No transcoding or bonding</text>
+  </g>
+
+  <g transform="translate(948 204)">
+    <rect width="330" height="245" rx="22" fill="#0b1528" stroke="#a78bfa" stroke-width="5"/>
+    <rect x="22" y="22" width="137" height="93" rx="8" fill="#16324a"/>
+    <rect x="171" y="22" width="137" height="93" rx="8" fill="#243152"/>
+    <rect x="22" y="127" width="137" height="93" rx="8" fill="#25365d"/>
+    <rect x="171" y="127" width="137" height="93" rx="8" fill="#152944"/>
+    <path d="M64 103l24-42 27 27 18-22 21 37z" fill="#22d3ee" opacity=".8"/>
+    <circle cx="231" cy="73" r="28" fill="#c084fc" opacity=".65"/>
+    <g transform="translate(207 152)" fill="#a78bfa">
+      <rect width="12" height="51" rx="6"/>
+      <rect x="24" y="19" width="12" height="32" rx="6"/>
+      <rect x="48" y="7" width="12" height="44" rx="6"/>
+      <rect x="72" y="27" width="12" height="24" rx="6"/>
+    </g>
+    <path d="M117 245v42h96v-42" fill="#121b30" stroke="#a78bfa" stroke-width="5"/>
+    <rect x="63" y="287" width="204" height="25" rx="12" fill="#1e293b" stroke="#a78bfa" stroke-width="4"/>
+    <text x="165" y="374" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="34" font-weight="750">Home OBS</text>
+    <text x="165" y="414" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="24">Scenes, alerts, audio, fallback</text>
+  </g>
+
+  <g transform="translate(1366 277)">
+    <rect width="158" height="250" rx="34" fill="#19152f" stroke="#c084fc" stroke-width="5"/>
+    <circle cx="79" cy="84" r="39" fill="#c084fc" opacity=".75"/>
+    <path d="M32 205c2-53 24-78 47-78s45 25 47 78z" fill="#8b5cf6" opacity=".72"/>
+    <text x="79" y="316" text-anchor="middle" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="34" font-weight="750">Twitch</text>
+    <text x="79" y="356" text-anchor="middle" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="24">Final program</text>
+  </g>
+
+  <path d="M385 418H557" fill="none" stroke="url(#contribution)" stroke-width="13" stroke-linecap="round" marker-end="url(#cyanArrow)" filter="url(#glow)"/>
+  <path d="M833 418h95" fill="none" stroke="url(#contribution)" stroke-width="13" stroke-linecap="round" marker-end="url(#cyanArrow)" filter="url(#glow)"/>
+  <path d="M1295 418h52" fill="none" stroke="url(#program)" stroke-width="13" stroke-linecap="round" marker-end="url(#purpleArrow)" filter="url(#glow)"/>
+
+  <g font-family="system-ui, sans-serif" font-size="22" font-weight="650">
+    <rect x="388" y="347" width="164" height="42" rx="21" fill="#0e263a" stroke="#22d3ee" stroke-width="2"/>
+    <text x="470" y="376" text-anchor="middle" fill="#a5f3fc">SRT publish</text>
+    <rect x="836" y="347" width="90" height="42" rx="21" fill="#1c2344" stroke="#818cf8" stroke-width="2"/>
+    <text x="881" y="376" text-anchor="middle" fill="#c7d2fe">SRT</text>
+    <rect x="1278" y="347" width="88" height="42" rx="21" fill="#2a183f" stroke="#c084fc" stroke-width="2"/>
+    <text x="1322" y="376" text-anchor="middle" fill="#e9d5ff">RTMP</text>
+  </g>
+
+  <g transform="translate(948 690)">
+    <rect width="496" height="92" rx="24" fill="#111827" stroke="#334155" stroke-width="3"/>
+    <path d="M48 46h74" stroke="#c084fc" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="48" cy="46" r="12" fill="#c084fc"/>
+    <text x="148" y="40" fill="#f8fafc" font-family="system-ui, sans-serif" font-size="25" font-weight="700">Twitch account or stream key</text>
+    <text x="148" y="70" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="21">stays in OBS — VISP never receives it</text>
+  </g>
+</svg>
