@@ -8,6 +8,14 @@ const status = {
 	connectedUntil: "2026-07-26T12:00:10.000Z",
 	streaming: false,
 	desiredStreaming: true,
+	recording: false,
+	desiredRecording: false,
+	virtualCam: false,
+	desiredVirtualCam: false,
+	replayBuffer: false,
+	desiredReplayBuffer: false,
+	recordPaused: false,
+	desiredRecordPaused: false,
 	scenes: ["Main"],
 	currentScene: "Main",
 	desiredScene: null,
@@ -16,6 +24,16 @@ const status = {
 	commandVersion: 2,
 	appliedVersion: 1,
 } satisfies ObsStatus;
+
+const command = {
+	commandVersion: 2,
+	desiredStreaming: true,
+	desiredRecording: false,
+	desiredVirtualCam: false,
+	desiredReplayBuffer: false,
+	desiredRecordPaused: false,
+	desiredScene: null,
+} satisfies ObsCommand;
 
 describe("OBS live hub", () => {
 	test("isolates users and status from machine commands", () => {
@@ -28,18 +46,12 @@ describe("OBS live hub", () => {
 		hub.subscribeCommands("user-a", (value) => commands.push(value));
 
 		hub.publishStatus("user-b", status);
-		hub.publishCommand("user-a", "token-a", {
-			commandVersion: 2,
-			desiredStreaming: true,
-			desiredScene: null,
-		});
+		hub.publishCommand("user-a", "token-a", command);
 		hub.publishStatus("user-a", status);
 		unsubscribe();
 		hub.publishStatus("user-a", { ...status, streaming: true });
 
 		expect(statuses).toEqual([status]);
-		expect(commands).toEqual([
-			{ commandVersion: 2, desiredStreaming: true, desiredScene: null },
-		]);
+		expect(commands).toEqual([command]);
 	});
 });

@@ -155,6 +155,10 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			body: t.Object({
 				appliedVersion: t.Integer({ minimum: 0 }),
 				streaming: t.Boolean(),
+				recording: t.Optional(t.Boolean()),
+				virtualCam: t.Optional(t.Boolean()),
+				replayBuffer: t.Optional(t.Boolean()),
+				recordPaused: t.Optional(t.Boolean()),
 				scenes: t.Array(t.String({ minLength: 1, maxLength: 512 }), {
 					maxItems: 256,
 				}),

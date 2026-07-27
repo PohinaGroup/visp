@@ -4,6 +4,10 @@ export type ObsStatus = {
 	connectedUntil: string | null;
 	streaming: boolean;
 	desiredStreaming: boolean;
+	recording: boolean;
+	virtualCam: boolean;
+	replayBuffer: boolean;
+	recordPaused: boolean;
 	scenes: string[];
 	currentScene: string | null;
 	desiredScene: string | null;
@@ -21,6 +25,11 @@ function nullableString(value: unknown): value is string | null {
 	return value === null || typeof value === "string";
 }
 
+// Toggle actuals are optional so an older server (pre-Phase-1) still parses.
+function optionalBool(value: unknown): value is boolean | undefined {
+	return value === undefined || typeof value === "boolean";
+}
+
 function timestamp(value: unknown): value is string | null {
 	return (
 		value === null ||
@@ -36,6 +45,10 @@ export function parseObsStatus(value: unknown): ObsStatus | null {
 		!timestamp(value.connectedUntil) ||
 		typeof value.streaming !== "boolean" ||
 		typeof value.desiredStreaming !== "boolean" ||
+		!optionalBool(value.recording) ||
+		!optionalBool(value.virtualCam) ||
+		!optionalBool(value.replayBuffer) ||
+		!optionalBool(value.recordPaused) ||
 		!Array.isArray(value.scenes) ||
 		!value.scenes.every((scene) => typeof scene === "string") ||
 		!nullableString(value.currentScene) ||
@@ -47,7 +60,13 @@ export function parseObsStatus(value: unknown): ObsStatus | null {
 	)
 		return null;
 
-	return value as ObsStatus;
+	return {
+		...value,
+		recording: value.recording ?? false,
+		virtualCam: value.virtualCam ?? false,
+		replayBuffer: value.replayBuffer ?? false,
+		recordPaused: value.recordPaused ?? false,
+	} as ObsStatus;
 }
 
 export function parseStatusFrame(value: unknown): ObsStatus | null {

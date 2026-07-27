@@ -8,8 +8,17 @@ import {
 	rotateObsControlToken,
 	setObsScene,
 	setObsStreaming,
+	setObsToggle,
 } from "../obs-control";
 import { obsLiveTickets } from "../obs-live";
+import { OBS_TOGGLES } from "../obs-live";
+import {
+	createObsTile,
+	deleteObsTile,
+	listObsTiles,
+	reorderObsTiles,
+	updateObsTile,
+} from "../obs-tiles";
 import {
 	buildMaskedPathUrls,
 	claimNativePublishDevice,
@@ -53,6 +62,35 @@ const relayProcedure = protectedProcedure.use(async ({ ctx, next }) => {
 
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
 
+const tileFields = z.object({
+	label: z.string().trim().min(1).max(64),
+	color: z
+		.string()
+		.regex(/^#[0-9a-fA-F]{6}$/)
+		.nullable()
+		.default(null),
+	action: z.enum([
+		"scene",
+		"stream",
+		"recording",
+		"virtualcam",
+		"replaybuffer",
+		"recordpause",
+	]),
+	sceneName: z.string().trim().min(1).max(512).nullable().default(null),
+});
+type TileFields = z.infer<typeof tileFields>;
+
+function requireSceneTarget(input: TileFields) {
+	if (input.action === "scene" && !input.sceneName) {
+		throw new TRPCError({
+			code: "BAD_REQUEST",
+			message: "Pick a scene for this tile",
+		});
+	}
+	return input;
+}
+
 export const relayRoutes = {
 	obs: router({
 		liveTicket: relayProcedure.mutation(({ ctx }) =>
@@ -84,6 +122,48 @@ export const relayRoutes = {
 				}
 				return result;
 			}),
+		setToggle: relayProcedure
+			.input(z.object({ toggle: z.enum(OBS_TOGGLES), on: z.boolean() }))
+			.mutation(({ ctx, input }) =>
+				setObsToggle(ctx.relayUser.id, input.toggle, input.on),
+			),
+		tiles: router({
+			list: relayProcedure.query(({ ctx }) => listObsTiles(ctx.relayUser.id)),
+			create: relayProcedure
+				.input(tileFields)
+				.mutation(({ ctx, input }) =>
+					createObsTile(ctx.relayUser.id, requireSceneTarget(input)),
+				),
+			update: relayProcedure
+				.input(tileFields.extend({ id: z.number().int().positive() }))
+				.mutation(async ({ ctx, input }) => {
+					const { id, ...fields } = input;
+					const tile = await updateObsTile(
+						ctx.relayUser.id,
+						id,
+						requireSceneTarget(fields),
+					);
+					if (!tile) {
+						throw new TRPCError({ code: "NOT_FOUND", message: "Tile not found" });
+					}
+					return tile;
+				}),
+			delete: relayProcedure
+				.input(z.object({ id: z.number().int().positive() }))
+				.mutation(async ({ ctx, input }) => {
+					if (!(await deleteObsTile(ctx.relayUser.id, input.id))) {
+						throw new TRPCError({ code: "NOT_FOUND", message: "Tile not found" });
+					}
+					return { id: input.id };
+				}),
+			reorder: relayProcedure
+				.input(
+					z.object({ ids: z.array(z.number().int().positive()).max(200) }),
+				)
+				.mutation(({ ctx, input }) =>
+					reorderObsTiles(ctx.relayUser.id, input.ids),
+				),
+		}),
 	}),
 	paths: router({
 		list: relayProcedure.query(async ({ ctx }) => {

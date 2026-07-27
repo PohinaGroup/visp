@@ -64,6 +64,20 @@
       "when": 1785060549355,
       "tag": "0008_yellow_goblin_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1785168903495,
+      "tag": "0009_many_giant_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1785170583136,
+      "tag": "0010_soft_daredevil",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,10 @@
 struct control_response {
 	uint64_t command_version;
 	bool desired_streaming;
+	bool desired_recording;
+	bool desired_virtual_cam;
+	bool desired_replay_buffer;
+	bool desired_record_paused;
 	QString desired_scene;
 };
 
@@ -229,6 +233,12 @@ static bool parse_control_response(const QByteArray &json, struct control_respon
 		return false;
 	response->command_version = static_cast<uint64_t>(version);
 	response->desired_streaming = streaming_value.toBool();
+	// New toggle intents default to false so an older server that omits them
+	// leaves recording/virtual-cam/replay untouched.
+	response->desired_recording = object.value("desiredRecording").toBool(false);
+	response->desired_virtual_cam = object.value("desiredVirtualCam").toBool(false);
+	response->desired_replay_buffer = object.value("desiredReplayBuffer").toBool(false);
+	response->desired_record_paused = object.value("desiredRecordPaused").toBool(false);
 	response->desired_scene = scene_value.isString() ? scene_value.toString() : QString();
 	return true;
 }
@@ -396,7 +406,8 @@ static websocket_frame parse_websocket_frame(const QByteArray &data, quint64 max
 	return result;
 }
 
-static QByteArray make_control_request(bool streaming, uint64_t applied_version, const QStringList &scene_names,
+static QByteArray make_control_request(bool streaming, bool recording, bool virtual_cam, bool replay_buffer,
+				       bool record_paused, uint64_t applied_version, const QStringList &scene_names,
 				       const QString &current_scene)
 {
 	QJsonArray scenes;
@@ -404,6 +415,10 @@ static QByteArray make_control_request(bool streaming, uint64_t applied_version,
 		scenes.append(name);
 	const QJsonObject payload{
 		{"streaming", streaming},
+		{"recording", recording},
+		{"virtualCam", virtual_cam},
+		{"replayBuffer", replay_buffer},
+		{"recordPaused", record_paused},
 		{"appliedVersion", static_cast<qint64>(applied_version)},
 		{"scenes", scenes},
 		{"currentScene", current_scene.isNull() ? QJsonValue(QJsonValue::Null) : QJsonValue(current_scene)},
@@ -433,6 +448,15 @@ int main(void)
 				     &response));
 	CHECK(response.command_version == 7 && response.desired_streaming &&
 	      response.desired_scene == QString::fromUtf8("Main \"台\""));
+	// Toggle intents default to false when the server omits them.
+	CHECK(!response.desired_recording && !response.desired_virtual_cam && !response.desired_replay_buffer &&
+	      !response.desired_record_paused);
+	CHECK(parse_control_response(
+		"{\"commandVersion\":10,\"desiredStreaming\":false,\"desiredScene\":null,\"desiredRecording\":true,"
+		"\"desiredVirtualCam\":true,\"desiredReplayBuffer\":true,\"desiredRecordPaused\":true}",
+		&response));
+	CHECK(response.command_version == 10 && response.desired_recording && response.desired_virtual_cam &&
+	      response.desired_replay_buffer && response.desired_record_paused);
 	CHECK(parse_control_response("{\"desiredStreaming\":false,\"desiredScene\":null,\"commandVersion\":8}",
 				     &response));
 	CHECK(response.command_version == 8 && !response.desired_streaming && response.desired_scene.isNull());
@@ -470,16 +494,20 @@ int main(void)
 	CHECK(parse_websocket_frame(QByteArray("\x81\x7e\x00\x7d", 4)).result == websocket_parse_result::error);
 	CHECK(parse_websocket_frame(QByteArray("\x81\x7e\xff\xff", 4), 1024).result == websocket_parse_result::error);
 	const QJsonObject first_poll = QJsonDocument::fromJson(
-		make_control_request(false, 8, {"Old scene", "Removed scene"}, QString()))
+		make_control_request(false, false, false, false, false, 8, {"Old scene", "Removed scene"}, QString()))
 					       .object();
 	CHECK(first_poll.value("currentScene").isNull());
 	CHECK(first_poll.value("scenes").toArray().size() == 2);
+	CHECK(first_poll.value("recording").toBool() == false && first_poll.value("virtualCam").toBool() == false);
 	const QJsonObject renamed_poll = QJsonDocument::fromJson(
-		make_control_request(true, 9, {QString::fromUtf8("Main \"台\""), "Renamed scene"}, "Renamed scene"))
+		make_control_request(true, true, true, true, true, 9, {QString::fromUtf8("Main \"台\""), "Renamed scene"},
+				     "Renamed scene"))
 					         .object();
 	CHECK(renamed_poll.value("currentScene").toString() == "Renamed scene");
 	CHECK(renamed_poll.value("scenes").toArray().at(0).toString() == QString::fromUtf8("Main \"台\""));
 	CHECK(!renamed_poll.value("scenes").toArray().contains("Removed scene"));
+	CHECK(renamed_poll.value("recording").toBool() && renamed_poll.value("virtualCam").toBool() &&
+	      renamed_poll.value("replayBuffer").toBool() && renamed_poll.value("recordPaused").toBool());
 	struct devices_response devices = {};
 	CHECK(parse_devices_response(
 		"{\"account\":{\"handle\":\"streamer\"},\"devices\":[{\"id\":1,\"label\":\"Phone\",\"publishing\":true}]}",
@@ -1449,13 +1477,53 @@ private:
 				obs_frontend_streaming_stop();
 			}
 		}
+		apply_toggles();
 		applying_command = false;
 		check_acknowledgement();
+	}
+
+	// Non-streaming toggles: flip once toward desired, no retry. OBS emits a
+	// frontend event on completion which re-runs apply + report to acknowledge.
+	void apply_toggles()
+	{
+		if (pending_command.desired_recording != obs_frontend_recording_active()) {
+			if (pending_command.desired_recording)
+				obs_frontend_recording_start();
+			else
+				obs_frontend_recording_stop();
+		}
+		if (pending_command.desired_virtual_cam != obs_frontend_virtualcam_active()) {
+			if (pending_command.desired_virtual_cam)
+				obs_frontend_start_virtualcam();
+			else
+				obs_frontend_stop_virtualcam();
+		}
+		if (pending_command.desired_replay_buffer != obs_frontend_replay_buffer_active()) {
+			if (pending_command.desired_replay_buffer)
+				obs_frontend_replay_buffer_start();
+			else
+				obs_frontend_replay_buffer_stop();
+		}
+		// Pause is only meaningful while recording; otherwise the intent is
+		// treated as satisfied (see record_paused_reconciled).
+		if (obs_frontend_recording_active() &&
+		    pending_command.desired_record_paused != obs_frontend_recording_paused())
+			obs_frontend_recording_pause(pending_command.desired_record_paused);
+	}
+
+	bool record_paused_reconciled() const
+	{
+		return !obs_frontend_recording_active() ||
+		       pending_command.desired_record_paused == obs_frontend_recording_paused();
 	}
 
 	void check_acknowledgement()
 	{
 		if (!has_pending_command || pending_command.desired_streaming != obs_frontend_streaming_active() ||
+		    pending_command.desired_recording != obs_frontend_recording_active() ||
+		    pending_command.desired_virtual_cam != obs_frontend_virtualcam_active() ||
+		    pending_command.desired_replay_buffer != obs_frontend_replay_buffer_active() ||
+		    !record_paused_reconciled() ||
 		    (!pending_command.desired_scene.isNull() && pending_command.desired_scene != current_scene_name()))
 			return;
 		applied_version = pending_command.command_version;
@@ -1467,7 +1535,9 @@ private:
 	{
 		if (!handshake_complete)
 			return;
-		send_frame(1, make_control_request(obs_frontend_streaming_active(), applied_version, scene_names(),
+		send_frame(1, make_control_request(obs_frontend_streaming_active(), obs_frontend_recording_active(),
+						   obs_frontend_virtualcam_active(), obs_frontend_replay_buffer_active(),
+						   obs_frontend_recording_paused(), applied_version, scene_names(),
 						   current_scene_name()));
 	}
 
@@ -1589,6 +1659,10 @@ static void frontend_event(enum obs_frontend_event event, void *private_data)
 	if (!control)
 		return;
 	if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED || event == OBS_FRONTEND_EVENT_STREAMING_STOPPED ||
+	    event == OBS_FRONTEND_EVENT_RECORDING_STARTED || event == OBS_FRONTEND_EVENT_RECORDING_STOPPED ||
+	    event == OBS_FRONTEND_EVENT_RECORDING_PAUSED || event == OBS_FRONTEND_EVENT_RECORDING_UNPAUSED ||
+	    event == OBS_FRONTEND_EVENT_VIRTUALCAM_STARTED || event == OBS_FRONTEND_EVENT_VIRTUALCAM_STOPPED ||
+	    event == OBS_FRONTEND_EVENT_REPLAY_BUFFER_STARTED || event == OBS_FRONTEND_EVENT_REPLAY_BUFFER_STOPPED ||
 	    event == OBS_FRONTEND_EVENT_SCENE_CHANGED || event == OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED ||
 	    event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED || event == OBS_FRONTEND_EVENT_FINISHED_LOADING)
 		control->frontend_changed(event);
