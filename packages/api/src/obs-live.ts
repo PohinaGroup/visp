@@ -6,6 +6,14 @@ export type ObsStatus = {
 	connectedUntil: string | null;
 	streaming: boolean;
 	desiredStreaming: boolean;
+	recording: boolean;
+	desiredRecording: boolean;
+	virtualCam: boolean;
+	desiredVirtualCam: boolean;
+	replayBuffer: boolean;
+	desiredReplayBuffer: boolean;
+	recordPaused: boolean;
+	desiredRecordPaused: boolean;
 	scenes: string[];
 	currentScene: string | null;
 	desiredScene: string | null;
@@ -17,13 +25,39 @@ export type ObsStatus = {
 
 export type ObsCommand = Pick<
 	ObsStatus,
-	"commandVersion" | "desiredStreaming" | "desiredScene"
+	| "commandVersion"
+	| "desiredStreaming"
+	| "desiredRecording"
+	| "desiredVirtualCam"
+	| "desiredReplayBuffer"
+	| "desiredRecordPaused"
+	| "desiredScene"
 >;
 
 export type ObsStateReport = Pick<
 	ObsStatus,
-	"appliedVersion" | "streaming" | "scenes" | "currentScene"
+	| "appliedVersion"
+	| "streaming"
+	| "recording"
+	| "virtualCam"
+	| "replayBuffer"
+	| "recordPaused"
+	| "scenes"
+	| "currentScene"
 >;
+
+// The four Phase-1 toggles that follow the "flip once, then follow actual" model.
+export const OBS_TOGGLES = [
+	"recording",
+	"virtualCam",
+	"replayBuffer",
+	"recordPaused",
+] as const;
+export type ObsToggle = (typeof OBS_TOGGLES)[number];
+
+// A report from an older plugin may omit the new toggle actuals; treat as false.
+export type ObsStateReportInput = Omit<ObsStateReport, ObsToggle> &
+	Partial<Pick<ObsStateReport, ObsToggle>>;
 
 export type ObsLivePeer =
 	| { role: "user"; userId: string }

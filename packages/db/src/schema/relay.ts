@@ -40,6 +40,15 @@ export const streamDestination = pgEnum("stream_destination", [
 
 export const publishOrigin = pgEnum("publish_origin", ["native", "web"]);
 
+export const obsTileAction = pgEnum("obs_tile_action", [
+	"scene",
+	"stream",
+	"recording",
+	"virtualcam",
+	"replaybuffer",
+	"recordpause",
+]);
+
 export const appUser = pgTable("app_user", {
 	id: text("id")
 		.primaryKey()
@@ -65,6 +74,22 @@ export const appUser = pgTable("app_user", {
 	obsDesiredScene: text("obs_desired_scene"),
 	obsCommandVersion: integer("obs_command_version").default(0).notNull(),
 	obsAppliedVersion: integer("obs_applied_version").default(0).notNull(),
+	obsDesiredRecording: boolean("obs_desired_recording")
+		.default(false)
+		.notNull(),
+	obsRecording: boolean("obs_recording").default(false).notNull(),
+	obsDesiredVirtualCam: boolean("obs_desired_virtual_cam")
+		.default(false)
+		.notNull(),
+	obsVirtualCam: boolean("obs_virtual_cam").default(false).notNull(),
+	obsDesiredReplayBuffer: boolean("obs_desired_replay_buffer")
+		.default(false)
+		.notNull(),
+	obsReplayBuffer: boolean("obs_replay_buffer").default(false).notNull(),
+	obsDesiredRecordPaused: boolean("obs_desired_record_paused")
+		.default(false)
+		.notNull(),
+	obsRecordPaused: boolean("obs_record_paused").default(false).notNull(),
 	obsLastSeenAt: timestamp("obs_last_seen_at", { withTimezone: true }),
 	onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
@@ -185,10 +210,44 @@ export const rttSample = pgTable(
 	],
 );
 
+export const obsTile = pgTable(
+	"obs_tile",
+	{
+		id: bigserial("id", { mode: "number" }).primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		position: integer("position").notNull(),
+		label: text("label").notNull(),
+		color: text("color"),
+		action: obsTileAction("action").notNull(),
+		sceneName: text("scene_name"),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		index("obs_tile_user_position_idx").on(table.userId, table.position),
+		check(
+			"obs_tile_label_length",
+			sql`char_length(trim(${table.label})) between 1 and 64`,
+		),
+		check(
+			"obs_tile_scene_requires_name",
+			sql`${table.action} <> 'scene' or ${table.sceneName} is not null`,
+		),
+	],
+);
+
 export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	user: one(user, { fields: [appUser.id], references: [user.id] }),
 	paths: many(relayPath),
 	rttSamples: many(rttSample),
+	tiles: many(obsTile),
+}));
+
+export const obsTileRelations = relations(obsTile, ({ one }) => ({
+	user: one(appUser, { fields: [obsTile.userId], references: [appUser.id] }),
 }));
 
 export const relayPathRelations = relations(relayPath, ({ one, many }) => ({

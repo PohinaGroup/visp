@@ -1,8 +1,13 @@
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { and, eq, lte, sql } from "drizzle-orm";
-import type { ObsCommand, ObsStateReport, ObsStatus } from "./obs-live";
+import { type AnyColumn, and, eq, lte, sql } from "drizzle-orm";
+import type {
+	ObsCommand,
+	ObsStateReportInput,
+	ObsStatus,
+	ObsToggle,
+} from "./obs-live";
 import { obsLiveHub } from "./obs-live";
 
 const CONNECTED_FOR_MS = 10_000;
@@ -28,6 +33,14 @@ type ObsControlRow = Pick<
 	| "obsControlTokenHash"
 	| "obsDesiredStreaming"
 	| "obsStreaming"
+	| "obsDesiredRecording"
+	| "obsRecording"
+	| "obsDesiredVirtualCam"
+	| "obsVirtualCam"
+	| "obsDesiredReplayBuffer"
+	| "obsReplayBuffer"
+	| "obsDesiredRecordPaused"
+	| "obsRecordPaused"
 	| "obsScenes"
 	| "obsCurrentScene"
 	| "obsDesiredScene"
@@ -35,6 +48,26 @@ type ObsControlRow = Pick<
 	| "obsAppliedVersion"
 	| "obsLastSeenAt"
 >;
+
+// The appUser "desired" column each toggle writes to.
+const TOGGLE_DESIRED_KEY = {
+	recording: "obsDesiredRecording",
+	virtualCam: "obsDesiredVirtualCam",
+	replayBuffer: "obsDesiredReplayBuffer",
+	recordPaused: "obsDesiredRecordPaused",
+} as const satisfies Record<ObsToggle, keyof typeof appUser.$inferInsert>;
+
+// Columns reset to their standby values when a token is issued or revoked.
+const TOGGLE_RESET = {
+	obsDesiredRecording: false,
+	obsRecording: false,
+	obsDesiredVirtualCam: false,
+	obsVirtualCam: false,
+	obsDesiredReplayBuffer: false,
+	obsReplayBuffer: false,
+	obsDesiredRecordPaused: false,
+	obsRecordPaused: false,
+} as const;
 
 export function obsControlStatus(
 	owner: ObsControlRow,
@@ -53,6 +86,14 @@ export function obsControlStatus(
 		connectedUntil,
 		streaming: owner.obsStreaming,
 		desiredStreaming: owner.obsDesiredStreaming,
+		recording: owner.obsRecording,
+		desiredRecording: owner.obsDesiredRecording,
+		virtualCam: owner.obsVirtualCam,
+		desiredVirtualCam: owner.obsDesiredVirtualCam,
+		replayBuffer: owner.obsReplayBuffer,
+		desiredReplayBuffer: owner.obsDesiredReplayBuffer,
+		recordPaused: owner.obsRecordPaused,
+		desiredRecordPaused: owner.obsDesiredRecordPaused,
 		scenes: owner.obsScenes,
 		currentScene: owner.obsCurrentScene,
 		desiredScene: owner.obsDesiredScene,
@@ -67,6 +108,10 @@ function controlCommand(owner: ObsControlRow): ObsCommand {
 	return {
 		commandVersion: owner.obsCommandVersion,
 		desiredStreaming: owner.obsDesiredStreaming,
+		desiredRecording: owner.obsDesiredRecording,
+		desiredVirtualCam: owner.obsDesiredVirtualCam,
+		desiredReplayBuffer: owner.obsDesiredReplayBuffer,
+		desiredRecordPaused: owner.obsDesiredRecordPaused,
 		desiredScene: owner.obsDesiredScene,
 	};
 }
@@ -97,6 +142,7 @@ export async function rotateObsControlToken(userId: string) {
 			obsControlTokenHash: hash,
 			obsDesiredStreaming: false,
 			obsStreaming: false,
+			...TOGGLE_RESET,
 			obsScenes: [],
 			obsCurrentScene: null,
 			obsDesiredScene: null,
@@ -137,6 +183,7 @@ export async function revokeObsControlToken(userId: string) {
 			obsControlTokenHash: null,
 			obsDesiredStreaming: false,
 			obsStreaming: false,
+			...TOGGLE_RESET,
 			obsScenes: [],
 			obsCurrentScene: null,
 			obsDesiredScene: null,
@@ -196,20 +243,72 @@ export async function setObsScene(userId: string, scene: string) {
 	return status;
 }
 
+export async function setObsToggle(
+	userId: string,
+	toggle: ObsToggle,
+	on: boolean,
+) {
+	const [owner] = await db
+		.update(appUser)
+		.set({
+			[TOGGLE_DESIRED_KEY[toggle]]: on,
+			obsCommandVersion: sql`${appUser.obsCommandVersion} + 1`,
+		})
+		.where(eq(appUser.id, userId))
+		.returning();
+	if (!owner) throw new Error("Relay user not found");
+	const status = obsControlStatus(owner);
+	obsLiveHub.publishStatus(userId, status);
+	if (owner.obsControlTokenId) {
+		obsLiveHub.publishCommand(
+			userId,
+			owner.obsControlTokenId,
+			controlCommand(owner),
+		);
+	}
+	return status;
+}
+
 export async function reportObsControlState(
 	userId: string,
 	tokenId: string,
-	input: ObsStateReport,
+	input: ObsStateReportInput,
 ) {
+	const recording = input.recording ?? false;
+	const virtualCam = input.virtualCam ?? false;
+	const replayBuffer = input.replayBuffer ?? false;
+	const recordPaused = input.recordPaused ?? false;
 	const appliedVersion = sql<number>`greatest(${appUser.obsAppliedVersion}, least(${input.appliedVersion}, ${appUser.obsCommandVersion}))`;
+	// Once the plugin has caught up, each desired flag follows the reported
+	// actual so a manual change in OBS is never fought (same idea as the scene).
+	const applied = sql`${appliedVersion} >= ${appUser.obsCommandVersion}`;
+	const followActual = (reported: boolean, current: AnyColumn) =>
+		sql<boolean>`case when ${applied} then ${reported} else ${current} end`;
 	const desiredScene = sql<
 		string | null
-	>`case when ${appliedVersion} >= ${appUser.obsCommandVersion} then ${input.currentScene} else ${appUser.obsDesiredScene} end`;
+	>`case when ${applied} then ${input.currentScene} else ${appUser.obsDesiredScene} end`;
 	const [updated] = await db
 		.update(appUser)
 		.set({
 			obsAppliedVersion: appliedVersion,
 			obsStreaming: input.streaming,
+			obsRecording: recording,
+			obsDesiredRecording: followActual(recording, appUser.obsDesiredRecording),
+			obsVirtualCam: virtualCam,
+			obsDesiredVirtualCam: followActual(
+				virtualCam,
+				appUser.obsDesiredVirtualCam,
+			),
+			obsReplayBuffer: replayBuffer,
+			obsDesiredReplayBuffer: followActual(
+				replayBuffer,
+				appUser.obsDesiredReplayBuffer,
+			),
+			obsRecordPaused: recordPaused,
+			obsDesiredRecordPaused: followActual(
+				recordPaused,
+				appUser.obsDesiredRecordPaused,
+			),
 			obsScenes: input.scenes,
 			obsCurrentScene: input.currentScene,
 			obsDesiredScene: desiredScene,
@@ -230,7 +329,7 @@ export async function reportObsControlState(
 
 export async function pollObsControl(
 	authorization: string | undefined,
-	input: ObsStateReport,
+	input: ObsStateReportInput,
 ) {
 	const owner = await authenticateObsControlToken(authorization);
 	if (!owner?.obsControlTokenId) return null;
