@@ -1201,15 +1201,22 @@ public:
 		  socket(this),
 		  reconnect_timer(this),
 		  socket_timeout(this),
-		  report_timer(this)
+		  report_timer(this),
+		  stream_retry_timer(this)
 	{
 		reconnect_timer.setSingleShot(true);
 		socket_timeout.setSingleShot(true);
+		stream_retry_timer.setSingleShot(true);
 		report_timer.setInterval(5000);
 		connect(&reconnect_timer, &QTimer::timeout, this, [this]() { fetch_ticket(); });
 		connect(&socket_timeout, &QTimer::timeout, this,
 			[this]() { reconnect("WebSocket connection timed out"); });
 		connect(&report_timer, &QTimer::timeout, this, [this]() { heartbeat(); });
+		connect(&stream_retry_timer, &QTimer::timeout, this, [this]() {
+			stream_start_inflight = false;
+			apply_pending_command();
+			report_state();
+		});
 		connect(&socket, &QSslSocket::connected, this, [this]() {
 			if (live_url.scheme() == "ws")
 				send_handshake();
@@ -1235,6 +1242,7 @@ public:
 		reconnect_timer.stop();
 		socket_timeout.stop();
 		report_timer.stop();
+		stream_retry_timer.stop();
 		if (ticket_reply) {
 			disconnect(ticket_reply, nullptr, this, nullptr);
 			ticket_reply->abort();
@@ -1242,8 +1250,20 @@ public:
 		socket.abort();
 	}
 
-	void frontend_changed()
+	void frontend_changed(enum obs_frontend_event event)
 	{
+		if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED) {
+			stream_start_inflight = false;
+			stream_retry_attempt = 0;
+			stream_retry_timer.stop();
+		} else if (event == OBS_FRONTEND_EVENT_STREAMING_STOPPED) {
+			const bool wanted =
+				has_pending_command && pending_command.desired_streaming;
+			if (stream_start_inflight || wanted) {
+				stream_start_inflight = false;
+				schedule_stream_retry("OBS streaming stopped while VISP still wants it live");
+			}
+		}
 		apply_pending_command();
 		report_state();
 	}
@@ -1378,9 +1398,27 @@ private:
 		if (response.command_version <= applied_version ||
 		    (has_pending_command && response.command_version <= pending_command.command_version))
 			return;
+		const bool streaming_intent_changed =
+			!has_pending_command || pending_command.desired_streaming != response.desired_streaming;
 		pending_command = response;
 		has_pending_command = true;
+		if (streaming_intent_changed) {
+			stream_retry_attempt = 0;
+			stream_retry_timer.stop();
+			stream_start_inflight = false;
+		}
 		apply_pending_command();
+	}
+
+	void schedule_stream_retry(const char *reason)
+	{
+		if (stopping || !has_pending_command || !pending_command.desired_streaming ||
+		    stream_retry_timer.isActive() || obs_frontend_streaming_active())
+			return;
+		const int base = qMin(30'000, 1000 << qMin(stream_retry_attempt++, 5));
+		const int delay = base + QRandomGenerator::global()->bounded(251);
+		obs_log(LOG_WARNING, "%s; retrying stream start in %d ms", reason, delay);
+		stream_retry_timer.start(delay);
 	}
 
 	void apply_pending_command()
@@ -1397,10 +1435,19 @@ private:
 		}
 		const bool active = obs_frontend_streaming_active();
 		if (pending_command.desired_streaming != active) {
-			if (pending_command.desired_streaming)
+			if (pending_command.desired_streaming) {
+				if (stream_start_inflight || stream_retry_timer.isActive()) {
+					applying_command = false;
+					return;
+				}
+				stream_start_inflight = true;
 				obs_frontend_streaming_start();
-			else
+			} else {
+				stream_retry_timer.stop();
+				stream_retry_attempt = 0;
+				stream_start_inflight = false;
 				obs_frontend_streaming_stop();
+			}
 		}
 		applying_command = false;
 		check_acknowledgement();
@@ -1491,6 +1538,7 @@ private:
 	QTimer reconnect_timer;
 	QTimer socket_timeout;
 	QTimer report_timer;
+	QTimer stream_retry_timer;
 	QUrl live_url;
 	QByteArray websocket_key;
 	QByteArray read_buffer;
@@ -1500,9 +1548,11 @@ private:
 	uint64_t applied_version = 0;
 	uint64_t ticket_generation = 0;
 	int reconnect_attempt = 0;
+	int stream_retry_attempt = 0;
 	bool handshake_complete = false;
 	bool has_pending_command = false;
 	bool applying_command = false;
+	bool stream_start_inflight = false;
 	bool awaiting_pong = false;
 	bool reconnect_scheduled = false;
 	bool stopping = false;
@@ -1541,7 +1591,7 @@ static void frontend_event(enum obs_frontend_event event, void *private_data)
 	if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED || event == OBS_FRONTEND_EVENT_STREAMING_STOPPED ||
 	    event == OBS_FRONTEND_EVENT_SCENE_CHANGED || event == OBS_FRONTEND_EVENT_SCENE_LIST_CHANGED ||
 	    event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED || event == OBS_FRONTEND_EVENT_FINISHED_LOADING)
-		control->frontend_changed();
+		control->frontend_changed(event);
 }
 
 const char *obs_module_description(void)
