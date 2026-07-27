@@ -46,7 +46,7 @@ export function ObsPluginPromo({
 					<ListItem label="Install the VISP OBS plugin for your OS (beta)." />
 					<ListItem label="In OBS, open Tools → VISP and sign in with Twitch or Kick in your browser." />
 					<ListItem label="Approve the plugin, then use “Add to current scene” for your phone or other device." />
-					<ListItem label="Go live from OBS as usual — your provider stream key never enters VISP." />
+					<ListItem label="Go live from OBS as usual — on this path your provider stream key stays in OBS." />
 				</List>
 				<HStack gap={2} wrap="wrap">
 					<Button

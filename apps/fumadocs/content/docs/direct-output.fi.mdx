@@ -1,0 +1,75 @@
+---
+title: Direct-lähtö
+description: Lähetä laite suoraan Twitchiin tai Kickiin ilman OBS:ää.
+---
+
+# Direct-lähtö
+
+VISP Direct välittää yhden julkaisulaitteen suoraan Twitchiin, Kickiin tai
+molempiin ilman OBS:ää. Se otetaan käyttöön laitekohtaisesti ja on toistaiseksi
+rajattu beta: relay on yksi kone ja Direct ajaa alustakoodauksen siinä, joten
+käyttöoikeus jaetaan tilikohtaisesti.
+
+## Mikä muuttuu
+
+Ilman Directiä laitteesi tekee koodauksen ja relay välittää bittivirran
+OBS:lle koskematta siihen. Kun Direct on käytössä laitteella:
+
+- laitteesi koodaa edelleen, koska SRT tarvitsee pakatun syötteen;
+- relay ajaa **erillisen jakelukoodauksen jokaiselle kohteelle** — H.264-video
+  ja stereo-AAC-ääni, aina uudelleenkoodattuna, ei koskaan kopioituna;
+- jokainen kohde on oma prosessinsa, joten yhden alustan vika ei keskeytä
+  toista.
+
+Molempiin alustoihin lähettäminen kaksinkertaistaa relayn kuormituksen. Se ei
+lisää puhelimen lähetyksiä.
+
+## Käyttöönotto
+
+1. Avaa hallintapaneelista **Direct output**.
+2. Valitse Twitchin tai Kickin kohdalta **Authorize streaming**. VISP pyytää
+   samalla kaikki aiemmin myöntämäsi oikeudet, joten Directin valtuutus ei
+   koskaan katkaise chattia tai otsikon ja kategorian muokkausta.
+3. Valitse laitteelle **Off**, **Twitch**, **Kick** tai **Both**.
+
+Asetus tallennetaan laitekohtaisesti ja sitä voi muuttaa vain laitteen ollessa
+offline. Yksi laite voi omistaa yhden alustan kerrallaan: Twitch puhelimessa ja
+Kick toisessa laitteessa käy, kaksi laitetta samaan alustaan ei.
+
+## Lähetysavaimesi
+
+Lähetysavainta ei koskaan pyydetä liittämään. VISP hakee sen lähetyksen
+alkaessa myöntämälläsi luvalla, rakentaa kohdeosoitteen muistiin, antaa sen
+välitysprosessille ja unohtaa sen lähetyksen päättyessä. Sitä ei lähetetä
+selain- tai puhelinsovellukseen eikä tallenneta omaksi tietokantakentäkseen.
+
+Relay-OBS-polku on ennallaan eikä koske lähetysavaimeen lainkaan.
+
+## OBS samaan aikaan
+
+OBS voi edelleen lukea syötettä tarkkailuun tai tallennukseen. Älä kuitenkaan
+ohjaa OBS:ää alustalle, jonka Direct jo omistaa — se on kaksi julkaisijaa
+yhdellä lähetysavaimella.
+
+OBS lukee laitteesi syötteen, ei sitä koodausta jonka alusta vastaanottaa.
+
+## Alustojen säännöt
+
+- **Twitch.** Simulcasting-ehdot kieltävät toisen alustan toiminnan näyttämisen
+  Twitch-lähetyksessä, joten älä polta Kick-chattia kuvaan. Kelluva chat
+  sovelluksessa on sallittu — sen näet vain sinä.
+- **Kick.** Partnereiden on kytkettävä Kickin oma Multistreaming-asetus päälle
+  ennen molempiin lähettämistä. Kick pienentää tällä hetkellä Partner
+  Program -tuottoa multistreaming-istunnon ajan. VISP ei kytke tätä puolestasi.
+
+## Kun jokin epäonnistuu
+
+Jokainen kohde näyttää oman tilansa ja viimeisen virheensä laitteen alla.
+
+- **Alusta ei vastaa.** VISP yrittää uudelleen ja jättää toisen kohteen käyntiin.
+- **Lupa peruttiin alustalla.** Kohde epäonnistuu ja kortti tarjoaa
+  **Reauthorize**-painiketta.
+- **"Direct is at capacity."** Relay on rajallaan. Relay-OBS-polku toimii
+  edelleen; kokeile Direct-lähtöä hetken kuluttua uudelleen.
+- **VISP ei ole tavoitettavissa laitteen yhdistäessä.** Direct-lähtöä ei
+  käynnistetä. Jo käynnissä oleva lähetys jatkuu kunnes lähde katkeaa.

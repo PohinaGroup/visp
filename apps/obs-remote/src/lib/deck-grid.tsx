@@ -6,8 +6,8 @@ import {
 	StyleSheet,
 	View,
 } from "react-native";
-import type { ObsTile } from "../lib/use-obs-tiles";
 import { moveItem, slotIndex } from "./deck-layout";
+import type { ObsTile } from "./use-obs-tiles";
 
 const TAP_SLOP = 8;
 

@@ -49,7 +49,7 @@ function Home() {
           <p className="max-w-2xl text-fd-muted-foreground text-lg">
             Sign in with Twitch or Kick, import a ready-made OBS scene
             collection, go live from a phone or browser, and control scenes
-            remotely — without handing VISP your stream key.
+            remotely — without ever pasting a stream key.
           </p>
           <div className="flex flex-wrap gap-3">
             <DocsLink page="get-started">Get started</DocsLink>

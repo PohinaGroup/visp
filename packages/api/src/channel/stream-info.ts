@@ -3,11 +3,12 @@ import { db } from "@VISP/db";
 import { account } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, inArray } from "drizzle-orm";
+import { hasScope, PROVIDER_SCOPES } from "../scopes";
 
 const KICK_API = "https://api.kick.com/public/v1";
 const WRITE_SCOPES = {
-	twitch: "channel:manage:broadcast",
-	kick: "channel:write",
+	twitch: PROVIDER_SCOPES.twitch.channelWrite,
+	kick: PROVIDER_SCOPES.kick.channelWrite,
 } as const;
 
 type Provider = keyof typeof WRITE_SCOPES;
@@ -51,9 +52,7 @@ export function hasChannelWriteScope(
 	provider: Provider,
 	scope: string | null | undefined,
 ) {
-	return new Set(scope?.split(/[ ,]+/).filter(Boolean)).has(
-		WRITE_SCOPES[provider],
-	);
+	return hasScope(scope, WRITE_SCOPES[provider]);
 }
 
 export async function searchStreamCategories(

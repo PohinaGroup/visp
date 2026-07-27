@@ -87,9 +87,16 @@ in [apps/obs-plugin/README.md](apps/obs-plugin/README.md).
 
 ## Scope
 
-VISP does not transcode, handle Twitch or Kick stream keys, host OBS, bill
-users, or horizontally scale MediaMTX. One publisher owns a path at a time; the
-first connection remains active and later publishers are rejected.
+VISP does not host OBS, bill users, or horizontally scale MediaMTX. One
+publisher owns a path at a time; the first connection remains active and later
+publishers are rejected.
+
+The relay-to-OBS path never transcodes and never touches a provider stream key.
+VISP Direct — opt-in, per device, limited beta — does both: it distribution-
+encodes on the relay and retrieves the Twitch or Kick stream key with your
+OAuth consent. Keys are held only for as long as the forwarding process runs,
+are never returned to client apps, and are never stored as separate database
+values.
 
 ## License
 

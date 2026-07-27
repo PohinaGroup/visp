@@ -30,8 +30,8 @@ const finnishUi: Record<string, string> = {
 	Simple: "Yksinkertainen",
 	Advanced: "Edistynyt",
 	"Live signal path": "Suora signaalipolku",
-	"Devices publish to the relay, OBS reads the feeds, you go on air. Your provider stream key never enters VISP.":
-		"Laitteet julkaisevat relaylle, OBS lukee syötteet ja sinä aloitat lähetyksen. Palveluntarjoajasi lähetysavain ei koskaan siirry VISPille.",
+	"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.":
+		"Laitteet julkaisevat relaylle, OBS lukee syötteet ja sinä aloitat lähetyksen. Tai lähetä laite suoraan alustalle Direct-lähdöllä.",
 	"Video sources": "Videolähteet",
 	"No publishing devices": "Ei julkaisulaitteita",
 	"Create a device for your first video source.":

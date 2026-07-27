@@ -6,13 +6,116 @@ app_url="${1%/}"
 path="$2"
 source_type="${3:-}"
 snapshot_file="$(mktemp --suffix=.jpg)"
-trap 'rm -f "$snapshot_file"; exit 0' INT TERM EXIT
 
-curl --fail --silent --show-error --max-time 2 --request POST \
-	--header "Content-Type: application/json" \
-	--header "X-Hook-Secret: $HOOK_SECRET" \
-	--data "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" \
-	"$app_url/api/hooks/ready" || true
+# MediaMTX starts runOnReady with Setpgid, so this script leads its own process
+# group and "kill 0" reaches every forwarder without touching MediaMTX itself.
+# Without it, exiting the shell orphans the FFmpeg children: they keep pushing a
+# dead RTSP read to Twitch and Kick, and runOnReadyRestart then starts a second
+# set on the next ready event — two processes, one stream key.
+#
+# Do NOT add "set -m" here. Job control puts every background job in a *new*
+# process group, which is exactly what "kill 0" would then fail to signal.
+trap 'trap - INT TERM EXIT; rm -f "$snapshot_file"; kill 0 2>/dev/null; exit 0' \
+	INT TERM EXIT
+
+# Distribution encode knobs. Calibration values, not constants: the encoder and
+# the bitrate come out of measuring CPU per forwarder on the real box.
+video_encoder="${DIRECT_VIDEO_ENCODER:-libx264}"
+video_bitrate_kbps="${DIRECT_VIDEO_BITRATE_KBPS:-6000}"
+video_fps="${DIRECT_VIDEO_FPS:-30}"
+
+hook() {
+	curl --fail --silent --show-error --max-time 2 --request POST \
+		--header "Content-Type: application/json" \
+		--header "X-Hook-Secret: $HOOK_SECRET" \
+		--data "$2" \
+		"$app_url/api/hooks/$1" >/dev/null
+}
+
+# Strips everything that could carry a URL, a key, or a JSON escape, so the
+# reported reason is safe to store and safe to show. The app sanitizes again.
+safe_reason() {
+	printf '%s' "${1:-}" | tr -cd 'A-Za-z0-9 .,:()_-' | cut -c1-160
+}
+
+report_state() {
+	hook direct-state \
+		"{\"path\":\"$path\",\"provider\":\"$1\",\"state\":\"$2\",\"error\":\"$(safe_reason "${3:-}")\"}" \
+		|| true
+}
+
+# One destination, one FFmpeg process, one retry loop. A failure here never
+# touches the other provider: each forwarder runs as its own background job.
+forward() {
+	local provider="$1" destination="$2"
+	local log backoff started reason watcher
+	log="$(mktemp)"
+	backoff=2
+	report_state "$provider" starting ""
+
+	while true; do
+		started="$SECONDS"
+		# Promote to live only once the destination has held for a while;
+		# a rejected stream key fails well inside this window.
+		( sleep 10; report_state "$provider" live "" ) &
+		watcher="$!"
+		# Always distribution-encode. Never "-c:v copy": stream-copying would
+		# ship the phone's contribution bitstream to the platform and skip the
+		# encode Direct exists to own. RTMP/FLV also carries only H.264 + AAC,
+		# and both native encoders currently emit mono at different sample
+		# rates, so this fixed audio encode is what makes Kick's stereo
+		# requirement hold for every client version without a store release.
+		#
+		# ponytail: the destination sits in argv because FFmpeg has no non-argv
+		# form for an output URL. /proc/PID/cmdline is world-readable, so the
+		# relay must run as a dedicated user with hidepid on /proc — see
+		# deploy/README.md. Revisit if FFmpeg grows an env or stdin form.
+		ffmpeg -nostdin -hide_banner -loglevel error \
+			-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" \
+			-c:v "$video_encoder" -preset veryfast -profile:v main \
+			-pix_fmt yuv420p -r "$video_fps" \
+			-b:v "${video_bitrate_kbps}k" -maxrate "${video_bitrate_kbps}k" \
+			-bufsize "$((video_bitrate_kbps * 2))k" \
+			-g "$((video_fps * 2))" -keyint_min "$((video_fps * 2))" \
+			-c:a aac -ac 2 -b:a 128k -ar 48000 \
+			-f flv "$destination" 2>"$log"
+		kill "$watcher" 2>/dev/null
+		reason="$(tail -n 1 "$log" 2>/dev/null)"
+
+		if test "$((SECONDS - started))" -ge 60; then
+			# It ran long enough to have been working, so this is a fresh
+			# outage rather than a destination that never starts.
+			backoff=2
+			report_state "$provider" retrying "$reason"
+		else
+			report_state "$provider" failed "$reason"
+		fi
+
+		sleep "$backoff"
+		backoff="$((backoff * 2))"
+		test "$backoff" -le 60 || backoff=60
+	done
+}
+
+hook ready "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" || true
+
+# The app resolves the owner, checks the beta flag and the concurrency cap,
+# refreshes provider tokens, and returns only the destinations it approved, as
+# "provider url" lines. Empty output — including when the app is unavailable —
+# means no Direct output starts and the relay-to-OBS path is unaffected.
+destinations="$(
+	curl --fail --silent --show-error --max-time 5 --request POST \
+		--header "Content-Type: application/json" \
+		--header "X-Hook-Secret: $HOOK_SECRET" \
+		--data "{\"path\":\"$path\"}" \
+		"$app_url/api/hooks/direct-destinations"
+)" || destinations=""
+
+while read -r provider destination; do
+	test -n "${provider:-}" -a -n "${destination:-}" || continue
+	forward "$provider" "$destination" &
+done <<<"$destinations"
+unset destinations provider destination
 
 while true; do
 	if timeout 20s ffmpeg -nostdin -hide_banner -loglevel error \

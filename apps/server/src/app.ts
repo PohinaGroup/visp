@@ -28,6 +28,9 @@ export const LOG_REDACTION_PATHS = [
 	"**.device_code",
 	"**.authorization",
 	"**.x-hook-secret",
+	// VISP Direct destination URLs embed the platform stream key.
+	"**.destinations",
+	"**.stream_key",
 ];
 
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {

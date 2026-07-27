@@ -46,6 +46,11 @@ export function createAuth() {
 
 	return betterAuth({
 		account: {
+			// Direct fetches provider stream keys with these tokens, so they stop
+			// being ordinary session state. Better Auth encrypts only on write:
+			// run apps/server/scripts/encrypt-oauth-tokens.ts once after deploying
+			// so no plaintext row is left behind.
+			encryptOAuthTokens: true,
 			accountLinking: {
 				allowDifferentEmails: true,
 				disableImplicitLinking: true,

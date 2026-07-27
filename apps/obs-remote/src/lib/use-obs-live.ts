@@ -3,10 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { AppState, type AppStateStatus } from "react-native";
 import { apiClient } from "./backend";
 import {
+	COMMAND_TIMEOUT_MS,
+	commandAwaitingObs,
+	commandTimedOut,
 	expireConnection,
 	type ObsStatus,
 	parseObsStatus,
 	parseStatusFrame,
+	type PendingCommandWatch,
+	pendingCommandWatch,
 	reconnectDelay,
 } from "./obs-live";
 
@@ -36,6 +41,10 @@ export function useObsLive(userId: string | undefined) {
 	const [error, setError] = useState<string>();
 	const [liveState, setLiveState] = useState<ObsLiveState>("idle");
 	const [status, setStatus] = useState<ObsStatus>();
+	const [pendingWatch, setPendingWatch] = useState<PendingCommandWatch | null>(
+		null,
+	);
+	const [now, setNow] = useState(() => Date.now());
 	const active =
 		Boolean(userId) && appState === "active" && network.isConnected === true;
 
@@ -49,6 +58,7 @@ export function useObsLive(userId: string | undefined) {
 		setStatus(undefined);
 		setError(undefined);
 		setLiveState("idle");
+		setPendingWatch(null);
 	}, [userId]);
 
 	useEffect(() => {
@@ -120,10 +130,30 @@ export function useObsLive(userId: string | undefined) {
 		return () => clearTimeout(timer);
 	}, [status?.connected, status?.connectedUntil]);
 
+	useEffect(() => {
+		setPendingWatch((previous) => pendingCommandWatch(status, previous));
+	}, [status]);
+
+	useEffect(() => {
+		if (!pendingWatch || !status?.pending) return;
+		const remaining = COMMAND_TIMEOUT_MS - (Date.now() - pendingWatch.startedAt);
+		if (remaining <= 0) {
+			setNow(Date.now());
+			return;
+		}
+		const timer = setTimeout(() => setNow(Date.now()), remaining + 25);
+		return () => clearTimeout(timer);
+	}, [pendingWatch, status?.pending]);
+
+	const awaitingCommand = commandAwaitingObs(status, pendingWatch, now);
+	const timedOutCommand = commandTimedOut(status, pendingWatch, now);
+
 	return {
 		error,
 		liveState,
 		status,
+		awaitingCommand,
+		timedOutCommand,
 		acceptStatus(value: unknown, expectedUserId = userId) {
 			if (!expectedUserId || currentUserId.current !== expectedUserId)
 				return false;

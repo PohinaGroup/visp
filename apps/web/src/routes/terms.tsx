@@ -1,8 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 
 import { LegalDoc } from "@/components/legal-doc";
-import { legalEntity } from "@/lib/legal";
 import { localizedHead } from "@/lib/i18n";
+import { legalEntity } from "@/lib/legal";
 
 export const Route = createFileRoute("/terms")({
 	head: () => ({
@@ -10,8 +10,7 @@ export const Route = createFileRoute("/terms")({
 			{ title: "Terms of Service — VISP" },
 			{
 				name: "description",
-				content:
-					"Terms governing use of VISP, operated by Pöhinä Group Oy.",
+				content: "Terms governing use of VISP, operated by Pöhinä Group Oy.",
 			},
 		],
 		links: localizedHead("en", "/terms"),
@@ -64,7 +63,9 @@ function TermsPage() {
 				<ul>
 					<li>use VISP for unlawful, harmful, or infringing content;</li>
 					<li>attempt to disrupt, probe, or overload the service;</li>
-					<li>bypass access controls or reverse engineer except as allowed by law;</li>
+					<li>
+						bypass access controls or reverse engineer except as allowed by law;
+					</li>
 					<li>
 						misrepresent identity or interfere with other users’ streams or
 						accounts;
@@ -83,9 +84,12 @@ function TermsPage() {
 			<section className="flex flex-col gap-3">
 				<h2>5. Stream keys and media</h2>
 				<p>
-					Your broadcast/stream keys are not intended to be uploaded to VISP.
-					Live media is relayed according to your configuration. VISP may store
-					short-lived private dashboard snapshots as described in the{" "}
+					Your broadcast/stream keys are not intended to be uploaded to VISP. If
+					you enable VISP Direct for a device, you authorize VISP to read that
+					platform's stream key through Twitch's or Kick's OAuth consent and to
+					use it solely to forward that device's stream to the destination you
+					selected. Live media is relayed according to your configuration. VISP
+					may store short-lived private dashboard snapshots as described in the{" "}
 					<Link to="/privacy">Privacy Policy</Link>. Continuous recordings are
 					not provided as a storage product.
 				</p>
@@ -96,11 +100,7 @@ function TermsPage() {
 				<p>
 					VISP is open source under the {legalEntity.license} license. The
 					source code is publicly available at{" "}
-					<a
-						href={legalEntity.sourceUrl}
-						rel="noreferrer"
-						target="_blank"
-					>
+					<a href={legalEntity.sourceUrl} rel="noreferrer" target="_blank">
 						{legalEntity.sourceUrl}
 					</a>
 					. That license governs the licensed code; third-party components
@@ -125,8 +125,8 @@ function TermsPage() {
 				<p>
 					To the fullest extent permitted by Finnish and EU law, we are not
 					liable for indirect, incidental, special, consequential, or lost
-					profits damages, or for lost streams, audiences, or revenue. Nothing in
-					these terms limits liability that cannot be limited under mandatory
+					profits damages, or for lost streams, audiences, or revenue. Nothing
+					in these terms limits liability that cannot be limited under mandatory
 					law (including liability for death or personal injury caused by
 					negligence, or for fraud).
 				</p>

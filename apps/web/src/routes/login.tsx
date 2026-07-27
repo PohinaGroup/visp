@@ -65,8 +65,8 @@ function RouteComponent() {
 					<CardTitle>{fi ? "Kirjaudu VISPiin" : "Sign in to VISP"}</CardTitle>
 					<CardDescription>
 						{fi
-							? "Twitchiä tai Kickiä käytetään vain relay-tilisi tunnistamiseen. VISP ei koskaan saa lähetysavaintasi."
-							: "Twitch or Kick is used only to identify your relay account. VISP never receives your stream key."}
+							? "Twitchiä tai Kickiä käytetään relay-tilisi tunnistamiseen. Lähetysavainta ei kysytä sisäänkirjautumisessa."
+							: "Twitch or Kick identifies your relay account. Signing in never asks for your stream key."}
 					</CardDescription>
 				</CardHeader>
 				<CardContent>

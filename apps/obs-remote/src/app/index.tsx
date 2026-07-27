@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { apiClient, authCallbackURL, authClient } from "../lib/backend";
+import { DraggableDeck } from "../lib/deck-grid";
 import { useObsLive } from "../lib/use-obs-live";
 import {
 	type ObsTile,
@@ -19,7 +20,6 @@ import {
 	type TileDraft,
 	useObsTiles,
 } from "../lib/use-obs-tiles";
-import { DraggableDeck } from "./deck-grid";
 
 const TILE_COLORS = ["#ff3757", "#53fc18", "#35a7ff", "#ffb43a", "#b06bff"];
 
@@ -197,7 +197,10 @@ export default function Index() {
 	const [editor, setEditor] = useState<ObsTile | "new" | null>(null);
 	const status = live.status;
 	const controlsDisabled = Boolean(
-		busy || !status?.connected || status.pending || live.liveState !== "open",
+		busy ||
+			!status?.connected ||
+			live.awaitingCommand ||
+			live.liveState !== "open",
 	);
 	const columns = width >= 1000 ? 6 : width >= 680 ? 4 : 3;
 	const contentWidth = Math.min(width - 24, 1180);
@@ -558,11 +561,13 @@ export default function Index() {
 						</View>
 					)}
 					<Text accessibilityLiveRegion="polite" style={styles.footerStatus}>
-						{status?.pending
-							? `COMMAND ${status.commandVersion} AWAITING OBS`
-							: connected
-								? `REAL-TIME LINK · ${status?.currentScene ?? "NO PROGRAM SCENE"}`
-								: "REAL-TIME LINK DISCONNECTED"}
+						{live.awaitingCommand
+							? `COMMAND ${status?.commandVersion} AWAITING OBS`
+							: live.timedOutCommand
+								? `COMMAND ${status?.commandVersion} TIMED OUT`
+								: connected
+									? `REAL-TIME LINK · ${status?.currentScene ?? "NO PROGRAM SCENE"}`
+									: "REAL-TIME LINK DISCONNECTED"}
 					</Text>
 				</ScrollView>
 			</SafeAreaView>
