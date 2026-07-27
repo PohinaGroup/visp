@@ -46,7 +46,12 @@ describe("OBS live status", () => {
 	});
 
 	test("times out pending commands so the remote UI can unlock", () => {
-		const pending = { ...status, pending: true, commandVersion: 5, appliedVersion: 4 };
+		const pending = {
+			...status,
+			pending: true,
+			commandVersion: 5,
+			appliedVersion: 4,
+		};
 		const started = Date.parse("2026-07-26T12:00:00.000Z");
 		const watch = pendingCommandWatch(pending, null, started);
 		expect(watch).toEqual({ commandVersion: 5, startedAt: started });
@@ -55,10 +60,21 @@ describe("OBS live status", () => {
 		expect(
 			commandTimedOut(pending, watch, started + COMMAND_TIMEOUT_MS),
 		).toBeTrue();
+		// After timeout the await latch clears even if OBS heartbeat went stale.
+		const stale = {
+			...pending,
+			connected: false,
+			connectedUntil: "2026-07-26T12:00:05.000Z",
+		};
 		expect(
-			commandAwaitingObs(pending, watch, started + COMMAND_TIMEOUT_MS),
+			commandAwaitingObs(stale, watch, started + COMMAND_TIMEOUT_MS),
 		).toBeFalse();
-		expect(pendingCommandWatch({ ...pending, pending: false }, watch)).toBeNull();
+		expect(
+			commandTimedOut(stale, watch, started + COMMAND_TIMEOUT_MS),
+		).toBeTrue();
+		expect(
+			pendingCommandWatch({ ...pending, pending: false }, watch),
+		).toBeNull();
 		expect(
 			pendingCommandWatch(
 				{ ...pending, commandVersion: 6 },

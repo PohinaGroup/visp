@@ -72,13 +72,23 @@ disconnecting either side behaves as expected. Only then install
 
    **Direct puts platform stream keys in FFmpeg's argv.** FFmpeg has no
    environment or stdin form for an output URL, and `/proc/<pid>/cmdline` is
-   world-readable. Run MediaMTX as a dedicated unprivileged user and mount
-   `/proc` with `hidepid=invisible` so no other local account can read the
-   forwarders' command lines:
+   world-readable by default. MediaMTX runs as root here, so `hidepid` keeps
+   any *non-root* local process from reading the forwarders' command lines.
+   Apply it live — running streams are unaffected — and persist it:
 
-   ```text
-   proc /proc proc nosuid,nodev,noexec,hidepid=invisible,gid=proc 0 0
+   ```bash
+   sudo mount -o remount,hidepid=invisible /proc
+   findmnt -no OPTIONS /proc   # expect hidepid=invisible
+
+   printf 'proc /proc proc rw,nosuid,nodev,noexec,relatime,hidepid=invisible 0 0\n' \
+     | sudo tee -a /etc/fstab
+   sudo systemctl daemon-reload
    ```
+
+   Do not add `gid=` unless that group already exists; the remount fails if it
+   does not. This is defence in depth: with root as the only account on the
+   box it changes little today, but it bounds the blast radius the moment any
+   unprivileged service runs here.
 4. Install `systemd/mediamtx.service`. Use Caddy's packaged systemd unit with
    `relay/Caddyfile`; install `systemd/caddy-relay.conf` as the packaged unit's
    `caddy.service.d/visp.conf` drop-in and set `RELAY_DOMAIN` and `APP_DOMAIN` in
