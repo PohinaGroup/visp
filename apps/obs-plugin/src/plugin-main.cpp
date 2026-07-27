@@ -1458,7 +1458,11 @@ private:
 		    !set_current_scene(pending_command.desired_scene)) {
 			obs_log(LOG_WARNING, "requested scene is no longer available: %s",
 				pending_command.desired_scene.toUtf8().constData());
+			// Acknowledge so remotes unlock; desired scene follows the report.
+			applied_version = pending_command.command_version;
+			has_pending_command = false;
 			applying_command = false;
+			report_state();
 			return;
 		}
 		const bool active = obs_frontend_streaming_active();

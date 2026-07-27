@@ -196,9 +196,12 @@ export default function Index() {
 	const [editMode, setEditMode] = useState(false);
 	const [editor, setEditor] = useState<ObsTile | "new" | null>(null);
 	const status = live.status;
+	// Do not gate on status.connected: a hung OBS command often goes heartbeat-
+	// stale before the 15s UI timeout, and locking here left the deck dead while
+	// the footer still said TIMED OUT. Queue on VISP; OBS picks up on reconnect.
 	const controlsDisabled = Boolean(
 		busy ||
-			!status?.connected ||
+			!status?.configured ||
 			live.awaitingCommand ||
 			live.liveState !== "open",
 	);
@@ -564,7 +567,9 @@ export default function Index() {
 						{live.awaitingCommand
 							? `COMMAND ${status?.commandVersion} AWAITING OBS`
 							: live.timedOutCommand
-								? `COMMAND ${status?.commandVersion} TIMED OUT`
+								? status?.connected
+									? `COMMAND ${status.commandVersion} TIMED OUT · TAP TO RETRY`
+									: `COMMAND ${status?.commandVersion} TIMED OUT · OBS OFFLINE`
 								: connected
 									? `REAL-TIME LINK · ${status?.currentScene ?? "NO PROGRAM SCENE"}`
 									: "REAL-TIME LINK DISCONNECTED"}
