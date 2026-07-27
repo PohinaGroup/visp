@@ -1,0 +1,263 @@
+---
+title: "Näin striimaat Twitchiin puhelimesta OBS:n kautta"
+description: "Striimaa Twitchiin puhelimesta OBS:n kautta ja pidä kohtaukset, hälytykset, varakuva sekä Twitchin lähetysavain kotistudion koneella."
+publishedAt: 2026-07-27
+coverAlt: "Tunnukseton puhelin kuvaa katuesitystä, lähettää kuvan läpinäkyvän relay-kuution kautta kotistudioon ja valmis ohjelma jatkaa katsojille"
+---
+
+Kun haluat striimata Twitchiin puhelimesta **OBS:n kautta**, käytä puhelinta
+etäkamerana äläkä lopullisena Twitch-enkooderina. Puhelin lähettää kameran ja
+mikrofonin VISPiin, OBS vastaanottaa syötteen kuvalähteenä ja lähettää valmiin
+ohjelman Twitchiin.
+
+Tämä reitti on hyödyllinen, kun haluat pitää nykyiset OBS-kohtaukset,
+hälytykset, kotistudion mikrofonit, tallennukset ja varasisällön kotona. Samalla
+Twitchin lähetysavain pysyy poissa kenttäpuhelimesta. Jos yksi puhelinkamera on
+koko lähetys, Twitchin suora mobiilityönkulku on lyhyempi ja yleensä parempi
+lähtökohta.
+
+![Puhelin tuo yhden kamerasyötteen VISPin kautta koti-OBS:ään, ja OBS lähettää erikseen määritetyn valmiin ohjelman Twitchiin](./twitch-phone-obs-path.svg)
+
+## Valitse suora mobiililähetys tai OBS-reitti
+
+Twitchin virallinen
+[mobiili-IRL-ohje](https://www.twitch.tv/creatorcamp/en/level1/going-live/stream-on-mobile-irl/)
+esittelee suoran reitin: avaa Twitch-sovellus, salli kamera ja mikrofoni, aseta
+lähetyksen tiedot ja aloita lähetys. Twitchin laajempi
+[mobiilistriimauksen ohje](https://help.twitch.tv/s/article/getting-started-on-twitch?language=en_US)
+listaa myös erillisiä mobiilienkoodereita. Ne sopivat tilanteeseen, jossa
+puhelin vastaa koko tuotannosta.
+
+VISP-reitti ratkaisee eri ongelman. Siinä puhelin on yksi hallittu kuvalähde
+OBS-studiossa:
+
+| Tuotannon tarve | Parempi aloitustapa |
+| --- | --- |
+| Yksi puhelin, ei kotikonetta, nopea käyttöönotto | Twitch-sovellus tai suora mobiilienkooderi |
+| Nykyiset OBS-kohtaukset, hälytykset, grafiikat ja studioäänet | Puhelin → VISP → OBS → Twitch |
+| Paikallinen varakuva puhelimen yhdistäessä uudelleen | Puhelin → VISP → OBS → Twitch |
+| Twitchin lähetysavain ei saa olla kenttäpuhelimessa | Puhelin → VISP → OBS → Twitch |
+| Useita erillisiä kenttäkameroita | Jokaiselle puhelimelle oma VISP-laite, miksaus OBS:ssä |
+
+OBS-reitti ei ole automaattisesti luotettavampi. Se lisää ketjuun relayn,
+kotikoneen ja kodin internetyhteyden. Valitse se, koska tarvitset niiden
+tuotannollista hallintaa — ei siksi, että pidempi signaaliketju olisi itsessään
+turvallisempi.
+
+## Ymmärrä kaksi itsenäistä lähetysvirtaa
+
+Työnkulussa on kaksi enkooderiyhteyttä:
+
+1. **Kuvalähde:** puhelin enkoodaa kameran ja mikrofonin H.264/AAC-muotoon ja
+   julkaisee ne SRT:llä tunnistettuun VISP-polkuun.
+2. **Jakelu:** OBS lukee lähteen, kokoaa kohtauksen, enkoodaa valmiin ohjelman
+   ja lähettää sen Twitchiin.
+
+VISP käsittelee vain kuvalähdeyhteyden. Se välittää puhelimen kuvan OBS:ään ja
+hallinnoi polun käyttöoikeutta. Se ei vastaanota eikä välitä Twitchin
+lähetysavainta. Twitch kertoo, että lopullinen RTMP-lähetys tunnistetaan
+vastaanottopalvelussa
+[lähetysavaimella](https://help.twitch.tv/s/article/twitch-stream-key-faq?language=en_US).
+Tämä tunnus kuuluu OBS:ään, ei VISP-sovellukseen tai hallintapaneeliin.
+
+Yhteyksillä on myös omat kaistanleveysbudjettinsa. Puhelin voi saavuttaa VISPin
+moitteetta samalla, kun OBS pudottaa ruutuja matkalla Twitchiin. Myös
+päinvastainen tilanne on mahdollinen: OBS voi pitää Twitch-lähetyksen
+terveenä, vaikka kenttäkamera yhdistäisi uudelleen ja paikallinen varakuva olisi
+lähetyksessä.
+[Puhelimen ja OBS:n bittinopeusopas](/fi/blog/best-bitrate-irl-streaming-phone-obs)
+auttaa mitoittamaan yhteydet erikseen.
+
+## Mitä tarvitset
+
+- iPhonen tai Android-puhelimen, jota
+  [VISP-sovellus](https://docs.visp-stream.com/fi/docs/phone-app) tukee
+- OBS Studio 31:n kotikoneella nykyistä VISP-lisäosaa varten tai
+  hallintapaneelista käsin luodun OBS-medialähteen
+- Twitch-tunnuksella luodun VISP-tilin
+- lähetyskäyttöön määritetyn Twitch-kanavan
+- riittävän puhelimen lähetysnopeuden kuvalähteelle, kodin latausnopeuden sen
+  vastaanottoon ja kodin lähetysnopeuden valmiille Twitch-ohjelmalle
+- kuulokkeet ja toisen mykistetyn laitteen lopputarkistukseen
+
+Pidä tunnukset erillään. VISP-julkaisuosoite antaa luvan yhden kamerapolun
+käyttöön. Twitchin lähetysavain antaa luvan lähettää kanavalle. Twitch
+varoittaa jakamasta tai näyttämästä avainta, eikä VISP tarvitse sitä.
+
+## 1. Kirjaudu Twitchillä ja luo puhelimen kuvalähde
+
+Avaa VISP-sovellus kenttäpuhelimessa ja valitse **Continue with Twitch**.
+Sovellus luo asennukselle julkaisulaitteen ja tallentaa sen SRT-osoitteen
+käyttöjärjestelmän suojattuun tallennustilaan. Osoitetta ei tavallisesti
+tarvitse kopioida käsin.
+
+Nimeä laite niin, että nimi toimii myöhemminkin, esimerkiksi ”liikkuva puhelin”
+tai ”lavan vasen”. Jokaisella puhelimella pitäisi olla oma VISP-laite ja
+peruutettava tunnus. Yhden laitteen käyttäminen useassa puhelimessa vaikeuttaa
+käyttöoikeuden peruuttamista eikä muodosta varayhteyttä: yhtä VISP-polkua voi
+käyttää vain yksi julkaisija kerrallaan.
+
+Jos käytät mieluummin Larixia, Moblinia tai muuta mobiilienkooderia, luo laite
+hallintapaneelissa ja kopioi sen lähetysosoite sovellukseen.
+[Kuvalähteen ohje](https://docs.visp-stream.com/fi/docs/video-source) kattaa
+manuaaliset SRT- ja RTMP-reitit.
+
+Twitch-kirjautuminen tunnistaa VISP-tilin. Se ei tee puhelimesta
+Twitch-kohdetta eikä anna VISPille kanavan lähetysavainta.
+
+## 2. Lisää puhelimen kuva OBS:ään
+
+Asenna VISP-lisäosa, käynnistä OBS uudelleen ja avaa **Tools → VISP Remote
+Control**. Valitse **Sign in with browser**, hyväksy laitekoodi, valitse
+puhelin ja lisää se haluttuun kohtaukseen. Lisäosa luo tai päivittää
+OBS-medialähteen, jossa on tunnistettu lukuosoite.
+
+Lisäosa avaa ulospäin HTTPS- ja WSS-yhteydet. Se ei avaa OBS:ään tulevaa
+ohjausporttia. Sen konetunnus on rajattu laite- ja OBS-ohjaustoimintoihin.
+[OBS-etäohjauksen ohje](https://docs.visp-stream.com/fi/docs/obs-remote-control)
+selittää yhdistämisen, käyttöoikeuden peruuttamisen ja yhteyden palautuksen.
+
+Vaihtoehtoisesti voit ladata VISP-hallintapaneelista luodun
+kohtauskokoelman ja tuoda sen kohdasta **Scene Collection → Import**. Se
+sisältää yhden medialähteen jokaista nykyistä laitetta kohti sekä
+varakohtauksen. Käsittele paljastettua lukuosoitetta kuin salasanaa:
+tilikohtaisen lukutunnuksen kierrättäminen mitätöi kaikki nykyiset VISP-lähteet
+OBS:ssä.
+
+## 3. Määritä puhelimen kuvalähteen laatu
+
+Valitse puhelimen kamera, kuvasuunta, mikrofoni, tarkkuus ja kuvataajuus ennen
+julkisen lähetyksen aloittamista. Liikkuvalle IRL-kuvalle mobiiliverkossa
+720p30 on käytännöllinen ensimmäinen testi. Nosta laatua vasta, kun todellinen
+reitti kestää kuvalähteen bittinopeuden riittävällä marginaalilla.
+
+Nämä asetukset koskevat puhelimen ja VISPin välistä syötettä, eivät OBS:n
+Twitch-ulostuloa. VISP ei transkoodaa saapuvaa videota toiseen tarkkuuteen tai
+bittinopeuteen. Se ei myöskään niputa mobiili- ja Wi-Fi-yhteyttä yhdeksi
+yhteydeksi. Jos valittu verkko ei kanna syötettä, relay ei voi luoda puuttuvaa
+kaistaa.
+
+Käynnistä puhelimen kuvalähde ja odota, että sen rivi näyttää
+hallintapaneelissa **Live**. Seuraa lähdettä OBS:ssä usean minuutin ajan, liiku
+kuten oikeassa lähetyksessä ja puhu oikeaan mikrofoniin. Jos kenttä ja studio
+tallentavat saman äänen, mykistä tai kohdista toinen lähde tarkoituksella.
+Kaksi eri aikaan saapuvaa kopiota kuulostaa kaiulta.
+
+## 4. Yhdistä OBS Twitchiin
+
+Avaa OBS:ssä **Settings → Stream**, valitse **Twitch** ja käytä
+**Connect Account** -toimintoa, kun se on saatavilla. Twitch suosittelee tällä
+hetkellä tilin yhdistämistä OBS:n Enhanced Broadcasting -käyttöönotossa.
+Myös käsin syötetty lähetysavain toimii, mutta senkin pitäisi pysyä vain
+OBS:ssä.
+
+Twitchin
+[videolähetyksen dokumentaatio](https://dev.twitch.tv/docs/video-broadcast/)
+kuvaa lopullisen reitin: ohjelmistoenkooderi lähettää ohjelman RTMP:llä
+Twitchin vastaanottopisteeseen, jossa lähetysavain tunnistaa sen. Tämä yhteys
+on eri asia kuin VISPin kautta OBS:ään tuleva SRT-kuvalähde.
+
+Suorita OBS:n **Tools → Auto-Configuration Wizard** kotikoneelle ja sen
+yhteydelle sen sijaan, että kopioisit toisen striimaajan ulostuloasetukset.
+[OBS:n virallinen pikaohje](https://obsproject.com/kb/quick-start-guide) kertoo,
+että työkalu huomioi tietokoneen resurssit ja verkko-olosuhteet. Ohje
+suosittelee myös lyhyttä tallennus- tai lähetystestiä ennen oikeaa lähetystä.
+
+Jos otat
+[Twitch Enhanced Broadcastingin](https://help.twitch.tv/s/article/enhanced-broadcasting?language=en_US)
+käyttöön, jätä automaattinen määritys päälle ensimmäisessä testissä. Toiminto
+voi saada OBS:n lähettämään useita katsojalaatuja, joten se muuttaa kotikoneen
+enkoodaus- ja lähetyskuormaa. Se ei muuta puhelimen erillisen VISP-kuvalähteen
+bittinopeutta tai luotettavuutta.
+
+## 5. Aseta Twitchin otsikko ja kategoria
+
+Päivitä otsikko ja kategoria ennen julkista aloitusta. Voit tehdä sen Twitch
+Creator Dashboardissa. VISP-sovellus voi myös hakea Twitch-kategorioita ja
+päivittää nämä kentät, kun annat Twitchin
+[Modify Channel Information API:n](https://dev.twitch.tv/docs/api/reference/#modify-channel-information)
+edellyttämän `channel:manage:broadcast`-oikeuden.
+
+Oikeus koskee vain kanavan metatietoja. Se ei paljasta Twitchin lähetysavainta
+VISPille. Median julkaisu, chatin lukeminen, metatietojen muokkaus ja
+lopullinen Twitch-kohde ovat erillisiä oikeuksia ja yhteyksiä.
+
+Jos seuraat chatia kenttäpuhelimesta, käytä VISPin yksityistä **Floating**-näkymää,
+kun viestit on tarkoitettu vain kuvaajalle. Valitse **Embedded** vain, kun
+haluat chatin tarkoituksella osaksi puhelimesta lähtevää videota.
+[Twitch- ja Kick-chatin mobiiliohje](/fi/blog/twitch-kick-chat-phone-obs)
+selittää näkymien yksityisyys- ja tuotantoeron.
+
+## 6. Testaa koko polku ennen katsojien saapumista
+
+Tällä järjestyksellä vika rajautuu yhteen vaiheeseen:
+
+1. Käynnistä puhelimen VISP-kuvalähde.
+2. Varmista, että laite on VISPissä **Live** ja näkyy oikeassa OBS-kohtauksessa.
+3. Tarkista puhelimen mikrofoni OBS-mikserissä kuulokkeilla.
+4. Tallenna lyhyt paikallinen OBS-näyte ja tarkista rajaus, liike ja synkroni.
+5. Katkaise puhelimen yhteys hetkeksi ja varmista, että paikallinen varakuva
+   tulee näkyviin.
+6. Yhdistä puhelin uudelleen ja varmista medialähteen palautuminen.
+7. Aseta Twitchin otsikko ja kategoria.
+8. Tee kaistanleveystesti
+   [Twitch Inspectorilla](https://inspector.twitch.tv/) ennen julkista lähetystä.
+9. Käynnistä oikea Twitch-ulostulo OBS:stä vasta, kun molemmat yhteydet toimivat.
+10. Tarkista julkinen kanava toiselta mykistetyltä laitteelta.
+
+Twitchin lähetysdokumentaatio tukee kaistanleveystestin valitsinta, joka pitää
+testin poissa julkisesta katselusta Inspectorin mitatessa yhteyttä. Älä lisää
+mitään avaimeen muistin varassa, vaan seuraa Twitch Inspectorin ajantasaista
+ohjetta yhdistetylle OBS-profiilille.
+
+[Enkooderi- ja varakuvaohje](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+sisältää Advanced Scene Switcher -mallin, joka odottaa ennen palautuneeseen
+lähteeseen vaihtamista ja ennen varakuvaan palaamista. Viive estää kohtausta
+vaihtumasta edestakaisin epävakaan uudelleenyhdistyksen aikana.
+
+## Paikanna vika oikeaan vaiheeseen
+
+**Puhelin näyttää liveä, mutta OBS on musta:** tarkista ensin, näkyykö laite
+VISP-hallintapaneelissa **Live**-tilassa. Jos ei, tutki puhelimen ja relayn
+välinen yhteys. Jos laite on live, varmista, että OBS käyttää nykyistä
+lukuosoitetta eikä toinen julkaisija yritä käyttää samaa polkua.
+
+**OBS-esikatselu toimii, mutta Twitch pysyy offline-tilassa:** VISP-yhteys on
+jo kunnossa. Tarkista Twitch-tili tai lähetysavain kohdasta **Settings →
+Stream** ja testaa sitten OBS:n ja Twitchin välinen yhteys Inspectorilla.
+
+**OBS ilmoittaa pudonneista verkkoruuduista:** vika osoittaa kodin ja Twitchin
+väliseen lähetysyhteyteen. OBS:n
+[yhteyden vianetsintäohje](https://obsproject.com/kb/stream-connection-troubleshooting/)
+määrittelee pudonneet ruudut epävakaan yhteyden tai liian suuren bittinopeuden
+oireeksi. Laske tai rajoita lopullisen ulostulon kaistanleveyttä ja testaa
+kotiyhteys. Puhelimen SRT-viiveen muuttaminen ei korjaa tätä yhteyttä.
+
+**Puhelimen kuva jäätyy Twitch-lähetyksen jatkuessa:** vika on
+kuvalähdeyhteydessä. Laske puhelimen bittinopeutta, suorita VISPin
+relay-viivetesti ja testaa kenttäverkko.
+[Heikon mobiiliverkon opas](/fi/blog/keep-stream-live-bad-mobile-network)
+selittää, miten SRT-palautus, uudelleenyhdistys ja OBS-varakuva toimivat
+yhdessä.
+
+**OBS:n renderöinti- tai enkoodausviive kasvaa:** kyse on paikallisesta
+suorituskykyongelmasta, ei todisteesta verkkohävikistä. Kone purkaa etälähteen,
+renderöi kohtauksen ja enkoodaa lopullisen ulostulon. Kevennä kohtausta tai
+ulostuloa ja testaa uudelleen ennen asiaan liittymättömien verkkoasetusten
+muuttamista.
+
+## Tiedä, mitä VISP ei tee
+
+VISP on kuvalähteiden tunnistettu SRT/RTMP-relay ja hallintataso. Se ei ylläpidä
+OBS:ää, miksaa kohtauksia palvelimella, lähetä valmista ohjelmaa Twitchiin,
+transkoodaa videota eikä niputa verkkoyhteyksiä. Puhelin enkoodaa
+kenttäsyötteen, OBS kokoaa ja enkoodaa ohjelman ja Twitch vastaanottaa
+lopullisen ulostulon suoraan OBS:stä.
+
+Tämä erottelu on työnkulun tarkoitus: puhelimesta tulee hallittu kamera
+nykyiseen Twitch-tuotantoon ilman, että se omistaa kanavan ulostuloa.
+
+Jos tämä vastaa tuotantotarvettasi, seuraa
+[VISPin aloitusohjetta](https://docs.visp-stream.com/fi/docs/get-started),
+lisää puhelin testikohtaukseen ja koettele molemmat verkkoyhteydet sekä
+varakuva ennen seuraavaa Twitch-lähetystäsi.
