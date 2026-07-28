@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">VISP Direct and OBS signal paths</title>
+  <desc id="desc">One phone feed enters the VISP relay. The relay creates independent Twitch and Kick distribution encodes, while OBS may still read the original contribution.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071426"/>
+      <stop offset="1" stop-color="#0f2540"/>
+    </linearGradient>
+    <filter id="glow"><feGaussianBlur stdDeviation="8" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0l12 6-12 6z" fill="#35d9f2"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg)"/>
+  <g font-family="Inter,Arial,sans-serif" fill="#eafaff">
+    <rect x="100" y="245" width="220" height="410" rx="42" fill="#102b48" stroke="#63e6f5" stroke-width="6"/>
+    <circle cx="210" cy="340" r="52" fill="#071426" stroke="#63e6f5" stroke-width="5"/>
+    <circle cx="210" cy="340" r="20" fill="#35d9f2"/>
+    <text x="210" y="725" text-anchor="middle" font-size="38" font-weight="700">ONE PHONE FEED</text>
+    <path d="M330 450H610" stroke="#35d9f2" stroke-width="18" marker-end="url(#arrow)" filter="url(#glow)"/>
+    <rect x="650" y="275" width="300" height="350" rx="56" fill="#123753" stroke="#35d9f2" stroke-width="7"/>
+    <path d="M800 355l72 28v62c0 62-41 102-72 119-31-17-72-57-72-119v-62z" fill="#0a2239" stroke="#62f4c5" stroke-width="7"/>
+    <path d="M765 445l25 25 52-63" fill="none" stroke="#62f4c5" stroke-width="10" stroke-linecap="round"/>
+    <text x="800" y="690" text-anchor="middle" font-size="40" font-weight="700">VISP RELAY</text>
+    <path d="M955 390C1090 390 1095 250 1220 250" fill="none" stroke="#35d9f2" stroke-width="15" marker-end="url(#arrow)"/>
+    <path d="M955 510C1090 510 1095 650 1220 650" fill="none" stroke="#62f4c5" stroke-width="15" marker-end="url(#arrow)"/>
+    <rect x="1260" y="130" width="250" height="220" rx="28" fill="#11314c" stroke="#35d9f2" stroke-width="6"/>
+    <path d="M1330 180l100 60-100 60z" fill="#35d9f2"/>
+    <text x="1385" y="405" text-anchor="middle" font-size="34" font-weight="700">DESTINATION 1</text>
+    <rect x="1260" y="550" width="250" height="220" rx="28" fill="#11314c" stroke="#62f4c5" stroke-width="6"/>
+    <path d="M1330 600l100 60-100 60z" fill="#62f4c5"/>
+    <text x="1385" y="825" text-anchor="middle" font-size="34" font-weight="700">DESTINATION 2</text>
+    <path d="M790 625v115h250" fill="none" stroke="#8faabd" stroke-width="10" stroke-dasharray="18 16" marker-end="url(#arrow)"/>
+    <rect x="1070" y="720" width="230" height="120" rx="18" fill="#0a1d30" stroke="#8faabd" stroke-width="5"/>
+    <rect x="1110" y="750" width="150" height="55" rx="8" fill="#163b58"/>
+    <text x="1185" y="880" text-anchor="middle" font-size="30" fill="#b9cad6">OPTIONAL OBS READ</text>
+  </g>
+</svg>
