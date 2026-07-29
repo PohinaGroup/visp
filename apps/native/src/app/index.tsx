@@ -5,6 +5,7 @@ import {
 } from "@VISP/api/link-stats";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import * as UI from "@expo/ui";
+import Constants from "expo-constants";
 import * as Device from "expo-device";
 import {
 	GlassView,
@@ -376,6 +377,27 @@ export default function Index() {
 		if (imageStabilizationEnabled === undefined) {
 			return;
 		}
+		// #region agent log
+		{
+			const host = Constants.expoConfig?.hostUri?.split(":")[0] ?? "127.0.0.1";
+			fetch(`http://${host}:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Debug-Session-Id": "67ea04",
+				},
+				body: JSON.stringify({
+					sessionId: "67ea04",
+					runId: "post-fix-stale-only",
+					hypothesisId: "D",
+					location: "index.tsx:prepare",
+					message: "prepare with stale-PTS filter only",
+					data: { contributionMode, bondingMode },
+					timestamp: Date.now(),
+				}),
+			}).catch(() => {});
+		}
+		// #endregion
 		try {
 			await cameraRef.current?.setImageStabilization(imageStabilizationEnabled);
 			const requestedPermissions = await cameraRef.current?.prepare();
@@ -713,6 +735,23 @@ export default function Index() {
 	}, []);
 
 	useEffect(() => () => clearTimeout(toastTimer.current), []);
+
+	const onAgentDebug = useCallback(
+		({ nativeEvent }: { nativeEvent: Record<string, unknown> }) => {
+			// #region agent log
+			const host = Constants.expoConfig?.hostUri?.split(":")[0] ?? "127.0.0.1";
+			fetch(`http://${host}:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c`, {
+				method: "POST",
+				headers: {
+					"Content-Type": "application/json",
+					"X-Debug-Session-Id": "67ea04",
+				},
+				body: JSON.stringify({ sessionId: "67ea04", ...nativeEvent }),
+			}).catch(() => {});
+			// #endregion
+		},
+		[],
+	);
 
 	const onAudioLevel = useCallback(
 		({ nativeEvent }: { nativeEvent: AudioLevelEvent }) => {
@@ -1233,6 +1272,7 @@ export default function Index() {
 		<View style={styles.container}>
 			<StatusBar style="light" />
 			<VispSrtView
+				onAgentDebug={onAgentDebug}
 				onAudioLevel={onAudioLevel}
 				onStateChange={onStateChange}
 				onStats={onStats}
@@ -1621,8 +1661,10 @@ export default function Index() {
 								/>
 							</SettingRow>
 							<UI.FieldGroup.SectionFooter>
-								Uses Wi-Fi and cellular together. This can roughly double mobile
-								data use.
+								<UI.Text textStyle={SUBTLE_TEXT}>
+									Uses Wi-Fi and cellular together. This can roughly double mobile
+									data use.
+								</UI.Text>
 							</UI.FieldGroup.SectionFooter>
 						</UI.FieldGroup.Section>
 					) : null}
@@ -1901,14 +1943,18 @@ export default function Index() {
 												</UI.Row>
 											))}
 											<UI.FieldGroup.SectionFooter>
-												{directWarning(directOutputs)}
+												<UI.Text textStyle={SUBTLE_TEXT}>
+													{directWarning(directOutputs)}
+												</UI.Text>
 											</UI.FieldGroup.SectionFooter>
 										</>
 									) : (
 										<UI.FieldGroup.SectionFooter>
-											VISP Direct is in limited beta. It runs the platform
-											encode on a single relay node, so access is handed out a
-											few accounts at a time.
+											<UI.Text textStyle={SUBTLE_TEXT}>
+												VISP Direct is in limited beta. It runs the platform
+												encode on a single relay node, so access is handed out a
+												few accounts at a time.
+											</UI.Text>
 										</UI.FieldGroup.SectionFooter>
 									)}
 								</UI.FieldGroup.Section>

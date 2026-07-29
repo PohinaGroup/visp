@@ -2,9 +2,12 @@ import { describe, expect, test } from "bun:test";
 
 import "./test-env";
 
-const { DirectError, sanitizeDirectError, streamKeyDestination } = await import(
-	"./direct"
-);
+const {
+	DirectError,
+	kickIngestDestination,
+	sanitizeDirectError,
+	streamKeyDestination,
+} = await import("./direct");
 
 const dependencies = (respond: (url: string) => Response) => ({
 	fetch: (async (input: Parameters<typeof fetch>[0]) =>
@@ -46,6 +49,28 @@ describe("streamKeyDestination", () => {
 		);
 	});
 
+	test("adds :443/app when Kick returns a host-only ingest URL", () => {
+		expect(
+			kickIngestDestination(
+				"rtmps://fa723fc1b171.global-contribute.live-video.net",
+				"sk_abc",
+			),
+		).toBe(
+			"rtmps://fa723fc1b171.global-contribute.live-video.net:443/app/sk_abc",
+		);
+	});
+
+	test("leaves a dashboard-style Kick URL unchanged apart from the key", () => {
+		expect(
+			kickIngestDestination(
+				"rtmps://fa723fc1b171.global-contribute.live-video.net:443/app",
+				"sk_abc",
+			),
+		).toBe(
+			"rtmps://fa723fc1b171.global-contribute.live-video.net:443/app/sk_abc",
+		);
+	});
+
 	test("joins Kick's stream url and key", async () => {
 		const url = await streamKeyDestination(
 			"kick",
@@ -60,6 +85,29 @@ describe("streamKeyDestination", () => {
 			),
 		);
 		expect(url).toBe("rtmps://stream.kick.com/1234/sk_abc");
+	});
+
+	test("normalizes a host-only Kick ingest URL from the API", async () => {
+		const url = await streamKeyDestination(
+			"kick",
+			"user-a",
+			"42",
+			dependencies(() =>
+				Response.json({
+					data: [
+						{
+							stream: {
+								url: "rtmps://fa723fc1b171.global-contribute.live-video.net",
+								key: "sk_abc",
+							},
+						},
+					],
+				}),
+			),
+		);
+		expect(url).toBe(
+			"rtmps://fa723fc1b171.global-contribute.live-video.net:443/app/sk_abc",
+		);
 	});
 
 	// The capability check stays at API-call time, not at account.scope: a user

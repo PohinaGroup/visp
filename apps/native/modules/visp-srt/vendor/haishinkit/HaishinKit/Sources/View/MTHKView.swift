@@ -10,11 +10,18 @@ public class MTHKView: MTKView {
     public var videoTrackId: UInt8? = UInt8.max
     public var audioTrackId: UInt8?
     private var displayImage: CIImage?
+    private var lastAppliedPtsSeconds = -1.0
+    private var appliedFrameCount = 0
+    private var skippedStaleCount = 0
     private lazy var commandQueue: (any MTLCommandQueue)? = {
         return device?.makeCommandQueue()
     }()
     private var context: CIContext?
     private var effects: [any VideoEffect] = .init()
+
+    /// Preview health counters for debug (read from VispSrtView).
+    public var agentDebugAppliedFrameCount: Int { appliedFrameCount }
+    public var agentDebugSkippedStaleCount: Int { skippedStaleCount }
 
     /// Initializes and returns a newly allocated view object with the specified frame rectangle.
     public init(frame: CGRect) {
@@ -143,8 +150,20 @@ extension MTHKView: MediaMixerOutput {
     }
 
     nonisolated public func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
+        let pts = sampleBuffer.presentationTimeStamp.seconds
         Task { @MainActor in
-            displayImage = try? sampleBuffer.imageBuffer?.makeCIImage()
+            // Offscreen compositor can deliver frames out of PTS order after the
+            // MainActor hop; applying those flashes an older camera image.
+            if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
+                self.skippedStaleCount += 1
+                return
+            }
+            guard let image = try? sampleBuffer.imageBuffer?.makeCIImage() else {
+                return
+            }
+            self.lastAppliedPtsSeconds = pts
+            self.appliedFrameCount += 1
+            self.displayImage = image
             #if os(macOS)
             self.needsDisplay = true
             #else
@@ -160,8 +179,18 @@ extension MTHKView: StreamOutput {
     }
 
     nonisolated public func stream(_ stream: some StreamConvertible, didOutput video: CMSampleBuffer) {
+        let pts = video.presentationTimeStamp.seconds
         Task { @MainActor in
-            displayImage = try? video.imageBuffer?.makeCIImage()
+            if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
+                self.skippedStaleCount += 1
+                return
+            }
+            guard let image = try? video.imageBuffer?.makeCIImage() else {
+                return
+            }
+            self.lastAppliedPtsSeconds = pts
+            self.appliedFrameCount += 1
+            self.displayImage = image
             #if os(macOS)
             self.needsDisplay = true
             #else

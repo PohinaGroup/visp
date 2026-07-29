@@ -111,6 +111,7 @@ final class VispSrtView: ExpoView {
   let onStateChange = EventDispatcher()
   let onAudioLevel = EventDispatcher()
   let onStats = EventDispatcher()
+  let onAgentDebug = EventDispatcher()
 
   private let preview = MTHKView(frame: .zero)
   private var audioInputID: String?
@@ -162,6 +163,17 @@ final class VispSrtView: ExpoView {
       name: UIApplication.willResignActiveNotification,
       object: nil
     )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(agentDebugLogReceived(_:)),
+      name: AgentDebugLog.notification,
+      object: nil
+    )
+  }
+
+  @objc private func agentDebugLogReceived(_ notification: Notification) {
+    guard let payload = notification.userInfo as? [String: Any] else { return }
+    onAgentDebug(payload)
   }
 
   deinit {
@@ -247,6 +259,22 @@ final class VispSrtView: ExpoView {
       await mixer.startRunning()
       self.mixer = mixer
       await applyChatBitmap()
+      // #region agent log
+      Task { @MainActor [weak self] in
+        try? await Task.sleep(nanoseconds: 1_000_000_000)
+        guard let self else { return }
+        AgentDebugLog.emit(
+          location: "VispSrtView.swift:prepare+1s",
+          message: "preview health after stale-PTS filter",
+          hypothesisId: "D",
+          data: [
+            "appliedFrames": self.preview.agentDebugAppliedFrameCount,
+            "skippedStale": self.preview.agentDebugSkippedStaleCount,
+            "runId": "post-fix-stale-only",
+          ]
+        )
+      }
+      // #endregion
       emit(.idle)
       return requestedPermissions
     } catch {

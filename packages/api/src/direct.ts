@@ -153,7 +153,33 @@ export async function streamKeyDestination(
 			"Kick did not return a stream key",
 		);
 	}
-	return `${stream.url.replace(/\/+$/, "")}/${stream.key}`;
+	return kickIngestDestination(stream.url, stream.key);
+}
+
+/**
+ * Kick's dashboard URL ends in `:443/app`, but the API sometimes returns only
+ * the ingest host. FFmpeg treats a bare host as the app name and fails with
+ * "Input/output error" when opening the output.
+ */
+export function kickIngestDestination(streamUrl: string, streamKey: string) {
+	const trimmed = streamUrl.trim().replace(/\/+$/, "");
+	if (trimmed.endsWith("/app")) {
+		return `${trimmed}/${streamKey}`;
+	}
+
+	try {
+		const url = new URL(trimmed);
+		if (url.pathname && url.pathname !== "/") {
+			return `${trimmed}/${streamKey}`;
+		}
+		if (!url.port) {
+			url.port = url.protocol === "rtmps:" ? "443" : "1935";
+		}
+		url.pathname = "/app";
+		return `${url.protocol}//${url.host}${url.pathname}/${streamKey}`;
+	} catch {
+		return `${trimmed}/${streamKey}`;
+	}
 }
 
 export async function listDirectOutputs(userId: string) {
