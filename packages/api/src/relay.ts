@@ -200,6 +200,8 @@ export async function listPaths(userId: string) {
 			nativeInstallationId: relayPath.nativeInstallationId,
 			publishLastConnectedAt: relayPath.publishLastConnectedAt,
 			publishRevealable: sql<boolean>`${relayPath.publishSecretEncrypted} is not null`,
+			directTwitch: relayPath.directTwitch,
+			directKick: relayPath.directKick,
 			publishing: pathState.publishing,
 			readerCount: pathState.readerCount,
 			sourceType: pathState.sourceType,

@@ -190,6 +190,8 @@ export const relayRoutes = {
 					seq: path.seq,
 					nativeInstallationId: path.nativeInstallationId,
 					publishRevealable: path.publishRevealable,
+					directTwitch: path.directTwitch,
+					directKick: path.directKick,
 					publishing: path.publishing,
 					readerCount: path.readerCount,
 					sourceType: path.sourceType,
