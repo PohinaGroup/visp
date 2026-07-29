@@ -121,7 +121,6 @@ export type VispSrtViewRef = {
 };
 
 export type VispSrtViewProps = {
-	onAgentDebug?: (event: { nativeEvent: Record<string, unknown> }) => void;
 	onAudioLevel?: (event: { nativeEvent: AudioLevelEvent }) => void;
 	onStateChange?: (event: { nativeEvent: StreamStateEvent }) => void;
 	onStats?: (event: { nativeEvent: StreamStatsEvent }) => void;

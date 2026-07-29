@@ -11,17 +11,27 @@ public class MTHKView: MTKView {
     public var audioTrackId: UInt8?
     private var displayImage: CIImage?
     private var lastAppliedPtsSeconds = -1.0
-    private var appliedFrameCount = 0
-    private var skippedStaleCount = 0
     private lazy var commandQueue: (any MTLCommandQueue)? = {
         return device?.makeCommandQueue()
     }()
     private var context: CIContext?
     private var effects: [any VideoEffect] = .init()
 
-    /// Preview health counters for debug (read from VispSrtView).
-    public var agentDebugAppliedFrameCount: Int { appliedFrameCount }
-    public var agentDebugSkippedStaleCount: Int { skippedStaleCount }
+    /// Drop PTS tracking so the next frame is always accepted.
+    public func resetPreviewTiming() {
+        lastAppliedPtsSeconds = -1
+    }
+
+    /// Clear the drawable and PTS tracking (camera switch). Brief black is OK.
+    public func clearPreviewForCameraSwitch() {
+        displayImage = nil
+        lastAppliedPtsSeconds = -1
+        #if os(macOS)
+        needsDisplay = true
+        #else
+        setNeedsDisplay()
+        #endif
+    }
 
     /// Initializes and returns a newly allocated view object with the specified frame rectangle.
     public init(frame: CGRect) {
@@ -152,17 +162,17 @@ extension MTHKView: MediaMixerOutput {
     nonisolated public func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
         let pts = sampleBuffer.presentationTimeStamp.seconds
         Task { @MainActor in
-            // Offscreen compositor can deliver frames out of PTS order after the
-            // MainActor hop; applying those flashes an older camera image.
             if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
-                self.skippedStaleCount += 1
-                return
+                // Capture-latency recalculation can jump output PTS backward by
+                // hundreds of ms. Treat large jumps as a rebase, not a reorder.
+                if self.lastAppliedPtsSeconds - pts <= 0.25 {
+                    return
+                }
             }
             guard let image = try? sampleBuffer.imageBuffer?.makeCIImage() else {
                 return
             }
             self.lastAppliedPtsSeconds = pts
-            self.appliedFrameCount += 1
             self.displayImage = image
             #if os(macOS)
             self.needsDisplay = true
@@ -182,14 +192,14 @@ extension MTHKView: StreamOutput {
         let pts = video.presentationTimeStamp.seconds
         Task { @MainActor in
             if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
-                self.skippedStaleCount += 1
-                return
+                if self.lastAppliedPtsSeconds - pts <= 0.25 {
+                    return
+                }
             }
             guard let image = try? video.imageBuffer?.makeCIImage() else {
                 return
             }
             self.lastAppliedPtsSeconds = pts
-            self.appliedFrameCount += 1
             self.displayImage = image
             #if os(macOS)
             self.needsDisplay = true

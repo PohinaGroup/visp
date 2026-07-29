@@ -27,7 +27,7 @@ final class VispSrtModule: Module {
     }
 
     View(VispSrtView.self) {
-      Events("onStateChange", "onAudioLevel", "onStats", "onAgentDebug")
+      Events("onStateChange", "onAudioLevel", "onStats")
 
       AsyncFunction("configure") { (
         view: VispSrtView,
