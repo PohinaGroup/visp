@@ -9,7 +9,7 @@ const message = (
 	id,
 	provider: "twitch",
 	sentAt: new Date(0).toISOString(),
-	sender: { id: "u", name: "user" },
+	sender: { id: "u", name: "user", color: "#FF0000", badges: [] },
 	fragments: [{ type: "text", text: id }],
 	receivedAt,
 });

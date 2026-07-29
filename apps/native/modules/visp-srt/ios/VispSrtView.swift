@@ -286,20 +286,35 @@ final class VispSrtView: ExpoView {
   func updateChatOverlay(messages: [[String: Any]], corner: String) async {
     chatGeneration += 1
     let generation = chatGeneration
+    let visibleMessages = Array(messages.suffix(4))
     var images: [String: UIImage] = [:]
-    let urls = messages
-      .flatMap { ($0["fragments"] as? [[String: Any]]) ?? [] }
+    let fragmentURLs = visibleMessages
+      .flatMap { (($0["fragments"] as? [[String: Any]]) ?? []).prefix(32) }
       .compactMap { $0["url"] as? String }
-    for value in Set(urls) {
-      if let image = await loadChatImage(value) {
-        images[value] = image
+    let badgeURLs = visibleMessages
+      .flatMap {
+        ((($0["sender"] as? [String: Any])?["badges"] as? [[String: Any]]) ?? []).prefix(4)
+      }
+      .compactMap { $0["url"] as? String }
+    let urls = Array(Set(fragmentURLs + badgeURLs))
+    for start in stride(from: 0, to: urls.count, by: 4) {
+      guard generation == chatGeneration else { return }
+      await withTaskGroup(of: (String, UIImage?).self) { group in
+        for value in urls[start..<min(start + 4, urls.count)] {
+          group.addTask { [weak self] in
+            (value, await self?.loadChatImage(value))
+          }
+        }
+        for await (value, image) in group {
+          images[value] = image
+        }
       }
     }
     guard generation == chatGeneration else {
       return
     }
     chatCorner = validChatCorner(corner) ? corner : "bottom-left"
-    chatBitmap = renderChatOverlay(messages: Array(messages.suffix(4)), images: images)?.cgImage
+    chatBitmap = renderChatOverlay(messages: visibleMessages, images: images)?.cgImage
     await applyChatBitmap()
   }
 
@@ -368,9 +383,34 @@ final class VispSrtView: ExpoView {
         let sender = message["sender"] as? [String: Any]
         let senderName = String((sender?["name"] as? String ?? "viewer").prefix(64))
         let senderColor = UIColor(chatHex: sender?["color"] as? String) ?? .white
-        senderName.draw(
-          at: CGPoint(x: 14, y: y + 9),
-          withAttributes: [.font: UIFont.boldSystemFont(ofSize: 18), .foregroundColor: senderColor]
+        var senderX: CGFloat = 14
+        let provider = message["provider"] as? String
+        drawChatChip(
+          provider == "twitch" ? "T" : "K",
+          background: UIColor(chatHex: provider == "twitch" ? "#9146FF" : "#53FC18")!,
+          foreground: UIColor(chatHex: provider == "twitch" ? "#FFFFFF" : "#071005")!,
+          in: CGRect(x: senderX, y: y + 8, width: 20, height: 20)
+        )
+        senderX += 24
+        for badge in ((sender?["badges"] as? [[String: Any]]) ?? []).prefix(4) {
+          let label = String((badge["label"] as? String ?? "").prefix(24))
+          if let url = badge["url"] as? String, let image = images[url] {
+            image.draw(in: CGRect(x: senderX, y: y + 8, width: 20, height: 20))
+          } else {
+            drawChatChip(
+              String(label.prefix(3)).uppercased(),
+              background: chatBadgeColor(badge["type"] as? String),
+              foreground: .white,
+              in: CGRect(x: senderX, y: y + 8, width: 20, height: 20)
+            )
+          }
+          senderX += 24
+        }
+        (senderName as NSString).draw(
+          with: CGRect(x: senderX, y: y + 8, width: max(0, width - 14 - senderX), height: 24),
+          options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin],
+          attributes: [.font: UIFont.boldSystemFont(ofSize: 18), .foregroundColor: senderColor],
+          context: nil
         )
 
         var x: CGFloat = 14
@@ -402,6 +442,39 @@ final class VispSrtView: ExpoView {
         context.cgContext.restoreGState()
       }
     }
+  }
+
+  private func drawChatChip(
+    _ label: String,
+    background: UIColor,
+    foreground: UIColor,
+    in rect: CGRect
+  ) {
+    background.setFill()
+    UIBezierPath(roundedRect: rect, cornerRadius: 5).fill()
+    let attributes: [NSAttributedString.Key: Any] = [
+      .font: UIFont.boldSystemFont(ofSize: label.count > 1 ? 8 : 11),
+      .foregroundColor: foreground,
+    ]
+    let text = label as NSString
+    let size = text.size(withAttributes: attributes)
+    text.draw(
+      at: CGPoint(x: rect.midX - size.width / 2, y: rect.midY - size.height / 2),
+      withAttributes: attributes
+    )
+  }
+
+  private func chatBadgeColor(_ type: String?) -> UIColor {
+    let hex: String
+    switch type {
+    case "broadcaster": hex = "#E91916"
+    case "moderator": hex = "#00AD03"
+    case "vip": hex = "#E005B9"
+    case "subscriber": hex = "#6441A5"
+    case "founder": hex = "#C79A00"
+    default: hex = "#53606E"
+    }
+    return UIColor(chatHex: hex)!
   }
 
   private func applyChatBitmap() async {

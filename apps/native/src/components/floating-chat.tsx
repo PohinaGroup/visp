@@ -1,4 +1,9 @@
-import type { ChatFragment } from "@VISP/api/chat/contract";
+import {
+	BADGE_CHIP_COLOR,
+	type ChatBadge,
+	type ChatFragment,
+	PROVIDER_CHIP,
+} from "@VISP/api/chat/contract";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
 import { Text, useWindowDimensions, View } from "react-native";
@@ -26,6 +31,43 @@ function Fragment({ fragment }: { fragment: ChatFragment }) {
 	);
 }
 
+function Badge({ badge }: { badge: ChatBadge }) {
+	const [failed, setFailed] = useState(false);
+	if (badge.url && !failed) {
+		return (
+			<Image
+				accessibilityLabel={badge.label}
+				accessible
+				onError={() => setFailed(true)}
+				source={badge.url}
+				style={{ height: 16, width: 16 }}
+			/>
+		);
+	}
+	return (
+		<View
+			accessibilityLabel={badge.label}
+			accessible
+			style={{
+				alignItems: "center",
+				backgroundColor:
+					BADGE_CHIP_COLOR[
+						badge.type as keyof Omit<typeof BADGE_CHIP_COLOR, "default">
+					] ?? BADGE_CHIP_COLOR.default,
+				borderRadius: 4,
+				height: 16,
+				justifyContent: "center",
+				minWidth: 16,
+				paddingHorizontal: 2,
+			}}
+		>
+			<Text style={{ color: "white", fontSize: 7, fontWeight: "900" }}>
+				{badge.label.slice(0, 3).toUpperCase()}
+			</Text>
+		</View>
+	);
+}
+
 function keyedFragments(fragments: ChatFragment[]) {
 	const occurrences = new Map<string, number>();
 	return fragments.map((fragment) => {
@@ -36,6 +78,16 @@ function keyedFragments(fragments: ChatFragment[]) {
 		const occurrence = occurrences.get(value) ?? 0;
 		occurrences.set(value, occurrence + 1);
 		return { fragment, key: `${value}:${occurrence}` };
+	});
+}
+
+function keyedBadges(badges: ChatBadge[]) {
+	const occurrences = new Map<string, number>();
+	return badges.map((badge) => {
+		const value = `${badge.type}:${badge.label}:${badge.url ?? ""}`;
+		const occurrence = occurrences.get(value) ?? 0;
+		occurrences.set(value, occurrence + 1);
+		return { badge, key: `${value}:${occurrence}` };
 	});
 }
 
@@ -98,15 +150,48 @@ export function FloatingChat({
 						key={`${message.provider}-${message.id}`}
 						style={{ opacity: message.opacity }}
 					>
-						<Text
+						<View
 							style={{
-								color: message.sender.color ?? "white",
-								fontSize: 13,
-								fontWeight: "800",
+								alignItems: "center",
+								flexDirection: "row",
+								gap: 4,
 							}}
 						>
-							{message.sender.name}
-						</Text>
+							<View
+								style={{
+									alignItems: "center",
+									backgroundColor: PROVIDER_CHIP[message.provider].background,
+									borderRadius: 4,
+									height: 14,
+									justifyContent: "center",
+									width: 14,
+								}}
+							>
+								<Text
+									style={{
+										color: PROVIDER_CHIP[message.provider].foreground,
+										fontSize: 8,
+										fontWeight: "900",
+									}}
+								>
+									{message.provider === "twitch" ? "T" : "K"}
+								</Text>
+							</View>
+							{keyedBadges(message.sender.badges).map(({ badge, key }) => (
+								<Badge badge={badge} key={`${message.id}:${key}`} />
+							))}
+							<Text
+								numberOfLines={1}
+								style={{
+									color: message.sender.color,
+									flexShrink: 1,
+									fontSize: 13,
+									fontWeight: "800",
+								}}
+							>
+								{message.sender.name}
+							</Text>
+						</View>
 						<View
 							style={{
 								alignItems: "center",

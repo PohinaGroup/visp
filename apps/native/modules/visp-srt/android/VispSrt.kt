@@ -393,8 +393,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
       try {
         val images = mutableMapOf<String, Bitmap>()
         messages.takeLast(4).forEach { message ->
-          fragments(message).forEach { fragment ->
-            val url = fragment["url"] as? String ?: return@forEach
+          (fragments(message) + badges(message)).forEach { item ->
+            val url = item["url"] as? String ?: return@forEach
             loadChatImage(url)?.let { images[url] = it }
           }
         }
@@ -893,7 +893,42 @@ class VispSrtView(context: Context, appContext: AppContext) :
       canvas.drawRoundRect(RectF(0f, y.toFloat(), width.toFloat(), (y + rowHeight - 6).toFloat()), 14f, 14f, background)
       val sender = message["sender"] as? Map<*, *>
       senderPaint.color = parseChatColor(sender?.get("color") as? String)
-      canvas.drawText((sender?.get("name") as? String ?: "viewer").take(64), 14f, (y + 25).toFloat(), senderPaint)
+      var senderX = 14f
+      val twitch = message["provider"] == "twitch"
+      drawChatChip(
+        canvas,
+        if (twitch) "T" else "K",
+        senderX,
+        (y + 8).toFloat(),
+        Color.parseColor(if (twitch) "#9146FF" else "#53FC18"),
+        Color.parseColor(if (twitch) "#FFFFFF" else "#071005"),
+      )
+      senderX += 24
+      badges(message).take(4).forEach { badge ->
+        val label = (badge["label"] as? String ?: "").take(24)
+        val image = (badge["url"] as? String)?.let(images::get)
+        if (image != null) {
+          canvas.drawBitmap(
+            image,
+            null,
+            RectF(senderX, (y + 8).toFloat(), senderX + 20, (y + 28).toFloat()),
+            null,
+          )
+        } else {
+          drawChatChip(
+            canvas,
+            label.take(3).uppercase(),
+            senderX,
+            (y + 8).toFloat(),
+            chatBadgeColor(badge["type"] as? String),
+            Color.WHITE,
+          )
+        }
+        senderX += 24
+      }
+      val senderName = (sender?.get("name") as? String ?: "viewer").take(64)
+      val senderCount = senderPaint.breakText(senderName, true, width - 14f - senderX, null)
+      canvas.drawText(senderName.take(senderCount), senderX, (y + 25).toFloat(), senderPaint)
       var x = 14f
       val baseline = (y + 63).toFloat()
       fragments(message).take(32).forEach { fragment ->
@@ -919,6 +954,46 @@ class VispSrtView(context: Context, appContext: AppContext) :
   @Suppress("UNCHECKED_CAST")
   private fun fragments(message: Map<String, Any?>): List<Map<String, Any?>> =
     message["fragments"] as? List<Map<String, Any?>> ?: emptyList()
+
+  @Suppress("UNCHECKED_CAST")
+  private fun badges(message: Map<String, Any?>): List<Map<String, Any?>> =
+    (message["sender"] as? Map<String, Any?>)?.get("badges") as? List<Map<String, Any?>>
+      ?: emptyList()
+
+  private fun drawChatChip(
+    canvas: Canvas,
+    label: String,
+    x: Float,
+    y: Float,
+    background: Int,
+    foreground: Int,
+  ) {
+    val rect = RectF(x, y, x + 20, y + 20)
+    canvas.drawRoundRect(
+      rect,
+      5f,
+      5f,
+      Paint(Paint.ANTI_ALIAS_FLAG).apply { color = background },
+    )
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = foreground
+      textAlign = Paint.Align.CENTER
+      textSize = if (label.length > 1) 8f else 11f
+      typeface = android.graphics.Typeface.DEFAULT_BOLD
+    }
+    canvas.drawText(label, rect.centerX(), rect.centerY() - (paint.ascent() + paint.descent()) / 2, paint)
+  }
+
+  private fun chatBadgeColor(type: String?): Int = Color.parseColor(
+    when (type) {
+      "broadcaster" -> "#E91916"
+      "moderator" -> "#00AD03"
+      "vip" -> "#E005B9"
+      "subscriber" -> "#6441A5"
+      "founder" -> "#C79A00"
+      else -> "#53606E"
+    },
+  )
 
   private fun parseChatColor(value: String?): Int =
     if (value?.matches(Regex("^#[0-9A-Fa-f]{6}$")) == true) Color.parseColor(value) else Color.WHITE
