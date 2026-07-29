@@ -120,12 +120,39 @@ build_ios() {
   cp -R "$xcframework" "$package_artifact"
 }
 
+resolve_android_ndk() {
+  local candidate sdk_root
+  for candidate in "${ANDROID_NDK_HOME:-}" "${ANDROID_NDK_ROOT:-}"; do
+    if [[ -n "$candidate" && -f "$candidate/build/cmake/android.toolchain.cmake" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+
+  sdk_root="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+  if [[ -z "$sdk_root" && -d "$HOME/Library/Android/sdk/ndk" ]]; then
+    sdk_root="$HOME/Library/Android/sdk"
+  fi
+
+  if [[ -n "$sdk_root" && -d "$sdk_root/ndk" ]]; then
+    candidate=$(ls "$sdk_root/ndk" | sort -V | tail -1)
+    candidate="$sdk_root/ndk/$candidate"
+    if [[ -f "$candidate/build/cmake/android.toolchain.cmake" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
 build_android() {
-  local ndk="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
-  [[ -n "$ndk" && -f "$ndk/build/cmake/android.toolchain.cmake" ]] || {
-    echo "ANDROID_NDK_HOME must point to an Android NDK" >&2
+  local ndk
+  ndk=$(resolve_android_ndk) || {
+    echo "Android NDK not found. Install it in Android Studio (SDK Manager → NDK) or set ANDROID_NDK_HOME." >&2
     exit 1
   }
+  echo "Using Android NDK at $ndk"
   local toolchain="$ndk/build/cmake/android.toolchain.cmake"
   for abi in arm64-v8a armeabi-v7a x86_64; do
     local name="android-${abi}"
