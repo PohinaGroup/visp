@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">VISP Direct phone and relay workload</title>
+  <desc id="desc">The phone performs one capture, contribution encode, and upload. The relay performs separate distribution encodes and uploads for two destinations.</desc>
+  <defs>
+    <linearGradient id="bg2" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#061426"/>
+      <stop offset="1" stop-color="#112d46"/>
+    </linearGradient>
+    <marker id="arrow2" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0l12 6-12 6z" fill="#40ddf5"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#bg2)"/>
+  <g font-family="Inter,Arial,sans-serif" fill="#effcff">
+    <rect x="100" y="210" width="300" height="480" rx="54" fill="#102e4a" stroke="#40ddf5" stroke-width="7"/>
+    <circle cx="250" cy="330" r="74" fill="#071727" stroke="#40ddf5" stroke-width="6"/>
+    <circle cx="250" cy="330" r="28" fill="#40ddf5"/>
+    <rect x="190" y="480" width="120" height="62" rx="12" fill="none" stroke="#65f3b9" stroke-width="8"/>
+    <rect x="310" y="497" width="15" height="28" rx="4" fill="#65f3b9"/>
+    <rect x="205" y="495" width="82" height="32" rx="5" fill="#65f3b9"/>
+    <text x="250" y="755" text-anchor="middle" font-size="38" font-weight="700">PHONE</text>
+    <text x="250" y="807" text-anchor="middle" font-size="27" fill="#bcd2df">1 CAPTURE · 1 ENCODE</text>
+    <path d="M410 450H670" stroke="#40ddf5" stroke-width="18" marker-end="url(#arrow2)"/>
+    <text x="540" y="410" text-anchor="middle" font-size="30" fill="#9feef8">ONE UPLOAD</text>
+    <rect x="710" y="225" width="330" height="450" rx="58" fill="#123a55" stroke="#65f3b9" stroke-width="7"/>
+    <g fill="#ffbe55">
+      <rect x="780" y="310" width="80" height="80" rx="12"/>
+      <rect x="895" y="310" width="80" height="80" rx="12" opacity=".7"/>
+      <rect x="780" y="425" width="80" height="80" rx="12" opacity=".7"/>
+      <rect x="895" y="425" width="80" height="80" rx="12"/>
+    </g>
+    <text x="875" y="740" text-anchor="middle" font-size="38" font-weight="700">VISP RELAY</text>
+    <text x="875" y="792" text-anchor="middle" font-size="27" fill="#bcd2df">2 DISTRIBUTION ENCODES</text>
+    <path d="M1045 350C1145 350 1160 230 1250 230" fill="none" stroke="#40ddf5" stroke-width="16" marker-end="url(#arrow2)"/>
+    <path d="M1045 550C1145 550 1160 670 1250 670" fill="none" stroke="#65f3b9" stroke-width="16" marker-end="url(#arrow2)"/>
+    <rect x="1290" y="120" width="220" height="230" rx="30" fill="#102e4a" stroke="#40ddf5" stroke-width="6"/>
+    <path d="M1360 175l95 58-95 58z" fill="#40ddf5"/>
+    <text x="1400" y="405" text-anchor="middle" font-size="32" font-weight="700">DESTINATION 1</text>
+    <rect x="1290" y="550" width="220" height="230" rx="30" fill="#102e4a" stroke="#65f3b9" stroke-width="6"/>
+    <path d="M1360 605l95 58-95 58z" fill="#65f3b9"/>
+    <text x="1400" y="835" text-anchor="middle" font-size="32" font-weight="700">DESTINATION 2</text>
+    <rect x="455" y="70" width="680" height="80" rx="40" fill="#0c2238" stroke="#294c63" stroke-width="3"/>
+    <text x="795" y="122" text-anchor="middle" font-size="34" font-weight="700">DUPLICATED PLATFORM WORK MOVES TO THE RELAY</text>
+  </g>
+</svg>

@@ -1,0 +1,268 @@
+---
+title: "Näin VISP Direct säästää puhelimen akkua striimatessa"
+description: "Katso, milloin VISP Direct vähentää puhelimen työtä Twitch- ja Kick-monilähetyksessä, mikä jää puhelimelle ja miten säästö mitataan."
+publishedAt: 2026-07-28
+coverAlt: "Viileänä pysyvä puhelin ja täysi akkukuvake lähettävät yhden syaanin syötteen relaylle, joka tekee kaksi hohtavaa kohdekoodausta"
+---
+
+VISP Direct voi säästää puhelimen akkua **Twitchin ja Kickin samanaikaisessa
+lähetyksessä**, koska puhelin tekee yhden videokoodauksen ja yhden lähetyksen.
+VISP-relay vastaanottaa kuvalähteen ja tekee alustojen kaksi erillistä
+jakelukoodausta.
+
+Rajaus on olennainen. Direct ei sammuta kameraa, mikrofonia, puhelimen
+videokoodainta, näyttöä tai mobiiliradiota. Se ei myöskään lupaa akkusäästöä
+verrattuna yhteen tavalliseen VISP-syötteeseen OBS:lle tai yhteen syötteeseen
+muulle relay-palvelulle. Niissä puhelin tekee jo valmiiksi yhden koodauksen ja
+yhden lähetyksen.
+
+Täsmällinen väite on siis tämä: Direct voi välttää puhelimen ylimääräisen
+kohdetyön, jos vaihtoehto tekisi puhelimella useamman live-lähdön. Se siirtää
+päällekkäisen jakelutyön relaylle, mutta ei tee mobiilistriimauksesta
+kulutuksetonta.
+
+![Puhelin tekee yhden kamerakoodauksen ja lähetyksen, kun VISP-relay tekee erilliset Twitch- ja Kick-jakelukoodaukset](./battery-workload.svg)
+
+## Mikä kuluttaa akkua mobiililähetyksessä?
+
+Suoratoistava puhelin pitää monta paljon energiaa käyttävää järjestelmää
+käynnissä yhtä aikaa:
+
+- kamerakenno ja kuvankäsittely tuottavat jokaisen ruudun;
+- mikrofoni ja äänenkäsittely toimivat jatkuvasti;
+- videokoodain pakkaa kuvan;
+- sovellus piirtää esikatselun, ohjaimet, tilat ja mahdollisen chatin;
+- mobiili- tai Wi-Fi-radio lähettää mediaa ilman pitkää lepojaksoa; ja
+- prosessori käsittelee verkkoliikennettä, salausta, paketteja ja
+  sovelluslogiikkaa.
+
+Applen nykyinen
+[akkukäytön ohje](https://developer.apple.com/documentation/xcode/reducing-your-app-s-battery-use)
+toteaa raskaan laskennan, kameran, grafiikan ja verkkoliikenteen kuluttavan
+energiaa. Mediaohjeessa suositellaan sopivien videoformaattien valintaa ja
+kuvausistunnon lopettamista, kun sitä ei tarvita. Suorassa lähetyksessä kameraa
+ja verkkoa ei tietenkään voi sammuttaa kesken ohjelman.
+
+Androidin
+[verkko-optimoinnin dokumentaatio](https://developer.android.com/develop/connectivity/network-ops/network-access-optimization)
+nostaa langattoman tiedonsiirron yhdeksi sovelluksen mahdollisesti
+merkittävistä akkukuluttajista. Jatkuva lähetys pitää radion aktiivisena eikä
+anna sen siirtyä vähävirtaiseen tai lepotilaan.
+
+Lähteet tukevat akkuväitteen suuntaa, eivät yhtä yleispätevää prosenttia.
+Todellinen kulutus riippuu puhelimesta, modeemista, lämpötilasta, signaalista,
+kamerasta, laitteistokoodaimesta, tarkkuudesta, kuvataajuudesta,
+bittinopeudesta, näytön kirkkaudesta, sovellusversiosta ja akun kunnosta.
+VISPin ei pidä keksiä kiinteää säästölukua kaikille näille yhdistelmille.
+
+## Mitä puhelin tekee VISP Directissä?
+
+VISP-sovellus kuvaa kameran ja mikrofonin, koodaa H.264-videon sekä AAC-äänen
+ja julkaisee yhden tunnistetun SRT-kuvalähteen relaylle. Direct ei poista tätä
+ensimmäistä koodausta: SRT tarvitsee edelleen pakattua mediaa.
+
+Kun kuvalähde on valmis, relay käynnistää jokaiselle valitulle alustalle oman
+jakeluprosessin. Jokainen lukee samaa paikallista relay-kopiota ja tuottaa
+H.264-videon sekä 48 kHz:n stereo-AAC-äänen. Twitchin ja Kickin valinta luo
+kaksi relay-koodausta mutta edelleen vain yhden puhelinlähetyksen.
+
+| Työ | Yksi Direct-kohde | Direct Twitchiin ja Kickiin |
+| --- | ---: | ---: |
+| Puhelimen kamerakuvaus | 1 | 1 |
+| Puhelimen kuvalähteen koodaus | 1 | 1 |
+| Puhelimen medialähetys | 1 | 1 |
+| Relayn jakelukoodaukset | 1 | 2 |
+| Relayn kohdelähetykset | 1 | 2 |
+
+Juuri tämä rakenne rajaa akkusäästön monilähetykseen. Puhelimen työmäärä pysyy
+yhtenä, kun relayn työmäärä kasvaa kohteiden mukana.
+
+Jokaisella kohteella on myös oma prosessi ja uudelleenyritykset. Jos Twitch
+hylkää avaimen tai ei vastaa, Kick voi jatkaa. Kohteiden eristäminen parantaa
+jakelun vikasietoisuutta, mutta ei muuta yhden puhelinsyötteen virrankulutusta.
+
+## Vertailu, jossa akkua voi säästyä
+
+Ajatellaan kahta tapaa lähettää sama puhelinohjelma kahdelle alustalle.
+
+Ensimmäisessä mobiilisovellus tekee kaksi itsenäistä kohdekoodausta tai
+lähetystä: yhden Twitchille ja toisen Kickille. Sovelluksesta riippuen
+puhelimessa voi olla kaksi koodaustyötä, kaksinkertainen pakettikäsittely tai
+yksinkertaisesti enemmän lähtevää liikennettä. Kaikki tämä tapahtuu
+akkukäyttöisellä laitteella.
+
+VISP Directissä puhelin tekee yhden kuvalähteen. Verkkovirtaan kytketty relay
+hoitaa alustojen päällekkäisen työn. Toisen puhelinkoodauksen välttäminen on
+selkein mahdollinen säästö. Myös toisen medialähetyksen välttäminen voi vähentää
+radion ja verkon työtä, vaikka modeemin virrankulutus ei kasva suoraviivaisesti
+bittinopeuden mukana.
+
+Hyöty on arkkitehtuurissa, ei väitteessä, että jokainen kilpaileva
+mobiilisovellus käyttäisi aina kahta koodainta. Osa monilähetyspalveluista
+vastaanottaa jo yhden puhelinlähetyksen ja jakaa sen pilvestä. Tällaiseen
+relayhin verrattuna VISP Direct ei välttämättä vähennä puhelimen työtä lainkaan.
+Vertaa todellista signaalireittiä, älä ominaisuuden nimeä.
+
+Sama varovaisuus koskee tavallista VISP–OBS-työnkulkua. Puhelin lähettää yhden
+kuvalähteen VISPille ja OBS tekee yhden lopullisen kohdekoodauksen. Kun se
+vaihdetaan yhden alustan Direct-lähtöön, puhelin kuvaa, koodaa ja lähettää
+edelleen kerran. Direct voi poistaa tarpeen pitää OBS-konetta käynnissä, mutta
+se on kotistudion sähkönsäästö eikä automaattisesti puhelimen akkusäästö.
+
+## Minkä työn VISP Direct siirtää puhelimelta?
+
+**Alustojen jakelukoodaus.** Relay tekee aina uuden alustavalmiin lähdön eikä
+kopioi puhelimen bittivirtaa sellaisenaan. Nykyisen asennuksen oletuksena ovat
+H.264-video, 30 kuvaa sekunnissa, säädettävä tavoitebittinopeus ja stereo-AAC.
+Ne ovat relayn kalibrointiarvoja, eivät puhelimen lisäasetuksia.
+
+**Toinen alustalähetys.** Twitch ja Kick saavat omat RTMPS-lähtönsä relaylta.
+Puhelin ylläpitää vain omaa SRT-kuvalähdettään VISPille.
+
+**Lähetysavainten käsittely.** Direct hakee alustan avaimen OAuth-suostumuksella,
+rakentaa kohdeosoitteen muistissa ja antaa sen vain relayn prosessille. Tämä on
+ensisijaisesti turvallisuus- ja käytettävyyshyöty, ei suuri akkusäästö, mutta
+puhelimen ei tarvitse ylläpitää kahta kohdeyhteyttä tai säilyttää avaimia.
+Twitch dokumentoi tarvittavan
+[lähetysavainrajapinnan ja oikeuden](https://dev.twitch.tv/docs/api/reference#get-stream-key).
+Kick julkaisee kanava- ja lähetysavainrajapinnan
+[Kick Developer APIssa](https://api.kick.com/swagger/index.html).
+
+**Kohteiden uudelleenyritykset.** Epäonnistuneet alustalähdöt yrittävät
+uudelleen relaylla. Puhelin jatkaa yhden kuvalähteensä lähettämistä. Näin
+kahden alustan palautuslogiikka ei ole puhelimessa, vaikka puhelin yhdistää oman
+SRT-reittinsä uudelleen kenttäverkon katketessa.
+
+## Mikä jää edelleen puhelimelle?
+
+Kamera pysyy päällä, joten kameravalinnalla on merkitystä. Suuri tarkkuus,
+vakautus, hämäräkuvaus ja muut laitekohtaiset toiminnot voivat lisätä lämpöä
+ja virrankulutusta.
+
+Kuvalähteen koodain pysyy päällä. Direct ei voi lähettää pakkaamattomia
+kameraruutuja järkevän mobiiliyhteyden yli. Tarkkuus ja kuvataajuus määräävät,
+kuinka monta pikseliä puhelin käsittelee. Bittinopeus vaikuttaa pakkauksen
+määrään ja lähetettävän median kokoon.
+
+Radio pysyy aktiivisena. Yksi jatkuva lähetys on kahta parempi vain, jos
+vaihtoehdossa olisi aidosti kaksi. Heikko signaali voi silti lisätä modeemin
+työtä, ja SRT:n uudelleenlähetykset kasvattavat liikennettä häviöllisellä
+reitillä.
+
+Myös esikatselu ja chat voivat pysyä näytöllä. Kirkas näyttö auttaa ulkona mutta
+kuluttaa energiaa. Floating-chat näkyy vain puhelimella, kun taas Embedded-chat
+on osa lähtevää kuvaa. Kumpikaan tila ei poista suoratoiston perustyötä.
+
+Direct ei myöskään bondaa mobiili- ja Wi-Fi-yhteyttä. Se ei jaa liikennettä
+usealle yhteydelle eikä paikkaa operaattorin katvealuetta.
+[Mobiili- ja Wi-Fi-bondauksen opas](/blog/bond-cellular-wifi-visp-speedify)
+kuvaa valinnaisen verkkokerroksen ja muistuttaa, että myös
+bondausohjelmisto käyttää puhelimen resursseja.
+
+## Näin pienennät koko työnkulun virrankulutusta
+
+Direct vähentää päällekkäistä kohdetyötä. Suuremmat säästöt löytyvät usein
+järkevästä kuvalähteen profiilista.
+
+Aloita liikkuvassa mobiililähetyksessä **720p- ja 30 fps -asetuksilla**. Nosta
+tarkkuutta vasta, kun katsoja oikeasti näkee lisäyksityiskohdat ja pitkä
+kenttätesti osoittaa puhelimen pysyvän vakaana.
+[Mobiilistriimin bittinopeusopas](/blog/best-bitrate-irl-streaming-phone-obs)
+erottaa kuvalähteen ja lopullisen alustan bittinopeuden ja selittää, miksi
+valikon maksimi ei ole tavoite.
+
+Käytä pienintä bittinopeutta, jolla liike ja yksityiskohdat pysyvät
+hyväksyttävinä. Pienempi arvo vähentää dataa ja voi keventää koodainta, mutta
+liian pieni bittinopeus tekee kuvasta palikoituneen ja suttuisen. Akkusäästö ei
+auta, jos kuvaa ei voi katsoa.
+
+Pidä näytön kirkkaus vain niin korkealla kuin todellinen ympäristö vaatii.
+Vältä tarpeettomia animoituja peitteitä ja käytä yksinkertaisinta hyödyllistä
+live-näkymää. Turvallisuus ja saavutettavuus menevät edelle: kuvaajan täytyy
+pystyä lukemaan tila ja pysäyttämään lähetys.
+
+Aloita terveellä, ladatulla akulla ja käytä pitkissä tapahtumissa sopivaa
+ulkoista virtalähdettä. Älä sulje lataavaa ja koodaavaa puhelinta lämpöä
+eristävään koteloon. Kuumuus voi laskea suorituskykyä tai pysäyttää kameran,
+vaikka akun prosentteja olisi vielä jäljellä.
+
+Testaa todellinen reitti, älä vain studion Wi-Fi-yhteyttä. Signaali, käden
+asento, tukiasemien välillä liikkuminen, sää ja väkijoukko voivat muuttaa
+radion toimintaa. Merkitystä on reitillä, jota oikea lähetys käyttää.
+
+Pysäytä turha kuvaus ajoissa. VISP vapauttaa julkaisijan ja medialaitteet, kun
+pysäytät puhelinlähetyksen. Älä pidä live-esikatselua tuntia päällä ennen
+tapahtumaa, jos yrität säästää akun itse tapahtumaan.
+
+## Näin mittaat, auttaako Direct juuri sinun puhelintasi
+
+Älä vertaa kahta eri päivää ja arvaa akkukuvakkeesta. Tee samalla puhelimella
+pieni toistettava testi.
+
+1. Lataa samaan lähtöprosenttiin ja anna puhelimen jäähtyä.
+2. Käytä samaa kameraa, tarkkuutta, kuvataajuutta, bittinopeutta, kirkkautta,
+   verkkoa, sijaintia ja chat-tilaa.
+3. Aja vaihtoehtoista työnkulkua vähintään 30 minuuttia ja kirjaa loppuakku,
+   lämpövaroitukset, uudelleenyhdistymiset sekä siirretty data.
+4. Jäähdytä ja lataa puhelin uudelleen.
+5. Aja VISP Directillä yhtä kauan ja samoihin kohteisiin.
+6. Toista kerran, koska mobiiliverkko voi vaihdella paikallaan ollessakin.
+
+iPhonella Applen
+[akun analysointiohje](https://developer.apple.com/documentation/xcode/analyzing-your-app-s-battery-use)
+ja Xcoden Power Profiler auttavat kehityksessä. Androidilla voit käyttää
+järjestelmän akkukäyttönäkymää tai laitteen tukemia profilointityökaluja.
+Tekijän käytännön testissä vakioidut olosuhteet ja prosenttiyksiköt tunnissa
+ovat hyödyllisempiä kuin toisen puhelinmallin laboratoriotulos.
+
+Kirjaa tulos vaihteluvälinä, älä lupauksena. Esimerkiksi “tämä puhelin käytti
+vähemmän prosenttiyksiköitä kahdessa 45 minuutin kahden alustan testissä” on
+havainto. “Direct säästää 30 prosenttia akkua” ilman kontrolloitua mittausta ei
+ole.
+
+## Akunkesto ei poista yhteyden rajoja
+
+Pidemmälle riittävä akku voi edelleen menettää verkkoyhteyden. SRT lähettää
+puuttuvia paketteja uudelleen viiveikkunan sisällä, mutta ei pysty luomaan
+kaistaa tai mediaa täydellisen katkon aikana. Directillä ei myöskään ole
+OBS-varakuvaa kuvalähteen kadotessa.
+
+Jos jatkuvuus on kotikoneen poistamista tärkeämpää, tavallinen VISP–OBS-reitti
+voi olla parempi tekninen valinta. OBS voi pitää julkisen lähetyksen käynnissä
+paikallisella sisällöllä puhelimen yhdistäessä uudelleen. Lue
+[heikon mobiiliverkon opas](/blog/keep-stream-live-bad-mobile-network) ennen
+kuin vaihdat varakuvan lyhyempään Direct-reittiin.
+
+Directin kapasiteetti on betassa rajallinen. Jokainen alusta käyttää yhden
+relay-välittäjän. Jos paikkaa ei ole vapaana, Direct-lähtö ei käynnisty, vaikka
+tavallinen relay-lukureitti säilyy. Onnistunut harjoitus on välttämätön.
+
+## Muista monilähetyksen säännöt
+
+Kun Direct lähettää molempiin alustoihin, tekniikka on vain osa asetusta.
+Twitchin nykyiset
+[Simulcast Guidelines -ehdot](https://help.twitch.tv/s/article/simulcasting-guidelines?language=en_US)
+edellyttävät, ettei Twitch-kokemus ole muita palveluja heikompi, ja rajoittavat
+muiden alustojen toiminnan yhdistämistä julkiseen Twitch-kokemukseen. Pidä
+yhdistetty chat yksityisenä äläkä polta sitä videokuvaan.
+
+Kickin nykyinen
+[Partner Program -ohje](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+vaatii partneria ottamaan Multistreaming-asetuksen käyttöön samanaikaisessa
+pitkän muodon lähetyksessä. Ohjeen mukaan partnerin tuotto pienenee 50
+prosenttia kyseisen istunnon ajaksi. VISP ei kytke asetusta. Tarkista säännöt
+aina, kun muutat työnkulkua olennaisesti.
+
+## Testaa akkusäästöä, älä iskulausetta
+
+VISP Directin akkuhyöty on vahvimmillaan, kun se korvaa puhelimen päällekkäisen
+työn yhdellä kuvalähteellä ja relayn tekemällä jakelulla. Se ei lupaa säästöä
+kaikissa yhden kohteen tai pilvirelayn työnkuluissa. Todellinen tulos kuuluu
+juuri sinun puhelimellesi ja reitillesi.
+
+Seuraa
+[VISP Directin asennusohjetta](https://docs.visp-stream.com/fi/docs/direct-output),
+valitse Twitch ja Kick laitteen ollessa offline-tilassa ja tee yllä kuvattu
+vertailu. Jos tililläsi on rajatun betan käyttöoikeus ja tulos on parempi,
+[kokeile VISPiä](https://visp-stream.com) kokonaisessa harjoituksessa ennen
+kuin luotat säästöön pitkässä mobiililähetyksessä.
