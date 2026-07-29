@@ -6,11 +6,10 @@ export default defineConfig({
 	outDir: "./dist",
 	clean: true,
 	deps: {
-		// Workspace packages must be inlined for the single-file deploy artifact.
-		alwaysBundle: [/@VISP\/.*/],
-		// Keep `pg` external for Node production (`node dist/index.mjs`). Bundling
-		// it breaks TLS to managed Postgres under Bun; Bun also segfaults on TLS
-		// when running the bundle or src with an external `pg`.
-		neverBundle: ["pg"],
+		// Workspace packages and `pg` must be inlined for Node production
+		// (`node dist/index.mjs`). Bun workspaces do not expose `@VISP/db`'s
+		// `pg` where Node can resolve it from apps/server; Bun itself also
+		// segfaults on Postgres TLS, so production does not use Bun here.
+		alwaysBundle: ["pg", /@VISP\/.*/],
 	},
 });
