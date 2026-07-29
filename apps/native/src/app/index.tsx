@@ -97,7 +97,6 @@ import {
 	describeStreamUrl,
 	loadOrCreateInstallationId,
 	loadStreamUrl,
-	parsePublishCredentials,
 	saveStreamUrl,
 	selectPublishUrl,
 	validateStreamUrl,
@@ -702,54 +701,7 @@ export default function Index() {
 				}
 				setStreamUrl(url);
 				await refreshPublishDevices();
-				// #region agent log
-				fetch(
-					"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"X-Debug-Session-Id": "46990d",
-						},
-						body: JSON.stringify({
-							sessionId: "46990d",
-							hypothesisId: "E",
-							location: "index.tsx:provisionDestination",
-							message: "provisioned publish url",
-							data: {
-								refresh,
-								slug: parsePublishCredentials(url).path,
-							},
-							timestamp: Date.now(),
-						}),
-					},
-				).catch(() => {});
-				// #endregion
 			} catch (error) {
-				// #region agent log
-				fetch(
-					"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"X-Debug-Session-Id": "46990d",
-						},
-						body: JSON.stringify({
-							sessionId: "46990d",
-							hypothesisId: "E",
-							location: "index.tsx:provisionDestination",
-							message: "provision failed",
-							data: {
-								refresh,
-								error:
-									error instanceof Error ? error.message : String(error),
-							},
-							timestamp: Date.now(),
-						}),
-					},
-				).catch(() => {});
-				// #endregion
 				setMessage(describeProvisionError(error));
 			} finally {
 				setProvisioning(false);
@@ -926,29 +878,6 @@ export default function Index() {
 					});
 					setStreamUrl(publishUrl);
 				}
-				// #region agent log
-				fetch(
-					"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-					{
-						method: "POST",
-						headers: {
-							"Content-Type": "application/json",
-							"X-Debug-Session-Id": "46990d",
-						},
-						body: JSON.stringify({
-							sessionId: "46990d",
-							hypothesisId: "E",
-							location: "index.tsx:toggleStream",
-							message: "starting publish",
-							data: {
-								slug: parsePublishCredentials(publishUrl).path,
-								refreshed: Boolean(userId && installationId),
-							},
-							timestamp: Date.now(),
-						}),
-					},
-				).catch(() => {});
-				// #endregion
 				showToast("Connecting to relay service…", true);
 				if (configuration) {
 					await configureVideoCapture(
@@ -960,8 +889,12 @@ export default function Index() {
 				}
 				await cameraRef.current?.start(publishUrl);
 			}
-		} catch {
-			// The native module emits a sanitized error with the correct cause.
+		} catch (error) {
+			showToast(
+				error instanceof Error
+					? error.message
+					: "Could not connect to the relay service.",
+			);
 		}
 	}, [
 		bondingMode,

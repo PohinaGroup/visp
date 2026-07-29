@@ -738,8 +738,8 @@ static bool add_media_source(const media_source_response &value, QString *error)
 		return true;
 	}
 
-	const QString name = unique_source_name(value.name);
-	source = obs_source_create("ffmpeg_source", name.toUtf8().constData(), settings, nullptr);
+	const QString source_name = unique_source_name(value.name);
+	source = obs_source_create("ffmpeg_source", source_name.toUtf8().constData(), settings, nullptr);
 	obs_data_release(settings);
 	if (!source) {
 		*error = "OBS could not create the Media Source.";
@@ -977,15 +977,21 @@ private:
 		}
 	}
 
-	void refresh_linked_media_sources()
+	void refresh_linked_media_sources(const QList<publishing_device> &devices)
 	{
 		const plugin_config value = settings();
 		if (value.token.isEmpty() || !secure_url(value.control_url))
 			return;
 
+		QSet<qint64> path_ids;
+		for (const publishing_device &device : devices)
+			path_ids.insert(device.id);
+
 		path_id_collector collector;
 		obs_enum_sources(collect_visp_path_ids, &collector);
-		for (const qint64 path_id : collector.ids) {
+		path_ids.unite(collector.ids);
+
+		for (const qint64 path_id : path_ids) {
 			send(endpoint_url(value.control_url, QString("/api/obs/devices/%1/source").arg(path_id)),
 			     true, {}, value.token, [this](int status, const QByteArray &body) {
 				     media_source_response response;
@@ -1012,7 +1018,7 @@ private:
 			     devices_response response;
 			     if (status >= 200 && status < 300 && parse_devices_response(body, &response)) {
 				     render_devices(response);
-				     refresh_linked_media_sources();
+				     refresh_linked_media_sources(response.devices);
 				     return;
 			     }
 			     clear_devices();
