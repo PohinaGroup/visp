@@ -1,4 +1,4 @@
-# Two-box deployment
+# App and relay deployment
 
 This guide is for production operators. The public docs version lives at
 [`apps/fumadocs/content/docs/self-hosting.mdx`](../apps/fumadocs/content/docs/self-hosting.mdx).
@@ -67,9 +67,9 @@ disconnecting either side behaves as expected. Only then install
    DIRECT_VIDEO_FPS=30
    ```
 
-   The matching cap, `DIRECT_MAX_FORWARDERS`, lives in the app's environment
-   and bounds total concurrent forwarders across the node. Twitch + Kick on one
-   source counts as two.
+   The matching per-relay cap is configured in the admin console. The
+   bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
+   Twitch + Kick on one source counts as two.
 
    The bonded SRT gateway accepts these optional limits from the same file:
 
@@ -156,7 +156,8 @@ pprof stay disabled.
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
    the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`
    and `ADMIN_USER_IDS` to the comma-separated Better Auth user IDs that need
-   break-glass access, and run `bun run db:migrate`.
+   break-glass access, set the per-user `MAX_PATHS_PER_USER` cap, and run
+   `bun run db:migrate`.
 3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
    values available to Vite. Put the native web app's public build values in the
    root-owned, mode `0600` file `/etc/visp/native-web.env`:
@@ -178,8 +179,9 @@ pprof stay disabled.
    `ADMIN_DOMAIN=admin.visp-stream.com`,
    `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
    `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
-   `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IP` in
-   `/etc/visp/caddy.env`. Caddy serves `apps/admin/dist`, `apps/native/dist`,
+   `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IPS` in
+   `/etc/visp/caddy.env`. `RELAY_PUBLIC_IPS` is the space-separated list of
+   every relay's public IP. Caddy serves `apps/admin/dist`, `apps/native/dist`,
    `apps/obs-remote/dist`, and `apps/fumadocs/.output/public` directly; these
    static sites need no runtime service. Add
    `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` and
@@ -205,11 +207,28 @@ pprof stay disabled.
    environment described in [`UPDATE.md`](UPDATE.md).
 
 Do not put the MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
-them only from the relay's direct public IP, and the hook endpoints additionally
+them only from the relays' direct public IPs, and the hook endpoints additionally
 require the shared secret. The public Kick webhook is a separate route protected
 by Kick's RSA signature, timestamp window, and replay detection. Caddy proxies
 the native chat WebSocket directly to the API; no special WebSocket directive is
 needed.
+
+## Adding relay N
+
+Provision every additional relay from the same `relay/mediamtx.yml`, Caddyfile,
+systemd units, firewall rules, and Tailscale ACLs described above. Give it a
+distinct `RELAY_DOMAIN`, public IP, and `MTX_APIADDRESS`/`MTX_WEBRTCADDITIONALHOSTS`
+values in `/etc/visp/relay.env`; keep the same `HOOK_SECRET` as the app and other
+relays. Add its public IP to the space-separated `RELAY_PUBLIC_IPS` value on the
+app host and reload Caddy.
+
+Then register the relay in VISP Admin with its public host, Tailscale-only
+Control API URL, `/ping` URL, region, path capacity, Direct forwarder capacity,
+and public IP. Draining stops new assignments without moving existing paths;
+disabling also removes the relay from reconciliation.
+
+Relays are mutually trusted through the shared hook secret. Add per-relay hook
+secrets only if that trust boundary changes.
 
 ## 4. Configure snapshot storage
 

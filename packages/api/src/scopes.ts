@@ -51,6 +51,16 @@ export function hasScope(scope: string | null | undefined, name: string) {
 	return parseScopes(scope).includes(name);
 }
 
+/** Every scope in streamKeyRequest must be granted before Direct can fetch a key. */
+export function hasStreamKeyScope(
+	provider: ScopeProvider,
+	scope: string | null | undefined,
+) {
+	return PROVIDER_SCOPES[provider].streamKeyRequest.every((name) =>
+		hasScope(scope, name),
+	);
+}
+
 /**
  * Scopes a link call must request: the provider's non-negotiable base, plus
  * everything already granted, plus whatever this call is for.

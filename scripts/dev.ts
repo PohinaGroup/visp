@@ -127,7 +127,6 @@ async function main() {
 	};
 	const localWeb = {
 		...webFile,
-		VITE_RELAY_PING_URL: "https://relay.visp.localhost/ping",
 		VITE_SERVER_URL: "https://api.visp.localhost",
 	};
 	validate("Server", z.object(serverEnvSchema), localServer);

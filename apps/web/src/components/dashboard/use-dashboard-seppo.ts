@@ -1,4 +1,3 @@
-import { env } from "@VISP/env/web";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -158,11 +157,17 @@ export function useDashboardSeppo(advancedMode: boolean) {
 				if (!isNetworkProfile(profile)) {
 					throw new Error("Unknown network profile");
 				}
-				const rttMs = await probeRelayRtt(env.VITE_RELAY_PING_URL);
+				const paths = await queryClient.fetchQuery(
+					trpc.paths.list.queryOptions(),
+				);
+				const assignedRelay = paths[0]?.relay;
+				if (!assignedRelay) throw new Error("No assigned relay");
+				const rttMs = await probeRelayRtt(assignedRelay.pingUrl);
 				const guidance = await submitRtt.mutateAsync({
 					rttMs,
 					profile,
 					method: "browser-probe",
+					relayId: assignedRelay.id,
 				});
 				return JSON.stringify({ rttMs, ...guidance });
 			}

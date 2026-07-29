@@ -1,6 +1,10 @@
 import "./test-env";
 
 import {
+	publishInvalidation,
+	subscribeInvalidations,
+} from "@VISP/api/cache-bus";
+import {
 	disableChatConnection,
 	enableChatConnection,
 	listChatConnections,
@@ -34,6 +38,7 @@ import {
 	rotatePublishPath,
 	rotateReadSecret,
 } from "@VISP/api/relay";
+import { chooseRelay } from "@VISP/api/relays";
 import { appRouter } from "@VISP/api/routers/index";
 import { listSnapshots, snapshotKey } from "@VISP/api/snapshots";
 import { auth } from "@VISP/auth";
@@ -44,12 +49,13 @@ import {
 	session as authSession,
 	chatConnection,
 	pathState,
+	relay,
 	relayPath,
 	relayStreamSession,
 	user,
 } from "@VISP/db/schema/index";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { eq } from "drizzle-orm";
+import { eq, ne } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
 import { obsLiveRoutes } from "./obs-live";
@@ -85,11 +91,27 @@ async function seed() {
 			readSecretHash: await Bun.password.hash(readB, { algorithm: "argon2id" }),
 		},
 	]);
+	const defaultRelay = await db.query.relay.findFirst({
+		where: eq(relay.name, "default"),
+	});
+	if (!defaultRelay) throw new Error("default test relay was not created");
 	const [pathA, pathB] = await db
 		.insert(relayPath)
 		.values([
-			{ userId: "user-a", seq: 1, slug: "alpha-1", label: "main" },
-			{ userId: "user-b", seq: 1, slug: "beta-1", label: "main" },
+			{
+				relayId: defaultRelay.id,
+				userId: "user-a",
+				seq: 1,
+				slug: "alpha-1",
+				label: "main",
+			},
+			{
+				relayId: defaultRelay.id,
+				userId: "user-b",
+				seq: 1,
+				slug: "beta-1",
+				label: "main",
+			},
 		])
 		.returning();
 	if (!pathA || !pathB) throw new Error("test paths were not created");
@@ -199,6 +221,25 @@ integration("relay PostgreSQL integration", () => {
 				user: "alpha",
 			}),
 		).toBe(false);
+	});
+
+	test("delivers cache invalidations through a dedicated Postgres listener", async () => {
+		let ready: (() => void) | undefined;
+		let delivered: ((payload: unknown) => void) | undefined;
+		const connected = new Promise<void>((resolve) => {
+			ready = resolve;
+		});
+		const notification = new Promise<unknown>((resolve) => {
+			delivered = resolve;
+		});
+		const stop = subscribeInvalidations((payload) => {
+			if (payload.type === "full") ready?.();
+			if (payload.type === "slug") delivered?.(payload);
+		});
+		await connected;
+		await publishInvalidation({ type: "slug", slug: "alpha-1" });
+		expect(await notification).toEqual({ type: "slug", slug: "alpha-1" });
+		stop();
 	});
 
 	test("isolates publish credentials by device and reveals only to the owner", async () => {
@@ -995,13 +1036,131 @@ integration("relay PostgreSQL integration", () => {
 		const reconciledAt = reconciled?.lastEventAt;
 		globalThis.fetch = (async () =>
 			new Response("down", { status: 503 })) as unknown as typeof fetch;
-		await expect(
-			reconcilePathState("http://relay.test:9997"),
-		).rejects.toThrow();
+		await reconcilePathState("http://relay.test:9997");
 		const preserved = await db.query.pathState.findFirst({
 			where: eq(pathState.pathId, data.pathA.id),
 		});
 		expect(preserved?.lastEventAt).toEqual(reconciledAt);
+	});
+
+	test("reconciles healthy relays without clearing a failed relay", async () => {
+		const data = await seed();
+		const [defaultRelay] = await db
+			.update(relay)
+			.set({ apiUrl: "http://relay-one.test:9997" })
+			.where(eq(relay.name, "default"))
+			.returning();
+		const [secondRelay] = await db
+			.insert(relay)
+			.values({
+				name: "integration-two",
+				host: "relay-two.test",
+				apiUrl: "http://relay-two.test:9997",
+				pingUrl: "https://relay-two.test/ping",
+				region: "test-two",
+				capacityPaths: 10,
+				maxForwarders: 2,
+				publicIp: "192.0.2.2",
+			})
+			.onConflictDoUpdate({
+				target: relay.name,
+				set: {
+					apiUrl: "http://relay-two.test:9997",
+					enabled: true,
+					drainedAt: null,
+				},
+			})
+			.returning();
+		if (!defaultRelay || !secondRelay) throw new Error("test relays missing");
+		await db
+			.update(relayPath)
+			.set({ relayId: secondRelay.id })
+			.where(eq(relayPath.id, data.pathB.id));
+		const oldTimestamp = new Date("2024-01-01T00:00:00.000Z");
+		await db.insert(pathState).values({
+			pathId: data.pathB.id,
+			publishing: true,
+			readerCount: 1,
+			lastEventAt: oldTimestamp,
+		});
+		globalThis.fetch = (async (input) => {
+			const url = String(input);
+			if (url.startsWith(defaultRelay.apiUrl)) {
+				return new Response(
+					JSON.stringify({
+						items: [{ name: data.pathA.slug, ready: true }],
+					}),
+					{ status: 200 },
+				);
+			}
+			return new Response("down", { status: 503 });
+		}) as typeof fetch;
+
+		await reconcilePathState();
+
+		expect(
+			await db.query.pathState.findFirst({
+				where: eq(pathState.pathId, data.pathA.id),
+			}),
+		).toMatchObject({ publishing: true });
+		expect(
+			await db.query.pathState.findFirst({
+				where: eq(pathState.pathId, data.pathB.id),
+			}),
+		).toMatchObject({ publishing: true, lastEventAt: oldTimestamp });
+	});
+
+	test("ranks preferred, colocated, and least-loaded relays and excludes unavailable ones", async () => {
+		await db
+			.update(relay)
+			.set({ enabled: false })
+			.where(ne(relay.name, "default"));
+		const data = await seed();
+		const created = await db
+			.insert(relay)
+			.values([
+				{
+					name: "ranking-a",
+					host: "ranking-a.test",
+					apiUrl: "http://ranking-a.test:9997",
+					pingUrl: "https://ranking-a.test/ping",
+					region: "a",
+					capacityPaths: 10,
+					maxForwarders: 2,
+					publicIp: "192.0.2.10",
+				},
+				{
+					name: "ranking-b",
+					host: "ranking-b.test",
+					apiUrl: "http://ranking-b.test:9997",
+					pingUrl: "https://ranking-b.test/ping",
+					region: "b",
+					capacityPaths: 1,
+					maxForwarders: 2,
+					publicIp: "192.0.2.11",
+				},
+			])
+			.onConflictDoUpdate({
+				target: relay.name,
+				set: { enabled: true, drainedAt: null },
+			})
+			.returning();
+		const [relayA, relayB] = created;
+		if (!relayA || !relayB) throw new Error("ranking relays missing");
+
+		expect((await chooseRelay("new-user", relayB.id))?.id).toBe(relayB.id);
+		expect((await chooseRelay("user-a"))?.id).toBe(data.pathA.relayId);
+		expect((await chooseRelay("new-user"))?.id).toBe(relayA.id);
+
+		await db
+			.update(relay)
+			.set({ drainedAt: new Date() })
+			.where(eq(relay.id, relayA.id));
+		await db
+			.update(relayPath)
+			.set({ relayId: relayB.id })
+			.where(eq(relayPath.id, data.pathB.id));
+		expect((await chooseRelay("new-user"))?.id).toBe(data.pathA.relayId);
 	});
 
 	test("allocates concurrent monotonic sequences and never reuses revoked ones", async () => {
@@ -1015,6 +1174,41 @@ integration("relay PostgreSQL integration", () => {
 		const fourth = await createPath("user-a", "fourth");
 		expect(fourth.seq).toBe(4);
 		expect(data.pathA.seq).toBe(1);
+	});
+
+	test("rejects the N+1 path through tRPC and OBS device creation", async () => {
+		await seed();
+		for (let index = 2; index <= 10; index += 1) {
+			await createPath("user-a", `device-${index}`);
+		}
+		await db.insert(authSession).values({
+			id: "quota-session",
+			token: "quota-token",
+			userId: "user-a",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		const headers = new Headers({ authorization: "Bearer quota-token" });
+		const session = await auth.api.getSession({ headers });
+		if (!session) throw new Error("quota session missing");
+		await expect(
+			appRouter
+				.createCaller({ auth: null, headers, session })
+				.paths.create({ label: "too-many" }),
+		).rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
+
+		const pairing = await rotateObsControlToken("user-a");
+		const response = await app.handle(
+			new Request("http://localhost/api/obs/devices", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${pairing.token}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({ label: "still-too-many" }),
+			}),
+		);
+		expect(response.status).toBe(429);
 	});
 
 	test("provisions relay users from Twitch-only, Kick-only, and linked accounts", async () => {
@@ -1240,7 +1434,7 @@ integration("VISP Direct boundaries", () => {
 				id: "direct-kick-a",
 				accountId: "42",
 				providerId: "kick",
-				scope: "user:read channel:write streamkey:read",
+				scope: "user:read channel:write streamkey:read channel:read",
 				userId: "user-a",
 			},
 			{

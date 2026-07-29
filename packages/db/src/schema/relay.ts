@@ -9,6 +9,7 @@ import {
 	pgEnum,
 	pgTable,
 	real,
+	serial,
 	text,
 	timestamp,
 	unique,
@@ -48,6 +49,27 @@ export const obsTileAction = pgEnum("obs_tile_action", [
 	"replaybuffer",
 	"recordpause",
 ]);
+
+export const relay = pgTable(
+	"relay",
+	{
+		id: serial("id").primaryKey(),
+		name: text("name").notNull().unique(),
+		host: text("host").notNull(),
+		apiUrl: text("api_url").notNull(),
+		pingUrl: text("ping_url").notNull(),
+		region: text("region").notNull(),
+		capacityPaths: integer("capacity_paths").notNull(),
+		maxForwarders: integer("max_forwarders").notNull(),
+		publicIp: text("public_ip").notNull(),
+		enabled: boolean("enabled").default(true).notNull(),
+		drainedAt: timestamp("drained_at", { withTimezone: true }),
+	},
+	(table) => [
+		check("relay_capacity_paths_positive", sql`${table.capacityPaths} > 0`),
+		check("relay_max_forwarders_nonnegative", sql`${table.maxForwarders} >= 0`),
+	],
+);
 
 export const appUser = pgTable("app_user", {
 	id: text("id")
@@ -104,6 +126,9 @@ export const relayPath = pgTable(
 	"path",
 	{
 		id: bigserial("id", { mode: "number" }).primaryKey(),
+		relayId: integer("relay_id")
+			.notNull()
+			.references(() => relay.id),
 		userId: text("user_id")
 			.notNull()
 			.references(() => appUser.id, { onDelete: "cascade" }),
@@ -212,6 +237,7 @@ export const rttSample = pgTable(
 	"rtt_sample",
 	{
 		id: bigserial("id", { mode: "number" }).primaryKey(),
+		relayId: integer("relay_id").references(() => relay.id),
 		userId: text("user_id")
 			.notNull()
 			.references(() => appUser.id, { onDelete: "cascade" }),
@@ -267,11 +293,20 @@ export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	tiles: many(obsTile),
 }));
 
+export const relayRelations = relations(relay, ({ many }) => ({
+	paths: many(relayPath),
+	rttSamples: many(rttSample),
+}));
+
 export const obsTileRelations = relations(obsTile, ({ one }) => ({
 	user: one(appUser, { fields: [obsTile.userId], references: [appUser.id] }),
 }));
 
 export const relayPathRelations = relations(relayPath, ({ one, many }) => ({
+	relay: one(relay, {
+		fields: [relayPath.relayId],
+		references: [relay.id],
+	}),
 	user: one(appUser, { fields: [relayPath.userId], references: [appUser.id] }),
 	state: one(pathState),
 	sessions: many(relayStreamSession),
@@ -284,6 +319,17 @@ export const pathStateRelations = relations(pathState, ({ one }) => ({
 	}),
 }));
 
+export const rttSampleRelations = relations(rttSample, ({ one }) => ({
+	relay: one(relay, {
+		fields: [rttSample.relayId],
+		references: [relay.id],
+	}),
+	user: one(appUser, {
+		fields: [rttSample.userId],
+		references: [appUser.id],
+	}),
+}));
+
 export const relayStreamSessionRelations = relations(
 	relayStreamSession,
 	({ one }) => ({
@@ -293,7 +339,3 @@ export const relayStreamSessionRelations = relations(
 		}),
 	}),
 );
-
-export const rttSampleRelations = relations(rttSample, ({ one }) => ({
-	user: one(appUser, { fields: [rttSample.userId], references: [appUser.id] }),
-}));

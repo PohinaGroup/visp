@@ -10,12 +10,18 @@ Itse ylläpito on tarkoitettu operaattorille, joka hallitsee DNS:ää, TLS-varme
 ## Tarvittavat osat
 
 - julkinen web/API-palvelin HTTPS-yhteydellä
-- mediarelay, jolla on tarvittavat UDP/TCP-portit
+- yksi tai useampi mediarelay, joilla on tarvittavat UDP/TCP-portit
 - PostgreSQL-tietokanta ja pysyvä tallennus
 - Twitch- tai Kick-OAuth-sovellus oikeilla paluuosoitteilla
 - DNS-nimet portaalille, API:lle ja medialle
 
 Käytä julkaisuun repositoryn versionhallittuja Docker Compose -malleja ja saman version ympäristömuuttujaesimerkkiä. Luo salaisuudet erikseen tuotantoon, rajoita tietokannan ja hallintaporttien verkkoyhteydet ja ota varmuuskopio ennen päivitystä.
+
+Uusi relay provisioidaan samalla MediaMTX-, Caddy-, palomuuri- ja
+Tailscale-mallilla kuin ensimmäinen. Anna sille oma julkinen verkkotunnus,
+Control API -osoite ja alue, lisää sen julkinen IP sovelluspalvelimen
+`RELAY_PUBLIC_IPS`-listaan ja rekisteröi kapasiteetti hallintakonsolissa.
+Tyhjennystila estää uudet polut siirtämättä olemassa olevia.
 
 ## Päivitys
 

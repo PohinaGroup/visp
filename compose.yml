@@ -91,6 +91,8 @@ services:
     depends_on:
       mediamtx:
         condition: service_healthy
+      mediamtx2:
+        condition: service_healthy
       minio-init:
         condition: service_completed_successfully
     extra_hosts:

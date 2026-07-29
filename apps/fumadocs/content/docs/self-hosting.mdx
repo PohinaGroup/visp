@@ -1,6 +1,6 @@
 ---
 title: Self-hosting
-description: Run VISP on your own two hosts with the versioned deploy templates.
+description: Run VISP on your own app and relay hosts with the versioned deploy templates.
 icon: Server
 ---
 
@@ -8,11 +8,11 @@ VISP is designed to be self-hosted. The hosted beta at visp-stream.com is the
 easy path for broadcasters; this page is for operators who want to run the
 relay and control plane themselves.
 
-You need **two Linux hosts**:
+You need **one app host and one or more Linux relay hosts**:
 
 | Host | Runs |
 | --- | --- |
-| Relay | MediaMTX, Caddy (RTT probe), snapshot hook |
+| Relay(s) | MediaMTX, Caddy (RTT probe), snapshot hook |
 | App | PostgreSQL, API, portal, admin console, browser publisher, docs, Caddy |
 
 Templates live in the repository's `deploy/` directory. Keep domains, IPs, and
@@ -21,7 +21,7 @@ secrets out of Git. Put production env files under `/etc/visp/` with mode
 
 ## Prerequisites
 
-- Two hosts with public IPv4 (relay also needs UDP open for SRT and WebRTC)
+- An app host and at least one relay with public IPv4 (relays also need UDP open for SRT and WebRTC)
 - [Tailscale](https://tailscale.com/) on both hosts for admin and the MediaMTX
   Control API
 - [Caddy](https://caddyserver.com/) on both hosts
@@ -125,8 +125,8 @@ remain disabled.
    bun install --frozen-lockfile
    bun run db:migrate
    ```
-3. Fill `/etc/visp/web.env` from `apps/web/.env.example` (`VITE_SERVER_URL`,
-   `VITE_RELAY_PING_URL`). Create `/etc/visp/native-web.env`:
+3. Fill `/etc/visp/web.env` from `apps/web/.env.example`
+   (`VITE_SERVER_URL`). Create `/etc/visp/native-web.env`:
 
    ```text
    EXPO_PUBLIC_SERVER_URL=https://app.example.com
@@ -153,7 +153,8 @@ remain disabled.
    Use Caddy's packaged unit with `deploy/app/Caddyfile` and
    `deploy/systemd/caddy-app.conf` as the drop-in. In `/etc/visp/caddy.env` set
    `APP_DOMAIN`, `ADMIN_DOMAIN`, `NATIVE_WEB_DOMAIN`, `OBS_REMOTE_WEB_DOMAIN`,
-   `DOCS_DOMAIN`, and `RELAY_PUBLIC_IP`. Caddy serves `apps/admin/dist`,
+   `DOCS_DOMAIN`, and `RELAY_PUBLIC_IPS`. The latter is a space-separated list
+   of every relay public IP. Caddy serves `apps/admin/dist`,
    `apps/native/dist`, `apps/obs-remote/dist`, and
    `apps/fumadocs/.output/public` as static files; none needs its own systemd
    unit.
@@ -172,14 +173,23 @@ remain disabled.
    Caddy obtains certificates.
 
 Do not put MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
-them only from the relay's direct public IP (`RELAY_PUBLIC_IP`), and the hook
+them only from relay direct public IPs (`RELAY_PUBLIC_IPS`), and the hook
 endpoints also require the shared secret. The Kick webhook is a separate public
 route protected by Kick's RSA signature, timestamp window, and replay
 detection. `/api/obs/*` and `/api/auth/*` must stay publicly reachable over
 HTTPS so the OBS plugin can authenticate and operate from the broadcaster's
 computer.
 
-## 4. Snapshot storage
+## 4. Add another relay
+
+Provision the same MediaMTX, Caddy, systemd, firewall, and Tailscale setup on
+the new host. Give it distinct `RELAY_DOMAIN`, `MTX_APIADDRESS`, and
+`MTX_WEBRTCADDITIONALHOSTS` values while keeping the shared `HOOK_SECRET`. Add
+its public IP to `RELAY_PUBLIC_IPS`, reload app Caddy, then register its public
+host, Tailscale Control API URL, `/ping` URL, region, and capacities in VISP
+Admin. Draining prevents new assignments without moving existing paths.
+
+## 5. Snapshot storage
 
 Use a private S3-compatible bucket (UpCloud Managed Object Storage works) with
 its public HTTPS endpoint. Grant the app credential GET, HEAD, PUT, and DELETE
@@ -204,7 +214,7 @@ If versioning was previously enabled, suspend it and add
 `"NoncurrentVersionExpiration": { "NoncurrentDays": 1 }`. The relay receives
 only 60-second presigned PUT URLs; S3 access keys never leave the app host.
 
-## 5. OBS plugin
+## 6. OBS plugin
 
 Deploy the API and the `/api/obs/*` Caddy rule, and apply migrations, before
 pairing OBS. The device-authorization endpoints under `/api/auth/*` must also
@@ -244,7 +254,7 @@ Treat `config.ini` as a machine credential. Creating an OBS publishing device
 from the plugin replaces the active profile's streaming service only after an
 explicit confirmation.
 
-## 6. Rollout order
+## 7. Rollout order
 
 Bring the stack up in this order so each layer is proven before the next:
 
@@ -289,7 +299,7 @@ the helper runs: install frozen dependencies, migrate, build, then restart
 
 ## Scope
 
-Self-hosting assumes this two-host layout. VISP does not transcode, bill users,
-enforce quotas, host OBS, or scale MediaMTX horizontally. Phone store builds
+Self-hosting uses one app host and one or more relay hosts. VISP does not
+transcode, bill users, or host OBS. Phone store builds
 and notarized OBS packages are optional extras from the project's release
 pipeline; you can still run the relay and portal without them.

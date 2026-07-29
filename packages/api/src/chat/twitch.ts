@@ -3,6 +3,7 @@ import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq } from "drizzle-orm";
+import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
 import { chatHub } from "./hub";
 import { normalizeTwitchMessage } from "./normalize";
 import { loadTwitchBadges } from "./twitch-badges";
@@ -198,6 +199,7 @@ class TwitchConnector {
 
 class TwitchConnectorManager {
 	private readonly connectors = new Map<string, TwitchConnector>();
+	private readonly locks = new Map<string, AdvisoryLock>();
 	private readonly audienceCounts = new Map<string, number>();
 	private readonly pending = new Map<string, Promise<void>>();
 
@@ -213,19 +215,16 @@ class TwitchConnectorManager {
 	private async audienceChanged(userId: string, count: number) {
 		this.audienceCounts.set(userId, count);
 		if (count === 0) {
-			this.connectors.get(userId)?.stop();
-			this.connectors.delete(userId);
+			await this.stop(userId);
 			return;
 		}
 		await this.ensureStarted(userId);
 	}
 
 	async refresh(userId: string) {
-		this.connectors.get(userId)?.stop();
-		this.connectors.delete(userId);
+		await this.stop(userId);
 		await this.pending.get(userId)?.catch(() => undefined);
-		this.connectors.get(userId)?.stop();
-		this.connectors.delete(userId);
+		await this.stop(userId);
 		await this.ensureStarted(userId).catch(() =>
 			chatHub.status(userId, "twitch", "error"),
 		);
@@ -266,10 +265,42 @@ class TwitchConnectorManager {
 			enabled &&
 			!this.connectors.has(userId)
 		) {
+			const lock = await tryAdvisoryLock(`chat:${userId}`, () => {
+				void this.lockLost(userId);
+			});
+			if (!lock) {
+				setTimeout(() => void this.ensureStarted(userId), 10_000);
+				return;
+			}
+			if (
+				(this.audienceCounts.get(userId) ?? 0) === 0 ||
+				this.connectors.has(userId)
+			) {
+				await lock.release();
+				return;
+			}
+			this.locks.set(userId, lock);
 			this.connectors.set(
 				userId,
 				new TwitchConnector(userId, enabled.broadcasterId),
 			);
+		}
+	}
+
+	private async stop(userId: string) {
+		this.connectors.get(userId)?.stop();
+		this.connectors.delete(userId);
+		const lock = this.locks.get(userId);
+		this.locks.delete(userId);
+		await lock?.release();
+	}
+
+	private async lockLost(userId: string) {
+		this.connectors.get(userId)?.stop();
+		this.connectors.delete(userId);
+		this.locks.delete(userId);
+		if ((this.audienceCounts.get(userId) ?? 0) > 0) {
+			setTimeout(() => void this.ensureStarted(userId), 1_000);
 		}
 	}
 }

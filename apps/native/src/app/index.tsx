@@ -308,6 +308,11 @@ export default function Index() {
 		() => resolvePublishPathId(streamUrl ?? undefined, publishDevices),
 		[publishDevices, streamUrl],
 	);
+	const publishPath = publishDevices.find(({ id }) => id === publishPathId);
+	const directContribution = Boolean(
+		publishPath?.directTwitch || publishPath?.directKick,
+	);
+	const contributionMode = directContribution ? "direct" : "full";
 	const { clearLinkStats, linkStats, onStats } = useLinkStatsReporter({
 		live: state === "live",
 		pathId: publishPathId,
@@ -380,6 +385,7 @@ export default function Index() {
 				await configureVideoCapture(
 					cameraRef.current,
 					selected,
+					contributionMode,
 					bondingMode ?? "off",
 				);
 				setAudioInputs(capabilities.audioInputs);
@@ -394,7 +400,7 @@ export default function Index() {
 		} catch {
 			// The native module emits a sanitized error with the correct cause.
 		}
-	}, [bondingMode, imageStabilizationEnabled]);
+	}, [contributionMode, imageStabilizationEnabled, bondingMode]);
 
 	useEffect(() => {
 		loadImageStabilizationPreference()
@@ -505,7 +511,7 @@ export default function Index() {
 					twitch: selection === "twitch" || selection === "both",
 					kick: selection === "kick" || selection === "both",
 				});
-				await refreshDirectOutputs();
+				await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
 			} catch (error) {
 				showToast(
 					error instanceof Error
@@ -514,7 +520,7 @@ export default function Index() {
 				);
 			}
 		},
-		[refreshDirectOutputs, showToast],
+		[refreshDirectOutputs, refreshPublishDevices, showToast],
 	);
 
 	const revealPublishDevice = useCallback(
@@ -830,12 +836,26 @@ export default function Index() {
 			} else {
 				if (!(await confirmBondingDataUse())) return;
 				showToast("Connecting to relay service…", true);
+				if (configuration) {
+					await configureVideoCapture(
+						cameraRef.current,
+						configuration,
+						contributionMode,
+					);
+				}
 				await cameraRef.current?.start(streamUrl);
 			}
 		} catch {
 			// The native module emits a sanitized error with the correct cause.
 		}
-	}, [confirmBondingDataUse, showToast, state, streamUrl]);
+	}, [
+		bondingMode,
+		configuration,
+		contributionMode,
+		showToast,
+		state,
+		streamUrl,
+	]);
 
 	const toggleOrientation = useCallback(async () => {
 		if (ACTIVE_STATES.has(state)) {
@@ -863,6 +883,7 @@ export default function Index() {
 				await configureVideoCapture(
 					cameraRef.current,
 					next,
+					contributionMode,
 					bondingMode ?? "off",
 				);
 				setConfiguration(next);
@@ -872,18 +893,23 @@ export default function Index() {
 				return false;
 			}
 		},
-		[bondingMode],
+		[bondingMode, contributionMode],
 	);
 
 	const updateBondingMode = useCallback(
 		async (mode: BondingMode) => {
 			if (configuration) {
-				await configureVideoCapture(cameraRef.current, configuration, mode);
+				await configureVideoCapture(
+					cameraRef.current,
+					configuration,
+					contributionMode,
+					mode,
+				);
 			}
 			setBondingMode(mode);
 			await saveBondingMode(mode);
 		},
-		[configuration],
+		[configuration, contributionMode],
 	);
 
 	const applyAudioInput = useCallback(
@@ -1534,6 +1560,15 @@ export default function Index() {
 							<UI.FieldGroup.SectionFooter>
 								<UI.Text textStyle={SUBTLE_TEXT}>
 									Stop the stream to change resolution or frame rate.
+								</UI.Text>
+							</UI.FieldGroup.SectionFooter>
+						) : null}
+						{directContribution ? (
+							<UI.FieldGroup.SectionFooter>
+								<UI.Text textStyle={SUBTLE_TEXT}>
+									Direct lowers this device&apos;s contribution bitrate.
+									Platforms receive the relay encode; OBS sees the selected
+									resolution at the lower bitrate.
 								</UI.Text>
 							</UI.FieldGroup.SectionFooter>
 						) : null}

@@ -13,7 +13,11 @@ const {
 describe("relay guidance", () => {
 	test("builds display-safe path URLs without exposing credentials", () => {
 		const urls = buildMaskedPathUrls(
-			{ slug: "streamer-1", publishRevealable: true },
+			{
+				relayHost: "eu-relay.test",
+				slug: "streamer-1",
+				publishRevealable: true,
+			},
 			"streamer",
 			true,
 		);
@@ -25,9 +29,14 @@ describe("relay guidance", () => {
 		expect(urls.read?.srt).toContain("streamid=read:streamer-1:streamer:*****");
 		expect(urls.publish?.rtmp).toContain("pass=*****");
 		expect(urls.read?.rtmp).toContain("pass=*****");
+		expect(urls.publish?.srt).toStartWith("srt://eu-relay.test:8890");
 		expect(
 			buildMaskedPathUrls(
-				{ slug: "legacy-1", publishRevealable: false },
+				{
+					relayHost: "us-relay.test",
+					slug: "legacy-1",
+					publishRevealable: false,
+				},
 				"legacy",
 				false,
 			),
@@ -64,7 +73,14 @@ describe("relay guidance", () => {
 		const collection = buildSceneCollection({
 			handle: "streamer",
 			latencyMicros: 300_000,
-			paths: [{ id: 1, label: "main", slug: "streamer-1" }],
+			paths: [
+				{
+					id: 1,
+					label: "main",
+					relayHost: "eu-relay.test",
+					slug: "streamer-1",
+				},
+			],
 			readSecret: "read-secret",
 		});
 		const source = collection.sources.find(
@@ -81,6 +97,7 @@ describe("relay guidance", () => {
 			reconnect_delay_sec: 1,
 		});
 		expect(source.settings.input).toContain("streamid=read:streamer-1");
+		expect(source.settings.input).toStartWith("srt://eu-relay.test:8890");
 		expect(source.settings.input).toContain("latency=300000");
 		expect(source.settings.visp_path_id).toBe("1");
 	});

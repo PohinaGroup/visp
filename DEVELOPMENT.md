@@ -66,10 +66,15 @@ commands still require every schema-required value. Important groups are:
   openssl rand -base64 32
   ```
 
+The default relay uses `127.0.0.1`. To exercise multi-relay assignment, register
+the second Compose relay in Admin with host `127.0.0.2`, Control API
+`http://127.0.0.2:9997`, and ping URL
+`http://relay2.visp.localhost:8082/ping`.
+
 Never commit the resulting `.env` files.
 
-The browser reads `VITE_SERVER_URL`, `VITE_RELAY_PING_URL`, and optional
-`VITE_RYBBIT_SITE_ID` at build time. A physical phone cannot reach your
+The browser reads `VITE_SERVER_URL` and optional `VITE_RYBBIT_SITE_ID` at
+build time. A physical phone cannot reach your
 computer through `127.0.0.1`; set `EXPO_PUBLIC_SERVER_URL` to your computer's
 LAN or tunnel address instead.
 

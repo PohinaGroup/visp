@@ -112,13 +112,19 @@ test("formats per-link bonded stats", () => {
 
 describe("videoBitrateCeilingKbps", () => {
 	test("uses 3500 for 720p", () => {
-		expect(videoBitrateCeilingKbps(1280, 720, 30)).toBe(3500);
+		expect(videoBitrateCeilingKbps(1280, 720, 30, "full")).toBe(3500);
 		expect(videoBitrateCeilingKbps(720, 1280, 30)).toBe(3500);
 	});
 
 	test("uses 6000 for 1080p30 and 8000 for 1080p60", () => {
-		expect(videoBitrateCeilingKbps(1920, 1080, 30)).toBe(6000);
-		expect(videoBitrateCeilingKbps(1080, 1920, 60)).toBe(8000);
+		expect(videoBitrateCeilingKbps(1920, 1080, 30, "full")).toBe(6000);
+		expect(videoBitrateCeilingKbps(1080, 1920, 60, "full")).toBe(8000);
+	});
+
+	test("uses the lighter Direct ladder without changing format", () => {
+		expect(videoBitrateCeilingKbps(1280, 720, 30, "direct")).toBe(1500);
+		expect(videoBitrateCeilingKbps(1920, 1080, 30, "direct")).toBe(2500);
+		expect(videoBitrateCeilingKbps(1080, 1920, 50, "direct")).toBe(3500);
 	});
 });
 

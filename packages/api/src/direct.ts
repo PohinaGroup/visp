@@ -1,10 +1,16 @@
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
-import { account, appUser, pathState, relayPath } from "@VISP/db/schema/index";
+import {
+	account,
+	appUser,
+	pathState,
+	relay,
+	relayPath,
+} from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, inArray, isNull, ne, sql } from "drizzle-orm";
 import { uniqueViolation } from "./pg-errors";
-import { hasScope, PROVIDER_SCOPES, parseScopes } from "./scopes";
+import { hasStreamKeyScope, parseScopes } from "./scopes";
 
 export const DIRECT_PROVIDERS = ["twitch", "kick"] as const;
 export type DirectProvider = (typeof DIRECT_PROVIDERS)[number];
@@ -76,14 +82,13 @@ type DirectDependencies = {
 		providerId: DirectProvider,
 		userId: string,
 	) => Promise<{ accessToken: string }>;
-	maxForwarders: number;
+	maxForwarders?: number;
 };
 
 const defaultDependencies: DirectDependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (providerId, userId) =>
 		auth.api.getAccessToken({ body: { providerId, userId } }),
-	maxForwarders: env.DIRECT_MAX_FORWARDERS,
 };
 
 /**
@@ -191,8 +196,7 @@ export async function listDirectOutputs(userId: string) {
 				// Same shape as hasChannelWriteScope: a floor for building the link
 				// request, never proof the provider still honours it.
 				canReadStreamKey:
-					Boolean(linked) &&
-					hasScope(linked?.scope, PROVIDER_SCOPES[provider].streamKey),
+					Boolean(linked) && hasStreamKeyScope(provider, linked?.scope),
 				grantedScopes: parseScopes(linked?.scope),
 			};
 		}),
@@ -304,7 +308,7 @@ export async function applyDirectState(input: {
 }
 
 /** Every forwarder is a full distribution encode, so this is what saturates the node. */
-async function activeForwarderCount(excludePathId: number) {
+async function activeForwarderCount(relayId: number, excludePathId: number) {
 	const [row] = await db
 		.select({
 			count: sql<number>`
@@ -313,7 +317,10 @@ async function activeForwarderCount(excludePathId: number) {
 			`.mapWith(Number),
 		})
 		.from(pathState)
-		.where(ne(pathState.pathId, excludePathId));
+		.innerJoin(relayPath, eq(relayPath.id, pathState.pathId))
+		.where(
+			and(eq(relayPath.relayId, relayId), ne(pathState.pathId, excludePathId)),
+		);
 	return row?.count ?? 0;
 }
 
@@ -334,8 +341,11 @@ export async function resolveDirectDestinations(
 			userId: relayPath.userId,
 			twitch: relayPath.directTwitch,
 			kick: relayPath.directKick,
+			relayId: relayPath.relayId,
+			maxForwarders: relay.maxForwarders,
 		})
 		.from(relayPath)
+		.innerJoin(relay, eq(relay.id, relayPath.relayId))
 		.where(and(eq(relayPath.slug, slug), isNull(relayPath.revokedAt)))
 		.limit(1);
 	const enabled = path
@@ -365,7 +375,9 @@ export async function resolveDirectDestinations(
 			),
 		);
 
-	let free = dependencies.maxForwarders - (await activeForwarderCount(path.id));
+	let free =
+		(dependencies.maxForwarders ?? path.maxForwarders) -
+		(await activeForwarderCount(path.relayId, path.id));
 	const destinations: DirectDestination[] = [];
 	for (const provider of enabled) {
 		if (free <= 0) {
@@ -421,13 +433,14 @@ export async function resolveDirectDestinations(
 	return { destinations };
 }
 
-/** Called when a path goes not-ready, so no slot stays counted after teardown. */
-export async function stopDirectForPath(pathId: number) {
+/** Called when paths go not-ready, so no slot stays counted after teardown. */
+export async function stopDirectForPaths(pathIds: number[]) {
+	if (pathIds.length === 0) return;
 	await db
 		.update(pathState)
 		.set({
 			directTwitchState: sql`case when ${pathState.directTwitchState} in ${ACTIVE_STATES} then 'stopped' else ${pathState.directTwitchState} end`,
 			directKickState: sql`case when ${pathState.directKickState} in ${ACTIVE_STATES} then 'stopped' else ${pathState.directKickState} end`,
 		})
-		.where(eq(pathState.pathId, pathId));
+		.where(inArray(pathState.pathId, pathIds));
 }
