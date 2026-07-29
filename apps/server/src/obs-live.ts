@@ -9,6 +9,7 @@ import {
 	obsLiveHub,
 	obsLiveTickets,
 } from "@VISP/api/obs-live";
+import { node } from "@elysia/node";
 import { Elysia, status, t } from "elysia";
 
 const connections = new Map<
@@ -24,7 +25,10 @@ function send(ws: { send(data: string): unknown }, data: unknown) {
 	}
 }
 
-export const obsLiveRoutes = new Elysia({ name: "obs-live-routes" })
+export const obsLiveRoutes = new Elysia({
+	adapter: node(),
+	name: "obs-live-routes",
+})
 	.post("/api/obs/live-ticket", async ({ headers }) => {
 		try {
 			const owner = await authenticateObsControlToken(headers.authorization);

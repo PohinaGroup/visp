@@ -3,6 +3,7 @@ import { chatHub } from "@VISP/api/chat/hub";
 import { handleKickWebhook } from "@VISP/api/chat/kick";
 import { chatTickets } from "@VISP/api/chat/tickets";
 import "@VISP/api/chat/twitch";
+import { node } from "@elysia/node";
 import { Elysia, t } from "elysia";
 
 const subscriptions = new Map<string, () => void>();
@@ -17,7 +18,7 @@ function kickHeaders(request: Request) {
 	};
 }
 
-export const chatRoutes = new Elysia({ name: "chat-routes" })
+export const chatRoutes = new Elysia({ adapter: node(), name: "chat-routes" })
 	.ws("/api/chat/live", {
 		query: t.Object({ ticket: t.String({ minLength: 20, maxLength: 128 }) }),
 		open(ws) {

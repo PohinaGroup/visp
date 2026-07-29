@@ -468,13 +468,25 @@ export default function Index() {
 	}, [userId]);
 
 	useEffect(() => {
+		// #region agent log
+		fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'index.tsx:chat-state',message:'chat display state',data:{mode:chatPreferences.mode,corner:chatPreferences.corner,visibleCount:liveChat.messages.length,recentCount:liveChat.recentMessages.length,statuses:liveChat.statuses,connections:chatConnections.map(c=>({provider:c.provider,linked:c.linked,enabled:c.enabled,needsConsent:c.needsConsent})),disappearingMessages:chatPreferences.disappearingMessages,orientation},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+		// #endregion
 		if (
 			chatPreferences.mode === "embedded" &&
 			(orientation === "portrait" || orientation === "landscape")
 		) {
 			void cameraRef.current
 				?.updateChatOverlay(liveChat.messages, chatPreferences.corner)
-				.catch(() => undefined);
+				.then(() => {
+					// #region agent log
+					fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'index.tsx:embedded-ok',message:'embedded overlay updated',data:{messageCount:liveChat.messages.length,corner:chatPreferences.corner},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+					// #endregion
+				})
+				.catch((error) => {
+					// #region agent log
+					fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'index.tsx:embedded-error',message:'embedded overlay failed',data:{error:error instanceof Error?error.message:'unknown'},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+					// #endregion
+				});
 		} else {
 			void cameraRef.current?.clearChatOverlay().catch(() => undefined);
 		}
@@ -482,6 +494,10 @@ export default function Index() {
 		chatPreferences.corner,
 		chatPreferences.mode,
 		liveChat.messages,
+		liveChat.recentMessages.length,
+		liveChat.statuses,
+		chatConnections,
+		chatPreferences.disappearingMessages,
 		orientation,
 	]);
 

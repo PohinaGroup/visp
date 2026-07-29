@@ -127,6 +127,12 @@ export function FloatingChat({
 		transform: [{ translateX: x.value }, { translateY: y.value }],
 	}));
 
+	// #region agent log
+	useEffect(() => {
+		fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'floating-chat.tsx:render',message:'floating chat render check',data:{messageCount:messages.length,position,screen:{width,height}},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+	}, [messages.length, position.x, position.y, width, height]);
+	// #endregion
+
 	if (messages.length === 0) return null;
 	return (
 		<GestureDetector gesture={pan}>
