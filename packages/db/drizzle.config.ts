@@ -3,9 +3,11 @@ import { readFileSync } from "node:fs";
 import dotenv from "dotenv";
 import { defineConfig } from "drizzle-kit";
 
-dotenv.config({
-	path: "../../apps/server/.env",
-});
+if (!process.env.DATABASE_URL) {
+	dotenv.config({
+		path: "../../apps/server/.env",
+	});
+}
 
 const databaseUrl = process.env.DATABASE_URL || "";
 const sslCaPath = process.env.DATABASE_SSL_CA;

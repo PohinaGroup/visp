@@ -16,12 +16,17 @@ CREATE TABLE IF NOT EXISTS "relay" (
 );
 --> statement-breakpoint
 INSERT INTO "relay" ("name", "host", "api_url", "ping_url", "region", "capacity_paths", "max_forwarders", "public_ip")
-VALUES ('default', 'pending', 'http://pending', 'http://pending', 'default', 1000, 0, 'pending')
-ON CONFLICT ("name") DO NOTHING;--> statement-breakpoint
+SELECT 'default', 'pending', 'http://pending', 'http://pending', 'default', 1000, 0, 'pending'
+WHERE NOT EXISTS (SELECT 1 FROM "relay" WHERE "name" = 'default');--> statement-breakpoint
 ALTER TABLE "path_state" ADD COLUMN IF NOT EXISTS "link_count" integer;--> statement-breakpoint
 ALTER TABLE "path_state" ADD COLUMN IF NOT EXISTS "link_degraded" boolean;--> statement-breakpoint
 ALTER TABLE "path" ADD COLUMN IF NOT EXISTS "relay_id" integer;--> statement-breakpoint
-UPDATE "path" SET "relay_id" = (SELECT "id" FROM "relay" WHERE "name" = 'default') WHERE "relay_id" IS NULL;--> statement-breakpoint
+UPDATE "path" SET "relay_id" = (SELECT "id" FROM "relay" WHERE "name" = 'default' LIMIT 1) WHERE "relay_id" IS NULL;--> statement-breakpoint
+DO $$ BEGIN
+	IF EXISTS (SELECT 1 FROM "path" WHERE "relay_id" IS NULL) THEN
+		RAISE EXCEPTION 'migration 0012: path.relay_id backfill failed; ensure relay named default exists';
+	END IF;
+END $$;--> statement-breakpoint
 ALTER TABLE "path" ALTER COLUMN "relay_id" SET NOT NULL;--> statement-breakpoint
 ALTER TABLE "rtt_sample" ADD COLUMN IF NOT EXISTS "relay_id" integer;--> statement-breakpoint
 DO $$ BEGIN
