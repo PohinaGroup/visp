@@ -1,0 +1,93 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Phone thermal budget for an IRL stream</title>
+  <desc id="desc">Camera encoding, screen and apps, network radio, charging, and hot surroundings add heat. Shade, ventilation, a modest video format, lower brightness, and a tested power plan create cooling margin before the phone limits the camera, radio, charging, or performance.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081528"/>
+      <stop offset="1" stop-color="#102744"/>
+    </linearGradient>
+    <linearGradient id="heat" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#ffb45b"/>
+      <stop offset="1" stop-color="#ff6b4a"/>
+    </linearGradient>
+    <linearGradient id="cool" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#43d5ff"/>
+      <stop offset="1" stop-color="#4b88ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#020713" flood-opacity=".38"/>
+    </filter>
+    <marker id="arrowWarm" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#ff8a51"/>
+    </marker>
+    <marker id="arrowCool" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#48b8ff"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="44" fill="url(#bg)"/>
+  <text x="92" y="92" fill="#f7fbff" font-family="system-ui, sans-serif" font-size="46" font-weight="750">Keep the phone inside its thermal budget</text>
+  <text x="92" y="142" fill="#9db4ce" font-family="system-ui, sans-serif" font-size="24">Reduce avoidable heat before the operating system has to protect the device.</text>
+
+  <g filter="url(#shadow)" font-family="system-ui, sans-serif">
+    <rect x="88" y="208" width="360" height="116" rx="24" fill="#162b45" stroke="#315071"/>
+    <circle cx="140" cy="266" r="25" fill="#ff8a51"/>
+    <path d="M128 270h24M140 258v24" stroke="#fff5ec" stroke-width="5" stroke-linecap="round"/>
+    <text x="184" y="254" fill="#f7fbff" font-size="25" font-weight="700">Camera + encoder</text>
+    <text x="184" y="286" fill="#b8c8da" font-size="20">Resolution, frame rate, bitrate</text>
+
+    <rect x="88" y="348" width="360" height="116" rx="24" fill="#162b45" stroke="#315071"/>
+    <circle cx="140" cy="406" r="25" fill="#ff8a51"/>
+    <rect x="129" y="394" width="22" height="24" rx="4" fill="none" stroke="#fff5ec" stroke-width="4"/>
+    <text x="184" y="394" fill="#f7fbff" font-size="25" font-weight="700">Display + other apps</text>
+    <text x="184" y="426" fill="#b8c8da" font-size="20">Brightness, navigation, previews</text>
+
+    <rect x="88" y="488" width="360" height="116" rx="24" fill="#162b45" stroke="#315071"/>
+    <circle cx="140" cy="546" r="25" fill="#ff8a51"/>
+    <path d="M127 553a18 18 0 0 1 26 0M132 545a11 11 0 0 1 16 0M139 561h2" fill="none" stroke="#fff5ec" stroke-width="4" stroke-linecap="round"/>
+    <text x="184" y="534" fill="#f7fbff" font-size="25" font-weight="700">Network radio</text>
+    <text x="184" y="566" fill="#b8c8da" font-size="20">Uploading over cellular or Wi-Fi</text>
+
+    <rect x="88" y="628" width="360" height="116" rx="24" fill="#162b45" stroke="#315071"/>
+    <circle cx="140" cy="686" r="25" fill="#ff8a51"/>
+    <path d="m145 670-13 19h11l-6 15 18-23h-11z" fill="#fff5ec"/>
+    <text x="184" y="674" fill="#f7fbff" font-size="25" font-weight="700">Charging + weather</text>
+    <text x="184" y="706" fill="#b8c8da" font-size="20">Power input, sun, warm ambient air</text>
+  </g>
+
+  <g fill="none" stroke="#ff8a51" stroke-width="5" marker-end="url(#arrowWarm)">
+    <path d="M448 266H610"/>
+    <path d="M448 406H610"/>
+    <path d="M448 546H610"/>
+    <path d="M448 686H610"/>
+  </g>
+
+  <g filter="url(#shadow)" font-family="system-ui, sans-serif">
+    <rect x="630" y="286" width="340" height="382" rx="58" fill="#0b1525" stroke="#ff8a51" stroke-width="4"/>
+    <rect x="664" y="337" width="272" height="214" rx="22" fill="#122b43"/>
+    <rect x="754" y="307" width="92" height="10" rx="5" fill="#3c4a5d"/>
+    <rect x="742" y="586" width="116" height="14" rx="7" fill="#26384c"/>
+    <path d="M712 501c24-60 42-23 62-80 20-56 40-18 62-72 13 59 47 74 42 131-6 71-54 112-108 112-61 0-107-36-107-91 0-35 20-66 49-94z" fill="url(#heat)" opacity=".9"/>
+    <text x="800" y="718" text-anchor="middle" fill="#f7fbff" font-size="29" font-weight="750">Available cooling margin</text>
+    <text x="800" y="754" text-anchor="middle" fill="#ffc49d" font-size="21">Shrinks as heat inputs stack up</text>
+  </g>
+
+  <path d="M970 476h130" fill="none" stroke="#ff8a51" stroke-width="5" marker-end="url(#arrowWarm)"/>
+
+  <g filter="url(#shadow)" font-family="system-ui, sans-serif">
+    <rect x="1120" y="236" width="388" height="286" rx="30" fill="#2a2030" stroke="#ff8a51" stroke-width="3"/>
+    <text x="1160" y="292" fill="#ffb38b" font-size="24" font-weight="750">WHEN THE LIMIT IS REACHED</text>
+    <text x="1160" y="346" fill="#f7fbff" font-size="24">Display dims or goes black</text>
+    <text x="1160" y="392" fill="#f7fbff" font-size="24">Charging slows or pauses</text>
+    <text x="1160" y="438" fill="#f7fbff" font-size="24">Camera, radio, or frame rate is limited</text>
+    <text x="1160" y="484" fill="#f7fbff" font-size="24">Temperature warning or shutdown</text>
+
+    <rect x="1120" y="558" width="388" height="234" rx="30" fill="#142e45" stroke="#48b8ff" stroke-width="3"/>
+    <text x="1160" y="614" fill="#7bd6ff" font-size="24" font-weight="750">CREATE MARGIN FIRST</text>
+    <text x="1160" y="666" fill="#f7fbff" font-size="24">Shade + open ventilation</text>
+    <text x="1160" y="708" fill="#f7fbff" font-size="24">720p30 baseline + lower brightness</text>
+    <text x="1160" y="750" fill="#f7fbff" font-size="24">Tested power plan + OBS fallback</text>
+  </g>
+
+  <path d="M1120 680H986" fill="none" stroke="#48b8ff" stroke-width="5" marker-end="url(#arrowCool)"/>
+</svg>
