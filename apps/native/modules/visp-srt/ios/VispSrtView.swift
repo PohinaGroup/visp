@@ -123,6 +123,8 @@ final class VispSrtView: ExpoView {
   private var imageStabilizationEnabled = true
   private var lastPktSndLossTotal: Int32 = 0
   private var lastPktSentTotal: Int64 = 0
+  private var lastBondedTotals: [Int32: (sent: Int64, lost: Int32)] = [:]
+  private var lastLinkDegraded: Bool?
   private var lockedOrientation: AVCaptureVideoOrientation?
   private var lastAppliedOrientation: AVCaptureVideoOrientation?
   private var mixer: MediaMixer?
@@ -137,6 +139,7 @@ final class VispSrtView: ExpoView {
   private var statsTask: Task<Void, Never>?
   private var stream: SRTStream?
   private var videoBitrateCeiling = 3_500_000
+  private var bondingMode = "off"
   private var videoDevice: AVCaptureDevice?
 
   required init(appContext: AppContext? = nil) {
@@ -441,7 +444,8 @@ final class VispSrtView: ExpoView {
     width: Int,
     height: Int,
     frameRate: Int,
-    maxVideoBitrateKbps: Int
+    maxVideoBitrateKbps: Int,
+    bondingMode: String
   ) async throws {
     guard currentState == .idle || currentState == .error else {
       throw VispSrtFailure.configurationUnavailable
@@ -466,6 +470,7 @@ final class VispSrtView: ExpoView {
       width: width
     )
     videoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
+    self.bondingMode = ["broadcast", "backup"].contains(bondingMode) ? bondingMode : "off"
     await suspend()
     try await prepare()
   }
@@ -564,8 +569,24 @@ final class VispSrtView: ExpoView {
     }
   }
 
+  func setVideoBitrate(_ bitrateKbps: Int) async throws {
+    guard let stream else {
+      throw VispSrtFailure.configurationUnavailable
+    }
+    var settings = await stream.videoSettings
+    settings.bitRate = min(videoBitrateCeiling, max(500_000, bitrateKbps * 1_000))
+    try await stream.setVideoSettings(settings)
+  }
+
   func start(_ value: String) async throws {
-    let url = try validatedURL(value)
+    var url = try validatedURL(value)
+    if bondingMode != "off",
+       var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
+      components.port = 8891
+      if let bondedURL = components.url {
+        url = bondedURL
+      }
+    }
     try await prepare()
     guard currentState != .live, currentState != .connecting, currentState != .reconnecting else {
       return
@@ -616,7 +637,7 @@ final class VispSrtView: ExpoView {
     }
     await closeConnection()
 
-    let connection = SRTConnection()
+    let connection = SRTConnection(bondingMode: bondingMode)
     let stream = SRTStream(connection: connection)
     self.connection = connection
     self.stream = stream
@@ -648,9 +669,6 @@ final class VispSrtView: ExpoView {
           sampleRate: 48_000,
           format: .aac
         )
-      )
-      await stream.setBitRateStrategy(
-        StreamVideoAdaptiveBitRateStrategy(mamimumVideoBitrate: videoBitrateCeiling)
       )
       await stream.setExpectedMedias([.video, .audio])
       await mixer.addOutput(stream)
@@ -1027,6 +1045,8 @@ final class VispSrtView: ExpoView {
     stopStatsLoop()
     lastPktSndLossTotal = 0
     lastPktSentTotal = 0
+    lastBondedTotals = [:]
+    lastLinkDegraded = nil
     statsTask = Task { @MainActor [weak self] in
       while let self, !Task.isCancelled {
         await self.emitStats()
@@ -1060,11 +1080,44 @@ final class VispSrtView: ExpoView {
     let targetBitrateKbps = await stream.videoSettings.bitRate / 1_000
     let bitrateKbps = max(0, Int((performance.mbpsSendRate * 1_000).rounded()))
     let rttMs = max(0, Int(performance.msRTT.rounded()))
+    let bonded = await connection.bondedLinkPerformance
+    let links: [[String: Any]] = bonded.map { link in
+      let previous = lastBondedTotals[link.id] ?? (0, 0)
+      let linkSent = max(0, link.performance.pktSentTotal - previous.sent)
+      let linkLost = max(0, Int64(link.performance.pktSndLossTotal) - Int64(previous.lost))
+      lastBondedTotals[link.id] = (
+        link.performance.pktSentTotal,
+        link.performance.pktSndLossTotal
+      )
+      let loss = linkSent + linkLost > 0
+        ? 100.0 * Double(linkLost) / Double(linkSent + linkLost)
+        : 0
+      return [
+        "id": String(link.id),
+        "transport": link.token == 1 ? "cellular" : "wifi",
+        "state": link.state,
+        "rttMs": max(0, Int(link.performance.msRTT.rounded())),
+        "packetLossPct": min(100, max(0, loss)),
+        "bitrateKbps": max(0, Int((link.performance.mbpsSendRate * 1_000).rounded())),
+      ]
+    }
+    if bondingMode != "off" {
+      let degraded = links.filter { $0["state"] as? String == "connected" }.count < 2
+      if degraded != lastLinkDegraded {
+        lastLinkDegraded = degraded
+        if degraded {
+          emit(.live, code: "link-degraded", message: "One bonded network link is unavailable.")
+        } else {
+          emit(.live, code: "links-restored")
+        }
+      }
+    }
     onStats([
       "bitrateKbps": bitrateKbps,
       "targetBitrateKbps": targetBitrateKbps,
       "rttMs": rttMs,
       "packetLossPct": packetLossPct,
+      "links": links,
     ])
   }
 

@@ -5,6 +5,8 @@ import { LINK_STATS_MIN_INTERVAL_MS } from "./link-stats";
 
 export type LinkStatsInput = {
 	bitrateKbps: number;
+	linkCount: number;
+	linkDegraded: boolean;
 	packetLossPct: number;
 	pathId: number;
 	rttMs: number;
@@ -51,6 +53,8 @@ export async function reportLinkStats(input: LinkStatsInput) {
 			linkTargetBitrateKbps: input.targetBitrateKbps,
 			linkRttMs: input.rttMs,
 			linkPacketLossPct: input.packetLossPct,
+			linkCount: input.linkCount,
+			linkDegraded: input.linkDegraded,
 			linkStatsAt: now,
 		})
 		.where(eq(pathState.pathId, input.pathId));

@@ -62,6 +62,7 @@ services:
       - "8554:8554"
       - "8889:8889"
       - "8890:8890/udp"
+      - "8891:8891/udp"
       - "9997:9997"
     volumes:
       - ./deploy/relay/mediamtx.yml:/mediamtx.yml:ro
@@ -70,6 +71,20 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  visp-bond:
+    build:
+      context: .
+      dockerfile: deploy/relay/visp-bond/Dockerfile
+    depends_on:
+      mediamtx:
+        condition: service_healthy
+    environment:
+      VISP_BOND_IDLE_TIMEOUT_MS: 15000
+      VISP_BOND_MAX_GROUPS: 64
+      VISP_BOND_MAX_LINKS: 2
+    network_mode: service:mediamtx
+    profiles: ["bonding"]
 
   gateway:
     image: caddy:2-alpine

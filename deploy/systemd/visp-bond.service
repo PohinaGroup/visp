@@ -1,0 +1,17 @@
+[Unit]
+Description=VISP bonded SRT gateway
+After=network-online.target mediamtx.service
+Wants=network-online.target
+Requires=mediamtx.service
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/visp/relay.env
+ExecStart=/usr/local/bin/visp-bond
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=0
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

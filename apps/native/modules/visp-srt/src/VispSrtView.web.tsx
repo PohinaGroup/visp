@@ -380,6 +380,11 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 				},
 				prepare,
 				async setImageStabilization() {},
+				async setVideoBitrate(bitrateKbps) {
+					targetBitrateRef.current = bitrateKbps;
+					const pc = peerConnectionRef.current;
+					if (pc) await applyVideoMaxBitrate(pc, bitrateKbps);
+				},
 				async setZoom() {},
 				async start(streamUrl) {
 					if (!streamRef.current) await prepare();

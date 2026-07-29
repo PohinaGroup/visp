@@ -16,4 +16,22 @@ Kirjaudu samalla Twitch- tai Kick-tilillä, jota käytit portaalissa. Mobiilisov
 
 Sovellus näyttää, milloin kamera julkaisee ja milloin OBS vastaanottaa kuvaa. Lyhyen verkkokatkon jälkeen yhteys muodostetaan uudelleen automaattisesti. Jos katkos jatkuu, pienennä bittinopeutta tai siirry vakaampaan verkkoon.
 
+## Verkkoyhteyksien yhdistäminen
+
+iOS- ja Android-sovellukset voivat lähettää samat SRT-paketit yhtä aikaa
+Wi-Fi- ja mobiiliyhteyden kautta. Välityspalvelin käyttää ensimmäisenä
+saapunutta kopiota ja poistaa kaksoiskappaleet. Ominaisuus parantaa
+toimintavarmuutta, mutta ei yhdistä yhteyksiä yhdeksi nopeammaksi yhteydeksi.
+
+Ota toiminto käyttöön kohdasta **Asetukset → Verkko → Verkkoyhteyksien
+yhdistäminen**. **Broadcast** pitää molemmat yhteydet aktiivisina. Kohdassa
+**Lisäasetukset** voit valita **Pääyhteys + varayhteys**, jolloin Wi-Fi on
+ensisijainen ja mobiiliyhteys otetaan käyttöön pääyhteyden katketessa.
+Lähetysnäkymä näyttää Wi-Fin ja mobiiliyhteyden erikseen ja ilmoittaa, jos vain
+toinen on käytettävissä.
+
+Toiminto voi noin kaksinkertaistaa mobiilidatan käytön. Sovellus varoittaa
+ennen ensimmäistä yhdistettyä lähetystä. Kun toiminto ei ole käytössä, julkaisu
+jatkuu entiseen tapaan suoraan UDP-porttiin 8890.
+
 OBS-etäohjaus näkyy vasta, kun [VISP OBS -lisäosa on yhdistetty](/fi/docs/obs-remote-control).

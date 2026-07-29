@@ -1,4 +1,8 @@
-import { formatLiveLinkHud } from "@VISP/api/link-stats";
+import {
+	formatBondedLinks,
+	formatLiveLinkHud,
+	videoBitrateCeilingKbps,
+} from "@VISP/api/link-stats";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import * as UI from "@expo/ui";
 import * as Device from "expo-device";
@@ -36,6 +40,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import type {
 	AudioInputCapability,
 	AudioLevelEvent,
+	BondingMode,
 	CameraCapability,
 	StreamState,
 	StreamStateEvent,
@@ -53,6 +58,12 @@ import {
 	audioTierForLevel,
 } from "../lib/audio-level";
 import { apiClient, authCallbackURL, authClient } from "../lib/backend";
+import {
+	hasSeenBondingWarning,
+	loadBondingMode,
+	markBondingWarningSeen,
+	saveBondingMode,
+} from "../lib/bonding-preferences";
 import {
 	loadImageStabilizationPreference,
 	saveImageStabilizationPreference,
@@ -245,6 +256,7 @@ export default function Index() {
 		AppState.currentState,
 	);
 	const [audioTier, setAudioTier] = useState<AudioTier>(0);
+	const [bondingMode, setBondingMode] = useState<BondingMode>();
 	const [audioInputs, setAudioInputs] = useState<AudioInputCapability[]>([]);
 	const [cameras, setCameras] = useState<CameraCapability[]>([]);
 	const [configuration, setConfiguration] = useState<VideoConfiguration>();
@@ -299,7 +311,17 @@ export default function Index() {
 	const { clearLinkStats, linkStats, onStats } = useLinkStatsReporter({
 		live: state === "live",
 		pathId: publishPathId,
+		setVideoBitrate: IS_WEB
+			? undefined
+			: (bitrateKbps) => cameraRef.current?.setVideoBitrate(bitrateKbps),
 		userId,
+		videoBitrateCeilingKbps: configuration
+			? videoBitrateCeilingKbps(
+					configuration.width,
+					configuration.height,
+					configuration.fps,
+				)
+			: undefined,
 	});
 	const liveChat = useLiveChat(
 		userId,
@@ -355,7 +377,11 @@ export default function Index() {
 			const capabilities = await cameraRef.current?.getCapabilities();
 			if (capabilities) {
 				const selected = capabilities.selected;
-				await configureVideoCapture(cameraRef.current, selected);
+				await configureVideoCapture(
+					cameraRef.current,
+					selected,
+					bondingMode ?? "off",
+				);
 				setAudioInputs(capabilities.audioInputs);
 				setCameras(capabilities.cameras);
 				setConfiguration(selected);
@@ -368,12 +394,18 @@ export default function Index() {
 		} catch {
 			// The native module emits a sanitized error with the correct cause.
 		}
-	}, [imageStabilizationEnabled]);
+	}, [bondingMode, imageStabilizationEnabled]);
 
 	useEffect(() => {
 		loadImageStabilizationPreference()
 			.then(setImageStabilizationEnabled)
 			.catch(() => setImageStabilizationEnabled(true));
+	}, []);
+
+	useEffect(() => {
+		loadBondingMode()
+			.then(setBondingMode)
+			.catch(() => setBondingMode("off"));
 	}, []);
 
 	useEffect(() => {
@@ -703,7 +735,11 @@ export default function Index() {
 				setAudioTier(0);
 				clearLinkStats();
 			}
-			if (nativeEvent.state === "live") {
+			if (nativeEvent.code === "link-degraded") {
+				showToast("Network bonding is running on one link");
+			} else if (nativeEvent.code === "links-restored") {
+				showToast("Both bonded network links are active");
+			} else if (nativeEvent.state === "live") {
 				showToast(
 					"You're live. The stream usually appears at the destination after about 30 seconds of warm-up.",
 				);
@@ -759,6 +795,28 @@ export default function Index() {
 		}
 	}, []);
 
+	const confirmBondingDataUse = useCallback(async () => {
+		if (IS_WEB || bondingMode === "off" || (await hasSeenBondingWarning())) {
+			return true;
+		}
+		return new Promise<boolean>((resolve) => {
+			Alert.alert(
+				"Use Wi-Fi and cellular together?",
+				"Network bonding sends the stream over both connections and can roughly double mobile data use.",
+				[
+					{ onPress: () => resolve(false), style: "cancel", text: "Cancel" },
+					{
+						onPress: () => {
+							void markBondingWarningSeen();
+							resolve(true);
+						},
+						text: "Go live",
+					},
+				],
+			);
+		});
+	}, [bondingMode]);
+
 	const toggleStream = useCallback(async () => {
 		if (!streamUrl) {
 			showToast("Add an SRT URL before going live");
@@ -770,13 +828,14 @@ export default function Index() {
 				setToast(undefined);
 				await cameraRef.current?.stop();
 			} else {
+				if (!(await confirmBondingDataUse())) return;
 				showToast("Connecting to relay service…", true);
 				await cameraRef.current?.start(streamUrl);
 			}
 		} catch {
 			// The native module emits a sanitized error with the correct cause.
 		}
-	}, [showToast, state, streamUrl]);
+	}, [confirmBondingDataUse, showToast, state, streamUrl]);
 
 	const toggleOrientation = useCallback(async () => {
 		if (ACTIVE_STATES.has(state)) {
@@ -798,16 +857,34 @@ export default function Index() {
 		}
 	}, [showToast, state]);
 
-	const applyConfiguration = useCallback(async (next: VideoConfiguration) => {
-		try {
-			await configureVideoCapture(cameraRef.current, next);
-			setConfiguration(next);
-			return true;
-		} catch {
-			// The native module emits a sanitized error with the correct cause.
-			return false;
-		}
-	}, []);
+	const applyConfiguration = useCallback(
+		async (next: VideoConfiguration) => {
+			try {
+				await configureVideoCapture(
+					cameraRef.current,
+					next,
+					bondingMode ?? "off",
+				);
+				setConfiguration(next);
+				return true;
+			} catch {
+				// The native module emits a sanitized error with the correct cause.
+				return false;
+			}
+		},
+		[bondingMode],
+	);
+
+	const updateBondingMode = useCallback(
+		async (mode: BondingMode) => {
+			if (configuration) {
+				await configureVideoCapture(cameraRef.current, configuration, mode);
+			}
+			setBondingMode(mode);
+			await saveBondingMode(mode);
+		},
+		[configuration],
+	);
 
 	const applyAudioInput = useCallback(
 		async (audioInputId: string) => {
@@ -936,7 +1013,8 @@ export default function Index() {
 	if (
 		sessionPending ||
 		streamUrl === undefined ||
-		imageStabilizationEnabled === undefined
+		imageStabilizationEnabled === undefined ||
+		bondingMode === undefined
 	) {
 		return (
 			<View style={styles.loading}>
@@ -1177,6 +1255,11 @@ export default function Index() {
 								{session && chatPreferences.mode !== "hidden" ? (
 									<Text style={styles.featureBadge}>CHAT</Text>
 								) : null}
+								{bondingMode !== "off" ? (
+									<Text style={styles.featureBadge}>
+										{errorCode === "link-degraded" ? "1 LINK" : "BOND"}
+									</Text>
+								) : null}
 							</View>
 						</View>
 						<View style={styles.topBarButtons}>
@@ -1226,6 +1309,9 @@ export default function Index() {
 									{formatLabel(configuration)} · {configuration.fps} fps ·{" "}
 									{IS_WEB ? "WebRTC" : "SRT"}
 									{formatLiveLinkHud(linkStats, state === "live")}
+									{state === "live" && linkStats?.links?.length
+										? ` · ${formatBondedLinks(linkStats.links)}`
+										: ""}
 								</Text>
 							</Pressable>
 						) : null}
@@ -1480,6 +1566,32 @@ export default function Index() {
 						) : null}
 					</UI.FieldGroup.Section>
 
+					{!IS_WEB ? (
+						<UI.FieldGroup.Section title="Network">
+							<SettingRow label="Network bonding">
+								<UI.Switch
+									disabled={settingsDisabled}
+									onValueChange={(enabled) =>
+										void updateBondingMode(
+											enabled
+												? bondingMode === "backup"
+													? "backup"
+													: "broadcast"
+												: "off",
+										).catch(() =>
+											showToast("Network bonding could not be changed"),
+										)
+									}
+									value={bondingMode !== "off"}
+								/>
+							</SettingRow>
+							<UI.FieldGroup.SectionFooter>
+								Uses Wi-Fi and cellular together. This can roughly double mobile
+								data use.
+							</UI.FieldGroup.SectionFooter>
+						</UI.FieldGroup.Section>
+					) : null}
+
 					{session ? (
 						<UI.FieldGroup.Section title="Chat overlay">
 							<SettingRow label="Position">
@@ -1549,6 +1661,27 @@ export default function Index() {
 
 					{advancedOpen ? (
 						<>
+							{!IS_WEB && bondingMode !== "off" ? (
+								<UI.FieldGroup.Section title="Network bonding">
+									<SettingRow label="Mode">
+										<UI.Picker
+											enabled={!settingsDisabled}
+											onValueChange={(mode) =>
+												void updateBondingMode(
+													mode as Exclude<BondingMode, "off">,
+												).catch(() =>
+													showToast("Network bonding could not be changed"),
+												)
+											}
+											selectedValue={bondingMode}
+										>
+											<UI.Picker.Item label="Broadcast" value="broadcast" />
+											<UI.Picker.Item label="Main + backup" value="backup" />
+										</UI.Picker>
+									</SettingRow>
+								</UI.FieldGroup.Section>
+							) : null}
+
 							{session ? (
 								<UI.FieldGroup.Section title="Account">
 									<UI.Row alignment="center" spacing={12}>

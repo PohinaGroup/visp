@@ -45,6 +45,10 @@ function PathStatus({ path }: { path: PathView }) {
 				{path.linkStats ? (
 					<Text color="secondary" type="supporting">
 						{formatLinkStats(path.linkStats)}
+						{path.linkStats.linkCount && path.linkStats.linkCount > 1
+							? ` · ${path.linkStats.linkCount} ${t("links")}`
+							: ""}
+						{path.linkStats.linkDegraded ? ` · ${t("Degraded")}` : ""}
 						{path.linkStats.congested ? ` · ${t("Congested")}` : ""}
 					</Text>
 				) : null}

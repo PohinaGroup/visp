@@ -5,46 +5,36 @@ const {
 
 const dependency = "com.github.pedroSG94.RootEncoder:library:2.7.5";
 const haishinKit = {
-	name: "HaishinKit.swift",
-	url: "https://github.com/HaishinKit/HaishinKit.swift.git",
-	version: "2.2.5",
+	name: "VISPHaishinKit",
+	path: "../modules/visp-srt/vendor/haishinkit",
 	products: ["HaishinKit", "SRTHaishinKit"],
+	upstreamUrl: "https://github.com/HaishinKit/HaishinKit.swift.git",
 };
 const libsrtPhaseName = "[VISP] Select libsrt";
-const libsrtLinkerFlag = '"-Wl,-force_load,$(DERIVED_FILE_DIR)/libsrt.a"';
-// Archive sets BUILD_DIR under ArchiveIntermediates, so ../../SourcePackages is wrong.
-// ${BUILD_DIR%Build/*}SourcePackages works for both regular and archive builds.
-const libsrtScript = `set -eu
-case "\${PLATFORM_NAME}" in
-  iphoneos) slice="ios-arm64" ;;
-  iphonesimulator) slice="ios-arm64_x86_64-simulator" ;;
-  *) echo "Unsupported VISP platform: \${PLATFORM_NAME}" >&2; exit 1 ;;
-esac
-artifact_rel="SourcePackages/artifacts/haishinkit.swift/libsrt/libsrt.xcframework"
-candidates="\${BUILD_DIR%Build/*}\${artifact_rel}
-\${BUILD_DIR}/../../\${artifact_rel}
-\${BUILD_DIR}/../\${artifact_rel}"
-root=""
-for candidate in $candidates; do
-  if [ -f "\${candidate}/\${slice}/libsrt.a" ]; then
-    root="$candidate"
-    break
-  fi
-done
-if [ -z "$root" ]; then
-  echo "error: libsrt.a not found for slice \${slice}" >&2
-  echo "BUILD_DIR=\${BUILD_DIR}" >&2
-  echo "Tried:" >&2
-  printf '  %s\\n' $candidates >&2
-  exit 1
-fi
-cp -f "\${root}/\${slice}/libsrt.a" "\${DERIVED_FILE_DIR}/libsrt.a"
-`;
 const block = `
 // Expo inline Kotlin sources compile in the :expo project.
 project(":expo") {
   afterEvaluate {
     dependencies.add("implementation", "${dependency}")
+    def vispSrtModuleDir = rootProject.file("../modules/visp-srt")
+    android {
+      sourceSets.main.jniLibs.srcDirs += file("$vispSrtModuleDir/vendor/android/jniLibs")
+      defaultConfig {
+        ndk {
+          abiFilters "arm64-v8a", "armeabi-v7a", "x86_64"
+        }
+        externalNativeBuild {
+          cmake {
+            arguments "-DVISP_SRT_VENDOR_DIR=$vispSrtModuleDir/vendor"
+          }
+        }
+      }
+      externalNativeBuild {
+        cmake {
+          path file("$vispSrtModuleDir/jni/CMakeLists.txt")
+        }
+      }
+    }
   }
 }
 
@@ -71,28 +61,38 @@ function addHaishinKit(project) {
 	const objects = project.hash.project.objects;
 	const { firstProject } = project.getFirstProject();
 	const { uuid: targetId, firstTarget: target } = project.getFirstTarget();
-	const packageComment = `XCRemoteSwiftPackageReference "${haishinKit.name}"`;
-	const packages = (objects.XCRemoteSwiftPackageReference ??= {});
-	let packageId = Object.entries(packages).find(
+	const packageComment = `XCLocalSwiftPackageReference "${haishinKit.name}"`;
+	objects.XCLocalSwiftPackageReference ??= {};
+	objects.XCRemoteSwiftPackageReference ??= {};
+	const localPackages = objects.XCLocalSwiftPackageReference;
+	const remotePackages = objects.XCRemoteSwiftPackageReference;
+	let packageId = Object.entries(localPackages).find(
 		([key, value]) =>
-			!key.endsWith("_comment") && value.repositoryURL.includes(haishinKit.url),
+			!key.endsWith("_comment") && value.relativePath === haishinKit.path,
 	)?.[0];
 
 	if (!packageId) {
-		packageId = project.generateUuid();
-		packages[packageId] = {
-			isa: "XCRemoteSwiftPackageReference",
-			repositoryURL: `"${haishinKit.url}"`,
-			requirement: { kind: "exactVersion", version: haishinKit.version },
+		packageId =
+			Object.entries(remotePackages).find(
+				([key, value]) =>
+					!key.endsWith("_comment") &&
+					value.repositoryURL?.includes(haishinKit.upstreamUrl),
+			)?.[0] ?? project.generateUuid();
+		delete remotePackages[packageId];
+		delete remotePackages[`${packageId}_comment`];
+		localPackages[packageId] = {
+			isa: "XCLocalSwiftPackageReference",
+			relativePath: haishinKit.path,
 		};
-		packages[`${packageId}_comment`] = packageComment;
+		localPackages[`${packageId}_comment`] = packageComment;
 	}
 
 	firstProject.packageReferences ??= [];
 	addReference(firstProject.packageReferences, packageId, packageComment);
 	target.packageProductDependencies ??= [];
 
-	const products = (objects.XCSwiftPackageProductDependency ??= {});
+	objects.XCSwiftPackageProductDependency ??= {};
+	const products = objects.XCSwiftPackageProductDependency;
 	const buildFiles = objects.PBXBuildFile;
 	const frameworks = project.pbxFrameworksBuildPhaseObj(targetId);
 	for (const productName of haishinKit.products) {
@@ -130,58 +130,41 @@ function addHaishinKit(project) {
 		addReference(frameworks.files, buildFileId, `${productName} in Frameworks`);
 	}
 
-	let phaseRef = target.buildPhases.find(
+	const phaseRef = target.buildPhases.find(
 		(phase) => phase.comment === libsrtPhaseName,
 	);
-	if (!phaseRef) {
-		const phase = project.addBuildPhase(
-			[],
-			"PBXShellScriptBuildPhase",
-			libsrtPhaseName,
-			targetId,
-			{
-				inputPaths: [],
-				outputPaths: ['"$(DERIVED_FILE_DIR)/libsrt.a"'],
-				shellPath: "/bin/sh",
-				shellScript: libsrtScript,
-			},
+	if (phaseRef) {
+		target.buildPhases = target.buildPhases.filter(
+			(phase) => phase !== phaseRef,
 		);
-		phase.buildPhase.inputFileListPaths = [];
-		phase.buildPhase.outputFileListPaths = [];
-		phaseRef = target.buildPhases.at(-1);
+		delete objects.PBXShellScriptBuildPhase[phaseRef.value];
+		delete objects.PBXShellScriptBuildPhase[`${phaseRef.value}_comment`];
 	}
-	target.buildPhases = [
-		phaseRef,
-		...target.buildPhases.filter((phase) => phase !== phaseRef),
-	];
 
 	const configList = objects.XCConfigurationList[target.buildConfigurationList];
 	for (const { value } of configList.buildConfigurations) {
 		const settings = objects.XCBuildConfiguration[value].buildSettings;
 		settings['"EXCLUDED_ARCHS[sdk=iphonesimulator*]"'] = "x86_64";
-		const flags = settings.OTHER_LDFLAGS;
-		settings.OTHER_LDFLAGS = Array.isArray(flags)
-			? flags
-			: flags
-				? [flags]
-				: ['"$(inherited)"'];
-		if (!settings.OTHER_LDFLAGS.includes(libsrtLinkerFlag)) {
-			settings.OTHER_LDFLAGS.push(libsrtLinkerFlag);
+		if (Array.isArray(settings.OTHER_LDFLAGS)) {
+			settings.OTHER_LDFLAGS = settings.OTHER_LDFLAGS.filter(
+				(flag) => !String(flag).includes("DERIVED_FILE_DIR)/libsrt.a"),
+			);
 		}
+		delete settings.SWIFT_INCLUDE_PATHS;
 	}
 
 	return project;
 }
 
 module.exports = function withVispSrt(config) {
-	config = withProjectBuildGradle(config, (config) => {
-		if (!config.modResults.contents.includes(dependency)) {
-			config.modResults.contents += block;
+	const androidConfig = withProjectBuildGradle(config, (androidConfig) => {
+		if (!androidConfig.modResults.contents.includes(dependency)) {
+			androidConfig.modResults.contents += block;
 		}
-		return config;
+		return androidConfig;
 	});
-	return withXcodeProject(config, (config) => {
-		config.modResults = addHaishinKit(config.modResults);
-		return config;
+	return withXcodeProject(androidConfig, (iosConfig) => {
+		iosConfig.modResults = addHaishinKit(iosConfig.modResults);
+		return iosConfig;
 	});
 };

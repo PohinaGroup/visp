@@ -162,6 +162,8 @@ export const pathState = pgTable(
 		linkTargetBitrateKbps: integer("link_target_bitrate_kbps"),
 		linkRttMs: integer("link_rtt_ms"),
 		linkPacketLossPct: real("link_packet_loss_pct"),
+		linkCount: integer("link_count"),
+		linkDegraded: boolean("link_degraded"),
 		linkStatsAt: timestamp("link_stats_at", { withTimezone: true }),
 		// starting|live|retrying|failed|stopped. Errors are sanitized — never a
 		// destination URL, never a stream key.
