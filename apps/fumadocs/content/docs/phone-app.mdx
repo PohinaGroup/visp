@@ -50,6 +50,23 @@ A short signal drop does not end the broadcast. The home studio keeps the show
 alive on its fallback scene (see
 [Encoders and fallback](/docs/broadcaster-setup)) while the phone reconnects.
 
+## Network bonding
+
+The iOS and Android apps can send the same SRT packets over Wi-Fi and cellular
+at the same time. The relay uses the first copy that arrives and discards
+duplicates. This improves redundancy; it does not combine both links into a
+faster connection.
+
+Open **Settings → Network → Network bonding** to enable it. **Broadcast** is
+the default and keeps both links active. Under **Advanced**, choose **Main +
+backup** to prefer Wi-Fi and use cellular when the main link fails. The live
+status shows Wi-Fi and cellular separately and marks the stream degraded when
+only one remains.
+
+Bonding can roughly double mobile data use. The app warns before the first
+bonded stream. If bonding is off, publishing continues directly to UDP 8890
+exactly as before.
+
 ## While live
 
 - **Floating chat** overlays Twitch and Kick messages on the capture screen.

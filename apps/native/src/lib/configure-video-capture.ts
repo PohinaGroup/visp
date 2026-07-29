@@ -3,6 +3,7 @@ import {
 	videoBitrateCeilingKbps,
 } from "@VISP/api/link-stats";
 import type {
+	BondingMode,
 	VideoConfiguration,
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
@@ -25,6 +26,7 @@ export async function configureVideoCapture(
 	camera: VispSrtViewRef | null | undefined,
 	selected: VideoConfiguration,
 	mode: ContributionMode = "full",
+	bondingMode: BondingMode = "off",
 ): Promise<void> {
 	await camera?.configure(
 		selected.cameraId,
@@ -37,5 +39,6 @@ export async function configureVideoCapture(
 			selected.fps,
 			mode,
 		),
+		bondingMode,
 	);
 }

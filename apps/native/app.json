@@ -21,7 +21,8 @@
       "package": "com.pohinagroup.visp",
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CHANGE_NETWORK_STATE"
       ],
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",

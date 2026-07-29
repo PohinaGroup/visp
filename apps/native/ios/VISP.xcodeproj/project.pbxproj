@@ -204,7 +204,6 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "VISP" */;
 			buildPhases = (
-				C9874F38A30544509D28C82A /* [VISP] Select libsrt */,
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
@@ -287,7 +286,7 @@
 				XXB01E35914E64853F539FXX /* VISP Watch */,
 			);
 			packageReferences = (
-				07A4670D40074A88ABC10D5B /* XCRemoteSwiftPackageReference "HaishinKit.swift.git" */,
+				07A4670D40074A88ABC10D5B /* XCLocalSwiftPackageReference "VISPHaishinKit" */,
 			);
 		};
 /* End PBXProject section */
@@ -382,25 +381,6 @@
 			inputFileListPaths = (
 			);
 		};
-		C9874F38A30544509D28C82A /* [VISP] Select libsrt */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			name = "[VISP] Select libsrt";
-			inputPaths = (
-			);
-			outputPaths = (
-				"$(DERIVED_FILE_DIR)/libsrt.a",
-			);
-			shellPath = /bin/sh;
-			shellScript = "set -eu\ncase \"${PLATFORM_NAME}\" in\n  iphoneos) slice=\"ios-arm64\" ;;\n  iphonesimulator) slice=\"ios-arm64_x86_64-simulator\" ;;\n  *) echo \"Unsupported VISP platform: ${PLATFORM_NAME}\" >&2; exit 1 ;;\nesac\nartifact_rel=\"SourcePackages/artifacts/haishinkit.swift/libsrt/libsrt.xcframework\"\ncandidates=\"${BUILD_DIR%Build/*}${artifact_rel}\n${BUILD_DIR}/../../${artifact_rel}\n${BUILD_DIR}/../${artifact_rel}\"\nroot=\"\"\nfor candidate in $candidates; do\n  if [ -f \"${candidate}/${slice}/libsrt.a\" ]; then\n    root=\"$candidate\"\n    break\n  fi\ndone\nif [ -z \"$root\" ]; then\n  echo \"error: libsrt.a not found for slice ${slice}\" >&2\n  echo \"BUILD_DIR=${BUILD_DIR}\" >&2\n  echo \"Tried:\" >&2\n  printf '  %s\n' $candidates >&2\n  exit 1\nfi\ncp -f \"${root}/${slice}/libsrt.a\" \"${DERIVED_FILE_DIR}/libsrt.a\"\n";
-			inputFileListPaths = (
-			);
-			outputFileListPaths = (
-			);
-		};
 		D5906D70A9D04B8FA3D0B451 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -471,7 +451,6 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-Wl,-force_load,$(DERIVED_FILE_DIR)/libsrt.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pohinagroup.visp;
 				PRODUCT_NAME = VISP;
@@ -505,7 +484,6 @@
 					"$(inherited)",
 					"-ObjC",
 					"-lc++",
-					"-Wl,-force_load,$(DERIVED_FILE_DIR)/libsrt.a",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = com.pohinagroup.visp;
 				PRODUCT_NAME = VISP;
@@ -747,26 +725,22 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		07A4670D40074A88ABC10D5B /* XCRemoteSwiftPackageReference "HaishinKit.swift.git" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = https://github.com/HaishinKit/HaishinKit.swift.git;
-			requirement = {
-				kind = exactVersion;
-				version = 2.2.5;
-			};
+/* Begin XCLocalSwiftPackageReference section */
+		07A4670D40074A88ABC10D5B /* XCLocalSwiftPackageReference "VISPHaishinKit" */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ../modules/visp-srt/vendor/haishinkit;
 		};
-/* End XCRemoteSwiftPackageReference section */
+/* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
 		55BEF8B272C249FE8BD338FC /* HaishinKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 07A4670D40074A88ABC10D5B /* XCRemoteSwiftPackageReference "HaishinKit.swift.git" */;
+			package = 07A4670D40074A88ABC10D5B /* XCLocalSwiftPackageReference "VISPHaishinKit" */;
 			productName = HaishinKit;
 		};
 		9BB71440C44E4FB687B0AC5F /* SRTHaishinKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = 07A4670D40074A88ABC10D5B /* XCRemoteSwiftPackageReference "HaishinKit.swift.git" */;
+			package = 07A4670D40074A88ABC10D5B /* XCLocalSwiftPackageReference "VISPHaishinKit" */;
 			productName = SRTHaishinKit;
 		};
 /* End XCSwiftPackageProductDependency section */

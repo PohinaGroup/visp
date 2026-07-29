@@ -17,13 +17,26 @@ export type StreamStateEvent = {
 	state: StreamState;
 };
 
+export type BondingMode = "off" | "broadcast" | "backup";
+export type LinkTransport = "wifi" | "cellular";
+export type BondedLinkStats = {
+	bitrateKbps: number;
+	id: string;
+	packetLossPct: number;
+	rttMs: number;
+	state: string;
+	transport: LinkTransport;
+};
+
 /** Peak microphone level, 0 (silence) to 1 (full scale). */
 export type AudioLevelEvent = {
 	level: number;
 };
 
 /** Live outbound link / ABR sample (~1 Hz while publishing). */
-export type StreamStatsEvent = LinkMetrics;
+export type StreamStatsEvent = LinkMetrics & {
+	links?: BondedLinkStats[];
+};
 
 export type VideoFormatCapability = {
 	fps: number[];
@@ -89,10 +102,12 @@ export type VispSrtViewRef = {
 		height: number,
 		fps: number,
 		maxVideoBitrateKbps: number,
+		bondingMode?: BondingMode,
 	): Promise<void>;
 	configureAudioInput(audioInputId: string): Promise<void>;
 	switchCamera(cameraId: CameraCapability["id"]): Promise<void>;
 	setImageStabilization(enabled: boolean): Promise<void>;
+	setVideoBitrate(bitrateKbps: number): Promise<void>;
 	setZoom(level: number): Promise<void>;
 	getCapabilities(): Promise<VideoCapabilities>;
 	prepare(): Promise<boolean>;

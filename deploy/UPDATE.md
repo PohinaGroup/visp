@@ -1,5 +1,21 @@
 # Releasing VISP
 
+## Relay bonding updates
+
+Changes under `deploy/relay/visp-bond` are deployed manually because the
+application release job does not restart media services. Build and install the
+gateway as described in [`README.md`](README.md), then run:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart visp-bond
+sudo systemctl status --no-pager visp-bond
+```
+
+Restarting the gateway disconnects bonded publishers. Ordinary publishers on
+UDP 8890 continue through MediaMTX. Roll back by reinstalling the previous
+`visp-bond` binary and restarting only this unit.
+
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,

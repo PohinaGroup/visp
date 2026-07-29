@@ -34,8 +34,9 @@ import com.pedro.encoder.input.sources.video.Camera2Source
 import com.pedro.encoder.input.gl.render.filters.NoFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.utils.gl.TranslateTo
+import com.pedro.library.base.StreamBase
 import com.pedro.library.srt.SrtStream
-import com.pedro.library.util.BitrateAdapter
+import com.pedro.library.udp.UdpStream
 import expo.modules.interfaces.permissions.PermissionsResponseListener
 import expo.modules.interfaces.permissions.PermissionsStatus
 import expo.modules.kotlin.AppContext
@@ -102,10 +103,19 @@ class VispSrt : Module() {
           height: Int,
           fps: Int,
           maxVideoBitrateKbps: Int,
+          bondingMode: String?,
           promise: Promise,
         ->
         remember(view)
-        view.configure(cameraId, width, height, fps, maxVideoBitrateKbps, promise)
+        view.configure(
+          cameraId,
+          width,
+          height,
+          fps,
+          maxVideoBitrateKbps,
+          bondingMode ?: "off",
+          promise,
+        )
       }
 
       AsyncFunction("configureAudioInput") {
@@ -138,6 +148,15 @@ class VispSrt : Module() {
         ->
         remember(view)
         view.setImageStabilization(enabled, promise)
+      }
+
+      AsyncFunction("setVideoBitrate") {
+          view: VispSrtView,
+          bitrateKbps: Int,
+          promise: Promise,
+        ->
+        remember(view)
+        view.setVideoBitrate(bitrateKbps, promise)
       }
 
       AsyncFunction("getCapabilities") { view: VispSrtView ->
@@ -245,11 +264,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
   @Volatile private var intentionalStop = true
   @Volatile private var state = StreamState.IDLE
   private var audioInputId: Int? = null
-  private var bitrateAdapter: BitrateAdapter? = null
+  private var bondingMode = "off"
   private var configuration: VideoConfiguration? = null
   private var imageStabilizationEnabled = true
   private var lastPacketsLost = 0
-  private var lastSentFrames = 0L
+  private var lastBytesSent = 0L
+  private var lastLinkDegraded: Boolean? = null
   private var measuredBitrateBps = 0L
   private var preparedPortrait: Boolean? = null
   private var reconfigurePosted = false
@@ -258,7 +278,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var statsRunnable: Runnable? = null
   private var targetBitrateBps = VIDEO_BITRATE
   private var videoBitrateCeilingBps = VIDEO_BITRATE
-  private var stream: SrtStream? = null
+  private var stream: StreamBase? = null
+  private val transportExecutor = Executors.newSingleThreadExecutor()
   private val chatExecutor = Executors.newSingleThreadExecutor()
   private val chatGeneration = AtomicInteger()
   private val chatImageCache = object : LruCache<String, Bitmap>(8 * 1024 * 1024) {
@@ -316,8 +337,31 @@ class VispSrtView(context: Context, appContext: AppContext) :
         retryAttempt = 0
         current.getGlInterface().autoHandleOrientation = false
         emit(StreamState.CONNECTING)
-        current.startStream(url)
-        promise.resolve()
+        if (bondingMode == "off") {
+          current.startStream(url)
+          promise.resolve()
+        } else {
+          transportExecutor.execute {
+            val port = runCatching {
+              BondedSrtNative.start(context, url, bondingMode)
+            }.getOrElse {
+              post {
+                intentionalStop = true
+                fail("connection-failed", CONNECTION_FAILED, promise, it)
+              }
+              return@execute
+            }
+            post {
+              if (intentionalStop) {
+                BondedSrtNative.stop(context)
+                promise.resolve()
+              } else {
+                current.startStream("udp://127.0.0.1:$port")
+                promise.resolve()
+              }
+            }
+          }
+        }
       } catch (error: Throwable) {
         intentionalStop = true
         fail("connection-failed", CONNECTION_FAILED, promise, error)
@@ -426,6 +470,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     height: Int,
     fps: Int,
     maxVideoBitrateKbps: Int,
+    bondingMode: String,
     promise: Promise,
   ) {
     if (state != StreamState.IDLE && state != StreamState.ERROR) {
@@ -444,6 +489,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
           configuration = VideoConfiguration(cameraId, width, height, fps)
           videoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
           targetBitrateBps = videoBitrateCeilingBps
+          this.bondingMode = bondingMode.takeIf { it == "broadcast" || it == "backup" } ?: "off"
           cleanup()
           configure(isPortrait())
           promise.resolve()
@@ -571,11 +617,21 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
   }
 
+  fun setVideoBitrate(bitrateKbps: Int, promise: Promise) {
+    val current = stream
+    if (current == null) {
+      promise.reject("configuration-unavailable", CONFIGURATION_UNAVAILABLE, null)
+      return
+    }
+    targetBitrateBps = (bitrateKbps * 1_000).coerceIn(500_000, videoBitrateCeilingBps)
+    current.setVideoBitrateOnFly(targetBitrateBps)
+    promise.resolve()
+  }
+
   fun stop(promise: Promise) {
     intentionalStop = true
     retryAttempt = 0
     stopStatsLoop()
-    bitrateAdapter = null
     val current = stream
     try {
       if (current?.isStreaming == true) {
@@ -586,6 +642,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
           configure(isPortrait())
         }
       }
+      if (bondingMode != "off") BondedSrtNative.stop(context)
       keepScreenOn = false
       emit(StreamState.IDLE)
       promise.resolve()
@@ -599,13 +656,13 @@ class VispSrtView(context: Context, appContext: AppContext) :
     intentionalStop = true
     retryAttempt = 0
     stopStatsLoop()
-    bitrateAdapter = null
     amplitudeEffect?.stop()
     amplitudeEffect = null
     stream?.let { current ->
       if (current.isOnPreview) current.stopPreview(true)
       current.release()
     }
+    if (bondingMode != "off") BondedSrtNative.stop(context)
     stream = null
     chatFilter = null
     preparedPortrait = null
@@ -650,16 +707,10 @@ class VispSrtView(context: Context, appContext: AppContext) :
       if (!intentionalStop) {
         retryAttempt = 0
         keepScreenOn = true
-        val ceiling = videoBitrateCeilingBps
-        targetBitrateBps = ceiling
-        bitrateAdapter = BitrateAdapter { adapted ->
-          targetBitrateBps = adapted
-          stream?.setVideoBitrateOnFly(adapted)
-        }.also { it.setMaxBitrate(ceiling) }
-        lastPacketsLost = stream?.getStreamClient()?.getPacketsLost() ?: 0
-        lastSentFrames =
-          (stream?.getStreamClient()?.getSentVideoFrames() ?: 0L) +
-            (stream?.getStreamClient()?.getSentAudioFrames() ?: 0L)
+        targetBitrateBps = videoBitrateCeilingBps
+        lastPacketsLost = (stream as? SrtStream)?.getStreamClient()?.getPacketsLost() ?: 0
+        lastBytesSent = stream?.getStreamClient()?.getBytesSend() ?: 0L
+        lastLinkDegraded = null
         startStatsLoop()
         emit(StreamState.LIVE)
       }
@@ -672,13 +723,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val current = stream ?: return
     val delay = RETRY_DELAYS.getOrNull(retryAttempt)
 
-    if (delay != null && current.getStreamClient().reTry(delay, reason, null)) {
+    if (
+      current is SrtStream &&
+      delay != null &&
+      current.getStreamClient().reTry(delay, reason, null)
+    ) {
       val attempt = ++retryAttempt
       post {
         if (!intentionalStop) {
           keepScreenOn = false
           stopStatsLoop()
-          bitrateAdapter = null
           emit(StreamState.RECONNECTING, attempt = attempt)
         }
       }
@@ -690,16 +744,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
       if (current.isStreaming) current.stopStream()
       keepScreenOn = false
       stopStatsLoop()
-      bitrateAdapter = null
       emit(StreamState.ERROR, code = "connection-failed", message = CONNECTION_FAILED)
     }
   }
 
   override fun onNewBitrate(bitrate: Long) {
     measuredBitrateBps = bitrate
-    val adapter = bitrateAdapter ?: return
-    val congested = stream?.getStreamClient()?.hasCongestion() == true
-    adapter.adaptBitrate(bitrate, congested)
   }
 
   override fun onDisconnect() = Unit
@@ -715,7 +765,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
   override fun onAuthSuccess() = Unit
 
-  private fun configure(portrait: Boolean): SrtStream {
+  private fun configure(portrait: Boolean): StreamBase {
     if (
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA) ||
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
@@ -765,7 +815,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
         microphoneSource.setPreferredDevice(input)
       }
     }
-    val next = SrtStream(context, this, cameraSource, microphoneSource).apply {
+    val next =
+      (if (bondingMode == "off") {
+        SrtStream(context, this, cameraSource, microphoneSource)
+      } else {
+        UdpStream(context, this, cameraSource, microphoneSource)
+      }).apply {
       setVideoCodec(VideoCodec.H264)
       setAudioCodec(AudioCodec.AAC)
       // Hardware H264 is widely available; hardware AAC often is not.
@@ -1195,7 +1250,11 @@ class VispSrtView(context: Context, appContext: AppContext) :
         uri.port in 1..65_535 &&
         streamId?.startsWith("publish:") == true,
     )
-    return trimmed
+    return if (bondingMode == "off") {
+      trimmed
+    } else {
+      uri.buildUpon().encodedAuthority("${uri.host}:8891").build().toString()
+    }
   }
 
   private fun isPortrait(): Boolean =
@@ -1248,20 +1307,49 @@ class VispSrtView(context: Context, appContext: AppContext) :
   }
 
   private fun emitStats() {
-    val client = stream?.getStreamClient() ?: return
+    if (bondingMode != "off") {
+      val stats = BondedSrtNative.stats() ?: return
+      val degraded =
+        stats.links.filter { it["state"] == "connected" }.size < 2
+      if (degraded != lastLinkDegraded) {
+        lastLinkDegraded = degraded
+        if (degraded) {
+          emit(
+            StreamState.LIVE,
+            code = "link-degraded",
+            message = "One bonded network link is unavailable.",
+          )
+        } else {
+          emit(StreamState.LIVE, code = "links-restored")
+        }
+      }
+      onStats(
+        mapOf(
+          "bitrateKbps" to stats.bitrateKbps,
+          "targetBitrateKbps" to (targetBitrateBps / 1_000).coerceAtLeast(0),
+          "rttMs" to stats.rttMs,
+          "packetLossPct" to stats.packetLossPct.coerceIn(0.0, 100.0),
+          "links" to stats.links,
+        ),
+      )
+      return
+    }
+    val current = stream as? SrtStream ?: return
+    val client = current.getStreamClient()
     val rttMs = (client.getRtt() / 1_000).coerceAtLeast(0)
     val packetsLost = client.getPacketsLost()
-    val sent = client.getSentVideoFrames() + client.getSentAudioFrames()
+    val bytesSent = client.getBytesSend()
     val lostDelta = (packetsLost - lastPacketsLost).coerceAtLeast(0)
-    val sentDelta = (sent - lastSentFrames).coerceAtLeast(0L)
+    val sentDelta = ((bytesSent - lastBytesSent).coerceAtLeast(0L) / SRT_PAYLOAD_SIZE)
     lastPacketsLost = packetsLost
-    lastSentFrames = sent
+    lastBytesSent = bytesSent
     val packetLossPct =
       if (sentDelta + lostDelta > 0) {
-        100.0 * lostDelta / (sentDelta + lostDelta)
+        (100.0 * lostDelta / (sentDelta + lostDelta)).coerceIn(0.0, 100.0)
       } else {
         0.0
       }
+    check(packetLossPct in 0.0..100.0)
     onStats(
       mapOf(
         "bitrateKbps" to (measuredBitrateBps / 1_000L).toInt().coerceAtLeast(0),
@@ -1280,6 +1368,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val RETRY_DELAYS = listOf(1_000L, 2_000L, 4_000L)
     val COMMON_FRAME_RATES = listOf(15, 24, 25, 30, 50, 60, 120)
     const val AUDIO_BITRATE = 96_000
+    const val SRT_PAYLOAD_SIZE = 1_316
     const val AUDIO_INPUT_UNAVAILABLE = "That microphone is no longer available."
     // RootEncoder documents 8/16/22.5/32/44.1 kHz; 48 kHz is not listed.
     const val AUDIO_SAMPLE_RATE = 44_100

@@ -35,14 +35,16 @@ final class VispSrtModule: Module {
         width: Int,
         height: Int,
         frameRate: Int,
-        maxVideoBitrateKbps: Int
+        maxVideoBitrateKbps: Int,
+        bondingMode: String?
       ) in
         try await view.configure(
           cameraID: cameraID,
           width: width,
           height: height,
           frameRate: frameRate,
-          maxVideoBitrateKbps: maxVideoBitrateKbps
+          maxVideoBitrateKbps: maxVideoBitrateKbps,
+          bondingMode: bondingMode ?? "off"
         )
       }
 
@@ -66,6 +68,10 @@ final class VispSrtModule: Module {
 
       AsyncFunction("setImageStabilization") { (view: VispSrtView, enabled: Bool) in
         try await view.setImageStabilization(enabled)
+      }
+
+      AsyncFunction("setVideoBitrate") { (view: VispSrtView, bitrateKbps: Int) in
+        try await view.setVideoBitrate(bitrateKbps)
       }
 
       AsyncFunction("getCapabilities") { (view: VispSrtView) in

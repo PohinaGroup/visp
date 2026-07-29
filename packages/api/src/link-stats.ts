@@ -1,16 +1,14 @@
 export const LINK_STATS_FRESH_MS = 15_000;
 export const LINK_STATS_MIN_INTERVAL_MS = 1_500;
 
-/** Soft ABR step thresholds (web publisher). Hard congestion uses isLinkCongested. */
+/** Soft ABR step thresholds shared by web and native publishers. */
 export const LINK_SOFT_LOSS_PCT = 0.5;
 export const LINK_SOFT_RTT_MS = 250;
 export const LINK_HEALTHY_LOSS_PCT = 0.2;
 export const LINK_HEALTHY_RTT_MS = 150;
 
 /**
- * Shared dashboard / display congestion thresholds.
- * Platform ABR adapters (Pedro, HaishinKit) may use their own signals;
- * web ABR and dashboard "Congested" use these predicates.
+ * Shared ABR and dashboard congestion thresholds.
  */
 export function isLinkCongested(packetLossPct: number, rttMs: number): boolean {
 	return packetLossPct >= 2 || rttMs >= 400;
@@ -19,6 +17,8 @@ export function isLinkCongested(packetLossPct: number, rttMs: number): boolean {
 /** Core outbound link sample shared by native stats events and dashboard views. */
 export type LinkMetrics = {
 	bitrateKbps: number;
+	linkCount?: number;
+	linkDegraded?: boolean;
 	packetLossPct: number;
 	rttMs: number;
 	targetBitrateKbps: number;
@@ -32,6 +32,8 @@ export type LinkStatsView = LinkMetrics & {
 export function linkStatsFromPath(path: {
 	linkBitrateKbps: number | null;
 	linkPacketLossPct: number | null;
+	linkCount?: number | null;
+	linkDegraded?: boolean | null;
 	linkRttMs: number | null;
 	linkStatsAt: Date | null;
 	linkTargetBitrateKbps: number | null;
@@ -53,6 +55,8 @@ export function linkStatsFromPath(path: {
 	return {
 		bitrateKbps: path.linkBitrateKbps,
 		congested: isLinkCongested(path.linkPacketLossPct, path.linkRttMs),
+		linkCount: path.linkCount ?? 1,
+		linkDegraded: path.linkDegraded ?? false,
 		packetLossPct: path.linkPacketLossPct,
 		rttMs: path.linkRttMs,
 		targetBitrateKbps: path.linkTargetBitrateKbps,
@@ -82,12 +86,33 @@ export function formatLiveLinkHud(
 	return ` · ${formatLinkStats(stats)}`;
 }
 
+export function formatBondedLinks(
+	links:
+		| Array<
+				Pick<LinkMetrics, "bitrateKbps" | "packetLossPct" | "rttMs"> & {
+					state: string;
+					transport: "wifi" | "cellular";
+				}
+		  >
+		| undefined,
+): string {
+	if (!links?.length) return "";
+	return links
+		.map(
+			(link) =>
+				`${link.transport === "wifi" ? "Wi-Fi" : "Cellular"} ${link.state === "connected" ? formatLinkStats(link) : link.state}`,
+		)
+		.join(" · ");
+}
+
 /** Columns cleared when a path stops publishing. */
 export const CLEARED_LINK_STATS = {
 	linkBitrateKbps: null,
 	linkTargetBitrateKbps: null,
 	linkRttMs: null,
 	linkPacketLossPct: null,
+	linkCount: null,
+	linkDegraded: null,
 	linkStatsAt: null,
 } as const;
 
@@ -123,10 +148,7 @@ export function clampVideoBitrateKbps(
 	return Math.min(ceilingKbps, Math.max(floor, Math.round(targetKbps)));
 }
 
-/**
- * Step ABR target from measured link health (web publisher).
- * Native iOS/Android use SDK adapters with the same ceiling from configure().
- */
+/** Step a publisher's ABR target from measured link health. */
 export function nextVideoBitrateKbps(input: {
 	ceilingKbps: number;
 	currentTargetKbps: number;

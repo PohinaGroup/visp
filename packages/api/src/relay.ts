@@ -216,6 +216,8 @@ export async function listPaths(userId: string) {
 			linkTargetBitrateKbps: pathState.linkTargetBitrateKbps,
 			linkRttMs: pathState.linkRttMs,
 			linkPacketLossPct: pathState.linkPacketLossPct,
+			linkCount: pathState.linkCount,
+			linkDegraded: pathState.linkDegraded,
 			linkStatsAt: pathState.linkStatsAt,
 			relayId: relay.id,
 			relayHost: relay.host,
@@ -409,11 +411,12 @@ function buildSrtUrl(
 	handle: string,
 	plaintext: string,
 	latencyMicros?: number,
+	port = 8890,
 ) {
 	const latency = latencyMicros ? `&latency=${latencyMicros}` : "";
 	// ponytail: every relay uses the shared MediaMTX ports; add DB columns only
 	// if a relay ever differs.
-	return `srt://${host}:8890?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
+	return `srt://${host}:${port}?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
 }
 
 function buildRtmpUrl(
@@ -433,6 +436,15 @@ function buildPublishUrls(
 	return {
 		slug: path.slug,
 		srt: buildSrtUrl(path.relayHost, "publish", path.slug, handle, value),
+		srtBonded: buildSrtUrl(
+			path.relayHost,
+			"publish",
+			path.slug,
+			handle,
+			value,
+			undefined,
+			8891,
+		),
 		rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, value),
 	};
 }
