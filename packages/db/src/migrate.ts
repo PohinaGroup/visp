@@ -7,11 +7,16 @@ import { drizzle } from "drizzle-orm/node-postgres";
 import { migrate } from "drizzle-orm/node-postgres/migrator";
 import { Pool } from "pg";
 
-const packageRoot = dirname(fileURLToPath(import.meta.url));
+// migrate.ts lives in packages/db/src/
+const srcDir = dirname(fileURLToPath(import.meta.url));
+const packageDir = join(srcDir, "..");
 
+// Prefer the process env (deploy sources /etc/visp/app.env). Fall back to the
+// local server .env for developer machines. Turbo must pass DATABASE_URL
+// through (see turbo.json db:migrate.passThroughEnv).
 if (!process.env.DATABASE_URL) {
 	dotenv.config({
-		path: join(packageRoot, "../../apps/server/.env"),
+		path: join(packageDir, "../../apps/server/.env"),
 	});
 }
 
@@ -68,7 +73,7 @@ function createMigrationPool(url: string) {
 
 const pool = createMigrationPool(connectionString);
 const db = drizzle(pool);
-const migrationsFolder = join(packageRoot, "migrations");
+const migrationsFolder = join(srcDir, "migrations");
 
 try {
 	await migrate(db, { migrationsFolder });
