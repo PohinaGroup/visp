@@ -44,7 +44,7 @@ files.
 
 ## Start the local stack
 
-One command starts PostgreSQL 18, MinIO, MediaMTX, the relay gateway, API,
+One command starts PostgreSQL 18, MinIO, two MediaMTX relays, the relay gateway, API,
 portal, admin console, OBS Remote web app, and docs, then applies migrations:
 
 ```bash
@@ -52,6 +52,10 @@ bun run dev:local
 ```
 
 Run `bun run dev:local:down` to stop the containers without deleting data.
+
+To exercise multi-relay assignment, register the second Compose relay in Admin
+with host `127.0.0.2`, Control API `http://127.0.0.2:9997`, and ping URL
+`http://relay2.visp.localhost:8082/ping`.
 
 When changing `packages/db/src/schema`, generate and inspect a migration before
 applying it:

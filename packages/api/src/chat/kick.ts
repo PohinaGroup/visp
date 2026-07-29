@@ -3,6 +3,7 @@ import { account, chatConnection } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createVerify, type KeyLike } from "node:crypto";
 import { and, eq } from "drizzle-orm";
+import { tryAdvisoryLock } from "../advisory-lock";
 import { chatHub } from "./hub";
 import { normalizeKickMessage } from "./normalize";
 
@@ -113,7 +114,7 @@ async function listKickSubscriptions() {
 	return payload.data ?? [];
 }
 
-export async function reconcileKickSubscriptions() {
+async function reconcileKickSubscriptionsOwned() {
 	const enabled = await db
 		.select({
 			broadcasterId: account.accountId,
@@ -171,6 +172,17 @@ export async function reconcileKickSubscriptions() {
 			failures,
 			"Kick chat reconciliation was incomplete",
 		);
+}
+
+export async function reconcileKickSubscriptions() {
+	const lock = await tryAdvisoryLock("visp:kick-reconciler");
+	if (!lock) return false;
+	try {
+		await reconcileKickSubscriptionsOwned();
+		return true;
+	} finally {
+		await lock.release();
+	}
 }
 
 export type KickWebhookHeaders = {

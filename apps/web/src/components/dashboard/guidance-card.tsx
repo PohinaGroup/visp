@@ -1,11 +1,10 @@
-import { env } from "@VISP/env/web";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { NumberInput } from "@astryxdesign/core/NumberInput";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Text } from "@astryxdesign/core/Text";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { docs } from "@/lib/docs";
@@ -30,6 +29,8 @@ export function GuidanceCard() {
 	const [rtt, setRtt] = useState<number | null>(null);
 	const [measuring, setMeasuring] = useState(false);
 	const [guidance, setGuidance] = useState<Guidance | null>(null);
+	const paths = useQuery(trpc.paths.list.queryOptions());
+	const assignedRelay = paths.data?.[0]?.relay;
 	const submit = useMutation(
 		trpc.rtt.submit.mutationOptions({
 			onSuccess: setGuidance,
@@ -40,12 +41,14 @@ export function GuidanceCard() {
 	const measure = async () => {
 		setMeasuring(true);
 		try {
-			const measured = await probeRelayRtt(env.VITE_RELAY_PING_URL);
+			if (!assignedRelay) throw new Error("No assigned relay");
+			const measured = await probeRelayRtt(assignedRelay.pingUrl);
 			setRtt(measured);
 			await submit.mutateAsync({
 				rttMs: measured,
 				profile,
 				method: "browser-probe",
+				relayId: assignedRelay.id,
 			});
 		} catch (error) {
 			toast.error(
@@ -117,7 +120,13 @@ export function GuidanceCard() {
 					label={t("Use manual RTT")}
 					onClick={() => {
 						if (rtt === null) return;
-						submit.mutate({ rttMs: rtt, profile, method: "manual" });
+						if (!assignedRelay) return;
+						submit.mutate({
+							rttMs: rtt,
+							profile,
+							method: "manual",
+							relayId: assignedRelay.id,
+						});
 					}}
 				/>
 			</HStack>

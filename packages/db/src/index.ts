@@ -1,8 +1,9 @@
-import { readFileSync } from "node:fs";
-
 import { env } from "@VISP/env/server";
+import { readFileSync } from "node:fs";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
+
+export type { PoolClient } from "pg";
 
 import * as schema from "./schema";
 
@@ -22,9 +23,9 @@ function databaseUrlWithoutSslParams(url: string): string {
 	return parsed.toString();
 }
 
-export function createDb() {
+function createPool() {
 	const sslCaPath = env.DATABASE_SSL_CA;
-	const pool = new Pool(
+	return new Pool(
 		sslCaPath
 			? {
 					connectionString: databaseUrlWithoutSslParams(env.DATABASE_URL),
@@ -35,8 +36,11 @@ export function createDb() {
 				}
 			: { connectionString: env.DATABASE_URL },
 	);
-
-	return drizzle(pool, { schema });
 }
 
-export const db = createDb();
+export function createDb() {
+	return drizzle(createPool(), { schema });
+}
+
+export const pool = createPool();
+export const db = drizzle(pool, { schema });

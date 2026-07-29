@@ -4,6 +4,7 @@ import {
 	appUser,
 	chatConnection,
 	pathState,
+	relay,
 	relayPath,
 	relayStreamSession,
 	session,
@@ -21,6 +22,17 @@ const LIVE_AFTER_MS = 60_000;
 const pageInput = z.object({
 	cursor: z.string().regex(/^\d+$/).optional(),
 	limit: z.number().int().min(1).max(MAX_PAGE_SIZE).default(PAGE_SIZE),
+});
+
+const relayFields = z.object({
+	name: z.string().trim().min(1).max(64),
+	host: z.string().trim().min(1).max(255),
+	apiUrl: z.url(),
+	pingUrl: z.url(),
+	region: z.string().trim().min(1).max(64),
+	capacityPaths: z.number().int().min(1),
+	maxForwarders: z.number().int().min(0),
+	publicIp: z.string().trim().min(1).max(255),
 });
 
 function iso(value: Date | string | null | undefined) {
@@ -76,6 +88,81 @@ export const adminRouter = router({
 			});
 		}
 		return result;
+	}),
+
+	relays: router({
+		list: adminProcedure.query(() =>
+			db
+				.select({
+					id: relay.id,
+					name: relay.name,
+					host: relay.host,
+					apiUrl: relay.apiUrl,
+					pingUrl: relay.pingUrl,
+					region: relay.region,
+					capacityPaths: relay.capacityPaths,
+					maxForwarders: relay.maxForwarders,
+					publicIp: relay.publicIp,
+					enabled: relay.enabled,
+					drainedAt: relay.drainedAt,
+					assignedPaths: sql<number>`(
+						select count(*)::int from "path" admin_relay_path
+						where admin_relay_path.relay_id = ${relay.id}
+							and admin_relay_path.revoked_at is null
+					)`,
+				})
+				.from(relay)
+				.orderBy(relay.name),
+		),
+		create: adminProcedure
+			.input(relayFields)
+			.mutation(async ({ ctx, input }) => {
+				const [created] = await db.insert(relay).values(input).returning();
+				if (!created) {
+					throw new TRPCError({
+						code: "INTERNAL_SERVER_ERROR",
+						message: "Could not create relay",
+					});
+				}
+				audit(ctx.session.user.id, `relay:${created.id}`, "create");
+				return created;
+			}),
+		update: adminProcedure
+			.input(
+				relayFields
+					.partial()
+					.extend({
+						id: z.number().int().positive(),
+						enabled: z.boolean().optional(),
+						drained: z.boolean().optional(),
+					})
+					.refine(
+						({ id: _id, ...changes }) =>
+							Object.values(changes).some((value) => value !== undefined),
+						"At least one relay field is required",
+					),
+			)
+			.mutation(async ({ ctx, input }) => {
+				const { id, drained, ...fields } = input;
+				const [updated] = await db
+					.update(relay)
+					.set({
+						...fields,
+						...(drained === undefined
+							? {}
+							: { drainedAt: drained ? new Date() : null }),
+					})
+					.where(eq(relay.id, id))
+					.returning();
+				if (!updated) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Relay not found",
+					});
+				}
+				audit(ctx.session.user.id, `relay:${id}`, "update");
+				return updated;
+			}),
 	}),
 
 	users: router({

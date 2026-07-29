@@ -1,3 +1,4 @@
+import { fixedWindow } from "@VISP/api/rate-limit";
 import { auth } from "@VISP/auth";
 import {
 	convertToModelMessages,
@@ -152,7 +153,7 @@ const contextConfig = {
 	dashboard: { prompt: DASHBOARD_PROMPT, tools: dashboardTools },
 } as const;
 
-const landingRequests = new Map<string, { count: number; resetAt: number }>();
+const landingRequests = fixedWindow(LANDING_LIMIT, LANDING_WINDOW_MS);
 
 export function landingSuggestionResponse(messages: UIMessage[]) {
 	const last = messages.at(-1);
@@ -180,27 +181,11 @@ function fixedTextResponse(text: string) {
 }
 
 export function resetSeppoRateLimit() {
-	landingRequests.clear();
+	landingRequests.reset();
 }
 
 export function takeLandingRequest(ip: string, now = Date.now()) {
-	const current = landingRequests.get(ip);
-	if (!current || current.resetAt <= now) {
-		if (landingRequests.size >= 10_000) {
-			for (const [key, value] of landingRequests) {
-				if (value.resetAt <= now) landingRequests.delete(key);
-			}
-			if (landingRequests.size >= 10_000) {
-				const oldest = landingRequests.keys().next().value;
-				if (oldest) landingRequests.delete(oldest);
-			}
-		}
-		landingRequests.set(ip, { count: 1, resetAt: now + LANDING_WINDOW_MS });
-		return true;
-	}
-	if (current.count >= LANDING_LIMIT) return false;
-	current.count += 1;
-	return true;
+	return landingRequests.take(ip, now);
 }
 
 function toolPartTypes(context: SeppoContext) {

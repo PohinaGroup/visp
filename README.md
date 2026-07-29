@@ -62,7 +62,7 @@ packages/auth     Better Auth and Twitch/Kick OAuth configuration
 packages/db       Drizzle schema and forward migrations
 packages/env      Validated server and browser environments
 packages/ui       Shared UI components
-deploy            MediaMTX, Caddy, systemd, and two-host deployment templates
+deploy            MediaMTX, Caddy, systemd, and multi-relay deployment templates
 ```
 
 ## Verification
@@ -87,9 +87,9 @@ in [apps/obs-plugin/README.md](apps/obs-plugin/README.md).
 
 ## Scope
 
-VISP does not host OBS, bill users, or horizontally scale MediaMTX. One
-publisher owns a path at a time; the first connection remains active and later
-publishers are rejected.
+VISP does not host OBS or bill users. It assigns paths across capacity-managed
+MediaMTX relays. One publisher owns a path at a time; the first connection
+remains active and later publishers are rejected.
 
 The relay-to-OBS path never transcodes and never touches a provider stream key.
 VISP Direct — opt-in, per device, limited beta — does both: it distribution-
