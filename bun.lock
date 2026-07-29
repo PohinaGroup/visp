@@ -86,7 +86,7 @@
     },
     "apps/native": {
       "name": "@VISP/native",
-      "version": "1.0.50",
+      "version": "1.0.51",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@bacons/apple-targets": "^5.0.0",
@@ -129,7 +129,7 @@
     },
     "apps/obs-remote": {
       "name": "@VISP/obs-remote",
-      "version": "1.0.50",
+      "version": "1.0.51",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@better-auth/expo": "catalog:",
@@ -164,6 +164,7 @@
         "@VISP/auth": "workspace:*",
         "@VISP/db": "workspace:*",
         "@VISP/env": "workspace:*",
+        "@elysia/node": "^1.4.6",
         "@elysiajs/cors": "^1.4.2",
         "@elysiajs/trpc": "^1.1.0",
         "@hono/trpc-server": "^0.4.2",
@@ -643,6 +644,8 @@
     "@drizzle-team/brocli": ["@drizzle-team/brocli@0.10.2", "", {}, "sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w=="],
 
     "@egjs/hammerjs": ["@egjs/hammerjs@2.0.17", "", { "dependencies": { "@types/hammerjs": "^2.0.36" } }, "sha512-XQsZgjm2EcVUiZQf11UBJQfmZeEmOW8DpI1gsFeln6w0ae0ii4dMQEQ0kjl6DspdWX1aGY1/loyXnP0JS06e/A=="],
+
+    "@elysia/node": ["@elysia/node@1.4.6", "", { "dependencies": { "crossws": "^0.4.5", "srvx": "^0.11.5" }, "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-UqtpX6E2uz3KJ9c/MWBJ4/3WDpUN15CzNWPUS/QbGMqO6Cmjqluh+pZqW5Yaday1+HL/JADj+zG8BjtHvRun2g=="],
 
     "@elysiajs/cors": ["@elysiajs/cors@1.4.2", "", { "peerDependencies": { "elysia": ">= 1.4.0" } }, "sha512-FTCcbH35brTLigF1W7BYySRZomgI/dBEMK9BgK9RP9Nez7zmpGh4koL/Yr1BFv8nYz7CfhRvcM8d/c+XnwMaVQ=="],
 

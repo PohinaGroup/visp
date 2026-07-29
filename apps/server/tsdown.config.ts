@@ -6,10 +6,9 @@ export default defineConfig({
 	outDir: "./dist",
 	clean: true,
 	deps: {
-		// Workspace packages and `pg` must be inlined for Node production
-		// (`node dist/index.mjs`). Bun workspaces do not expose `@VISP/db`'s
-		// `pg` where Node can resolve it from apps/server; Bun itself also
-		// segfaults on Postgres TLS, so production does not use Bun here.
-		alwaysBundle: ["pg", /@VISP\/.*/],
+		// Workspace packages, `pg`, and the Node Elysia adapter must be inlined
+		// for `node dist/index.mjs`. Bun workspaces hide transitive deps from
+		// Node's resolver; Bun itself also segfaults on Postgres TLS.
+		alwaysBundle: ["pg", "@elysia/node", "srvx", "crossws", /@VISP\/.*/],
 	},
 });

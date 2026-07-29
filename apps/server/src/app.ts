@@ -2,6 +2,7 @@ import { createContext } from "@VISP/api/context";
 import { appRouter } from "@VISP/api/routers/index";
 import { auth } from "@VISP/auth";
 import { env } from "@VISP/env/server";
+import { node } from "@elysia/node";
 import { cors } from "@elysiajs/cors";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
@@ -17,6 +18,10 @@ import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
 
 initLogger({ env: { service: "VISP-server" } });
+
+// Production runs under Node (`node dist/index.mjs`). Bun's native adapter is
+// unavailable there, and Bun itself segfaults on Postgres TLS, so always use
+// the Node adapter (srvx/crossws) for listen + WebSocket.
 
 export const LOG_REDACTION_PATHS = [
 	"**.password",
@@ -46,7 +51,7 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 });
 
 export function createApp() {
-	return new Elysia()
+	return new Elysia({ adapter: node() })
 		.use(
 			evlog({
 				redact: { paths: LOG_REDACTION_PATHS },
