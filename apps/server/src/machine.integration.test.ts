@@ -22,6 +22,7 @@ import {
 	setObsScene,
 	setObsStreaming,
 } from "@VISP/api/obs-control";
+import { hashSecret } from "@VISP/api/password";
 import {
 	applyPathHook,
 	authenticateMedia,
@@ -77,18 +78,14 @@ async function seed() {
 		{
 			id: "user-a",
 			handle: "alpha",
-			publishSecretHash: await Bun.password.hash(publishA, {
-				algorithm: "argon2id",
-			}),
-			readSecretHash: await Bun.password.hash(readA, { algorithm: "argon2id" }),
+			publishSecretHash: await hashSecret(publishA),
+			readSecretHash: await hashSecret(readA),
 		},
 		{
 			id: "user-b",
 			handle: "beta",
-			publishSecretHash: await Bun.password.hash(publishB, {
-				algorithm: "argon2id",
-			}),
-			readSecretHash: await Bun.password.hash(readB, { algorithm: "argon2id" }),
+			publishSecretHash: await hashSecret(publishB),
+			readSecretHash: await hashSecret(readB),
 		},
 	]);
 	const defaultRelay = await db.query.relay.findFirst({

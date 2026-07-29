@@ -11,6 +11,7 @@ import { env } from "@VISP/env/server";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
+import { hashSecret, verifySecret } from "./password";
 import { uniqueViolation } from "./pg-errors";
 import { chooseRelay } from "./relays";
 
@@ -373,7 +374,7 @@ export async function authenticateMedia(input: {
 			? credential.publishSecretHash
 			: credential.readSecretHash;
 	const authenticated = hash
-		? await Bun.password.verify(input.password, hash)
+		? await verifySecret(input.password, hash)
 		: false;
 	if (authenticated && input.action === "publish") {
 		await db
@@ -545,8 +546,7 @@ async function storePublishSecret(input: {
 	const path = await ownedPath(input.userId, input.pathId);
 	if (!path) return null;
 	const secretHash =
-		input.secretHash ??
-		(await Bun.password.hash(input.plaintext, { algorithm: "argon2id" }));
+		input.secretHash ?? (await hashSecret(input.plaintext));
 	const [updated] = await db
 		.update(relayPath)
 		.set({
@@ -715,7 +715,7 @@ export async function claimNativePublishDevice(input: {
 			!path.publishSecretHash &&
 			path.handle === legacy.handle &&
 			path.legacyHash &&
-			(await Bun.password.verify(legacy.plaintext, path.legacyHash))
+			(await verifySecret(legacy.plaintext, path.legacyHash))
 		) {
 			return storePublishSecret({
 				installationId: input.installationId,
@@ -893,9 +893,7 @@ export async function rotateReadSecret(userId: string) {
 	}
 
 	const readSecret = secret();
-	const readSecretHash = await Bun.password.hash(readSecret, {
-		algorithm: "argon2id",
-	});
+	const readSecretHash = await hashSecret(readSecret);
 
 	await db
 		.update(appUser)
