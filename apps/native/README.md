@@ -15,13 +15,29 @@ Expo SDK 57 sets the deployment target to iOS 16.4, so this app cannot retain th
 bun run --cwd apps/native ios
 ```
 
-The generated `ios/` project is committed because it contains the HaishinKit Swift Package Manager dependency and inline Swift sources. If the iOS project is regenerated with Expo Prebuild, re-run `scripts/sync-haishinkit.rb` with the `xcodeproj` gem from CocoaPods before installing pods.
+The generated `ios/` project is committed because it contains the vendored
+HaishinKit local Swift package, inline Swift sources, and Apple Watch targets.
+Regenerate it only when native configuration changes (plugins, `app.json`, or
+inline modules):
+
+```sh
+cd apps/native
+bunx expo prebuild --platform ios --clean
+cd ios && pod install
+```
+
+Prebuild runs the `with-root-encoder.cjs` config plugin automatically. That
+plugin wires the local HaishinKit package at
+`modules/visp-srt/vendor/haishinkit`, links `HaishinKit` and `SRTHaishinKit`,
+and excludes the incomplete x86_64 simulator slice. Commit the resulting `ios/`
+changes; do not run `scripts/sync-haishinkit.rb` — it is a legacy script from
+the older remote-SPM setup.
 
 The Apple Watch companion lives in `targets/watch/` and is wired back into the
-generated Xcode project by `@bacons/apple-targets` on every
-`expo prebuild --clean`. It receives chat and stream-health snapshots from the
-running iPhone app through WatchConnectivity and requires watchOS 10 or newer.
-After prebuild, reopen the workspace and select the `VISP Watch` scheme.
+generated Xcode project by `@bacons/apple-targets` on every prebuild. It
+receives chat and stream-health snapshots from the running iPhone app through
+WatchConnectivity and requires watchOS 10 or newer. After prebuild, reopen the
+workspace and select the `VISP Watch` scheme.
 
 Android 7 or newer is supported through Expo Prebuild and the pinned RootEncoder dependency. Use a physical device with USB debugging enabled; Expo Go does not include the native SRT module.
 

@@ -382,7 +382,17 @@ public final actor MediaMixer {
             Task { @ScreenActor in
                 displayLink.preferredFramesPerSecond = await Int(frameRate)
                 displayLink.startRunning()
+                // #region agent log
+                NSLog("[VISPDBG] offscreen loop started fps=\(displayLink.preferredFramesPerSecond) outputs=\(await self.outputs.count)")
+                var tick = 0
+                // #endregion
                 for await updateFrame in displayLink.updateFrames {
+                    // #region agent log
+                    tick += 1
+                    if tick <= 3 || tick % 120 == 0 {
+                        NSLog("[VISPDBG] displayLink tick #\(tick) ts=\(updateFrame.timestamp)")
+                    }
+                    // #endregion
                     guard let buffer = screen.makeSampleBuffer(updateFrame) else {
                         continue
                     }
@@ -390,6 +400,9 @@ public final actor MediaMixer {
                         output.mixer(self, didOutput: buffer)
                     }
                 }
+                // #region agent log
+                NSLog("[VISPDBG] offscreen loop ENDED after \(tick) ticks")
+                // #endregion
             }
         }
     }

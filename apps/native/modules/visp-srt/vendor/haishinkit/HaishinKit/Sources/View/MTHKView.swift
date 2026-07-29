@@ -11,6 +11,11 @@ public class MTHKView: MTKView {
     public var audioTrackId: UInt8?
     private var displayImage: CIImage?
     private var lastAppliedPtsSeconds = -1.0
+    // #region agent log
+    private static var drawCount = 0
+    private static var mixerOutCount = 0
+    private static var mixerDropCount = 0
+    // #endregion
     private lazy var commandQueue: (any MTLCommandQueue)? = {
         return device?.makeCommandQueue()
     }()
@@ -59,6 +64,12 @@ public class MTHKView: MTKView {
 
     /// Redraws the view’s contents.
     override public func draw(_ rect: CGRect) {
+        // #region agent log
+        Self.drawCount += 1
+        if Self.drawCount <= 5 || Self.drawCount % 120 == 0 {
+            NSLog("[VISPDBG] draw #\(Self.drawCount) ctx=\(context != nil) drawable=\(currentDrawable != nil) q=\(commandQueue != nil) img=\(displayImage != nil) bounds=\(bounds) drawableSize=\(drawableSize) window=\(window != nil) hidden=\(isHidden) alpha=\(alpha) paused=\(isPaused)")
+        }
+        // #endregion
         guard
             let context,
             let currentDrawable = currentDrawable,
@@ -118,7 +129,16 @@ public class MTHKView: MTKView {
                 return currentDrawable.texture
             })
 
-        _ = try? context.startTask(toRender: scaledImage, to: destination)
+        // #region agent log
+        do {
+            _ = try context.startTask(toRender: scaledImage, to: destination)
+            if Self.drawCount <= 5 || Self.drawCount % 120 == 0 {
+                NSLog("[VISPDBG] render OK extent=\(scaledImage.extent) srcExtent=\(displayImage.extent) scale=\(scaleX),\(scaleY) tx=\(translationX),\(translationY) fbOnly=\(framebufferOnly) pixFmt=\(colorPixelFormat.rawValue) texUsage=\(currentDrawable.texture.usage.rawValue)")
+            }
+        } catch {
+            NSLog("[VISPDBG] render FAILED \(error) extent=\(scaledImage.extent) fbOnly=\(framebufferOnly) pixFmt=\(colorPixelFormat.rawValue)")
+        }
+        // #endregion
 
         commandBuffer.present(currentDrawable)
         commandBuffer.commit()
@@ -162,14 +182,26 @@ extension MTHKView: MediaMixerOutput {
     nonisolated public func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
         let pts = sampleBuffer.presentationTimeStamp.seconds
         Task { @MainActor in
+            // #region agent log
+            Self.mixerOutCount += 1
+            if Self.mixerOutCount <= 5 || Self.mixerOutCount % 120 == 0 {
+                NSLog("[VISPDBG] mixerOut #\(Self.mixerOutCount) drops=\(Self.mixerDropCount) pts=\(pts) last=\(self.lastAppliedPtsSeconds) imageBuffer=\(sampleBuffer.imageBuffer != nil) fmt=\(sampleBuffer.formatDescription?.mediaSubType.rawValue ?? 0) dims=\(String(describing: sampleBuffer.formatDescription?.dimensions))")
+            }
+            // #endregion
             if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
                 // Capture-latency recalculation can jump output PTS backward by
                 // hundreds of ms. Treat large jumps as a rebase, not a reorder.
                 if self.lastAppliedPtsSeconds - pts <= 0.25 {
+                    // #region agent log
+                    Self.mixerDropCount += 1
+                    // #endregion
                     return
                 }
             }
             guard let image = try? sampleBuffer.imageBuffer?.makeCIImage() else {
+                // #region agent log
+                NSLog("[VISPDBG] mixerOut makeCIImage FAILED")
+                // #endregion
                 return
             }
             self.lastAppliedPtsSeconds = pts

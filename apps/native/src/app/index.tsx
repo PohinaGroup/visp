@@ -87,6 +87,7 @@ import {
 	configureVideoCapture,
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
+import { debugLog, redactStreamUrl } from "../lib/debug-log";
 import { useLiveChat } from "../lib/live-chat";
 import {
 	deleteStreamUrl,
@@ -662,10 +663,28 @@ export default function Index() {
 				...(streamUrl ? { legacyUrl: streamUrl } : {}),
 			});
 			const url = selectPublishUrl([device.urls]);
+			// #region agent log
+			debugLog(
+				"index.tsx:provisionDestination",
+				"provisioned publish url",
+				{ url: redactStreamUrl(url), hasSrt: Boolean(device.urls?.srt) },
+				"A",
+			);
+			// #endregion
 			await saveStreamUrl(url, userId);
 			setStreamUrl(url);
 			await refreshPublishDevices();
 		} catch (error) {
+			// #region agent log
+			debugLog(
+				"index.tsx:provisionDestination",
+				"provision failed",
+				{
+					error: error instanceof Error ? error.message : String(error),
+				},
+				"A",
+			);
+			// #endregion
 			setMessage(
 				error instanceof Error
 					? error.message
@@ -714,6 +733,24 @@ export default function Index() {
 
 	useEffect(() => () => clearTimeout(toastTimer.current), []);
 
+	const onAgentDebug = useCallback(
+		({ nativeEvent }: { nativeEvent: Record<string, unknown> }) => {
+			// #region agent log
+			debugLog(
+				String(nativeEvent.location ?? "native"),
+				String(nativeEvent.message ?? "native debug"),
+				(typeof nativeEvent.data === "object" && nativeEvent.data !== null
+					? (nativeEvent.data as Record<string, unknown>)
+					: { payload: nativeEvent.data }),
+				typeof nativeEvent.hypothesisId === "string"
+					? nativeEvent.hypothesisId
+					: undefined,
+			);
+			// #endregion
+		},
+		[],
+	);
+
 	const onAudioLevel = useCallback(
 		({ nativeEvent }: { nativeEvent: AudioLevelEvent }) => {
 			setAudioTier(audioTierForLevel(nativeEvent.level));
@@ -722,7 +759,21 @@ export default function Index() {
 	);
 
 	const onStateChange = useCallback(
-		({ nativeEvent }: { nativeEvent: StreamStateEvent }) => {
+		({ nativeEvent }: { nativeEvent: StreamStateEvent & { debug?: string } }) => {
+			// #region agent log
+			debugLog(
+				"index.tsx:onStateChange",
+				"stream state changed",
+				{
+					state: nativeEvent.state,
+					code: nativeEvent.code,
+					attempt: nativeEvent.attempt,
+					debug: nativeEvent.debug,
+					message: nativeEvent.message,
+				},
+				"B",
+			);
+			// #endregion
 			setState(nativeEvent.state);
 			setErrorCode(nativeEvent.code);
 			setReconnectAttempt(
@@ -835,17 +886,43 @@ export default function Index() {
 				await cameraRef.current?.stop();
 			} else {
 				if (!(await confirmBondingDataUse())) return;
+				// #region agent log
+				debugLog(
+					"index.tsx:toggleStream",
+					"starting stream",
+					{
+						url: redactStreamUrl(streamUrl),
+						bondingMode,
+						contributionMode,
+						currentState: state,
+						hasConfiguration: Boolean(configuration),
+					},
+					"C",
+				);
+				// #endregion
 				showToast("Connecting to relay service…", true);
 				if (configuration) {
 					await configureVideoCapture(
 						cameraRef.current,
 						configuration,
 						contributionMode,
+						bondingMode ?? "off",
 					);
 				}
 				await cameraRef.current?.start(streamUrl);
 			}
-		} catch {
+		} catch (error) {
+			// #region agent log
+			debugLog(
+				"index.tsx:toggleStream",
+				"toggle stream threw",
+				{
+					error: error instanceof Error ? error.message : String(error),
+					url: streamUrl ? redactStreamUrl(streamUrl) : undefined,
+				},
+				"D",
+			);
+			// #endregion
 			// The native module emits a sanitized error with the correct cause.
 		}
 	}, [
@@ -1233,6 +1310,7 @@ export default function Index() {
 		<View style={styles.container}>
 			<StatusBar style="light" />
 			<VispSrtView
+				onAgentDebug={onAgentDebug}
 				onAudioLevel={onAudioLevel}
 				onStateChange={onStateChange}
 				onStats={onStats}

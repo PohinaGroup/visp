@@ -115,6 +115,10 @@ final class ScreenRendererByCPU: ScreenRenderer {
         }
     }
 
+    // #region agent log
+    private static var layoutCount = 0
+    // #endregion
+
     func layout(_ screenObject: ScreenObject) {
         autoreleasepool {
             guard let image: CGImage = screenObject.makeImage(self) else {
@@ -124,6 +128,16 @@ final class ScreenRendererByCPU: ScreenRenderer {
                 images[screenObject]?.free()
                 var buffer = try vImage_Buffer(cgImage: image, format: format)
                 images[screenObject] = buffer
+                // #region agent log
+                Self.layoutCount += 1
+                if Self.layoutCount <= 3 || Self.layoutCount % 120 == 0 {
+                    var px = "?"
+                    let p = buffer.data.assumingMemoryBound(to: UInt8.self)
+                    let o = Int(buffer.height) / 2 * buffer.rowBytes + Int(buffer.width) / 2 * 4
+                    px = "\(p[o]),\(p[o + 1]),\(p[o + 2]),\(p[o + 3])"
+                    NSLog("[VISPDBG] layout #\(Self.layoutCount) \(type(of: screenObject)) cg=\(image.width)x\(image.height) bpc=\(image.bitsPerComponent) bpp=\(image.bitsPerPixel) alphaInfo=\(image.alphaInfo.rawValue) cs=\(image.colorSpace?.name as String? ?? "nil") vbuf=\(buffer.width)x\(buffer.height) centerARGB=\(px)")
+                }
+                // #endregion
                 if 0 < screenObject.cornerRadius {
                     if var mask = shapeFactory.cornerRadius(image.size, cornerRadius: screenObject.cornerRadius) {
                         vImageOverwriteChannels_ARGB8888(&mask, &buffer, &buffer, 0x8, Self.noFlags)

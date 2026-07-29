@@ -1,97 +1,13 @@
 {
-	"version": "7",
-	"dialect": "postgresql",
-	"entries": [
-		{
-			"idx": 0,
-			"version": "7",
-			"when": 1784203121561,
-			"tag": "0000_tricky_shiver_man",
-			"breakpoints": true
-		},
-		{
-			"idx": 1,
-			"version": "7",
-			"when": 1784272221529,
-			"tag": "0001_dear_mother_askani",
-			"breakpoints": true
-		},
-		{
-			"idx": 2,
-			"version": "7",
-			"when": 1784273684782,
-			"tag": "0002_calm_namor",
-			"breakpoints": true
-		},
-		{
-			"idx": 3,
-			"version": "7",
-			"when": 1784279358342,
-			"tag": "0003_curvy_slapstick",
-			"breakpoints": true
-		},
-		{
-			"idx": 4,
-			"version": "7",
-			"when": 1784289144163,
-			"tag": "0004_high_malcolm_colcord",
-			"breakpoints": true
-		},
-		{
-			"idx": 5,
-			"version": "7",
-			"when": 1784469749199,
-			"tag": "0005_smart_silver_samurai",
-			"breakpoints": true
-		},
-		{
-			"idx": 6,
-			"version": "7",
-			"when": 1784620819277,
-			"tag": "0006_hesitant_shatterstar",
-			"breakpoints": true
-		},
-		{
-			"idx": 7,
-			"version": "7",
-			"when": 1784836685086,
-			"tag": "0007_famous_doctor_strange",
-			"breakpoints": true
-		},
-		{
-			"idx": 8,
-			"version": "7",
-			"when": 1785060549355,
-			"tag": "0008_yellow_goblin_queen",
-			"breakpoints": true
-		},
-		{
-			"idx": 9,
-			"version": "7",
-			"when": 1785168903495,
-			"tag": "0009_many_giant_man",
-			"breakpoints": true
-		},
-		{
-			"idx": 10,
-			"version": "7",
-			"when": 1785170583136,
-			"tag": "0010_soft_daredevil",
-			"breakpoints": true
-		},
-		{
-			"idx": 11,
-			"version": "7",
-			"when": 1785170583137,
-			"tag": "0011_sturdy_vanisher",
-			"breakpoints": true
-		},
-		{
-			"idx": 12,
-			"version": "7",
-			"when": 1785315993009,
-			"tag": "0012_eminent_master_chief",
-			"breakpoints": true
-		}
-	]
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1785339807611,
+      "tag": "0000_chunky_king_cobra",
+      "breakpoints": true
+    }
+  ]
 }
