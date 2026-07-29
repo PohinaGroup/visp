@@ -6,6 +6,7 @@ import { and, eq } from "drizzle-orm";
 import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
 import { chatHub } from "./hub";
 import { normalizeTwitchMessage } from "./normalize";
+import { loadTwitchBadges } from "./twitch-badges";
 
 const EVENTSUB_URL =
 	"wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=30";
@@ -66,6 +67,7 @@ export async function createTwitchChatSubscription(
 }
 
 class TwitchConnector {
+	private badges = new Map<string, string>();
 	private keepaliveTimer?: ReturnType<typeof setTimeout>;
 	private reconnectTimer?: ReturnType<typeof setTimeout>;
 	private retry = 0;
@@ -129,16 +131,24 @@ class TwitchConnector {
 						return;
 					}
 				}
+				void loadTwitchBadges(this.userId, this.broadcasterId).then(
+					(badges) => {
+						this.badges = badges;
+					},
+				);
 				chatHub.status(this.userId, "twitch", "connected");
 				break;
 			}
 			case "notification": {
 				if (message.metadata.subscription_type !== "channel.chat.message")
 					return;
-				const normalized = normalizeTwitchMessage({
-					...message.payload?.event,
-					sent_at: message.metadata.message_timestamp,
-				});
+				const normalized = normalizeTwitchMessage(
+					{
+						...message.payload?.event,
+						sent_at: message.metadata.message_timestamp,
+					},
+					(setId, versionId) => this.badges.get(`${setId}/${versionId}`),
+				);
 				if (normalized)
 					chatHub.publish(this.userId, {
 						type: "message",

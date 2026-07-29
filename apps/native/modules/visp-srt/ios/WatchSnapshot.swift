@@ -51,6 +51,7 @@ struct WatchChatMessage: Codable, Equatable, Identifiable {
   let id: String
   let provider: String
   let senderName: String
-  let senderColor: String?
+  let senderColor: String
+  let badges: [String]
   let text: String
 }

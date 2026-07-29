@@ -1,9 +1,27 @@
-import type { ChatFragment, ChatMessage } from "./contract";
+import type { ChatBadge, ChatFragment, ChatMessage } from "./contract";
 
+const MAX_BADGES = 4;
 const MAX_FRAGMENTS = 32;
 const MAX_MESSAGE_LENGTH = 500;
 const MAX_NAME_LENGTH = 64;
 const COLOR = /^#[0-9a-f]{6}$/i;
+const TWITCH_DEFAULT_COLORS = [
+	"#FF0000",
+	"#0000FF",
+	"#00FF00",
+	"#B22222",
+	"#FF7F50",
+	"#9ACD32",
+	"#FF4500",
+	"#2E8B57",
+	"#DAA520",
+	"#D2691E",
+	"#5F9EA0",
+	"#1E90FF",
+	"#FF69B4",
+	"#8A2BE2",
+	"#00FF7F",
+] as const;
 
 function string(value: unknown, max: number) {
 	return typeof value === "string" ? value.slice(0, max) : "";
@@ -22,10 +40,52 @@ function date(value: unknown) {
 		: parsed.toISOString();
 }
 
-function color(value: unknown) {
-	return typeof value === "string" && COLOR.test(value)
-		? value.toUpperCase()
-		: undefined;
+function senderColor(value: unknown, seedId: string) {
+	const fallback =
+		TWITCH_DEFAULT_COLORS[
+			[...seedId].reduce(
+				(hash, character) =>
+					Math.imul(hash ^ (character.codePointAt(0) ?? 0), 16_777_619) >>> 0,
+				2_166_136_261,
+			) % TWITCH_DEFAULT_COLORS.length
+		] ?? "#FF0000";
+	const hex =
+		typeof value === "string" && COLOR.test(value)
+			? value.toUpperCase()
+			: fallback;
+	const red = Number.parseInt(hex.slice(1, 3), 16) / 255;
+	const green = Number.parseInt(hex.slice(3, 5), 16) / 255;
+	const blue = Number.parseInt(hex.slice(5, 7), 16) / 255;
+	const max = Math.max(red, green, blue);
+	const min = Math.min(red, green, blue);
+	const lightness = (max + min) / 2;
+	if (lightness >= 0.6) return hex;
+	if (max === min) return "#999999";
+	const saturation = (max - min) / (1 - Math.abs(2 * lightness - 1));
+	const targetRange = saturation * (1 - Math.abs(2 * 0.6 - 1));
+	const targetMin = 0.6 - targetRange / 2;
+	const adjust = (channel: number) =>
+		Math.round(
+			(targetMin + ((channel - min) / (max - min)) * targetRange) * 255,
+		)
+			.toString(16)
+			.padStart(2, "0")
+			.toUpperCase();
+	return `#${adjust(red)}${adjust(green)}${adjust(blue)}`;
+}
+
+function slug(value: unknown) {
+	return string(value, 128)
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-|-$/g, "")
+		.slice(0, 32);
+}
+
+function humanize(value: string) {
+	return value
+		.replace(/[-_]+/g, " ")
+		.replace(/\b\w/g, (character) => character.toUpperCase());
 }
 
 function finish(
@@ -50,7 +110,18 @@ function finish(
 	) {
 		return null;
 	}
-	return { ...message, fragments };
+	return {
+		...message,
+		sender: {
+			...message.sender,
+			badges: message.sender.badges.slice(0, MAX_BADGES).flatMap((badge) => {
+				const type = slug(badge.type);
+				const label = string(badge.label, 24);
+				return type && label ? [{ ...badge, type, label }] : [];
+			}),
+		},
+		fragments,
+	};
 }
 
 export function twitchEmoteUrl(id: string) {
@@ -61,10 +132,14 @@ export function kickEmoteUrl(id: string) {
 	return `https://files.kick.com/emotes/${encodeURIComponent(id)}/fullsize`;
 }
 
-export function normalizeTwitchMessage(payload: unknown): ChatMessage | null {
+export function normalizeTwitchMessage(
+	payload: unknown,
+	resolve?: (setId: string, versionId: string) => string | undefined,
+): ChatMessage | null {
 	if (!payload || typeof payload !== "object") return null;
 	const event = payload as Record<string, unknown>;
 	const message = event.message as { fragments?: unknown[] } | undefined;
+	const senderId = identifier(event.chatter_user_id, 128);
 	const fragments = (message?.fragments ?? []).flatMap<ChatFragment>((raw) => {
 		if (!raw || typeof raw !== "object") return [];
 		const fragment = raw as {
@@ -79,17 +154,34 @@ export function normalizeTwitchMessage(payload: unknown): ChatMessage | null {
 		}
 		return text ? [{ type: "text", text }] : [];
 	});
+	const badges = (
+		(event.badges as unknown[] | undefined) ?? []
+	).flatMap<ChatBadge>((raw) => {
+		if (!raw || typeof raw !== "object") return [];
+		const badge = raw as { id?: unknown; set_id?: unknown };
+		const type = slug(badge.set_id);
+		const version = identifier(badge.id, 128);
+		if (!type || !version) return [];
+		return [
+			{
+				type,
+				label: humanize(type),
+				url: resolve?.(type, version),
+			},
+		];
+	});
 	return finish({
 		id: identifier(event.message_id),
 		provider: "twitch",
 		sentAt: date(event.sent_at),
 		sender: {
-			id: identifier(event.chatter_user_id, 128),
+			id: senderId,
 			name: string(
 				event.chatter_user_name ?? event.chatter_user_login,
 				MAX_NAME_LENGTH,
 			),
-			color: color(event.color),
+			color: senderColor(event.color, senderId),
+			badges,
 		},
 		fragments,
 	});
@@ -103,6 +195,7 @@ export function normalizeKickMessage(payload: unknown): ChatMessage | null {
 	const event = payload as Record<string, unknown>;
 	const sender = (event.sender ?? {}) as Record<string, unknown>;
 	const identity = (sender.identity ?? {}) as Record<string, unknown>;
+	const senderId = identifier(sender.user_id, 128);
 	const content = string(event.content, MAX_MESSAGE_LENGTH);
 	const positions = ((event.emotes as KickEmote[] | undefined) ?? [])
 		.flatMap((emote) => {
@@ -146,15 +239,30 @@ export function normalizeKickMessage(payload: unknown): ChatMessage | null {
 	}
 	if (cursor < content.length)
 		fragments.push({ type: "text", text: content.slice(cursor) });
+	const badges = (
+		(identity.badges as unknown[] | undefined) ?? []
+	).flatMap<ChatBadge>((raw) => {
+		if (!raw || typeof raw !== "object") return [];
+		const badge = raw as { text?: unknown; type?: unknown };
+		const type = slug(badge.type);
+		if (!type) return [];
+		return [
+			{
+				type,
+				label: string(badge.text, 24) || humanize(type),
+			},
+		];
+	});
 
 	return finish({
 		id: identifier(event.message_id),
 		provider: "kick",
 		sentAt: date(event.created_at),
 		sender: {
-			id: identifier(sender.user_id, 128),
+			id: senderId,
 			name: string(sender.username, MAX_NAME_LENGTH),
-			color: color(identity.username_color),
+			color: senderColor(identity.username_color, senderId),
+			badges,
 		},
 		fragments,
 	});

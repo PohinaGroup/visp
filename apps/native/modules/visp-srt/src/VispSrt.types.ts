@@ -69,7 +69,12 @@ export type ChatOverlayMessage = {
 	id: string;
 	provider: "twitch" | "kick";
 	sentAt: string;
-	sender: { id: string; name: string; color?: string };
+	sender: {
+		id: string;
+		name: string;
+		color: string;
+		badges: Array<{ type: string; label: string; url?: string }>;
+	};
 	fragments: Array<
 		| { type: "text"; text: string }
 		| { type: "emote"; text: string; url: string }
