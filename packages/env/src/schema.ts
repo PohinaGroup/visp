@@ -12,19 +12,20 @@ export const serverEnvSchema = {
 	DATABASE_URL: z.string().min(1),
 	/** PEM path for managed Postgres CA verification (e.g. UpCloud). */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
-	/**
-	 * Total concurrent FFmpeg Direct distribution forwarders on the single relay
-	 * node. Every forwarder is a full video+audio encode and Twitch+Kick counts
-	 * as two, so set this from a measured CPU-per-forwarder number, not a guess.
-	 * A calibration knob: retune it against the real box without a deploy.
-	 */
+	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
+	/**
+	 * Active publishing paths allowed per user. A calibration knob: raise only
+	 * after measuring relay capacity and abuse pressure.
+	 */
+	MAX_PATHS_PER_USER: z.coerce.number().int().min(1).default(10),
 	BETTER_AUTH_SECRET: z.string().min(32),
 	BETTER_AUTH_URL: z.url(),
 	CORS_ORIGIN: z.url(),
 	HOOK_SECRET: z.string().min(32),
 	KICK_CLIENT_ID: z.string().min(1),
 	KICK_CLIENT_SECRET: z.string().min(1),
+	/** Bootstrap value for the database-backed default relay. */
 	MEDIAMTX_API_URL: z.url(),
 	NATIVE_WEB_ORIGIN: z.url(),
 	OBS_REMOTE_WEB_ORIGIN: z.url(),
@@ -33,7 +34,9 @@ export const serverEnvSchema = {
 		.default("development"),
 	PORT: z.coerce.number().int().min(1).max(65_535).default(3000),
 	PUBLISH_URL_ENCRYPTION_KEY: encryptionKey,
+	/** Bootstrap value for the database-backed default relay. */
 	RELAY_HOST: z.string().min(1),
+	/** Bootstrap value for the database-backed default relay. */
 	RELAY_PING_URL: z.url(),
 	SERVER_HOST: z.string().min(1).default("127.0.0.1"),
 	S3_ACCESS_KEY_ID: z.string().min(1),
@@ -47,7 +50,6 @@ export const serverEnvSchema = {
 };
 
 export const webEnvSchema = {
-	VITE_RELAY_PING_URL: z.url(),
 	/** Rybbit site ID. When unset, the tracking script is not loaded. */
 	VITE_RYBBIT_SITE_ID: z.string().min(1).optional(),
 	VITE_SERVER_URL: z.url(),

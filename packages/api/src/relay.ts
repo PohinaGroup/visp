@@ -3,13 +3,16 @@ import {
 	account,
 	appUser,
 	pathState,
+	relay,
 	relayPath,
 	rttSample,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
-import { and, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
 import { uniqueViolation } from "./pg-errors";
+import { chooseRelay } from "./relays";
 
 export { applyPathHook, reconcilePathState } from "./path-hooks";
 
@@ -171,7 +174,10 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 				if (!created) {
 					throw new Error("Failed to create relay user");
 				}
+				const assignedRelay = await chooseRelay(userId, undefined, tx);
+				if (!assignedRelay) throw new Error("Relay capacity reached");
 				await tx.insert(relayPath).values({
+					relayId: assignedRelay.id,
 					userId,
 					seq: 1,
 					slug: `${handle}-1`,
@@ -200,6 +206,8 @@ export async function listPaths(userId: string) {
 			nativeInstallationId: relayPath.nativeInstallationId,
 			publishLastConnectedAt: relayPath.publishLastConnectedAt,
 			publishRevealable: sql<boolean>`${relayPath.publishSecretEncrypted} is not null`,
+			directTwitch: relayPath.directTwitch,
+			directKick: relayPath.directKick,
 			publishing: pathState.publishing,
 			readerCount: pathState.readerCount,
 			sourceType: pathState.sourceType,
@@ -209,14 +217,24 @@ export async function listPaths(userId: string) {
 			linkRttMs: pathState.linkRttMs,
 			linkPacketLossPct: pathState.linkPacketLossPct,
 			linkStatsAt: pathState.linkStatsAt,
+			relayId: relay.id,
+			relayHost: relay.host,
+			relayName: relay.name,
+			relayPingUrl: relay.pingUrl,
+			relayRegion: relay.region,
 		})
 		.from(relayPath)
+		.innerJoin(relay, eq(relay.id, relayPath.relayId))
 		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
 		.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)))
 		.orderBy(relayPath.seq);
 }
 
-export async function createPath(userId: string, label: string) {
+export async function createPath(
+	userId: string,
+	label: string,
+	preferredRelayId?: number,
+) {
 	const normalizedLabel = normalizeLabel(label);
 	return db.transaction(async (tx) => {
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
@@ -226,6 +244,15 @@ export async function createPath(userId: string, label: string) {
 		if (!owner) {
 			throw new Error("Relay user not found");
 		}
+		const [active] = await tx
+			.select({ count: count() })
+			.from(relayPath)
+			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
+		if (Number(active?.count ?? 0) >= env.MAX_PATHS_PER_USER) {
+			throw new Error("Path limit reached");
+		}
+		const assignedRelay = await chooseRelay(userId, preferredRelayId, tx);
+		if (!assignedRelay) throw new Error("Relay capacity reached");
 		const [current] = await tx
 			.select({ max: max(relayPath.seq) })
 			.from(relayPath)
@@ -234,6 +261,7 @@ export async function createPath(userId: string, label: string) {
 		const [created] = await tx
 			.insert(relayPath)
 			.values({
+				relayId: assignedRelay.id,
 				userId,
 				seq,
 				slug: `${owner.handle}-${seq}`,
@@ -285,7 +313,8 @@ export async function revokePath(userId: string, pathId: number) {
 		)
 		.returning({ slug: relayPath.slug });
 	if (revoked) {
-		authCache.delete(revoked.slug);
+		applyInvalidation({ type: "slug", slug: revoked.slug });
+		await publishInvalidation({ type: "slug", slug: revoked.slug });
 	}
 	return revoked;
 }
@@ -353,15 +382,28 @@ export async function authenticateMedia(input: {
 	return authenticated;
 }
 
-export function invalidateAuthCacheForUser(userId: string) {
+export function applyInvalidation(payload: CacheInvalidation) {
+	if (payload.type === "full") {
+		authCache.clear();
+		return;
+	}
+	if (payload.type === "slug") {
+		authCache.delete(payload.slug);
+		return;
+	}
 	for (const [slug, entry] of authCache) {
-		if (entry.userId === userId) {
-			authCache.delete(slug);
-		}
+		if (entry.userId === payload.userId) authCache.delete(slug);
 	}
 }
 
+export async function invalidateAuthCacheForUser(userId: string) {
+	const payload = { type: "user", userId } as const;
+	applyInvalidation(payload);
+	await publishInvalidation(payload);
+}
+
 function buildSrtUrl(
+	host: string,
 	action: MediaAction,
 	slug: string,
 	handle: string,
@@ -369,27 +411,38 @@ function buildSrtUrl(
 	latencyMicros?: number,
 ) {
 	const latency = latencyMicros ? `&latency=${latencyMicros}` : "";
-	return `srt://${env.RELAY_HOST}:8890?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
+	// ponytail: every relay uses the shared MediaMTX ports; add DB columns only
+	// if a relay ever differs.
+	return `srt://${host}:8890?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
 }
 
-function buildRtmpUrl(slug: string, handle: string, plaintext: string) {
-	return `rtmp://${env.RELAY_HOST}:1935/${slug}?user=${encodeURIComponent(handle)}&pass=${encodeURIComponent(plaintext)}`;
+function buildRtmpUrl(
+	host: string,
+	slug: string,
+	handle: string,
+	plaintext: string,
+) {
+	return `rtmp://${host}:1935/${slug}?user=${encodeURIComponent(handle)}&pass=${encodeURIComponent(plaintext)}`;
 }
 
 function buildPublishUrls(
-	path: { slug: string },
+	path: { relayHost: string; slug: string },
 	handle: string,
 	value: string,
 ) {
 	return {
 		slug: path.slug,
-		srt: buildSrtUrl("publish", path.slug, handle, value),
-		rtmp: buildRtmpUrl(path.slug, handle, value),
+		srt: buildSrtUrl(path.relayHost, "publish", path.slug, handle, value),
+		rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, value),
 	};
 }
 
 export function buildMaskedPathUrls(
-	path: { slug: string; publishRevealable: boolean },
+	path: {
+		relayHost: string;
+		slug: string;
+		publishRevealable: boolean;
+	},
 	handle: string,
 	readRevealable: boolean,
 ) {
@@ -400,8 +453,15 @@ export function buildMaskedPathUrls(
 		read: readRevealable
 			? {
 					slug: path.slug,
-					srt: buildSrtUrl("read", path.slug, handle, "*****", 300_000),
-					rtmp: buildRtmpUrl(path.slug, handle, "*****"),
+					srt: buildSrtUrl(
+						path.relayHost,
+						"read",
+						path.slug,
+						handle,
+						"*****",
+						300_000,
+					),
+					rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, "*****"),
 				}
 			: null,
 	};
@@ -418,9 +478,15 @@ async function ownedPath(userId: string, pathId: number) {
 			handle: appUser.handle,
 			readSecretHash: appUser.readSecretHash,
 			readSecretEncrypted: appUser.readSecretEncrypted,
+			relayHost: relay.host,
+			relayId: relay.id,
+			relayName: relay.name,
+			relayPingUrl: relay.pingUrl,
+			relayRegion: relay.region,
 		})
 		.from(relayPath)
 		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+		.innerJoin(relay, eq(relay.id, relayPath.relayId))
 		.where(
 			and(
 				eq(relayPath.id, pathId),
@@ -436,12 +502,22 @@ function publicPublishPath(path: {
 	id: number;
 	label: string;
 	publishOrigin: PublishOrigin | null;
+	relayId: number;
+	relayName: string;
+	relayPingUrl: string;
+	relayRegion: string;
 	slug: string;
 }) {
 	return {
 		id: path.id,
 		label: path.label,
 		publishOrigin: path.publishOrigin,
+		relay: {
+			id: path.relayId,
+			name: path.relayName,
+			pingUrl: path.relayPingUrl,
+			region: path.relayRegion,
+		},
 		slug: path.slug,
 	};
 }
@@ -482,10 +558,21 @@ async function storePublishSecret(input: {
 		)
 		.returning();
 	if (!updated) return null;
-	authCache.delete(updated.slug);
+	applyInvalidation({ type: "slug", slug: updated.slug });
+	await publishInvalidation({ type: "slug", slug: updated.slug });
 	return {
-		path: publicPublishPath(updated),
-		urls: buildPublishUrls(updated, path.handle, input.plaintext),
+		path: publicPublishPath({
+			...updated,
+			relayId: path.relayId,
+			relayName: path.relayName,
+			relayPingUrl: path.relayPingUrl,
+			relayRegion: path.relayRegion,
+		}),
+		urls: buildPublishUrls(
+			{ ...updated, relayHost: path.relayHost },
+			path.handle,
+			input.plaintext,
+		),
 	};
 }
 
@@ -512,10 +599,16 @@ export async function rotatePublishPath(userId: string, pathId: number) {
 	});
 }
 
-export async function createPublishDevice(userId: string, label: string) {
-	const path = await createPath(userId, label);
+export async function createPublishDevice(
+	userId: string,
+	label: string,
+	preferredRelayId?: number,
+) {
+	const path = await createPath(userId, label, preferredRelayId);
 	const device = await rotatePublishPath(userId, path.id);
 	if (!device) throw new Error("Failed to create publishing device");
+	const assigned = await ownedPath(userId, path.id);
+	if (!assigned) throw new Error("Failed to load publishing device");
 
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.id, userId),
@@ -526,8 +619,20 @@ export async function createPublishDevice(userId: string, label: string) {
 			const readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
 			read = {
 				slug: path.slug,
-				srt: buildSrtUrl("read", path.slug, owner.handle, readSecret, 300_000),
-				rtmp: buildRtmpUrl(path.slug, owner.handle, readSecret),
+				srt: buildSrtUrl(
+					assigned.relayHost,
+					"read",
+					path.slug,
+					owner.handle,
+					readSecret,
+					300_000,
+				),
+				rtmp: buildRtmpUrl(
+					assigned.relayHost,
+					path.slug,
+					owner.handle,
+					readSecret,
+				),
 			};
 		} catch {
 			// Read secret predates encrypted storage; device creation still succeeds.
@@ -637,7 +742,7 @@ export async function claimNativePublishDevice(input: {
 export function buildObsMediaSource(input: {
 	handle: string;
 	latencyMicros: number;
-	path: { id: number; label: string; slug: string };
+	path: { id: number; label: string; relayHost: string; slug: string };
 	readSecret: string;
 }) {
 	return {
@@ -646,6 +751,7 @@ export function buildObsMediaSource(input: {
 		settings: {
 			is_local_file: false,
 			input: buildSrtUrl(
+				input.path.relayHost,
 				"read",
 				input.path.slug,
 				input.handle,
@@ -666,7 +772,12 @@ export function buildObsMediaSource(input: {
 export function buildSceneCollection(input: {
 	handle: string;
 	latencyMicros: number;
-	paths: Array<{ id: number; label: string; slug: string }>;
+	paths: Array<{
+		id: number;
+		label: string;
+		relayHost: string;
+		slug: string;
+	}>;
 	readSecret: string;
 }) {
 	return {
@@ -734,8 +845,15 @@ async function buildReadBundle(
 	const paths = await listPaths(userId);
 	const readUrls = paths.map((path) => ({
 		slug: path.slug,
-		srt: buildSrtUrl("read", path.slug, handle, readSecret, 300_000),
-		rtmp: buildRtmpUrl(path.slug, handle, readSecret),
+		srt: buildSrtUrl(
+			path.relayHost,
+			"read",
+			path.slug,
+			handle,
+			readSecret,
+			300_000,
+		),
+		rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, readSecret),
 	}));
 
 	return {
@@ -775,7 +893,7 @@ export async function rotateReadSecret(userId: string) {
 			secretsRotatedAt: new Date(),
 		})
 		.where(eq(appUser.id, userId));
-	invalidateAuthCacheForUser(userId);
+	await invalidateAuthCacheForUser(userId);
 
 	return buildReadBundle(userId, owner.handle, readSecret);
 }
@@ -884,10 +1002,12 @@ export function recommendLatency(rttMs: number, profile: NetworkProfile) {
 export async function submitRtt(input: {
 	method: "browser-probe" | "manual";
 	profile: NetworkProfile;
+	relayId: number;
 	rttMs: number;
 	userId: string;
 }) {
 	await db.insert(rttSample).values({
+		relayId: input.relayId,
 		userId: input.userId,
 		rttMs: input.rttMs,
 		method: input.method,

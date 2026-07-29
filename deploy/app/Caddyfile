@@ -2,7 +2,7 @@
 	route {
 		@machine {
 			path /api/mediamtx/auth /api/hooks/*
-			remote_ip {$RELAY_PUBLIC_IP}
+			remote_ip {$RELAY_PUBLIC_IPS}
 		}
 		handle @machine {
 			reverse_proxy 127.0.0.1:3000

@@ -19,6 +19,7 @@ import {
 	reorderObsTiles,
 	updateObsTile,
 } from "../obs-tiles";
+import { fixedWindow } from "../rate-limit";
 import {
 	buildMaskedPathUrls,
 	claimNativePublishDevice,
@@ -35,16 +36,21 @@ import {
 	setAdvancedMode,
 	submitRtt,
 } from "../relay";
+import { listRelaysForProbing } from "../relays";
 import { reportLinkStats } from "../report-link-stats";
 import { listSnapshots } from "../snapshots";
 
-const relayProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+// ponytail: per-instance limit allows N× traffic on N app instances; move to
+// Postgres or the cache bus only if a strict global request cap is needed.
+const relayMutations = fixedWindow(20, 60_000);
+
+const relayProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
+	let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;
 	try {
-		const relayUser = await ensureRelayUser(
+		relayUser = await ensureRelayUser(
 			ctx.session.user.id,
 			ctx.session.user.name,
 		);
-		return next({ ctx: { ...ctx, relayUser } });
 	} catch (error) {
 		throw new TRPCError({
 			code:
@@ -58,6 +64,25 @@ const relayProcedure = protectedProcedure.use(async ({ ctx, next }) => {
 			cause: error,
 		});
 	}
+	if (type === "mutation" && !relayMutations.take(ctx.session.user.id)) {
+		throw new TRPCError({
+			code: "TOO_MANY_REQUESTS",
+			message: "Too many relay changes; try again in a minute",
+		});
+	}
+	const result = await next({ ctx: { ...ctx, relayUser } });
+	if (
+		!result.ok &&
+		result.error.cause instanceof Error &&
+		result.error.cause.message === "Path limit reached"
+	) {
+		throw new TRPCError({
+			code: "TOO_MANY_REQUESTS",
+			message: "Path limit reached",
+			cause: result.error.cause,
+		});
+	}
+	return result;
 });
 
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
@@ -100,6 +125,9 @@ function requireSceneTarget(input: TileFields) {
 }
 
 export const relayRoutes = {
+	relays: router({
+		list: relayProcedure.query(() => listRelaysForProbing()),
+	}),
 	obs: router({
 		liveTicket: relayProcedure.mutation(({ ctx }) =>
 			obsLiveTickets.issue({ role: "user", userId: ctx.relayUser.id }),
@@ -190,6 +218,8 @@ export const relayRoutes = {
 					seq: path.seq,
 					nativeInstallationId: path.nativeInstallationId,
 					publishRevealable: path.publishRevealable,
+					directTwitch: path.directTwitch,
+					directKick: path.directKick,
 					publishing: path.publishing,
 					readerCount: path.readerCount,
 					sourceType: path.sourceType,
@@ -203,15 +233,26 @@ export const relayRoutes = {
 					publishLastConnectedAt:
 						path.publishLastConnectedAt?.toISOString() ?? null,
 					publishOrigin: path.publishOrigin ?? "legacy",
+					relay: {
+						id: path.relayId,
+						name: path.relayName,
+						pingUrl: path.relayPingUrl,
+						region: path.relayRegion,
+					},
 					stale: unknown,
 					unknown,
 				};
 			});
 		}),
 		create: relayProcedure
-			.input(z.object({ label: z.string().trim().min(1).max(64) }))
+			.input(
+				z.object({
+					label: z.string().trim().min(1).max(64),
+					relayId: z.number().int().positive().optional(),
+				}),
+			)
 			.mutation(({ ctx, input }) =>
-				createPublishDevice(ctx.relayUser.id, input.label),
+				createPublishDevice(ctx.relayUser.id, input.label, input.relayId),
 			),
 		reveal: relayProcedure
 			.input(pathIdInput)
@@ -415,6 +456,7 @@ export const relayRoutes = {
 		submit: relayProcedure
 			.input(
 				z.object({
+					relayId: z.number().int().positive(),
 					rttMs: z.number().int().min(1).max(10_000),
 					profile: z.enum(["wired", "wifi", "cellular"]),
 					method: z.enum(["browser-probe", "manual"]),

@@ -1,3 +1,4 @@
+import { type AdvisoryLock, tryAdvisoryLock } from "@VISP/api/advisory-lock";
 import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
@@ -10,6 +11,7 @@ import {
 	revokeObsControlToken,
 	rotateObsControlToken,
 } from "@VISP/api/obs-control";
+import { fixedWindow } from "@VISP/api/rate-limit";
 import {
 	applyPathHook,
 	authenticateMedia,
@@ -27,6 +29,10 @@ import { env } from "@VISP/env/server";
 import { timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
+
+// ponytail: per-instance limit allows N× traffic on N app instances; move to
+// Postgres or the cache bus only if a strict global request cap is needed.
+const deviceMutations = fixedWindow(20, 60_000);
 
 function matchesHookSecret(value: string | undefined) {
 	if (!value) {
@@ -101,8 +107,14 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			try {
 				const owner = await authenticateObsControlToken(headers.authorization);
 				if (!owner) return status(401, "unauthorized");
+				if (!deviceMutations.take(owner.id)) {
+					return status(429, "too many device changes");
+				}
 				return await createPublishDevice(owner.id, body.label);
-			} catch {
+			} catch (error) {
+				if (error instanceof Error && error.message === "Path limit reached") {
+					return status(429, "path limit reached");
+				}
 				return status(503, "device creation unavailable");
 			}
 		},
@@ -322,10 +334,25 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 
 export function startReconciler() {
 	let running = false;
+	let acquiring = false;
+	let lock: AdvisoryLock | undefined;
 	const run = async () => {
-		if (running) {
-			return;
+		if (!lock) {
+			if (acquiring) return;
+			acquiring = true;
+			try {
+				lock =
+					(await tryAdvisoryLock("visp:path-reconciler", () => {
+						lock = undefined;
+					})) ?? undefined;
+			} catch (error) {
+				console.error("Reconciler lock acquisition failed", error);
+				return;
+			} finally {
+				acquiring = false;
+			}
 		}
+		if (!lock || running) return;
 		running = true;
 		try {
 			await reconcilePathState();
@@ -338,5 +365,9 @@ export function startReconciler() {
 
 	void run();
 	const timer = setInterval(run, 10_000);
-	return () => clearInterval(timer);
+	return () => {
+		clearInterval(timer);
+		void lock?.release();
+		lock = undefined;
+	};
 }

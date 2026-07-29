@@ -2,7 +2,7 @@ import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq, inArray } from "drizzle-orm";
 import { hasChannelWriteScope } from "../channel/stream-info";
-import { hasScope, PROVIDER_SCOPES, parseScopes } from "../scopes";
+import { hasScope, hasStreamKeyScope, parseScopes } from "../scopes";
 import type { ChatProvider } from "./contract";
 import { chatHub } from "./hub";
 import { createKickSubscription, deleteKickSubscription } from "./kick";
@@ -54,8 +54,7 @@ export async function listChatConnections(userId: string) {
 			canManageChannel:
 				Boolean(linked) && hasChannelWriteScope(provider, linked?.scope),
 			canReadStreamKey:
-				Boolean(linked) &&
-				hasScope(linked?.scope, PROVIDER_SCOPES[provider].streamKey),
+				Boolean(linked) && hasStreamKeyScope(provider, linked?.scope),
 		};
 	});
 }

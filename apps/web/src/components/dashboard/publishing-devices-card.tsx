@@ -15,6 +15,7 @@ import { SimpleUrl, UrlWithFallback } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
 import { useT } from "@/lib/i18n";
+import { probeRelayRtt } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 import { PathRow } from "./path-row";
 import type { CreatedDevice } from "./types";
@@ -29,11 +30,13 @@ export function PublishingDevicesCard({
 	const queryClient = useQueryClient();
 	const [label, setLabel] = useState("");
 	const [created, setCreated] = useState<CreatedDevice | null>(null);
+	const [probing, setProbing] = useState(false);
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
 	const advancedMode = statusQuery.data?.advancedMode ?? false;
 	const pathsQuery = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
 	);
+	const relaysQuery = useQuery(trpc.relays.list.queryOptions());
 	const create = useMutation(
 		trpc.paths.create.mutationOptions({
 			onSuccess: async (result) => {
@@ -47,6 +50,30 @@ export function PublishingDevicesCard({
 	);
 
 	const paths = pathsQuery.data ?? [];
+	const createOnFastestRelay = async () => {
+		setProbing(true);
+		try {
+			const relays =
+				relaysQuery.data ??
+				(await queryClient.fetchQuery(trpc.relays.list.queryOptions()));
+			const probes = await Promise.allSettled(
+				relays.map(async (relay) => ({
+					id: relay.id,
+					rtt: await probeRelayRtt(relay.pingUrl),
+				})),
+			);
+			const fastest = probes
+				.flatMap((probe) => (probe.status === "fulfilled" ? [probe.value] : []))
+				.sort((a, b) => a.rtt - b.rtt)[0];
+			create.mutate({ label, relayId: fastest?.id });
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Could not list relays",
+			);
+		} finally {
+			setProbing(false);
+		}
+	};
 
 	return (
 		<Card>
@@ -152,10 +179,10 @@ export function PublishingDevicesCard({
 					/>
 					<Button
 						icon={<Icon color="inherit" icon={PlusIcon} size="sm" />}
-						isDisabled={create.isPending || !label.trim()}
+						isDisabled={create.isPending || probing || !label.trim()}
 						label={t("Add device")}
 						variant="primary"
-						onClick={() => create.mutate({ label })}
+						onClick={() => void createOnFastestRelay()}
 					/>
 				</HStack>
 				<HStack gap={2} wrap="wrap">

@@ -20,6 +20,9 @@ bitstream to OBS untouched. With Direct enabled on a device:
 - each destination is its own process, so one platform failing does not
   interrupt the other.
 
+VISP Native uses a lower Direct contribution bitrate while keeping 1080p
+available; platform quality comes from the relay encode.
+
 Streaming to both platforms doubles relay CPU and outbound bandwidth. It does
 not add a second upload from your phone.
 

@@ -743,6 +743,225 @@ function UserDetailPanel({
 	);
 }
 
+function RelayAdmin() {
+	const queryClient = useQueryClient();
+	const relays = useQuery({
+		queryKey: ["admin-relays"],
+		queryFn: () => trpc.admin.relays.list.query(),
+	});
+	const [draft, setDraft] = useState({
+		name: "",
+		host: "",
+		apiUrl: "",
+		pingUrl: "",
+		region: "",
+		capacityPaths: "100",
+		maxForwarders: "2",
+		publicIp: "",
+	});
+	const run = async (action: () => Promise<unknown>, message: string) => {
+		try {
+			await action();
+			await queryClient.invalidateQueries({ queryKey: ["admin-relays"] });
+			toast.success(message);
+		} catch (error) {
+			toast.error(
+				error instanceof Error ? error.message : "Relay update failed",
+			);
+		}
+	};
+
+	return (
+		<Card className="border border-border/60">
+			<CardHeader>
+				<CardTitle className="text-lg">Relays</CardTitle>
+				<CardDescription>
+					Register capacity and drain nodes without production SQL.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="grid gap-4">
+				<div className="overflow-x-auto">
+					<table className="admin-table">
+						<thead>
+							<tr>
+								<th>Relay</th>
+								<th>Region</th>
+								<th>Load</th>
+								<th>Forwarders</th>
+								<th>Status</th>
+								<th>Actions</th>
+							</tr>
+						</thead>
+						<tbody>
+							{relays.data?.map((relay) => (
+								<tr className="cursor-default!" key={relay.id}>
+									<td>
+										<p className="font-medium">{relay.name}</p>
+										<p className="text-muted-foreground text-xs">
+											{relay.host}
+										</p>
+									</td>
+									<td>{relay.region}</td>
+									<td>
+										<Input
+											aria-label={`${relay.name} path capacity`}
+											className="w-24"
+											defaultValue={relay.capacityPaths}
+											type="number"
+											onBlur={(event) => {
+												const capacityPaths = Number(event.target.value);
+												if (
+													Number.isInteger(capacityPaths) &&
+													capacityPaths > 0 &&
+													capacityPaths !== relay.capacityPaths
+												) {
+													void run(
+														() =>
+															trpc.admin.relays.update.mutate({
+																id: relay.id,
+																capacityPaths,
+															}),
+														"Relay capacity updated",
+													);
+												}
+											}}
+										/>
+										<p className="text-muted-foreground text-xs">
+											{relay.assignedPaths} assigned
+										</p>
+									</td>
+									<td>
+										<Input
+											aria-label={`${relay.name} forwarder capacity`}
+											className="w-20"
+											defaultValue={relay.maxForwarders}
+											type="number"
+											onBlur={(event) => {
+												const maxForwarders = Number(event.target.value);
+												if (
+													Number.isInteger(maxForwarders) &&
+													maxForwarders >= 0 &&
+													maxForwarders !== relay.maxForwarders
+												) {
+													void run(
+														() =>
+															trpc.admin.relays.update.mutate({
+																id: relay.id,
+																maxForwarders,
+															}),
+														"Forwarder capacity updated",
+													);
+												}
+											}}
+										/>
+									</td>
+									<td>
+										{relay.drainedAt ? (
+											<Badge variant="outline">draining</Badge>
+										) : relay.enabled ? (
+											<Badge variant="secondary">enabled</Badge>
+										) : (
+											<Badge variant="destructive">disabled</Badge>
+										)}
+									</td>
+									<td>
+										<div className="flex gap-1">
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() =>
+													void run(
+														() =>
+															trpc.admin.relays.update.mutate({
+																id: relay.id,
+																enabled: !relay.enabled,
+															}),
+														relay.enabled ? "Relay disabled" : "Relay enabled",
+													)
+												}
+											>
+												{relay.enabled ? "Disable" : "Enable"}
+											</Button>
+											<Button
+												size="sm"
+												variant="outline"
+												onClick={() =>
+													void run(
+														() =>
+															trpc.admin.relays.update.mutate({
+																id: relay.id,
+																drained: !relay.drainedAt,
+															}),
+														relay.drainedAt
+															? "Drain cleared"
+															: "Relay draining",
+													)
+												}
+											>
+												{relay.drainedAt ? "Undrain" : "Drain"}
+											</Button>
+										</div>
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+				<form
+					className="grid gap-2 md:grid-cols-4"
+					onSubmit={(event) => {
+						event.preventDefault();
+						void run(
+							() =>
+								trpc.admin.relays.create.mutate({
+									...draft,
+									capacityPaths: Number(draft.capacityPaths),
+									maxForwarders: Number(draft.maxForwarders),
+								}),
+							"Relay created",
+						);
+					}}
+				>
+					{(
+						[
+							["name", "Name"],
+							["region", "Region"],
+							["host", "Public host"],
+							["publicIp", "Public IP"],
+							["apiUrl", "Control API URL"],
+							["pingUrl", "Ping URL"],
+							["capacityPaths", "Path capacity"],
+							["maxForwarders", "Max forwarders"],
+						] as const
+					).map(([field, placeholder]) => (
+						<Input
+							aria-label={placeholder}
+							key={field}
+							placeholder={placeholder}
+							required
+							type={
+								field.endsWith("Url")
+									? "url"
+									: field === "capacityPaths" || field === "maxForwarders"
+										? "number"
+										: "text"
+							}
+							value={draft[field]}
+							onChange={(event) =>
+								setDraft((current) => ({
+									...current,
+									[field]: event.target.value,
+								}))
+							}
+						/>
+					))}
+					<Button type="submit">Add relay</Button>
+				</form>
+			</CardContent>
+		</Card>
+	);
+}
+
 function Console({
 	session,
 }: {
@@ -884,6 +1103,10 @@ function Console({
 							value={overview.data?.liveNow ?? 0}
 						/>
 					</div>
+				</section>
+
+				<section>
+					<RelayAdmin />
 				</section>
 
 				<section className="grid gap-4 2xl:grid-cols-[minmax(0,1.35fr)_minmax(430px,0.65fr)]">

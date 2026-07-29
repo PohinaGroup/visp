@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+import { publishNotification, subscribeNotifications } from "../cache-bus";
 import type {
 	ChatLiveEvent,
 	ChatProvider,
@@ -6,6 +8,10 @@ import type {
 
 type Listener = (event: ChatLiveEvent) => void;
 type AudienceListener = (userId: string, count: number) => void;
+const CHAT_CHANNEL = "visp_chat";
+const MAX_NOTIFY_BYTES = 8_000;
+const CHAT_INSTANCE_ID = randomUUID();
+let fanoutStarted = false;
 
 class ChatHub {
 	private readonly audiences = new Set<AudienceListener>();
@@ -37,6 +43,44 @@ class ChatHub {
 	}
 
 	publish(userId: string, event: ChatLiveEvent) {
+		this.publishLocal(userId, event);
+		if (!fanoutStarted) return;
+		const payload = JSON.stringify({
+			event,
+			source: CHAT_INSTANCE_ID,
+			userId,
+		});
+		if (Buffer.byteLength(payload) >= MAX_NOTIFY_BYTES) return;
+		void publishNotification(CHAT_CHANNEL, payload).catch((error) => {
+			console.error("Chat fan-out publish failed", error);
+		});
+	}
+
+	receiveRemote(payload: string) {
+		try {
+			const decoded = JSON.parse(payload) as {
+				event?: ChatLiveEvent;
+				source?: string;
+				userId?: string;
+			};
+			if (
+				!decoded.userId ||
+				!decoded.event ||
+				decoded.source === CHAT_INSTANCE_ID
+			)
+				return;
+			if (decoded.event.type === "status") {
+				const statuses = this.statuses.get(decoded.userId) ?? new Map();
+				statuses.set(decoded.event.status.provider, decoded.event.status);
+				this.statuses.set(decoded.userId, statuses);
+			}
+			this.publishLocal(decoded.userId, decoded.event);
+		} catch {
+			// Ignore malformed notifications from the shared database channel.
+		}
+	}
+
+	private publishLocal(userId: string, event: ChatLiveEvent) {
 		for (const listener of this.listeners.get(userId) ?? []) listener(event);
 	}
 
@@ -58,3 +102,10 @@ class ChatHub {
 }
 
 export const chatHub = new ChatHub();
+
+export function startChatFanout() {
+	fanoutStarted = true;
+	return subscribeNotifications(CHAT_CHANNEL, (payload) =>
+		chatHub.receiveRemote(payload),
+	);
+}

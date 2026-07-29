@@ -1,6 +1,12 @@
 import { describe, expect, test } from "bun:test";
 
-import { hasScope, linkScopes, PROVIDER_SCOPES, parseScopes } from "./scopes";
+import {
+	hasScope,
+	hasStreamKeyScope,
+	linkScopes,
+	PROVIDER_SCOPES,
+	parseScopes,
+} from "./scopes";
 
 describe("parseScopes", () => {
 	test("splits space and comma separated scope strings", () => {
@@ -49,10 +55,16 @@ describe("linkScopes", () => {
 	// them, so a Kick link that omits them de-authorizes title and category.
 	test("always names Kick's config scopes, which link calls would otherwise drop", () => {
 		expect(linkScopes("kick", [])).toEqual(["user:read", "channel:write"]);
-		expect(linkScopes("kick", [], [PROVIDER_SCOPES.kick.streamKey])).toEqual([
-			"user:read",
-			"channel:write",
-			"streamkey:read",
-		]);
+		expect(
+			linkScopes("kick", [], PROVIDER_SCOPES.kick.streamKeyRequest),
+		).toEqual(["user:read", "channel:write", "streamkey:read", "channel:read"]);
+	});
+});
+
+describe("hasStreamKeyScope", () => {
+	test("Kick requires both streamkey:read and channel:read", () => {
+		expect(hasStreamKeyScope("kick", "streamkey:read channel:read")).toBe(true);
+		expect(hasStreamKeyScope("kick", "streamkey:read")).toBe(false);
+		expect(hasStreamKeyScope("twitch", "channel:read:stream_key")).toBe(true);
 	});
 });

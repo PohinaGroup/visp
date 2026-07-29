@@ -11,15 +11,15 @@ transcoding it; the app decides who may connect and tracks what is live.
 
 | Piece | Runs | Responsibility |
 | --- | --- | --- |
-| Relay host | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
+| Relay hosts | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
 | App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch and Kick login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
 | OBS Remote | `remote.visp-stream.com` (also iOS/Android) | Dedicated stream and scene control surface using the broadcaster's VISP account |
 | OBS plugin | Broadcaster's OBS Studio 31 | Device management, Media Source setup, and outbound-only remote control |
 
-The hosts talk over Tailscale for administration and the MediaMTX Control API.
-Media uses the relay's public SRT (UDP 8890), RTMP (TCP 1935), and WebRTC
+The hosts talk over Tailscale for administration and each MediaMTX Control API.
+Media uses the assigned relay's public SRT (UDP 8890), RTMP (TCP 1935), and WebRTC
 (UDP/TCP 8189) ports.
 
 ## Media authentication
@@ -49,8 +49,9 @@ authentication. This is the accepted failure mode.
   is encrypted for authenticated re-reveal and stored as an Argon2id hash for
   MediaMTX authentication. Revealing it can regenerate OBS URLs and scene
   collections; rotating it invalidates every existing OBS Media Source.
-- A path always belongs to exactly one user, and MediaMTX accepts one publisher
-  per path: the first connection wins until it disconnects.
+- A path always belongs to exactly one user and one capacity-managed relay.
+  MediaMTX accepts one publisher per path: the first connection wins until it
+  disconnects. Per-user active-path quotas bound provisioning abuse.
 
 ## Path state and reconciliation
 
@@ -58,9 +59,9 @@ MediaMTX reports lifecycle changes to the app through hook endpoints
 (`POST /api/hooks/ready`, `not-ready`, `read`, `unread`), each authenticated
 with the shared `x-hook-secret`. The app updates path state from these events.
 
-Hooks can be lost, so the server also reconciles against the MediaMTX Control
-API over Tailscale every 10 seconds. The dashboard therefore converges within
-ten seconds of reality even after a relay restart or dropped hook.
+Hooks can be lost, so one elected app instance reconciles against every enabled
+relay's MediaMTX Control API over Tailscale every 10 seconds. A failed relay is
+skipped without changing its stored live state; healthy relays still converge.
 
 ## Snapshots
 
@@ -96,6 +97,8 @@ over WSS, and sends commands through authenticated tRPC mutations.
 A pairing counts as **Connected** while its last state report is under ten
 seconds old. Rotating the machine token invalidates existing tickets and socket
 writes. Both clients reconnect with bounded backoff; no inbound OBS port opens.
+Cross-instance OBS status and commands remain database-poll backed, so they can
+propagate more slowly than same-instance WebSocket updates.
 
 ## Chat and metadata
 
@@ -107,10 +110,10 @@ metadata on the provider.
 
 ## Boundaries
 
-VISP does not enforce quotas, bill users, host OBS, or scale MediaMTX
-horizontally. For the relay-to-OBS path the relay forwards the H.264/AAC (or
-WebRTC H.264/Opus) feed exactly as published — no transcode, no provider stream
-key.
+VISP does not bill users or host OBS. It assigns paths across multiple relays
+but does not move an existing path automatically. For the relay-to-OBS path the
+assigned relay forwards the H.264/AAC (or WebRTC H.264/Opus) feed exactly as
+published — no transcode, no provider stream key.
 
 VISP Direct is the one exception, and it is opt-in per publishing device and
 gated to a beta flag. When a device has a Direct output enabled, the relay runs
