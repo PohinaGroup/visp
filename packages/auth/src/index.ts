@@ -1,6 +1,10 @@
 import { createDb } from "@VISP/db";
 import * as schema from "@VISP/db/schema/auth";
 import { env } from "@VISP/env/server";
+import {
+	createObjectStore,
+	type ObjectStore,
+} from "@VISP/object-store";
 import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -24,7 +28,7 @@ export function isAdminUser(user: { id: string; role?: string | null }) {
 	);
 }
 
-const snapshots = new Bun.S3Client({
+const snapshots = createObjectStore({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
 	bucket: env.S3_BUCKET,
 	endpoint: env.S3_ENDPOINT,
@@ -34,7 +38,7 @@ const snapshots = new Bun.S3Client({
 
 export async function deleteSnapshotsForPathIds(
 	pathIds: number[],
-	client: Pick<Bun.S3Client, "delete"> = snapshots,
+	client: Pick<ObjectStore, "delete"> = snapshots,
 ) {
 	await Promise.all(
 		pathIds.map((pathId) => client.delete(`snapshots/${pathId}.jpg`)),

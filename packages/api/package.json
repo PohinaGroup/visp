@@ -16,6 +16,7 @@
 		"@VISP/auth": "workspace:*",
 		"@VISP/db": "workspace:*",
 		"@VISP/env": "workspace:*",
+		"@VISP/object-store": "workspace:*",
 		"@trpc/client": "catalog:",
 		"@trpc/server": "catalog:",
 		"drizzle-orm": "^0.45.2",

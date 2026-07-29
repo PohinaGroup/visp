@@ -96,9 +96,19 @@ systemctl restart visp-server visp-web
 systemctl reload caddy
 systemctl is-active --quiet visp-server visp-web caddy
 
-curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
-	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
-curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
-	--fail --silent --show-error http://127.0.0.1:3001/ >/dev/null
+if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+	echo "visp-release: visp-server did not become ready on :3000" >&2
+	systemctl --no-pager --full status visp-server >&2 || true
+	journalctl -u visp-server -n 80 --no-pager >&2 || true
+	exit 1
+fi
+if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3001/ >/dev/null; then
+	echo "visp-release: visp-web did not become ready on :3001" >&2
+	systemctl --no-pager --full status visp-web >&2 || true
+	journalctl -u visp-web -n 80 --no-pager >&2 || true
+	exit 1
+fi
 
 echo "VISP $tag ($expected_sha) deployed"

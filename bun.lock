@@ -86,7 +86,7 @@
     },
     "apps/native": {
       "name": "@VISP/native",
-      "version": "1.0.47",
+      "version": "1.0.48",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@bacons/apple-targets": "^5.0.0",
@@ -129,7 +129,7 @@
     },
     "apps/obs-remote": {
       "name": "@VISP/obs-remote",
-      "version": "1.0.47",
+      "version": "1.0.48",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@better-auth/expo": "catalog:",
@@ -248,6 +248,7 @@
         "@VISP/auth": "workspace:*",
         "@VISP/db": "workspace:*",
         "@VISP/env": "workspace:*",
+        "@VISP/object-store": "workspace:*",
         "@trpc/client": "catalog:",
         "@trpc/server": "catalog:",
         "dotenv": "catalog:",
@@ -265,6 +266,7 @@
       "dependencies": {
         "@VISP/db": "workspace:*",
         "@VISP/env": "workspace:*",
+        "@VISP/object-store": "workspace:*",
         "@better-auth/expo": "catalog:",
         "better-auth": "catalog:",
         "dotenv": "catalog:",
@@ -306,6 +308,16 @@
       "devDependencies": {
         "@VISP/config": "workspace:*",
         "@types/bun": "catalog:",
+        "typescript": "catalog:",
+      },
+    },
+    "packages/object-store": {
+      "name": "@VISP/object-store",
+      "dependencies": {
+        "aws4fetch": "^1.0.20",
+      },
+      "devDependencies": {
+        "@VISP/config": "workspace:*",
         "typescript": "catalog:",
       },
     },
@@ -368,6 +380,8 @@
     "@VISP/env": ["@VISP/env@workspace:packages/env"],
 
     "@VISP/native": ["@VISP/native@workspace:apps/native"],
+
+    "@VISP/object-store": ["@VISP/object-store@workspace:packages/object-store"],
 
     "@VISP/obs-remote": ["@VISP/obs-remote@workspace:apps/obs-remote"],
 
@@ -1402,6 +1416,8 @@
     "astring": ["astring@1.9.0", "", { "bin": { "astring": "bin/astring" } }, "sha512-LElXdjswlqjWrPpJFg1Fx4wpkOCxj1TDHlSV4PlaRxHGWko024xICaa97ZkMfs6DRKlCguiAI+rbXv5GWwXIkg=="],
 
     "atomically": ["atomically@1.7.0", "", {}, "sha512-Xcz9l0z7y9yQ9rdDaxlmaI4uJHf/T8g9hOEzJcsEqX2SjCj4J20uK7+ldkDHMbpJDK76wF7xEIgxc/vSlsfw5w=="],
+
+    "aws4fetch": ["aws4fetch@1.0.20", "", {}, "sha512-/djoAN709iY65ETD6LKCtyyEI04XIBP5xVvfmNxsEP0uJB5tyaGBztSryRr4HqMStr9R06PisQE7m9zDTXKu6g=="],
 
     "babel-dead-code-elimination": ["babel-dead-code-elimination@1.0.12", "", { "dependencies": { "@babel/core": "^7.23.7", "@babel/parser": "^7.23.6", "@babel/traverse": "^7.23.7", "@babel/types": "^7.23.6" } }, "sha512-GERT7L2TiYcYDtYk1IpD+ASAYXjKbLTDPhBtYj7X1NuRMDTMtAx9kyBenub1Ev41lo91OHCKdmP+egTDmfQ7Ig=="],
 

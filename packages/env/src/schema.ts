@@ -12,8 +12,9 @@ export const serverEnvSchema = {
 	DATABASE_URL: z.string().min(1),
 	/**
 	 * Optional PEM path for managed Postgres CA verification.
-	 * Prefer installing the CA into the system trust store instead: Bun 1.3.x
-	 * can segfault when ssl.ca is set alongside Bun.S3Client.
+	 * Prefer installing the CA into the system trust store instead. The API
+	 * process ignores this value and never passes ssl.ca (Bun 1.3.x OpenSSL
+	 * can segfault when a custom CA PEM is combined with other TLS clients).
 	 */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
 	/** Bootstrap value for the database-backed default relay. */

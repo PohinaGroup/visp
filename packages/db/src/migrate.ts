@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -21,7 +20,6 @@ if (!process.env.DATABASE_URL) {
 }
 
 const connectionString = process.env.DATABASE_URL;
-const sslCaPath = process.env.DATABASE_SSL_CA;
 
 if (!connectionString) {
 	console.error("Migration failed: DATABASE_URL is not set");
@@ -43,8 +41,10 @@ function createMigrationPool(url: string) {
 		sslmode === "require" ||
 		sslmode === "verify-ca" ||
 		sslmode === "verify-full";
+	// Match the runtime pool: never pass a custom CA PEM (Bun+S3 segfault).
+	// Rely on the system trust store for managed Postgres.
 	const needsSsl =
-		Boolean(sslCaPath) ||
+		Boolean(process.env.DATABASE_SSL_CA) ||
 		urlRequestsSsl ||
 		(!isLocalDatabaseHost(parsed.hostname) && sslmode !== "disable");
 
@@ -64,10 +64,7 @@ function createMigrationPool(url: string) {
 
 	return new Pool({
 		connectionString: parsed.toString(),
-		ssl: {
-			...(sslCaPath ? { ca: readFileSync(sslCaPath, "utf8") } : {}),
-			rejectUnauthorized: true,
-		},
+		ssl: { rejectUnauthorized: true },
 	});
 }
 

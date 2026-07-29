@@ -1,12 +1,16 @@
 import { db } from "@VISP/db";
 import { pathState, relayPath } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
+import {
+	createObjectStore,
+	type ObjectStore,
+} from "@VISP/object-store";
 import { and, eq, gte, isNull } from "drizzle-orm";
 
 const PATH_ONLINE_FOR_MS = 60_000;
 const SNAPSHOT_FRESH_FOR_MS = 120_000;
 
-const snapshots = new Bun.S3Client({
+const snapshots = createObjectStore({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
 	bucket: env.S3_BUCKET,
 	endpoint: env.S3_ENDPOINT,
@@ -14,7 +18,7 @@ const snapshots = new Bun.S3Client({
 	secretAccessKey: env.S3_SECRET_ACCESS_KEY,
 });
 
-const snapshotUploads = new Bun.S3Client({
+const snapshotUploads = createObjectStore({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
 	bucket: env.S3_BUCKET,
 	endpoint: env.S3_UPLOAD_ENDPOINT ?? env.S3_ENDPOINT,
@@ -22,7 +26,7 @@ const snapshotUploads = new Bun.S3Client({
 	secretAccessKey: env.S3_SECRET_ACCESS_KEY,
 });
 
-type SnapshotReader = Pick<Bun.S3Client, "presign" | "stat">;
+type SnapshotReader = Pick<ObjectStore, "presign" | "stat">;
 
 export function snapshotKey(pathId: number) {
 	return `snapshots/${pathId}.jpg`;
@@ -30,7 +34,7 @@ export function snapshotKey(pathId: number) {
 
 export async function getSnapshotUploadUrl(
 	path: string,
-	client: Pick<Bun.S3Client, "presign"> = snapshotUploads,
+	client: Pick<ObjectStore, "presign"> = snapshotUploads,
 ) {
 	const [livePath] = await db
 		.select({ id: relayPath.id })
@@ -84,7 +88,7 @@ export async function listSnapshots(
 					label: path.label,
 					capturedAt: stat.lastModified.toISOString(),
 					url: fresh
-						? client.presign(key, { expiresIn: 120, method: "GET" })
+						? await client.presign(key, { expiresIn: 120, method: "GET" })
 						: null,
 				};
 			} catch {
