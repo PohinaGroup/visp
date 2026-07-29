@@ -282,6 +282,8 @@ export const relayRoutes = {
 				z.object({
 					pathId: z.number().int().positive(),
 					bitrateKbps: z.number().int().min(0).max(50_000),
+					linkCount: z.number().int().min(1).max(8).default(1),
+					linkDegraded: z.boolean().default(false),
 					targetBitrateKbps: z.number().int().min(0).max(50_000),
 					rttMs: z.number().int().min(0).max(60_000),
 					packetLossPct: z.number().min(0).max(100),

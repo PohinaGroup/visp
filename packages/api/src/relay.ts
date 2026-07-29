@@ -208,6 +208,8 @@ export async function listPaths(userId: string) {
 			linkTargetBitrateKbps: pathState.linkTargetBitrateKbps,
 			linkRttMs: pathState.linkRttMs,
 			linkPacketLossPct: pathState.linkPacketLossPct,
+			linkCount: pathState.linkCount,
+			linkDegraded: pathState.linkDegraded,
 			linkStatsAt: pathState.linkStatsAt,
 		})
 		.from(relayPath)
@@ -367,9 +369,10 @@ function buildSrtUrl(
 	handle: string,
 	plaintext: string,
 	latencyMicros?: number,
+	port = 8890,
 ) {
 	const latency = latencyMicros ? `&latency=${latencyMicros}` : "";
-	return `srt://${env.RELAY_HOST}:8890?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
+	return `srt://${env.RELAY_HOST}:${port}?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
 }
 
 function buildRtmpUrl(slug: string, handle: string, plaintext: string) {
@@ -384,6 +387,14 @@ function buildPublishUrls(
 	return {
 		slug: path.slug,
 		srt: buildSrtUrl("publish", path.slug, handle, value),
+		srtBonded: buildSrtUrl(
+			"publish",
+			path.slug,
+			handle,
+			value,
+			undefined,
+			8891,
+		),
 		rtmp: buildRtmpUrl(path.slug, handle, value),
 	};
 }

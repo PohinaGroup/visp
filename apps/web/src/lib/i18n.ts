@@ -54,6 +54,8 @@ const finnishUi: Record<string, string> = {
 	Live: "Suora",
 	Offline: "Ei yhteyttä",
 	Congested: "Tukkoinen",
+	Degraded: "Vajaa yhteys",
+	links: "yhteyttä",
 	"Status unknown": "Tila ei ole tiedossa",
 	OBS: "OBS",
 	"Plugin pairing": "Lisäosan yhdistäminen",

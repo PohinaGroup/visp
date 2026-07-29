@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	clampVideoBitrateKbps,
+	formatBondedLinks,
 	formatLinkStats,
 	formatLiveLinkHud,
 	isLinkCongested,
@@ -22,6 +23,8 @@ describe("linkStatsFromPath", () => {
 	const fresh = {
 		linkBitrateKbps: 2100,
 		linkPacketLossPct: 0.2,
+		linkCount: 2,
+		linkDegraded: false,
 		linkRttMs: 48,
 		linkStatsAt: new Date(),
 		linkTargetBitrateKbps: 3500,
@@ -32,6 +35,8 @@ describe("linkStatsFromPath", () => {
 		expect(linkStatsFromPath(fresh)).toEqual({
 			bitrateKbps: 2100,
 			congested: false,
+			linkCount: 2,
+			linkDegraded: false,
 			packetLossPct: 0.2,
 			rttMs: 48,
 			targetBitrateKbps: 3500,
@@ -82,6 +87,27 @@ describe("formatLiveLinkHud", () => {
 			),
 		).toBe(" · 2.1 Mb/s · 48 ms · 0.2%");
 	});
+});
+
+test("formats per-link bonded stats", () => {
+	expect(
+		formatBondedLinks([
+			{
+				bitrateKbps: 2100,
+				packetLossPct: 0.2,
+				rttMs: 48,
+				state: "connected",
+				transport: "wifi",
+			},
+			{
+				bitrateKbps: 0,
+				packetLossPct: 0,
+				rttMs: 0,
+				state: "broken",
+				transport: "cellular",
+			},
+		]),
+	).toBe("Wi-Fi 2.1 Mb/s · 48 ms · 0.2% · Cellular broken");
 });
 
 describe("videoBitrateCeilingKbps", () => {

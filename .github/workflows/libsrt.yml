@@ -1,0 +1,39 @@
+name: Build bonded libsrt
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - apps/native/modules/visp-srt/scripts/build-libsrt.sh
+      - .github/workflows/libsrt.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - uses: actions/cache@6849a6489940f00c2f30c0fb92c6274307ccb58a # v4
+        with:
+          path: apps/native/modules/visp-srt/.build-libsrt
+          key: libsrt-${{ runner.os }}-${{ hashFiles('apps/native/modules/visp-srt/scripts/build-libsrt.sh') }}
+
+      - name: Select installed Android NDK
+        shell: bash
+        run: echo "ANDROID_NDK_HOME=$ANDROID_HOME/ndk/$(ls "$ANDROID_HOME/ndk" | sort -V | tail -1)" >> "$GITHUB_ENV"
+
+      - name: Build iOS and Android artifacts
+        run: apps/native/modules/visp-srt/scripts/build-libsrt.sh all
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: libsrt-bonding-1.5.4
+          if-no-files-found: error
+          path: |
+            apps/native/modules/visp-srt/vendor/ios/libsrt.xcframework
+            apps/native/modules/visp-srt/vendor/haishinkit/Artifacts/libsrt.xcframework
+            apps/native/modules/visp-srt/vendor/android/jniLibs
+            apps/native/modules/visp-srt/vendor/include

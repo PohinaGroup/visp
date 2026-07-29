@@ -31,7 +31,8 @@ disconnecting either side behaves as expected. Only then install
 
 ## 2. Relay box
 
-1. Install Tailscale, Caddy, `curl`, `ffmpeg`, and the pinned MediaMTX binary.
+1. Install Tailscale, Caddy, `curl`, `ffmpeg`, CMake, a C compiler, mbedTLS
+   development headers, and the pinned MediaMTX binary.
 2. Install the snapshot hook and final config:
 
    ```bash
@@ -70,6 +71,14 @@ disconnecting either side behaves as expected. Only then install
    and bounds total concurrent forwarders across the node. Twitch + Kick on one
    source counts as two.
 
+   The bonded SRT gateway accepts these optional limits from the same file:
+
+   ```text
+   VISP_BOND_MAX_GROUPS=64
+   VISP_BOND_MAX_LINKS=2
+   VISP_BOND_IDLE_TIMEOUT_MS=15000
+   ```
+
    **Direct puts platform stream keys in FFmpeg's argv.** FFmpeg has no
    environment or stdin form for an output URL, and `/proc/<pid>/cmdline` is
    world-readable by default. MediaMTX runs as root here, so `hidepid` keeps
@@ -89,11 +98,45 @@ disconnecting either side behaves as expected. Only then install
    does not. This is defence in depth: with root as the only account on the
    box it changes little today, but it bounds the blast radius the moment any
    unprivileged service runs here.
-4. Install `systemd/mediamtx.service`. Use Caddy's packaged systemd unit with
+4. Build libsrt 1.5.4 with bonding and mbedTLS, then build the gateway:
+
+   ```bash
+   cmake -S libsrt-1.5.4 -B libsrt-1.5.4/build \
+     -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+     -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+     -DENABLE_APPS=OFF -DENABLE_BONDING=ON -DENABLE_ENCRYPTION=ON \
+     -DUSE_ENCLIB=mbedtls
+   cmake --build libsrt-1.5.4/build --target install
+   sudo ldconfig
+
+   cmake -S deploy/relay/visp-bond -B /tmp/visp-bond-build \
+     -DCMAKE_BUILD_TYPE=Release
+   cmake --build /tmp/visp-bond-build
+   sudo install -m 0755 /tmp/visp-bond-build/visp-bond \
+     /usr/local/bin/visp-bond
+   ```
+
+   Before enabling phone bonding, prove the group protocol with upstream's
+   bench tool:
+
+   ```bash
+   srt-live-transmit \
+     'srt://:8891?groupconnect=1&mode=listener' \
+     'srt://127.0.0.1:8890?streamid=publish:SLUG:HANDLE:SECRET'
+   ```
+
+   Install and enable `systemd/mediamtx.service` and
+   `systemd/visp-bond.service`. The gateway forwards the original stream ID,
+   so MediaMTX HTTP authentication is unchanged. MediaMTX sees bonded
+   publishers as `127.0.0.1`; use the gateway's client-address log for the
+   real source.
+
+   Use Caddy's packaged systemd unit with
    `relay/Caddyfile`; install `systemd/caddy-relay.conf` as the packaged unit's
    `caddy.service.d/visp.conf` drop-in and set `RELAY_DOMAIN` and `APP_DOMAIN` in
    `/etc/visp/caddy.env`.
-5. Permit public UDP 8890, TCP 1935, TCP 443, and both UDP and TCP 8189. Permit
+5. Permit public UDP 8890, UDP 8891, TCP 1935, TCP 443, and both UDP and TCP
+   8189. Permit
    TCP 9997 and SSH only on the Tailscale interface. Mirror the same rules in
    the UpCloud firewall. Port 8189 carries WebRTC media; TCP is the fallback
    when UDP is blocked.
@@ -264,6 +307,8 @@ release checklist.
 Restart the API or portal at any time. Restart MediaMTX only in a maintenance
 window because it ends active streams. The accepted app-outage behavior is:
 existing streams continue, while new publish/read connections fail authentication.
+Restart `visp-bond` only in a maintenance window because it ends bonded
+publishers; ordinary UDP 8890 publishers are unaffected.
 
 Deploy the API auth/CORS change first, then the static sites and Caddy rules.
 Verify `admin.visp-stream.com` reuses the main login, permits an admin, and
