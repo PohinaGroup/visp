@@ -1,4 +1,4 @@
-CREATE TABLE "relay" (
+CREATE TABLE IF NOT EXISTS "relay" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"host" text NOT NULL,
@@ -15,9 +15,22 @@ CREATE TABLE "relay" (
 	CONSTRAINT "relay_max_forwarders_nonnegative" CHECK ("relay"."max_forwarders" >= 0)
 );
 --> statement-breakpoint
-ALTER TABLE "path_state" ADD COLUMN "link_count" integer;--> statement-breakpoint
-ALTER TABLE "path_state" ADD COLUMN "link_degraded" boolean;--> statement-breakpoint
-ALTER TABLE "path" ADD COLUMN "relay_id" integer NOT NULL;--> statement-breakpoint
-ALTER TABLE "rtt_sample" ADD COLUMN "relay_id" integer;--> statement-breakpoint
-ALTER TABLE "path" ADD CONSTRAINT "path_relay_id_relay_id_fk" FOREIGN KEY ("relay_id") REFERENCES "public"."relay"("id") ON DELETE no action ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "rtt_sample" ADD CONSTRAINT "rtt_sample_relay_id_relay_id_fk" FOREIGN KEY ("relay_id") REFERENCES "public"."relay"("id") ON DELETE no action ON UPDATE no action;
+INSERT INTO "relay" ("name", "host", "api_url", "ping_url", "region", "capacity_paths", "max_forwarders", "public_ip")
+VALUES ('default', 'pending', 'http://pending', 'http://pending', 'default', 1000, 0, 'pending')
+ON CONFLICT ("name") DO NOTHING;--> statement-breakpoint
+ALTER TABLE "path_state" ADD COLUMN IF NOT EXISTS "link_count" integer;--> statement-breakpoint
+ALTER TABLE "path_state" ADD COLUMN IF NOT EXISTS "link_degraded" boolean;--> statement-breakpoint
+ALTER TABLE "path" ADD COLUMN IF NOT EXISTS "relay_id" integer;--> statement-breakpoint
+UPDATE "path" SET "relay_id" = (SELECT "id" FROM "relay" WHERE "name" = 'default') WHERE "relay_id" IS NULL;--> statement-breakpoint
+ALTER TABLE "path" ALTER COLUMN "relay_id" SET NOT NULL;--> statement-breakpoint
+ALTER TABLE "rtt_sample" ADD COLUMN IF NOT EXISTS "relay_id" integer;--> statement-breakpoint
+DO $$ BEGIN
+	ALTER TABLE "path" ADD CONSTRAINT "path_relay_id_relay_id_fk" FOREIGN KEY ("relay_id") REFERENCES "public"."relay"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+	WHEN duplicate_object THEN NULL;
+END $$;--> statement-breakpoint
+DO $$ BEGIN
+	ALTER TABLE "rtt_sample" ADD CONSTRAINT "rtt_sample_relay_id_relay_id_fk" FOREIGN KEY ("relay_id") REFERENCES "public"."relay"("id") ON DELETE no action ON UPDATE no action;
+EXCEPTION
+	WHEN duplicate_object THEN NULL;
+END $$;
