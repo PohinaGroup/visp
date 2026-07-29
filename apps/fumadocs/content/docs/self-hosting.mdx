@@ -99,8 +99,9 @@ remain disabled.
 
 ## 3. App host
 
-1. Install PostgreSQL, Bun, Tailscale, and Caddy. Clone the repository as
-   `root` into `/opt/visp`.
+1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, and Caddy. Clone the repository as
+   `root` into `/opt/visp`. The API service runs under Node; Bun is still used for
+   builds, migrations, and the portal.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`:
 
    - Set Twitch and Kick credentials and the snapshot bucket settings.

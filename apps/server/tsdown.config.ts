@@ -8,8 +8,9 @@ export default defineConfig({
 	deps: {
 		// Workspace packages must be inlined for the single-file deploy artifact.
 		alwaysBundle: [/@VISP\/.*/],
-		// Bundling `pg` into dist makes Bun segfault on TLS (UpCloud Postgres).
-		// Keep the real package on disk and let Bun resolve it at runtime.
+		// Keep `pg` external for Node production (`node dist/index.mjs`). Bundling
+		// it breaks TLS to managed Postgres under Bun; Bun also segfaults on TLS
+		// when running the bundle or src with an external `pg`.
 		neverBundle: ["pg"],
 	},
 });

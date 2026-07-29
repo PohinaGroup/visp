@@ -27,6 +27,7 @@ for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
 	"$obs_remote_web_env" "$caddy_env"; do
 	[[ -e $path ]] || fail "missing prerequisite: $path"
 done
+command -v node >/dev/null 2>&1 || fail "node is required to run visp-server"
 
 run_with_env() (
 	local env_file=$1
@@ -64,6 +65,7 @@ run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" buil
 "$bun" run --cwd "$repo/apps/fumadocs" build
 
 for output in \
+	apps/server/dist/index.mjs \
 	apps/admin/dist/index.html \
 	apps/native/dist/index.html \
 	apps/obs-remote/dist/index.html \

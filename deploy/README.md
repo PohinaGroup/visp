@@ -148,8 +148,9 @@ pprof stay disabled.
 
 ## 3. App box
 
-1. Install PostgreSQL, Bun, Tailscale, and Caddy; clone `PohinaGroup/visp` as
-   `root` into `/opt/visp`. The API and portal services run as `root`.
+1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, and Caddy; clone `PohinaGroup/visp` as
+   `root` into `/opt/visp`. The API runs under Node (`dist/index.mjs`); the portal
+   and release tooling use Bun. Both services run as `root`.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`, including the
    Twitch and Kick application credentials and snapshot bucket settings. Use
    the relay's Tailscale address for `MEDIAMTX_API_URL`, generate
