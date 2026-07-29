@@ -21,7 +21,8 @@ export type WatchSnapshot = {
 			id: string;
 			provider: "twitch" | "kick";
 			senderName: string;
-			senderColor?: string;
+			senderColor: string;
+			badges: string[];
 			text: string;
 		}>;
 	};
@@ -78,6 +79,7 @@ export function buildWatchSnapshot({
 				provider: chatMessage.provider,
 				senderName: chatMessage.sender.name,
 				senderColor: chatMessage.sender.color,
+				badges: chatMessage.sender.badges.map(({ label }) => label),
 				text: chatMessage.fragments.map((fragment) => fragment.text).join(""),
 			})),
 		},

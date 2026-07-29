@@ -140,14 +140,15 @@ private struct ChatView: View {
           ForEach(Array((snapshot?.chat.messages ?? []).reversed())) { message in
             VStack(alignment: .leading, spacing: 1) {
               HStack(spacing: 4) {
+                platformChip(message.provider)
+                ForEach(Array(message.badges.enumerated()), id: \.offset) { _, badge in
+                  badgeChip(badge)
+                }
                 Text(message.senderName)
                   .font(.caption2.bold())
                   .foregroundStyle(Color.chat(message.senderColor))
                   .lineLimit(1)
                 Spacer(minLength: 2)
-                Text(message.provider == "twitch" ? "T" : "K")
-                  .font(.caption2.bold())
-                  .foregroundStyle(message.provider == "twitch" ? .purple : .green)
               }
               Text(message.text)
                 .font(.caption)
@@ -168,6 +169,37 @@ private struct ChatView: View {
           .font(.caption2.bold())
           .foregroundStyle(provider == "twitch" ? .purple : .green)
       }
+    }
+  }
+
+  private func platformChip(_ provider: String) -> some View {
+    Text(provider == "twitch" ? "T" : "K")
+      .font(.system(size: 8, weight: .black))
+      .foregroundStyle(Color.chat(provider == "twitch" ? "#FFFFFF" : "#071005"))
+      .frame(width: 14, height: 14)
+      .background(Color.chat(provider == "twitch" ? "#9146FF" : "#53FC18"))
+      .clipShape(RoundedRectangle(cornerRadius: 4))
+  }
+
+  private func badgeChip(_ label: String) -> some View {
+    Text(String(label.prefix(3)).uppercased())
+      .font(.system(size: 7, weight: .black))
+      .foregroundStyle(.white)
+      .padding(.horizontal, 2)
+      .frame(minWidth: 14, minHeight: 14)
+      .background(Color.chat(badgeColor(label)))
+      .clipShape(RoundedRectangle(cornerRadius: 4))
+      .accessibilityLabel(label)
+  }
+
+  private func badgeColor(_ label: String) -> String {
+    switch label.lowercased() {
+    case "broadcaster": return "#E91916"
+    case "moderator": return "#00AD03"
+    case "vip": return "#E005B9"
+    case "subscriber": return "#6441A5"
+    case "founder": return "#C79A00"
+    default: return "#53606E"
     }
   }
 }
@@ -248,9 +280,8 @@ private struct HealthView: View {
 }
 
 private extension Color {
-  static func chat(_ hex: String?) -> Color {
+  static func chat(_ hex: String) -> Color {
     guard
-      let hex,
       hex.count == 7,
       hex.first == "#",
       let value = UInt64(hex.dropFirst(), radix: 16)

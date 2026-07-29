@@ -7,7 +7,18 @@ function message(id: string): ChatMessage {
 		id,
 		provider: "twitch",
 		sentAt: "2026-07-18T00:00:00.000Z",
-		sender: { id: "viewer", name: "Viewer", color: "#AABBCC" },
+		sender: {
+			id: "viewer",
+			name: "Viewer",
+			color: "#AABBCC",
+			badges: [
+				{
+					type: "moderator",
+					label: "Moderator",
+					url: "https://static-cdn.jtvnw.net/mod.png",
+				},
+			],
+		},
 		fragments: [
 			{ type: "text", text: "Hi " },
 			{ type: "emote", text: "Wave", url: "https://example.test/wave" },
@@ -43,6 +54,7 @@ describe("watch snapshot", () => {
 			provider: "twitch",
 			senderName: "Viewer",
 			senderColor: "#AABBCC",
+			badges: ["Moderator"],
 			text: "Hi Wave",
 		});
 		expect(snapshot.stream).toEqual({
