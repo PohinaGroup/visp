@@ -81,6 +81,29 @@ static size_t group_links(SRTSOCKET group) {
   return srt_group_data(group, NULL, &count) == SRT_ERROR ? 0 : count;
 }
 
+// SRTO_STREAMID cannot be read from a group: the group getter first copies the
+// value from the member socket, which shrinks the length argument to the exact
+// string length, and then fails its own size check against the NUL-terminated
+// copy it keeps. Read the option from the first member instead.
+static bool read_stream_id(SRTSOCKET group, char *value, int size) {
+  SRTSOCKET source = group;
+  size_t count = 0;
+  if (srt_group_data(group, NULL, &count) != SRT_ERROR && count > 0) {
+    SRT_SOCKGROUPDATA *links = calloc(count, sizeof(*links));
+    if (!links)
+      return false;
+    if (srt_group_data(group, links, &count) != SRT_ERROR && count > 0)
+      source = links[0].id;
+    free(links);
+  }
+  int length = size - 1;
+  if (srt_getsockflag(source, SRTO_STREAMID, value, &length) == SRT_ERROR ||
+      length <= 0)
+    return false;
+  value[length] = '\0';
+  return true;
+}
+
 static void log_links(SRTSOCKET group, const char *client) {
   size_t count = 0;
   if (srt_group_data(group, NULL, &count) == SRT_ERROR || !count)
@@ -113,17 +136,14 @@ static void *serve_session(void *opaque) {
   free(args);
 
   char stream_id[STREAM_ID_SIZE + 1] = {0};
-  int stream_id_size = STREAM_ID_SIZE;
-  if (srt_getsockflag(group, SRTO_STREAMID, stream_id, &stream_id_size) ==
-          SRT_ERROR ||
-      stream_id_size <= 0 || strncmp(stream_id, "publish:", 8) != 0) {
+  if (!read_stream_id(group, stream_id, sizeof(stream_id)) ||
+      strncmp(stream_id, "publish:", 8) != 0) {
     fprintf(stderr, "client=%s group=%d rejected=invalid-streamid\n", client,
             group);
     srt_close(group);
     --sessions;
     return NULL;
   }
-  stream_id[stream_id_size] = '\0';
   srt_setsockflag(group, SRTO_RCVTIMEO, &idle_timeout_ms,
                   sizeof(idle_timeout_ms));
   if ((int)group_links(group) > max_links) {

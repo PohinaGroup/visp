@@ -42,10 +42,12 @@ if(ENABLE_QT)
     add_custom_command(
       TARGET ${CMAKE_PROJECT_NAME}
       POST_BUILD
-      COMMAND ${CMAKE_COMMAND} -E copy "${_visp_stub_agl}"
-              "$<TARGET_FILE_DIR:${CMAKE_PROJECT_NAME}>/libAGL_stub.dylib"
-      COMMAND install_name_tool -change @rpath/AGL.framework/Versions/A/AGL
-              @loader_path/libAGL_stub.dylib "$<TARGET_FILE:${CMAKE_PROJECT_NAME}>"
+      COMMAND ${CMAKE_COMMAND} -E copy
+              "${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/bundle-agl-stub.sh"
+              "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
+      COMMAND chmod +x "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
+      COMMAND "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
+              "$<TARGET_FILE:${CMAKE_PROJECT_NAME}>" "${_visp_stub_agl}"
       COMMENT "Bundle stub AGL dylib for macOS SDKs without AGL"
       VERBATIM
     )

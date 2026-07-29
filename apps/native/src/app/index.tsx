@@ -101,6 +101,7 @@ import {
 	selectPublishUrl,
 	validateStreamUrl,
 } from "../lib/stream-url";
+import { useAfterMount } from "../lib/use-after-mount";
 import { useLinkStatsReporter } from "../lib/use-link-stats-reporter";
 import { buildWatchSnapshot } from "../lib/watch-snapshot";
 
@@ -317,7 +318,7 @@ export default function Index() {
 		publishPath?.directTwitch || publishPath?.directKick,
 	);
 	const contributionMode = directContribution ? "direct" : "full";
-	const { clearLinkStats, linkStats, onStats } = useLinkStatsReporter({
+	const { clearLinkStats, linkStats, onStats: onStatsRaw } = useLinkStatsReporter({
 		live: state === "live",
 		pathId: publishPathId,
 		setVideoBitrate: IS_WEB
@@ -748,14 +749,14 @@ export default function Index() {
 
 	useEffect(() => () => clearTimeout(toastTimer.current), []);
 
-	const onAudioLevel = useCallback(
+	const onAudioLevelRaw = useCallback(
 		({ nativeEvent }: { nativeEvent: AudioLevelEvent }) => {
 			setAudioTier(audioTierForLevel(nativeEvent.level));
 		},
 		[],
 	);
 
-	const onStateChange = useCallback(
+	const onStateChangeRaw = useCallback(
 		({ nativeEvent }: { nativeEvent: StreamStateEvent }) => {
 			setState(nativeEvent.state);
 			setErrorCode(nativeEvent.code);
@@ -794,6 +795,9 @@ export default function Index() {
 		},
 		[clearLinkStats, showToast],
 	);
+	const onAudioLevel = useAfterMount(onAudioLevelRaw);
+	const onStateChange = useAfterMount(onStateChangeRaw);
+	const onStats = useAfterMount(onStatsRaw);
 
 	const save = useCallback(async () => {
 		try {

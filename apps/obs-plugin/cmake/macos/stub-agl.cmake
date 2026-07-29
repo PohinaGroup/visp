@@ -1,13 +1,55 @@
-function(visp_configure_stub_agl_dylib output_path arch_list sysroot)
-  if(EXISTS "${output_path}")
+function(visp_normalize_osx_architectures arch_list output_var)
+  set(normalized "")
+  foreach(entry IN LISTS arch_list)
+    string(REPLACE ";" " " entry "${entry}")
+    separate_arguments(entry NATIVE_COMMAND "${entry}")
+    list(APPEND normalized ${entry})
+  endforeach()
+  list(REMOVE_DUPLICATES normalized)
+  set(${output_var} "${normalized}" PARENT_SCOPE)
+endfunction()
+
+function(visp_stub_matches_architectures binary arch_list result_var)
+  set(${result_var} FALSE PARENT_SCOPE)
+  if(NOT EXISTS "${binary}")
     return()
   endif()
+
+  execute_process(
+    COMMAND lipo -info "${binary}"
+    OUTPUT_VARIABLE lipo_out
+    ERROR_VARIABLE lipo_err
+    RESULT_VARIABLE lipo_result
+  )
+  if(NOT lipo_result EQUAL 0)
+    return()
+  endif()
+
+  foreach(arch IN LISTS arch_list)
+    if(NOT "${lipo_out}" MATCHES "${arch}")
+      return()
+    endif()
+  endforeach()
+
+  set(${result_var} TRUE PARENT_SCOPE)
+endfunction()
+
+function(visp_configure_stub_agl_dylib output_path arch_list sysroot)
+  visp_normalize_osx_architectures("${arch_list}" normalized_archs)
+  visp_stub_matches_architectures("${output_path}" "${normalized_archs}" matches)
+  if(matches)
+    return()
+  endif()
+
+  get_filename_component(output_dir "${output_path}" DIRECTORY)
+  file(MAKE_DIRECTORY "${output_dir}")
+  file(REMOVE "${output_path}")
 
   set(stub_source "${CMAKE_CURRENT_BINARY_DIR}/agl-stub.c")
   file(WRITE "${stub_source}" "void AGLStub(void) {}\n")
 
   set(arch_flags "")
-  foreach(arch IN LISTS arch_list)
+  foreach(arch IN LISTS normalized_archs)
     list(APPEND arch_flags -arch "${arch}")
   endforeach()
 
@@ -30,18 +72,23 @@ function(visp_configure_stub_agl_dylib output_path arch_list sysroot)
 endfunction()
 
 function(visp_configure_stub_agl_framework output_dir arch_list sysroot)
+  visp_normalize_osx_architectures("${arch_list}" normalized_archs)
+
   set(framework_dir "${output_dir}/AGL.framework")
   set(binary "${framework_dir}/Versions/A/AGL")
-  if(EXISTS "${binary}")
+  visp_stub_matches_architectures("${binary}" "${normalized_archs}" matches)
+  if(matches)
     return()
   endif()
 
+  file(REMOVE_RECURSE "${framework_dir}")
   file(MAKE_DIRECTORY "${framework_dir}/Versions/A")
+
   set(stub_source "${CMAKE_CURRENT_BINARY_DIR}/agl-stub-link.c")
   file(WRITE "${stub_source}" "void AGLLinkStub(void) {}\n")
 
   set(arch_flags "")
-  foreach(arch IN LISTS arch_list)
+  foreach(arch IN LISTS normalized_archs)
     list(APPEND arch_flags -arch "${arch}")
   endforeach()
 

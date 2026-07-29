@@ -18,13 +18,13 @@ export function ObsControls({
 	const [status, setStatus] = useState<ObsStatus>();
 	const inFlight = useRef(false);
 
-	const updateStatus = useCallback(
-		(next: ObsStatus | undefined) => {
-			setStatus(next);
-			onStatusChange(next);
-		},
-		[onStatusChange],
-	);
+	const updateStatus = useCallback((next: ObsStatus | undefined) => {
+		setStatus(next);
+	}, []);
+
+	useEffect(() => {
+		onStatusChange(status);
+	}, [onStatusChange, status]);
 
 	useEffect(() => {
 		let active = true;
