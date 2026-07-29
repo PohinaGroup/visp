@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Phone audio troubleshooting checkpoints</title>
+  <desc id="desc">A phone microphone sends audio and video through the VISP relay to an OBS mixer, with four checkpoints for silence, duplicate audio, timing, and output level.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#10192e"/>
+      <stop offset="1" stop-color="#181126"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#59d9ff"/>
+      <stop offset="1" stop-color="#8c7bff"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#73d7ff"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="40" fill="url(#background)"/>
+  <text x="800" y="92" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="46" font-weight="700" text-anchor="middle">Trace phone audio in signal order</text>
+  <text x="800" y="140" fill="#aeb8d2" font-family="system-ui, sans-serif" font-size="24" text-anchor="middle">Change the first checkpoint that fails</text>
+
+  <g transform="translate(105 220)">
+    <rect width="330" height="330" rx="42" fill="#202b45" stroke="#3d4b6d" stroke-width="3"/>
+    <rect x="88" y="42" width="154" height="222" rx="25" fill="#0d1425" stroke="#6edcff" stroke-width="4"/>
+    <circle cx="165" cy="234" r="10" fill="#6edcff"/>
+    <path d="M132 108 v38 a33 33 0 0 0 66 0 v-38" fill="none" stroke="#ffb66e" stroke-width="12" stroke-linecap="round"/>
+    <path d="M116 146 a49 49 0 0 0 98 0 M165 195 v28 M137 223 h56" fill="none" stroke="#ffb66e" stroke-width="8" stroke-linecap="round"/>
+    <text x="165" y="300" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="30" font-weight="650" text-anchor="middle">1. Phone capture</text>
+    <text x="165" y="370" fill="#aeb8d2" font-family="system-ui, sans-serif" font-size="22" text-anchor="middle">Permission · input · meter</text>
+  </g>
+
+  <g transform="translate(635 220)">
+    <rect width="330" height="330" rx="42" fill="#202b45" stroke="#3d4b6d" stroke-width="3"/>
+    <path d="M165 66 245 112v92l-80 46-80-46v-92z" fill="#161f35" stroke="#8c7bff" stroke-width="5"/>
+    <path d="M85 112 165 158l80-46M165 158v92" fill="none" stroke="#8c7bff" stroke-width="4"/>
+    <path d="M112 189h24l13-27 24 55 17-39h28" fill="none" stroke="#59d9ff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    <text x="165" y="300" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="30" font-weight="650" text-anchor="middle">2. VISP relay</text>
+    <text x="165" y="370" fill="#aeb8d2" font-family="system-ui, sans-serif" font-size="22" text-anchor="middle">Live state · one path</text>
+  </g>
+
+  <g transform="translate(1165 220)">
+    <rect width="330" height="330" rx="42" fill="#202b45" stroke="#3d4b6d" stroke-width="3"/>
+    <rect x="45" y="64" width="240" height="164" rx="18" fill="#0d1425" stroke="#ffb66e" stroke-width="4"/>
+    <path d="M83 176v-42M119 176v-78M155 176v-56M191 176v-96M227 176v-66" stroke="url(#signal)" stroke-width="15" stroke-linecap="round"/>
+    <path d="M130 253h70M165 228v25" stroke="#aeb8d2" stroke-width="8" stroke-linecap="round"/>
+    <text x="165" y="300" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="30" font-weight="650" text-anchor="middle">3. OBS mix</text>
+    <text x="165" y="370" fill="#aeb8d2" font-family="system-ui, sans-serif" font-size="22" text-anchor="middle">Meter · routing · track</text>
+  </g>
+
+  <path d="M455 385H605" fill="none" stroke="#73d7ff" stroke-width="8" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <path d="M985 385h150" fill="none" stroke="#73d7ff" stroke-width="8" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+
+  <g transform="translate(152 678)">
+    <rect width="290" height="108" rx="24" fill="#271d33" stroke="#ff7f8e" stroke-width="3"/>
+    <circle cx="48" cy="54" r="18" fill="#ff7f8e"/>
+    <text x="82" y="48" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="25" font-weight="650">Silence</text>
+    <text x="82" y="78" fill="#c8bfd2" font-family="system-ui, sans-serif" font-size="19">Find the first dead meter</text>
+  </g>
+  <g transform="translate(488 678)">
+    <rect width="290" height="108" rx="24" fill="#271d33" stroke="#ffb66e" stroke-width="3"/>
+    <circle cx="48" cy="54" r="18" fill="#ffb66e"/>
+    <text x="82" y="48" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="25" font-weight="650">Echo</text>
+    <text x="82" y="78" fill="#c8bfd2" font-family="system-ui, sans-serif" font-size="19">Remove the second route</text>
+  </g>
+  <g transform="translate(824 678)">
+    <rect width="290" height="108" rx="24" fill="#271d33" stroke="#8c7bff" stroke-width="3"/>
+    <circle cx="48" cy="54" r="18" fill="#8c7bff"/>
+    <text x="82" y="48" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="25" font-weight="650">Delay</text>
+    <text x="82" y="78" fill="#c8bfd2" font-family="system-ui, sans-serif" font-size="19">Offset the earlier source</text>
+  </g>
+  <g transform="translate(1160 678)">
+    <rect width="290" height="108" rx="24" fill="#271d33" stroke="#59d9ff" stroke-width="3"/>
+    <circle cx="48" cy="54" r="18" fill="#59d9ff"/>
+    <text x="82" y="48" fill="#f5f7ff" font-family="system-ui, sans-serif" font-size="25" font-weight="650">Level</text>
+    <text x="82" y="78" fill="#c8bfd2" font-family="system-ui, sans-serif" font-size="19">Fix clipping at the source</text>
+  </g>
+</svg>
