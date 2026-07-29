@@ -86,6 +86,11 @@ done
 	caddy validate --config "$repo/deploy/app/Caddyfile" --adapter caddyfile
 )
 install -m 0644 "$repo/deploy/app/Caddyfile" /etc/caddy/Caddyfile
+install -m 0644 "$repo/deploy/systemd/visp-server.service" \
+	/etc/systemd/system/visp-server.service
+install -m 0644 "$repo/deploy/systemd/visp-web.service" \
+	/etc/systemd/system/visp-web.service
+systemctl daemon-reload
 
 systemctl restart visp-server visp-web
 systemctl reload caddy
