@@ -10,7 +10,11 @@ export const serverEnvSchema = {
 	ADMIN_USER_IDS: z.string().default(""),
 	AI_GATEWAY_API_KEY: z.string().min(1),
 	DATABASE_URL: z.string().min(1),
-	/** PEM path for managed Postgres CA verification (e.g. UpCloud). */
+	/**
+	 * Optional PEM path for managed Postgres CA verification.
+	 * Prefer installing the CA into the system trust store instead: Bun 1.3.x
+	 * can segfault when ssl.ca is set alongside Bun.S3Client.
+	 */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
 	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
