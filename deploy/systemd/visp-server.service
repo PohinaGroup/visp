@@ -9,7 +9,9 @@ User=root
 Group=root
 WorkingDirectory=/opt/visp/apps/server
 EnvironmentFile=/etc/visp/app.env
-ExecStart=/usr/local/bin/bun run dist/index.mjs
+# Run TypeScript entry directly. Bundling `pg` into dist/index.mjs makes Bun
+# 1.3.14 segfault on TLS to managed Postgres; source resolution does not.
+ExecStart=/usr/local/bin/bun run src/index.ts
 Restart=always
 RestartSec=2
 StartLimitIntervalSec=0
