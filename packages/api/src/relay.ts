@@ -19,6 +19,28 @@ export { applyPathHook, reconcilePathState } from "./path-hooks";
 
 const AUTH_CACHE_TTL_MS = 60_000;
 
+function debugAuthLog(
+	data: Record<string, unknown> & { hypothesisId: string; reason: string },
+) {
+	const payload = {
+		sessionId: "46990d",
+		location: "relay.ts:authenticateMedia",
+		timestamp: Date.now(),
+		...data,
+	};
+	// #region agent log
+	console.error("[visp-auth-debug]", JSON.stringify(payload));
+	fetch("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c", {
+		method: "POST",
+		headers: {
+			"Content-Type": "application/json",
+			"X-Debug-Session-Id": "46990d",
+		},
+		body: JSON.stringify(payload),
+	}).catch(() => {});
+	// #endregion
+}
+
 type AuthCacheEntry = {
 	expiresAt: number;
 	handle: string;
@@ -366,23 +388,70 @@ export async function authenticateMedia(input: {
 	user: string;
 }) {
 	const credential = await credentialForSlug(input.path);
-	if (!credential || input.user !== credential.handle) {
+	if (!credential) {
+		debugAuthLog({
+			hypothesisId: "B",
+			reason: "pathNotFound",
+			action: input.action,
+			path: input.path,
+			user: input.user,
+		});
+		return false;
+	}
+	if (input.user !== credential.handle) {
+		debugAuthLog({
+			hypothesisId: "C",
+			reason: "handleMismatch",
+			action: input.action,
+			path: input.path,
+			user: input.user,
+			expectedHandle: credential.handle,
+		});
 		return false;
 	}
 	const hash =
 		input.action === "publish"
 			? credential.publishSecretHash
 			: credential.readSecretHash;
-	const authenticated = hash
-		? await verifySecret(input.password, hash)
-		: false;
-	if (authenticated && input.action === "publish") {
+	if (!hash) {
+		debugAuthLog({
+			hypothesisId: "D",
+			reason:
+				input.action === "publish" ? "missingPublishHash" : "missingReadHash",
+			action: input.action,
+			path: input.path,
+			user: input.user,
+			pathId: credential.pathId,
+		});
+		return false;
+	}
+	const authenticated = await verifySecret(input.password, hash);
+	if (!authenticated) {
+		debugAuthLog({
+			hypothesisId: "A",
+			reason: "verifyFailed",
+			action: input.action,
+			path: input.path,
+			user: input.user,
+			pathId: credential.pathId,
+		});
+		return false;
+	}
+	debugAuthLog({
+		hypothesisId: "OK",
+		reason: "authenticated",
+		action: input.action,
+		path: input.path,
+		user: input.user,
+		pathId: credential.pathId,
+	});
+	if (input.action === "publish") {
 		await db
 			.update(relayPath)
 			.set({ publishLastConnectedAt: new Date() })
 			.where(eq(relayPath.id, credential.pathId));
 	}
-	return authenticated;
+	return true;
 }
 
 export function applyInvalidation(payload: CacheInvalidation) {
@@ -591,11 +660,16 @@ async function storePublishSecret(input: {
 export async function revealPublishPath(userId: string, pathId: number) {
 	const path = await ownedPath(userId, pathId);
 	if (!path?.publishSecretEncrypted) return null;
-	const plaintext = decryptPublishSecret(
-		path.publishSecretEncrypted,
-		userId,
-		path.id,
-	);
+	let plaintext: string;
+	try {
+		plaintext = decryptPublishSecret(
+			path.publishSecretEncrypted,
+			userId,
+			path.id,
+		);
+	} catch {
+		return null;
+	}
 	return {
 		path: publicPublishPath(path),
 		urls: buildPublishUrls(path, path.handle, plaintext),
@@ -727,7 +801,6 @@ export async function claimNativePublishDevice(input: {
 			});
 		}
 	}
-	if (input.legacyUrl) return null;
 
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.id, input.userId),

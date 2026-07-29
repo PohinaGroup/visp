@@ -123,7 +123,6 @@ export type VispSrtViewRef = {
 export type VispSrtViewProps = {
 	onAudioLevel?: (event: { nativeEvent: AudioLevelEvent }) => void;
 	onStateChange?: (event: { nativeEvent: StreamStateEvent }) => void;
-	onAgentDebug?: (event: { nativeEvent: Record<string, unknown> }) => void;
 	onStats?: (event: { nativeEvent: StreamStatsEvent }) => void;
 	style?: StyleProp<ViewStyle>;
 };

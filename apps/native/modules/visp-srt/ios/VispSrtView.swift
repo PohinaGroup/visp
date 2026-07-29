@@ -111,7 +111,6 @@ final class VispSrtView: ExpoView {
   let onStateChange = EventDispatcher()
   let onAudioLevel = EventDispatcher()
   let onStats = EventDispatcher()
-  let onAgentDebug = EventDispatcher()
 
   private let preview = MTHKView(frame: .zero)
   private var audioInputID: String?
@@ -163,17 +162,6 @@ final class VispSrtView: ExpoView {
       name: UIApplication.willResignActiveNotification,
       object: nil
     )
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(agentDebugLogReceived(_:)),
-      name: AgentDebugLog.notification,
-      object: nil
-    )
-  }
-
-  @objc private func agentDebugLogReceived(_ notification: Notification) {
-    guard let payload = notification.userInfo as? [String: Any] else { return }
-    onAgentDebug(payload)
   }
 
   deinit {
@@ -192,24 +180,12 @@ final class VispSrtView: ExpoView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    if window == nil {
-      AgentDebugLog.emit(
-        location: "VispSrtView.swift:didMoveToWindow",
-        message: "view detached from window",
-        hypothesisId: "E",
-        data: ["state": currentState.rawValue]
-      )
-      Task { @MainActor [weak self] in
-        await self?.suspend()
-      }
+    guard window == nil else {
       return
     }
-    AgentDebugLog.emit(
-      location: "VispSrtView.swift:didMoveToWindow",
-      message: "view attached to window",
-      hypothesisId: "E",
-      data: ["state": currentState.rawValue]
-    )
+    Task { @MainActor [weak self] in
+      await self?.suspend()
+    }
   }
 
   @discardableResult
@@ -700,14 +676,10 @@ final class VispSrtView: ExpoView {
       await mixer.setVideoOrientation(lockedOrientation)
     }
 
-    emit(.connecting, debug: connectionDebugDetail(url: url, phase: "start"))
+    emit(.connecting)
     do {
       try await openConnection(to: url)
     } catch {
-      emit(
-        .connecting,
-        debug: connectionDebugDetail(url: url, phase: "initial-connect-failed", error: error)
-      )
       beginRetries()
     }
   }
@@ -739,17 +711,6 @@ final class VispSrtView: ExpoView {
       throw VispSrtFailure.cameraUnavailable
     }
     await closeConnection()
-
-    AgentDebugLog.emit(
-      location: "VispSrtView.swift:openConnection",
-      message: "opening srt connection",
-      hypothesisId: "B",
-      data: [
-        "host": url.host ?? "?",
-        "port": url.port ?? -1,
-        "bonding": bondingMode,
-      ]
-    )
 
     let connection = SRTConnection(bondingMode: bondingMode)
     let stream = SRTStream(connection: connection)
@@ -787,47 +748,11 @@ final class VispSrtView: ExpoView {
       await stream.setExpectedMedias([.video, .audio])
       await mixer.addOutput(stream)
       try await connection.connect(url)
-      let connectedAfterConnect = await connection.connected
-      AgentDebugLog.emit(
-        location: "VispSrtView.swift:openConnection",
-        message: "connect finished",
-        hypothesisId: "B",
-        data: ["connected": connectedAfterConnect]
-      )
       await stream.publish()
-      let isConnected = await connection.connected
-      let readyState = await stream.readyState
-      AgentDebugLog.emit(
-        location: "VispSrtView.swift:openConnection",
-        message: "publish finished",
-        hypothesisId: "D",
-        data: [
-          "connected": isConnected,
-          "readyState": String(describing: readyState),
-        ]
-      )
-      guard isConnected else {
-        emit(
-          .connecting,
-          debug: connectionDebugDetail(
-            url: url,
-            phase: "not-connected-after-publish",
-            connected: isConnected
-          )
-        )
+      guard await connection.connected else {
         throw VispSrtFailure.connectionFailed
       }
     } catch {
-      AgentDebugLog.emit(
-        location: "VispSrtView.swift:openConnection",
-        message: "open connection failed",
-        hypothesisId: "B",
-        data: ["error": String(describing: error)]
-      )
-      emit(
-        .connecting,
-        debug: connectionDebugDetail(url: url, phase: "open-connection-error", error: error)
-      )
       await closeConnection()
       throw VispSrtFailure.connectionFailed
     }
@@ -876,13 +801,7 @@ final class VispSrtView: ExpoView {
         return
       }
       while let retry = retryPolicy.next() {
-        emit(
-          .reconnecting,
-          attempt: retry.attempt,
-          debug: desiredURL.map {
-            connectionDebugDetail(url: $0, phase: "retry-\(retry.attempt)")
-          }
-        )
+        emit(.reconnecting, attempt: retry.attempt)
         do {
           try await Task.sleep(nanoseconds: retry.nanoseconds)
         } catch {
@@ -899,14 +818,7 @@ final class VispSrtView: ExpoView {
         }
       }
       UIApplication.shared.isIdleTimerDisabled = false
-      emit(
-        .error,
-        code: "connection-failed",
-        message: VispSrtFailure.connectionFailed.localizedDescription,
-        debug: desiredURL.map {
-          connectionDebugDetail(url: $0, phase: "retries-exhausted")
-        }
-      )
+      emit(.error, code: "connection-failed", message: VispSrtFailure.connectionFailed.localizedDescription)
     }
   }
 
@@ -1194,37 +1106,14 @@ final class VispSrtView: ExpoView {
     _ state: StreamState,
     attempt: Int? = nil,
     code: String? = nil,
-    message: String? = nil,
-    debug: String? = nil
+    message: String? = nil
   ) {
     currentState = state
     var payload: [String: Any] = ["state": state.rawValue]
     payload["attempt"] = attempt
     payload["code"] = code
     payload["message"] = message
-    payload["debug"] = debug
     onStateChange(payload)
-  }
-
-  private func connectionDebugDetail(
-    url: URL,
-    phase: String,
-    error: Error? = nil,
-    connected: Bool? = nil
-  ) -> String {
-    var parts = [
-      "phase=\(phase)",
-      "host=\(url.host ?? "?")",
-      "port=\(url.port.map(String.init) ?? "?")",
-      "bonding=\(bondingMode)",
-    ]
-    if let connected {
-      parts.append("connected=\(connected)")
-    }
-    if let error {
-      parts.append("error=\(String(describing: error))")
-    }
-    return parts.joined(separator: ";")
   }
 
   private func startStatsLoop() {
@@ -1312,12 +1201,6 @@ final class VispSrtView: ExpoView {
   }
 
   @objc private func willResignActive() {
-    AgentDebugLog.emit(
-      location: "VispSrtView.swift:willResignActive",
-      message: "app resigning active",
-      hypothesisId: "E",
-      data: ["state": currentState.rawValue]
-    )
     Task { @MainActor [weak self] in
       await self?.suspend()
     }

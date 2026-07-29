@@ -152,28 +152,13 @@ public final class Screen: ScreenObjectContainerConvertible {
         }
     }
 
-    // #region agent log
-    private static var mkCount = 0
-    private static var nilPool = 0
-    private static var nilPts = 0
-    // #endregion
-
     func makeSampleBuffer(_ updateFrame: DisplayLinkTime) -> CMSampleBuffer? {
         defer {
             targetTimestamp = updateFrame.targetTimestamp
         }
-        // #region agent log
-        Self.mkCount += 1
-        if Self.mkCount <= 5 || Self.mkCount % 120 == 0 {
-            NSLog("[VISPDBG] makeSampleBuffer #\(Self.mkCount) nilPool=\(Self.nilPool) nilPts=\(Self.nilPts) latency=\(videoCaptureLatency) ts=\(updateFrame.timestamp) lastPts=\(presentationTimeStamp.seconds) size=\(size) children=\(childCounts) trackEnqueued=\(videoTrackScreenObject.debugHasFrame)")
-        }
-        // #endregion
         var pixelBuffer: CVPixelBuffer?
         pixelBufferPool?.createPixelBuffer(&pixelBuffer)
         guard let pixelBuffer else {
-            // #region agent log
-            Self.nilPool += 1
-            // #endregion
             return nil
         }
         if outputFormat == nil {
@@ -191,9 +176,6 @@ public final class Screen: ScreenObjectContainerConvertible {
         }
         let presentationTimeStamp = CMTime(seconds: updateFrame.timestamp - videoCaptureLatency, preferredTimescale: Self.preferredTimescale)
         guard self.presentationTimeStamp <= presentationTimeStamp else {
-            // #region agent log
-            Self.nilPts += 1
-            // #endregion
             return nil
         }
         self.presentationTimeStamp = presentationTimeStamp
@@ -233,22 +215,6 @@ public final class Screen: ScreenObjectContainerConvertible {
         root.layout(renderer)
         root.draw(renderer)
         renderer.render()
-        // #region agent log
-        if Self.mkCount <= 5 || Self.mkCount % 120 == 0, let pb = sampleBuffer.imageBuffer {
-            let w = CVPixelBufferGetWidth(pb)
-            let h = CVPixelBufferGetHeight(pb)
-            let rb = CVPixelBufferGetBytesPerRow(pb)
-            var samples: [String] = []
-            if let base = CVPixelBufferGetBaseAddress(pb) {
-                let ptr = base.assumingMemoryBound(to: UInt8.self)
-                for (x, y) in [(w / 2, h / 2), (w / 2, h / 4), (w / 4, h / 2)] {
-                    let o = y * rb + x * 4
-                    samples.append("(\(x),\(y))=\(ptr[o]),\(ptr[o + 1]),\(ptr[o + 2]),\(ptr[o + 3])")
-                }
-            }
-            NSLog("[VISPDBG] composite \(w)x\(h) fmt=\(CVPixelBufferGetPixelFormatType(pb)) px=\(samples.joined(separator: " "))")
-        }
-        // #endregion
         return sampleBuffer
     }
 

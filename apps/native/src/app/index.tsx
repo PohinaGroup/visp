@@ -87,13 +87,17 @@ import {
 	configureVideoCapture,
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
-import { debugLog, redactStreamUrl } from "../lib/debug-log";
+import {
+	describeProvisionError,
+	syncNativePublishUrl,
+} from "../lib/native-publish-url";
 import { useLiveChat } from "../lib/live-chat";
 import {
 	deleteStreamUrl,
 	describeStreamUrl,
 	loadOrCreateInstallationId,
 	loadStreamUrl,
+	parsePublishCredentials,
 	saveStreamUrl,
 	selectPublishUrl,
 	validateStreamUrl,
@@ -421,13 +425,17 @@ export default function Index() {
 		}
 		provisionStarted.current = false;
 		setStreamUrl(undefined);
-		loadStreamUrl(streamOwner)
-			.then(setStreamUrl)
-			.catch(() => {
-				setStreamUrl(null);
-				setMessage("The saved SRT destination could not be read.");
-			});
-	}, [sessionPending, streamOwner]);
+		void (async () => {
+			const url = await loadStreamUrl(streamOwner);
+			if (!url && userId) {
+				await deleteStreamUrl().catch(() => {});
+			}
+			setStreamUrl(url);
+		})().catch(() => {
+			setStreamUrl(null);
+			setMessage("The saved SRT destination could not be read.");
+		});
+	}, [sessionPending, streamOwner, userId]);
 
 	useEffect(() => {
 		if (!userId) {
@@ -650,50 +658,105 @@ export default function Index() {
 		[refreshChatConnections, showToast],
 	);
 
-	const provisionDestination = useCallback(async () => {
-		if (!userId || !installationId || streamUrl === undefined) {
-			return;
-		}
-		setProvisioning(true);
-		setMessage(undefined);
-		try {
-			const device = await apiClient.paths.claimNative.mutate({
-				installationId,
-				label: Device.deviceName ?? Device.modelName ?? "VISP Native",
-				...(streamUrl ? { legacyUrl: streamUrl } : {}),
-			});
-			const url = selectPublishUrl([device.urls]);
-			// #region agent log
-			debugLog(
-				"index.tsx:provisionDestination",
-				"provisioned publish url",
-				{ url: redactStreamUrl(url), hasSrt: Boolean(device.urls?.srt) },
-				"A",
-			);
-			// #endregion
-			await saveStreamUrl(url, userId);
-			setStreamUrl(url);
-			await refreshPublishDevices();
-		} catch (error) {
-			// #region agent log
-			debugLog(
-				"index.tsx:provisionDestination",
-				"provision failed",
-				{
-					error: error instanceof Error ? error.message : String(error),
-				},
-				"A",
-			);
-			// #endregion
-			setMessage(
-				error instanceof Error
-					? error.message
-					: "The publish URL could not be created.",
-			);
-		} finally {
-			setProvisioning(false);
-		}
-	}, [installationId, refreshPublishDevices, streamUrl, userId]);
+	const provisionDestination = useCallback(
+		async (refresh = false) => {
+			if (!userId || !installationId || streamUrl === undefined) {
+				if (refresh && userId && !installationId) {
+					setMessage(
+						"Still preparing this device. Wait a moment and try again.",
+					);
+				}
+				return;
+			}
+			setProvisioning(true);
+			setMessage(undefined);
+			const label = Device.deviceName ?? Device.modelName ?? "VISP Native";
+			try {
+				let url: string;
+				if (refresh) {
+					url = await syncNativePublishUrl(apiClient, {
+						installationId,
+						label,
+						userId,
+					});
+				} else {
+					const claimDevice = (legacyUrl?: string) =>
+						apiClient.paths.claimNative.mutate({
+							installationId,
+							label,
+							...(legacyUrl ? { legacyUrl } : {}),
+						});
+					let device: Awaited<ReturnType<typeof claimDevice>>;
+					try {
+						device = await claimDevice(streamUrl ?? undefined);
+					} catch (error) {
+						if (!streamUrl) {
+							throw error;
+						}
+						await deleteStreamUrl();
+						setStreamUrl(null);
+						device = await claimDevice();
+					}
+					url = selectPublishUrl([device.urls]);
+					await saveStreamUrl(url, userId);
+				}
+				setStreamUrl(url);
+				await refreshPublishDevices();
+				// #region agent log
+				fetch(
+					"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"X-Debug-Session-Id": "46990d",
+						},
+						body: JSON.stringify({
+							sessionId: "46990d",
+							hypothesisId: "E",
+							location: "index.tsx:provisionDestination",
+							message: "provisioned publish url",
+							data: {
+								refresh,
+								slug: parsePublishCredentials(url).path,
+							},
+							timestamp: Date.now(),
+						}),
+					},
+				).catch(() => {});
+				// #endregion
+			} catch (error) {
+				// #region agent log
+				fetch(
+					"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
+					{
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"X-Debug-Session-Id": "46990d",
+						},
+						body: JSON.stringify({
+							sessionId: "46990d",
+							hypothesisId: "E",
+							location: "index.tsx:provisionDestination",
+							message: "provision failed",
+							data: {
+								refresh,
+								error:
+									error instanceof Error ? error.message : String(error),
+							},
+							timestamp: Date.now(),
+						}),
+					},
+				).catch(() => {});
+				// #endregion
+				setMessage(describeProvisionError(error));
+			} finally {
+				setProvisioning(false);
+			}
+		},
+		[installationId, refreshPublishDevices, streamUrl, userId],
+	);
 
 	useEffect(() => {
 		if (
@@ -733,24 +796,6 @@ export default function Index() {
 
 	useEffect(() => () => clearTimeout(toastTimer.current), []);
 
-	const onAgentDebug = useCallback(
-		({ nativeEvent }: { nativeEvent: Record<string, unknown> }) => {
-			// #region agent log
-			debugLog(
-				String(nativeEvent.location ?? "native"),
-				String(nativeEvent.message ?? "native debug"),
-				(typeof nativeEvent.data === "object" && nativeEvent.data !== null
-					? (nativeEvent.data as Record<string, unknown>)
-					: { payload: nativeEvent.data }),
-				typeof nativeEvent.hypothesisId === "string"
-					? nativeEvent.hypothesisId
-					: undefined,
-			);
-			// #endregion
-		},
-		[],
-	);
-
 	const onAudioLevel = useCallback(
 		({ nativeEvent }: { nativeEvent: AudioLevelEvent }) => {
 			setAudioTier(audioTierForLevel(nativeEvent.level));
@@ -759,21 +804,7 @@ export default function Index() {
 	);
 
 	const onStateChange = useCallback(
-		({ nativeEvent }: { nativeEvent: StreamStateEvent & { debug?: string } }) => {
-			// #region agent log
-			debugLog(
-				"index.tsx:onStateChange",
-				"stream state changed",
-				{
-					state: nativeEvent.state,
-					code: nativeEvent.code,
-					attempt: nativeEvent.attempt,
-					debug: nativeEvent.debug,
-					message: nativeEvent.message,
-				},
-				"B",
-			);
-			// #endregion
+		({ nativeEvent }: { nativeEvent: StreamStateEvent }) => {
 			setState(nativeEvent.state);
 			setErrorCode(nativeEvent.code);
 			setReconnectAttempt(
@@ -886,19 +917,37 @@ export default function Index() {
 				await cameraRef.current?.stop();
 			} else {
 				if (!(await confirmBondingDataUse())) return;
+				let publishUrl = streamUrl;
+				if (userId && installationId) {
+					publishUrl = await syncNativePublishUrl(apiClient, {
+						installationId,
+						label: Device.deviceName ?? Device.modelName ?? "VISP Native",
+						userId,
+					});
+					setStreamUrl(publishUrl);
+				}
 				// #region agent log
-				debugLog(
-					"index.tsx:toggleStream",
-					"starting stream",
+				fetch(
+					"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
 					{
-						url: redactStreamUrl(streamUrl),
-						bondingMode,
-						contributionMode,
-						currentState: state,
-						hasConfiguration: Boolean(configuration),
+						method: "POST",
+						headers: {
+							"Content-Type": "application/json",
+							"X-Debug-Session-Id": "46990d",
+						},
+						body: JSON.stringify({
+							sessionId: "46990d",
+							hypothesisId: "E",
+							location: "index.tsx:toggleStream",
+							message: "starting publish",
+							data: {
+								slug: parsePublishCredentials(publishUrl).path,
+								refreshed: Boolean(userId && installationId),
+							},
+							timestamp: Date.now(),
+						}),
 					},
-					"C",
-				);
+				).catch(() => {});
 				// #endregion
 				showToast("Connecting to relay service…", true);
 				if (configuration) {
@@ -909,29 +958,20 @@ export default function Index() {
 						bondingMode ?? "off",
 					);
 				}
-				await cameraRef.current?.start(streamUrl);
+				await cameraRef.current?.start(publishUrl);
 			}
-		} catch (error) {
-			// #region agent log
-			debugLog(
-				"index.tsx:toggleStream",
-				"toggle stream threw",
-				{
-					error: error instanceof Error ? error.message : String(error),
-					url: streamUrl ? redactStreamUrl(streamUrl) : undefined,
-				},
-				"D",
-			);
-			// #endregion
+		} catch {
 			// The native module emits a sanitized error with the correct cause.
 		}
 	}, [
 		bondingMode,
 		configuration,
 		contributionMode,
+		installationId,
 		showToast,
 		state,
 		streamUrl,
+		userId,
 	]);
 
 	const toggleOrientation = useCallback(async () => {
@@ -1269,11 +1309,16 @@ export default function Index() {
 						<>
 							<Pressable
 								accessibilityRole="button"
-								onPress={() => void provisionDestination()}
+								disabled={provisioning || !installationId}
+								onPress={() => void provisionDestination(true)}
 								style={styles.textButton}
 							>
 								<Text style={styles.textButtonLabel}>
-									Try automatic setup again
+									{provisioning
+										? "Setting up..."
+										: !installationId
+											? "Preparing device..."
+											: "Try automatic setup again"}
 								</Text>
 							</Pressable>
 							<Pressable
@@ -1310,7 +1355,6 @@ export default function Index() {
 		<View style={styles.container}>
 			<StatusBar style="light" />
 			<VispSrtView
-				onAgentDebug={onAgentDebug}
 				onAudioLevel={onAudioLevel}
 				onStateChange={onStateChange}
 				onStats={onStats}
