@@ -1166,7 +1166,7 @@ function CredentialsPrompt({
 					label={
 						publisher === "visp"
 							? fi
-								? "Valmistele OBS-tunnukset"
+								? "Valmistele VISP OBS-tunnukset"
 								: "Prepare OBS credentials"
 							: fi
 								? "Luo lähetysosoitteeni"
