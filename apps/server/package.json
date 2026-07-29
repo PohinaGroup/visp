@@ -24,6 +24,7 @@
 		"@elysiajs/cors": "^1.4.2",
 		"@elysiajs/trpc": "^1.1.0",
 		"@hono/trpc-server": "^0.4.2",
+		"@node-rs/argon2": "^2.0.2",
 		"@sinclair/typebox": "^0.34.49",
 		"@trpc/server": "catalog:",
 		"ai": "^6.0.0",
