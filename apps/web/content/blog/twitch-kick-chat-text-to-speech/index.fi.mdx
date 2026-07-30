@@ -1,0 +1,306 @@
+---
+title: "Twitch- ja Kick-chatin kuunteleminen IRL-lähetyksessä OBS:n kanssa"
+description: "Kuuntele Twitch- ja Kick-chatia puhelimen tekstistä puheeksi -toiminnolla, pidä ääni poissa OBS-lähetyksestä ja testaa äänipolku ennen IRL-striimiä."
+publishedAt: 2026-07-30
+coverAlt: "IRL-kuvaaja kuulee tyhjät chat-kuplat kuulokkeesta samalla kun erillinen kamerasignaali jatkaa kotistudioon"
+---
+
+Nopein tapa kuunnella Twitch- ja Kick-chatia IRL-lähetyksen aikana on
+**yhdistää palvelujen chatit VISPiin, valita Settings → Chat overlay → Speak
+messages -kohdasta Suomi tai English, käyttää kuuloketta ja tehdä yksityinen
+koelähetys.** Uudet tekstiviestit luetaan silloin kenttäpuhelimessa samalla,
+kun puhelin lähettää kamera- ja mikrofonisyötteen kotistudion OBS:ään.
+
+Kyseessä on kuvaajan kädet vapaaksi jättävä chat-seuranta, ei lahjoitushälytys
+eikä OBS:n tekstistä puheeksi -äänilähde. VISP ei tarkoituksella miksaa
+puhesynteesiä kameralähteeseen. Siksi kenttäkuvaaja voi kuulla chatin ilman,
+että jokainen katsoja kuulee sen.
+
+![Twitch- ja Kick-viestit muuttuvat puheeksi kenttäpuhelimessa samalla kun kamera ja mikrofoni kulkevat erillistä SRT-reittiä VISPin kautta OBS:ään](./chat-speech-signal-flow.svg)
+
+## Valitse yksityinen puhe, älä yleisölle kuuluvaa TTS:ää
+
+Chatin tekstistä puheeksi -toiminnolla voidaan tarkoittaa kahta aivan erilaista
+tuotantoratkaisua:
+
+| Tavoite | Paras lähtökohta | Mitä katsojat saavat? |
+| --- | --- | --- |
+| Kuuntele tavallisia Twitch- ja Kick-viestejä käyttäessäsi puhelinta kamerana | VISPin **Speak messages** ja kuulokkeet | Normaali kamera- ja mikrofonimiksaus |
+| Vilkaise uusimpia viestejä ilman puhetta | VISPin **Floating**-chat | Puhdas kameralähde; Floating näkyy vain kuvaajan näytössä |
+| Liitä uusimmat chat-tekstit puhelimen videoon | VISPin **Embedded in stream** | Chat sommitellaan pysyvästi kameralähteeseen |
+| Toista valitut hälytykset tai maksullinen TTS yleisölle | Moderoitu OBS-hälytys tai TTS-ratkaisu | Ohjelmamiksiin tarkoituksella lisätty ääni |
+
+Tämä opas käsittelee ensimmäistä vaihtoehtoa. Puhe ja näkyvän chatin sijainti
+ovat erillisiä asetuksia. Voit siis kuunnella viestejä overlayn ollessa
+**Hidden**, pitää **Floating**-näkymän tukena tai käyttää puhetta Embedded-
+overlayn kanssa. Näkyvät vaihtoehdot ja niiden yksityisyysvaikutukset käydään
+läpi oppaassa
+[Twitch- ja Kick-chatin seuraaminen puhelimella OBS-lähetyksen aikana](/fi/blog/twitch-kick-chat-phone-obs).
+
+VISPin ääneenluku on tarkoituksella yksinkertainen: se seuraa live-chattia ja
+puhuu hyödyllisen tekstin. Se ei ole moderointijono, palkintojärjestelmä eikä
+vastaustyökalu. Jos jokainen yleisölle kuuluva viesti pitää hyväksyä etukäteen,
+pidä TTS OBS:n puolella ja anna moderaattorin hallita sitä. Älä kierrätä
+suodattamatonta puhelimen kaiutinääntä takaisin lähetykseen.
+
+## Mitä tarvitset?
+
+- VISPin natiivisovelluksen, johon on kirjauduttu tuotannon Twitch- tai
+  Kick-tilillä
+- vähintään yhden sovelluksessa käyttöön otetun Twitch- tai Kick-chatin
+- OBS:ään jo tuodun puhelinsyötteen, jonka käyttöönotto kuvataan oppaassa
+  [Puhelimen käyttäminen OBS:n etäkamerana](/fi/blog/use-phone-as-remote-camera-obs)
+- kuulokkeen, joka ei estä ympäristön havainnointia
+- toisen tunnuksen tai luotettavan moderaattorin vaarattomia testiviestejä
+  varten
+- yksityisen OBS-harjoituksen ja tallenteen, jonka voit kuunnella jälkeenpäin
+
+Tässä puhelimesta OBS:ään -työnkulussa Twitchin tai Kickin lähetysavain kuuluu
+edelleen OBS:ään. Chatin puheeksi muuttaminen ei vaihda kohdepalvelua,
+käynnistä monilähetystä eikä anna puhelimelle valmiin ohjelman hallintaa.
+
+## 1. Yhdistä chat-palvelut
+
+Avaa VISPin puhelinsovellus, kirjaudu sisään ja laajenna **Settings → Advanced
+→ Connections**. Palvelutilin pitää olla yhdistetty ja chatin käytössä, ennen
+kuin viestit voivat saapua puhelimeen.
+
+Valitse Twitchin kohdalla **Authorize**, jos sovellus pyytää chat-oikeutta.
+VISP käyttää Twitchin `user:read:chat`-oikeutta. Twitch määrittelee sen luvaksi
+vastaanottaa chat-huoneen viestejä ja niihin liittyviä ilmoituksia. Virallinen
+[`channel.chat.message`-EventSub-viite](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message)
+kuvaa live-viestitapahtuman. Odota, että Twitch näyttää **connected**-tilaa, ja
+lähetä sitten uusi testiviesti. Sovellus ei hae vanhaa chat-historiaa.
+
+Yhdistä Kick-tili, ota chat käyttöön ja odota **connected**-tilaa. Kick lähettää
+`chat.message.sent`-tapahtuman VISPille allekirjoitettuna webhook-pyyntönä.
+VISP tarkistaa toimituksen ennen live-viestin välittämistä kirjautuneelle
+puhelimelle. Kick kuvaa tapahtuman virallisissa
+[tapahtumatyyppien](https://github.com/KickEngineering/KickDevDocs/blob/main/events/event-types.md),
+[tilaamisen](https://github.com/KickEngineering/KickDevDocs/blob/main/events/subscribe-to-events.md)
+ja [webhook-turvallisuuden](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+ohjeissa.
+
+Kun molemmat chatit ovat käytössä, niiden uudet viestit yhdistyvät
+puhelimessa. Tämä ei saa OBS:ää lähettämään kahteen palveluun eikä yhdistä
+palvelujen moderointityökaluja.
+
+## 2. Valitse puhuttava kieli
+
+Avaa **Settings → Chat overlay → Speak messages** ja valitse:
+
+- **Off**, kun ääneenluku ei ole käytössä;
+- **Suomi**, kun haluat suomenkielisen puhelinäänen; tai
+- **English**, kun haluat englanninkielisen puhelinäänen.
+
+Valinta ohjaa ääntämistä. Se ei käännä chattia eikä tunnista jokaisen viestin
+kieltä automaattisesti. Valitse kanavan yleisin kieli. Muunkieliset viestit
+luetaan silti, mutta nimet ja sanat voivat kuulostaa kömpelöiltä.
+
+VISP tarkistaa, löytyykö puhelimesta valitulle kielelle asennettua ääntä. Jos
+sovellus ilmoittaa puuttuvasta äänestä, lisää se laitteen järjestelmän
+tekstistä puheeksi -asetuksissa ja avaa asetus uudelleen. Sovellus käyttää
+puhelinalustan puhetoimintoja
+[Expo Speechin](https://docs.expo.dev/versions/latest/sdk/speech/) kautta.
+Virallinen viite kuvaa asennettujen äänten hakemisen ja kielen valinnan.
+
+Joillekin natiivisovelluksen käyttäjille voi näkyä myös **Better voice**.
+Käsittele sitä valinnaisena asetuksena: kytkin näkyy vain tilillä, jolla
+toiminto on käytössä. Jos luotua äänileikettä ei saada ladattua tai toistettua,
+VISP palaa laitteen omaan ääneen, jotta chat voi jatkua kuultavana.
+
+## 3. Estä puheäänen päätyminen puhelimen mikrofoniin
+
+Laita kuulokkeet päähän ennen ensimmäistä viestiä. Jos puhe tulee puhelimen
+kaiuttimesta, saman puhelimen mikrofoni voi poimia sen ja lähettää sen OBS:ään.
+Katsojat voivat silloin kuulla chatista viivästyneen kopion, vaikka VISP ei ole
+lisännyt mediavirtaan erillistä TTS-lähdettä.
+
+Aloita pienellä kuunteluvoimakkuudella. Varmista myös, ettei kuuloke estä
+liikenteen, tapahtumahenkilökunnan tai lähellä olevien ihmisten kuulemista.
+Turvallisin laite riippuu kuvauspaikasta; yksikään chat-viesti ei ole
+tilannetajun menettämisen arvoinen.
+
+Seuraa OBS:ssä puhelinlähteen äänimittaria testiviestin aikana. Kuvaajan puheen
+pitää liikuttaa mittaria, mutta yksityisen chat-äänen ei. OBS:n virallinen
+[Audio Mixer Guide](https://obsproject.com/kb/audio-mixer-guide) neuvoo
+tarkistamaan äänen sekä mahdollisimman aikaisin signaaliketjussa että OBS:ssä
+ja kuuntelemaan tallenteen ennen lähetystä.
+
+Jos puhe kuuluu OBS-tallenteessa, korjaa fyysinen äänipolku: pienennä
+puhelimen toistovoimakkuutta, paranna kuulokkeen eristystä tai muuta mikrofonin
+sijaintia. Älä peitä oiretta mykistämällä OBS-lähdettä pysyvästi, sillä samalla
+katoaa myös kenttäkuvaajan mikrofoni.
+
+## 4. Testaa vasta oikean lähetysistunnon aikana
+
+VISP lukee viestit ääneen vain puhelimen aktiivisen lähetysistunnon aikana,
+kun sovellus on etualalla. Näin asetusten aikana tullut chat ei ala puhua
+yllättäen. Kameran ollessa valmiustilassa lähetetty viesti voi näkyä
+ruudulla, mutta se ei ole kelvollinen puhetesti.
+
+Käytä tätä järjestystä:
+
+1. Valitse **Speak messages** -kohdasta **Suomi** tai **English**.
+2. Laita kuulokkeet päähän ja säädä maltillinen voimakkuus.
+3. Käynnistä puhelimen VISP-lähetys.
+4. Varmista kameran ja mikrofonin saapuminen OBS:ään.
+5. Lähetä lyhyt Twitch-viesti toisella tunnuksella.
+6. Lähetä lyhyt Kick-viesti, jos Kick on käytössä.
+7. Pysäytä puhelimen lähetys ja varmista, että myös puhejono hiljenee.
+
+Pidä sovellus näkyvissä testin ajan. Taustalle siirtäminen pysäyttää
+ääneenluvun, joten toiseen sovellukseen vaihtaminen ei pidä puhetta
+luotettavasti käynnissä live-kävelyn aikana.
+
+## 5. Opettele, mitä VISP puhuu ja mitä se ohittaa
+
+VISP muuttaa jokaisen hyödyllisen chat-viestin lyhyeksi puheenvuoroksi:
+
+- viestin teksti puhutaan ensin ja lähettäjän nimi sen jälkeen, joten sisältö
+  ehtii kuulua ennen lähettäjän nimeä;
+- verkko-osoitteen sijasta puhutaan sana “linkki”, eikä jokaista merkkiä
+  luetella;
+- pelkistä kuvallisista emoteista koostuva viesti jää hiljaiseksi;
+- hyvin pitkää viestiä ja nimeä lyhennetään, jotta yksi rivi ei varaa ääntä
+  loputtomasti;
+- chat-yhteyden uudelleenmuodostus ei tarkoituksella puhu samaa palvelun
+  viestiä kahdesti.
+
+Viestit käsitellään saapumisjärjestyksessä. Vilkas chat voi siksi kasvattaa
+jonoa: puheen kuunteleminen kestää ruudun silmäilyä kauemmin, eikä yksi ääni
+voi puhua useaa viestiä yhtä aikaa. Jos puhe jää jatkuvasti jälkeen, käytännön
+ratkaisu on ottaa **Speak messages** pois käytöstä, pitää Floating-chat näkyvissä
+ja antaa moderaattorin nostaa tärkeät viestit esiin. VISPissä ei tällä hetkellä
+ole käyttäjäkohtaista sallittujen listaa, avainsanasuodatinta tai “vain
+maininnat” -tilaa.
+
+Puhe ei siis ole chatin täydellinen kopio. Merkit, kuvalliset emotet,
+poistettujen viestien konteksti ja moderointitila kuuluvat edelleen Twitchin
+tai Kickin omiin työkaluihin.
+
+## Näin chat-puhe ja OBS pysyvät erillään
+
+Polut kohtaavat puhelimen käyttöliittymässä, mutta niillä on eri tehtävät:
+
+1. Twitch lähettää hyväksytyt `channel.chat.message`-tapahtumat VISPille.
+2. Kick lähettää allekirjoitetut `chat.message.sent`-webhook-tapahtumat
+   VISPille.
+3. VISP yhdenmukaistaa hyväksytyt viestit ja välittää ne todennetulla
+   live-yhteydellä kirjautuneelle puhelimelle.
+4. Puhelin muuttaa tekstin puheeksi valitulla kielellä ja toistaa sen
+   yhdistettyyn äänilaitteeseen.
+5. Erikseen puhelin enkoodaa kameran ja mikrofonin H.264/AAC-muotoon ja
+   julkaisee yhden SRT-kenttäsyötteen.
+6. VISP-relay välittää syötteen OBS:ään, jossa kotituottaja hallitsee
+   kohtauksia, hälytyksiä, tallennusta sekä lopullista Twitch- tai Kick-kohdetta.
+
+VISPin tavallinen relay-polku **ei transkoodaa** kameralähdettä eikä **bondaa
+verkkoyhteyksiä**. Natiivisovelluksen valinnainen monen yhteyden redundanssi
+lähettää samat SRT-paketit Wi-Fi- ja mobiiliyhteydellä; se ei laske yhteyksien
+kaistanleveyksiä yhteen. Chatin puheeksi muuttaminen ei muuta kumpaakaan
+ominaisuutta.
+
+Puhelimen puheääni ei myöskään ole OBS:n erillinen digitaalinen äänilähde. Se
+päätyy lähetykseen vain, jos kenttämikrofoni poimii sen tai jos rakennat
+tarkoituksella toisen äänireitin.
+
+## Tee tämä yksityinen ennakkotesti
+
+Ennen TTS:n käyttämistä julkisessa IRL-lähetyksessä:
+
+1. Yhdistä vain ne chatit, joita aiot oikeasti seurata.
+2. Valitse yleisin kieli ja varmista, että laitteessa on sitä vastaava ääni.
+3. Valitse chatille **Hidden** tai **Floating**. Käytä Embedded-tilaa vain, jos
+   tekstin kuuluu päätyä kameralähteeseen.
+4. Laita kuulokkeet päähän ja käynnistä puhelimen lähetys.
+5. Lähetä tavallinen teksti, verkko-osoite, pelkkä emote ja yksi pitkä viesti.
+6. Varmista näkyvästä chatista, että tunnistat molemmat palvelut.
+7. Puhu testiviestin päälle ja arvioi, häiritseekö ääni omaa puhettasi.
+8. Tallenna puhelinlähde OBS:ssä ja kuuntele puhevuoto, kaiku sekä
+   kaksinkertainen ääni.
+9. Katkaise kenttäyhteys lyhyesti ja varmista, että OBS:n
+   [varakohtaus](/fi/blog/keep-stream-live-bad-mobile-network) suojaa edelleen
+   katsojille näkyvää lähetystä.
+10. Pysäytä lähetys ja varmista, että puhelin hiljenee.
+
+Jos tallenteessa on TTS:stä riippumatonta kaikua tai synkronointiongelmia,
+seuraa opasta
+[Puhelinkameran äänen korjaaminen OBS:ssä](/fi/blog/fix-phone-audio-obs) ennen
+uusien chat-asetusten muuttamista.
+
+## Ongelmatilanteet
+
+### Speak messages on käytössä, mutta mitään ei kuulu
+
+Varmista, että puhelimen lähetys on aktiivinen, sovellus on etualalla ja
+vähintään yksi chat-palvelu näyttää connected-tilaa. Nosta mediavoimakkuutta
+varovasti, lähetä uusi tekstiviesti ja tarkista puuttuvan äänen varoitus. Vanhoja
+viestejä ei toisteta, kun puhe otetaan käyttöön.
+
+### Toinen palvelu kuuluu, mutta toinen ei
+
+Avaa **Connections**. Hiljaisen palvelun pitää olla yhdistetty, chatin käytössä
+ja connected-tilassa. Twitch voi pyytää uusimaan chat-oikeuden. Testaa uudella
+viestillä vasta tilan palauduttua.
+
+### Nimet tai viestit lausutaan väärin
+
+Kielivalinta ei käännä tekstiä eikä tunnista kieltä automaattisesti. Valitse
+chatin pääkieli ja hyväksy, että käyttäjänimet, slangi sekä sekakieliset viestit
+voivat kuulostaa epätäydellisiltä. Jos itse järjestelmä-ääni puuttuu, asenna
+valitulle kielelle sopiva ääni.
+
+### Puhe jää kauas chatin jälkeen
+
+Kanava tuottaa tekstiä nopeammin kuin yksi ääni pystyy lukemaan. Ota puhe pois
+käytöstä sen sijaan, että kuuntelisit vanhentuneita reaktioita. Pidä
+Floating-chat pikakontekstina ja pyydä moderaattoria nostamaan vastauksen
+tarvitsevat viestit esiin.
+
+### Katsojat kuulevat tekstistä puheeksi -äänen
+
+Puhelimen kaiutin kuuluu todennäköisesti kenttämikrofoniin. Siirry
+kuulokkeisiin, pienennä toistovoimakkuutta ja tee uusi OBS-tallenne. Etsi
+toista tarkoituksellista äänireittiä vasta, kun akustinen vuoto on poistettu.
+
+## Usein kysyttyä
+
+### Voiko VISP lukea Twitch- ja Kick-chatia yhtä aikaa?
+
+Kyllä. Yhdistä ja ota käyttöön molemmat chatit. Niiden uudet tekstiviestit
+saapuvat samaan puhejonoon. Tämä ei käynnistä OBS:n monilähetystä eikä yhdistä
+moderointia.
+
+### Tarvitaanko chat-puhetta varten OBS-lisäosa?
+
+Ei. Puhe toimii kirjautuneessa VISP-sovelluksessa. Lisäosasta on hyötyä
+kohtausten ja lähetyksen etäohjauksessa, mutta se ei ole TTS-moottori.
+
+### Voinko vastata chattiin puhumalla?
+
+Et. VISPin mobiilichat on vain lukuun tarkoitettu. Vastaaminen ja moderointi
+tehdään palvelujen omissa sisällöntuottajatyökaluissa.
+
+### Päätyykö chat-puhe lähetykseen tai tallenteeseen?
+
+Ei VISPin digitaalisena lähteenä. Ääni voi silti vuotaa molempiin, jos
+puhelimen mikrofoni kuulee kaiuttimen. Siksi kuuloke- ja tallennustesti ovat
+olennaisia.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISPin puhelin- ja selainsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISPin chat- ja media-arkkitehtuuri](https://docs.visp-stream.com/fi/docs/architecture)
+- [VISPin lähettäjän varakuva-asetukset](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [Twitch EventSubin chat-viestit](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message)
+- [Twitchin käyttöoikeudet](https://dev.twitch.tv/docs/authentication/scopes/)
+- [Kickin kehittäjädokumentaation tapahtumatyypit](https://github.com/KickEngineering/KickDevDocs/blob/main/events/event-types.md)
+- [Kickin webhook-turvallisuus](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+- [Expo Speech -viite](https://docs.expo.dev/versions/latest/sdk/speech/)
+- [OBS:n Audio Mixer Guide](https://obsproject.com/kb/audio-mixer-guide)
+
+Jos puhelimesi syöttää jo kotistudion OBS-tuotantoa ja chatin katsominen
+katkaisee kuvaamisen rytmin, [kokeile VISPiä](https://visp-stream.com): yhdistä
+yksi palvelu, ota ääneenluku käyttöön ja varmista kuulokepolku yksityisellä
+tallenteella ennen seuraavaa kävelylähetystä.
