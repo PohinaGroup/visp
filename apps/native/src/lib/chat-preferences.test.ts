@@ -24,6 +24,23 @@ describe("chat display preferences", () => {
 		).toMatchObject({ disappearingMessages: true });
 	});
 
+	test("leaves read-aloud off for preferences saved before it existed", () => {
+		expect(
+			parseChatPreferences(JSON.stringify({ mode: "floating" })),
+		).toMatchObject({ speechLanguage: "off", betterVoice: false });
+	});
+
+	test("keeps a supported speech language and rejects the rest", () => {
+		expect(
+			parseChatPreferences(
+				JSON.stringify({ speechLanguage: "fi-FI", betterVoice: true }),
+			),
+		).toMatchObject({ speechLanguage: "fi-FI", betterVoice: true });
+		expect(
+			parseChatPreferences(JSON.stringify({ speechLanguage: "sv-SE" })),
+		).toMatchObject({ speechLanguage: "off" });
+	});
+
 	test("clamps floating positions", () => {
 		const parsed = parseChatPreferences(
 			JSON.stringify({

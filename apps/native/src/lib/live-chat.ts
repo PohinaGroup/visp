@@ -3,7 +3,7 @@ import type {
 	ChatMessage,
 	ChatProviderStatus,
 } from "@VISP/api/chat/contract";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiClient } from "./backend";
 import { visibleChatMessages } from "./chat-model";
 
@@ -26,7 +26,17 @@ export function useLiveChat(
 	userId: string | undefined,
 	active: boolean,
 	disappearingMessages: boolean,
+	/**
+	 * Every arriving message, before the render state below drops all but the
+	 * last three. Read-aloud needs the full stream, so it cannot use the
+	 * returned arrays.
+	 */
+	onMessage?: (message: ChatMessage) => void,
 ) {
+	const onMessageRef = useRef(onMessage);
+	useEffect(() => {
+		onMessageRef.current = onMessage;
+	});
 	const [messages, setMessages] = useState<
 		Array<ChatMessage & { receivedAt: number }>
 	>([]);
@@ -84,6 +94,7 @@ export function useLiveChat(
 						// #region agent log
 						fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:message',message:'chat message received',data:{provider:event.message.provider,id:event.message.id,sender:event.message.sender.name},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
 						// #endregion
+						onMessageRef.current?.(event.message);
 						setMessages((current) =>
 							[
 								...current.filter(

@@ -116,6 +116,9 @@ export const appUser = pgTable("app_user", {
 	// VISP Direct admission control. The relay is one node and Direct always
 	// runs distribution encode there, so this gates capacity, not payment.
 	directBeta: boolean("direct_beta").default(false).notNull(),
+	// Hosted text-to-speech for reading chat aloud. Every utterance costs money
+	// per character, so this gates spend, not capacity.
+	betterTts: boolean("better_tts").default(false).notNull(),
 	onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()

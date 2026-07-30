@@ -59,6 +59,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { eq, ne } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
+import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
@@ -738,7 +739,7 @@ integration("relay PostgreSQL integration", () => {
 	test("authenticates and pushes commands over the OBS WebSocket", async () => {
 		await seed();
 		const pairing = await rotateObsControlToken("user-a");
-		const liveApp = new Elysia().use(obsLiveRoutes).listen({
+		const liveApp = new Elysia({ adapter: nodeAdapter }).use(obsLiveRoutes).listen({
 			hostname: "127.0.0.1",
 			port: 0,
 		});

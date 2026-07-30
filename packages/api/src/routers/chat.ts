@@ -8,6 +8,7 @@ import {
 } from "../chat/connections";
 import { chatTickets } from "../chat/tickets";
 import { protectedProcedure, router } from "../index";
+import { canUseBetterTts } from "../tts";
 
 const provider = z.enum(["twitch", "kick"]);
 
@@ -47,4 +48,8 @@ export const chatRouter = router({
 	liveTicket: protectedProcedure.mutation(({ ctx }) =>
 		chatTickets.issue(ctx.session.user.id),
 	),
+	/** What the read-aloud settings may offer. /api/tts re-checks the flag. */
+	speech: protectedProcedure.query(async ({ ctx }) => ({
+		betterTts: await canUseBetterTts(ctx.session.user.id),
+	})),
 });

@@ -506,6 +506,35 @@ export const adminRouter = router({
 				return result;
 			}),
 
+		// Hosted text-to-speech bills per character read out of chat. Hand it out
+		// as deliberately as Direct: this one spends money rather than capacity.
+		setBetterTts: adminProcedure
+			.input(
+				z.object({
+					userId: z.string().min(1),
+					betterTts: z.boolean(),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				const [result] = await db
+					.update(appUser)
+					.set({ betterTts: input.betterTts })
+					.where(eq(appUser.id, input.userId))
+					.returning({ id: appUser.id, betterTts: appUser.betterTts });
+				if (!result) {
+					throw new TRPCError({
+						code: "NOT_FOUND",
+						message: "Relay user not found",
+					});
+				}
+				audit(
+					ctx.session.user.id,
+					input.userId,
+					`set_better_tts:${input.betterTts}`,
+				);
+				return result;
+			}),
+
 		ban: adminProcedure
 			.input(
 				z.object({

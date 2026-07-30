@@ -1,3 +1,4 @@
+import type { ChatMessage } from "@VISP/api/chat/contract";
 import {
 	formatBondedLinks,
 	formatLiveLinkHud,
@@ -81,17 +82,23 @@ import {
 	type ChatPreferences,
 	DEFAULT_CHAT_PREFERENCES,
 	loadChatPreferences,
+	type SpokenLanguage,
 	saveChatPreferences,
 } from "../lib/chat-preferences";
+import {
+	enqueueChatMessage,
+	hasVoiceFor,
+	stopChatSpeech,
+} from "../lib/chat-speech";
 import {
 	configureVideoCapture,
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
+import { useLiveChat } from "../lib/live-chat";
 import {
 	describeProvisionError,
 	syncNativePublishUrl,
 } from "../lib/native-publish-url";
-import { useLiveChat } from "../lib/live-chat";
 import {
 	deleteStreamUrl,
 	describeStreamUrl,
@@ -303,6 +310,8 @@ export default function Index() {
 		Record<number, string>
 	>({});
 	const [chatBusy, setChatBusy] = useState<"twitch" | "kick">();
+	const [betterTts, setBetterTts] = useState(false);
+	const [speechVoiceMissing, setSpeechVoiceMissing] = useState(false);
 	const orientation = window.width > window.height ? "landscape" : "portrait";
 	const settingsDisabled = state === "preparing" || ACTIVE_STATES.has(state);
 	const cameraSwitchDisabled =
@@ -318,7 +327,11 @@ export default function Index() {
 		publishPath?.directTwitch || publishPath?.directKick,
 	);
 	const contributionMode = directContribution ? "direct" : "full";
-	const { clearLinkStats, linkStats, onStats: onStatsRaw } = useLinkStatsReporter({
+	const {
+		clearLinkStats,
+		linkStats,
+		onStats: onStatsRaw,
+	} = useLinkStatsReporter({
 		live: state === "live",
 		pathId: publishPathId,
 		setVideoBitrate: IS_WEB
@@ -333,11 +346,49 @@ export default function Index() {
 				)
 			: undefined,
 	});
+	// Read chat aloud only while broadcasting: unsolicited audio during setup is
+	// worse than useless, and going live is what configures the audio session
+	// the speech plays into.
+	const spokenLanguage =
+		chatPreferences.speechLanguage === "off"
+			? undefined
+			: (chatPreferences.speechLanguage as SpokenLanguage);
+	const speechActive = Boolean(
+		spokenLanguage && appState === "active" && ACTIVE_STATES.has(state),
+	);
+	const betterVoice = betterTts && !IS_WEB && chatPreferences.betterVoice;
+	const onChatMessage = useCallback(
+		(message: ChatMessage) => {
+			if (!speechActive || !spokenLanguage) return;
+			enqueueChatMessage(message, spokenLanguage, betterVoice);
+		},
+		[betterVoice, speechActive, spokenLanguage],
+	);
 	const liveChat = useLiveChat(
 		userId,
 		appState === "active",
 		chatPreferences.disappearingMessages,
+		onChatMessage,
 	);
+
+	useEffect(() => {
+		if (speechActive) return () => stopChatSpeech();
+		stopChatSpeech();
+	}, [speechActive]);
+
+	useEffect(() => {
+		if (!spokenLanguage) {
+			setSpeechVoiceMissing(false);
+			return;
+		}
+		let disposed = false;
+		void hasVoiceFor(spokenLanguage).then((available) => {
+			if (!disposed) setSpeechVoiceMissing(!available);
+		});
+		return () => {
+			disposed = true;
+		};
+	}, [spokenLanguage]);
 
 	useEffect(() => {
 		if (Platform.OS !== "ios") return;
@@ -443,6 +494,7 @@ export default function Index() {
 			setChatConnections([]);
 			setPublishDevices([]);
 			setInstallationId(undefined);
+			setBetterTts(false);
 			return;
 		}
 		loadChatPreferences(userId)
@@ -462,6 +514,10 @@ export default function Index() {
 			.query()
 			.then(setPublishDevices)
 			.catch(() => setPublishDevices([]));
+		apiClient.chat.speech
+			.query()
+			.then(({ betterTts: enabled }) => setBetterTts(enabled))
+			.catch(() => setBetterTts(false));
 		loadOrCreateInstallationId()
 			.then(setInstallationId)
 			.catch(() => setMessage("This installation could not be identified."));
@@ -469,7 +525,35 @@ export default function Index() {
 
 	useEffect(() => {
 		// #region agent log
-		fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'index.tsx:chat-state',message:'chat display state',data:{mode:chatPreferences.mode,corner:chatPreferences.corner,visibleCount:liveChat.messages.length,recentCount:liveChat.recentMessages.length,statuses:liveChat.statuses,connections:chatConnections.map(c=>({provider:c.provider,linked:c.linked,enabled:c.enabled,needsConsent:c.needsConsent})),disappearingMessages:chatPreferences.disappearingMessages,orientation},timestamp:Date.now(),hypothesisId:'H5'})}).catch(()=>{});
+		fetch("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c", {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/json",
+				"X-Debug-Session-Id": "24a310",
+			},
+			body: JSON.stringify({
+				sessionId: "24a310",
+				location: "index.tsx:chat-state",
+				message: "chat display state",
+				data: {
+					mode: chatPreferences.mode,
+					corner: chatPreferences.corner,
+					visibleCount: liveChat.messages.length,
+					recentCount: liveChat.recentMessages.length,
+					statuses: liveChat.statuses,
+					connections: chatConnections.map((c) => ({
+						provider: c.provider,
+						linked: c.linked,
+						enabled: c.enabled,
+						needsConsent: c.needsConsent,
+					})),
+					disappearingMessages: chatPreferences.disappearingMessages,
+					orientation,
+				},
+				timestamp: Date.now(),
+				hypothesisId: "H5",
+			}),
+		}).catch(() => {});
 		// #endregion
 		if (
 			chatPreferences.mode === "embedded" &&
@@ -479,12 +563,51 @@ export default function Index() {
 				?.updateChatOverlay(liveChat.messages, chatPreferences.corner)
 				.then(() => {
 					// #region agent log
-					fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'index.tsx:embedded-ok',message:'embedded overlay updated',data:{messageCount:liveChat.messages.length,corner:chatPreferences.corner},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+					fetch(
+						"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								"X-Debug-Session-Id": "24a310",
+							},
+							body: JSON.stringify({
+								sessionId: "24a310",
+								location: "index.tsx:embedded-ok",
+								message: "embedded overlay updated",
+								data: {
+									messageCount: liveChat.messages.length,
+									corner: chatPreferences.corner,
+								},
+								timestamp: Date.now(),
+								hypothesisId: "H4",
+							}),
+						},
+					).catch(() => {});
 					// #endregion
 				})
 				.catch((error) => {
 					// #region agent log
-					fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'index.tsx:embedded-error',message:'embedded overlay failed',data:{error:error instanceof Error?error.message:'unknown'},timestamp:Date.now(),hypothesisId:'H4'})}).catch(()=>{});
+					fetch(
+						"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
+						{
+							method: "POST",
+							headers: {
+								"Content-Type": "application/json",
+								"X-Debug-Session-Id": "24a310",
+							},
+							body: JSON.stringify({
+								sessionId: "24a310",
+								location: "index.tsx:embedded-error",
+								message: "embedded overlay failed",
+								data: {
+									error: error instanceof Error ? error.message : "unknown",
+								},
+								timestamp: Date.now(),
+								hypothesisId: "H4",
+							}),
+						},
+					).catch(() => {});
 					// #endregion
 				});
 		} else {
@@ -526,6 +649,12 @@ export default function Index() {
 	const refreshDirectOutputs = useCallback(async () => {
 		if (!userId) return;
 		setDirectOutputs(await apiClient.direct.list.query());
+	}, [userId]);
+
+	const refreshSpeechFlag = useCallback(async () => {
+		if (!userId) return;
+		const { betterTts: enabled } = await apiClient.chat.speech.query();
+		setBetterTts(enabled);
 	}, [userId]);
 
 	const applyDirectSelection = useCallback(
@@ -1076,7 +1205,13 @@ export default function Index() {
 		void refreshChatConnections();
 		void refreshPublishDevices();
 		void refreshDirectOutputs();
-	}, [refreshChatConnections, refreshPublishDevices, refreshDirectOutputs]);
+		void refreshSpeechFlag().catch(() => undefined);
+	}, [
+		refreshChatConnections,
+		refreshPublishDevices,
+		refreshDirectOutputs,
+		refreshSpeechFlag,
+	]);
 
 	const removeUrl = useCallback(() => {
 		const remove = () => {
@@ -1697,8 +1832,8 @@ export default function Index() {
 							</SettingRow>
 							<UI.FieldGroup.SectionFooter>
 								<UI.Text textStyle={SUBTLE_TEXT}>
-									Uses Wi-Fi and cellular together. This can roughly double mobile
-									data use.
+									Uses Wi-Fi and cellular together. This can roughly double
+									mobile data use.
 								</UI.Text>
 							</UI.FieldGroup.SectionFooter>
 						</UI.FieldGroup.Section>
@@ -1755,6 +1890,44 @@ export default function Index() {
 									value={chatPreferences.disappearingMessages}
 								/>
 							</SettingRow>
+							<SettingRow label="Speak messages">
+								<UI.Picker
+									onValueChange={(speechLanguage) =>
+										updateChatPreferences((current) => ({
+											...current,
+											speechLanguage:
+												speechLanguage as ChatPreferences["speechLanguage"],
+										}))
+									}
+									selectedValue={chatPreferences.speechLanguage}
+								>
+									<UI.Picker.Item label="Off" value="off" />
+									<UI.Picker.Item label="Suomi" value="fi-FI" />
+									<UI.Picker.Item label="English" value="en-US" />
+								</UI.Picker>
+							</SettingRow>
+							{betterTts && !IS_WEB && spokenLanguage ? (
+								<SettingRow label="Better voice">
+									<UI.Switch
+										onValueChange={(nextBetterVoice) =>
+											updateChatPreferences((current) => ({
+												...current,
+												betterVoice: nextBetterVoice,
+											}))
+										}
+										value={chatPreferences.betterVoice}
+									/>
+								</SettingRow>
+							) : null}
+							{spokenLanguage ? (
+								<UI.FieldGroup.SectionFooter>
+									<UI.Text textStyle={SUBTLE_TEXT}>
+										{speechVoiceMissing
+											? "This language has no voice installed on this device. Add it in the system text-to-speech settings."
+											: "Reads chat aloud while you are live. Use headphones, because the phone speaker is picked up by the microphone."}
+									</UI.Text>
+								</UI.FieldGroup.SectionFooter>
+							) : null}
 						</UI.FieldGroup.Section>
 					) : null}
 

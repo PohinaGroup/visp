@@ -2,7 +2,6 @@ import { createContext } from "@VISP/api/context";
 import { appRouter } from "@VISP/api/routers/index";
 import { auth } from "@VISP/auth";
 import { env } from "@VISP/env/server";
-import { node } from "@elysia/node";
 import { cors } from "@elysiajs/cors";
 import { fetchRequestHandler } from "@trpc/server/adapters/fetch";
 import { Elysia } from "elysia";
@@ -14,8 +13,10 @@ import {
 import { evlog } from "evlog/elysia";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
+import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
+import { ttsRoutes } from "./tts";
 
 initLogger({ env: { service: "VISP-server" } });
 
@@ -51,7 +52,7 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 });
 
 export function createApp() {
-	return new Elysia({ adapter: node() })
+	return new Elysia({ adapter: nodeAdapter })
 		.use(
 			evlog({
 				redact: { paths: LOG_REDACTION_PATHS },
@@ -78,6 +79,7 @@ export function createApp() {
 		.use(machineRoutes)
 		.use(obsLiveRoutes)
 		.use(seppoRoutes)
+		.use(ttsRoutes)
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {
 				return auth.handler(request);

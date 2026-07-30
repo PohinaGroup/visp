@@ -20,6 +20,13 @@ export const serverEnvSchema = {
 	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
 	/**
+	 * Hosted text-to-speech for reading chat aloud. Optional: without both
+	 * values /api/tts answers 503 and the app falls back to the device voice.
+	 */
+	ELEVENLABS_API_KEY: z.string().min(1).optional(),
+	/** A multilingual ElevenLabs voice; one voice covers Finnish and English. */
+	ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
+	/**
 	 * Active publishing paths allowed per user. A calibration knob: raise only
 	 * after measuring relay capacity and abuse pressure.
 	 */

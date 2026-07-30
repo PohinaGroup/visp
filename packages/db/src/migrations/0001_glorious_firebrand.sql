@@ -1,0 +1,1 @@
+ALTER TABLE "app_user" ADD COLUMN "better_tts" boolean DEFAULT false NOT NULL;
