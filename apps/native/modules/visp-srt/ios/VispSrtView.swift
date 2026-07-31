@@ -351,7 +351,7 @@ final class VispSrtView: ExpoView {
     try audioSession.setCategory(
       .playAndRecord,
       mode: mode,
-      options: [.defaultToSpeaker, .allowBluetoothHFP]
+      options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
     )
     try audioSession.setActive(true)
   }
@@ -408,7 +408,7 @@ final class VispSrtView: ExpoView {
     }
   }
 
-  func startLiveCaptions(language: String, better: Bool, wsUrl: String?) async {
+  func startLiveCaptions(language: String, better: Bool, wsUrl: String?) async -> Bool {
     await liveCaptions.start(language: language, better: better, wsUrl: wsUrl)
   }
 

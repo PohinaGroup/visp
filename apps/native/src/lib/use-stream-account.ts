@@ -245,6 +245,13 @@ export function useStreamAccount({
 		[linkChatProvider, refreshChatConnections, showToast],
 	);
 
+	const reauthorizeChatProvider = useCallback(
+		async (connection: (typeof chatConnections)[number]) => {
+			await linkChatProvider(connection.provider, true);
+		},
+		[linkChatProvider],
+	);
+
 	const unlinkChatProvider = useCallback(
 		async (connection: (typeof chatConnections)[number]) => {
 			setChatBusy(connection.provider);
@@ -295,6 +302,7 @@ export function useStreamAccount({
 		revealPublishDevice,
 		setStreamUrl,
 		streamUrl,
+		reauthorizeChatProvider,
 		toggleChatConnection,
 		unlinkChatProvider,
 		updateChatPreferences,

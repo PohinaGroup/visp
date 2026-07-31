@@ -43,12 +43,16 @@ export function useLiveChat(
 	const [statuses, setStatuses] = useState<
 		Partial<Record<"twitch" | "kick", ChatProviderStatus["state"]>>
 	>({});
+	const [errors, setErrors] = useState<
+		Partial<Record<"twitch" | "kick", string>>
+	>({});
 	const [now, setNow] = useState(Date.now());
 
 	useEffect(() => {
 		if (!active || !userId) {
 			setMessages([]);
 			setStatuses({});
+			setErrors({});
 			return;
 		}
 		let disposed = false;
@@ -76,6 +80,25 @@ export function useLiveChat(
 								...current,
 								[event.status.provider]: event.status.state,
 							}));
+							setErrors((current) => ({
+								...(event.status.state === "connected"
+									? { ...current, [event.status.provider]: undefined }
+									: event.status.state === "error"
+										? {
+												...current,
+												[event.status.provider]:
+													event.status.error ??
+													(event.status.provider === "twitch"
+														? "Twitch chat could not be started"
+														: "Kick chat could not be started"),
+											}
+										: event.status.error
+											? {
+													...current,
+													[event.status.provider]: event.status.error,
+												}
+											: current),
+							}));
 							return;
 						}
 						const receivedAt = Date.now();
@@ -94,9 +117,10 @@ export function useLiveChat(
 						// Invalid chat frames are ignored and never affect the media stream.
 					}
 				};
-				socket.onclose = (closeEvent) => {
+				socket.onclose = () => {
 					if (disposed) return;
 					setStatuses({});
+					setErrors({});
 					const delay = Math.min(15_000, 1_000 * 2 ** Math.min(retry, 4));
 					retry += 1;
 					reconnectTimer = setTimeout(() => void connect(), delay);
@@ -124,6 +148,7 @@ export function useLiveChat(
 	const visible = visibleChatMessages(messages, disappearingMessages, now);
 
 	return {
+		errors,
 		messages: visible,
 		recentMessages: messages,
 		statuses,

@@ -6,7 +6,6 @@ import { hasScope, hasStreamKeyScope, parseScopes } from "../scopes";
 import type { ChatProvider } from "./contract";
 import { chatHub } from "./hub";
 import { createKickSubscription, deleteKickSubscription } from "./kick";
-import { twitchConnectors } from "./twitch";
 
 const PROVIDERS = ["twitch", "kick"] as const;
 
@@ -81,7 +80,7 @@ export async function enableChatConnection(
 		),
 	});
 	if (existing) {
-		if (provider === "twitch") await twitchConnectors.refresh(userId);
+		if (provider === "twitch") chatHub.requestConnectorRefresh(userId);
 		else chatHub.status(userId, "kick", "connected");
 		return existing;
 	}
@@ -99,7 +98,7 @@ export async function enableChatConnection(
 					eq(chatConnection.provider, provider),
 				),
 			}));
-		await twitchConnectors.refresh(userId);
+		chatHub.requestConnectorRefresh(userId);
 		return connection;
 	}
 	const subscriptionId = await createKickSubscription(linked.accountId);
@@ -146,7 +145,7 @@ export async function disableChatConnection(
 			() => undefined,
 		);
 	}
-	if (provider === "twitch") await twitchConnectors.refresh(userId);
+	if (provider === "twitch") chatHub.requestConnectorRefresh(userId);
 	else chatHub.status(userId, "kick", "disconnected");
 	return { disabled: Boolean(removed) };
 }

@@ -1,8 +1,16 @@
 import type { ChatProviderStatus } from "@VISP/api/chat/contract";
 import * as UI from "@expo/ui";
+import type { AudioOutputCapability } from "../../modules/visp-srt";
+import { VispRoutePicker } from "../../modules/visp-srt";
 import type { apiClient } from "../lib/backend";
 import type { ChatPreferences } from "../lib/chat-preferences";
-import { IS_WEB, SettingRow, SUBTLE_TEXT } from "./stream-settings-shared";
+import {
+	IS_IOS,
+	IS_WEB,
+	SettingRow,
+	SUBTLE,
+	SUBTLE_TEXT,
+} from "./stream-settings-shared";
 
 type ChatConnections = Awaited<
 	ReturnType<typeof apiClient.chat.connections.list.query>
@@ -15,13 +23,19 @@ export type ChatSettings = {
 	betterTts: boolean;
 	busy: boolean;
 	connections: ChatConnections;
+	currentAudioOutput?: string;
 	enabled: boolean;
+	errors: Partial<Record<"twitch" | "kick", string>>;
+	onReauthorizeConnection: (connection: ChatConnections[number]) => void;
 	onToggleConnection: (connection: ChatConnections[number]) => void;
 	onUnlinkConnection: (connection: ChatConnections[number]) => void;
+	onSelectOutput: (outputId: string) => Promise<void>;
 	onUpdatePreferences: (
 		updater: (current: ChatPreferences) => ChatPreferences,
 	) => void;
 	preferences: ChatPreferences;
+	outputId: string;
+	outputs: AudioOutputCapability[];
 	speechVoiceMissing: boolean;
 	spokenLanguage?: string;
 	statuses: ChatStatuses;
@@ -39,13 +53,24 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 							</UI.Text>
 							<UI.Text textStyle={SUBTLE_TEXT}>
 								{connection.enabled
-									? `Chat ${chat.statuses[connection.provider] ?? "connected"}`
+									? (chat.errors[connection.provider] ??
+										(chat.statuses[connection.provider] === "error"
+											? `${connection.provider === "twitch" ? "Twitch" : "Kick"} chat could not be started`
+											: `Chat ${chat.statuses[connection.provider] ?? "connected"}`))
 									: connection.linked
 										? "Linked · chat off"
 										: "Not linked"}
 							</UI.Text>
 						</UI.Column>
 						<UI.Spacer flexible />
+						{connection.linked ? (
+							<UI.Button
+								disabled={chat.busy}
+								label="Re-authorize"
+								onPress={() => chat.onReauthorizeConnection(connection)}
+								variant="text"
+							/>
+						) : null}
 						{connection.linked &&
 						chat.connections.filter(({ linked }) => linked).length > 1 ? (
 							<UI.Button
@@ -157,12 +182,41 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 							/>
 						</SettingRow>
 					) : null}
+					{!IS_WEB && chat.spokenLanguage ? (
+						<SettingRow label="Speak to">
+							{IS_IOS ? (
+								<>
+									<UI.Text textStyle={SUBTLE_TEXT}>
+										{chat.currentAudioOutput ?? "System output"}
+									</UI.Text>
+									<VispRoutePicker
+										accessibilityLabel="Choose speech output"
+										activeTintColor="#0a84ff"
+										style={{ height: 32, width: 32 }}
+										tintColor={SUBTLE}
+									/>
+								</>
+							) : (
+								<UI.Picker
+									onValueChange={(outputId) =>
+										void chat.onSelectOutput(String(outputId))
+									}
+									selectedValue={chat.outputId}
+								>
+									<UI.Picker.Item label="System default" value="default" />
+									{chat.outputs.map(({ id, name }) => (
+										<UI.Picker.Item key={id} label={name} value={id} />
+									))}
+								</UI.Picker>
+							)}
+						</SettingRow>
+					) : null}
 					{chat.spokenLanguage ? (
 						<UI.FieldGroup.SectionFooter>
 							<UI.Text textStyle={SUBTLE_TEXT}>
 								{chat.speechVoiceMissing
 									? "This language has no voice installed on this device. Add it in the system text-to-speech settings."
-									: "Reads chat aloud while you are live. Use headphones, because the phone speaker is picked up by the microphone."}
+									: "Reads new chat messages aloud while the app is open."}
 							</UI.Text>
 						</UI.FieldGroup.SectionFooter>
 					) : null}

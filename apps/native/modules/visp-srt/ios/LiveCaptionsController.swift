@@ -34,7 +34,8 @@ final class LiveCaptionsController: @unchecked Sendable {
     lock.unlock()
   }
 
-  func start(language: String, better: Bool, wsUrl: String?) async {
+  @discardableResult
+  func start(language: String, better: Bool, wsUrl: String?) async -> Bool {
     await stop()
     // JS maps LanguageCode → BCP-47 locale before calling; accept either form.
     let localeId: String
@@ -53,10 +54,9 @@ final class LiveCaptionsController: @unchecked Sendable {
     lock.unlock()
 
     if better {
-      await startScribe()
-    } else {
-      await startNative(localeId: localeId)
+      return await startScribe()
     }
+    return await startNative(localeId: localeId)
   }
 
   func stop() async {
@@ -95,25 +95,32 @@ final class LiveCaptionsController: @unchecked Sendable {
     case .off:
       return
     case .native:
-      request?.append(buffer)
+      guard let request, let speechBuffer = convertToSpeechBuffer(buffer) else { return }
+      request.append(speechBuffer)
     case .better:
       sendScribeChunk(buffer)
     }
   }
 
-  private func startNative(localeId: String) async {
+  @discardableResult
+  private func startNative(localeId: String) async -> Bool {
     let authorized = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
       SFSpeechRecognizer.requestAuthorization { status in
         continuation.resume(returning: status == .authorized)
       }
     }
-    guard authorized else { return }
+    guard authorized else { return false }
 
     let recognizer = SFSpeechRecognizer(locale: Locale(identifier: localeId))
-    guard let recognizer, recognizer.isAvailable else { return }
+    guard let recognizer, recognizer.isAvailable else { return false }
 
     let request = SFSpeechAudioBufferRecognitionRequest()
     request.shouldReportPartialResults = true
+    if #available(iOS 13, *) {
+      if recognizer.supportsOnDeviceRecognition {
+        request.requiresOnDeviceRecognition = true
+      }
+    }
     if #available(iOS 16.0, *) {
       request.addsPunctuation = true
     }
@@ -135,6 +142,7 @@ final class LiveCaptionsController: @unchecked Sendable {
         Task { await self.restartNativeIfNeeded(localeId: localeId) }
       }
     }
+    return true
   }
 
   private func restartNativeIfNeeded(localeId: String) async {
@@ -146,14 +154,15 @@ final class LiveCaptionsController: @unchecked Sendable {
     lock.lock()
     mode = .native
     lock.unlock()
-    await startNative(localeId: localeId)
+    _ = await startNative(localeId: localeId)
   }
 
-  private func startScribe() async {
+  @discardableResult
+  private func startScribe() async -> Bool {
     lock.lock()
     let url = wsUrl
     lock.unlock()
-    guard let url else { return }
+    guard let url else { return false }
 
     let session = URLSession(configuration: .default)
     let socket = session.webSocketTask(with: url)
@@ -163,6 +172,7 @@ final class LiveCaptionsController: @unchecked Sendable {
     lock.unlock()
     socket.resume()
     receiveScribe()
+    return true
   }
 
   private func receiveScribe() {
@@ -217,14 +227,20 @@ final class LiveCaptionsController: @unchecked Sendable {
     socket.send(.string(text)) { _ in }
   }
 
-  private func convertDown(_ buffer: AVAudioPCMBuffer) -> Data? {
-    guard let targetFormat = AVAudioFormat(
+  private func speechTargetFormat() -> AVAudioFormat? {
+    AVAudioFormat(
       commonFormat: .pcmFormatInt16,
       sampleRate: sampleRate,
       channels: 1,
       interleaved: true
-    ) else {
-      return nil
+    )
+  }
+
+  /// Mixer PCM is capture-rate int16/float; speech wants 16 kHz mono int16.
+  private func convertToSpeechBuffer(_ buffer: AVAudioPCMBuffer) -> AVAudioPCMBuffer? {
+    guard let targetFormat = speechTargetFormat() else { return nil }
+    if buffer.format == targetFormat {
+      return buffer
     }
     if downFormat != buffer.format {
       downFormat = buffer.format
@@ -247,7 +263,15 @@ final class LiveCaptionsController: @unchecked Sendable {
       outStatus.pointee = .haveData
       return buffer
     }
-    guard error == nil, converted.frameLength > 0, let channel = converted.int16ChannelData?[0] else {
+    guard error == nil, converted.frameLength > 0 else { return nil }
+    return converted
+  }
+
+  private func convertDown(_ buffer: AVAudioPCMBuffer) -> Data? {
+    guard
+      let converted = convertToSpeechBuffer(buffer),
+      let channel = converted.int16ChannelData?[0]
+    else {
       return nil
     }
     return Data(bytes: channel, count: Int(converted.frameLength) * MemoryLayout<Int16>.size)

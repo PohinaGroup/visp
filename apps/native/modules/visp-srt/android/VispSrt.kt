@@ -14,12 +14,17 @@ import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.AudioDeviceInfo
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaCodecList
 import android.media.MediaFormat
+import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Bundle
 import android.os.Build
 import android.os.SystemClock
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.util.Size
 import android.util.LruCache
 import android.view.SurfaceView
@@ -47,8 +52,11 @@ import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
 import java.lang.ref.WeakReference
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
@@ -95,6 +103,40 @@ class VispSrt : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("VispSrt")
+
+    AsyncFunction("audioOutputs") {
+      val context = appContext.reactContext ?: throw DeviceUnavailableException()
+      audioOutputs(context).map { device ->
+        mapOf("id" to device.id.toString(), "name" to device.productName.toString())
+      }
+    }
+
+    AsyncFunction("playAudioFile") {
+        uri: String,
+        outputDeviceId: String,
+        promise: Promise,
+      ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("audio-unavailable", "Audio playback is unavailable", null)
+        return@AsyncFunction
+      }
+      playAudioFile(context, uri, outputDeviceId, promise)
+    }
+
+    AsyncFunction("speakToDevice") {
+        text: String,
+        language: String,
+        outputDeviceId: String,
+        promise: Promise,
+      ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("audio-unavailable", "Text to speech is unavailable", null)
+        return@AsyncFunction
+      }
+      synthesizeToDevice(context, text, language, outputDeviceId, promise)
+    }
 
     View(VispSrtView::class) {
       Events("onStateChange", "onAudioLevel", "onStats")
@@ -249,6 +291,139 @@ class VispSrt : Module() {
 
   private fun remember(view: VispSrtView) {
     currentView = WeakReference(view)
+  }
+
+  private fun audioOutputs(context: Context): List<AudioDeviceInfo> {
+    val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+      .filter { it.type in OUTPUT_DEVICE_TYPES }
+  }
+
+  private fun playAudioFile(
+    context: Context,
+    uri: String,
+    outputDeviceId: String,
+    promise: Promise,
+    onFinished: (() -> Unit)? = null,
+  ) {
+    val device = audioOutputs(context).firstOrNull { it.id.toString() == outputDeviceId }
+    if (device == null || Build.VERSION.SDK_INT < 28) {
+      onFinished?.invoke()
+      promise.reject("audio-output-unavailable", "The selected audio output is unavailable", null)
+      return
+    }
+    val player = MediaPlayer()
+    var settled = false
+    fun finish(error: Throwable? = null) {
+      if (settled) return
+      settled = true
+      player.release()
+      onFinished?.invoke()
+      if (error == null) promise.resolve()
+      else promise.reject("audio-playback-failed", "Audio playback failed", error)
+    }
+    try {
+      player.setAudioAttributes(
+        AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+          .build(),
+      )
+      player.setDataSource(context, Uri.parse(uri))
+      if (!player.setPreferredDevice(device)) {
+        finish(IllegalStateException("The selected audio output could not be routed"))
+        return
+      }
+      player.setOnCompletionListener { finish() }
+      player.setOnErrorListener { _, what, extra ->
+        finish(IllegalStateException("MediaPlayer error $what/$extra"))
+        true
+      }
+      player.setOnPreparedListener { it.start() }
+      player.prepareAsync()
+    } catch (error: Throwable) {
+      finish(error)
+    }
+  }
+
+  private fun synthesizeToDevice(
+    context: Context,
+    text: String,
+    language: String,
+    outputDeviceId: String,
+    promise: Promise,
+  ) {
+    val file = File.createTempFile("visp-tts-", ".wav", context.cacheDir)
+    val utteranceId = UUID.randomUUID().toString()
+    lateinit var tts: TextToSpeech
+    var settled = false
+    fun fail(message: String, error: Throwable? = null) {
+      if (settled) return
+      settled = true
+      tts.shutdown()
+      file.delete()
+      promise.reject("tts-failed", message, error)
+    }
+    tts = TextToSpeech(context) { status ->
+      if (status != TextToSpeech.SUCCESS) {
+        fail("Text to speech could not be initialized")
+        return@TextToSpeech
+      }
+      val languageStatus = tts.setLanguage(Locale.forLanguageTag(language))
+      if (
+        languageStatus == TextToSpeech.LANG_MISSING_DATA ||
+        languageStatus == TextToSpeech.LANG_NOT_SUPPORTED
+      ) {
+        fail("The selected language is unavailable")
+        return@TextToSpeech
+      }
+      tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+        override fun onStart(id: String?) = Unit
+
+        override fun onDone(id: String?) {
+          if (id != utteranceId || settled) return
+          settled = true
+          tts.shutdown()
+          playAudioFile(
+            context,
+            Uri.fromFile(file).toString(),
+            outputDeviceId,
+            promise,
+          ) { file.delete() }
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onError(id: String?) {
+          if (id == utteranceId) fail("Text to speech synthesis failed")
+        }
+
+        override fun onError(id: String?, errorCode: Int) {
+          if (id == utteranceId) fail("Text to speech synthesis failed")
+        }
+      })
+      if (
+        tts.synthesizeToFile(text, Bundle(), file, utteranceId) !=
+          TextToSpeech.SUCCESS
+      ) {
+        fail("Text to speech synthesis could not be queued")
+      }
+    }
+  }
+
+  companion object {
+    private val OUTPUT_DEVICE_TYPES = setOf(
+      AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+      AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+      AudioDeviceInfo.TYPE_WIRED_HEADSET,
+      AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+      AudioDeviceInfo.TYPE_USB_DEVICE,
+      AudioDeviceInfo.TYPE_USB_ACCESSORY,
+      AudioDeviceInfo.TYPE_USB_HEADSET,
+      AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+      AudioDeviceInfo.TYPE_BLE_HEADSET,
+      AudioDeviceInfo.TYPE_BLE_SPEAKER,
+      AudioDeviceInfo.TYPE_HEARING_AID,
+    )
   }
 }
 
@@ -535,7 +710,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     promise: Promise,
   ) {
     liveCaptions.start(language, better, wsUrl)
-    promise.resolve()
+    promise.resolve(true)
   }
 
   fun stopLiveCaptions(promise: Promise) {

@@ -36,6 +36,7 @@ export type ChatMessage = {
 export type ChatProviderStatus = {
 	provider: ChatProvider;
 	state: "connected" | "connecting" | "disconnected" | "error";
+	error?: string;
 };
 
 export type ChatLiveEvent =

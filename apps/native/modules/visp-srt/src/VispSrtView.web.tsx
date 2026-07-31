@@ -360,7 +360,9 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 				async clearChatOverlay() {},
 				async clearCaptionsOverlay() {},
 				async updateCaptionsOverlay() {},
-				async startLiveCaptions() {},
+				async startLiveCaptions() {
+					return true;
+				},
 				async stopLiveCaptions() {},
 				async configure(cameraId, width, height, fps, maxVideoBitrateKbps) {
 					if (activeRef.current)

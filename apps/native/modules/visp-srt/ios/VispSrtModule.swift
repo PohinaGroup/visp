@@ -1,10 +1,14 @@
+import AVFoundation
 internal import ExpoModulesCore
+import UIKit
 
 final class VispSrtModule: Module {
+  private var audioRouteObserver: NSObjectProtocol?
+
   func definition() -> ModuleDefinition {
     Name("VispSrt")
 
-    Events("onWatchSceneCommand")
+    Events("onWatchSceneCommand", "onAudioRouteChange")
 
     OnStartObserving {
       WatchBridge.shared.setSceneCommandHandler { [weak self] requestID, scene in
@@ -12,10 +16,25 @@ final class VispSrtModule: Module {
           self?.sendEvent("onWatchSceneCommand", ["requestId": requestID, "scene": scene])
         }
       }
+      if self.audioRouteObserver == nil {
+        self.audioRouteObserver = NotificationCenter.default.addObserver(
+          forName: AVAudioSession.routeChangeNotification,
+          object: nil,
+          queue: .main
+        ) { [weak self] _ in
+          self?.sendEvent("onAudioRouteChange", [
+            "name": AVAudioSession.sharedInstance().currentRoute.outputs.first?.portName
+          ])
+        }
+      }
     }
 
     OnStopObserving {
       WatchBridge.shared.setSceneCommandHandler(nil)
+      if let observer = self.audioRouteObserver {
+        NotificationCenter.default.removeObserver(observer)
+        self.audioRouteObserver = nil
+      }
     }
 
     Function("syncWatchSnapshot") { (json: String) in
@@ -24,6 +43,19 @@ final class VispSrtModule: Module {
 
     Function("replyToWatchSceneCommand") { (requestID: String, error: String?) in
       WatchBridge.shared.replyToSceneCommand(requestID: requestID, error: error)
+    }
+
+    Function("currentAudioOutput") {
+      AVAudioSession.sharedInstance().currentRoute.outputs.first?.portName
+    }
+
+    View(VispRoutePickerView.self) {
+      Prop("activeTintColor") { (view: VispRoutePickerView, color: UIColor?) in
+        view.routePicker.activeTintColor = color
+      }
+      Prop("tintColor") { (view: VispRoutePickerView, color: UIColor?) in
+        view.routePicker.tintColor = color
+      }
     }
 
     View(VispSrtView.self) {
@@ -120,7 +152,7 @@ final class VispSrtModule: Module {
         language: String,
         better: Bool,
         wsUrl: String?
-      ) in
+      ) -> Bool in
         await view.startLiveCaptions(language: language, better: better, wsUrl: wsUrl)
       }
 

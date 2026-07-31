@@ -48,7 +48,16 @@ export const chatRoutes = new Elysia({
 						chatHub.status(userId, "kick", "connected");
 					}
 				})
-				.catch(() => chatHub.status(userId, "kick", "error"));
+				.catch((error) =>
+					chatHub.status(
+						userId,
+						"kick",
+						"error",
+						error instanceof Error
+							? error.message
+							: "Kick chat could not be started",
+					),
+				);
 		},
 		close(ws) {
 			subscriptions.get(ws.id)?.();

@@ -1,5 +1,5 @@
 import type { LinkMetrics } from "@VISP/api/link-stats";
-import type { StyleProp, ViewStyle } from "react-native";
+import type { ColorValue, StyleProp, ViewStyle } from "react-native";
 
 export type StreamState =
 	| "idle"
@@ -55,6 +55,18 @@ export type CameraCapability = {
 export type AudioInputCapability = {
 	id: string;
 	name: string;
+};
+
+export type AudioOutputCapability = {
+	id: string;
+	name: string;
+};
+
+export type VispRoutePickerProps = {
+	accessibilityLabel?: string;
+	activeTintColor?: ColorValue;
+	style?: StyleProp<ViewStyle>;
+	tintColor?: ColorValue;
 };
 
 export type VideoConfiguration = {
@@ -127,7 +139,7 @@ export type VispSrtViewRef = {
 		language: string,
 		better: boolean,
 		wsUrl?: string,
-	): Promise<void>;
+	): Promise<boolean>;
 	stopLiveCaptions(): Promise<void>;
 	start(url: string): Promise<void>;
 	stop(): Promise<void>;

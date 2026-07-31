@@ -31,8 +31,12 @@ export function useLiveCaptions(
 		const isCurrent = () => generation.current === current;
 		void startLiveCaptions(camera, language, better, isCurrent).then(
 			(result) => {
-				if (result === "failed" && better) {
-					onErrorRef.current?.("Better subtitles could not start");
+				if (result === "failed") {
+					onErrorRef.current?.(
+						better
+							? "Better subtitles could not start"
+							: "Subtitles could not start. Allow speech recognition in Settings.",
+					);
 				}
 			},
 		);

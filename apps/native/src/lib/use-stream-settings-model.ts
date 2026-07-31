@@ -21,6 +21,7 @@ export function useStreamSettingsModel({
 	cameraSwitchDisabled,
 	cameras,
 	chatEnabled,
+	chatErrors,
 	chatStatuses,
 	configuration,
 	directContribution,
@@ -50,6 +51,7 @@ export function useStreamSettingsModel({
 	cameraSwitchDisabled: boolean;
 	cameras: CameraCapability[];
 	chatEnabled: boolean;
+	chatErrors: ChatSettings["errors"];
 	chatStatuses: ChatSettings["statuses"];
 	configuration?: VideoConfiguration;
 	directContribution: boolean;
@@ -124,10 +126,16 @@ export function useStreamSettingsModel({
 			betterTts: flags.betterTts,
 			busy: Boolean(streamAccount.chatBusy),
 			connections: streamAccount.chatConnections,
+			currentAudioOutput: speech.currentAudioOutput,
 			enabled: chatEnabled,
+			errors: chatErrors,
+			onSelectOutput: speech.selectOutput,
+			onReauthorizeConnection: streamAccount.reauthorizeChatProvider,
 			onToggleConnection: streamAccount.toggleChatConnection,
 			onUnlinkConnection: streamAccount.unlinkChatProvider,
 			onUpdatePreferences: streamAccount.updateChatPreferences,
+			outputId: speech.outputId,
+			outputs: speech.outputs,
 			preferences: streamAccount.chatPreferences,
 			speechVoiceMissing: speech.voiceMissing,
 			spokenLanguage: speech.language,

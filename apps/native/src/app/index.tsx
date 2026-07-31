@@ -299,7 +299,8 @@ export default function Index() {
 	// prepare and leaves the capture session torn down.
 	useEffect(() => {
 		if (cameraNode && appState === "active") {
-			void prepareRef.current();
+			const frame = requestAnimationFrame(() => void prepareRef.current());
+			return () => cancelAnimationFrame(frame);
 		}
 	}, [appState, cameraNode]);
 
@@ -629,11 +630,13 @@ export default function Index() {
 		void refreshPublishDevices();
 		void refreshDirectOutputs();
 		void speechFeatures.flags.refreshAvailability();
+		void speechFeatures.speech.refreshOutputs();
 	}, [
 		refreshChatConnections,
 		refreshPublishDevices,
 		refreshDirectOutputs,
 		speechFeatures.flags.refreshAvailability,
+		speechFeatures.speech.refreshOutputs,
 	]);
 
 	const removeUrl = useCallback(() => {
@@ -671,6 +674,7 @@ export default function Index() {
 		cameraSwitchDisabled,
 		cameras,
 		chatEnabled,
+		chatErrors: liveChat.errors,
 		chatStatuses: liveChat.statuses,
 		configuration,
 		directContribution,

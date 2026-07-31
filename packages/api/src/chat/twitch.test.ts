@@ -74,9 +74,12 @@ describe("Twitch chat subscription", () => {
 				{
 					getAccessToken: async () => ({ accessToken: "token" }),
 					fetch: (async () =>
-						new Response(null, { status: 503 })) as unknown as typeof fetch,
+						Response.json(
+							{ message: "Missing scope: user:read:chat" },
+							{ status: 403 },
+						)) as unknown as typeof fetch,
 				},
 			),
-		).rejects.toThrow("Twitch subscription failed (503)");
+		).rejects.toThrow("Missing scope: user:read:chat");
 	});
 });

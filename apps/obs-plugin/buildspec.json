@@ -38,7 +38,7 @@
     },
     "name": "visp-obs",
     "displayName": "VISP Remote Control",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "author": "VISP",
     "website": "https://github.com/JoniJuntto/visp",
     "email": "JoniJuntto@users.noreply.github.com"

@@ -30,7 +30,12 @@ export async function startLiveCaptions(
 	}
 
 	try {
-		await view.startLiveCaptions(toSpokenLocale(language), better, wsUrl);
+		const started = await view.startLiveCaptions(
+			toSpokenLocale(language),
+			better,
+			wsUrl,
+		);
+		if (!started) return "failed";
 	} catch {
 		return "failed";
 	}

@@ -2,13 +2,21 @@ import type { ChatMessage } from "@VISP/api/chat/contract";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { File, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
+import { Platform } from "react-native";
+import VispSrtModule from "../../modules/visp-srt";
 import { authenticatedPost } from "./backend";
 import { type SpokenLanguage, speechUtterance } from "./chat-model";
 import { toLanguageCode } from "./spoken-language";
+
 /** How long a clip may take to load before we give up and use the device voice. */
 const LOAD_TIMEOUT_MS = 5_000;
 
-type QueueItem = { text: string; language: SpokenLanguage; better: boolean };
+type QueueItem = {
+	text: string;
+	language: SpokenLanguage;
+	better: boolean;
+	outputId: string;
+};
 
 // ponytail: unbounded queue, because nothing may be dropped. Under a real flood
 // the server's per-user limit answers 429 and every item falls back to the
@@ -40,6 +48,7 @@ export function enqueueChatMessage(
 	message: ChatMessage,
 	language: SpokenLanguage,
 	betterVoice: boolean,
+	outputId = "default",
 ) {
 	const key = `${message.provider}:${message.id}`;
 	if (spoken.has(key)) return;
@@ -48,11 +57,11 @@ export function enqueueChatMessage(
 	const text = speechUtterance(message, language);
 	if (!text) return;
 	stopped = false;
-	queue.push({ text, language, better: betterVoice });
+	queue.push({ text, language, better: betterVoice, outputId });
 	void drain();
 }
 
-/** Silences the queue: the picker moved to Off, the stream ended, or we backgrounded. */
+/** Silences the queue when speech is turned off or the app backgrounds. */
 export function stopChatSpeech() {
 	stopped = true;
 	queue.length = 0;
@@ -104,6 +113,10 @@ async function playBetterVoice(item: QueueItem) {
 		file = new File(Paths.cache, `visp-tts-${Date.now()}.mp3`);
 		file.create({ overwrite: true });
 		file.write(bytes);
+		if (Platform.OS === "android" && item.outputId !== "default") {
+			await VispSrtModule.playAudioFile(file.uri, item.outputId);
+			return true;
+		}
 		await prepareAudioMode();
 		if (stopped) return false;
 		// False when playback never completed, so the device voice still reads it.
@@ -195,7 +208,16 @@ function releasePlayer() {
 	}
 }
 
-function speakOnDevice(item: QueueItem) {
+async function speakOnDevice(item: QueueItem) {
+	if (Platform.OS === "android" && item.outputId !== "default") {
+		await VispSrtModule.speakToDevice(
+			item.text,
+			item.language,
+			item.outputId,
+		).catch(() => undefined);
+		return;
+	}
+	if (Platform.OS === "ios") await prepareAudioMode();
 	return new Promise<void>((resolve) => {
 		let settled = false;
 		const finish = () => {
