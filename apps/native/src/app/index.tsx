@@ -1,43 +1,18 @@
-import type { ChatMessage } from "@VISP/api/chat/contract";
-import {
-	formatBondedLinks,
-	formatLiveLinkHud,
-	videoBitrateCeilingKbps,
-} from "@VISP/api/link-stats";
-import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
-import * as UI from "@expo/ui";
+import { videoBitrateCeilingKbps } from "@VISP/api/link-stats";
 import * as Device from "expo-device";
-import {
-	GlassView,
-	isGlassEffectAPIAvailable,
-	isLiquidGlassAvailable,
-} from "expo-glass-effect";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
-import {
-	type ReactNode,
-	useCallback,
-	useEffect,
-	useMemo,
-	useRef,
-	useState,
-} from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Alert,
 	AppState,
 	type AppStateStatus,
-	KeyboardAvoidingView,
-	Linking,
-	Platform,
-	Pressable,
 	StyleSheet,
 	Text,
-	TextInput,
 	useWindowDimensions,
 	View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import type {
 	AudioInputCapability,
 	AudioLevelEvent,
@@ -50,14 +25,17 @@ import type {
 } from "../../modules/visp-srt";
 import VispSrtModule, { VispSrtView } from "../../modules/visp-srt";
 import { FloatingChat } from "../components/floating-chat";
-import { ObsControls, type ObsStatus } from "../components/obs-control-button";
+import type { ObsStatus } from "../components/obs-control-button";
+import { StreamCameraControls } from "../components/stream-camera-controls";
 import { StreamInfoSheet } from "../components/stream-info-sheet";
+import { streamScreenStyles as styles } from "../components/stream-screen.styles";
+import { StreamSettingsSheet } from "../components/stream-settings-sheet";
 import {
-	AUDIO_TIER_COLORS,
-	AUDIO_TIER_LABELS,
-	type AudioTier,
-	audioTierForLevel,
-} from "../lib/audio-level";
+	StreamDestinationEditor,
+	StreamLoading,
+	StreamSignIn,
+} from "../components/stream-setup";
+import { type AudioTier, audioTierForLevel } from "../lib/audio-level";
 import { apiClient, authCallbackURL, authClient } from "../lib/backend";
 import {
 	hasSeenBondingWarning,
@@ -71,199 +49,43 @@ import {
 } from "../lib/camera-preferences";
 import {
 	configurationForCamera,
-	configurationForFormat,
 	configurationForLiveCamera,
 	defaultZoomLevel,
-	formatLabel,
-	formatZoomLevel,
-	supportsImageStabilization,
 } from "../lib/camera-settings";
-import {
-	type ChatPreferences,
-	DEFAULT_CHAT_PREFERENCES,
-	loadChatPreferences,
-	type SpokenLanguage,
-	saveChatPreferences,
-} from "../lib/chat-preferences";
-import {
-	enqueueChatMessage,
-	hasVoiceFor,
-	stopChatSpeech,
-} from "../lib/chat-speech";
+import { setChatSpeechAudioOwner } from "../lib/chat-speech";
 import {
 	configureVideoCapture,
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
 import { useLiveChat } from "../lib/live-chat";
-import {
-	describeProvisionError,
-	syncNativePublishUrl,
-} from "../lib/native-publish-url";
+import { syncNativePublishUrl } from "../lib/native-publish-url";
+import { IS_IOS, IS_WEB } from "../lib/platform";
+import { isPublishing, isStreamSession } from "../lib/stream-state";
 import {
 	deleteStreamUrl,
-	describeStreamUrl,
-	loadOrCreateInstallationId,
-	loadStreamUrl,
 	saveStreamUrl,
-	selectPublishUrl,
+	streamOwnerId,
 	validateStreamUrl,
 } from "../lib/stream-url";
 import { useAfterMount } from "../lib/use-after-mount";
 import { useLinkStatsReporter } from "../lib/use-link-stats-reporter";
+import { useStreamAccount } from "../lib/use-stream-account";
+import { useStreamSettingsModel } from "../lib/use-stream-settings-model";
+import { useStreamSpeechFeatures } from "../lib/use-stream-speech-features";
 import { buildWatchSnapshot } from "../lib/watch-snapshot";
-
-const ACTIVE_STATES = new Set<StreamState>([
-	"connecting",
-	"live",
-	"reconnecting",
-	"stopping",
-]);
-const MANUAL_STREAM_OWNER = "manual";
-const DEFAULT_AUDIO_INPUT_ID = "default";
-const IS_WEB = Platform.OS === "web";
-
-const SUBTLE = "#8a919c";
-const DESTRUCTIVE = "#e5484d";
-const SUBTLE_TEXT = { color: SUBTLE, fontSize: 13 } as const;
-const LIQUID_GLASS_AVAILABLE =
-	isGlassEffectAPIAvailable() && isLiquidGlassAvailable();
-
-type DirectOutputs = Awaited<ReturnType<typeof apiClient.direct.list.query>>;
-type DirectPath = DirectOutputs["paths"][number];
-
-function directSelectionOf(path: DirectPath) {
-	if (path.twitch && path.kick) return "both";
-	if (path.twitch) return "twitch";
-	if (path.kick) return "kick";
-	return "off";
-}
-
-function directStateSummary(path: DirectPath) {
-	const parts = (["twitch", "kick"] as const).flatMap((provider) => {
-		const state = path.state[provider];
-		if (!state) return [];
-		const label = provider === "twitch" ? "Twitch" : "Kick";
-		return [`${label} ${path.error[provider] ?? state}`];
-	});
-	return parts.length > 0 ? parts.join(" · ") : "No direct output";
-}
-
-function directWarning(outputs: DirectOutputs) {
-	// OBS may still read the feed; it just must not publish to the same
-	// provider, and what it reads is the contribution feed, not the platform
-	// encode. The platform-policy lines only appear once they apply.
-	const lines = [
-		"OBS can still read this feed, but do not let it stream to a provider Direct already owns. What OBS reads is your device's contribution feed, not the encode the platform receives.",
-	];
-	if (outputs.paths.some((path) => path.twitch)) {
-		lines.push(
-			"Twitch's simulcasting terms prohibit showing another platform's activity on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
-		);
-	}
-	if (outputs.paths.some((path) => path.twitch && path.kick)) {
-		lines.push(
-			"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout during a multistreaming session.",
-		);
-	}
-	return lines.join("\n\n");
-}
-
-// ponytail: iOS Forms put picker labels inline; Material dropdowns read better with the label above.
-function SettingRow({
-	label,
-	children,
-}: {
-	label: string;
-	children: ReactNode;
-}) {
-	if (Platform.OS === "ios") {
-		return (
-			<UI.Row alignment="center">
-				<UI.Text>{label}</UI.Text>
-				<UI.Spacer flexible />
-				{children}
-			</UI.Row>
-		);
-	}
-	return (
-		<UI.Column spacing={4}>
-			<UI.Text textStyle={SUBTLE_TEXT}>{label}</UI.Text>
-			{children}
-		</UI.Column>
-	);
-}
-
-function ZoomButton({
-	disabled,
-	level,
-	onPress,
-	selected,
-}: {
-	disabled: boolean;
-	level: number;
-	onPress: () => void;
-	selected: boolean;
-}) {
-	const label = formatZoomLevel(level);
-	const button = (
-		<Pressable
-			accessibilityLabel={`Set zoom to ${label}`}
-			accessibilityRole="button"
-			accessibilityState={{ disabled, selected }}
-			disabled={disabled}
-			onPress={onPress}
-			style={({ pressed }) => [
-				styles.zoomButtonPressable,
-				pressed && styles.buttonPressed,
-			]}
-		>
-			<Text style={styles.zoomButtonText}>{label}</Text>
-		</Pressable>
-	);
-	if (LIQUID_GLASS_AVAILABLE) {
-		return (
-			<GlassView
-				glassEffectStyle="regular"
-				isInteractive={!disabled}
-				style={[styles.zoomButton, disabled && styles.actionDisabled]}
-				tintColor={selected ? "rgba(255,53,77,0.58)" : undefined}
-			>
-				{button}
-			</GlassView>
-		);
-	}
-	return (
-		<View
-			style={[
-				styles.zoomButton,
-				styles.zoomButtonFallback,
-				selected && styles.zoomButtonSelected,
-				disabled && styles.actionDisabled,
-			]}
-		>
-			{button}
-		</View>
-	);
-}
-
-const STATE_LABELS: Record<StreamState, string> = {
-	connecting: "Connecting",
-	error: "Offline",
-	idle: "Ready",
-	live: "Live",
-	preparing: "Starting camera",
-	reconnecting: "Reconnecting",
-	stopping: "Stopping",
-};
 
 export default function Index() {
 	const window = useWindowDimensions();
 	const cameraRef = useRef<VispSrtViewRef>(null);
-	const provisionStarted = useRef(false);
+	const [cameraNode, setCameraNode] = useState<VispSrtViewRef | null>(null);
+	const attachCamera = useCallback((node: VispSrtViewRef | null) => {
+		cameraRef.current = node;
+		setCameraNode(node);
+	}, []);
 	const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 	const { data: session, isPending: sessionPending } = authClient.useSession();
 	const userId = session?.user.id;
-	const streamOwner = userId ?? MANUAL_STREAM_OWNER;
+	const streamOwner = streamOwnerId(userId);
 	const [appState, setAppState] = useState<AppStateStatus>(
 		AppState.currentState,
 	);
@@ -281,43 +103,56 @@ export default function Index() {
 	const [obsStatus, setObsStatus] = useState<ObsStatus>();
 	const [liveStartedAt, setLiveStartedAt] = useState<number>();
 	const [previewing, setPreviewing] = useState(false);
-	const [provisioning, setProvisioning] = useState(false);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [streamInfoOpen, setStreamInfoOpen] = useState(false);
-	const [selectedAudioInputId, setSelectedAudioInputId] = useState(
-		DEFAULT_AUDIO_INPUT_ID,
-	);
+	const [selectedAudioInputId, setSelectedAudioInputId] = useState("default");
 	const [selectedZoom, setSelectedZoom] = useState(1);
-	const [advancedOpen, setAdvancedOpen] = useState(false);
 	const [signingIn, setSigningIn] = useState<"twitch" | "kick">();
 	const [state, setState] = useState<StreamState>("idle");
 	const [reconnectAttempt, setReconnectAttempt] = useState<number>();
-	const [streamUrl, setStreamUrl] = useState<string | null>();
 	const [toast, setToast] = useState<{ spinning: boolean; text: string }>();
-	const [chatPreferences, setChatPreferences] = useState<ChatPreferences>(
-		DEFAULT_CHAT_PREFERENCES,
-	);
-	const [chatConnections, setChatConnections] = useState<
-		Awaited<ReturnType<typeof apiClient.chat.connections.list.query>>
-	>([]);
-	const [publishDevices, setPublishDevices] = useState<
-		Awaited<ReturnType<typeof apiClient.paths.list.query>>
-	>([]);
-	const [directOutputs, setDirectOutputs] =
-		useState<Awaited<ReturnType<typeof apiClient.direct.list.query>>>();
-	const [installationId, setInstallationId] = useState<string>();
-	const [revealedDeviceUrls, setRevealedDeviceUrls] = useState<
-		Record<number, string>
-	>({});
-	const [chatBusy, setChatBusy] = useState<"twitch" | "kick">();
-	const [betterTts, setBetterTts] = useState(false);
-	const [speechVoiceMissing, setSpeechVoiceMissing] = useState(false);
+	const showToast = useCallback((text: string, spinning = false) => {
+		clearTimeout(toastTimer.current);
+		setToast({ spinning, text });
+		if (!spinning) {
+			toastTimer.current = setTimeout(() => setToast(undefined), 2500);
+		}
+	}, []);
+	const streamAccount = useStreamAccount({
+		sessionPending,
+		setMessage,
+		showToast,
+		userId,
+	});
+	const {
+		awaitingAutoProvision,
+		chatBusy,
+		chatConnections,
+		chatPreferences,
+		installationId,
+		linkChatProvider,
+		provisionDestination,
+		provisioning,
+		publishDevices,
+		refreshChatConnections,
+		refreshDirectOutputs,
+		refreshPublishDevices,
+		setStreamUrl,
+		streamUrl,
+		updateChatPreferences,
+	} = streamAccount;
 	const orientation = window.width > window.height ? "landscape" : "portrait";
-	const settingsDisabled = state === "preparing" || ACTIVE_STATES.has(state);
+	const settingsDisabled = state === "preparing" || isStreamSession(state);
+	// No linked and enabled provider means no messages, so the overlay stays off
+	// regardless of the stored preference.
+	const chatEnabled = chatConnections.some(
+		(connection) => connection.linked && connection.enabled,
+	);
+	const chatOverlayMode = chatEnabled ? chatPreferences.mode : "hidden";
 	const cameraSwitchDisabled =
 		state === "preparing" ||
 		state === "stopping" ||
-		(IS_WEB && ACTIVE_STATES.has(state));
+		(IS_WEB && isStreamSession(state));
 	const publishPathId = useMemo(
 		() => resolvePublishPathId(streamUrl ?? undefined, publishDevices),
 		[publishDevices, streamUrl],
@@ -327,6 +162,14 @@ export default function Index() {
 		publishPath?.directTwitch || publishPath?.directKick,
 	);
 	const contributionMode = directContribution ? "direct" : "full";
+	const speechFeatures = useStreamSpeechFeatures(cameraNode, {
+		appState,
+		chatPreferences,
+		configuration,
+		onSpeechError: showToast,
+		state,
+		userId,
+	});
 	const {
 		clearLinkStats,
 		linkStats,
@@ -346,52 +189,22 @@ export default function Index() {
 				)
 			: undefined,
 	});
-	// Read chat aloud only while broadcasting: unsolicited audio during setup is
-	// worse than useless, and going live is what configures the audio session
-	// the speech plays into.
-	const spokenLanguage =
-		chatPreferences.speechLanguage === "off"
-			? undefined
-			: (chatPreferences.speechLanguage as SpokenLanguage);
-	const speechActive = Boolean(
-		spokenLanguage && appState === "active" && ACTIVE_STATES.has(state),
-	);
-	const betterVoice = betterTts && !IS_WEB && chatPreferences.betterVoice;
-	const onChatMessage = useCallback(
-		(message: ChatMessage) => {
-			if (!speechActive || !spokenLanguage) return;
-			enqueueChatMessage(message, spokenLanguage, betterVoice);
-		},
-		[betterVoice, speechActive, spokenLanguage],
-	);
 	const liveChat = useLiveChat(
 		userId,
 		appState === "active",
 		chatPreferences.disappearingMessages,
-		onChatMessage,
+		speechFeatures.speech.onMessage,
 	);
 
 	useEffect(() => {
-		if (speechActive) return () => stopChatSpeech();
-		stopChatSpeech();
-	}, [speechActive]);
+		const captureOwnsAudio = Boolean(
+			cameraNode && configuration && appState === "active",
+		);
+		setChatSpeechAudioOwner(captureOwnsAudio ? "capture" : "playback");
+	}, [appState, cameraNode, configuration]);
 
 	useEffect(() => {
-		if (!spokenLanguage) {
-			setSpeechVoiceMissing(false);
-			return;
-		}
-		let disposed = false;
-		void hasVoiceFor(spokenLanguage).then((available) => {
-			if (!disposed) setSpeechVoiceMissing(!available);
-		});
-		return () => {
-			disposed = true;
-		};
-	}, [spokenLanguage]);
-
-	useEffect(() => {
-		if (Platform.OS !== "ios") return;
+		if (!IS_IOS) return;
 		VispSrtModule.syncWatchSnapshot(
 			JSON.stringify(
 				buildWatchSnapshot({
@@ -419,14 +232,6 @@ export default function Index() {
 		session,
 		state,
 	]);
-
-	const showToast = useCallback((text: string, spinning = false) => {
-		clearTimeout(toastTimer.current);
-		setToast({ spinning, text });
-		if (!spinning) {
-			toastTimer.current = setTimeout(() => setToast(undefined), 2500);
-		}
-	}, []);
 
 	const prepare = useCallback(async () => {
 		if (imageStabilizationEnabled === undefined) {
@@ -458,6 +263,11 @@ export default function Index() {
 		}
 	}, [contributionMode, imageStabilizationEnabled, bondingMode]);
 
+	const prepareRef = useRef(prepare);
+	useEffect(() => {
+		prepareRef.current = prepare;
+	});
+
 	useEffect(() => {
 		loadImageStabilizationPreference()
 			.then(setImageStabilizationEnabled)
@@ -471,416 +281,27 @@ export default function Index() {
 	}, []);
 
 	useEffect(() => {
-		if (sessionPending) {
-			return;
-		}
-		provisionStarted.current = false;
-		setStreamUrl(undefined);
-		void (async () => {
-			const url = await loadStreamUrl(streamOwner);
-			if (!url && userId) {
-				await deleteStreamUrl().catch(() => {});
-			}
-			setStreamUrl(url);
-		})().catch(() => {
-			setStreamUrl(null);
-			setMessage("The saved SRT destination could not be read.");
-		});
-	}, [sessionPending, streamOwner, userId]);
-
-	useEffect(() => {
-		if (!userId) {
-			setChatPreferences(DEFAULT_CHAT_PREFERENCES);
-			setChatConnections([]);
-			setPublishDevices([]);
-			setInstallationId(undefined);
-			setBetterTts(false);
-			return;
-		}
-		loadChatPreferences(userId)
-			.then((preferences) =>
-				setChatPreferences(
-					IS_WEB && preferences.mode === "embedded"
-						? { ...preferences, mode: "floating" }
-						: preferences,
-				),
-			)
-			.catch(() => setChatPreferences(DEFAULT_CHAT_PREFERENCES));
-		apiClient.chat.connections.list
-			.query()
-			.then(setChatConnections)
-			.catch(() => setChatConnections([]));
-		apiClient.paths.list
-			.query()
-			.then(setPublishDevices)
-			.catch(() => setPublishDevices([]));
-		apiClient.chat.speech
-			.query()
-			.then(({ betterTts: enabled }) => setBetterTts(enabled))
-			.catch(() => setBetterTts(false));
-		loadOrCreateInstallationId()
-			.then(setInstallationId)
-			.catch(() => setMessage("This installation could not be identified."));
-	}, [userId]);
-
-	useEffect(() => {
-		// #region agent log
-		fetch("http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c", {
-			method: "POST",
-			headers: {
-				"Content-Type": "application/json",
-				"X-Debug-Session-Id": "24a310",
-			},
-			body: JSON.stringify({
-				sessionId: "24a310",
-				location: "index.tsx:chat-state",
-				message: "chat display state",
-				data: {
-					mode: chatPreferences.mode,
-					corner: chatPreferences.corner,
-					visibleCount: liveChat.messages.length,
-					recentCount: liveChat.recentMessages.length,
-					statuses: liveChat.statuses,
-					connections: chatConnections.map((c) => ({
-						provider: c.provider,
-						linked: c.linked,
-						enabled: c.enabled,
-						needsConsent: c.needsConsent,
-					})),
-					disappearingMessages: chatPreferences.disappearingMessages,
-					orientation,
-				},
-				timestamp: Date.now(),
-				hypothesisId: "H5",
-			}),
-		}).catch(() => {});
-		// #endregion
 		if (
-			chatPreferences.mode === "embedded" &&
+			chatOverlayMode === "embedded" &&
 			(orientation === "portrait" || orientation === "landscape")
 		) {
 			void cameraRef.current
 				?.updateChatOverlay(liveChat.messages, chatPreferences.corner)
-				.then(() => {
-					// #region agent log
-					fetch(
-						"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-						{
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-								"X-Debug-Session-Id": "24a310",
-							},
-							body: JSON.stringify({
-								sessionId: "24a310",
-								location: "index.tsx:embedded-ok",
-								message: "embedded overlay updated",
-								data: {
-									messageCount: liveChat.messages.length,
-									corner: chatPreferences.corner,
-								},
-								timestamp: Date.now(),
-								hypothesisId: "H4",
-							}),
-						},
-					).catch(() => {});
-					// #endregion
-				})
-				.catch((error) => {
-					// #region agent log
-					fetch(
-						"http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c",
-						{
-							method: "POST",
-							headers: {
-								"Content-Type": "application/json",
-								"X-Debug-Session-Id": "24a310",
-							},
-							body: JSON.stringify({
-								sessionId: "24a310",
-								location: "index.tsx:embedded-error",
-								message: "embedded overlay failed",
-								data: {
-									error: error instanceof Error ? error.message : "unknown",
-								},
-								timestamp: Date.now(),
-								hypothesisId: "H4",
-							}),
-						},
-					).catch(() => {});
-					// #endregion
-				});
+				.catch(() => undefined);
 		} else {
 			void cameraRef.current?.clearChatOverlay().catch(() => undefined);
 		}
-	}, [
-		chatPreferences.corner,
-		chatPreferences.mode,
-		liveChat.messages,
-		liveChat.recentMessages.length,
-		liveChat.statuses,
-		chatConnections,
-		chatPreferences.disappearingMessages,
-		orientation,
-	]);
+	}, [chatPreferences.corner, chatOverlayMode, liveChat.messages, orientation]);
 
-	const updateChatPreferences = useCallback(
-		(updater: (current: ChatPreferences) => ChatPreferences) => {
-			setChatPreferences((current) => {
-				const next = updater(current);
-				if (userId)
-					void saveChatPreferences(userId, next).catch(() => undefined);
-				return next;
-			});
-		},
-		[userId],
-	);
-
-	const refreshChatConnections = useCallback(async () => {
-		if (!userId) return;
-		setChatConnections(await apiClient.chat.connections.list.query());
-	}, [userId]);
-
-	const refreshPublishDevices = useCallback(async () => {
-		if (!userId) return;
-		setPublishDevices(await apiClient.paths.list.query());
-	}, [userId]);
-
-	const refreshDirectOutputs = useCallback(async () => {
-		if (!userId) return;
-		setDirectOutputs(await apiClient.direct.list.query());
-	}, [userId]);
-
-	const refreshSpeechFlag = useCallback(async () => {
-		if (!userId) return;
-		const { betterTts: enabled } = await apiClient.chat.speech.query();
-		setBetterTts(enabled);
-	}, [userId]);
-
-	const applyDirectSelection = useCallback(
-		async (pathId: number, selection: string) => {
-			try {
-				await apiClient.direct.setOutputs.mutate({
-					pathId,
-					twitch: selection === "twitch" || selection === "both",
-					kick: selection === "kick" || selection === "both",
-				});
-				await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
-			} catch (error) {
-				showToast(
-					error instanceof Error
-						? error.message
-						: "Direct output could not be saved",
-				);
-			}
-		},
-		[refreshDirectOutputs, refreshPublishDevices, showToast],
-	);
-
-	const revealPublishDevice = useCallback(
-		async (pathId: number) => {
-			try {
-				const device = await apiClient.paths.reveal.mutate({ pathId });
-				setRevealedDeviceUrls((current) => ({
-					...current,
-					[pathId]: device.urls.srt,
-				}));
-			} catch (error) {
-				showToast(
-					error instanceof Error
-						? error.message
-						: "Publish URL could not be revealed",
-				);
-			}
-		},
-		[showToast],
-	);
-
-	const linkProvider = useCallback(
-		async (provider: "twitch" | "kick", adding: readonly string[] = []) => {
-			setChatBusy(provider);
-			try {
-				// Both providers drop scopes they are not told about on link, so
-				// always request the union of what the provider already granted.
-				const granted =
-					chatConnections.find((entry) => entry.provider === provider)
-						?.grantedScopes ?? [];
-				const scopes = linkScopes(provider, granted, adding);
-				const result =
-					provider === "twitch"
-						? await authClient.linkSocial({
-								provider,
-								callbackURL: authCallbackURL(),
-								scopes,
-							})
-						: await authClient.oauth2.link({
-								providerId: provider,
-								callbackURL: authCallbackURL(),
-								scopes,
-							});
-				if (result.error)
-					throw new Error(result.error.message ?? `Could not link ${provider}`);
-				await refreshChatConnections();
-			} catch (error) {
-				showToast(
-					error instanceof Error ? error.message : `Could not link ${provider}`,
-				);
-			} finally {
-				setChatBusy(undefined);
-			}
-		},
-		[chatConnections, refreshChatConnections, showToast],
-	);
-
-	const linkChatProvider = useCallback(
-		(provider: "twitch" | "kick", chatConsent = false) =>
-			linkProvider(provider, chatConsent ? PROVIDER_SCOPES[provider].chat : []),
-		[linkProvider],
-	);
-
-	const toggleChatConnection = useCallback(
-		async (connection: (typeof chatConnections)[number]) => {
-			if (!connection.linked) {
-				await linkChatProvider(connection.provider);
-				return;
-			}
-			if (connection.needsConsent) {
-				await linkChatProvider("twitch", true);
-				return;
-			}
-			setChatBusy(connection.provider);
-			try {
-				if (connection.enabled) {
-					await apiClient.chat.connections.disable.mutate({
-						provider: connection.provider,
-					});
-				} else {
-					await apiClient.chat.connections.enable.mutate({
-						provider: connection.provider,
-					});
-				}
-				await refreshChatConnections();
-			} catch (error) {
-				showToast(
-					error instanceof Error
-						? error.message
-						: "Chat connection could not be changed",
-				);
-			} finally {
-				setChatBusy(undefined);
-			}
-		},
-		[linkChatProvider, refreshChatConnections, showToast],
-	);
-
-	const unlinkChatProvider = useCallback(
-		async (connection: (typeof chatConnections)[number]) => {
-			setChatBusy(connection.provider);
-			try {
-				if (connection.enabled) {
-					await apiClient.chat.connections.disable.mutate({
-						provider: connection.provider,
-					});
-				}
-				const result = await authClient.unlinkAccount({
-					providerId: connection.provider,
-				});
-				if (result.error)
-					throw new Error(
-						result.error.message ?? "Provider could not be unlinked",
-					);
-				await refreshChatConnections();
-			} catch (error) {
-				showToast(
-					error instanceof Error
-						? error.message
-						: "Provider could not be unlinked",
-				);
-			} finally {
-				setChatBusy(undefined);
-			}
-		},
-		[refreshChatConnections, showToast],
-	);
-
-	const provisionDestination = useCallback(
-		async (refresh = false) => {
-			if (!userId || !installationId || streamUrl === undefined) {
-				if (refresh && userId && !installationId) {
-					setMessage(
-						"Still preparing this device. Wait a moment and try again.",
-					);
-				}
-				return;
-			}
-			setProvisioning(true);
-			setMessage(undefined);
-			const label = Device.deviceName ?? Device.modelName ?? "VISP Native";
-			try {
-				let url: string;
-				if (refresh) {
-					url = await syncNativePublishUrl(apiClient, {
-						installationId,
-						label,
-						userId,
-					});
-				} else {
-					const claimDevice = (legacyUrl?: string) =>
-						apiClient.paths.claimNative.mutate({
-							installationId,
-							label,
-							...(legacyUrl ? { legacyUrl } : {}),
-						});
-					let device: Awaited<ReturnType<typeof claimDevice>>;
-					try {
-						device = await claimDevice(streamUrl ?? undefined);
-					} catch (error) {
-						if (!streamUrl) {
-							throw error;
-						}
-						await deleteStreamUrl();
-						setStreamUrl(null);
-						device = await claimDevice();
-					}
-					url = selectPublishUrl([device.urls]);
-					await saveStreamUrl(url, userId);
-				}
-				setStreamUrl(url);
-				await refreshPublishDevices();
-			} catch (error) {
-				setMessage(describeProvisionError(error));
-			} finally {
-				setProvisioning(false);
-			}
-		},
-		[installationId, refreshPublishDevices, streamUrl, userId],
-	);
-
+	// Prepare per native view instance, not per render state: any full-screen loader
+	// (session refetch, destination reload) unmounts VispSrtView and mounts a fresh,
+	// unprepared one, and re-preparing on unrelated state churn races the in-flight
+	// prepare and leaves the capture session torn down.
 	useEffect(() => {
-		if (
-			!userId ||
-			!installationId ||
-			streamUrl === undefined ||
-			provisionStarted.current
-		) {
-			return;
+		if (cameraNode && appState === "active") {
+			void prepareRef.current();
 		}
-		provisionStarted.current = true;
-		void provisionDestination();
-	}, [installationId, provisionDestination, streamUrl, userId]);
-
-	const cameraScreenVisible = Boolean(
-		(streamUrl || previewing) &&
-			!editing &&
-			!(provisioning && !streamUrl && !previewing) &&
-			!(session && streamUrl === null && !provisionStarted.current),
-	);
-
-	useEffect(() => {
-		if (cameraScreenVisible && appState === "active") {
-			void prepare();
-		}
-	}, [appState, cameraScreenVisible, prepare]);
+	}, [appState, cameraNode]);
 
 	useEffect(() => {
 		const subscription = AppState.addEventListener("change", (nextState) => {
@@ -917,7 +338,7 @@ export default function Index() {
 					return current;
 				return undefined;
 			});
-			if (!ACTIVE_STATES.has(nativeEvent.state)) {
+			if (!isStreamSession(nativeEvent.state)) {
 				setAudioTier(0);
 				clearLinkStats();
 			}
@@ -958,7 +379,7 @@ export default function Index() {
 				error instanceof Error ? error.message : "The URL could not be saved.",
 			);
 		}
-	}, [draft, streamOwner]);
+	}, [draft, setStreamUrl, streamOwner]);
 
 	const signIn = useCallback(async (provider: "twitch" | "kick") => {
 		setSigningIn(provider);
@@ -1013,7 +434,7 @@ export default function Index() {
 		}
 		setMessage(undefined);
 		try {
-			if (ACTIVE_STATES.has(state)) {
+			if (isStreamSession(state)) {
 				setToast(undefined);
 				await cameraRef.current?.stop();
 			} else {
@@ -1047,17 +468,19 @@ export default function Index() {
 		}
 	}, [
 		bondingMode,
+		confirmBondingDataUse,
 		configuration,
 		contributionMode,
 		installationId,
 		showToast,
+		setStreamUrl,
 		state,
 		streamUrl,
 		userId,
 	]);
 
 	const toggleOrientation = useCallback(async () => {
-		if (ACTIVE_STATES.has(state)) {
+		if (isStreamSession(state)) {
 			showToast("You cannot change orientation during stream");
 			return;
 		}
@@ -1129,7 +552,7 @@ export default function Index() {
 				return;
 			}
 			try {
-				if (ACTIVE_STATES.has(state)) {
+				if (isPublishing(state)) {
 					const next = configurationForLiveCamera(camera, configuration);
 					await cameraRef.current?.switchCamera(camera.id);
 					setConfiguration(next);
@@ -1205,12 +628,12 @@ export default function Index() {
 		void refreshChatConnections();
 		void refreshPublishDevices();
 		void refreshDirectOutputs();
-		void refreshSpeechFlag().catch(() => undefined);
+		void speechFeatures.flags.refreshAvailability();
 	}, [
 		refreshChatConnections,
 		refreshPublishDevices,
 		refreshDirectOutputs,
-		refreshSpeechFlag,
+		speechFeatures.flags.refreshAvailability,
 	]);
 
 	const removeUrl = useCallback(() => {
@@ -1239,7 +662,38 @@ export default function Index() {
 				},
 			],
 		);
-	}, []);
+	}, [setStreamUrl]);
+
+	const settingsModel = useStreamSettingsModel({
+		audioInputs,
+		bondingMode: bondingMode ?? "off",
+		camera: cameraNode,
+		cameraSwitchDisabled,
+		cameras,
+		chatEnabled,
+		chatStatuses: liveChat.statuses,
+		configuration,
+		directContribution,
+		imageStabilizationEnabled: imageStabilizationEnabled ?? false,
+		isPresented: settingsOpen,
+		onApplyAudioInput: applyAudioInput,
+		onApplyConfiguration: applyConfiguration,
+		onRemoveDestination: removeUrl,
+		onRetryCamera: prepare,
+		onSelectCamera: selectCamera,
+		onUpdateBondingMode: updateBondingMode,
+		onUpdateImageStabilization: updateImageStabilization,
+		selectedAudioInputId,
+		sessionUser: session?.user,
+		setDraft,
+		setEditing,
+		setIsPresented: setSettingsOpen,
+		settingsDisabled,
+		showToast,
+		speechFeatures,
+		streamAccount,
+		streamUrl: streamUrl ?? null,
+	});
 
 	if (
 		sessionPending ||
@@ -1247,71 +701,18 @@ export default function Index() {
 		imageStabilizationEnabled === undefined ||
 		bondingMode === undefined
 	) {
-		return (
-			<View style={styles.loading}>
-				<StatusBar style="light" />
-				<ActivityIndicator color="#ffffff" />
-				<Text style={styles.loadingText}>Loading publish destination...</Text>
-			</View>
-		);
+		return <StreamLoading />;
 	}
 
 	if (!session && !editing && !streamUrl && !previewing) {
 		return (
-			<View style={styles.setupBackground}>
-				<StatusBar style="light" />
-				<SafeAreaView style={styles.setup}>
-					<Text style={styles.title}>Sign in to VISP</Text>
-					<Text style={styles.subtitle}>
-						Connect Twitch or Kick to load your relay destination automatically.
-					</Text>
-					{message ? <Text style={styles.formError}>{message}</Text> : null}
-					<Pressable
-						accessibilityRole="button"
-						disabled={Boolean(signingIn)}
-						onPress={() => void signIn("twitch")}
-						style={({ pressed }) => [
-							styles.primaryButton,
-							signingIn && styles.buttonDisabled,
-							pressed && styles.buttonPressed,
-						]}
-					>
-						<Text style={styles.primaryButtonText}>
-							{signingIn === "twitch"
-								? "Opening Twitch..."
-								: "Continue with Twitch"}
-						</Text>
-					</Pressable>
-					<Pressable
-						accessibilityRole="button"
-						disabled={Boolean(signingIn)}
-						onPress={() => void signIn("kick")}
-						style={({ pressed }) => [
-							styles.secondaryButton,
-							signingIn && styles.buttonDisabled,
-							pressed && styles.buttonPressed,
-						]}
-					>
-						<Text style={styles.secondaryButtonText}>
-							{signingIn === "kick" ? "Opening Kick..." : "Continue with Kick"}
-						</Text>
-					</Pressable>
-					<Pressable
-						accessibilityRole="button"
-						onPress={() => setEditing(true)}
-						style={styles.textButton}
-					>
-						<Text style={styles.textButtonLabel}>Enter SRT URL manually</Text>
-					</Pressable>
-					<Pressable
-						accessibilityRole="button"
-						onPress={() => setPreviewing(true)}
-						style={styles.textButton}
-					>
-						<Text style={styles.textButtonLabel}>Look around without URL</Text>
-					</Pressable>
-				</SafeAreaView>
-			</View>
+			<StreamSignIn
+				message={message}
+				onManualSetup={() => setEditing(true)}
+				onPreview={() => setPreviewing(true)}
+				onSignIn={(provider) => void signIn(provider)}
+				signingIn={signingIn}
+			/>
 		);
 	}
 
@@ -1320,125 +721,35 @@ export default function Index() {
 	// does not re-run because streamUrl/appState deps are unchanged.
 	if (
 		(provisioning && !streamUrl && !previewing) ||
-		(session && streamUrl === null && !provisionStarted.current)
+		(session && streamUrl === null && awaitingAutoProvision)
 	) {
-		return (
-			<View style={styles.loading}>
-				<StatusBar style="light" />
-				<ActivityIndicator color="#ffffff" />
-				<Text style={styles.loadingText}>Loading publish destination...</Text>
-			</View>
-		);
+		return <StreamLoading />;
 	}
 
 	if ((!streamUrl && !previewing) || editing) {
 		return (
-			<KeyboardAvoidingView
-				behavior={Platform.OS === "ios" ? "padding" : undefined}
-				style={styles.setupBackground}
-			>
-				<StatusBar style="light" />
-				<SafeAreaView style={styles.setup}>
-					<View style={styles.brandMark}>
-						<Text style={styles.brandMarkText}>V</Text>
-					</View>
-					<Text style={styles.title}>
-						{streamUrl
-							? "Replace destination"
-							: session
-								? "Connect VISP"
-								: "Manual SRT destination"}
-					</Text>
-					<Text style={styles.subtitle}>
-						{session
-							? "VISP fills this automatically. You can paste a publish URL manually if automatic setup fails."
-							: "Paste your VISP SRT publish URL to stream without signing in."}
-					</Text>
-					<TextInput
-						accessibilityLabel="VISP SRT publish URL"
-						autoComplete="off"
-						autoCapitalize="none"
-						autoCorrect={false}
-						inputMode="url"
-						onChangeText={setDraft}
-						onSubmitEditing={() => void save()}
-						placeholder="srt://relay.example:8890?..."
-						placeholderTextColor="#6f7785"
-						secureTextEntry
-						style={styles.input}
-						value={draft}
-					/>
-					{message ? <Text style={styles.formError}>{message}</Text> : null}
-					<Pressable
-						accessibilityRole="button"
-						disabled={!draft.trim()}
-						onPress={() => void save()}
-						style={({ pressed }) => [
-							styles.primaryButton,
-							!draft.trim() && styles.buttonDisabled,
-							pressed && styles.buttonPressed,
-						]}
-					>
-						<Text style={styles.primaryButtonText}>Save destination</Text>
-					</Pressable>
-					{editing ? (
-						<Pressable
-							accessibilityRole="button"
-							onPress={() => {
-								setDraft("");
-								setEditing(false);
-								setMessage(undefined);
-							}}
-							style={styles.textButton}
-						>
-							<Text style={styles.textButtonLabel}>Cancel</Text>
-						</Pressable>
-					) : (
-						<>
-							<Pressable
-								accessibilityRole="button"
-								disabled={provisioning || !installationId}
-								onPress={() => void provisionDestination(true)}
-								style={styles.textButton}
-							>
-								<Text style={styles.textButtonLabel}>
-									{provisioning
-										? "Setting up..."
-										: !installationId
-											? "Preparing device..."
-											: "Try automatic setup again"}
-								</Text>
-							</Pressable>
-							<Pressable
-								accessibilityRole="button"
-								onPress={() => setPreviewing(true)}
-								style={styles.textButton}
-							>
-								<Text style={styles.textButtonLabel}>
-									Look around without URL
-								</Text>
-							</Pressable>
-						</>
-					)}
-				</SafeAreaView>
-			</KeyboardAvoidingView>
+			<StreamDestinationEditor
+				draft={draft}
+				editing={editing}
+				hasInstallation={Boolean(installationId)}
+				message={message}
+				onCancel={() => {
+					setDraft("");
+					setEditing(false);
+					setMessage(undefined);
+				}}
+				onChangeDraft={setDraft}
+				onPreview={() => setPreviewing(true)}
+				onProvision={() => void provisionDestination(true)}
+				onSave={() => void save()}
+				provisioning={provisioning}
+				signedIn={Boolean(session)}
+				streamUrl={streamUrl}
+			/>
 		);
 	}
 
-	const streaming =
-		state === "live" || state === "connecting" || state === "reconnecting";
-	const currentCamera = cameras.find(
-		({ id }) => id === configuration?.cameraId,
-	);
-	const currentFormat = currentCamera?.formats.find(
-		({ height, width }) =>
-			height === configuration?.height && width === configuration.width,
-	);
-	const imageStabilizationSupported = supportsImageStabilization(
-		currentCamera,
-		configuration,
-	);
-
+	const streaming = isStreamSession(state);
 	return (
 		<View style={styles.container}>
 			<StatusBar style="light" />
@@ -1446,204 +757,40 @@ export default function Index() {
 				onAudioLevel={onAudioLevel}
 				onStateChange={onStateChange}
 				onStats={onStats}
-				ref={cameraRef}
+				ref={attachCamera}
 				style={StyleSheet.absoluteFill}
 			/>
-			<View pointerEvents="box-none" style={styles.scrim}>
-				<SafeAreaView edges={["top", "bottom"]} style={styles.controls}>
-					<View style={styles.topBar}>
-						<View style={styles.statusCluster}>
-							<View
-								accessibilityLabel={STATE_LABELS[state]}
-								style={styles.statusPill}
-							>
-								<View
-									style={[styles.statusDot, state === "live" && styles.liveDot]}
-								/>
-								{state === "live" ? null : (
-									<Text style={styles.statusText}>{STATE_LABELS[state]}</Text>
-								)}
-							</View>
-							<View style={styles.indicatorPill}>
-								<View
-									accessibilityLabel={`Microphone ${AUDIO_TIER_LABELS[audioTier]}`}
-									style={styles.micMeter}
-								>
-									{([1, 2, 3] as const).map((bar) => (
-										<View
-											key={bar}
-											style={[
-												styles.micBar,
-												{
-													backgroundColor:
-														audioTier >= bar
-															? AUDIO_TIER_COLORS[audioTier]
-															: "rgba(255,255,255,0.28)",
-													height: 3 + bar * 3,
-												},
-											]}
-										/>
-									))}
-								</View>
-								{imageStabilizationSupported && imageStabilizationEnabled ? (
-									<Text style={styles.featureBadge}>STAB</Text>
-								) : null}
-								{session && chatPreferences.mode !== "hidden" ? (
-									<Text style={styles.featureBadge}>CHAT</Text>
-								) : null}
-								{bondingMode !== "off" ? (
-									<Text style={styles.featureBadge}>
-										{errorCode === "link-degraded" ? "1 LINK" : "BOND"}
-									</Text>
-								) : null}
-							</View>
-						</View>
-						<View style={styles.topBarButtons}>
-							{session ? (
-								<Pressable
-									accessibilityRole="button"
-									onPress={() => setStreamInfoOpen(true)}
-									style={({ pressed }) => [
-										styles.settingsButton,
-										pressed && styles.buttonPressed,
-									]}
-								>
-									<Text style={styles.settingsButtonText}>Info</Text>
-								</Pressable>
-							) : null}
-							<Pressable
-								accessibilityRole="button"
-								onPress={openSettings}
-								style={({ pressed }) => [
-									styles.settingsButton,
-									pressed && styles.buttonPressed,
-								]}
-							>
-								<Text style={styles.settingsButtonText}>Settings</Text>
-							</Pressable>
-						</View>
-					</View>
-
-					<View style={styles.bottomPanel}>
-						{message ? <Text style={styles.message}>{message}</Text> : null}
-						{errorCode === "permission-denied" && !IS_WEB ? (
-							<Pressable
-								onPress={() => void Linking.openSettings()}
-								style={styles.settingsLink}
-							>
-								<Text style={styles.settingsLinkText}>Open Settings</Text>
-							</Pressable>
-						) : null}
-						{configuration ? (
-							<Pressable
-								accessibilityHint="Change camera, resolution, and frame rate"
-								accessibilityRole="button"
-								onPress={openSettings}
-							>
-								<Text style={styles.format}>
-									{currentCamera?.name ?? "Camera"} ·{" "}
-									{formatLabel(configuration)} · {configuration.fps} fps ·{" "}
-									{IS_WEB ? "WebRTC" : "SRT"}
-									{formatLiveLinkHud(linkStats, state === "live")}
-									{state === "live" && linkStats?.links?.length
-										? ` · ${formatBondedLinks(linkStats.links)}`
-										: ""}
-								</Text>
-							</Pressable>
-						) : null}
-						{currentCamera && !IS_WEB ? (
-							<View accessibilityRole="toolbar" style={styles.zoomControls}>
-								{currentCamera.zoomLevels.map((level) => (
-									<ZoomButton
-										disabled={cameraSwitchDisabled}
-										key={level}
-										level={level}
-										onPress={() => void selectZoom(level)}
-										selected={Math.abs(level - selectedZoom) < 0.051}
-									/>
-								))}
-							</View>
-						) : null}
-						<View style={styles.mainActions}>
-							{cameras.length > 1 ? (
-								<Pressable
-									accessibilityLabel="Flip camera"
-									accessibilityRole="button"
-									disabled={cameraSwitchDisabled}
-									onPress={flipCamera}
-									style={({ pressed }) => [
-										styles.roundButton,
-										cameraSwitchDisabled && styles.actionDisabled,
-										pressed && styles.buttonPressed,
-									]}
-								>
-									<Text style={styles.roundButtonIcon}>⇄</Text>
-								</Pressable>
-							) : null}
-							<Pressable
-								accessibilityHint={
-									streamUrl ? undefined : "Add an SRT URL before going live"
-								}
-								accessibilityLabel={streaming ? "Stop streaming" : "Go live"}
-								accessibilityRole="button"
-								disabled={state === "stopping" || state === "preparing"}
-								onPress={() => void toggleStream()}
-								style={({ pressed }) => [
-									styles.liveButton,
-									streaming && styles.stopButton,
-									pressed && styles.buttonPressed,
-								]}
-							>
-								<View
-									style={[
-										styles.liveButtonIcon,
-										streaming && styles.stopButtonIcon,
-									]}
-								/>
-								<Text style={styles.liveButtonText}>
-									{streaming ? "Stop" : "Go Live"}
-								</Text>
-							</Pressable>
-							{!IS_WEB ? (
-								<Pressable
-									accessibilityLabel="Change orientation"
-									accessibilityRole="button"
-									onPress={() => void toggleOrientation()}
-									style={({ pressed }) => [
-										styles.roundButton,
-										pressed && styles.buttonPressed,
-									]}
-								>
-									<Text style={styles.roundButtonIcon}>↻</Text>
-								</Pressable>
-							) : null}
-						</View>
-						{session ? (
-							<ObsControls onError={showToast} onStatusChange={setObsStatus} />
-						) : null}
-						{streamUrl ? null : (
-							<View style={styles.urlActions}>
-								<Pressable
-									accessibilityRole="button"
-									onPress={() => {
-										setDraft("");
-										setEditing(true);
-									}}
-								>
-									<Text style={styles.urlAction}>Add URL</Text>
-								</Pressable>
-								<Pressable
-									accessibilityRole="button"
-									onPress={() => setPreviewing(false)}
-								>
-									<Text style={styles.urlAction}>Exit preview</Text>
-								</Pressable>
-							</View>
-						)}
-					</View>
-				</SafeAreaView>
-			</View>
-			{chatPreferences.mode === "floating" ? (
+			<StreamCameraControls
+				audioTier={audioTier}
+				bondingMode={bondingMode}
+				cameraSwitchDisabled={cameraSwitchDisabled}
+				cameras={cameras}
+				chatVisible={Boolean(session && chatOverlayMode !== "hidden")}
+				configuration={configuration}
+				errorCode={errorCode}
+				imageStabilizationActive={imageStabilizationEnabled}
+				linkStats={linkStats}
+				message={message}
+				onEditUrl={() => {
+					setDraft("");
+					setEditing(true);
+				}}
+				onExitPreview={() => setPreviewing(false)}
+				onFlipCamera={flipCamera}
+				onOpenInfo={() => setStreamInfoOpen(true)}
+				onOpenSettings={openSettings}
+				onSelectZoom={(level) => void selectZoom(level)}
+				onSetObsStatus={setObsStatus}
+				onToggleOrientation={() => void toggleOrientation()}
+				onToggleStream={() => void toggleStream()}
+				selectedZoom={selectedZoom}
+				showToast={showToast}
+				signedIn={Boolean(session)}
+				state={state}
+				streaming={streaming}
+				streamUrl={streamUrl}
+			/>
+			{chatOverlayMode === "floating" ? (
 				<FloatingChat
 					messages={liveChat.messages}
 					onPositionChange={(position) =>
@@ -1680,809 +827,7 @@ export default function Index() {
 					userId={userId}
 				/>
 			) : null}
-			<UI.BottomSheet
-				isPresented={settingsOpen}
-				onDismiss={() => setSettingsOpen(false)}
-				snapPoints={["half", "full"]}
-			>
-				<UI.FieldGroup>
-					<UI.FieldGroup.Section title="Camera">
-						{cameras.length > 1 ? (
-							<SettingRow label="Camera">
-								<UI.Picker
-									enabled={!cameraSwitchDisabled}
-									onValueChange={(cameraId) => {
-										const camera = cameras.find(({ id }) => id === cameraId);
-										if (camera) {
-											void selectCamera(camera);
-										}
-									}}
-									selectedValue={configuration?.cameraId ?? ""}
-								>
-									{cameras.map(({ id, name }) => (
-										<UI.Picker.Item key={id} label={name} value={id} />
-									))}
-								</UI.Picker>
-							</SettingRow>
-						) : null}
-						<SettingRow label="Resolution">
-							<UI.Picker
-								enabled={!settingsDisabled}
-								onValueChange={(value) => {
-									const format = currentCamera?.formats.find(
-										({ height, width }) => `${width}x${height}` === value,
-									);
-									if (currentCamera && format) {
-										void applyConfiguration(
-											configurationForFormat(
-												currentCamera.id,
-												format,
-												configuration?.fps,
-											),
-										);
-									}
-								}}
-								selectedValue={
-									currentFormat
-										? `${currentFormat.width}x${currentFormat.height}`
-										: ""
-								}
-							>
-								{currentCamera?.formats.map((format) => (
-									<UI.Picker.Item
-										key={`${format.width}x${format.height}`}
-										label={`${format.width}×${format.height}`}
-										value={`${format.width}x${format.height}`}
-									/>
-								))}
-							</UI.Picker>
-						</SettingRow>
-						<SettingRow label="Frame rate">
-							<UI.Picker
-								enabled={!settingsDisabled}
-								onValueChange={(fps) => {
-									if (configuration) {
-										void applyConfiguration({
-											...configuration,
-											fps: Number(fps),
-										});
-									}
-								}}
-								selectedValue={configuration?.fps ?? 0}
-							>
-								{currentFormat?.fps.map((fps) => (
-									<UI.Picker.Item key={fps} label={`${fps} fps`} value={fps} />
-								))}
-							</UI.Picker>
-						</SettingRow>
-						{imageStabilizationSupported ? (
-							<SettingRow label="Image stabilization">
-								<UI.Switch
-									disabled={cameraSwitchDisabled}
-									onValueChange={(enabled) =>
-										void updateImageStabilization(enabled)
-									}
-									value={imageStabilizationEnabled}
-								/>
-							</SettingRow>
-						) : null}
-						{settingsDisabled ? (
-							<UI.FieldGroup.SectionFooter>
-								<UI.Text textStyle={SUBTLE_TEXT}>
-									Stop the stream to change resolution or frame rate.
-								</UI.Text>
-							</UI.FieldGroup.SectionFooter>
-						) : null}
-						{directContribution ? (
-							<UI.FieldGroup.SectionFooter>
-								<UI.Text textStyle={SUBTLE_TEXT}>
-									Direct lowers this device&apos;s contribution bitrate.
-									Platforms receive the relay encode; OBS sees the selected
-									resolution at the lower bitrate.
-								</UI.Text>
-							</UI.FieldGroup.SectionFooter>
-						) : null}
-					</UI.FieldGroup.Section>
-
-					<UI.FieldGroup.Section title="Audio">
-						<SettingRow label="Microphone">
-							<UI.Picker
-								enabled={!settingsDisabled}
-								onValueChange={(audioInputId) =>
-									void applyAudioInput(String(audioInputId))
-								}
-								selectedValue={selectedAudioInputId}
-							>
-								<UI.Picker.Item
-									label="System default"
-									value={DEFAULT_AUDIO_INPUT_ID}
-								/>
-								{audioInputs.map(({ id, name }) => (
-									<UI.Picker.Item key={id} label={name} value={id} />
-								))}
-							</UI.Picker>
-						</SettingRow>
-						{settingsDisabled ? (
-							<UI.FieldGroup.SectionFooter>
-								<UI.Text textStyle={SUBTLE_TEXT}>
-									Stop the stream to change the microphone.
-								</UI.Text>
-							</UI.FieldGroup.SectionFooter>
-						) : null}
-					</UI.FieldGroup.Section>
-
-					{!IS_WEB ? (
-						<UI.FieldGroup.Section title="Network">
-							<SettingRow label="Network bonding">
-								<UI.Switch
-									disabled={settingsDisabled}
-									onValueChange={(enabled) =>
-										void updateBondingMode(
-											enabled
-												? bondingMode === "backup"
-													? "backup"
-													: "broadcast"
-												: "off",
-										).catch(() =>
-											showToast("Network bonding could not be changed"),
-										)
-									}
-									value={bondingMode !== "off"}
-								/>
-							</SettingRow>
-							<UI.FieldGroup.SectionFooter>
-								<UI.Text textStyle={SUBTLE_TEXT}>
-									Uses Wi-Fi and cellular together. This can roughly double
-									mobile data use.
-								</UI.Text>
-							</UI.FieldGroup.SectionFooter>
-						</UI.FieldGroup.Section>
-					) : null}
-
-					{session ? (
-						<UI.FieldGroup.Section title="Chat overlay">
-							<SettingRow label="Position">
-								<UI.Picker
-									onValueChange={(mode) =>
-										updateChatPreferences((current) => ({
-											...current,
-											mode: mode as ChatPreferences["mode"],
-										}))
-									}
-									selectedValue={chatPreferences.mode}
-								>
-									<UI.Picker.Item label="Hidden" value="hidden" />
-									<UI.Picker.Item label="Floating" value="floating" />
-									{!IS_WEB ? (
-										<UI.Picker.Item
-											label="Embedded in stream"
-											value="embedded"
-										/>
-									) : null}
-								</UI.Picker>
-							</SettingRow>
-							{!IS_WEB && chatPreferences.mode === "embedded" ? (
-								<SettingRow label="Corner">
-									<UI.Picker
-										onValueChange={(corner) =>
-											updateChatPreferences((current) => ({
-												...current,
-												corner: corner as ChatPreferences["corner"],
-											}))
-										}
-										selectedValue={chatPreferences.corner}
-									>
-										<UI.Picker.Item label="Top left" value="top-left" />
-										<UI.Picker.Item label="Top right" value="top-right" />
-										<UI.Picker.Item label="Bottom left" value="bottom-left" />
-										<UI.Picker.Item label="Bottom right" value="bottom-right" />
-									</UI.Picker>
-								</SettingRow>
-							) : null}
-							<SettingRow label="Disappearing messages">
-								<UI.Switch
-									onValueChange={(disappearingMessages) =>
-										updateChatPreferences((current) => ({
-											...current,
-											disappearingMessages,
-										}))
-									}
-									value={chatPreferences.disappearingMessages}
-								/>
-							</SettingRow>
-							<SettingRow label="Speak messages">
-								<UI.Picker
-									onValueChange={(speechLanguage) =>
-										updateChatPreferences((current) => ({
-											...current,
-											speechLanguage:
-												speechLanguage as ChatPreferences["speechLanguage"],
-										}))
-									}
-									selectedValue={chatPreferences.speechLanguage}
-								>
-									<UI.Picker.Item label="Off" value="off" />
-									<UI.Picker.Item label="Suomi" value="fi-FI" />
-									<UI.Picker.Item label="English" value="en-US" />
-								</UI.Picker>
-							</SettingRow>
-							{betterTts && !IS_WEB && spokenLanguage ? (
-								<SettingRow label="Better voice">
-									<UI.Switch
-										onValueChange={(nextBetterVoice) =>
-											updateChatPreferences((current) => ({
-												...current,
-												betterVoice: nextBetterVoice,
-											}))
-										}
-										value={chatPreferences.betterVoice}
-									/>
-								</SettingRow>
-							) : null}
-							{spokenLanguage ? (
-								<UI.FieldGroup.SectionFooter>
-									<UI.Text textStyle={SUBTLE_TEXT}>
-										{speechVoiceMissing
-											? "This language has no voice installed on this device. Add it in the system text-to-speech settings."
-											: "Reads chat aloud while you are live. Use headphones, because the phone speaker is picked up by the microphone."}
-									</UI.Text>
-								</UI.FieldGroup.SectionFooter>
-							) : null}
-						</UI.FieldGroup.Section>
-					) : null}
-
-					<UI.FieldGroup.Section>
-						<UI.Row
-							alignment="center"
-							onPress={() => setAdvancedOpen((open) => !open)}
-						>
-							<UI.Text>Advanced</UI.Text>
-							<UI.Spacer flexible />
-							<UI.Text textStyle={SUBTLE_TEXT}>
-								{advancedOpen ? "Hide" : "Show"}
-							</UI.Text>
-						</UI.Row>
-					</UI.FieldGroup.Section>
-
-					{advancedOpen ? (
-						<>
-							{!IS_WEB && bondingMode !== "off" ? (
-								<UI.FieldGroup.Section title="Network bonding">
-									<SettingRow label="Mode">
-										<UI.Picker
-											enabled={!settingsDisabled}
-											onValueChange={(mode) =>
-												void updateBondingMode(
-													mode as Exclude<BondingMode, "off">,
-												).catch(() =>
-													showToast("Network bonding could not be changed"),
-												)
-											}
-											selectedValue={bondingMode}
-										>
-											<UI.Picker.Item label="Broadcast" value="broadcast" />
-											<UI.Picker.Item label="Main + backup" value="backup" />
-										</UI.Picker>
-									</SettingRow>
-								</UI.FieldGroup.Section>
-							) : null}
-
-							{session ? (
-								<UI.FieldGroup.Section title="Account">
-									<UI.Row alignment="center" spacing={12}>
-										<UI.Text>Nickname</UI.Text>
-										<UI.Spacer flexible />
-										<UI.Text numberOfLines={1} textStyle={SUBTLE_TEXT}>
-											{session.user.name}
-										</UI.Text>
-									</UI.Row>
-									<UI.Row alignment="center" spacing={12}>
-										<UI.Text>Email</UI.Text>
-										<UI.Spacer flexible />
-										<UI.Text numberOfLines={1} textStyle={SUBTLE_TEXT}>
-											{session.user.email}
-										</UI.Text>
-									</UI.Row>
-								</UI.FieldGroup.Section>
-							) : null}
-
-							{session ? (
-								<UI.FieldGroup.Section title="Connections">
-									{chatConnections.map((connection) => (
-										<UI.Row
-											alignment="center"
-											key={connection.provider}
-											spacing={12}
-										>
-											<UI.Column spacing={2}>
-												<UI.Text>
-													{connection.provider === "twitch" ? "Twitch" : "Kick"}
-												</UI.Text>
-												<UI.Text textStyle={SUBTLE_TEXT}>
-													{connection.enabled
-														? `Chat ${liveChat.statuses[connection.provider] ?? "connected"}`
-														: connection.linked
-															? "Linked · chat off"
-															: "Not linked"}
-												</UI.Text>
-											</UI.Column>
-											<UI.Spacer flexible />
-											{connection.linked &&
-											chatConnections.filter(({ linked }) => linked).length >
-												1 ? (
-												<UI.Button
-													disabled={Boolean(chatBusy)}
-													label="Unlink"
-													onPress={() => void unlinkChatProvider(connection)}
-													variant="text"
-												/>
-											) : null}
-											{connection.linked && !connection.needsConsent ? (
-												<UI.Switch
-													disabled={Boolean(chatBusy)}
-													onValueChange={() =>
-														void toggleChatConnection(connection)
-													}
-													value={connection.enabled}
-												/>
-											) : (
-												<UI.Button
-													disabled={Boolean(chatBusy)}
-													label={connection.needsConsent ? "Authorize" : "Link"}
-													onPress={() => void toggleChatConnection(connection)}
-													variant="outlined"
-												/>
-											)}
-										</UI.Row>
-									))}
-								</UI.FieldGroup.Section>
-							) : null}
-
-							{session && publishDevices.length > 0 ? (
-								<UI.FieldGroup.Section title="Publishing devices">
-									{publishDevices.map((device) => {
-										const revealedUrl = revealedDeviceUrls[device.id];
-										const origin =
-											device.publishOrigin === "native"
-												? "VISP Native"
-												: device.publishOrigin === "web"
-													? "Web"
-													: "Legacy";
-										return (
-											<UI.Row alignment="center" key={device.id} spacing={12}>
-												<UI.Column spacing={2}>
-													<UI.Text>
-														{device.nativeInstallationId === installationId
-															? `${device.label} · This device`
-															: device.label}
-													</UI.Text>
-													<UI.Text textStyle={SUBTLE_TEXT}>
-														{`${origin} · ${device.publishing ? "Live" : "Offline"}`}
-													</UI.Text>
-													{revealedUrl ? (
-														<UI.Text
-															numberOfLines={3}
-															textStyle={{ color: SUBTLE, fontSize: 11 }}
-														>
-															{revealedUrl}
-														</UI.Text>
-													) : null}
-												</UI.Column>
-												<UI.Spacer flexible />
-												{device.publishRevealable && !revealedUrl ? (
-													<UI.Button
-														label="Reveal"
-														onPress={() => void revealPublishDevice(device.id)}
-														variant="text"
-													/>
-												) : null}
-											</UI.Row>
-										);
-									})}
-								</UI.FieldGroup.Section>
-							) : null}
-
-							{session && directOutputs ? (
-								<UI.FieldGroup.Section title="Direct output">
-									{directOutputs.betaEnabled ? (
-										<>
-											{directOutputs.providers.map((provider) => (
-												<UI.Row
-													alignment="center"
-													key={provider.provider}
-													spacing={12}
-												>
-													<UI.Column spacing={2}>
-														<UI.Text>
-															{provider.provider === "twitch"
-																? "Twitch"
-																: "Kick"}
-														</UI.Text>
-														<UI.Text textStyle={SUBTLE_TEXT}>
-															{provider.canReadStreamKey
-																? "Authorized"
-																: provider.linked
-																	? "Needs streaming permission"
-																	: "Not linked"}
-														</UI.Text>
-													</UI.Column>
-													<UI.Spacer flexible />
-													<UI.Button
-														disabled={Boolean(chatBusy)}
-														label={
-															provider.canReadStreamKey
-																? "Reauthorize"
-																: "Authorize"
-														}
-														onPress={() =>
-															void linkProvider(
-																provider.provider,
-																PROVIDER_SCOPES[provider.provider]
-																	.streamKeyRequest,
-															)
-														}
-														variant="outlined"
-													/>
-												</UI.Row>
-											))}
-											{directOutputs.paths.map((path) => (
-												<UI.Row alignment="center" key={path.id} spacing={12}>
-													<UI.Column spacing={2}>
-														<UI.Text>{path.label}</UI.Text>
-														<UI.Text textStyle={SUBTLE_TEXT}>
-															{path.publishing
-																? "Live · stop to change outputs"
-																: directStateSummary(path)}
-														</UI.Text>
-													</UI.Column>
-													<UI.Spacer flexible />
-													<UI.Picker
-														enabled={!path.publishing}
-														onValueChange={(selection) =>
-															void applyDirectSelection(path.id, selection)
-														}
-														selectedValue={directSelectionOf(path)}
-													>
-														<UI.Picker.Item label="Off" value="off" />
-														<UI.Picker.Item label="Twitch" value="twitch" />
-														<UI.Picker.Item label="Kick" value="kick" />
-														<UI.Picker.Item label="Both" value="both" />
-													</UI.Picker>
-												</UI.Row>
-											))}
-											<UI.FieldGroup.SectionFooter>
-												<UI.Text textStyle={SUBTLE_TEXT}>
-													{directWarning(directOutputs)}
-												</UI.Text>
-											</UI.FieldGroup.SectionFooter>
-										</>
-									) : (
-										<UI.FieldGroup.SectionFooter>
-											<UI.Text textStyle={SUBTLE_TEXT}>
-												VISP Direct is in limited beta. It runs the platform
-												encode on a single relay node, so access is handed out a
-												few accounts at a time.
-											</UI.Text>
-										</UI.FieldGroup.SectionFooter>
-									)}
-								</UI.FieldGroup.Section>
-							) : null}
-
-							<UI.FieldGroup.Section title="Destination">
-								<UI.Row alignment="center" spacing={12}>
-									<UI.Text numberOfLines={1}>
-										{streamUrl
-											? describeStreamUrl(streamUrl)
-											: "No SRT destination"}
-									</UI.Text>
-									<UI.Spacer flexible />
-									<UI.Button
-										disabled={settingsDisabled}
-										label={streamUrl ? "Replace" : "Add"}
-										onPress={() => {
-											setSettingsOpen(false);
-											setDraft("");
-											setEditing(true);
-										}}
-										variant="text"
-									/>
-									{streamUrl ? (
-										<UI.Button
-											disabled={settingsDisabled}
-											onPress={removeUrl}
-											variant="text"
-										>
-											<UI.Text textStyle={{ color: DESTRUCTIVE }}>
-												Delete
-											</UI.Text>
-										</UI.Button>
-									) : null}
-								</UI.Row>
-							</UI.FieldGroup.Section>
-
-							{session ? (
-								<UI.FieldGroup.Section>
-									<UI.Button
-										onPress={() => {
-											setSettingsOpen(false);
-											void (async () => {
-												await cameraRef.current?.stop();
-												await authClient.signOut();
-											})();
-										}}
-										variant="text"
-									>
-										<UI.Text textStyle={{ color: DESTRUCTIVE }}>
-											Sign out
-										</UI.Text>
-									</UI.Button>
-								</UI.FieldGroup.Section>
-							) : null}
-						</>
-					) : null}
-				</UI.FieldGroup>
-			</UI.BottomSheet>
+			<StreamSettingsSheet {...settingsModel} />
 		</View>
 	);
 }
-
-const styles = StyleSheet.create({
-	actionDisabled: { opacity: 0.35 },
-	bottomPanel: { alignItems: "center", gap: 12 },
-	brandMark: {
-		alignItems: "center",
-		backgroundColor: "#ff354d",
-		borderRadius: 16,
-		height: 64,
-		justifyContent: "center",
-		marginBottom: 18,
-		width: 64,
-	},
-	brandMarkText: { color: "white", fontSize: 32, fontWeight: "900" },
-	buttonDisabled: { opacity: 0.4 },
-	buttonPressed: { transform: [{ scale: 0.98 }] },
-	container: { backgroundColor: "#07090d", flex: 1 },
-	controls: { flex: 1, justifyContent: "space-between", paddingHorizontal: 20 },
-	formError: {
-		color: "#ff8795",
-		fontSize: 14,
-		marginTop: 12,
-		textAlign: "center",
-	},
-	format: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: "700" },
-	input: {
-		backgroundColor: "#151922",
-		borderColor: "#303747",
-		borderRadius: 14,
-		borderWidth: 1,
-		color: "white",
-		fontSize: 16,
-		marginTop: 28,
-		paddingHorizontal: 16,
-		paddingVertical: 16,
-		width: "100%",
-	},
-	liveButton: {
-		alignItems: "center",
-		backgroundColor: "#ff354d",
-		borderRadius: 28,
-		flexDirection: "row",
-		gap: 10,
-		justifyContent: "center",
-		minWidth: 164,
-		paddingHorizontal: 26,
-		paddingVertical: 16,
-	},
-	liveButtonIcon: {
-		backgroundColor: "white",
-		borderRadius: 7,
-		height: 14,
-		width: 14,
-	},
-	liveButtonText: { color: "white", fontSize: 17, fontWeight: "800" },
-	liveDot: { backgroundColor: "#ff354d" },
-	loading: {
-		alignItems: "center",
-		backgroundColor: "#07090d",
-		flex: 1,
-		justifyContent: "center",
-	},
-	loadingText: { color: "#9aa3b1", marginTop: 12 },
-	message: {
-		backgroundColor: "rgba(0,0,0,0.62)",
-		borderRadius: 10,
-		color: "white",
-		fontSize: 13,
-		overflow: "hidden",
-		paddingHorizontal: 12,
-		paddingVertical: 8,
-		textAlign: "center",
-	},
-	mainActions: { flexDirection: "row", gap: 12 },
-	roundButton: {
-		alignItems: "center",
-		backgroundColor: "rgba(16,19,25,0.88)",
-		borderRadius: 28,
-		height: 56,
-		justifyContent: "center",
-		width: 56,
-	},
-	roundButtonIcon: { color: "white", fontSize: 22, lineHeight: 24 },
-	zoomButton: {
-		borderCurve: "continuous",
-		borderRadius: 24,
-		height: 48,
-		overflow: "hidden",
-		width: 48,
-	},
-	zoomButtonFallback: {
-		backgroundColor: "rgba(16,19,25,0.68)",
-		borderColor: "rgba(255,255,255,0.3)",
-		borderWidth: StyleSheet.hairlineWidth,
-	},
-	zoomButtonPressable: {
-		alignItems: "center",
-		flex: 1,
-		justifyContent: "center",
-	},
-	zoomButtonSelected: {
-		backgroundColor: "rgba(255,53,77,0.72)",
-		borderColor: "rgba(255,255,255,0.72)",
-	},
-	zoomButtonText: {
-		color: "white",
-		fontSize: 13,
-		fontVariant: ["tabular-nums"],
-		fontWeight: "800",
-	},
-	zoomControls: { flexDirection: "row", gap: 10, justifyContent: "center" },
-	primaryButton: {
-		alignItems: "center",
-		backgroundColor: "#ff354d",
-		borderRadius: 14,
-		marginTop: 18,
-		padding: 16,
-		width: "100%",
-	},
-	primaryButtonText: { color: "white", fontSize: 16, fontWeight: "800" },
-	secondaryButton: {
-		alignItems: "center",
-		borderColor: "#303747",
-		borderRadius: 14,
-		borderWidth: 1,
-		marginTop: 10,
-		padding: 16,
-		width: "100%",
-	},
-	secondaryButtonText: { color: "white", fontSize: 16, fontWeight: "800" },
-	scrim: {
-		backgroundColor: "rgba(0,0,0,0.08)",
-		bottom: 0,
-		left: 0,
-		position: "absolute",
-		right: 0,
-		top: 0,
-	},
-	settingsLink: {
-		backgroundColor: "rgba(255,255,255,0.16)",
-		borderRadius: 12,
-		paddingHorizontal: 14,
-		paddingVertical: 9,
-	},
-	settingsLinkText: { color: "white", fontSize: 14, fontWeight: "700" },
-	topBarButtons: { flexDirection: "row", gap: 8 },
-	settingsButton: {
-		backgroundColor: "rgba(0,0,0,0.6)",
-		borderRadius: 18,
-		paddingHorizontal: 14,
-		paddingVertical: 8,
-	},
-	settingsButtonText: { color: "white", fontSize: 12, fontWeight: "800" },
-	setup: {
-		alignItems: "center",
-		flex: 1,
-		justifyContent: "center",
-		padding: 28,
-	},
-	setupBackground: { backgroundColor: "#07090d", flex: 1 },
-	featureBadge: {
-		color: "rgba(255,255,255,0.85)",
-		fontSize: 10,
-		fontWeight: "800",
-		letterSpacing: 0.5,
-	},
-	indicatorPill: {
-		alignItems: "center",
-		backgroundColor: "rgba(0,0,0,0.6)",
-		borderRadius: 18,
-		flexDirection: "row",
-		gap: 8,
-		paddingHorizontal: 12,
-		paddingVertical: 8,
-	},
-	micBar: { borderRadius: 1.5, width: 3 },
-	micMeter: {
-		alignItems: "flex-end",
-		flexDirection: "row",
-		gap: 2,
-		height: 12,
-	},
-	statusCluster: {
-		alignItems: "center",
-		flexDirection: "row",
-		flexShrink: 1,
-		gap: 8,
-	},
-	statusDot: {
-		backgroundColor: "#8a93a2",
-		borderRadius: 4,
-		height: 8,
-		width: 8,
-	},
-	statusPill: {
-		alignItems: "center",
-		backgroundColor: "rgba(0,0,0,0.6)",
-		borderRadius: 18,
-		flexDirection: "row",
-		gap: 8,
-		paddingHorizontal: 12,
-		paddingVertical: 8,
-	},
-	statusText: {
-		color: "white",
-		fontSize: 12,
-		fontWeight: "800",
-		textTransform: "uppercase",
-	},
-	stopButton: {
-		backgroundColor: "rgba(16,19,25,0.88)",
-		borderColor: "white",
-		borderWidth: 2,
-	},
-	stopButtonIcon: { borderRadius: 2 },
-	subtitle: {
-		color: "#9aa3b1",
-		fontSize: 16,
-		lineHeight: 23,
-		maxWidth: 360,
-		textAlign: "center",
-	},
-	textButton: { marginTop: 16, padding: 10 },
-	textButtonLabel: { color: "#c4cad4", fontSize: 15, fontWeight: "700" },
-	title: { color: "white", fontSize: 30, fontWeight: "900", marginBottom: 12 },
-	toast: {
-		alignItems: "center",
-		bottom: 150,
-		left: 20,
-		position: "absolute",
-		right: 20,
-	},
-	toastContent: {
-		alignItems: "center",
-		backgroundColor: "rgba(21,25,34,0.96)",
-		borderRadius: 12,
-		flexDirection: "row",
-		gap: 10,
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-	},
-	toastText: {
-		color: "white",
-		flexShrink: 1,
-		fontSize: 14,
-		fontWeight: "700",
-		textAlign: "center",
-	},
-	topBar: {
-		flexDirection: "row",
-		gap: 10,
-		justifyContent: "space-between",
-		paddingTop: 8,
-	},
-	urlAction: {
-		color: "rgba(255,255,255,0.82)",
-		fontSize: 13,
-		fontWeight: "700",
-	},
-	urlActions: { flexDirection: "row", gap: 28, marginBottom: 8, marginTop: 2 },
-});

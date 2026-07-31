@@ -19,6 +19,14 @@ const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 const LIVE_AFTER_MS = 60_000;
 
+/** The per-user admission flags on app_user, all boolean and all admin-set. */
+const USER_FLAGS = [
+	"directBeta",
+	"betterTts",
+	"betterAudioIsolation",
+	"betterSubtitles",
+] as const;
+
 const pageInput = z.object({
 	cursor: z.string().regex(/^\d+$/).optional(),
 	limit: z.number().int().min(1).max(MAX_PAGE_SIZE).default(PAGE_SIZE),
@@ -37,6 +45,11 @@ const relayFields = z.object({
 
 function iso(value: Date | string | null | undefined) {
 	return value ? new Date(value).toISOString() : null;
+}
+
+/** Audit actions name the column, not the camelCase field. */
+function snakeCase(value: string) {
+	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
 function audit(actorId: string, targetId: string, action: string) {
@@ -283,6 +296,11 @@ export const adminRouter = router({
 						streamDestination: appUser.streamDestination,
 						advancedMode: appUser.advancedMode,
 						onboardedAt: appUser.onboardedAt,
+						// Null for a user with no app_user row; the UI reads that as off.
+						directBeta: appUser.directBeta,
+						betterTts: appUser.betterTts,
+						betterAudioIsolation: appUser.betterAudioIsolation,
+						betterSubtitles: appUser.betterSubtitles,
 						obsStreaming: appUser.obsStreaming,
 						obsSceneCount: sql<number>`coalesce(array_length(${appUser.obsScenes}, 1), 0)`,
 						obsCurrentScene: appUser.obsCurrentScene,
@@ -477,21 +495,24 @@ export const adminRouter = router({
 				return result;
 			}),
 
-		// The only admission control VISP Direct has. Hand it out deliberately:
-		// every Direct forwarder is a full distribution encode on one relay node.
-		setDirectBeta: adminProcedure
+		// Every one of these is handed out deliberately. directBeta gates relay
+		// capacity (a Direct forwarder is a full distribution encode on one node);
+		// the better* flags gate spend at hosted providers, billed per character
+		// read aloud, per second of isolated mic, and per minute of captions.
+		setFlag: adminProcedure
 			.input(
 				z.object({
 					userId: z.string().min(1),
-					directBeta: z.boolean(),
+					flag: z.enum(USER_FLAGS),
+					enabled: z.boolean(),
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
 				const [result] = await db
 					.update(appUser)
-					.set({ directBeta: input.directBeta })
+					.set({ [input.flag]: input.enabled })
 					.where(eq(appUser.id, input.userId))
-					.returning({ id: appUser.id, directBeta: appUser.directBeta });
+					.returning({ id: appUser.id, enabled: appUser[input.flag] });
 				if (!result) {
 					throw new TRPCError({
 						code: "NOT_FOUND",
@@ -501,36 +522,7 @@ export const adminRouter = router({
 				audit(
 					ctx.session.user.id,
 					input.userId,
-					`set_direct_beta:${input.directBeta}`,
-				);
-				return result;
-			}),
-
-		// Hosted text-to-speech bills per character read out of chat. Hand it out
-		// as deliberately as Direct: this one spends money rather than capacity.
-		setBetterTts: adminProcedure
-			.input(
-				z.object({
-					userId: z.string().min(1),
-					betterTts: z.boolean(),
-				}),
-			)
-			.mutation(async ({ ctx, input }) => {
-				const [result] = await db
-					.update(appUser)
-					.set({ betterTts: input.betterTts })
-					.where(eq(appUser.id, input.userId))
-					.returning({ id: appUser.id, betterTts: appUser.betterTts });
-				if (!result) {
-					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "Relay user not found",
-					});
-				}
-				audit(
-					ctx.session.user.id,
-					input.userId,
-					`set_better_tts:${input.betterTts}`,
+					`set_${snakeCase(input.flag)}:${input.enabled}`,
 				);
 				return result;
 			}),

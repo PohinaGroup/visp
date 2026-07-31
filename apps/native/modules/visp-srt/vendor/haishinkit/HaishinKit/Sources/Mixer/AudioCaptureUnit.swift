@@ -28,6 +28,11 @@ final class AudioCaptureUnit: CaptureUnit {
             self.continutation = continutation
         }
     }
+    var input: AsyncStream<(UInt8, AVAudioPCMBuffer, AVAudioTime)> {
+        AsyncStream { continuation in
+            self.inputContinuation = continuation
+        }
+    }
     private(set) var isSuspended = false
     private lazy var audioMixer: any AudioMixer = {
         if isMultiTrackAudioMixingEnabled {
@@ -59,6 +64,7 @@ final class AudioCaptureUnit: CaptureUnit {
 
     private let session: (any CaptureSessionConvertible)
     private var continutation: AsyncStream<(AVAudioPCMBuffer, AVAudioTime)>.Continuation?
+    private var inputContinuation: AsyncStream<(UInt8, AVAudioPCMBuffer, AVAudioTime)>.Continuation?
 
     init(_ session: (some CaptureSessionConvertible), isMultiTrackAudioMixingEnabled: Bool) {
         self.session = session
@@ -124,12 +130,16 @@ final class AudioCaptureUnit: CaptureUnit {
 
     func finish() {
         continutation?.finish()
+        inputContinuation?.finish()
     }
 }
 
 extension AudioCaptureUnit: AudioMixerDelegate {
     // MARK: AudioMixerDelegate
     func audioMixer(_ audioMixer: some AudioMixer, track: UInt8, didInput buffer: AVAudioPCMBuffer, when: AVAudioTime) {
+        if let cloned = buffer.clone() {
+            inputContinuation?.yield((track, cloned, when))
+        }
     }
 
     func audioMixer(_ audioMixer: some AudioMixer, errorOccurred error: AudioMixerError) {

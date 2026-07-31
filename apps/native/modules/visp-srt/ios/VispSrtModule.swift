@@ -55,6 +55,19 @@ final class VispSrtModule: Module {
         try await view.configureAudioInput(audioInputID)
       }
 
+      AsyncFunction("setAudioIsolation") { (
+        view: VispSrtView,
+        mode: String,
+        serverURL: String?,
+        authCookie: String?
+      ) in
+        await view.setAudioIsolation(
+          mode: mode,
+          serverURL: serverURL,
+          authCookie: authCookie
+        )
+      }
+
       AsyncFunction("switchCamera") { (
         view: VispSrtView,
         cameraID: String
@@ -92,6 +105,27 @@ final class VispSrtModule: Module {
 
       AsyncFunction("clearChatOverlay") { (view: VispSrtView) in
         await view.clearChatOverlay()
+      }
+
+      AsyncFunction("updateCaptionsOverlay") { (view: VispSrtView, text: String) in
+        await view.updateCaptionsOverlay(text)
+      }
+
+      AsyncFunction("clearCaptionsOverlay") { (view: VispSrtView) in
+        await view.clearCaptionsOverlay()
+      }
+
+      AsyncFunction("startLiveCaptions") { (
+        view: VispSrtView,
+        language: String,
+        better: Bool,
+        wsUrl: String?
+      ) in
+        await view.startLiveCaptions(language: language, better: better, wsUrl: wsUrl)
+      }
+
+      AsyncFunction("stopLiveCaptions") { (view: VispSrtView) in
+        await view.stopLiveCaptions()
       }
 
       AsyncFunction("start") { (view: VispSrtView, url: String) in

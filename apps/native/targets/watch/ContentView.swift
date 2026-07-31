@@ -5,6 +5,11 @@ struct ContentView: View {
 
   var body: some View {
     TabView {
+      ViewfinderView(
+        frame: session.frame,
+        snapshot: session.snapshot,
+        isReachable: session.isReachable
+      )
       ChatView(snapshot: session.snapshot, isReachable: session.isReachable)
       HealthView(snapshot: session.snapshot, isReachable: session.isReachable)
       ScenesView(session: session)
@@ -82,6 +87,34 @@ private struct ScenesView: View {
           }
         }
       }
+    }
+  }
+}
+
+private struct ViewfinderView: View {
+  let frame: UIImage?
+  let snapshot: WatchSnapshot?
+  let isReachable: Bool
+
+  var body: some View {
+    if !isReachable {
+      PhoneUnavailableView()
+    } else if let frame {
+      Image(uiImage: frame)
+        .resizable()
+        .scaledToFit()
+        .overlay(alignment: .topLeading) {
+          if let state = snapshot?.stream.state {
+            Circle()
+              .fill(statePresentation(state).color)
+              .frame(width: 8, height: 8)
+              .padding(4)
+              .accessibilityLabel(statePresentation(state).label)
+          }
+        }
+        .accessibilityLabel("Camera preview")
+    } else {
+      ProgressView("Waiting for video")
     }
   }
 }
@@ -214,10 +247,10 @@ private struct HealthView: View {
     } else if let stream = snapshot?.stream {
       TimelineView(.periodic(from: .now, by: 1)) { timeline in
         VStack(spacing: 5) {
-          Image(systemName: presentation(for: stream.state).icon)
+          Image(systemName: statePresentation(stream.state).icon)
             .font(.title2)
-            .foregroundStyle(presentation(for: stream.state).color)
-          Text(presentation(for: stream.state).label)
+            .foregroundStyle(statePresentation(stream.state).color)
+          Text(statePresentation(stream.state).label)
             .font(.headline)
           if let elapsed = elapsed(stream, at: timeline.date) {
             Text(elapsed)
@@ -266,16 +299,17 @@ private struct HealthView: View {
     return String(format: "%02d:%02d:%02d", seconds / 3_600, seconds / 60 % 60, seconds % 60)
   }
 
-  private func presentation(for state: String) -> (label: String, icon: String, color: Color) {
-    switch state {
-    case "live": return ("Live", "dot.radiowaves.left.and.right", .green)
-    case "preparing": return ("Starting camera", "camera.fill", .blue)
-    case "connecting": return ("Connecting", "network", .yellow)
-    case "reconnecting": return ("Reconnecting", "arrow.clockwise", .orange)
-    case "stopping": return ("Stopping", "stop.circle.fill", .orange)
-    case "error": return ("Offline", "exclamationmark.triangle.fill", .red)
-    default: return ("Ready", "checkmark.circle.fill", .secondary)
-    }
+}
+
+private func statePresentation(_ state: String) -> (label: String, icon: String, color: Color) {
+  switch state {
+  case "live": return ("Live", "dot.radiowaves.left.and.right", .green)
+  case "preparing": return ("Starting camera", "camera.fill", .blue)
+  case "connecting": return ("Connecting", "network", .yellow)
+  case "reconnecting": return ("Reconnecting", "arrow.clockwise", .orange)
+  case "stopping": return ("Stopping", "stop.circle.fill", .orange)
+  case "error": return ("Offline", "exclamationmark.triangle.fill", .red)
+  default: return ("Ready", "checkmark.circle.fill", .secondary)
   }
 }
 

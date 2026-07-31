@@ -1,4 +1,8 @@
 import type { ChatMessage } from "@VISP/api/chat/contract";
+import {
+	isSpokenLocale,
+	type SpokenLocale,
+} from "./spoken-language";
 
 export type ChatDisplayMode = "hidden" | "floating" | "embedded";
 export type ChatCorner =
@@ -8,8 +12,8 @@ export type ChatCorner =
 	| "bottom-right";
 export type FloatingPosition = { x: number; y: number };
 /** Voice language for reading chat aloud, not a UI language. */
-export type SpeechLanguage = "off" | "fi-FI" | "en-US";
-export type SpokenLanguage = Exclude<SpeechLanguage, "off">;
+export type SpeechLanguage = "off" | SpokenLocale;
+export type SpokenLanguage = SpokenLocale;
 export type ChatPreferences = {
 	mode: ChatDisplayMode;
 	corner: ChatCorner;
@@ -42,7 +46,11 @@ const corners = new Set<ChatCorner>([
 	"bottom-left",
 	"bottom-right",
 ]);
-const speechLanguages = new Set<SpeechLanguage>(["off", "fi-FI", "en-US"]);
+function parseSpeechLanguage(value: unknown): SpeechLanguage {
+	if (value === "off") return "off";
+	if (typeof value === "string" && isSpokenLocale(value)) return value;
+	return DEFAULT_CHAT_PREFERENCES.speechLanguage;
+}
 
 function position(value: unknown, fallback: FloatingPosition) {
 	if (!value || typeof value !== "object") return fallback;
@@ -69,11 +77,7 @@ export function parseChatPreferences(value: string | null): ChatPreferences {
 				? (parsed.corner as ChatCorner)
 				: DEFAULT_CHAT_PREFERENCES.corner,
 			disappearingMessages: parsed.disappearingMessages === true,
-			speechLanguage: speechLanguages.has(
-				parsed.speechLanguage as SpeechLanguage,
-			)
-				? (parsed.speechLanguage as SpeechLanguage)
-				: DEFAULT_CHAT_PREFERENCES.speechLanguage,
+			speechLanguage: parseSpeechLanguage(parsed.speechLanguage),
 			betterVoice: parsed.betterVoice === true,
 			floating: {
 				portrait: position(

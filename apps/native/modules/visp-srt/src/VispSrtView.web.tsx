@@ -358,6 +358,10 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 			ref,
 			() => ({
 				async clearChatOverlay() {},
+				async clearCaptionsOverlay() {},
+				async updateCaptionsOverlay() {},
+				async startLiveCaptions() {},
+				async stopLiveCaptions() {},
 				async configure(cameraId, width, height, fps, maxVideoBitrateKbps) {
 					if (activeRef.current)
 						throw new Error("Camera settings cannot change while live.");
@@ -372,6 +376,7 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 					selectedAudioRef.current = audioInputId;
 					await acquireMedia();
 				},
+				async setAudioIsolation() {},
 				async getCapabilities() {
 					if (!capabilitiesRef.current) await prepare();
 					if (!capabilitiesRef.current)

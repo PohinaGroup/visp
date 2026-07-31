@@ -1,10 +1,12 @@
 import Combine
 import Foundation
+import UIKit
 import WatchConnectivity
 
 final class WatchSessionModel: NSObject, ObservableObject, WCSessionDelegate {
   @Published private(set) var isReachable = false
   @Published private(set) var snapshot: WatchSnapshot?
+  @Published private(set) var frame: UIImage?
   @Published private(set) var busyScene: String?
   @Published private(set) var requestedScene: String?
   @Published private(set) var sceneCommandError: String?
@@ -31,6 +33,10 @@ final class WatchSessionModel: NSObject, ObservableObject, WCSessionDelegate {
   private func updateReachability(_ session: WCSession) {
     DispatchQueue.main.async {
       self.isReachable = session.isReachable
+      if !session.isReachable {
+        // A frame outlives its truth quickly; never show a stale one as live.
+        self.frame = nil
+      }
     }
     guard session.isReachable else { return }
     session.sendMessage(
@@ -92,6 +98,20 @@ final class WatchSessionModel: NSObject, ObservableObject, WCSessionDelegate {
 
   func session(_ session: WCSession, didReceiveMessageData messageData: Data) {
     receive(messageData)
+  }
+
+  func session(
+    _ session: WCSession,
+    didReceiveMessage message: [String: Any],
+    replyHandler: @escaping ([String: Any]) -> Void
+  ) {
+    // The reply is what paces the phone: it never has more than one frame in
+    // flight, so a slow link drops the frame rate instead of queueing.
+    defer { replyHandler([:]) }
+    guard let data = message["frame"] as? Data, let image = UIImage(data: data) else { return }
+    DispatchQueue.main.async {
+      self.frame = image
+    }
   }
 
   func session(

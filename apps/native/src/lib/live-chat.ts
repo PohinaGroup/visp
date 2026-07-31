@@ -47,9 +47,6 @@ export function useLiveChat(
 
 	useEffect(() => {
 		if (!active || !userId) {
-			// #region agent log
-			fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:inactive',message:'chat hook inactive',data:{active,hasUserId:Boolean(userId)},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-			// #endregion
 			setMessages([]);
 			setStatuses({});
 			return;
@@ -65,15 +62,9 @@ export function useLiveChat(
 				const { ticket } = await apiClient.chat.liveTicket.mutate();
 				if (disposed) return;
 				const url = socketUrl(ticket);
-				// #region agent log
-				fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:ticket',message:'live ticket obtained',data:{retry,wsHost:new URL(url).host},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-				// #endregion
 				socket = new WebSocket(url);
 				socket.onopen = () => {
 					retry = 0;
-					// #region agent log
-					fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:open',message:'websocket open',data:{},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-					// #endregion
 				};
 				socket.onmessage = ({ data }) => {
 					if (typeof data !== "string") return;
@@ -81,9 +72,6 @@ export function useLiveChat(
 						const event: unknown = JSON.parse(data);
 						if (!liveEvent(event)) return;
 						if (event.type === "status") {
-							// #region agent log
-							fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:status',message:'provider status',data:{provider:event.status.provider,state:event.status.state},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-							// #endregion
 							setStatuses((current) => ({
 								...current,
 								[event.status.provider]: event.status.state,
@@ -91,9 +79,6 @@ export function useLiveChat(
 							return;
 						}
 						const receivedAt = Date.now();
-						// #region agent log
-						fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:message',message:'chat message received',data:{provider:event.message.provider,id:event.message.id,sender:event.message.sender.name},timestamp:Date.now(),hypothesisId:'H2'})}).catch(()=>{});
-						// #endregion
 						onMessageRef.current?.(event.message);
 						setMessages((current) =>
 							[
@@ -111,18 +96,12 @@ export function useLiveChat(
 				};
 				socket.onclose = (closeEvent) => {
 					if (disposed) return;
-					// #region agent log
-					fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:close',message:'websocket closed',data:{code:closeEvent.code,reason:closeEvent.reason,retry},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-					// #endregion
 					setStatuses({});
 					const delay = Math.min(15_000, 1_000 * 2 ** Math.min(retry, 4));
 					retry += 1;
 					reconnectTimer = setTimeout(() => void connect(), delay);
 				};
-			} catch (error) {
-				// #region agent log
-				fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:connect-error',message:'connect failed',data:{error:error instanceof Error?error.message:'unknown'},timestamp:Date.now(),hypothesisId:'H1'})}).catch(()=>{});
-				// #endregion
+			} catch {
 				if (!disposed) reconnectTimer = setTimeout(() => void connect(), 5_000);
 			}
 		};
@@ -143,11 +122,6 @@ export function useLiveChat(
 	}, [active, disappearingMessages]);
 
 	const visible = visibleChatMessages(messages, disappearingMessages, now);
-	// #region agent log
-	useEffect(() => {
-		fetch('http://127.0.0.1:7870/ingest/4a199f6b-d731-4d4f-9079-2a4bcd73006c',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'24a310'},body:JSON.stringify({sessionId:'24a310',location:'live-chat.ts:visible',message:'visible messages snapshot',data:{rawCount:messages.length,visibleCount:visible.length,disappearingMessages,statuses},timestamp:Date.now(),hypothesisId:'H3'})}).catch(()=>{});
-	}, [messages.length, visible.length, disappearingMessages, statuses]);
-	// #endregion
 
 	return {
 		messages: visible,

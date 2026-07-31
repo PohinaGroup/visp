@@ -30,6 +30,12 @@
 		handle /api/obs/* {
 			reverse_proxy 127.0.0.1:3000
 		}
+		handle /api/tts {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /api/audio-isolation {
+			reverse_proxy 127.0.0.1:3000
+		}
 		handle /api/webhooks/kick {
 			reverse_proxy 127.0.0.1:3000
 		}

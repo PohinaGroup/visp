@@ -17,14 +17,11 @@ export function useAfterMount<Args extends unknown[]>(
 		};
 	}, []);
 
-	return useCallback(
-		(...args: Args) => {
-			if (!mountedRef.current) {
-				queuedRef.current.push(args);
-				return;
-			}
-			handlerRef.current(...args);
-		},
-		[],
-	);
+	return useCallback((...args: Args) => {
+		if (!mountedRef.current) {
+			queuedRef.current.push(args);
+			return;
+		}
+		handlerRef.current(...args);
+	}, []);
 }

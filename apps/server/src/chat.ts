@@ -27,57 +27,11 @@ export const chatRoutes = new Elysia({
 		open(ws) {
 			const userId = chatTickets.consume(ws.data.query.ticket);
 			if (!userId) {
-				// #region agent log
-				console.info(
-					JSON.stringify({
-						sessionId: "24a310",
-						hypothesisId: "H6",
-						location: "chat.ts:open",
-						message: "chat ws rejected invalid ticket",
-						timestamp: Date.now(),
-					}),
-				);
-				// #endregion
 				ws.close(1008, "Invalid or expired chat ticket");
 				return;
 			}
-			// #region agent log
-			console.info(
-				JSON.stringify({
-					sessionId: "24a310",
-					hypothesisId: "H6",
-					location: "chat.ts:open",
-					message: "chat ws open",
-					data: { userId },
-					timestamp: Date.now(),
-				}),
-			);
-			// #endregion
 			const unsubscribe = chatHub.subscribe(userId, (event) => {
 				try {
-					// #region agent log
-					if (event.type === "message" || event.type === "status") {
-						console.info(
-							JSON.stringify({
-								sessionId: "24a310",
-								hypothesisId: "H2",
-								location: "chat.ts:send",
-								message: "chat ws event",
-								data: {
-									userId,
-									type: event.type,
-									...(event.type === "status"
-										? {
-												provider: event.status.provider,
-												state: event.status.state,
-											}
-										: { provider: event.message.provider }),
-								},
-								timestamp: Date.now(),
-							}),
-						);
-					}
-					// #endregion
 					ws.send(JSON.stringify(event));
 				} catch {
 					// Media streaming is intentionally independent from chat delivery.
@@ -97,18 +51,6 @@ export const chatRoutes = new Elysia({
 				.catch(() => chatHub.status(userId, "kick", "error"));
 		},
 		close(ws) {
-			// #region agent log
-			console.info(
-				JSON.stringify({
-					sessionId: "24a310",
-					hypothesisId: "H6",
-					location: "chat.ts:close",
-					message: "chat ws close",
-					data: { hadSubscription: subscriptions.has(ws.id) },
-					timestamp: Date.now(),
-				}),
-			);
-			// #endregion
 			subscriptions.get(ws.id)?.();
 			subscriptions.delete(ws.id);
 		},

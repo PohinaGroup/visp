@@ -106,6 +106,58 @@ private final class AudioLevelTap: MediaMixerOutput, @unchecked Sendable {
   }
 }
 
+// Downscaled stills for the Watch viewfinder, fed by the mixer's video output.
+// Buffers arrive on a single delivery task, so the throttle state needs no
+// locking. WatchConnectivity is a message channel, not a stream: 1 fps of tiny
+// JPEGs is the ceiling, and the reachability gate keeps this free when the
+// Watch app is not in the foreground.
+private final class PreviewFrameTap: MediaMixerOutput, @unchecked Sendable {
+  let videoTrackId: UInt8? = UInt8.max
+  let audioTrackId: UInt8? = nil
+
+  private static let context = CIContext(options: [.useSoftwareRenderer: false])
+  private static let targetWidth = 160.0
+
+  private let onFrame: @Sendable (Data) -> Void
+  private var lastSent: ContinuousClock.Instant?
+
+  init(onFrame: @escaping @Sendable (Data) -> Void) {
+    self.onFrame = onFrame
+  }
+
+  func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
+    guard
+      PreviewFramePolicy.shouldSendFrame(
+        now: ContinuousClock.now,
+        lastSent: lastSent,
+        reachable: WatchBridge.shared.isWatchReachable,
+        inFlight: WatchBridge.shared.isFrameInFlight
+      ),
+      let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
+    else {
+      return
+    }
+    let image = CIImage(cvPixelBuffer: pixelBuffer)
+    let scale = min(1, Self.targetWidth / image.extent.width)
+    let scaled = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    guard
+      let jpeg = Self.context.jpegRepresentation(
+        of: scaled,
+        colorSpace: CGColorSpaceCreateDeviceRGB(),
+        options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.4]
+      )
+    else {
+      return
+    }
+    lastSent = ContinuousClock.now
+    onFrame(jpeg)
+  }
+
+  func selectTrack(_ id: UInt8?, mediaType: CMFormatDescription.MediaType) async {}
+
+  func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {}
+}
+
 @MainActor
 final class VispSrtView: ExpoView {
   let onStateChange = EventDispatcher()
@@ -132,6 +184,8 @@ final class VispSrtView: ExpoView {
   private var chatCorner = "bottom-left"
   private var chatGeneration = 0
   @ScreenActor private var chatScreenObject: ImageScreenObject?
+  private var captionsBitmap: CGImage?
+  @ScreenActor private var captionsScreenObject: ImageScreenObject?
   private static let chatImageCache = NSCache<NSURL, UIImage>()
   private var retryPolicy = RetryPolicy()
   private var retryTask: Task<Void, Never>?
@@ -141,6 +195,11 @@ final class VispSrtView: ExpoView {
   private var videoBitrateCeiling = 3_500_000
   private var bondingMode = "off"
   private var videoDevice: AVCaptureDevice?
+  private let audioIsolation = AudioIsolationProcessor()
+  private let liveCaptions = LiveCaptionsController()
+  private var audioInputTask: Task<Void, Never>?
+  private var audioIsolationMode: AudioIsolationMode = .off
+  private var voiceProcessingEngine: AVAudioEngine?
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -148,6 +207,7 @@ final class VispSrtView: ExpoView {
     backgroundColor = .black
     preview.videoGravity = .resizeAspectFill
     addSubview(preview)
+    liveCaptions.attach(view: self)
 
     UIDevice.current.beginGeneratingDeviceOrientationNotifications()
     NotificationCenter.default.addObserver(
@@ -215,12 +275,7 @@ final class VispSrtView: ExpoView {
 
     do {
       let audioSession = AVAudioSession.sharedInstance()
-      try audioSession.setCategory(
-        .playAndRecord,
-        mode: .videoRecording,
-        options: [.defaultToSpeaker, .allowBluetoothHFP]
-      )
-      try audioSession.setActive(true)
+      try configureAudioSession(audioSession)
       let audioInput = audioInputID.flatMap { selectedID in
         audioSession.availableInputs?.first(where: { $0.uid == selectedID })
       }
@@ -229,7 +284,7 @@ final class VispSrtView: ExpoView {
       }
       try audioSession.setPreferredInput(audioInput)
 
-      let mixer = MediaMixer()
+      let mixer = MediaMixer(multiTrackAudioMixingEnabled: true)
       await mixer.setVideoMixerSettings(.init(mode: .offscreen))
       await mixer.setSessionPreset(.inputPriority)
       try await attachVideo(camera, to: mixer, configuration: configuration)
@@ -244,16 +299,121 @@ final class VispSrtView: ExpoView {
           self?.onAudioLevel(["level": level])
         }
       })
+      await mixer.addOutput(PreviewFrameTap { jpeg in
+        WatchBridge.shared.sendFrame(jpeg)
+      })
       await mixer.startRunning()
       self.mixer = mixer
+      startAudioIsolationInputLoop(for: mixer)
       preview.resetPreviewTiming()
       await applyChatBitmap()
+      await applyCaptionsBitmap()
       emit(.idle)
       return requestedPermissions
     } catch {
       emit(.error, code: "capture-failed", message: VispSrtFailure.cameraUnavailable.localizedDescription)
       throw VispSrtFailure.cameraUnavailable
     }
+  }
+
+  func setAudioIsolation(
+    mode: String,
+    serverURL: String?,
+    authCookie: String?
+  ) async {
+    let nextMode = AudioIsolationMode(rawValue: mode) ?? .off
+    let becameNative = nextMode == .native && audioIsolationMode != .native
+    audioIsolationMode = nextMode
+    applyNativeVoiceProcessing(enabled: nextMode == .native, promptMicModes: becameNative)
+    if mixer != nil {
+      try? configureAudioSession(AVAudioSession.sharedInstance())
+    }
+
+    let better = nextMode == .better
+    let endpoint = better
+      ? serverURL.flatMap { raw in
+        URL(string: raw.hasSuffix("/") ? "\(raw)api/audio-isolation" : "\(raw)/api/audio-isolation")
+      }
+      : nil
+    await audioIsolation.configure(
+      mixer: mixer,
+      enabled: better,
+      endpoint: endpoint,
+      authCookie: better ? authCookie : nil
+    )
+  }
+
+  private func configureAudioSession(_ audioSession: AVAudioSession) throws {
+    // videoChat engages the system voice-processing pipeline (noise reduction /
+    // AEC) used by Mic Modes; videoRecording is the quieter default for streams.
+    let mode: AVAudioSession.Mode =
+      audioIsolationMode == .native ? .videoChat : .videoRecording
+    try audioSession.setCategory(
+      .playAndRecord,
+      mode: mode,
+      options: [.defaultToSpeaker, .allowBluetoothHFP]
+    )
+    try audioSession.setActive(true)
+  }
+
+  private func applyNativeVoiceProcessing(enabled: Bool, promptMicModes: Bool = false) {
+    if enabled {
+      if voiceProcessingEngine == nil {
+        let engine = AVAudioEngine()
+        do {
+          try engine.inputNode.setVoiceProcessingEnabled(true)
+          voiceProcessingEngine = engine
+        } catch {
+          voiceProcessingEngine = nil
+        }
+      }
+      if promptMicModes,
+         #available(iOS 15.0, *),
+         AVCaptureDevice.activeMicrophoneMode != .voiceIsolation {
+        AVCaptureDevice.showSystemUserInterface(.microphoneModes)
+      }
+    } else {
+      if let engine = voiceProcessingEngine {
+        try? engine.inputNode.setVoiceProcessingEnabled(false)
+      }
+      voiceProcessingEngine = nil
+    }
+  }
+
+  private func startAudioIsolationInputLoop(for mixer: MediaMixer) {
+    audioInputTask?.cancel()
+    audioInputTask = Task {
+      for await (track, buffer, when) in await mixer.audioInputStream {
+        if Task.isCancelled {
+          return
+        }
+        audioIsolation.handleInput(track: track, buffer: buffer, when: when)
+        liveCaptions.handleInput(track: track, buffer: buffer, when: when)
+      }
+    }
+  }
+
+  private func stopAudioIsolationInputLoop() {
+    audioInputTask?.cancel()
+    audioInputTask = nil
+    applyNativeVoiceProcessing(enabled: false)
+    Task {
+      await liveCaptions.stop()
+      await audioIsolation.configure(
+        mixer: nil,
+        enabled: false,
+        endpoint: nil,
+        authCookie: nil
+      )
+    }
+  }
+
+  func startLiveCaptions(language: String, better: Bool, wsUrl: String?) async {
+    await liveCaptions.start(language: language, better: better, wsUrl: wsUrl)
+  }
+
+  func stopLiveCaptions() async {
+    await liveCaptions.stop()
   }
 
   func capabilities() throws -> [String: Any] {
@@ -326,6 +486,58 @@ final class VispSrtView: ExpoView {
     chatGeneration += 1
     chatBitmap = nil
     await applyChatBitmap()
+  }
+
+  func updateCaptionsOverlay(_ text: String) async {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    captionsBitmap = trimmed.isEmpty ? nil : renderCaptionsOverlay(trimmed)?.cgImage
+    await applyCaptionsBitmap()
+  }
+
+  func clearCaptionsOverlay() async {
+    captionsBitmap = nil
+    await applyCaptionsBitmap()
+  }
+
+  private func renderCaptionsOverlay(_ text: String) -> UIImage? {
+    let maxWidth: CGFloat = 960
+    let horizontalPadding: CGFloat = 28
+    let verticalPadding: CGFloat = 16
+    let attributes: [NSAttributedString.Key: Any] = [
+      .font: UIFont.systemFont(ofSize: 36, weight: .semibold),
+      .foregroundColor: UIColor.white,
+    ]
+    let clipped = String(text.prefix(180)) as NSString
+    let textSize = clipped.boundingRect(
+      with: CGSize(width: maxWidth - horizontalPadding * 2, height: 160),
+      options: [.usesLineFragmentOrigin, .usesFontLeading],
+      attributes: attributes,
+      context: nil
+    ).integral.size
+    let size = CGSize(
+      width: min(maxWidth, textSize.width + horizontalPadding * 2),
+      height: textSize.height + verticalPadding * 2
+    )
+    guard size.width > 0, size.height > 0 else { return nil }
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let renderer = UIGraphicsImageRenderer(size: size, format: format)
+    return renderer.image { context in
+      context.cgContext.clear(CGRect(origin: .zero, size: size))
+      UIColor.black.withAlphaComponent(0.72).setFill()
+      UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 16).fill()
+      clipped.draw(
+        with: CGRect(
+          x: horizontalPadding,
+          y: verticalPadding,
+          width: size.width - horizontalPadding * 2,
+          height: textSize.height
+        ),
+        options: [.usesLineFragmentOrigin, .usesFontLeading],
+        attributes: attributes,
+        context: nil
+      )
+    }
   }
 
   private func loadChatImage(_ value: String) async -> UIImage? {
@@ -479,6 +691,32 @@ final class VispSrtView: ExpoView {
     default: hex = "#53606E"
     }
     return UIColor(chatHex: hex)!
+  }
+
+  private func applyCaptionsBitmap() async {
+    guard let mixer else {
+      return
+    }
+    let bitmap = captionsBitmap
+    let screen = await mixer.screen
+    await Task { @ScreenActor [weak self] in
+      guard let self else { return }
+      let object: ImageScreenObject
+      if let current = self.captionsScreenObject {
+        object = current
+      } else {
+        object = ImageScreenObject()
+        try? screen.addChild(object)
+        self.captionsScreenObject = object
+      }
+      object.cgImage = bitmap
+      object.size = bitmap.map { CGSize(width: CGFloat($0.width), height: CGFloat($0.height)) } ?? .zero
+      object.isVisible = bitmap != nil
+      object.layoutMargin = .init(top: 64, left: 64, bottom: 72, right: 64)
+      object.horizontalAlignment = .center
+      object.verticalAlignment = .bottom
+      object.invalidateLayout()
+    }.value
   }
 
   private func applyChatBitmap() async {
@@ -823,12 +1061,14 @@ final class VispSrtView: ExpoView {
   }
 
   private func suspend() async {
+    stopAudioIsolationInputLoop()
     await stop()
     if let mixer {
       await mixer.stopRunning()
     }
     await Task { @ScreenActor [weak self] in
       self?.chatScreenObject = nil
+      self?.captionsScreenObject = nil
     }.value
     mixer = nil
     videoDevice = nil

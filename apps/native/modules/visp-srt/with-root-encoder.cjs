@@ -16,6 +16,7 @@ const block = `
 project(":expo") {
   afterEvaluate {
     dependencies.add("implementation", "${dependency}")
+    dependencies.add("implementation", "com.squareup.okhttp3:okhttp:4.12.0")
     def vispSrtModuleDir = rootProject.file("../modules/visp-srt")
     android {
       sourceSets.main.jniLibs.srcDirs += file("$vispSrtModuleDir/vendor/android/jniLibs")

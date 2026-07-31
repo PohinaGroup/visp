@@ -105,6 +105,11 @@ export type VispSrtViewRef = {
 		bondingMode?: BondingMode,
 	): Promise<void>;
 	configureAudioInput(audioInputId: string): Promise<void>;
+	setAudioIsolation(
+		mode: "off" | "native" | "better",
+		serverUrl?: string,
+		authCookie?: string,
+	): Promise<void>;
 	switchCamera(cameraId: CameraCapability["id"]): Promise<void>;
 	setImageStabilization(enabled: boolean): Promise<void>;
 	setVideoBitrate(bitrateKbps: number): Promise<void>;
@@ -116,6 +121,14 @@ export type VispSrtViewRef = {
 		corner: ChatOverlayCorner,
 	): Promise<void>;
 	clearChatOverlay(): Promise<void>;
+	updateCaptionsOverlay(text: string): Promise<void>;
+	clearCaptionsOverlay(): Promise<void>;
+	startLiveCaptions(
+		language: string,
+		better: boolean,
+		wsUrl?: string,
+	): Promise<void>;
+	stopLiveCaptions(): Promise<void>;
 	start(url: string): Promise<void>;
 	stop(): Promise<void>;
 };

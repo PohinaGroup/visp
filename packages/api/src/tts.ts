@@ -1,7 +1,5 @@
-import { db } from "@VISP/db";
-import { appUser } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { eq } from "drizzle-orm";
+import type { LanguageCode } from "./languages";
 
 /**
  * ~75 ms, 32 languages including Finnish, and the only flagship model that
@@ -11,23 +9,9 @@ import { eq } from "drizzle-orm";
 export const TTS_MODEL_ID = "eleven_flash_v2_5";
 /** Speech out of a phone speaker; the 44.1 kHz default is wasted bytes. */
 const TTS_OUTPUT_FORMAT = "mp3_22050_32";
-export const TTS_LANGUAGES = ["fi", "en"] as const;
-export type TtsLanguage = (typeof TTS_LANGUAGES)[number];
+export type TtsLanguage = LanguageCode;
 
 export class TtsError extends Error {}
-
-/**
- * The only admission control hosted speech has. Unlike Direct this gates
- * spend: every character billed is a character someone typed in chat.
- */
-export async function canUseBetterTts(userId: string) {
-	const [owner] = await db
-		.select({ betterTts: appUser.betterTts })
-		.from(appUser)
-		.where(eq(appUser.id, userId))
-		.limit(1);
-	return owner?.betterTts === true;
-}
 
 export function betterTtsConfigured() {
 	return Boolean(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID);

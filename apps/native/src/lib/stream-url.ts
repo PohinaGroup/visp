@@ -10,8 +10,15 @@ export {
 
 import { validateStreamUrl } from "./stream-url-validation";
 
+/** Secure-store owner id when the destination was saved without signing in. */
+export const MANUAL_STREAM_OWNER = "manual";
+
 const STREAM_URL_KEY = "visp.srt.publish-url";
 const STREAM_OWNER_KEY = "visp.srt.owner";
+
+export function streamOwnerId(userId?: string): string {
+	return userId ?? MANUAL_STREAM_OWNER;
+}
 const INSTALLATION_ID_KEY = "visp.publish.installation-id";
 const SECURE_STORE_OPTIONS: SecureStore.SecureStoreOptions = {
 	keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,

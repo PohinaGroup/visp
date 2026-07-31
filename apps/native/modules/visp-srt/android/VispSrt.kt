@@ -57,9 +57,11 @@ import kotlin.math.round
 /**
  * Peak mic amplitude on the encoder audio thread (0-100), without Pedro's AmplitudeEffect
  * worker that crashes on stop via uncaught InterruptedException from queue.take().
+ * Optionally forwards PCM to live captions (Scribe / on-device).
  */
 private class PeakAmplitudeEffect(
   private val onAmplitude: (Float) -> Unit,
+  private val onPcm: ((ByteArray) -> Unit)? = null,
 ) : CustomAudioEffect() {
   @Volatile private var running = true
 
@@ -75,6 +77,7 @@ private class PeakAmplitudeEffect(
       i += 2
     }
     onAmplitude((peak / Short.MAX_VALUE.toFloat()) * 100f)
+    onPcm?.invoke(pcmBuffer)
     return pcmBuffer
   }
 
@@ -183,6 +186,36 @@ class VispSrt : Module() {
         view.clearChatOverlay(promise)
       }
 
+      AsyncFunction("updateCaptionsOverlay") {
+          view: VispSrtView,
+          text: String,
+          promise: Promise,
+        ->
+        remember(view)
+        view.updateCaptionsOverlay(text, promise)
+      }
+
+      AsyncFunction("clearCaptionsOverlay") { view: VispSrtView, promise: Promise ->
+        remember(view)
+        view.clearCaptionsOverlay(promise)
+      }
+
+      AsyncFunction("startLiveCaptions") {
+          view: VispSrtView,
+          language: String,
+          better: Boolean,
+          wsUrl: String?,
+          promise: Promise,
+        ->
+        remember(view)
+        view.startLiveCaptions(language, better, wsUrl, promise)
+      }
+
+      AsyncFunction("stopLiveCaptions") { view: VispSrtView, promise: Promise ->
+        remember(view)
+        view.stopLiveCaptions(promise)
+      }
+
       AsyncFunction("start") { view: VispSrtView, url: String, promise: Promise ->
         remember(view)
         view.start(url, promise)
@@ -287,9 +320,14 @@ class VispSrtView(context: Context, appContext: AppContext) :
   }
   private var chatBitmap: Bitmap? = null
   private var chatCorner = "bottom-left"
-  private var chatFilter: ImageObjectFilterRender? = null
+  private var captionsBitmap: Bitmap? = null
+  private var overlayFilter: ImageObjectFilterRender? = null
   private var amplitudeEffect: PeakAmplitudeEffect? = null
   private var lastAudioLevelAt = 0L
+  private val liveCaptions =
+    LiveCaptionsController(context) { text ->
+      applyCaptionsText(text)
+    }
 
   fun prepare(promise: Promise) {
     if (stream != null) {
@@ -447,7 +485,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
           if (generation == chatGeneration.get()) {
             chatBitmap = bitmap
             chatCorner = corner.takeIf(::validChatCorner) ?: "bottom-left"
-            applyChatOverlay()
+            applyOverlays()
           }
           promise.resolve()
         }
@@ -460,7 +498,48 @@ class VispSrtView(context: Context, appContext: AppContext) :
   fun clearChatOverlay(promise: Promise) {
     chatGeneration.incrementAndGet()
     chatBitmap = null
-    applyChatOverlay()
+    applyOverlays()
+    promise.resolve()
+  }
+
+  fun updateCaptionsOverlay(text: String, promise: Promise) {
+    chatExecutor.execute {
+      try {
+        applyCaptionsText(text)
+        post { promise.resolve() }
+      } catch (_: Throwable) {
+        post { promise.resolve() }
+      }
+    }
+  }
+
+  fun clearCaptionsOverlay(promise: Promise) {
+    captionsBitmap = null
+    applyOverlays()
+    promise.resolve()
+  }
+
+  private fun applyCaptionsText(text: String) {
+    val trimmed = text.trim()
+    val bitmap = if (trimmed.isEmpty()) null else renderCaptionsOverlay(trimmed)
+    post {
+      captionsBitmap = bitmap
+      applyOverlays()
+    }
+  }
+
+  fun startLiveCaptions(
+    language: String,
+    better: Boolean,
+    wsUrl: String?,
+    promise: Promise,
+  ) {
+    liveCaptions.start(language, better, wsUrl)
+    promise.resolve()
+  }
+
+  fun stopLiveCaptions(promise: Promise) {
+    liveCaptions.stop()
     promise.resolve()
   }
 
@@ -656,6 +735,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     intentionalStop = true
     retryAttempt = 0
     stopStatsLoop()
+    liveCaptions.stop()
     amplitudeEffect?.stop()
     amplitudeEffect = null
     stream?.let { current ->
@@ -664,7 +744,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
     if (bondingMode != "off") BondedSrtNative.stop(context)
     stream = null
-    chatFilter = null
+    overlayFilter = null
     preparedPortrait = null
     keepScreenOn = false
     state = StreamState.IDLE
@@ -779,7 +859,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
       current.release()
     }
     stream = null
-    chatFilter = null
+    overlayFilter = null
     preparedPortrait = null
 
     emit(StreamState.PREPARING)
@@ -797,13 +877,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
     amplitudeEffect?.stop()
     // Peak amplitude 0-100 per PCM buffer on the audio thread (no interruptible worker).
     val effect =
-      PeakAmplitudeEffect { amplitude ->
-        val now = SystemClock.uptimeMillis()
-        if (now - lastAudioLevelAt >= 150) {
-          lastAudioLevelAt = now
-          onAudioLevel(mapOf("level" to amplitude / 100f))
-        }
-      }
+      PeakAmplitudeEffect(
+        onAmplitude = { amplitude ->
+          val now = SystemClock.uptimeMillis()
+          if (now - lastAudioLevelAt >= 150) {
+            lastAudioLevelAt = now
+            onAudioLevel(mapOf("level" to amplitude / 100f))
+          }
+        },
+        onPcm = { buffer -> liveCaptions.onPcm(buffer) },
+      )
     microphoneSource.setAudioEffect(effect)
     effect.start()
     amplitudeEffect = effect
@@ -860,38 +943,89 @@ class VispSrtView(context: Context, appContext: AppContext) :
     next.startPreview(preview, true)
     cameraSource.setZoom(selectedZoom)
     applyImageStabilization(cameraSource, imageStabilizationEnabled)
-    applyChatOverlay()
+    applyOverlays()
     emit(StreamState.IDLE)
     return next
   }
 
-  private fun applyChatOverlay() {
+  private fun applyOverlays() {
     val current = stream ?: return
-    val bitmap = chatBitmap
-    if (bitmap == null) {
-      if (chatFilter != null) current.getGlInterface().setFilter(NoFilterRender())
-      chatFilter = null
+    val chat = chatBitmap
+    val captions = captionsBitmap
+    if (chat == null && captions == null) {
+      if (overlayFilter != null) current.getGlInterface().setFilter(NoFilterRender())
+      overlayFilter = null
       return
     }
-    val filter = chatFilter ?: ImageObjectFilterRender().also {
-      chatFilter = it
-      current.getGlInterface().setFilter(it)
-    }
-    filter.setImage(bitmap)
     val portrait = preparedPortrait == true
     val selected = configuration ?: return
-    filter.setDefaultScale(
-      if (portrait) selected.height else selected.width,
-      if (portrait) selected.width else selected.height,
-    )
-    filter.setPosition(
-      when (chatCorner) {
-        "top-left" -> TranslateTo.TOP_LEFT
-        "top-right" -> TranslateTo.TOP_RIGHT
-        "bottom-right" -> TranslateTo.BOTTOM_RIGHT
-        else -> TranslateTo.BOTTOM_LEFT
-      },
-    )
+    val frameWidth = if (portrait) selected.height else selected.width
+    val frameHeight = if (portrait) selected.width else selected.height
+    val composite = Bitmap.createBitmap(frameWidth, frameHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(composite)
+    if (chat != null) {
+      val margin = (minOf(frameWidth, frameHeight) * 0.04f).toInt().coerceAtLeast(24)
+      val left = if (chatCorner.endsWith("right")) frameWidth - chat.width - margin else margin
+      val top = if (chatCorner.startsWith("top")) margin else frameHeight - chat.height - margin
+      canvas.drawBitmap(chat, left.toFloat(), top.toFloat(), null)
+    }
+    if (captions != null) {
+      val margin = (minOf(frameWidth, frameHeight) * 0.05f).toInt().coerceAtLeast(28)
+      val left = ((frameWidth - captions.width) / 2).coerceAtLeast(margin)
+      val top = frameHeight - captions.height - margin
+      canvas.drawBitmap(captions, left.toFloat(), top.toFloat(), null)
+    }
+    val filter = overlayFilter ?: ImageObjectFilterRender().also {
+      overlayFilter = it
+      current.getGlInterface().setFilter(it)
+    }
+    filter.setImage(composite)
+    filter.setDefaultScale(frameWidth, frameHeight)
+    filter.setPosition(TranslateTo.CENTER)
+  }
+
+  private fun renderCaptionsOverlay(text: String): Bitmap? {
+    val maxWidth = 960
+    val horizontalPadding = 28f
+    val verticalPadding = 16f
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.WHITE
+      textSize = 36f
+      typeface = android.graphics.Typeface.create(
+        android.graphics.Typeface.DEFAULT,
+        android.graphics.Typeface.BOLD,
+      )
+    }
+    val clipped = text.take(180)
+    val available = maxWidth - horizontalPadding * 2
+    val lines = mutableListOf<String>()
+    var remaining = clipped
+    while (remaining.isNotEmpty() && lines.size < 3) {
+      var end = remaining.length
+      while (end > 0 && paint.measureText(remaining.substring(0, end)) > available) {
+        end -= 1
+      }
+      if (end <= 0) break
+      val breakAt = remaining.lastIndexOf(' ', end - 1).takeIf { it > 0 } ?: end
+      lines += remaining.substring(0, breakAt).trim()
+      remaining = remaining.substring(breakAt).trimStart()
+    }
+    if (lines.isEmpty()) return null
+    val lineHeight = paint.fontSpacing
+    val textWidth = lines.maxOf { paint.measureText(it) }
+    val width = (textWidth + horizontalPadding * 2).toInt().coerceAtMost(maxWidth)
+    val height = (lineHeight * lines.size + verticalPadding * 2).toInt()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(184, 0, 0, 0) }
+    canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), 16f, 16f, background)
+    var y = verticalPadding - paint.ascent()
+    for (line in lines) {
+      val x = (width - paint.measureText(line)) / 2f
+      canvas.drawText(line, x, y, paint)
+      y += lineHeight
+    }
+    return bitmap
   }
 
   private fun loadChatImage(value: String): Bitmap? {

@@ -1,10 +1,7 @@
+import { betterFeatures } from "@VISP/api/better-features";
+import { LANGUAGE_CODES } from "@VISP/api/languages";
 import { fixedWindow } from "@VISP/api/rate-limit";
-import {
-	betterTtsConfigured,
-	canUseBetterTts,
-	synthesizeSpeech,
-	TTS_LANGUAGES,
-} from "@VISP/api/tts";
+import { betterTtsConfigured, synthesizeSpeech } from "@VISP/api/tts";
 import { auth } from "@VISP/auth";
 import { Elysia } from "elysia";
 import { z } from "zod";
@@ -21,7 +18,7 @@ const ttsRequests = fixedWindow(REQUESTS_PER_MINUTE, 60_000);
 
 const speechSchema = z.object({
 	text: z.string().trim().min(1).max(MAX_TEXT_CHARACTERS),
-	language: z.enum(TTS_LANGUAGES),
+	language: z.enum(LANGUAGE_CODES),
 });
 
 export function resetTtsRateLimit() {
@@ -35,7 +32,7 @@ export const ttsRoutes = new Elysia({ name: "tts-routes" }).post(
 		if (!session) return status(401, { error: "Authentication required" });
 
 		// The client switch is an affordance; this is the gate.
-		if (!(await canUseBetterTts(session.user.id))) {
+		if (!(await betterFeatures(session.user.id)).betterTts) {
 			return status(403, { error: "Hosted speech is not enabled" });
 		}
 

@@ -11,11 +11,13 @@ import {
 	createAuthMiddleware,
 } from "evlog/better-auth";
 import { evlog } from "evlog/elysia";
+import { audioIsolationRoutes } from "./audio-isolation";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
 import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
+import { subtitlesRoutes } from "./subtitles";
 import { ttsRoutes } from "./tts";
 
 initLogger({ env: { service: "VISP-server" } });
@@ -80,6 +82,8 @@ export function createApp() {
 		.use(obsLiveRoutes)
 		.use(seppoRoutes)
 		.use(ttsRoutes)
+		.use(audioIsolationRoutes)
+		.use(subtitlesRoutes)
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {
 				return auth.handler(request);

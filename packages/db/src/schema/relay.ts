@@ -119,6 +119,14 @@ export const appUser = pgTable("app_user", {
 	// Hosted text-to-speech for reading chat aloud. Every utterance costs money
 	// per character, so this gates spend, not capacity.
 	betterTts: boolean("better_tts").default(false).notNull(),
+	// Hosted ElevenLabs noise isolation for the live mic. Every second billed is
+	// a second of someone's stream, so this gates spend, not capacity.
+	betterAudioIsolation: boolean("better_audio_isolation")
+		.default(false)
+		.notNull(),
+	// Hosted realtime speech-to-text for burned-in captions. Bills per minute of
+	// live audio, so this gates spend, not capacity.
+	betterSubtitles: boolean("better_subtitles").default(false).notNull(),
 	onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()

@@ -2,10 +2,9 @@ import type { ChatMessage } from "@VISP/api/chat/contract";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { File, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
-import { authClient } from "./backend";
+import { authenticatedPost } from "./backend";
 import { type SpokenLanguage, speechUtterance } from "./chat-model";
-
-const serverUrl = process.env.EXPO_PUBLIC_SERVER_URL?.replace(/\/$/, "");
+import { toLanguageCode } from "./spoken-language";
 /** How long a clip may take to load before we give up and use the device voice. */
 const LOAD_TIMEOUT_MS = 5_000;
 
@@ -19,7 +18,19 @@ const spoken = new Set<string>();
 let draining = false;
 let stopped = false;
 let currentPlayer: ReturnType<typeof createAudioPlayer> | undefined;
-let audioModeReady = false;
+type AudioSessionOwner = "capture" | "playback";
+let audioSessionOwner: AudioSessionOwner = "playback";
+let appliedAudioSessionOwner: AudioSessionOwner | undefined;
+
+/**
+ * VispSrtView owns the iOS audio session while the capture preview is up.
+ * Playback-only TTS uses a separate .playback session when the camera is down.
+ */
+export function setChatSpeechAudioOwner(owner: AudioSessionOwner) {
+	if (audioSessionOwner === owner) return;
+	audioSessionOwner = owner;
+	appliedAudioSessionOwner = undefined;
+}
 
 /**
  * Queues one chat message for reading. Callers hand over every message that
@@ -56,9 +67,9 @@ export async function hasVoiceFor(language: SpokenLanguage) {
 		const voices = await Speech.getAvailableVoicesAsync();
 		// Web reports an empty list until voices load lazily.
 		if (voices.length === 0) return true;
-		const prefix = language.slice(0, 2).toLowerCase();
+		const code = toLanguageCode(language);
 		return voices.some((voice) =>
-			voice.language?.toLowerCase().startsWith(prefix),
+			voice.language?.toLowerCase().startsWith(code),
 		);
 	} catch {
 		return true;
@@ -110,24 +121,9 @@ async function playBetterVoice(item: QueueItem) {
 }
 
 async function synthesize(item: QueueItem) {
-	if (!serverUrl) return undefined;
-	// The expo client carries the session in a header; the web client has no
-	// getCookie and relies on credentials instead.
-	const cookie =
-		typeof authClient.getCookie === "function"
-			? authClient.getCookie()
-			: undefined;
-	const response = await fetch(`${serverUrl}/api/tts`, {
-		method: "POST",
-		credentials: "include",
-		headers: {
-			"Content-Type": "application/json",
-			...(cookie ? { Cookie: cookie } : {}),
-		},
-		body: JSON.stringify({
-			text: item.text,
-			language: item.language.slice(0, 2),
-		}),
+	const response = await authenticatedPost("/api/tts", {
+		text: item.text,
+		language: toLanguageCode(item.language),
 	});
 	// 403 unflagged, 429 over budget, 503 unconfigured: all mean device voice.
 	if (!response.ok) return undefined;
@@ -135,20 +131,23 @@ async function synthesize(item: QueueItem) {
 }
 
 /**
- * VispSrtView owns the iOS audio session while streaming (.playAndRecord,
- * .defaultToSpeaker). Ask expo-audio for a compatible session once, never per
- * utterance, so playback cannot take capture down with it.
+ * While capture is up, inherit VispSrtView's session. Otherwise configure a
+ * playback-only session that routes freely and respects the silent switch.
  */
 async function prepareAudioMode() {
-	if (audioModeReady) return;
+	if (audioSessionOwner === "capture") {
+		appliedAudioSessionOwner = "capture";
+		return;
+	}
+	if (appliedAudioSessionOwner === "playback") return;
 	await setAudioModeAsync({
 		playsInSilentMode: true,
-		allowsRecording: true,
+		allowsRecording: false,
 		interruptionMode: "mixWithOthers",
 		shouldPlayInBackground: false,
 		shouldRouteThroughEarpiece: false,
 	});
-	audioModeReady = true;
+	appliedAudioSessionOwner = "playback";
 }
 
 /** Resolves true only when the clip actually played to the end. */

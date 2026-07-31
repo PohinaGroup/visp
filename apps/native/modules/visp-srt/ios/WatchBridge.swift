@@ -11,6 +11,7 @@ final class WatchBridge: NSObject, WCSessionDelegate {
   private var latestSnapshot: Data?
   private var sceneCommandHandler: SceneCommandHandler?
   private var pendingReplies: [String: MessageReply] = [:]
+  private var frameInFlight = false
 
   private override init() {
     super.init()
@@ -25,6 +26,38 @@ final class WatchBridge: NSObject, WCSessionDelegate {
     latestSnapshot = data
     lock.unlock()
     push(data, through: WCSession.default)
+  }
+
+  // The viewfinder frames ride their own message key so the snapshot channel —
+  // which goes through updateApplicationContext — never carries image bytes.
+  var isWatchReachable: Bool {
+    let session = WCSession.default
+    return session.activationState == .activated && session.isReachable
+  }
+
+  var isFrameInFlight: Bool {
+    lock.lock()
+    defer { lock.unlock() }
+    return frameInFlight
+  }
+
+  func sendFrame(_ jpeg: Data) {
+    let session = WCSession.default
+    guard session.activationState == .activated, session.isReachable else { return }
+    lock.lock()
+    frameInFlight = true
+    lock.unlock()
+    session.sendMessage(
+      ["frame": jpeg],
+      replyHandler: { [weak self] _ in self?.clearFrameInFlight() },
+      errorHandler: { [weak self] _ in self?.clearFrameInFlight() }
+    )
+  }
+
+  private func clearFrameInFlight() {
+    lock.lock()
+    frameInFlight = false
+    lock.unlock()
   }
 
   func setSceneCommandHandler(_ handler: SceneCommandHandler?) {
