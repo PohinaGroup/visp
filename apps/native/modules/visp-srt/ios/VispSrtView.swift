@@ -156,6 +156,8 @@ final class VispSrtView: ExpoView {
 
   private let preview = MTHKView(frame: .zero)
   private var audioInputID: String?
+  private var backgroundCameraAccessEnabled = false
+  private var backgroundStopErrorPending = false
   private var connection: SRTConnection?
   private var connectionCancellable: AnyCancellable?
   private var configuration: VideoConfiguration?
@@ -190,6 +192,18 @@ final class VispSrtView: ExpoView {
   private var audioInputTask: Task<Void, Never>?
   private var audioIsolationMode: AudioIsolationMode = .off
   private var voiceProcessingEngine: AVAudioEngine?
+  private lazy var pictureInPicture: PictureInPictureCoordinator = {
+    let coordinator = PictureInPictureCoordinator()
+    coordinator.onFailure = { [weak self] in
+      guard UIApplication.shared.applicationState == .background else {
+        return
+      }
+      Task { @MainActor in
+        await self?.stopForBackgroundVideoUnavailable()
+      }
+    }
+    return coordinator
+  }()
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -277,6 +291,19 @@ final class VispSrtView: ExpoView {
       let mixer = MediaMixer(multiTrackAudioMixingEnabled: true)
       await mixer.setVideoMixerSettings(.init(mode: .offscreen))
       await mixer.setSessionPreset(.inputPriority)
+      nonisolated(unsafe) var backgroundCameraAccessEnabled = false
+      nonisolated(unsafe) var captureSession: AVCaptureSession?
+      await mixer.configuration { session in
+        if session.isMultitaskingCameraAccessSupported {
+          session.isMultitaskingCameraAccessEnabled = true
+        }
+        backgroundCameraAccessEnabled = session.isMultitaskingCameraAccessEnabled
+        captureSession = session
+      }
+      self.backgroundCameraAccessEnabled = backgroundCameraAccessEnabled
+      if backgroundCameraAccessEnabled, let captureSession {
+        pictureInPicture.observeCaptureSession(captureSession)
+      }
       try await attachVideo(camera, to: mixer, configuration: configuration)
       try await mixer.attachAudio(microphone)
       try await mixer.setFrameRate(Double(configuration.frameRate))
@@ -298,7 +325,16 @@ final class VispSrtView: ExpoView {
       preview.resetPreviewTiming()
       await applyChatBitmap()
       await applyCaptionsBitmap()
-      emit(.idle)
+      if backgroundStopErrorPending {
+        backgroundStopErrorPending = false
+        emit(
+          .error,
+          code: "background-video-unavailable",
+          message: "The stream stopped because Picture in Picture could not continue."
+        )
+      } else {
+        emit(.idle)
+      }
       return requestedPermissions
     } catch {
       emit(.error, code: "capture-failed", message: VispSrtFailure.cameraUnavailable.localizedDescription)
@@ -929,12 +965,16 @@ final class VispSrtView: ExpoView {
     }
 
     intentionalStop = false
+    backgroundStopErrorPending = false
     desiredURL = url
     retryPolicy.reset()
     lockedOrientation = currentOrientation()
     if let mixer, let lockedOrientation {
       lastAppliedOrientation = lockedOrientation
       await mixer.setVideoOrientation(lockedOrientation)
+    }
+    if backgroundCameraAccessEnabled, let mixer {
+      _ = await pictureInPicture.activate(sourceView: preview, mixer: mixer)
     }
 
     emit(.connecting)
@@ -951,6 +991,7 @@ final class VispSrtView: ExpoView {
     retryTask?.cancel()
     retryTask = nil
     stopStatsLoop()
+    await pictureInPicture.deactivate(mixer: mixer)
 
     if currentState != .idle {
       emit(.stopping)
@@ -1096,6 +1137,19 @@ final class VispSrtView: ExpoView {
     mixer = nil
     videoDevice = nil
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+  }
+
+  private func stopForBackgroundVideoUnavailable() async {
+    guard currentState.backgroundAction(pictureInPictureActiveOrStarting: false) == .stopStreaming else {
+      return
+    }
+    backgroundStopErrorPending = true
+    await suspend()
+    emit(
+      .error,
+      code: "background-video-unavailable",
+      message: "The stream stopped because Picture in Picture could not continue."
+    )
   }
 
   private func attachVideo(
@@ -1465,7 +1519,27 @@ final class VispSrtView: ExpoView {
 
   @objc private func didEnterBackground() {
     Task { @MainActor [weak self] in
-      await self?.suspend()
+      guard let self else {
+        return
+      }
+      var pictureInPictureActive = pictureInPicture.isActiveOrStarting
+      if !pictureInPictureActive,
+         currentState.backgroundAction(pictureInPictureActiveOrStarting: false) == .stopStreaming {
+        pictureInPictureActive = await pictureInPicture.waitForAutomaticStart()
+      }
+      guard UIApplication.shared.applicationState == .background else {
+        return
+      }
+      switch currentState.backgroundAction(
+        pictureInPictureActiveOrStarting: pictureInPictureActive
+      ) {
+      case .keepStreaming:
+        return
+      case .stopStreaming:
+        await stopForBackgroundVideoUnavailable()
+      case .suspend:
+        await suspend()
+      }
     }
   }
 

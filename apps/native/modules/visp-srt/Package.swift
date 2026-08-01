@@ -15,6 +15,7 @@ let package = Package(
         "WatchBridge.swift",
         "AudioIsolationProcessor.swift",
         "LiveCaptionsController.swift",
+        "PictureInPictureCoordinator.swift",
       ],
       sources: [
         "PreviewFramePolicy.swift",

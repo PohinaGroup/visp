@@ -13,6 +13,8 @@ const WRITE_SCOPES = {
 
 type Provider = keyof typeof WRITE_SCOPES;
 
+export type ViewerCounts = Record<Provider, number | null>;
+
 type LinkedAccount = {
 	provider: string;
 	accountId: string;
@@ -53,6 +55,69 @@ export function hasChannelWriteScope(
 	scope: string | null | undefined,
 ) {
 	return hasScope(scope, WRITE_SCOPES[provider]);
+}
+
+function viewerCount(value: unknown) {
+	return Number.isSafeInteger(value) && Number(value) >= 0
+		? Number(value)
+		: null;
+}
+
+export async function getViewerCounts(
+	userId: string,
+	providers: readonly Provider[],
+	dependencies: StreamInfoDependencies = defaultDependencies,
+): Promise<ViewerCounts> {
+	const accounts = await dependencies.loadAccounts(userId);
+	const count = async (provider: Provider): Promise<number | null> => {
+		const linked = accounts.find((entry) => entry.provider === provider);
+		if (!linked) return null;
+		try {
+			const { accessToken } = await dependencies.getAccessToken(
+				provider,
+				userId,
+			);
+			const response = await dependencies.fetch(
+				provider === "twitch"
+					? `https://api.twitch.tv/helix/streams?user_id=${encodeURIComponent(linked.accountId)}`
+					: `${KICK_API}/channels`,
+				{
+					headers: {
+						Authorization: `Bearer ${accessToken}`,
+						...(provider === "twitch" && {
+							"Client-Id": env.TWITCH_CLIENT_ID,
+						}),
+					},
+				},
+			);
+			if (!response.ok) return null;
+			const payload = (await response.json()) as {
+				data?: Array<{
+					viewer_count?: unknown;
+					stream?: { is_live?: unknown; viewer_count?: unknown } | null;
+				}>;
+			};
+			if (!Array.isArray(payload.data)) return null;
+			if (provider === "twitch") {
+				return payload.data.length === 0
+					? 0
+					: viewerCount(payload.data[0]?.viewer_count);
+			}
+			const stream = payload.data[0]?.stream;
+			if (stream === null || stream?.is_live === false) return 0;
+			if (!stream) return null;
+			return stream.is_live === true ? viewerCount(stream.viewer_count) : null;
+		} catch {
+			return null;
+		}
+	};
+
+	const entries = await Promise.all(
+		[...new Set(providers)].map(
+			async (provider) => [provider, await count(provider)] as const,
+		),
+	);
+	return { twitch: null, kick: null, ...Object.fromEntries(entries) };
 }
 
 export async function searchStreamCategories(

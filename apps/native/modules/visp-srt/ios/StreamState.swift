@@ -15,4 +15,19 @@ enum StreamState: String {
       false
     }
   }
+
+  func backgroundAction(pictureInPictureActiveOrStarting: Bool) -> BackgroundAction {
+    switch self {
+    case .connecting, .live, .reconnecting:
+      pictureInPictureActiveOrStarting ? .keepStreaming : .stopStreaming
+    case .idle, .preparing, .stopping, .error:
+      .suspend
+    }
+  }
+}
+
+enum BackgroundAction {
+  case keepStreaming
+  case stopStreaming
+  case suspend
 }

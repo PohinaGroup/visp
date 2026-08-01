@@ -59,7 +59,7 @@
           "microphonePermission": "VISP uses the microphone to include audio in your broadcast.",
           "recordAudioAndroid": false,
           "enableBackgroundPlayback": false,
-          "enableBackgroundRecording": false
+          "enableBackgroundRecording": true
         }
       ]
     ],

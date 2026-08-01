@@ -1,11 +1,24 @@
 import { z } from "zod";
 import {
+	getViewerCounts,
 	searchStreamCategories,
 	updateStreamInfo,
 } from "../channel/stream-info";
 import { protectedProcedure, router } from "../index";
 
 export const channelRouter = router({
+	viewerCounts: protectedProcedure
+		.input(
+			z.object({
+				providers: z
+					.array(z.enum(["twitch", "kick"]))
+					.min(1)
+					.max(2),
+			}),
+		)
+		.query(({ ctx, input }) =>
+			getViewerCounts(ctx.session.user.id, [...new Set(input.providers)]),
+		),
 	searchCategories: protectedProcedure
 		.input(z.object({ query: z.string().trim().min(2).max(100) }))
 		.query(({ ctx, input }) =>

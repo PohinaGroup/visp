@@ -2,8 +2,13 @@ import { describe, expect, test } from "bun:test";
 
 import "../test-env";
 
-const { hasChannelWriteScope, searchStreamCategories, updateStreamInfo } =
-	await import("./stream-info");
+const {
+	getViewerCounts,
+	hasChannelWriteScope,
+	searchStreamCategories,
+	updateStreamInfo,
+} = await import("./stream-info");
+const { channelRouter } = await import("../routers/channel");
 
 type Call = { url: string; method?: string; headers: Headers; body?: unknown };
 
@@ -35,6 +40,98 @@ const bothLinked = async () => [
 
 const tokens = async (provider: "twitch" | "kick") => ({
 	accessToken: `${provider}-token`,
+});
+
+describe("getViewerCounts", () => {
+	test("returns separate live Twitch and Kick counts", async () => {
+		const calls: Call[] = [];
+		const counts = await getViewerCounts("user", ["twitch", "kick"], {
+			fetch: recordingFetch(calls, (url) =>
+				url.includes("twitch.tv")
+					? Response.json({ data: [{ viewer_count: 12 }] })
+					: Response.json({
+							data: [{ stream: { is_live: true, viewer_count: 7 } }],
+						}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+
+		expect(counts).toEqual({ twitch: 12, kick: 7 });
+		expect(calls).toHaveLength(2);
+		const twitch = calls.find((call) => call.url.includes("twitch.tv"));
+		expect(twitch?.url).toBe(
+			"https://api.twitch.tv/helix/streams?user_id=tw-1",
+		);
+		expect(twitch?.headers.get("Authorization")).toBe("Bearer twitch-token");
+		expect(twitch?.headers.get("Client-Id")).toBe("test-twitch-client");
+	});
+
+	test("returns zero for offline channels", async () => {
+		const counts = await getViewerCounts("user", ["twitch", "kick"], {
+			fetch: recordingFetch([], (url) =>
+				url.includes("twitch.tv")
+					? Response.json({ data: [] })
+					: Response.json({ data: [{ stream: { is_live: false } }] }),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+
+		expect(counts).toEqual({ twitch: 0, kick: 0 });
+	});
+
+	test("isolates failures and malformed counts", async () => {
+		const failed = await getViewerCounts("user", ["twitch", "kick"], {
+			fetch: recordingFetch([], (url) =>
+				url.includes("twitch.tv")
+					? new Response(null, { status: 503 })
+					: Response.json({
+							data: [{ stream: { is_live: true, viewer_count: 4 } }],
+						}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+		expect(failed).toEqual({ twitch: null, kick: 4 });
+
+		const malformed = await getViewerCounts("user", ["twitch"], {
+			fetch: recordingFetch([], () =>
+				Response.json({ data: [{ viewer_count: -1 }] }),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+		expect(malformed).toEqual({ twitch: null, kick: null });
+	});
+
+	test("requests only the selected provider", async () => {
+		const calls: Call[] = [];
+		const counts = await getViewerCounts("user", ["kick", "kick"], {
+			fetch: recordingFetch(calls, () =>
+				Response.json({
+					data: [{ stream: { is_live: true, viewer_count: 3 } }],
+				}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+
+		expect(counts).toEqual({ twitch: null, kick: 3 });
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.url).toBe("https://api.kick.com/public/v1/channels");
+	});
+});
+
+test("viewer counts require an authenticated session", async () => {
+	const caller = channelRouter.createCaller({
+		auth: null,
+		headers: new Headers(),
+		session: null,
+	});
+	await expect(
+		caller.viewerCounts({ providers: ["twitch"] }),
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
 
 describe("hasChannelWriteScope", () => {

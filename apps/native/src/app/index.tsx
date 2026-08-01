@@ -1,3 +1,4 @@
+import type { DirectProvider } from "@VISP/api/direct";
 import { videoBitrateCeilingKbps } from "@VISP/api/link-stats";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
@@ -23,6 +24,7 @@ import type {
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
 import { VispSrtView } from "../../modules/visp-srt";
+import { DirectViewerOverlay } from "../components/direct-viewer-overlay";
 import { EmbeddedChatOverlayBridge } from "../components/embedded-chat-overlay-bridge";
 import { FloatingChatLayer } from "../components/floating-chat-layer";
 import type { ObsStatus } from "../components/obs-control-button";
@@ -58,7 +60,7 @@ import {
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
 import { useLiveChat } from "../lib/live-chat";
-import { IS_WEB } from "../lib/platform";
+import { IS_IOS, IS_WEB } from "../lib/platform";
 import { isPublishing, isStreamSession } from "../lib/stream-state";
 import {
 	deleteStreamUrl,
@@ -162,9 +164,13 @@ export default function Index() {
 		[publishDevices, streamUrl],
 	);
 	const publishPath = publishDevices.find(({ id }) => id === publishPathId);
-	const directContribution = Boolean(
-		publishPath?.directTwitch || publishPath?.directKick,
-	);
+	const directProviders = useMemo(() => {
+		const providers: DirectProvider[] = [];
+		if (publishPath?.directTwitch) providers.push("twitch");
+		if (publishPath?.directKick) providers.push("kick");
+		return providers;
+	}, [publishPath?.directKick, publishPath?.directTwitch]);
+	const directContribution = Boolean(directProviders.length);
 	const contributionMode = directContribution ? "direct" : "full";
 	const speechFeatures = useStreamSpeechFeatures(cameraNode, {
 		appState,
@@ -279,7 +285,7 @@ export default function Index() {
 	useEffect(() => {
 		const subscription = AppState.addEventListener("change", (nextState) => {
 			setAppState(nextState);
-			if (!IS_WEB && nextState === "background") {
+			if (!IS_WEB && !IS_IOS && nextState === "background") {
 				void cameraRef.current?.stop();
 			}
 		});
@@ -408,6 +414,23 @@ export default function Index() {
 		setMessage(undefined);
 		try {
 			if (isStreamSession(state)) {
+				const confirmed = IS_WEB
+					? globalThis.confirm("Are you sure?")
+					: await new Promise<boolean>((resolve) => {
+							Alert.alert("Are you sure?", undefined, [
+								{
+									onPress: () => resolve(false),
+									style: "cancel",
+									text: "Cancel",
+								},
+								{
+									onPress: () => resolve(true),
+									style: "destructive",
+									text: "Stop",
+								},
+							]);
+						});
+				if (!confirmed) return;
 				setToast(undefined);
 				await cameraRef.current?.stop();
 			} else {
@@ -755,6 +778,10 @@ export default function Index() {
 				state={state}
 				streaming={streaming}
 				streamUrl={streamUrl}
+			/>
+			<DirectViewerOverlay
+				active={appState === "active" && isPublishing(state)}
+				providers={directProviders}
 			/>
 			<EmbeddedChatOverlayBridge
 				cameraRef={cameraRef}
