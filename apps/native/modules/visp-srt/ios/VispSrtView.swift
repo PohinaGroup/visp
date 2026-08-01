@@ -161,6 +161,7 @@ final class VispSrtView: ExpoView {
   private var connection: SRTConnection?
   private var connectionCancellable: AnyCancellable?
   private var configuration: VideoConfiguration?
+  private lazy var cameraCapabilityCache = discoverCameraCapabilities()
   private var currentState: StreamState = .idle
   private var desiredURL: URL?
   private var intentionalStop = true
@@ -1196,6 +1197,10 @@ final class VispSrtView: ExpoView {
   }
 
   private func cameraCapabilities() -> [CameraCapability] {
+    cameraCapabilityCache
+  }
+
+  private func discoverCameraCapabilities() -> [CameraCapability] {
     [AVCaptureDevice.Position.back, .front].compactMap { position in
       guard let device = captureDevice(position: position) else {
         return nil
