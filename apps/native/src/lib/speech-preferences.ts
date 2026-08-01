@@ -1,8 +1,5 @@
 import { booleanPreference } from "./preference";
-import {
-	type LanguageCode,
-	parseLanguageCode,
-} from "./spoken-language";
+import { type LanguageCode, parseLanguageCode } from "./spoken-language";
 import { storage } from "./storage";
 
 const CAPTION_LANGUAGE_KEY = "visp.captions.language";

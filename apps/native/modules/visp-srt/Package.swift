@@ -16,7 +16,12 @@ let package = Package(
         "AudioIsolationProcessor.swift",
         "LiveCaptionsController.swift",
       ],
-      sources: ["PreviewFramePolicy.swift", "RetryPolicy.swift", "WatchSnapshot.swift"]
+      sources: [
+        "PreviewFramePolicy.swift",
+        "RetryPolicy.swift",
+        "StreamState.swift",
+        "WatchSnapshot.swift",
+      ]
     ),
     .testTarget(
       name: "VispSrtPolicyTests",

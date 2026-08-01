@@ -166,7 +166,10 @@ async function prepareAudioMode() {
 /** Resolves true only when the clip actually played to the end. */
 function playFile(uri: string) {
 	return new Promise<boolean>((resolve) => {
-		const player = createAudioPlayer(uri, { updateInterval: 100 });
+		const player = createAudioPlayer(uri, {
+			keepAudioSessionActive: audioSessionOwner === "capture",
+			updateInterval: 100,
+		});
 		currentPlayer = player;
 		let settled = false;
 		// expo-audio reports no playback error, so time is the only signal that a

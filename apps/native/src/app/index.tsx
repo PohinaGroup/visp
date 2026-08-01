@@ -1,5 +1,4 @@
 import { videoBitrateCeilingKbps } from "@VISP/api/link-stats";
-import * as Device from "expo-device";
 import * as ScreenOrientation from "expo-screen-orientation";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -23,8 +22,9 @@ import type {
 	VideoConfiguration,
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
-import VispSrtModule, { VispSrtView } from "../../modules/visp-srt";
-import { FloatingChat } from "../components/floating-chat";
+import { VispSrtView } from "../../modules/visp-srt";
+import { EmbeddedChatOverlayBridge } from "../components/embedded-chat-overlay-bridge";
+import { FloatingChatLayer } from "../components/floating-chat-layer";
 import type { ObsStatus } from "../components/obs-control-button";
 import { StreamCameraControls } from "../components/stream-camera-controls";
 import { StreamInfoSheet } from "../components/stream-info-sheet";
@@ -36,7 +36,7 @@ import {
 	StreamSignIn,
 } from "../components/stream-setup";
 import { type AudioTier, audioTierForLevel } from "../lib/audio-level";
-import { apiClient, authCallbackURL, authClient } from "../lib/backend";
+import { authCallbackURL, authClient } from "../lib/backend";
 import {
 	hasSeenBondingWarning,
 	loadBondingMode,
@@ -58,8 +58,7 @@ import {
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
 import { useLiveChat } from "../lib/live-chat";
-import { syncNativePublishUrl } from "../lib/native-publish-url";
-import { IS_IOS, IS_WEB } from "../lib/platform";
+import { IS_WEB } from "../lib/platform";
 import { isPublishing, isStreamSession } from "../lib/stream-state";
 import {
 	deleteStreamUrl,
@@ -72,7 +71,7 @@ import { useLinkStatsReporter } from "../lib/use-link-stats-reporter";
 import { useStreamAccount } from "../lib/use-stream-account";
 import { useStreamSettingsModel } from "../lib/use-stream-settings-model";
 import { useStreamSpeechFeatures } from "../lib/use-stream-speech-features";
-import { buildWatchSnapshot } from "../lib/watch-snapshot";
+import { useWatchSnapshotSync } from "../lib/use-watch-snapshot-sync";
 
 export default function Index() {
 	const window = useWindowDimensions();
@@ -117,6 +116,11 @@ export default function Index() {
 		if (!spinning) {
 			toastTimer.current = setTimeout(() => setToast(undefined), 2500);
 		}
+	}, []);
+	const onSetObsStatus = useCallback((next: ObsStatus | undefined) => {
+		setObsStatus((current) =>
+			JSON.stringify(current) === JSON.stringify(next) ? current : next,
+		);
 	}, []);
 	const streamAccount = useStreamAccount({
 		sessionPending,
@@ -192,7 +196,6 @@ export default function Index() {
 	const liveChat = useLiveChat(
 		userId,
 		appState === "active",
-		chatPreferences.disappearingMessages,
 		speechFeatures.speech.onMessage,
 	);
 
@@ -203,35 +206,17 @@ export default function Index() {
 		setChatSpeechAudioOwner(captureOwnsAudio ? "capture" : "playback");
 	}, [appState, cameraNode, configuration]);
 
-	useEffect(() => {
-		if (!IS_IOS) return;
-		VispSrtModule.syncWatchSnapshot(
-			JSON.stringify(
-				buildWatchSnapshot({
-					audioTier,
-					configuration,
-					liveStartedAt,
-					message,
-					messages: liveChat.recentMessages,
-					obs: session ? obsStatus : undefined,
-					reconnectAttempt,
-					state,
-					statuses: liveChat.statuses,
-				}),
-			),
-		);
-	}, [
+	useWatchSnapshotSync({
 		audioTier,
 		configuration,
-		liveChat.recentMessages,
-		liveChat.statuses,
 		liveStartedAt,
 		message,
-		obsStatus,
+		messages: liveChat.recentMessages,
+		obs: session ? obsStatus : undefined,
 		reconnectAttempt,
-		session,
 		state,
-	]);
+		statuses: liveChat.statuses,
+	});
 
 	const prepare = useCallback(async () => {
 		if (imageStabilizationEnabled === undefined) {
@@ -280,19 +265,6 @@ export default function Index() {
 			.catch(() => setBondingMode("off"));
 	}, []);
 
-	useEffect(() => {
-		if (
-			chatOverlayMode === "embedded" &&
-			(orientation === "portrait" || orientation === "landscape")
-		) {
-			void cameraRef.current
-				?.updateChatOverlay(liveChat.messages, chatPreferences.corner)
-				.catch(() => undefined);
-		} else {
-			void cameraRef.current?.clearChatOverlay().catch(() => undefined);
-		}
-	}, [chatPreferences.corner, chatOverlayMode, liveChat.messages, orientation]);
-
 	// Prepare per native view instance, not per render state: any full-screen loader
 	// (session refetch, destination reload) unmounts VispSrtView and mounts a fresh,
 	// unprepared one, and re-preparing on unrelated state churn races the in-flight
@@ -307,7 +279,7 @@ export default function Index() {
 	useEffect(() => {
 		const subscription = AppState.addEventListener("change", (nextState) => {
 			setAppState(nextState);
-			if (!IS_WEB && nextState !== "active") {
+			if (!IS_WEB && nextState === "background") {
 				void cameraRef.current?.stop();
 			}
 		});
@@ -440,15 +412,6 @@ export default function Index() {
 				await cameraRef.current?.stop();
 			} else {
 				if (!(await confirmBondingDataUse())) return;
-				let publishUrl = streamUrl;
-				if (userId && installationId) {
-					publishUrl = await syncNativePublishUrl(apiClient, {
-						installationId,
-						label: Device.deviceName ?? Device.modelName ?? "VISP Native",
-						userId,
-					});
-					setStreamUrl(publishUrl);
-				}
 				showToast("Connecting to relay service…", true);
 				if (configuration) {
 					await configureVideoCapture(
@@ -458,7 +421,7 @@ export default function Index() {
 						bondingMode ?? "off",
 					);
 				}
-				await cameraRef.current?.start(publishUrl);
+				await cameraRef.current?.start(streamUrl);
 			}
 		} catch (error) {
 			showToast(
@@ -472,12 +435,9 @@ export default function Index() {
 		confirmBondingDataUse,
 		configuration,
 		contributionMode,
-		installationId,
 		showToast,
-		setStreamUrl,
 		state,
 		streamUrl,
-		userId,
 	]);
 
 	const toggleOrientation = useCallback(async () => {
@@ -502,6 +462,8 @@ export default function Index() {
 
 	const applyConfiguration = useCallback(
 		async (next: VideoConfiguration) => {
+			const previous = configuration;
+			setConfiguration(next);
 			try {
 				await configureVideoCapture(
 					cameraRef.current,
@@ -509,14 +471,14 @@ export default function Index() {
 					contributionMode,
 					bondingMode ?? "off",
 				);
-				setConfiguration(next);
 				return true;
 			} catch {
+				setConfiguration((current) => (current === next ? previous : current));
 				// The native module emits a sanitized error with the correct cause.
 				return false;
 			}
 		},
-		[bondingMode, contributionMode],
+		[bondingMode, configuration, contributionMode],
 	);
 
 	const updateBondingMode = useCallback(
@@ -784,7 +746,7 @@ export default function Index() {
 				onOpenInfo={() => setStreamInfoOpen(true)}
 				onOpenSettings={openSettings}
 				onSelectZoom={(level) => void selectZoom(level)}
-				onSetObsStatus={setObsStatus}
+				onSetObsStatus={onSetObsStatus}
 				onToggleOrientation={() => void toggleOrientation()}
 				onToggleStream={() => void toggleStream()}
 				selectedZoom={selectedZoom}
@@ -794,8 +756,19 @@ export default function Index() {
 				streaming={streaming}
 				streamUrl={streamUrl}
 			/>
+			<EmbeddedChatOverlayBridge
+				cameraRef={cameraRef}
+				corner={chatPreferences.corner}
+				disappearingMessages={chatPreferences.disappearingMessages}
+				enabled={
+					chatOverlayMode === "embedded" &&
+					(orientation === "portrait" || orientation === "landscape")
+				}
+				messages={liveChat.messages}
+			/>
 			{chatOverlayMode === "floating" ? (
-				<FloatingChat
+				<FloatingChatLayer
+					disappearingMessages={chatPreferences.disappearingMessages}
 					messages={liveChat.messages}
 					onPositionChange={(position) =>
 						updateChatPreferences((current) => ({

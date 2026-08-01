@@ -16,9 +16,7 @@ describe("stream phase helpers", () => {
 	test("isPublishing is true only while the encoder is active", () => {
 		for (const state of STATES) {
 			expect(isPublishing(state)).toBe(
-				state === "connecting" ||
-					state === "live" ||
-					state === "reconnecting",
+				state === "connecting" || state === "live" || state === "reconnecting",
 			);
 		}
 	});

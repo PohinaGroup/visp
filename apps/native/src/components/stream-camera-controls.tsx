@@ -20,6 +20,7 @@ import { IS_WEB } from "../lib/platform";
 import { ObsControls, type ObsStatus } from "./obs-control-button";
 import { streamScreenStyles as styles } from "./stream-screen.styles";
 import { ZoomButton } from "./zoom-button";
+
 const STATE_LABELS: Record<StreamState, string> = {
 	connecting: "Connecting",
 	error: "Offline",

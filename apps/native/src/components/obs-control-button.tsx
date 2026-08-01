@@ -18,8 +18,13 @@ export function ObsControls({
 	const [status, setStatus] = useState<ObsStatus>();
 	const inFlight = useRef(false);
 
+	// The 3s poll returns a fresh object every tick. Keeping the previous
+	// identity when nothing changed stops a re-render of the whole stream screen,
+	// a Watch snapshot push, and a native listener swap every 3 seconds.
 	const updateStatus = useCallback((next: ObsStatus | undefined) => {
-		setStatus(next);
+		setStatus((current) =>
+			JSON.stringify(current) === JSON.stringify(next) ? current : next,
+		);
 	}, []);
 
 	useEffect(() => {

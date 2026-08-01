@@ -3,9 +3,9 @@ import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import {
+	normalizeServerOrigin,
 	authenticatedFetch as postAuthenticatedFetch,
 	authenticatedPost as postAuthenticatedPost,
-	normalizeServerOrigin,
 } from "./server-api";
 
 function resolveServerUrl(): string {

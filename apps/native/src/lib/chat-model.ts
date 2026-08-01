@@ -1,8 +1,5 @@
 import type { ChatMessage } from "@VISP/api/chat/contract";
-import {
-	isSpokenLocale,
-	type SpokenLocale,
-} from "./spoken-language";
+import { isSpokenLocale, type SpokenLocale } from "./spoken-language";
 
 export type ChatDisplayMode = "hidden" | "floating" | "embedded";
 export type ChatCorner =
@@ -138,6 +135,9 @@ export function speechUtterance(
 	return `${body} ${SPEECH_ATTRIBUTION[language]} ${name}`;
 }
 
+/** How long a message stays on screen with disappearing messages enabled. */
+export const FADE_WINDOW_MS = 12_000;
+
 export function visibleChatMessages(
 	messages: Array<ChatMessage & { receivedAt: number }>,
 	disappearingMessages: boolean,
@@ -145,7 +145,8 @@ export function visibleChatMessages(
 ): VisibleChatMessage[] {
 	return messages
 		.filter(
-			(message) => !disappearingMessages || now - message.receivedAt < 12_000,
+			(message) =>
+				!disappearingMessages || now - message.receivedAt < FADE_WINDOW_MS,
 		)
 		.slice(-3)
 		.map((message) => ({
@@ -153,7 +154,7 @@ export function visibleChatMessages(
 			opacity: disappearingMessages
 				? Math.min(
 						1,
-						Math.max(0, (12_000 - (now - message.receivedAt)) / 4_000),
+						Math.max(0, (FADE_WINDOW_MS - (now - message.receivedAt)) / 4_000),
 					)
 				: 1,
 		}));

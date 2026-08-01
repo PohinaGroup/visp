@@ -10,6 +10,7 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.SurfaceTexture
+import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
@@ -25,6 +26,13 @@ import android.os.Build
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import android.text.Layout
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.style.DynamicDrawableSpan
+import android.text.style.ImageSpan
 import android.util.Size
 import android.util.LruCache
 import android.view.SurfaceView
@@ -739,11 +747,23 @@ class VispSrtView(context: Context, appContext: AppContext) :
           val format = camera.formats.firstOrNull { it.width == width && it.height == height }
             ?: throw IllegalArgumentException()
           if (fps !in format.fps) throw IllegalArgumentException()
+          val nextConfiguration = VideoConfiguration(cameraId, width, height, fps)
+          val nextVideoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
+          val nextBondingMode = bondingMode.takeIf { it == "broadcast" || it == "backup" } ?: "off"
+          if (
+            stream != null &&
+            configuration == nextConfiguration &&
+            videoBitrateCeilingBps == nextVideoBitrateCeilingBps &&
+            this.bondingMode == nextBondingMode
+          ) {
+            promise.resolve()
+            return@withPermissions
+          }
           if (configuration?.cameraId != cameraId) selectedZoom = defaultZoom(camera.zoomLevels)
-          configuration = VideoConfiguration(cameraId, width, height, fps)
-          videoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
+          configuration = nextConfiguration
+          videoBitrateCeilingBps = nextVideoBitrateCeilingBps
           targetBitrateBps = videoBitrateCeilingBps
-          this.bondingMode = bondingMode.takeIf { it == "broadcast" || it == "backup" } ?: "off"
+          this.bondingMode = nextBondingMode
           cleanup()
           configure(isPortrait())
           promise.resolve()
@@ -1238,23 +1258,57 @@ class VispSrtView(context: Context, appContext: AppContext) :
     images: Map<String, Bitmap>,
   ): Bitmap? {
     if (messages.isEmpty()) return null
-    val width = 620
-    val rowHeight = 82
+    val width = 310
     val padding = 12
-    val bitmap = Bitmap.createBitmap(width, rowHeight * messages.size + padding * 2, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
+    val horizontalPadding = 14
+    val rowGap = 6
     val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(174, 0, 0, 0) }
     val senderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       color = Color.WHITE
       textSize = 18f
       typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
-    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 17f }
-    messages.forEachIndexed { index, message ->
+    val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 17f }
+    val rows = messages.map { message ->
+      val body = SpannableStringBuilder()
+      fragments(message).take(32).forEach { fragment ->
+        val text = (fragment["text"] as? String ?: "").take(180)
+        val image = (fragment["url"] as? String)?.let(images::get)
+        if (fragment["type"] == "emote" && image != null) {
+          val start = body.length
+          body.append('\uFFFC')
+          val drawable = BitmapDrawable(resources, image).apply { setBounds(0, 0, 30, 30) }
+          body.setSpan(
+            ImageSpan(drawable, DynamicDrawableSpan.ALIGN_BOTTOM),
+            start,
+            body.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+          )
+          body.append('\u2009')
+        } else {
+          body.append(text)
+        }
+      }
+      val bodyLayout = StaticLayout.Builder.obtain(
+        body,
+        0,
+        body.length,
+        textPaint,
+        width - horizontalPadding * 2,
+      )
+        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+        .setIncludePad(false)
+        .build()
+      Triple(message, bodyLayout, maxOf(28, bodyLayout.height) + 48)
+    }
+    val bitmapHeight = padding * 2 + rows.sumOf { it.third } + rowGap * (rows.size - 1)
+    val bitmap = Bitmap.createBitmap(width, bitmapHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    var y = padding
+    rows.forEach { (message, bodyLayout, rowHeight) ->
       val opacity = ((message["opacity"] as? Number)?.toFloat() ?: 1f).coerceIn(0f, 1f)
       val layer = canvas.saveLayerAlpha(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat(), (opacity * 255).toInt())
-      val y = padding + index * rowHeight
-      canvas.drawRoundRect(RectF(0f, y.toFloat(), width.toFloat(), (y + rowHeight - 6).toFloat()), 14f, 14f, background)
+      canvas.drawRoundRect(RectF(0f, y.toFloat(), width.toFloat(), (y + rowHeight).toFloat()), 14f, 14f, background)
       val sender = message["sender"] as? Map<*, *>
       senderPaint.color = parseChatColor(sender?.get("color") as? String)
       var senderX = 14f
@@ -1293,24 +1347,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
       val senderName = (sender?.get("name") as? String ?: "viewer").take(64)
       val senderCount = senderPaint.breakText(senderName, true, width - 14f - senderX, null)
       canvas.drawText(senderName.take(senderCount), senderX, (y + 25).toFloat(), senderPaint)
-      var x = 14f
-      val baseline = (y + 63).toFloat()
-      fragments(message).take(32).forEach { fragment ->
-        val text = (fragment["text"] as? String ?: "").take(180)
-        val image = (fragment["url"] as? String)?.let(images::get)
-        if (fragment["type"] == "emote" && image != null) {
-          if (x + 30 > width - 14) return@forEach
-          canvas.drawBitmap(image, null, RectF(x, baseline - 27, x + 30, baseline + 3), null)
-          x += 34
-        } else {
-          val available = width - 14f - x
-          if (available <= 0) return@forEach
-          val count = textPaint.breakText(text, true, available, null)
-          canvas.drawText(text.take(count), x, baseline, textPaint)
-          x += textPaint.measureText(text.take(count))
-        }
-      }
+      canvas.save()
+      canvas.translate(horizontalPadding.toFloat(), (y + 38).toFloat())
+      bodyLayout.draw(canvas)
+      canvas.restore()
       canvas.restoreToCount(layer)
+      y += rowHeight + rowGap
     }
     return bitmap
   }

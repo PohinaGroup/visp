@@ -5,7 +5,6 @@ import type {
 } from "@VISP/api/chat/contract";
 import { useEffect, useRef, useState } from "react";
 import { apiClient } from "./backend";
-import { visibleChatMessages } from "./chat-model";
 
 export type { VisibleChatMessage } from "./chat-model";
 
@@ -25,12 +24,6 @@ function liveEvent(value: unknown): value is ChatLiveEvent {
 export function useLiveChat(
 	userId: string | undefined,
 	active: boolean,
-	disappearingMessages: boolean,
-	/**
-	 * Every arriving message, before the render state below drops all but the
-	 * last three. Read-aloud needs the full stream, so it cannot use the
-	 * returned arrays.
-	 */
 	onMessage?: (message: ChatMessage) => void,
 ) {
 	const onMessageRef = useRef(onMessage);
@@ -46,7 +39,6 @@ export function useLiveChat(
 	const [errors, setErrors] = useState<
 		Partial<Record<"twitch" | "kick", string>>
 	>({});
-	const [now, setNow] = useState(Date.now());
 
 	useEffect(() => {
 		if (!active || !userId) {
@@ -138,18 +130,9 @@ export function useLiveChat(
 		};
 	}, [active, userId]);
 
-	useEffect(() => {
-		if (!active || !disappearingMessages) return;
-		setNow(Date.now());
-		const timer = setInterval(() => setNow(Date.now()), 250);
-		return () => clearInterval(timer);
-	}, [active, disappearingMessages]);
-
-	const visible = visibleChatMessages(messages, disappearingMessages, now);
-
 	return {
 		errors,
-		messages: visible,
+		messages,
 		recentMessages: messages,
 		statuses,
 	};

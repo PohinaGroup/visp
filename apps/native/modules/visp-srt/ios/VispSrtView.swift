@@ -6,16 +6,6 @@ import SRTHaishinKit
 import UIKit
 import VideoToolbox
 
-private enum StreamState: String {
-  case idle
-  case preparing
-  case connecting
-  case live
-  case reconnecting
-  case stopping
-  case error
-}
-
 private enum VispSrtFailure: LocalizedError {
   case audioInputUnavailable
   case cameraUnavailable
@@ -56,7 +46,7 @@ private struct CameraCapability {
   let zoomLevels: [Double]
 }
 
-private struct VideoConfiguration {
+private struct VideoConfiguration: Equatable {
   let frameRate: Int
   let height: Int
   let position: AVCaptureDevice.Position
@@ -218,8 +208,8 @@ final class VispSrtView: ExpoView {
     )
     NotificationCenter.default.addObserver(
       self,
-      selector: #selector(willResignActive),
-      name: UIApplication.willResignActiveNotification,
+      selector: #selector(didEnterBackground),
+      name: UIApplication.didEnterBackgroundNotification,
       object: nil
     )
   }
@@ -240,7 +230,7 @@ final class VispSrtView: ExpoView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    guard window == nil else {
+    guard window == nil, currentState.shouldSuspendWhenDetached else {
       return
     }
     Task { @MainActor [weak self] in
@@ -577,22 +567,60 @@ final class VispSrtView: ExpoView {
     guard !messages.isEmpty else {
       return nil
     }
-    let width: CGFloat = 620
-    let rowHeight: CGFloat = 82
+    let width: CGFloat = 310
     let padding: CGFloat = 12
-    let size = CGSize(width: width, height: rowHeight * CGFloat(messages.count) + padding * 2)
+    let horizontalPadding: CGFloat = 14
+    let rowGap: CGFloat = 6
+    let bodyAttributes: [NSAttributedString.Key: Any] = [
+      .font: UIFont.systemFont(ofSize: 17),
+      .foregroundColor: UIColor.white,
+    ]
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineBreakMode = .byWordWrapping
+    let rows = messages.map { message in
+      let body = NSMutableAttributedString()
+      for fragment in (message["fragments"] as? [[String: Any]] ?? []).prefix(32) {
+        let text = String((fragment["text"] as? String ?? "").prefix(180))
+        if fragment["type"] as? String == "emote", let url = fragment["url"] as? String,
+           let image = images[url] {
+          let attachment = NSTextAttachment(image: image)
+          attachment.bounds = CGRect(x: 0, y: -3, width: 30, height: 30)
+          body.append(NSAttributedString(attachment: attachment))
+          body.append(NSAttributedString(string: "\u{2009}", attributes: bodyAttributes))
+        } else {
+          body.append(NSAttributedString(string: text, attributes: bodyAttributes))
+        }
+      }
+      body.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: body.length))
+      let bodyHeight = max(
+        28,
+        ceil(
+          body.boundingRect(
+            with: CGSize(width: width - horizontalPadding * 2, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+          ).height
+        )
+      )
+      return (message: message, body: body, height: bodyHeight + 48)
+    }
+    let rowsHeight = rows.reduce(CGFloat.zero) { $0 + $1.height }
+    let size = CGSize(
+      width: width,
+      height: padding * 2 + rowsHeight + rowGap * CGFloat(max(0, rows.count - 1))
+    )
     // Scale 1 keeps the bitmap in video-canvas pixels; the device scale would triple it.
     let format = UIGraphicsImageRendererFormat()
     format.scale = 1
     let renderer = UIGraphicsImageRenderer(size: size, format: format)
     return renderer.image { context in
       context.cgContext.clear(CGRect(origin: .zero, size: size))
-      for (index, message) in messages.enumerated() {
+      var y = padding
+      for (message, body, rowHeight) in rows {
         let opacity = max(0, min(1, (message["opacity"] as? NSNumber)?.doubleValue ?? 1))
         context.cgContext.saveGState()
         context.cgContext.setAlpha(opacity)
-        let y = padding + CGFloat(index) * rowHeight
-        let row = CGRect(x: 0, y: y, width: width, height: rowHeight - 6)
+        let row = CGRect(x: 0, y: y, width: width, height: rowHeight)
         UIColor.black.withAlphaComponent(0.68).setFill()
         UIBezierPath(roundedRect: row, cornerRadius: 14).fill()
 
@@ -629,33 +657,19 @@ final class VispSrtView: ExpoView {
           context: nil
         )
 
-        var x: CGFloat = 14
         let contentY = y + 38
-        for fragment in (message["fragments"] as? [[String: Any]] ?? []).prefix(32) {
-          let text = String((fragment["text"] as? String ?? "").prefix(180))
-          if fragment["type"] as? String == "emote", let url = fragment["url"] as? String,
-             let image = images[url] {
-            if x + 30 > width - 14 { break }
-            image.draw(in: CGRect(x: x, y: contentY - 3, width: 30, height: 30))
-            x += 34
-          } else {
-            let attributes: [NSAttributedString.Key: Any] = [
-              .font: UIFont.systemFont(ofSize: 17),
-              .foregroundColor: UIColor.white,
-            ]
-            let available = max(0, width - 14 - x)
-            guard available > 0 else { break }
-            let clipped = text as NSString
-            clipped.draw(
-              with: CGRect(x: x, y: contentY, width: available, height: 28),
-              options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin],
-              attributes: attributes,
-              context: nil
-            )
-            x += min(available, clipped.size(withAttributes: attributes).width)
-          }
-        }
+        body.draw(
+          with: CGRect(
+            x: horizontalPadding,
+            y: contentY,
+            width: width - horizontalPadding * 2,
+            height: rowHeight - 48
+          ),
+          options: [.usesLineFragmentOrigin, .usesFontLeading],
+          context: nil
+        )
         context.cgContext.restoreGState()
+        y += rowHeight + rowGap
       }
     }
   }
@@ -772,17 +786,26 @@ final class VispSrtView: ExpoView {
       emit(.error, code: "configuration-unavailable", message: VispSrtFailure.configurationUnavailable.localizedDescription)
       throw VispSrtFailure.configurationUnavailable
     }
-    if configuration?.position != position {
-      selectedZoom = defaultZoom(camera.zoomLevels)
-    }
-    configuration = VideoConfiguration(
+    let nextConfiguration = VideoConfiguration(
       frameRate: frameRate,
       height: height,
       position: position,
       width: width
     )
-    videoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
-    self.bondingMode = ["broadcast", "backup"].contains(bondingMode) ? bondingMode : "off"
+    let nextVideoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
+    let nextBondingMode = ["broadcast", "backup"].contains(bondingMode) ? bondingMode : "off"
+    if mixer != nil,
+       configuration == nextConfiguration,
+       videoBitrateCeiling == nextVideoBitrateCeiling,
+       self.bondingMode == nextBondingMode {
+      return
+    }
+    if configuration?.position != position {
+      selectedZoom = defaultZoom(camera.zoomLevels)
+    }
+    configuration = nextConfiguration
+    videoBitrateCeiling = nextVideoBitrateCeiling
+    self.bondingMode = nextBondingMode
     await suspend()
     try await prepare()
   }
@@ -1440,7 +1463,7 @@ final class VispSrtView: ExpoView {
     applyVideoOrientationIfNeeded()
   }
 
-  @objc private func willResignActive() {
+  @objc private func didEnterBackground() {
     Task { @MainActor [weak self] in
       await self?.suspend()
     }
