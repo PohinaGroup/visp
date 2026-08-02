@@ -9,7 +9,24 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { streamScreenStyles as styles } from "./stream-screen.styles";
+import {
+	METER_BARS,
+	streamScreenStyles as styles,
+} from "./stream-screen.styles";
+
+// The de-neoned VISP lockup: wordmark + level-meter mark.
+function BrandLockup() {
+	return (
+		<View style={styles.brandRow}>
+			<Text style={styles.wordmark}>VISP</Text>
+			<View style={styles.meterMark}>
+				{METER_BARS.map((height) => (
+					<View key={height} style={[styles.meterBar, { height }]} />
+				))}
+			</View>
+		</View>
+	);
+}
 
 export function StreamLoading() {
 	return (
@@ -31,16 +48,18 @@ export function StreamSignIn({
 	message?: string;
 	onManualSetup: () => void;
 	onPreview: () => void;
-	onSignIn: (provider: "twitch" | "kick") => void;
-	signingIn?: "twitch" | "kick";
+	onSignIn: (provider: "twitch" | "kick" | "google") => void;
+	signingIn?: "twitch" | "kick" | "google";
 }) {
 	return (
 		<View style={styles.setupBackground}>
 			<StatusBar style="light" />
 			<SafeAreaView style={styles.setup}>
+				<BrandLockup />
+				<Text style={styles.eyebrow}>Sign in</Text>
 				<Text style={styles.title}>Sign in to VISP</Text>
 				<Text style={styles.subtitle}>
-					Connect Twitch or Kick to load your relay destination automatically.
+					Connect Twitch, Kick, or Google to load your relay destination automatically.
 				</Text>
 				{message ? <Text style={styles.formError}>{message}</Text> : null}
 				<Pressable
@@ -57,6 +76,22 @@ export function StreamSignIn({
 						{signingIn === "twitch"
 							? "Opening Twitch..."
 							: "Continue with Twitch"}
+					</Text>
+				</Pressable>
+				<Pressable
+					accessibilityRole="button"
+					disabled={Boolean(signingIn)}
+					onPress={() => onSignIn("google")}
+					style={({ pressed }) => [
+						styles.secondaryButton,
+						signingIn && styles.buttonDisabled,
+						pressed && styles.buttonPressed,
+					]}
+				>
+					<Text style={styles.secondaryButtonText}>
+						{signingIn === "google"
+							? "Opening Google..."
+							: "Continue with Google"}
 					</Text>
 				</Pressable>
 				<Pressable
@@ -126,9 +161,8 @@ export function StreamDestinationEditor({
 		>
 			<StatusBar style="light" />
 			<SafeAreaView style={styles.setup}>
-				<View style={styles.brandMark}>
-					<Text style={styles.brandMarkText}>V</Text>
-				</View>
+				<BrandLockup />
+				<Text style={styles.eyebrow}>Destination</Text>
 				<Text style={styles.title}>
 					{streamUrl
 						? "Replace destination"

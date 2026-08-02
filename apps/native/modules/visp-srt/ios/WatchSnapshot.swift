@@ -7,6 +7,7 @@ struct WatchSnapshot: Codable, Equatable {
   let updatedAt: Double
   let stream: WatchStreamSnapshot
   let chat: WatchChatSnapshot
+  let viewers: [WatchViewerCount]?
   let obs: WatchObsSnapshot?
 
   static func decode(_ data: Data) throws -> WatchSnapshot {
@@ -16,6 +17,12 @@ struct WatchSnapshot: Codable, Equatable {
     }
     return snapshot
   }
+}
+
+struct WatchViewerCount: Codable, Equatable, Identifiable {
+  var id: String { provider }
+  let provider: String
+  let count: Int?
 }
 
 struct WatchObsSnapshot: Codable, Equatable {

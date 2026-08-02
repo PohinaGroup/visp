@@ -6,9 +6,9 @@ description: Lähetä laite suoraan Twitchiin tai Kickiin ilman OBS:ää.
 # Direct-lähtö
 
 VISP Direct välittää yhden julkaisulaitteen suoraan Twitchiin, Kickiin tai
-molempiin ilman OBS:ää. Se otetaan käyttöön laitekohtaisesti ja on toistaiseksi
-rajattu beta: relay on yksi kone ja Direct ajaa alustakoodauksen siinä, joten
-käyttöoikeus jaetaan tilikohtaisesti.
+molempiin ilman OBS:ää. Se on Twitch- ja Kick-lähetysten oletuspolku. VISP
+varaa relayn koodauskapasiteetin ennen julkaisua; täysi relay estää lähetyksen
+aloituksen sen sijaan, että alustalähtö jäisi hiljaisesti pois.
 
 ## Mikä muuttuu
 
@@ -29,15 +29,16 @@ lisää puhelimen lähetyksiä.
 
 ## Käyttöönotto
 
-1. Avaa hallintapaneelista **Direct output**.
+1. Valitse käyttöönotossa Twitch tai Kick ja valtuuta lähetys. Nykyinen käyttäjä
+   voi avata hallintapaneelista **Direct output**.
 2. Valitse Twitchin tai Kickin kohdalta **Authorize streaming**. VISP pyytää
    samalla kaikki aiemmin myöntämäsi oikeudet, joten Directin valtuutus ei
    koskaan katkaise chattia tai otsikon ja kategorian muokkausta.
 3. Valitse laitteelle **Off**, **Twitch**, **Kick** tai **Both**.
 
-Asetus tallennetaan laitekohtaisesti ja sitä voi muuttaa vain laitteen ollessa
-offline. Yksi laite voi omistaa yhden alustan kerrallaan: Twitch puhelimessa ja
-Kick toisessa laitteessa käy, kaksi laitetta samaan alustaan ei.
+Asetus tallennetaan tilin oletukseksi. Uusin laite ottaa kohteet omistukseensa
+Go Live -painalluksella, kun edellinen omistaja on offline. Käynnissä olevaa
+lähetystä ei koskaan keskeytetä automaattisesti.
 
 ## Lähetysavaimesi
 

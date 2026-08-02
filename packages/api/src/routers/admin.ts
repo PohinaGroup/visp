@@ -21,7 +21,6 @@ const LIVE_AFTER_MS = 60_000;
 
 /** The per-user admission flags on app_user, all boolean and all admin-set. */
 const USER_FLAGS = [
-	"directBeta",
 	"betterTts",
 	"betterAudioIsolation",
 	"betterSubtitles",
@@ -122,6 +121,31 @@ export const adminRouter = router({
 						select count(*)::int from "path" admin_relay_path
 						where admin_relay_path.relay_id = ${relay.id}
 							and admin_relay_path.revoked_at is null
+					)`,
+					activeForwarders: sql<number>`(
+						select (
+							count(*) filter (where admin_state.direct_twitch_state in ('starting', 'live', 'retrying')) +
+							count(*) filter (where admin_state.direct_kick_state in ('starting', 'live', 'retrying')) +
+							count(*) filter (where admin_state.direct_youtube_state in ('starting', 'live', 'retrying'))
+						)::int
+						from "path" admin_direct_path
+						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
+						where admin_direct_path.relay_id = ${relay.id}
+							and admin_direct_path.revoked_at is null
+					)`,
+					reservedForwarders: sql<number>`(
+						select (
+							count(*) filter (where admin_state.direct_twitch_reserved_until > now()
+								and (admin_state.direct_twitch_state is null or admin_state.direct_twitch_state not in ('starting', 'live', 'retrying'))) +
+							count(*) filter (where admin_state.direct_kick_reserved_until > now()
+								and (admin_state.direct_kick_state is null or admin_state.direct_kick_state not in ('starting', 'live', 'retrying'))) +
+							count(*) filter (where admin_state.direct_youtube_reserved_until > now()
+								and (admin_state.direct_youtube_state is null or admin_state.direct_youtube_state not in ('starting', 'live', 'retrying')))
+						)::int
+						from "path" admin_direct_path
+						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
+						where admin_direct_path.relay_id = ${relay.id}
+							and admin_direct_path.revoked_at is null
 					)`,
 				})
 				.from(relay)
@@ -296,8 +320,6 @@ export const adminRouter = router({
 						streamDestination: appUser.streamDestination,
 						advancedMode: appUser.advancedMode,
 						onboardedAt: appUser.onboardedAt,
-						// Null for a user with no app_user row; the UI reads that as off.
-						directBeta: appUser.directBeta,
 						betterTts: appUser.betterTts,
 						betterAudioIsolation: appUser.betterAudioIsolation,
 						betterSubtitles: appUser.betterSubtitles,
@@ -495,9 +517,7 @@ export const adminRouter = router({
 				return result;
 			}),
 
-		// Every one of these is handed out deliberately. directBeta gates relay
-		// capacity (a Direct forwarder is a full distribution encode on one node);
-		// the better* flags gate spend at hosted providers, billed per character
+		// These flags gate spend at hosted providers, billed per character
 		// read aloud, per second of isolated mic, and per minute of captions.
 		setFlag: adminProcedure
 			.input(

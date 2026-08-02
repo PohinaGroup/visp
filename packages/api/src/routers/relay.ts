@@ -1,7 +1,13 @@
 import { auth } from "@VISP/auth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { DirectError, listDirectOutputs, setDirectOutputs } from "../direct";
+import {
+	DirectError,
+	listDirectOutputs,
+	prepareDirect,
+	setDirectOutputs,
+	setYoutubeSettings,
+} from "../direct";
 import { protectedProcedure, router } from "../index";
 import { linkStatsFromPath } from "../link-stats";
 import {
@@ -59,7 +65,7 @@ const relayProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
 					: "INTERNAL_SERVER_ERROR",
 			message:
 				error instanceof Error && error.message === "Streaming account required"
-					? "Sign in with Twitch or Kick to use the relay"
+					? "Sign in with Twitch, Kick, or Google to use the relay"
 					: "Could not provision relay account",
 			cause: error,
 		});
@@ -88,12 +94,24 @@ const relayProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
 
 const DIRECT_ERROR_CODES = {
-	"not-allowed": "FORBIDDEN",
 	"not-found": "NOT_FOUND",
+	invalid: "BAD_REQUEST",
 	"path-live": "PRECONDITION_FAILED",
 	"provider-taken": "CONFLICT",
 	"consent-required": "PRECONDITION_FAILED",
+	capacity: "TOO_MANY_REQUESTS",
 } as const;
+
+function directError(error: unknown): never {
+	if (error instanceof DirectError) {
+		throw new TRPCError({
+			code: DIRECT_ERROR_CODES[error.code],
+			message: error.message,
+			cause: error,
+		});
+	}
+	throw error;
+}
 
 const tileFields = z.object({
 	label: z.string().trim().min(1).max(64),
@@ -220,6 +238,7 @@ export const relayRoutes = {
 					publishRevealable: path.publishRevealable,
 					directTwitch: path.directTwitch,
 					directKick: path.directKick,
+					directYoutube: path.directYoutube,
 					publishing: path.publishing,
 					readerCount: path.readerCount,
 					sourceType: path.sourceType,
@@ -346,22 +365,40 @@ export const relayRoutes = {
 			listDirectOutputs(ctx.relayUser.id),
 		),
 		setOutputs: relayProcedure
-			.input(pathIdInput.extend({ twitch: z.boolean(), kick: z.boolean() }))
+			.input(
+				pathIdInput.extend({
+					twitch: z.boolean(),
+					kick: z.boolean(),
+					youtube: z.boolean(),
+				}),
+			)
 			.mutation(async ({ ctx, input }) => {
 				try {
 					return await setDirectOutputs(ctx.relayUser.id, input.pathId, {
 						twitch: input.twitch,
 						kick: input.kick,
+						youtube: input.youtube,
 					});
 				} catch (error) {
-					if (error instanceof DirectError) {
-						throw new TRPCError({
-							code: DIRECT_ERROR_CODES[error.code],
-							message: error.message,
-							cause: error,
-						});
-					}
-					throw error;
+					directError(error);
+				}
+			}),
+		setYoutubeSettings: relayProcedure
+			.input(z.object({ title: z.string().trim().min(1).max(100) }))
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setYoutubeSettings(ctx.relayUser.id, input.title);
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		prepare: relayProcedure
+			.input(pathIdInput)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await prepareDirect(ctx.relayUser.id, input.pathId);
+				} catch (error) {
+					directError(error);
 				}
 			}),
 	}),
@@ -403,13 +440,21 @@ export const relayRoutes = {
 				z.object({
 					software: z.enum(["obs", "visp", "larix", "moblin", "other"]),
 					useCase: z.enum([
+						"direct",
 						"phone_to_obs",
 						"remote_guest",
 						"multi_cam",
 						"other",
 					]),
-					destination: z.enum(["twitch", "kick", "other"]),
+					destination: z.enum(["twitch", "kick", "youtube", "other"]),
 					advancedMode: z.boolean(),
+					direct: z.object({
+						twitch: z.boolean(),
+						kick: z.boolean(),
+						youtube: z.boolean(),
+					}),
+					youtubeTitle: z.string().trim().min(1).max(100).optional(),
+					prepareObs: z.boolean(),
 					createDevice: z.boolean().optional(),
 					redoMode: z.enum(["additive", "wipe"]).optional(),
 				}),
@@ -422,6 +467,7 @@ export const relayRoutes = {
 					}
 					return result;
 				} catch (error) {
+					if (error instanceof DirectError) directError(error);
 					if (
 						error instanceof Error &&
 						error.message ===

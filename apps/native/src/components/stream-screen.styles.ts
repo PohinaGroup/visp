@@ -1,33 +1,54 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
+
+// Mono stand-in for IBM Plex Mono — no font loading, so use the platform mono.
+const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
+
+// Level-meter mark, ported from apps/web meter-mark.tsx.
+export const METER_BARS = [6, 12, 9, 16, 11, 7];
 
 export const streamScreenStyles = StyleSheet.create({
 	actionDisabled: { opacity: 0.35 },
 	bottomPanel: { alignItems: "center", gap: 12 },
-	brandMark: {
+	brandRow: {
 		alignItems: "center",
-		backgroundColor: "#ff354d",
-		borderRadius: 16,
-		height: 64,
-		justifyContent: "center",
-		marginBottom: 18,
-		width: 64,
+		flexDirection: "row",
+		gap: 10,
+		marginBottom: 28,
 	},
-	brandMarkText: { color: "white", fontSize: 32, fontWeight: "900" },
 	buttonDisabled: { opacity: 0.4 },
 	buttonPressed: { transform: [{ scale: 0.98 }] },
 	container: { backgroundColor: "#07090d", flex: 1 },
 	controls: { flex: 1, justifyContent: "space-between", paddingHorizontal: 20 },
+	eyebrow: {
+		color: "#8a93a2",
+		fontFamily: MONO,
+		fontSize: 11,
+		letterSpacing: 2,
+		textTransform: "uppercase",
+	},
 	formError: {
+		borderLeftColor: "#ff8795",
+		borderLeftWidth: 2,
 		color: "#ff8795",
 		fontSize: 14,
-		marginTop: 12,
-		textAlign: "center",
+		lineHeight: 20,
+		marginTop: 16,
+		paddingLeft: 12,
+		paddingVertical: 6,
+	},
+	meterBar: { backgroundColor: "#f0f1f2", width: 3 },
+	meterMark: { alignItems: "flex-end", flexDirection: "row", gap: 3 },
+	wordmark: {
+		color: "#f0f1f2",
+		fontSize: 20,
+		fontWeight: "700",
+		letterSpacing: 5,
 	},
 	format: { color: "rgba(255,255,255,0.72)", fontSize: 12, fontWeight: "700" },
 	input: {
 		backgroundColor: "#151922",
-		borderColor: "#303747",
-		borderRadius: 14,
+		borderColor: "rgba(255,255,255,0.14)",
+		borderRadius: 4,
 		borderWidth: 1,
 		color: "white",
 		fontSize: 16,
@@ -112,23 +133,23 @@ export const streamScreenStyles = StyleSheet.create({
 	zoomControls: { flexDirection: "row", gap: 10, justifyContent: "center" },
 	primaryButton: {
 		alignItems: "center",
-		backgroundColor: "#ff354d",
-		borderRadius: 14,
+		backgroundColor: "#f0f1f2",
+		borderRadius: 4,
 		marginTop: 18,
 		padding: 16,
 		width: "100%",
 	},
-	primaryButtonText: { color: "white", fontSize: 16, fontWeight: "800" },
+	primaryButtonText: { color: "#0b0d11", fontSize: 16, fontWeight: "700" },
 	secondaryButton: {
 		alignItems: "center",
-		borderColor: "#303747",
-		borderRadius: 14,
+		borderColor: "rgba(255,255,255,0.14)",
+		borderRadius: 4,
 		borderWidth: 1,
 		marginTop: 10,
 		padding: 16,
 		width: "100%",
 	},
-	secondaryButtonText: { color: "white", fontSize: 16, fontWeight: "800" },
+	secondaryButtonText: { color: "white", fontSize: 16, fontWeight: "700" },
 	scrim: {
 		backgroundColor: "rgba(0,0,0,0.08)",
 		bottom: 0,
@@ -153,7 +174,7 @@ export const streamScreenStyles = StyleSheet.create({
 	},
 	settingsButtonText: { color: "white", fontSize: 12, fontWeight: "800" },
 	setup: {
-		alignItems: "center",
+		alignItems: "stretch",
 		flex: 1,
 		justifyContent: "center",
 		padding: 28,
@@ -219,11 +240,18 @@ export const streamScreenStyles = StyleSheet.create({
 		fontSize: 16,
 		lineHeight: 23,
 		maxWidth: 360,
-		textAlign: "center",
 	},
-	textButton: { marginTop: 16, padding: 10 },
-	textButtonLabel: { color: "#c4cad4", fontSize: 15, fontWeight: "700" },
-	title: { color: "white", fontSize: 30, fontWeight: "900", marginBottom: 12 },
+	textButton: { alignItems: "flex-start", marginTop: 16, paddingVertical: 10 },
+	textButtonLabel: { color: "#c4cad4", fontSize: 15, fontWeight: "600" },
+	title: {
+		color: "white",
+		fontSize: 34,
+		fontWeight: "700",
+		letterSpacing: -0.5,
+		marginBottom: 12,
+		marginTop: 8,
+		textTransform: "uppercase",
+	},
 	toast: {
 		alignItems: "center",
 		bottom: 150,

@@ -11,9 +11,11 @@ import { env } from "@VISP/env/server";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
+import { DirectError, prepareDirect, saveDirectPreferences } from "./direct";
 import { hashSecret, verifySecret } from "./password";
 import { uniqueViolation } from "./pg-errors";
 import { chooseRelay } from "./relays";
+import { hasStreamKeyScope } from "./scopes";
 
 export { applyPathHook, reconcilePathState } from "./path-hooks";
 
@@ -140,7 +142,7 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 	const streamingAccount = await db.query.account.findFirst({
 		where: and(
 			eq(account.userId, userId),
-			inArray(account.providerId, ["twitch", "kick"]),
+			inArray(account.providerId, ["twitch", "kick", "google"]),
 		),
 	});
 	if (!streamingAccount) {
@@ -209,6 +211,7 @@ export async function listPaths(userId: string) {
 			publishRevealable: sql<boolean>`${relayPath.publishSecretEncrypted} is not null`,
 			directTwitch: relayPath.directTwitch,
 			directKick: relayPath.directKick,
+			directYoutube: relayPath.directYoutube,
 			publishing: pathState.publishing,
 			readerCount: pathState.readerCount,
 			sourceType: pathState.sourceType,
@@ -306,6 +309,7 @@ export async function revokePath(userId: string, pathId: number) {
 			nativeInstallationId: null,
 			directTwitch: false,
 			directKick: false,
+			directYoutube: false,
 		})
 		.where(
 			and(
@@ -384,6 +388,7 @@ export async function authenticateMedia(input: {
 		return false;
 	}
 	if (input.action === "publish") {
+		await prepareDirect(credential.userId, credential.pathId);
 		await db
 			.update(relayPath)
 			.set({ publishLastConnectedAt: new Date() })
@@ -552,8 +557,7 @@ async function storePublishSecret(input: {
 }) {
 	const path = await ownedPath(input.userId, input.pathId);
 	if (!path) return null;
-	const secretHash =
-		input.secretHash ?? (await hashSecret(input.plaintext));
+	const secretHash = input.secretHash ?? (await hashSecret(input.plaintext));
 	const [updated] = await db
 		.update(relayPath)
 		.set({
@@ -738,7 +742,9 @@ export async function claimNativePublishDevice(input: {
 				userId: input.userId,
 			});
 		}
+		return null;
 	}
+	if (input.legacyUrl) return null;
 
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.id, input.userId),
@@ -929,11 +935,12 @@ export async function revealReadUrls(userId: string) {
 }
 
 export type SetupUseCase =
+	| "direct"
 	| "phone_to_obs"
 	| "remote_guest"
 	| "multi_cam"
 	| "other";
-export type StreamDestination = "twitch" | "kick" | "other";
+export type StreamDestination = "twitch" | "kick" | "youtube" | "other";
 export type StreamingSoftware = "obs" | "visp" | "larix" | "moblin" | "other";
 export type OnboardingRedoMode = "additive" | "wipe";
 
@@ -949,6 +956,9 @@ export async function completeOnboarding(
 		useCase: SetupUseCase;
 		destination: StreamDestination;
 		advancedMode: boolean;
+		direct: { twitch: boolean; kick: boolean; youtube: boolean };
+		youtubeTitle?: string;
+		prepareObs: boolean;
 		createDevice?: boolean;
 		redoMode?: OnboardingRedoMode;
 	},
@@ -957,9 +967,28 @@ export async function completeOnboarding(
 		where: eq(appUser.id, userId),
 	});
 	if (!owner) throw new Error("Relay user not found");
+	for (const provider of ["twitch", "kick", "youtube"] as const) {
+		if (!input.direct[provider]) continue;
+		const providerId = provider === "youtube" ? "google" : provider;
+		const linked = await db.query.account.findFirst({
+			where: and(
+				eq(account.userId, userId),
+				eq(account.providerId, providerId),
+			),
+		});
+		if (!linked || !hasStreamKeyScope(provider, linked.scope)) {
+			throw new DirectError(
+				"consent-required",
+				`Authorize ${provider === "twitch" ? "Twitch" : provider === "kick" ? "Kick" : "YouTube"} streaming first`,
+			);
+		}
+	}
 
 	if (owner.onboardedAt && !input.redoMode) {
 		throw new Error("Choose wipe or keep existing devices to redo setup");
+	}
+	if (input.redoMode !== "wipe") {
+		await saveDirectPreferences(userId, input.direct);
 	}
 
 	const createDevice = input.createDevice ?? true;
@@ -969,6 +998,7 @@ export async function completeOnboarding(
 		for (const path of active) {
 			await revokePath(userId, path.id);
 		}
+		await saveDirectPreferences(userId, input.direct);
 	}
 
 	let paths = await listPaths(userId);
@@ -995,10 +1025,20 @@ export async function completeOnboarding(
 			setupUseCase: input.useCase,
 			streamDestination: input.destination,
 			advancedMode: input.advancedMode,
+			...(input.youtubeTitle
+				? { directYoutubeTitle: input.youtubeTitle.trim() }
+				: {}),
 			onboardedAt: new Date(),
 		})
 		.where(eq(appUser.id, userId));
-	const read = await rotateReadSecret(userId);
+	const read = input.prepareObs
+		? await rotateReadSecret(userId)
+		: {
+				handle: owner.handle,
+				revealed: { read: "" },
+				urls: { read: [] },
+				sceneCollection: null,
+			};
 	return {
 		...read,
 		urls: { ...read.urls, publish: device ? [device.urls] : [] },

@@ -26,7 +26,7 @@ project(":expo") {
         }
         externalNativeBuild {
           cmake {
-            arguments "-DVISP_SRT_VENDOR_DIR=$vispSrtModuleDir/vendor"
+            arguments "-DVISP_SRT_VENDOR_DIR=$vispSrtModuleDir/vendor", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
           }
         }
       }

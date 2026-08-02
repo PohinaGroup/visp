@@ -11,6 +11,7 @@ OBS Remote Expo clients, and database. The OBS plugin has additional platform to
 - Docker with Compose
 - A Twitch application for Twitch login
 - A Kick application to exercise Kick login, chat, and metadata
+- A Google OAuth web client with YouTube Data API v3 enabled for YouTube Direct
 - A physical phone or compatible simulator for either Expo app
 
 Install all workspace dependencies from the repository root:
@@ -43,14 +44,14 @@ address:
 cp apps/native/.env.example apps/native/.env.local
 ```
 
-The launcher supplies local service values at runtime. Blank Twitch or Kick
+The launcher supplies local service values at runtime. Blank Twitch, Kick, or Google
 credentials are reported and only affect those provider flows. Direct server
 commands still require every schema-required value. Important groups are:
 
 - `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`,
   `ADMIN_ORIGIN`, and `ADMIN_USER_IDS` configure the database, browser
   authentication boundary, and break-glass admin access.
-- `TWITCH_*` and `KICK_*` configure provider OAuth and APIs. Development values
+- `TWITCH_*`, `KICK_*`, and `GOOGLE_*` configure provider OAuth and APIs. Development values
   may be placeholders only when the matching provider flow is not exercised.
 - `AI_GATEWAY_API_KEY` authenticates the server-side Seppo setup assistant with
   Vercel AI Gateway. Create the key in Vercel and never expose it as a `VITE_*`
@@ -85,7 +86,59 @@ Register these local callback URLs with the providers you use:
 ```text
 Twitch: https://api.visp.localhost/api/auth/callback/twitch
 Kick:   https://api.visp.localhost/api/auth/oauth2/callback/kick
+Google: http://localhost:3000/api/auth/google-local-callback
 ```
+
+### Google and YouTube credentials
+
+1. Open [Google Cloud Console](https://console.cloud.google.com/), create or
+   select the project that owns VISP, then open **APIs & Services → Library**
+   and enable **YouTube Data API v3**.
+2. Open **Google Auth Platform** and configure **Branding** and **Audience**.
+   Choose **External** unless every VISP user belongs to one Google Workspace
+   organization. While the app is in testing, add each Google account that
+   will test YouTube Direct as a test user.
+3. Under **Data Access**, add `openid`, `email`, `profile`, and
+   `https://www.googleapis.com/auth/youtube.force-ssl`. Google requires review
+   before an external production app can broadly request the YouTube scope.
+4. Open **Clients → Create client → Web application**. Add these development
+   values exactly:
+
+   ```text
+   Authorized JavaScript origin:
+   http://localhost:3000
+
+   Authorized redirect URI:
+   http://localhost:3000/api/auth/google-local-callback
+   ```
+
+   Google rejects custom `.localhost` subdomains because they are not a
+   registrable private domain. The loopback endpoint immediately forwards the
+   response to Better Auth at
+   `https://api.visp.localhost/api/auth/callback/google`, preserving the normal
+   VISP session cookie. An origin contains only scheme and host; never put the
+   callback path in it.
+5. For native Google sign-in on a physical device, create a separate **iOS**
+   OAuth client (Google Cloud Console → Clients → Create client → iOS) with
+   bundle ID `com.pohinagroup.visp`. Google does not accept LAN IP redirect
+   URIs, so the native app uses `@react-native-google-signin/google-signin` and
+   exchanges an ID token with Better Auth instead of browser redirects.
+6. Copy the generated values into the untracked `apps/server/.env`:
+
+   ```text
+   GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=...
+   GOOGLE_IOS_CLIENT_ID=...apps.googleusercontent.com
+   ```
+
+   `dev:local` copies the web and iOS client IDs into `apps/native/.env.local`
+   as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
+   A physical phone cannot reach `https://api.visp.localhost`; `dev:local` also
+   sets `EXPO_PUBLIC_SERVER_URL` to `http://LAN_IP:3000`. Rebuild the native
+   dev client after adding the iOS client ID (`bun run --cwd apps/native ios`).
+7. Restart `bun run dev:local`, sign in with Google, and authorize YouTube from
+   Direct. VISP requests explicit consent and offline access so it can refresh
+   the token when a stream starts unattended.
 
 ## Database workflow
 

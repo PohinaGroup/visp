@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import {
 	ActivityIndicator,
 	Modal,
+	Platform,
 	Pressable,
 	ScrollView,
 	StyleSheet,
@@ -65,7 +66,7 @@ const ACTION_META: Record<
 
 const ACTION_ORDER = Object.keys(ACTION_META) as TileAction[];
 
-type Provider = "twitch" | "kick";
+type Provider = "twitch" | "kick" | "google";
 
 function SignIn() {
 	const [error, setError] = useState<string>();
@@ -80,7 +81,7 @@ function SignIn() {
 		const callbackURL = authCallbackURL();
 		try {
 			const result =
-				provider === "twitch"
+				provider !== "kick"
 					? await authClient.signIn.social({
 							callbackURL,
 							provider,
@@ -115,8 +116,10 @@ function SignIn() {
 				<ScrollView contentContainerStyle={styles.signInScroll}>
 					<View style={styles.signInPanel}>
 						<View style={styles.brandRow}>
-							<View style={styles.brandMark}>
-								<Text style={styles.brandMarkText}>V</Text>
+							<View style={styles.meterMark}>
+								{METER_BARS.map((height) => (
+									<View key={height} style={[styles.meterBar, { height }]} />
+								))}
 							</View>
 							<View>
 								<Text style={styles.eyebrow}>VISP CONTROL SURFACE</Text>
@@ -144,10 +147,27 @@ function SignIn() {
 								pressed && styles.pressed,
 							]}
 						>
-							<Text style={styles.signInButtonText}>
+							<Text style={[styles.signInButtonText, styles.twitchButtonText]}>
 								{signingIn === "twitch"
 									? "OPENING TWITCH..."
 									: "CONTINUE WITH TWITCH"}
+							</Text>
+						</Pressable>
+						<Pressable
+							accessibilityRole="button"
+							disabled={Boolean(signingIn)}
+							onPress={() => void signIn("google")}
+							style={({ pressed }) => [
+								styles.signInButton,
+								styles.kickButton,
+								Boolean(signingIn) && styles.disabled,
+								pressed && styles.pressed,
+							]}
+						>
+							<Text style={[styles.signInButtonText, styles.kickButtonText]}>
+								{signingIn === "google"
+									? "OPENING GOOGLE..."
+									: "CONTINUE WITH GOOGLE"}
 							</Text>
 						</Pressable>
 						<Pressable
@@ -751,7 +771,12 @@ function TileEditor({
 }
 
 const RED = "#ff3757";
+const BONE = "#f0f1f2";
 const INK = "#07090d";
+// Level-meter mark, ported from apps/web meter-mark.tsx.
+const METER_BARS = [6, 12, 9, 16, 11, 7];
+// Mono stand-in for IBM Plex Mono — no font loading, so use the platform mono.
+const MONO = Platform.select({ ios: "Menlo", default: "monospace" });
 const PANEL = "#11141a";
 const LINE = "#292e38";
 const MUTED = "#8c94a3";
@@ -760,20 +785,10 @@ const styles = StyleSheet.create({
 	accountBlock: { alignItems: "flex-end", gap: 6, maxWidth: "45%" },
 	accountName: { color: "#d7dbe2", fontSize: 12, fontWeight: "700" },
 	appBackground: { backgroundColor: INK, flex: 1 },
-	brandMark: {
-		alignItems: "center",
-		backgroundColor: RED,
-		borderRadius: 4,
-		height: 44,
-		justifyContent: "center",
-		transform: [{ skewX: "-7deg" }],
-		width: 44,
-	},
-	brandMarkText: { color: "white", fontSize: 24, fontWeight: "900" },
 	brandName: {
 		color: "white",
 		fontSize: 20,
-		fontWeight: "900",
+		fontWeight: "700",
 		letterSpacing: 1,
 	},
 	brandRow: { alignItems: "center", flexDirection: "row", gap: 14 },
@@ -937,8 +952,8 @@ const styles = StyleSheet.create({
 	errorText: { color: "#ff8fa1", fontSize: 14, lineHeight: 20, marginTop: 20 },
 	eyebrow: {
 		color: MUTED,
+		fontFamily: MONO,
 		fontSize: 10,
-		fontWeight: "800",
 		letterSpacing: 1.8,
 	},
 	footerStatus: {
@@ -949,8 +964,10 @@ const styles = StyleSheet.create({
 		marginTop: 32,
 		textAlign: "center",
 	},
-	kickButton: { backgroundColor: "#53fc18" },
-	kickButtonText: { color: "#071005" },
+	kickButton: { borderColor: "rgba(255,255,255,0.14)", borderWidth: 1 },
+	kickButtonText: { color: "white" },
+	meterBar: { backgroundColor: BONE, width: 3 },
+	meterMark: { alignItems: "flex-end", flexDirection: "row", gap: 3 },
 	loading: {
 		alignItems: "center",
 		backgroundColor: INK,
@@ -1007,7 +1024,7 @@ const styles = StyleSheet.create({
 		marginTop: 22,
 	},
 	signalGlow: {
-		backgroundColor: "rgba(255,55,87,0.08)",
+		backgroundColor: "rgba(84,110,160,0.07)",
 		borderRadius: 260,
 		height: 520,
 		position: "absolute",
@@ -1018,6 +1035,7 @@ const styles = StyleSheet.create({
 	signInBackground: { backgroundColor: INK, flex: 1 },
 	signInButton: {
 		alignItems: "center",
+		borderRadius: 4,
 		marginTop: 12,
 		paddingHorizontal: 20,
 		paddingVertical: 17,
@@ -1025,7 +1043,7 @@ const styles = StyleSheet.create({
 	signInButtonText: {
 		color: "white",
 		fontSize: 12,
-		fontWeight: "900",
+		fontWeight: "700",
 		letterSpacing: 0.8,
 	},
 	signInCopy: {
@@ -1046,10 +1064,11 @@ const styles = StyleSheet.create({
 	signInTitle: {
 		color: "white",
 		fontSize: 36,
-		fontWeight: "900",
-		letterSpacing: -1.2,
+		fontWeight: "700",
+		letterSpacing: -0.8,
 		lineHeight: 40,
 		marginTop: 54,
+		textTransform: "uppercase",
 	},
 	signOut: {
 		borderBottomColor: "#555d69",
@@ -1082,7 +1101,8 @@ const styles = StyleSheet.create({
 		flexDirection: "row",
 		justifyContent: "space-between",
 	},
-	twitchButton: { backgroundColor: "#9146ff" },
+	twitchButton: { backgroundColor: BONE },
+	twitchButtonText: { color: "#0b0d11" },
 
 	modalBackdrop: {
 		backgroundColor: "rgba(0,0,0,0.72)",

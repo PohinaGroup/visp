@@ -4,12 +4,12 @@ description: Publish from a phone or browser, follow chat, and control OBS remot
 icon: Smartphone
 ---
 
-The VISP app turns a phone into a full camera for the home studio. It publishes
-the selected camera and microphone over SRT to your relay path; OBS at home
-reads that path and runs the show.
+The VISP app publishes the selected camera and microphone over SRT to your
+relay path. Direct sends that feed to Twitch or Kick. OBS can optionally read
+the original contribution feed for monitoring, recording, and scenes.
 
-For the first-run path — sign in, import OBS scenes, go live, and pair remote
-control — follow [Get started](/docs/get-started).
+For the first-run path — sign in, authorize Direct, go live, and optionally add
+OBS — follow [Get started](/docs/get-started).
 
 ![Phone app ready to go live](./images/app-ready.png)
 
@@ -69,9 +69,11 @@ exactly as before.
 
 ## While live
 
-- **Floating chat** overlays Twitch and Kick messages on the capture screen.
+- **Floating chat** overlays Twitch, Kick, and YouTube messages on the capture screen.
   Kick messages arrive through the server's webhook subscription, so they work
   without keeping a Kick tab open anywhere.
+- **Viewer counts** show the current audience for each selected Direct output.
+  A dash means the provider did not expose a current count.
 - **Stream info sheet** edits the title and metadata on the provider without
   leaving the app.
 - **OBS control** starts and stops the home OBS stream and switches scenes
@@ -85,7 +87,8 @@ exactly as before.
 The iPhone app forwards a live snapshot to the paired Apple Watch (watchOS 10+)
 over WatchConnectivity: stream state and uptime, resolution and frame rate,
 audio level tier, reconnect attempts, recent chat with provider status, and the
-OBS connection with its scene list. Scene switching works from the wrist —
+viewer counts for the selected Direct outputs, plus the OBS connection with its
+scene list. Scene switching works from the wrist —
 tapping a scene sends the command through the phone to the same OBS control
 channel.
 

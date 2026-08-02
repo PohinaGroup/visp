@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 
-import { ADVANCED_SETUP_DEFAULTS, getAdvancedSetupAction } from "./advanced-setup";
+import {
+	ADVANCED_SETUP_DEFAULTS,
+	getAdvancedSetupAction,
+} from "./advanced-setup";
 
 describe("advanced setup policy", () => {
 	test("completes safe defaults only for first-time users", () => {
@@ -13,6 +16,8 @@ describe("advanced setup policy", () => {
 			useCase: "phone_to_obs",
 			destination: "twitch",
 			advancedMode: true,
+			direct: { twitch: false, kick: false, youtube: false },
+			prepareObs: true,
 		});
 	});
 });

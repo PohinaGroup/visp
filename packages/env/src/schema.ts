@@ -35,6 +35,8 @@ export const serverEnvSchema = {
 	BETTER_AUTH_URL: z.url(),
 	CORS_ORIGIN: z.url(),
 	HOOK_SECRET: z.string().min(32),
+	GOOGLE_CLIENT_ID: z.string().min(1),
+	GOOGLE_CLIENT_SECRET: z.string().min(1),
 	KICK_CLIENT_ID: z.string().min(1),
 	KICK_CLIENT_SECRET: z.string().min(1),
 	/** Bootstrap value for the database-backed default relay. */

@@ -1,4 +1,8 @@
-import type { ChatProviderStatus } from "@VISP/api/chat/contract";
+import {
+	type ChatProvider,
+	type ChatProviderStatus,
+	PROVIDER_PRESENTATION,
+} from "@VISP/api/chat/contract";
 import * as UI from "@expo/ui";
 import type { AudioOutputCapability } from "../../modules/visp-srt";
 import { VispRoutePicker } from "../../modules/visp-srt";
@@ -15,9 +19,7 @@ import {
 type ChatConnections = Awaited<
 	ReturnType<typeof apiClient.chat.connections.list.query>
 >;
-type ChatStatuses = Partial<
-	Record<"twitch" | "kick", ChatProviderStatus["state"]>
->;
+type ChatStatuses = Partial<Record<ChatProvider, ChatProviderStatus["state"]>>;
 
 export type ChatSettings = {
 	betterTts: boolean;
@@ -25,7 +27,7 @@ export type ChatSettings = {
 	connections: ChatConnections;
 	currentAudioOutput?: string;
 	enabled: boolean;
-	errors: Partial<Record<"twitch" | "kick", string>>;
+	errors: Partial<Record<ChatProvider, string>>;
 	onReauthorizeConnection: (connection: ChatConnections[number]) => void;
 	onToggleConnection: (connection: ChatConnections[number]) => void;
 	onUnlinkConnection: (connection: ChatConnections[number]) => void;
@@ -49,13 +51,13 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 					<UI.Row alignment="center" key={connection.provider} spacing={12}>
 						<UI.Column spacing={2}>
 							<UI.Text>
-								{connection.provider === "twitch" ? "Twitch" : "Kick"}
+								{PROVIDER_PRESENTATION[connection.provider].label}
 							</UI.Text>
 							<UI.Text textStyle={SUBTLE_TEXT}>
 								{connection.enabled
 									? (chat.errors[connection.provider] ??
 										(chat.statuses[connection.provider] === "error"
-											? `${connection.provider === "twitch" ? "Twitch" : "Kick"} chat could not be started`
+											? `${PROVIDER_PRESENTATION[connection.provider].label} chat could not be started`
 											: `Chat ${chat.statuses[connection.provider] ?? "connected"}`))
 									: connection.linked
 										? "Linked · chat off"

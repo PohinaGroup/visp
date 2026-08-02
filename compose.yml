@@ -57,13 +57,43 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     ports:
-      - "1935:1935"
-      - "8189:8189/udp"
-      - "8554:8554"
-      - "8889:8889"
-      - "8890:8890/udp"
-      - "8891:8891/udp"
-      - "9997:9997"
+      - "127.0.0.1:1935:1935"
+      - "127.0.0.1:8189:8189/udp"
+      - "127.0.0.1:8554:8554"
+      - "127.0.0.1:8889:8889"
+      - "127.0.0.1:8890:8890/udp"
+      - "127.0.0.1:8891:8891/udp"
+      - "127.0.0.1:9997:9997"
+    volumes:
+      - ./deploy/relay/mediamtx.yml:/mediamtx.yml:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://127.0.0.1:9997/v3/config/global/get"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  mediamtx2:
+    build:
+      context: .
+      dockerfile: deploy/local/mediamtx.Dockerfile
+    environment:
+      APP_ORIGIN: http://host.docker.internal:3000
+      HOOK_SECRET: ${HOOK_SECRET:-local-development-hook-secret-at-least-32-characters}
+      MTX_APIADDRESS: :9997
+      MTX_AUTHHTTPADDRESS: http://host.docker.internal:3000/api/mediamtx/auth
+      MTX_RTSPADDRESS: :8554
+      MTX_WEBRTCADDRESS: :8889
+      MTX_WEBRTCADDITIONALHOSTS: 127.0.0.2
+      MTX_WEBRTCALLOWORIGINS: https://visp.localhost
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.2:1935:1935"
+      - "127.0.0.2:8189:8189/udp"
+      - "127.0.0.2:8554:8554"
+      - "127.0.0.2:8889:8889"
+      - "127.0.0.2:8890:8890/udp"
+      - "127.0.0.2:9997:9997"
     volumes:
       - ./deploy/relay/mediamtx.yml:/mediamtx.yml:ro
     healthcheck:

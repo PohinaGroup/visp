@@ -5,14 +5,13 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
-import {
-	SegmentedControl,
-	SegmentedControlItem,
-} from "@astryxdesign/core/SegmentedControl";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinkIcon, ShieldIcon } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
@@ -20,21 +19,6 @@ import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { providerLabel } from "./format";
-import type { DirectOutputs, DirectSelection } from "./types";
-
-function selectionOf(path: DirectOutputs["paths"][number]): DirectSelection {
-	if (path.twitch && path.kick) return "both";
-	if (path.twitch) return "twitch";
-	if (path.kick) return "kick";
-	return "off";
-}
-
-function outputsOf(selection: DirectSelection) {
-	return {
-		twitch: selection === "twitch" || selection === "both",
-		kick: selection === "kick" || selection === "both",
-	};
-}
 
 const STATE_TONE = {
 	live: "success",
@@ -49,7 +33,7 @@ function ProviderState({
 	state,
 	error,
 }: {
-	provider: "twitch" | "kick";
+	provider: "twitch" | "kick" | "youtube";
 	state: keyof typeof STATE_TONE | null;
 	error: string | null;
 }) {
@@ -74,6 +58,34 @@ function ProviderState({
 	);
 }
 
+function YoutubeTitle({
+	title,
+	onSave,
+	saving,
+}: {
+	title: string;
+	onSave: (title: string) => void;
+	saving: boolean;
+}) {
+	const t = useT();
+	const [draft, setDraft] = useState(title);
+	return (
+		<HStack gap={2} vAlign="end" wrap="wrap">
+			<TextInput
+				label={t("Default YouTube broadcast title")}
+				value={draft}
+				onChange={(value) => setDraft(value)}
+			/>
+			<Button
+				isDisabled={!draft.trim() || draft.trim() === title}
+				isLoading={saving}
+				label={t("Save title")}
+				onClick={() => onSave(draft)}
+			/>
+		</HStack>
+	);
+}
+
 export function DirectCard() {
 	const t = useT();
 	const fi = useLocale() === "fi";
@@ -89,10 +101,19 @@ export function DirectCard() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const setYoutubeSettings = useMutation(
+		trpc.direct.setYoutubeSettings.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("YouTube title saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 
 	// Re-request the union of granted scopes: asking only for the stream key
 	// would drop this provider's chat and title/category consent.
-	const authorize = async (provider: "twitch" | "kick") => {
+	const authorize = async (provider: "twitch" | "kick" | "youtube") => {
 		const granted =
 			direct.data?.providers.find((entry) => entry.provider === provider)
 				?.grantedScopes ?? [];
@@ -103,8 +124,12 @@ export function DirectCard() {
 		);
 		const callbackURL = authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`);
 		const result =
-			provider === "twitch"
-				? await authClient.linkSocial({ provider, callbackURL, scopes })
+			provider !== "kick"
+				? await authClient.linkSocial({
+						provider: provider === "youtube" ? "google" : provider,
+						callbackURL,
+						scopes,
+					})
 				: await authClient.oauth2.link({
 						providerId: provider,
 						callbackURL,
@@ -132,22 +157,22 @@ export function DirectCard() {
 					</HStack>
 					<Text color="secondary" type="supporting">
 						{t(
-							"Send a publishing device straight to Twitch or Kick, without OBS. The relay encodes for the platform.",
+							"Send a publishing device straight to Twitch, Kick, or YouTube without OBS. The relay encodes for each platform.",
 						)}
 					</Text>
 				</VStack>
 
-				{direct.data && !direct.data.betaEnabled ? (
+				{direct.data?.mode === "unconfigured" ? (
 					<Banner
 						description={t(
-							"Direct runs the platform encode on a single relay node, so access is handed out a few accounts at a time.",
+							"Your existing OBS workflow is unchanged. Authorize a destination and select it below when you are ready to switch to Direct.",
 						)}
 						status="info"
-						title={t("VISP Direct is in limited beta")}
+						title={t("Switch to Direct when you are ready")}
 					/>
 				) : null}
 
-				{direct.data?.betaEnabled ? (
+				{direct.data ? (
 					<>
 						{direct.data.providers.map((provider) => (
 							<Card key={provider.provider} padding={3} variant="muted">
@@ -191,30 +216,41 @@ export function DirectCard() {
 											<Badge label={t("Publishing")} variant="success" />
 										) : null}
 									</HStack>
-									<SegmentedControl
-										isDisabled={path.publishing || setOutputs.isPending}
-										disabledMessage={t(
-											"Stop this device before changing its Direct outputs",
+									<VStack gap={2}>
+										{(["twitch", "kick", "youtube"] as const).map(
+											(provider) => (
+												<Switch
+													key={provider}
+													disabledMessage={t(
+														"Stop this device before changing its Direct outputs",
+													)}
+													isDisabled={path.publishing || setOutputs.isPending}
+													label={providerLabel(provider)}
+													labelSpacing="spread"
+													value={path[provider]}
+													onChange={(value) =>
+														setOutputs.mutate({
+															pathId: path.id,
+															twitch:
+																provider === "twitch" ? value : path.twitch,
+															kick: provider === "kick" ? value : path.kick,
+															youtube:
+																provider === "youtube" ? value : path.youtube,
+														})
+													}
+												/>
+											),
 										)}
-										label={t("Direct output for this device")}
-										layout="fill"
-										value={selectionOf(path)}
-										onChange={(value) =>
-											setOutputs.mutate({
-												pathId: path.id,
-												...outputsOf(value as DirectSelection),
-											})
-										}
-									>
-										<SegmentedControlItem label={t("Off")} value="off" />
-										<SegmentedControlItem label="Twitch" value="twitch" />
-										<SegmentedControlItem label="Kick" value="kick" />
-										<SegmentedControlItem label={t("Both")} value="both" />
-									</SegmentedControl>
+									</VStack>
 									<ProviderState
 										error={path.error.twitch}
 										provider="twitch"
 										state={path.state.twitch}
+									/>
+									<ProviderState
+										error={path.error.youtube}
+										provider="youtube"
+										state={path.state.youtube}
 									/>
 									<ProviderState
 										error={path.error.kick}
@@ -224,6 +260,19 @@ export function DirectCard() {
 								</VStack>
 							</Card>
 						))}
+
+						<YoutubeTitle
+							saving={setYoutubeSettings.isPending}
+							title={direct.data.youtubeTitle}
+							onSave={(title) => setYoutubeSettings.mutate({ title })}
+						/>
+						<Banner
+							description={t(
+								"VISP creates a new public YouTube broadcast when this device starts publishing.",
+							)}
+							status="warning"
+							title={t("YouTube broadcasts are public")}
+						/>
 
 						<Banner
 							description={t(

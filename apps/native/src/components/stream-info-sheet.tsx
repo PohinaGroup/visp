@@ -14,6 +14,9 @@ const SUBTLE_TEXT = { color: "#8a919c", fontSize: 13 } as const;
 type ChatConnections = Awaited<
 	ReturnType<typeof apiClient.chat.connections.list.query>
 >;
+type MetadataConnection = ChatConnections[number] & {
+	provider: "twitch" | "kick";
+};
 
 function suggestionBadge(suggestion: CategorySuggestion) {
 	return [
@@ -120,10 +123,14 @@ export function StreamInfoSheet({
 		}
 	}, [selected, showToast, title, userId]);
 
-	const needingConsent = connections.filter(
+	const metadataConnections = connections.filter(
+		(connection): connection is MetadataConnection =>
+			connection.provider !== "youtube",
+	);
+	const needingConsent = metadataConnections.filter(
 		(connection) => connection.linked && !connection.canManageChannel,
 	);
-	const canUpdate = connections.some(
+	const canUpdate = metadataConnections.some(
 		(connection) => connection.linked && connection.canManageChannel,
 	);
 

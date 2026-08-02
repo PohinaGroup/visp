@@ -3,6 +3,7 @@ import { chatHub } from "@VISP/api/chat/hub";
 import { handleKickWebhook } from "@VISP/api/chat/kick";
 import { chatTickets } from "@VISP/api/chat/tickets";
 import "@VISP/api/chat/twitch";
+import "@VISP/api/chat/youtube";
 import { Elysia, t } from "elysia";
 import { nodeAdapter } from "./node-adapter";
 

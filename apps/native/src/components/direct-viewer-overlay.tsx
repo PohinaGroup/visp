@@ -1,4 +1,4 @@
-import { PROVIDER_CHIP } from "@VISP/api/chat/contract";
+import { PROVIDER_CHIP, PROVIDER_PRESENTATION } from "@VISP/api/chat/contract";
 import type { DirectProvider } from "@VISP/api/direct";
 import { useEffect, useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
@@ -6,23 +6,21 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { apiClient } from "../lib/backend";
 
 const POLL_INTERVAL_MS = 15_000;
-const LABELS = { twitch: "Twitch", kick: "Kick" } as const;
+const EMPTY_COUNTS: Record<DirectProvider, number | null> = {
+	twitch: null,
+	kick: null,
+	youtube: null,
+};
 
-export function DirectViewerOverlay({
-	active,
-	providers,
-}: {
-	active: boolean;
-	providers: DirectProvider[];
-}) {
-	const [counts, setCounts] = useState<Record<DirectProvider, number | null>>({
-		twitch: null,
-		kick: null,
-	});
+export function useDirectViewerCounts(
+	active: boolean,
+	providers: DirectProvider[],
+) {
+	const [counts, setCounts] = useState(EMPTY_COUNTS);
 
 	useEffect(() => {
 		if (!active || providers.length === 0) {
-			setCounts({ twitch: null, kick: null });
+			setCounts(EMPTY_COUNTS);
 			return;
 		}
 		let disposed = false;
@@ -32,7 +30,7 @@ export function DirectViewerOverlay({
 				const next = await apiClient.channel.viewerCounts.query({ providers });
 				if (!disposed) setCounts(next);
 			} catch {
-				if (!disposed) setCounts({ twitch: null, kick: null });
+				if (!disposed) setCounts(EMPTY_COUNTS);
 			} finally {
 				if (!disposed) timer = setTimeout(() => void poll(), POLL_INTERVAL_MS);
 			}
@@ -44,11 +42,23 @@ export function DirectViewerOverlay({
 		};
 	}, [active, providers]);
 
+	return counts;
+}
+
+export function DirectViewerOverlay({
+	active,
+	counts,
+	providers,
+}: {
+	active: boolean;
+	counts: Record<DirectProvider, number | null>;
+	providers: DirectProvider[];
+}) {
 	if (!active || providers.length === 0) return null;
 	const accessibilityLabel = providers
 		.map((provider) => {
 			const count = counts[provider];
-			return `${LABELS[provider]} ${count ?? "unavailable"}${count === null ? "" : count === 1 ? " viewer" : " viewers"}`;
+			return `${PROVIDER_PRESENTATION[provider].label} ${count ?? "unavailable"}${count === null ? "" : count === 1 ? " viewer" : " viewers"}`;
 		})
 		.join(", ");
 
@@ -74,7 +84,7 @@ export function DirectViewerOverlay({
 									{ color: PROVIDER_CHIP[provider].foreground },
 								]}
 							>
-								{provider === "twitch" ? "T" : "K"}
+								{PROVIDER_PRESENTATION[provider].initial}
 							</Text>
 						</View>
 						<Text style={styles.count}>{counts[provider] ?? "—"}</Text>

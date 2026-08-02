@@ -51,9 +51,10 @@ function TermsPage() {
 				<h2>3. Eligibility and accounts</h2>
 				<p>
 					You must be able to form a binding contract and comply with Twitch,
-					Kick, and any other platform rules that apply to your broadcasts. You
-					are responsible for activity under your VISP account and for keeping
-					credentials and devices secure. Sign-in uses Twitch and/or Kick OAuth.
+					Kick, YouTube, and any other platform rules that apply to your
+					broadcasts. You are responsible for activity under your VISP account
+					and for keeping credentials and devices secure. Sign-in uses Twitch,
+					Kick, and/or Google OAuth.
 				</p>
 			</section>
 
@@ -85,11 +86,13 @@ function TermsPage() {
 				<h2>5. Stream keys and media</h2>
 				<p>
 					Your broadcast/stream keys are not intended to be uploaded to VISP. If
-					you enable VISP Direct for a device, you authorize VISP to read that
-					platform's stream key through Twitch's or Kick's OAuth consent and to
-					use it solely to forward that device's stream to the destination you
-					selected. Live media is relayed according to your configuration. VISP
-					may store short-lived private dashboard snapshots as described in the{" "}
+					you enable VISP Direct for a device, you authorize VISP to resolve
+					that platform's destination through Twitch, Kick, or Google OAuth
+					consent and to use it solely to forward that device's stream to the
+					destination you selected. YouTube Direct always creates a public
+					broadcast with automatic start and stop. Live media is relayed
+					according to your configuration. VISP may store short-lived private
+					dashboard snapshots as described in the{" "}
 					<Link to="/privacy">Privacy Policy</Link>. Continuous recordings are
 					not provided as a storage product.
 				</p>

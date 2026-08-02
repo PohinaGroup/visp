@@ -1,10 +1,7 @@
 import { createDb } from "@VISP/db";
 import * as schema from "@VISP/db/schema/auth";
 import { env } from "@VISP/env/server";
-import {
-	createObjectStore,
-	type ObjectStore,
-} from "@VISP/object-store";
+import { createObjectStore, type ObjectStore } from "@VISP/object-store";
 import { expo } from "@better-auth/expo";
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
@@ -98,6 +95,16 @@ export function createAuth() {
 			},
 		},
 		socialProviders: {
+			google: {
+				clientId: env.GOOGLE_CLIENT_ID,
+				clientSecret: env.GOOGLE_CLIENT_SECRET,
+				accessType: "offline",
+				prompt: "select_account consent",
+				redirectURI:
+					env.NODE_ENV === "development"
+						? "http://localhost:3000/api/auth/google-local-callback"
+						: undefined,
+			},
 			twitch: {
 				clientId: env.TWITCH_CLIENT_ID,
 				clientSecret: env.TWITCH_CLIENT_SECRET,

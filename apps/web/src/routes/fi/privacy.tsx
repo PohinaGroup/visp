@@ -40,18 +40,21 @@ function PrivacyPage() {
 				<h2>2. Mikä VISP on</h2>
 				<p>
 					VISP on itse ylläpidettävä SRT/RTMP-relay ja etäsuoratoiston
-					ohjauspalvelu. Lähetysavaimesi pysyvät sinulla eikä niitä lähetetä
-					VISPille. VISP välittää suoraa mediaa ja tarjoaa siihen liittyvät
-					tili-, hallintapaneeli- ja laitetoiminnot.
+					ohjauspalvelu. Sinua ei pyydetä liittämään lähetysavainta. Kun otat
+					Directin käyttöön, VISP hakee valitsemasi Twitch-, Kick- tai
+					YouTube-kohteen OAuth-luvalla vain välitysprosessin käyttöön. Avainta
+					ei tallenneta erillisenä arvona eikä palauteta asiakassovellukselle.
+					YouTube Direct luo julkisen lähetyksen, joka käynnistyy ja pysähtyy
+					automaattisesti.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">
 				<h2>3. Käsittelemämme tiedot</h2>
 				<ul>
 					<li>
-						<strong>Tilitiedot</strong> Twitch- tai Kick-kirjautumisesta: nimi,
-						sähköpostiosoite, profiilikuva ja yhdistetyn palvelutilin
-						tunnisteet.
+						<strong>Tilitiedot</strong> Twitch-, Kick- tai
+						Google-kirjautumisesta: nimi, sähköpostiosoite, profiilikuva ja
+						yhdistetyn palvelutilin tunnisteet.
 					</li>
 					<li>
 						<strong>Todennustiedot</strong>: turvallisesti tallennetut
@@ -122,11 +125,12 @@ function PrivacyPage() {
 				<p>
 					Käytämme VISPin toimintaan tarvittavia infrastruktuuripalveluja ja
 					alikäsittelijöitä, kuten hostingia, tietokantaa, tilannekuvien
-					objektitallennusta sekä Twitchiä ja Kickiä OAuth-tunnistukseen. Kun
-					analytiikka on käytössä, se toimii omalla itse ylläpitämällämme
-					Rybbit-palvelimella, joten analytiikkatietoja ei jaeta ulkopuoliselle
-					analytiikkapalvelulle. Valitsemasi suoratoistokohteet saavat
-					julkaisemasi median; VISP ei ota lähetysavaimiasi haltuunsa.
+					objektitallennusta sekä Twitchiä, Kickiä ja Googlea
+					OAuth-tunnistukseen. Kun analytiikka on käytössä, se toimii omalla
+					itse ylläpitämällämme Rybbit-palvelimella, joten analytiikkatietoja ei
+					jaeta ulkopuoliselle analytiikkapalvelulle. Valitsemasi
+					suoratoistokohteet saavat julkaisemasi median; VISP hakee Directin
+					lähetysavaimen vain valtuuttamasi lähdön käynnistämistä varten.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">

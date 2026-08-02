@@ -1,3 +1,4 @@
+import type { ChatProvider } from "@VISP/api/chat/contract";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -44,7 +45,7 @@ export function useStreamAccount({
 	const [revealedDeviceUrls, setRevealedDeviceUrls] = useState<
 		Record<number, string>
 	>({});
-	const [chatBusy, setChatBusy] = useState<"twitch" | "kick">();
+	const [chatBusy, setChatBusy] = useState<"twitch" | "kick" | "youtube">();
 	const streamOwner = streamOwnerId(userId);
 
 	useEffect(() => {
@@ -132,12 +133,19 @@ export function useStreamAccount({
 		});
 
 	const applyDirectSelection = useCallback(
-		async (pathId: number, selection: string) => {
+		async (
+			pathId: number,
+			provider: "twitch" | "kick" | "youtube",
+			enabled: boolean,
+		) => {
+			const path = directOutputs?.paths.find((entry) => entry.id === pathId);
+			if (!path) return;
 			try {
 				await apiClient.direct.setOutputs.mutate({
 					pathId,
-					twitch: selection === "twitch" || selection === "both",
-					kick: selection === "kick" || selection === "both",
+					twitch: provider === "twitch" ? enabled : path.twitch,
+					kick: provider === "kick" ? enabled : path.kick,
+					youtube: provider === "youtube" ? enabled : path.youtube,
 				});
 				await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
 			} catch (error) {
@@ -148,7 +156,29 @@ export function useStreamAccount({
 				);
 			}
 		},
-		[refreshDirectOutputs, refreshPublishDevices, showToast],
+		[
+			directOutputs?.paths,
+			refreshDirectOutputs,
+			refreshPublishDevices,
+			showToast,
+		],
+	);
+
+	const updateYoutubeTitle = useCallback(
+		async (title: string) => {
+			try {
+				await apiClient.direct.setYoutubeSettings.mutate({ title });
+				await refreshDirectOutputs();
+				showToast("YouTube title saved");
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? error.message
+						: "YouTube title could not be saved",
+				);
+			}
+		},
+		[refreshDirectOutputs, showToast],
 	);
 
 	const revealPublishDevice = useCallback(
@@ -171,17 +201,24 @@ export function useStreamAccount({
 	);
 
 	const linkProvider = useCallback(
-		async (provider: "twitch" | "kick", adding: readonly string[] = []) => {
+		async (
+			provider: "twitch" | "kick" | "youtube",
+			adding: readonly string[] = [],
+		) => {
 			setChatBusy(provider);
 			try {
 				const granted =
-					chatConnections.find((entry) => entry.provider === provider)
-						?.grantedScopes ?? [];
+					(provider === "youtube"
+						? directOutputs?.providers.find(
+								(entry) => entry.provider === provider,
+							)?.grantedScopes
+						: chatConnections.find((entry) => entry.provider === provider)
+								?.grantedScopes) ?? [];
 				const scopes = linkScopes(provider, granted, adding);
 				const result =
-					provider === "twitch"
+					provider !== "kick"
 						? await authClient.linkSocial({
-								provider,
+								provider: provider === "youtube" ? "google" : provider,
 								callbackURL: authCallbackURL(),
 								scopes,
 							})
@@ -192,7 +229,7 @@ export function useStreamAccount({
 							});
 				if (result.error)
 					throw new Error(result.error.message ?? `Could not link ${provider}`);
-				await refreshChatConnections();
+				await Promise.all([refreshChatConnections(), refreshDirectOutputs()]);
 			} catch (error) {
 				showToast(
 					error instanceof Error ? error.message : `Could not link ${provider}`,
@@ -201,11 +238,17 @@ export function useStreamAccount({
 				setChatBusy(undefined);
 			}
 		},
-		[chatConnections, refreshChatConnections, showToast],
+		[
+			chatConnections,
+			directOutputs?.providers,
+			refreshChatConnections,
+			refreshDirectOutputs,
+			showToast,
+		],
 	);
 
 	const linkChatProvider = useCallback(
-		(provider: "twitch" | "kick", chatConsent = false) =>
+		(provider: ChatProvider, chatConsent = false) =>
 			linkProvider(provider, chatConsent ? PROVIDER_SCOPES[provider].chat : []),
 		[linkProvider],
 	);
@@ -217,7 +260,7 @@ export function useStreamAccount({
 				return;
 			}
 			if (connection.needsConsent) {
-				await linkChatProvider("twitch", true);
+				await linkChatProvider(connection.provider, true);
 				return;
 			}
 			setChatBusy(connection.provider);
@@ -262,7 +305,8 @@ export function useStreamAccount({
 					});
 				}
 				const result = await authClient.unlinkAccount({
-					providerId: connection.provider,
+					providerId:
+						connection.provider === "youtube" ? "google" : connection.provider,
 				});
 				if (result.error)
 					throw new Error(
@@ -306,5 +350,6 @@ export function useStreamAccount({
 		toggleChatConnection,
 		unlinkChatProvider,
 		updateChatPreferences,
+		updateYoutubeTitle,
 	};
 }

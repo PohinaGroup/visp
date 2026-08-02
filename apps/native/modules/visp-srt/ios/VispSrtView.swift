@@ -666,10 +666,13 @@ final class VispSrtView: ExpoView {
         let senderColor = UIColor(chatHex: sender?["color"] as? String) ?? .white
         var senderX: CGFloat = 14
         let provider = message["provider"] as? String
+        let providerInitial = provider == "twitch" ? "T" : provider == "youtube" ? "Y" : "K"
+        let providerBackground = provider == "twitch" ? "#9146FF" : provider == "youtube" ? "#FF0000" : "#53FC18"
+        let providerForeground = provider == "kick" ? "#071005" : "#FFFFFF"
         drawChatChip(
-          provider == "twitch" ? "T" : "K",
-          background: UIColor(chatHex: provider == "twitch" ? "#9146FF" : "#53FC18")!,
-          foreground: UIColor(chatHex: provider == "twitch" ? "#FFFFFF" : "#071005")!,
+          providerInitial,
+          background: UIColor(chatHex: providerBackground)!,
+          foreground: UIColor(chatHex: providerForeground)!,
           in: CGRect(x: senderX, y: y + 8, width: 20, height: 20)
         )
         senderX += 24

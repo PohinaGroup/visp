@@ -92,7 +92,7 @@ export type ChatOverlayCorner =
 
 export type ChatOverlayMessage = {
 	id: string;
-	provider: "twitch" | "kick";
+	provider: "twitch" | "kick" | "youtube";
 	sentAt: string;
 	sender: {
 		id: string;

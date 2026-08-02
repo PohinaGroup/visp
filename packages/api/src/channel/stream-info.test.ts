@@ -1,4 +1,5 @@
 import { describe, expect, test } from "bun:test";
+import type { ViewerProvider } from "./stream-info";
 
 import "../test-env";
 
@@ -38,7 +39,7 @@ const bothLinked = async () => [
 	{ provider: "kick", accountId: "42", scope: "user:read,channel:write" },
 ];
 
-const tokens = async (provider: "twitch" | "kick") => ({
+const tokens = async (provider: ViewerProvider) => ({
 	accessToken: `${provider}-token`,
 });
 
@@ -57,7 +58,7 @@ describe("getViewerCounts", () => {
 			loadAccounts: bothLinked,
 		});
 
-		expect(counts).toEqual({ twitch: 12, kick: 7 });
+		expect(counts).toEqual({ twitch: 12, kick: 7, youtube: null });
 		expect(calls).toHaveLength(2);
 		const twitch = calls.find((call) => call.url.includes("twitch.tv"));
 		expect(twitch?.url).toBe(
@@ -78,7 +79,7 @@ describe("getViewerCounts", () => {
 			loadAccounts: bothLinked,
 		});
 
-		expect(counts).toEqual({ twitch: 0, kick: 0 });
+		expect(counts).toEqual({ twitch: 0, kick: 0, youtube: null });
 	});
 
 	test("isolates failures and malformed counts", async () => {
@@ -93,7 +94,7 @@ describe("getViewerCounts", () => {
 			getAccessToken: tokens,
 			loadAccounts: bothLinked,
 		});
-		expect(failed).toEqual({ twitch: null, kick: 4 });
+		expect(failed).toEqual({ twitch: null, kick: 4, youtube: null });
 
 		const malformed = await getViewerCounts("user", ["twitch"], {
 			fetch: recordingFetch([], () =>
@@ -102,7 +103,7 @@ describe("getViewerCounts", () => {
 			getAccessToken: tokens,
 			loadAccounts: bothLinked,
 		});
-		expect(malformed).toEqual({ twitch: null, kick: null });
+		expect(malformed).toEqual({ twitch: null, kick: null, youtube: null });
 	});
 
 	test("requests only the selected provider", async () => {
@@ -117,9 +118,56 @@ describe("getViewerCounts", () => {
 			loadAccounts: bothLinked,
 		});
 
-		expect(counts).toEqual({ twitch: null, kick: 3 });
+		expect(counts).toEqual({ twitch: null, kick: 3, youtube: null });
 		expect(calls).toHaveLength(1);
 		expect(calls[0]?.url).toBe("https://api.kick.com/public/v1/channels");
+	});
+
+	test("returns YouTube concurrent viewers from the active broadcast", async () => {
+		const calls: Call[] = [];
+		const counts = await getViewerCounts("user", ["youtube"], {
+			fetch: recordingFetch(calls, (url) =>
+				url.includes("liveBroadcasts")
+					? Response.json({ items: [{ id: "video-1" }] })
+					: Response.json({
+							items: [{ liveStreamingDetails: { concurrentViewers: "9" } }],
+						}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: async () => [
+				{ provider: "google", accountId: "google-1", scope: "youtube" },
+			],
+		});
+
+		expect(counts).toEqual({ twitch: null, kick: null, youtube: 9 });
+		expect(calls).toHaveLength(2);
+		expect(calls[1]?.url).toContain(
+			"videos?part=liveStreamingDetails&id=video-1",
+		);
+		expect(calls[0]?.headers.get("Authorization")).toBe("Bearer youtube-token");
+	});
+
+	test("distinguishes offline and unavailable YouTube counts", async () => {
+		const account = async () => [
+			{ provider: "google", accountId: "google-1", scope: "youtube" },
+		];
+		const offline = await getViewerCounts("user", ["youtube"], {
+			fetch: recordingFetch([], () => Response.json({ items: [] })),
+			getAccessToken: tokens,
+			loadAccounts: account,
+		});
+		expect(offline.youtube).toBe(0);
+
+		const hidden = await getViewerCounts("user", ["youtube"], {
+			fetch: recordingFetch([], (url) =>
+				url.includes("liveBroadcasts")
+					? Response.json({ items: [{ id: "video-1" }] })
+					: Response.json({ items: [{ liveStreamingDetails: {} }] }),
+			),
+			getAccessToken: tokens,
+			loadAccounts: account,
+		});
+		expect(hidden.youtube).toBeNull();
 	});
 });
 

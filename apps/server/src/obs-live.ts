@@ -43,6 +43,8 @@ export const obsLiveRoutes = new Elysia({
 		}
 	})
 	.ws("/api/obs/live", {
+		// The Node adapter only runs its built-in JSON decoder when a parser is set.
+		parse: () => undefined,
 		query: t.Object({ ticket: t.String({ minLength: 20, maxLength: 128 }) }),
 		body: t.Object({
 			appliedVersion: t.Integer({ minimum: 0 }),

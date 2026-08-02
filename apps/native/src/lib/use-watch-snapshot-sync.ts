@@ -20,6 +20,7 @@ export function useWatchSnapshotSync({
 	reconnectAttempt,
 	state,
 	statuses,
+	viewers,
 }: WatchSnapshotInput) {
 	const lastJsonRef = useRef("");
 
@@ -36,6 +37,7 @@ export function useWatchSnapshotSync({
 				reconnectAttempt,
 				state,
 				statuses,
+				viewers,
 			}) satisfies WatchSnapshot,
 		);
 		if (json === lastJsonRef.current) {
@@ -53,5 +55,6 @@ export function useWatchSnapshotSync({
 		reconnectAttempt,
 		state,
 		statuses,
+		viewers,
 	]);
 }

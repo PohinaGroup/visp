@@ -5,7 +5,7 @@ description: Julkaise puhelimesta tai selaimesta, seuraa yhteyden tilaa ja ohjaa
 
 # Puhelin- ja selainsovellus
 
-Kirjaudu samalla Twitch- tai Kick-tilillä, jota käytit portaalissa. Mobiilisovellus luo julkaisuyhteyden automaattisesti; muissa SRT- tai RTMP-sovelluksissa osoite kopioidaan laitteen tiedoista.
+Kirjaudu samalla Twitch- tai Kick-tilillä, jota käytit portaalissa. Mobiilisovellus luo julkaisuyhteyden automaattisesti ja Direct lähettää syötteen valitulle alustalle. OBS voi lukea alkuperäisen syötteen valinnaisesti.
 
 ## Ennen lähetystä
 
@@ -14,7 +14,7 @@ Kirjaudu samalla Twitch- tai Kick-tilillä, jota käytit portaalissa. Mobiilisov
 3. Käytä kuulokkeita, jos seuraat ohjelmaääntä puhelimesta.
 4. Testaa mobiiliverkossa, jota aiot käyttää lähetyksessä.
 
-Sovellus näyttää, milloin kamera julkaisee ja milloin OBS vastaanottaa kuvaa. Lyhyen verkkokatkon jälkeen yhteys muodostetaan uudelleen automaattisesti. Jos katkos jatkuu, pienennä bittinopeutta tai siirry vakaampaan verkkoon.
+Sovellus näyttää, milloin kamera julkaisee ja milloin alustalähtö on suorana. Lyhyen verkkokatkon jälkeen yhteys muodostetaan uudelleen automaattisesti. Jos katkos jatkuu, pienennä bittinopeutta tai siirry vakaampaan verkkoon.
 
 ## Verkkoyhteyksien yhdistäminen
 
@@ -33,5 +33,12 @@ toinen on käytettävissä.
 Toiminto voi noin kaksinkertaistaa mobiilidatan käytön. Sovellus varoittaa
 ennen ensimmäistä yhdistettyä lähetystä. Kun toiminto ei ole käytössä, julkaisu
 jatkuu entiseen tapaan suoraan UDP-porttiin 8890.
+
+## Lähetyksen aikana
+
+Kelluva chat näyttää Twitchin, Kickin ja YouTuben viestit samassa näkymässä.
+Valittujen Direct-lähtöjen katsojamäärät näkyvät alustakohtaisesti; viiva
+tarkoittaa, ettei alusta tarjonnut ajantasaista määrää. iPhone välittää samat
+chat-viestit, yhteystilat ja katsojamäärät myös Apple Watchiin.
 
 OBS-etäohjaus näkyy vasta, kun [VISP OBS -lisäosa on yhdistetty](/fi/docs/obs-remote-control).

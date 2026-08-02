@@ -12,8 +12,9 @@ const WRITE_SCOPES = {
 } as const;
 
 type Provider = keyof typeof WRITE_SCOPES;
+export type ViewerProvider = Provider | "youtube";
 
-export type ViewerCounts = Record<Provider, number | null>;
+export type ViewerCounts = Record<ViewerProvider, number | null>;
 
 type LinkedAccount = {
 	provider: string;
@@ -24,7 +25,7 @@ type LinkedAccount = {
 type StreamInfoDependencies = {
 	fetch: typeof fetch;
 	getAccessToken: (
-		providerId: Provider,
+		providerId: ViewerProvider,
 		userId: string,
 	) => Promise<{ accessToken: string }>;
 	loadAccounts: (userId: string) => Promise<LinkedAccount[]>;
@@ -33,7 +34,12 @@ type StreamInfoDependencies = {
 const defaultDependencies: StreamInfoDependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (providerId, userId) =>
-		auth.api.getAccessToken({ body: { providerId, userId } }),
+		auth.api.getAccessToken({
+			body: {
+				providerId: providerId === "youtube" ? "google" : providerId,
+				userId,
+			},
+		}),
 	loadAccounts: (userId) =>
 		db
 			.select({
@@ -45,7 +51,7 @@ const defaultDependencies: StreamInfoDependencies = {
 			.where(
 				and(
 					eq(account.userId, userId),
-					inArray(account.providerId, Object.keys(WRITE_SCOPES)),
+					inArray(account.providerId, ["twitch", "kick", "google"]),
 				),
 			),
 };
@@ -58,25 +64,55 @@ export function hasChannelWriteScope(
 }
 
 function viewerCount(value: unknown) {
-	return Number.isSafeInteger(value) && Number(value) >= 0
-		? Number(value)
+	const parsed =
+		typeof value === "string" && /^\d+$/.test(value) ? Number(value) : value;
+	return Number.isSafeInteger(parsed) && Number(parsed) >= 0
+		? Number(parsed)
 		: null;
 }
 
 export async function getViewerCounts(
 	userId: string,
-	providers: readonly Provider[],
+	providers: readonly ViewerProvider[],
 	dependencies: StreamInfoDependencies = defaultDependencies,
 ): Promise<ViewerCounts> {
 	const accounts = await dependencies.loadAccounts(userId);
-	const count = async (provider: Provider): Promise<number | null> => {
-		const linked = accounts.find((entry) => entry.provider === provider);
+	const count = async (provider: ViewerProvider): Promise<number | null> => {
+		const linked = accounts.find(
+			(entry) =>
+				entry.provider === (provider === "youtube" ? "google" : provider),
+		);
 		if (!linked) return null;
 		try {
 			const { accessToken } = await dependencies.getAccessToken(
 				provider,
 				userId,
 			);
+			if (provider === "youtube") {
+				const broadcasts = await dependencies.fetch(
+					"https://www.googleapis.com/youtube/v3/liveBroadcasts?part=id&mine=true&broadcastStatus=active&broadcastType=all&maxResults=1",
+					{ headers: { Authorization: `Bearer ${accessToken}` } },
+				);
+				if (!broadcasts.ok) return null;
+				const active = (await broadcasts.json()) as {
+					items?: Array<{ id?: unknown }>;
+				};
+				const broadcastId = active.items?.[0]?.id;
+				if (typeof broadcastId !== "string") return 0;
+				const videos = await dependencies.fetch(
+					`https://www.googleapis.com/youtube/v3/videos?part=liveStreamingDetails&id=${encodeURIComponent(broadcastId)}`,
+					{ headers: { Authorization: `Bearer ${accessToken}` } },
+				);
+				if (!videos.ok) return null;
+				const payload = (await videos.json()) as {
+					items?: Array<{
+						liveStreamingDetails?: { concurrentViewers?: unknown };
+					}>;
+				};
+				return viewerCount(
+					payload.items?.[0]?.liveStreamingDetails?.concurrentViewers,
+				);
+			}
 			const response = await dependencies.fetch(
 				provider === "twitch"
 					? `https://api.twitch.tv/helix/streams?user_id=${encodeURIComponent(linked.accountId)}`
@@ -117,7 +153,12 @@ export async function getViewerCounts(
 			async (provider) => [provider, await count(provider)] as const,
 		),
 	);
-	return { twitch: null, kick: null, ...Object.fromEntries(entries) };
+	return {
+		twitch: null,
+		kick: null,
+		youtube: null,
+		...Object.fromEntries(entries),
+	};
 }
 
 export async function searchStreamCategories(

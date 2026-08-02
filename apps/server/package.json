@@ -7,7 +7,7 @@
 		"check-types": "tsc --noEmit",
 		"compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
 		"dev": "portless run --force",
-		"dev:app": "bun run --hot src/index.ts",
+		"dev:app": "tsdown --watch --on-success \"node dist/index.mjs\"",
 		"start": "node dist/index.mjs"
 	},
 	"portless": {

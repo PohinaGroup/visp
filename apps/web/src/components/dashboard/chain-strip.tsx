@@ -53,9 +53,8 @@ function ChainNode({
 export function ChainStrip() {
 	const t = useT();
 	const trpc = useTRPC();
-	const secrets = useQuery(trpc.secrets.status.queryOptions());
-	const obs = useQuery(
-		trpc.obs.status.queryOptions(undefined, { refetchInterval: 3000 }),
+	const direct = useQuery(
+		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3000 }),
 	);
 	const paths = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
@@ -64,8 +63,21 @@ export function ChainStrip() {
 	const total = paths.data?.length ?? 0;
 	const live =
 		paths.data?.filter((path) => path.publishing && !path.stale).length ?? 0;
-	const readConfigured = secrets.data?.readConfigured ?? false;
-	const obsStatus = obs.data;
+	const desired = direct.data?.desired;
+	const configured = Boolean(
+		desired?.twitch || desired?.kick || desired?.youtube,
+	);
+	const liveOutputs =
+		direct.data?.paths.flatMap((path) =>
+			(["twitch", "kick", "youtube"] as const).filter(
+				(provider) => path[provider] && path.state[provider] === "live",
+			),
+		) ?? [];
+	const destinations = [
+		desired?.twitch ? "Twitch" : null,
+		desired?.kick ? "Kick" : null,
+		desired?.youtube ? "YouTube" : null,
+	].filter(Boolean);
 
 	const nodes: {
 		href: string;
@@ -80,26 +92,27 @@ export function ChainStrip() {
 			value: total === 0 ? t("No devices") : `${live}/${total} ${t("live")}`,
 		},
 		{
-			href: "#obs-read",
+			href: "#devices",
 			label: t("Relay"),
-			state: readConfigured ? "ok" : "warn",
-			value: readConfigured ? t("Keys set") : t("Setup needed"),
+			state: live > 0 ? "ok" : "idle",
+			value: live > 0 ? t("Receiving") : t("Ready"),
 		},
 		{
-			href: "#obs-control",
-			label: "OBS",
-			state: obsStatus?.connected ? "ok" : "idle",
-			value: obsStatus?.connected ? t("Connected") : t("Not connected"),
+			href: "#dashboard-direct",
+			label: "Direct",
+			state: liveOutputs.length > 0 ? "live" : configured ? "ok" : "warn",
+			value:
+				liveOutputs.length > 0
+					? `${liveOutputs.length} ${t("live")}`
+					: configured
+						? t("Ready")
+						: t("Choose output"),
 		},
 		{
-			href: "#obs-control",
+			href: "#dashboard-direct",
 			label: t("Output"),
-			state: obsStatus?.streaming ? "live" : "idle",
-			value: obsStatus?.configured
-				? obsStatus.streaming
-					? t("On air")
-					: t("Off air")
-				: t("Not paired"),
+			state: liveOutputs.length > 0 ? "live" : configured ? "idle" : "warn",
+			value: destinations.join(" + ") || t("OBS only"),
 		},
 	];
 

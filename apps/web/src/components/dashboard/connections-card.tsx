@@ -1,3 +1,5 @@
+import { chatAuthProvider } from "@VISP/api/chat/connections";
+import type { ChatProvider } from "@VISP/api/chat/contract";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
@@ -113,39 +115,41 @@ export function ConnectionsCard() {
 		}),
 	);
 
-	const link = async (provider: "twitch" | "kick", chatConsent = false) => {
+	const link = async (provider: ChatProvider, chatConsent = false) => {
 		const granted =
 			connections.data?.find((entry) => entry.provider === provider)
 				?.grantedScopes ?? [];
+		const scopes = linkScopes(
+			provider,
+			granted,
+			chatConsent ? PROVIDER_SCOPES[provider].chat : [],
+		);
+		const callbackURL = authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`);
 		const result =
-			provider === "twitch"
+			provider !== "kick"
 				? await authClient.linkSocial({
-						provider,
-						callbackURL: authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`),
-						// Twitch tokens keep only the last-requested scopes, so always
-						// re-request the union of what is already granted.
-						scopes: linkScopes(
-							"twitch",
-							granted,
-							chatConsent ? PROVIDER_SCOPES.twitch.chat : [],
-						),
+						provider: chatAuthProvider(provider),
+						callbackURL,
+						scopes,
 					})
 				: await authClient.oauth2.link({
 						providerId: provider,
-						callbackURL: authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`),
+						callbackURL,
 						errorCallbackURL: authRedirectURL(
 							`/dashboard?error=kick_link_failed${fi ? "&lang=fi" : ""}`,
 						),
-						scopes: linkScopes("kick", granted),
+						scopes,
 					});
 		if (result.error) {
 			toast.error(result.error.message ?? `Could not link ${provider}`);
 		}
 	};
 
-	const unlink = async (provider: "twitch" | "kick", enabled: boolean) => {
+	const unlink = async (provider: ChatProvider, enabled: boolean) => {
 		if (enabled) await disable.mutateAsync({ provider });
-		const result = await authClient.unlinkAccount({ providerId: provider });
+		const result = await authClient.unlinkAccount({
+			providerId: chatAuthProvider(provider),
+		});
 		if (result.error) {
 			toast.error(result.error.message ?? `Could not unlink ${provider}`);
 			return;

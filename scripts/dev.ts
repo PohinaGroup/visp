@@ -88,6 +88,8 @@ async function main() {
 		`${root}/apps/obs-remote/.env.example`,
 	);
 	const missingProviders = [
+		"GOOGLE_CLIENT_ID",
+		"GOOGLE_CLIENT_SECRET",
 		"KICK_CLIENT_ID",
 		"KICK_CLIENT_SECRET",
 		"TWITCH_CLIENT_ID",
@@ -106,6 +108,9 @@ async function main() {
 		DATABASE_URL: "postgresql://visp:visp@127.0.0.1:54320/visp",
 		BETTER_AUTH_URL: "https://api.visp.localhost",
 		CORS_ORIGIN: "https://visp.localhost",
+		GOOGLE_CLIENT_ID: serverFile.GOOGLE_CLIENT_ID || "local-unconfigured",
+		GOOGLE_CLIENT_SECRET:
+			serverFile.GOOGLE_CLIENT_SECRET || "local-unconfigured",
 		KICK_CLIENT_ID: serverFile.KICK_CLIENT_ID || "local-unconfigured",
 		KICK_CLIENT_SECRET: serverFile.KICK_CLIENT_SECRET || "local-unconfigured",
 		MEDIAMTX_API_URL: "http://127.0.0.1:9997",
@@ -145,6 +150,7 @@ async function main() {
 		run(["bun", "x", "portless", "alias", name, "8082", "--force"], env);
 	}
 	run(["docker", "compose", "up", "--detach", "--wait", "--build"], env);
+	run(["bun", "run", "--cwd", "packages/db", "db:migrate"], env);
 
 	console.log("\nVISP local environment is ready:");
 	console.log("  Web:           https://visp.localhost");

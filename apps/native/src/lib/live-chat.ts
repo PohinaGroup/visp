@@ -1,8 +1,10 @@
 import type {
 	ChatLiveEvent,
 	ChatMessage,
+	ChatProvider,
 	ChatProviderStatus,
 } from "@VISP/api/chat/contract";
+import { PROVIDER_PRESENTATION } from "@VISP/api/chat/contract";
 import { useEffect, useRef, useState } from "react";
 import { apiClient } from "./backend";
 
@@ -34,11 +36,11 @@ export function useLiveChat(
 		Array<ChatMessage & { receivedAt: number }>
 	>([]);
 	const [statuses, setStatuses] = useState<
-		Partial<Record<"twitch" | "kick", ChatProviderStatus["state"]>>
+		Partial<Record<ChatProvider, ChatProviderStatus["state"]>>
 	>({});
-	const [errors, setErrors] = useState<
-		Partial<Record<"twitch" | "kick", string>>
-	>({});
+	const [errors, setErrors] = useState<Partial<Record<ChatProvider, string>>>(
+		{},
+	);
 
 	useEffect(() => {
 		if (!active || !userId) {
@@ -80,9 +82,7 @@ export function useLiveChat(
 												...current,
 												[event.status.provider]:
 													event.status.error ??
-													(event.status.provider === "twitch"
-														? "Twitch chat could not be started"
-														: "Kick chat could not be started"),
+													`${PROVIDER_PRESENTATION[event.status.provider].label} chat could not be started`,
 											}
 										: event.status.error
 											? {

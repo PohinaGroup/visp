@@ -32,6 +32,7 @@ const STATE_LABELS: Record<StreamState, string> = {
 };
 
 export function StreamCameraControls({
+	actionPending,
 	audioTier,
 	bondingMode,
 	cameraSwitchDisabled,
@@ -58,6 +59,7 @@ export function StreamCameraControls({
 	streaming,
 	streamUrl,
 }: {
+	actionPending: boolean;
 	audioTier: AudioTier;
 	bondingMode: BondingMode;
 	cameraSwitchDisabled: boolean;
@@ -231,10 +233,13 @@ export function StreamCameraControls({
 							}
 							accessibilityLabel={streaming ? "Stop streaming" : "Go live"}
 							accessibilityRole="button"
-							disabled={state === "stopping" || state === "preparing"}
+							disabled={
+								actionPending || state === "stopping" || state === "preparing"
+							}
 							onPress={onToggleStream}
 							style={({ pressed }) => [
 								styles.liveButton,
+								actionPending && styles.actionDisabled,
 								streaming && styles.stopButton,
 								pressed && styles.buttonPressed,
 							]}

@@ -20,7 +20,7 @@ const FORMAT_PROMPT =
 
 const LANDING_PROMPT = `You are Seppo, the concise and friendly VISP product guide on the public landing page.
 
-VISP is for creators who want phones, remote guests, browser publishers, or other SRT/RTMP-capable apps to feed a full OBS production through a relay. It supports multiple publishing devices, a VISP phone and browser publisher, a beta VISP OBS plugin, Twitch and Kick chat in the native app, connection guidance, and per-device credentials that can be revoked. The creator's broadcast-platform stream key never enters VISP. VISP is free while in beta and requires Twitch or Kick sign-in. Short signal drops can be tolerated by the home-studio workflow, but VISP does not replace OBS or promise uninterrupted connectivity.
+VISP is for creators who want phones, remote guests, browser publishers, or other SRT/RTMP-capable apps to feed a full OBS production through a relay or publish directly to Twitch, Kick, and YouTube. It supports multiple publishing devices, a VISP phone and browser publisher, a beta VISP OBS plugin, Twitch and Kick chat in the native app, connection guidance, and per-device credentials that can be revoked. The creator's broadcast-platform stream key never enters VISP. VISP is free while in beta and supports Twitch, Kick, or Google sign-in. Short signal drops can be tolerated by the home-studio workflow, but VISP does not replace OBS or promise uninterrupted connectivity.
 
 Answer questions about what VISP is, who it is for, what it can do, downloads, beta status, privacy at a product level, and getting started. Point people to **Download**, **Docs**, or **Try VISP free** when useful. Do not invent pricing, roadmap, compatibility, or guarantees. Do not provide account-specific troubleshooting because you cannot inspect an anonymous visitor's account. Never ask for passwords, stream URLs, tokens, or API keys.
 
@@ -32,7 +32,7 @@ const LANDING_SUGGESTION_RESPONSES: Record<string, string> = {
 	"Can I use my phone with OBS?":
 		"Yes. Publish your phone's camera and mic with the **VISP mobile app**, then use the beta **VISP OBS plugin** to sign in and add the feed to your current scene. The browser publisher and other SRT-capable apps are also supported.",
 	"What do I need to get started?":
-		"You need a Twitch or Kick sign-in, a publishing device such as your phone, and OBS on your computer. Choose **Try VISP free**, finish the short setup, then use **Download** to get the phone app and beta OBS plugin. VISP is free while in beta.",
+		"You need a Twitch, Kick, or Google sign-in and a publishing device such as your phone. Choose **Try VISP free**, finish the short setup, then use **Download** to get the phone app. Add OBS and the beta plugin only if you want monitoring, recording, or scenes. VISP is free while in beta.",
 };
 
 const SETUP_PROMPT = `You are Seppo, the concise and friendly VISP setup assistant.
@@ -41,7 +41,7 @@ Help users finish VISP setup. Setup creates one publishing device unless they ch
 Wizard steps:
 1. Use case: phone camera into OBS, remote guest/friend feed into OBS, multi-cam (start with one), or something else.
 2. Publisher: prefer the VISP mobile app (auto-links after install/sign-in). Alternatives: VISP browser publisher, or any SRT-capable app (OBS, Larix, Moblin, other).
-3. Destination: Twitch, Kick, or other — for guidance only; credentials stay the same.
+3. Destination: Twitch, Kick, YouTube, or other. Direct can send independently to any combination of the first three.
 4. Create stream links, show install instructions, then a live connection check.
 
 Receiving into OBS: strongly recommend the VISP OBS plugin. Users install it, open Tools → VISP, sign in via the system browser, approve permissions, then add device feeds to the current scene in one click and start/stop going live. Manual Media Source paste and scene-collection import are fallbacks only. The plugin never stores a full VISP web session — only a limited OBS credential.
@@ -79,7 +79,7 @@ const publisherSchema = z.enum([
 	"moblin",
 	"other",
 ]);
-const destinationSchema = z.enum(["twitch", "kick", "other"]);
+const destinationSchema = z.enum(["twitch", "kick", "youtube", "other"]);
 const stepSchema = z.enum([
 	"useCase",
 	"publisher",

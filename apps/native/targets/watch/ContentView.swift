@@ -198,19 +198,20 @@ private struct ChatView: View {
   private var providerBadges: some View {
     HStack(spacing: 5) {
       ForEach(connectedProviders, id: \.self) { provider in
-        Text(provider == "twitch" ? "Twitch" : "Kick")
+        Text(providerPresentation(provider).label)
           .font(.caption2.bold())
-          .foregroundStyle(provider == "twitch" ? .purple : .green)
+          .foregroundStyle(providerPresentation(provider).accent)
       }
     }
   }
 
   private func platformChip(_ provider: String) -> some View {
-    Text(provider == "twitch" ? "T" : "K")
+    let presentation = providerPresentation(provider)
+    return Text(presentation.initial)
       .font(.system(size: 8, weight: .black))
-      .foregroundStyle(Color.chat(provider == "twitch" ? "#FFFFFF" : "#071005"))
+      .foregroundStyle(Color.chat(presentation.foreground))
       .frame(width: 14, height: 14)
-      .background(Color.chat(provider == "twitch" ? "#9146FF" : "#53FC18"))
+      .background(Color.chat(presentation.background))
       .clipShape(RoundedRectangle(cornerRadius: 4))
   }
 
@@ -256,6 +257,9 @@ private struct HealthView: View {
             Text(elapsed)
               .font(.system(.title3, design: .monospaced, weight: .semibold))
           }
+          if let viewers = snapshot?.viewers, !viewers.isEmpty {
+            viewerCounts(viewers)
+          }
           audioMeter(stream.audioTier)
           if let width = stream.width, let height = stream.height, let fps = stream.fps {
             Text("\(width)×\(height) · \(fps) fps")
@@ -290,6 +294,30 @@ private struct HealthView: View {
     .accessibilityLabel("Microphone level \(tier) of 3")
   }
 
+  private func viewerCounts(_ viewers: [WatchViewerCount]) -> some View {
+    HStack(spacing: 6) {
+      ForEach(viewers) { viewer in
+        let presentation = providerPresentation(viewer.provider)
+        HStack(spacing: 2) {
+          Text(presentation.initial)
+            .font(.system(size: 7, weight: .black))
+            .foregroundStyle(Color.chat(presentation.foreground))
+            .frame(width: 12, height: 12)
+            .background(Color.chat(presentation.background))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
+          Text(viewer.count.map(String.init) ?? "—")
+            .font(.system(.caption2, design: .monospaced, weight: .bold))
+        }
+      }
+    }
+    .accessibilityElement(children: .ignore)
+    .accessibilityLabel(
+      viewers.map {
+        "\(providerPresentation($0.provider).label) \($0.count.map(String.init) ?? "unavailable") viewers"
+      }.joined(separator: ", ")
+    )
+  }
+
   private func elapsed(_ stream: WatchStreamSnapshot, at now: Date) -> String? {
     guard
       ["live", "reconnecting", "stopping"].contains(stream.state),
@@ -299,6 +327,16 @@ private struct HealthView: View {
     return String(format: "%02d:%02d:%02d", seconds / 3_600, seconds / 60 % 60, seconds % 60)
   }
 
+}
+
+private func providerPresentation(
+  _ provider: String
+) -> (label: String, initial: String, foreground: String, background: String, accent: Color) {
+  switch provider {
+  case "twitch": return ("Twitch", "T", "#FFFFFF", "#9146FF", .purple)
+  case "youtube": return ("YouTube", "Y", "#FFFFFF", "#FF0000", .red)
+  default: return ("Kick", "K", "#071005", "#53FC18", .green)
+  }
 }
 
 private func statePresentation(_ state: String) -> (label: String, icon: String, color: Color) {

@@ -57,7 +57,8 @@ disconnecting either side behaves as expected. Only then install
    `MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
    MediaMTX maps the `MTX_*` variables to the matching YAML settings.
 
-   VISP Direct adds optional distribution-encode knobs to the same file.
+	VISP Direct is the default Twitch/Kick output and uses distribution-encode
+	knobs from the same file.
    Defaults are `libx264` at 6000 kbps and 30 fps; set them from a measured
    CPU-per-forwarder number on this box, not from a guess:
 
@@ -67,9 +68,12 @@ disconnecting either side behaves as expected. Only then install
    DIRECT_VIDEO_FPS=30
    ```
 
-   The matching per-relay cap is configured in the admin console. The
-   bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
-   Twitch + Kick on one source counts as two.
+	The matching per-relay cap is configured in the admin console. The
+	bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
+	Twitch + Kick on one source counts as two.
+	Set this cap from a real simultaneous-encode test. Direct admission reserves
+	one slot per destination before the publisher is accepted; a full relay
+	rejects the new publish instead of starting without a platform output.
 
    The bonded SRT gateway accepts these optional limits from the same file:
 
@@ -152,7 +156,7 @@ pprof stay disabled.
    `root` into `/opt/visp`. The API runs under Node (`dist/index.mjs`); the portal
    and release tooling use Bun. Both services run as `root`.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`, including the
-   Twitch and Kick application credentials and snapshot bucket settings. Use
+   Twitch, Kick, and Google application credentials and snapshot bucket settings. Use
    the relay's Tailscale address for `MEDIAMTX_API_URL`, generate
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
    the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`
@@ -206,6 +210,63 @@ pprof stay disabled.
 
    Configure root key authentication over Tailscale and the GitHub production
    environment described in [`UPDATE.md`](UPDATE.md).
+
+### Google OAuth and YouTube Direct
+
+Create one **Web application** OAuth client in the production Google Cloud
+project:
+
+1. Enable **YouTube Data API v3** under **APIs & Services → Library**.
+2. Configure **Google Auth Platform → Branding**, choose the production
+   **Audience**, and add `openid`, `email`, `profile`, and
+   `https://www.googleapis.com/auth/youtube.force-ssl` under **Data Access**.
+   An external public app must complete Google's verification for the YouTube
+   scope. Keep named accounts under **Test users** until verification is done.
+3. Under **Clients**, create a **Web application** client. For a deployment
+   whose `APP_DOMAIN` is `visp-stream.com`, enter:
+
+   ```text
+   Authorized JavaScript origin:
+   https://visp-stream.com
+
+   Authorized redirect URI:
+   https://visp-stream.com/api/auth/callback/google
+   ```
+
+   For another deployment replace `visp-stream.com` with the exact
+   `APP_DOMAIN`. Origins never include a path or trailing callback. Better Auth
+   handles OAuth server-side; the origin does not receive Google tokens.
+4. Store the generated credentials only in `/etc/visp/app.env`:
+
+   ```text
+   GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=...
+   ```
+
+   The web, native, OBS Remote, and admin clients all return through this one
+   server callback. Do not create mobile OAuth clients and do not put the
+   secret in Vite or Expo environment files.
+5. Deploy, load `/etc/visp/app.env` into the shell, and run the token migration
+   from `/opt/visp` before restarting `visp-server`:
+
+   ```bash
+   set -a
+   . /etc/visp/app.env
+   set +a
+   bun apps/server/scripts/encrypt-oauth-tokens.ts --dry-run
+   bun apps/server/scripts/encrypt-oauth-tokens.ts
+   systemctl restart visp-server
+   ```
+
+   Better Auth encrypts all newly written access and refresh tokens; this one-time command
+   encrypts older provider rows. Keep `BETTER_AUTH_SECRET` backed up because it
+   is the encryption key.
+
+VISP requests offline access and explicit consent. YouTube Direct creates a
+public broadcast for each publishing session, binds it to a reusable managed
+stream, and enables automatic start and stop. One enabled destination consumes
+one relay forwarder slot; Twitch, Kick, and YouTube together require three free
+slots in that relay's configured `maxForwarders`.
 
 Do not put the MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relays' direct public IPs, and the hook endpoints additionally

@@ -24,7 +24,10 @@ import type {
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
 import { VispSrtView } from "../../modules/visp-srt";
-import { DirectViewerOverlay } from "../components/direct-viewer-overlay";
+import {
+	DirectViewerOverlay,
+	useDirectViewerCounts,
+} from "../components/direct-viewer-overlay";
 import { EmbeddedChatOverlayBridge } from "../components/embedded-chat-overlay-bridge";
 import { FloatingChatLayer } from "../components/floating-chat-layer";
 import type { ObsStatus } from "../components/obs-control-button";
@@ -38,7 +41,7 @@ import {
 	StreamSignIn,
 } from "../components/stream-setup";
 import { type AudioTier, audioTierForLevel } from "../lib/audio-level";
-import { authCallbackURL, authClient } from "../lib/backend";
+import { apiClient, authCallbackURL, authClient } from "../lib/backend";
 import {
 	hasSeenBondingWarning,
 	loadBondingMode,
@@ -108,8 +111,9 @@ export default function Index() {
 	const [streamInfoOpen, setStreamInfoOpen] = useState(false);
 	const [selectedAudioInputId, setSelectedAudioInputId] = useState("default");
 	const [selectedZoom, setSelectedZoom] = useState(1);
-	const [signingIn, setSigningIn] = useState<"twitch" | "kick">();
+	const [signingIn, setSigningIn] = useState<"twitch" | "kick" | "google">();
 	const [state, setState] = useState<StreamState>("idle");
+	const [preflighting, setPreflighting] = useState(false);
 	const [reconnectAttempt, setReconnectAttempt] = useState<number>();
 	const [toast, setToast] = useState<{ spinning: boolean; text: string }>();
 	const showToast = useCallback((text: string, spinning = false) => {
@@ -148,7 +152,8 @@ export default function Index() {
 		updateChatPreferences,
 	} = streamAccount;
 	const orientation = window.width > window.height ? "landscape" : "portrait";
-	const settingsDisabled = state === "preparing" || isStreamSession(state);
+	const settingsDisabled =
+		preflighting || state === "preparing" || isStreamSession(state);
 	// No linked and enabled provider means no messages, so the overlay stays off
 	// regardless of the stored preference.
 	const chatEnabled = chatConnections.some(
@@ -168,8 +173,15 @@ export default function Index() {
 		const providers: DirectProvider[] = [];
 		if (publishPath?.directTwitch) providers.push("twitch");
 		if (publishPath?.directKick) providers.push("kick");
+		if (publishPath?.directYoutube) providers.push("youtube");
 		return providers;
-	}, [publishPath?.directKick, publishPath?.directTwitch]);
+	}, [
+		publishPath?.directKick,
+		publishPath?.directTwitch,
+		publishPath?.directYoutube,
+	]);
+	const viewerActive = appState === "active" && isPublishing(state);
+	const viewerCounts = useDirectViewerCounts(viewerActive, directProviders);
 	const directContribution = Boolean(directProviders.length);
 	const contributionMode = directContribution ? "direct" : "full";
 	const speechFeatures = useStreamSpeechFeatures(cameraNode, {
@@ -222,6 +234,10 @@ export default function Index() {
 		reconnectAttempt,
 		state,
 		statuses: liveChat.statuses,
+		viewers: directProviders.map((provider) => ({
+			provider,
+			count: viewerCounts[provider],
+		})),
 	});
 
 	const prepare = useCallback(async () => {
@@ -360,12 +376,12 @@ export default function Index() {
 		}
 	}, [draft, setStreamUrl, streamOwner]);
 
-	const signIn = useCallback(async (provider: "twitch" | "kick") => {
+	const signIn = useCallback(async (provider: "twitch" | "kick" | "google") => {
 		setSigningIn(provider);
 		setMessage(undefined);
 		try {
 			const result =
-				provider === "twitch"
+				provider !== "kick"
 					? await authClient.signIn.social({
 							callbackURL: authCallbackURL(),
 							provider,
@@ -436,15 +452,23 @@ export default function Index() {
 			} else {
 				if (!(await confirmBondingDataUse())) return;
 				showToast("Connecting to relay service…", true);
+				setPreflighting(true);
+				const prepared =
+					userId && publishPathId
+						? await apiClient.direct.prepare.mutate({ pathId: publishPathId })
+						: null;
 				if (configuration) {
 					await configureVideoCapture(
 						cameraRef.current,
 						configuration,
-						contributionMode,
+						prepared?.contributionMode ?? contributionMode,
 						bondingMode ?? "off",
 					);
 				}
 				await cameraRef.current?.start(streamUrl);
+				if (prepared) {
+					await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
+				}
 			}
 		} catch (error) {
 			showToast(
@@ -452,15 +476,21 @@ export default function Index() {
 					? error.message
 					: "Could not connect to the relay service.",
 			);
+		} finally {
+			setPreflighting(false);
 		}
 	}, [
 		bondingMode,
 		confirmBondingDataUse,
 		configuration,
 		contributionMode,
+		publishPathId,
+		refreshDirectOutputs,
+		refreshPublishDevices,
 		showToast,
 		state,
 		streamUrl,
+		userId,
 	]);
 
 	const toggleOrientation = useCallback(async () => {
@@ -750,6 +780,7 @@ export default function Index() {
 				style={StyleSheet.absoluteFill}
 			/>
 			<StreamCameraControls
+				actionPending={preflighting}
 				audioTier={audioTier}
 				bondingMode={bondingMode}
 				cameraSwitchDisabled={cameraSwitchDisabled}
@@ -780,7 +811,8 @@ export default function Index() {
 				streamUrl={streamUrl}
 			/>
 			<DirectViewerOverlay
-				active={appState === "active" && isPublishing(state)}
+				active={viewerActive}
+				counts={viewerCounts}
 				providers={directProviders}
 			/>
 			<EmbeddedChatOverlayBridge

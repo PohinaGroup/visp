@@ -32,6 +32,22 @@ const finnishUi: Record<string, string> = {
 	"Live signal path": "Suora signaalipolku",
 	"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.":
 		"Laitteet julkaisevat relaylle, OBS lukee syötteet ja sinä aloitat lähetyksen. Tai lähetä laite suoraan alustalle Direct-lähdöllä.",
+	"Devices publish to the relay and Direct sends them to Twitch or Kick. Add OBS afterward for monitoring, recording, or scenes.":
+		"Laitteet julkaisevat relaylle ja Direct lähettää ne Twitchiin tai Kickiin. Lisää OBS myöhemmin valvontaa, tallennusta tai kohtauksia varten.",
+	"Devices publish to the relay and Direct sends them to Twitch, Kick, or YouTube. Add OBS afterward for monitoring, recording, or scenes.":
+		"Laitteet julkaisevat relaylle ja Direct lähettää ne Twitchiin, Kickiin tai YouTubeen. Lisää OBS myöhemmin valvontaa, tallennusta tai kohtauksia varten.",
+	"Send a publishing device straight to Twitch, Kick, or YouTube without OBS. The relay encodes for each platform.":
+		"Lähetä julkaisulaite suoraan Twitchiin, Kickiin tai YouTubeen ilman OBS:ää. Relay koodaa videon jokaiselle alustalle.",
+	"Default YouTube broadcast title": "YouTube-lähetyksen oletusotsikko",
+	"Save title": "Tallenna otsikko",
+	"YouTube title saved": "YouTube-otsikko tallennettu",
+	"YouTube broadcasts are public": "YouTube-lähetykset ovat julkisia",
+	"VISP creates a new public YouTube broadcast when this device starts publishing.":
+		"VISP luo uuden julkisen YouTube-lähetyksen, kun tämä laite aloittaa julkaisemisen.",
+	"Optional OBS source": "Valinnainen OBS-lähde",
+	"Switch to Direct when you are ready": "Vaihda Directiin, kun olet valmis",
+	"Your existing OBS workflow is unchanged. Authorize a destination and select it below when you are ready to switch to Direct.":
+		"Nykyinen OBS-työnkulkusi ei muutu. Valtuuta kohde ja valitse se alta, kun olet valmis vaihtamaan Directiin.",
 	"Video sources": "Videolähteet",
 	"No publishing devices": "Ei julkaisulaitteita",
 	"Create a device for your first video source.":
@@ -82,6 +98,10 @@ const finnishUi: Record<string, string> = {
 	"No devices": "Ei laitteita",
 	live: "suorana",
 	Relay: "Välitys",
+	Receiving: "Vastaanottaa",
+	Ready: "Valmis",
+	"Choose output": "Valitse lähtö",
+	"OBS only": "Vain OBS",
 	"Keys set": "Avaimet asetettu",
 	"Setup needed": "Määritys tarvitaan",
 	Connected: "Yhdistetty",

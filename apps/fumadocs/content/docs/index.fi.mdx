@@ -1,11 +1,11 @@
 ---
 title: VISP
-description: Puhelimesi on kamera. OBS-kokoonpanosi pysyy studiona.
+description: Puhelimesi on kamera. VISP lähettää Directillä Twitchiin tai Kickiin.
 ---
 
 # VISP
 
-VISP välittää puhelimen tai selaimen kameran turvallisesti kotona toimivaan OBS Studioon. Kohtaukset, grafiikat, hälytykset ja lähetysavain pysyvät omassa tuotannossasi.
+VISP välittää puhelimen tai selaimen kameran relayn kautta suoraan Twitchiin tai Kickiin. OBS voi lukea saman alkuperäisen syötteen valinnaisesti kohtauksia, grafiikoita, valvontaa tai tallennusta varten.
 
 ## Valitse seuraava vaihe
 
@@ -14,4 +14,4 @@ VISP välittää puhelimen tai selaimen kameran turvallisesti kotona toimivaan O
 - [OBS-etäohjaus](/fi/docs/obs-remote-control) yhdistää VISP-lisäosan.
 - [Itse ylläpito](/fi/docs/self-hosting) on palvelimen ylläpitäjille.
 
-VISP ei tarvitse Twitchin, Kickin tai muun alustan lähetysavainta. OBS lähettää lopullisen ohjelman suoratoistopalveluun tavalliseen tapaan.
+Direct hakee Twitchin tai Kickin lähetysavaimen OAuth-luvalla vain lähdön käynnistyessä. Avainta ei näytetä julkaisijalle. Älä julkaise OBS:stä samaan kohteeseen, jonka Direct omistaa.

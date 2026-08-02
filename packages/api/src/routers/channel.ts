@@ -11,9 +11,9 @@ export const channelRouter = router({
 		.input(
 			z.object({
 				providers: z
-					.array(z.enum(["twitch", "kick"]))
+					.array(z.enum(["twitch", "kick", "youtube"]))
 					.min(1)
-					.max(2),
+					.max(3),
 			}),
 		)
 		.query(({ ctx, input }) =>

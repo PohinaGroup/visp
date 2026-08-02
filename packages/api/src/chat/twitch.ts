@@ -307,7 +307,7 @@ class TwitchConnectorManager {
 			enabled &&
 			!this.connectors.has(userId)
 		) {
-			const lock = await tryAdvisoryLock(`chat:${userId}`, () => {
+			const lock = await tryAdvisoryLock(`chat:twitch:${userId}`, () => {
 				void this.lockLost(userId);
 			});
 			if (!lock) {

@@ -10,7 +10,7 @@ import {
 import { chatTickets } from "../chat/tickets";
 import { protectedProcedure, router } from "../index";
 
-const provider = z.enum(["twitch", "kick"]);
+const provider = z.enum(["twitch", "kick", "youtube"]);
 
 export const chatRouter = router({
 	connections: router({

@@ -3,6 +3,7 @@ import {
 	type ChatBadge,
 	type ChatFragment,
 	PROVIDER_CHIP,
+	PROVIDER_PRESENTATION,
 } from "@VISP/api/chat/contract";
 import { Image } from "expo-image";
 import { useEffect, useState } from "react";
@@ -174,7 +175,7 @@ export function FloatingChat({
 										fontWeight: "900",
 									}}
 								>
-									{message.provider === "twitch" ? "T" : "K"}
+									{PROVIDER_PRESENTATION[message.provider].initial}
 								</Text>
 							</View>
 							{keyedBadges(message.sender.badges).map(({ badge, key }) => (

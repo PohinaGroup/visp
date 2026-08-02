@@ -41,13 +41,15 @@ function RequestDelete() {
 	const fi = useLocale() === "fi";
 	const { data: session, isPending: sessionPending } = authClient.useSession();
 	const [pending, setPending] = useState(false);
-	const [signingProvider, setSigningProvider] = useState<"twitch" | "kick">();
+	const [signingProvider, setSigningProvider] = useState<
+		"twitch" | "kick" | "google"
+	>();
 
-	const signIn = async (provider: "twitch" | "kick") => {
+	const signIn = async (provider: "twitch" | "kick" | "google") => {
 		setPending(true);
 		setSigningProvider(provider);
 		const result =
-			provider === "twitch"
+			provider !== "kick"
 				? await authClient.signIn.social({
 						provider,
 						callbackURL: authRedirectURL(
@@ -130,8 +132,8 @@ function RequestDelete() {
 					<ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
 						<li>
 							{fi
-								? "Kirjaudu VISPiin yhdistetyllä Twitch- tai Kick-tilillä."
-								: "Sign in with a Twitch or Kick account connected to VISP."}
+								? "Kirjaudu VISPiin yhdistetyllä Twitch-, Kick- tai Google-tilillä."
+								: "Sign in with a Twitch, Kick, or Google account connected to VISP."}
 						</li>
 						<li>
 							{fi
@@ -187,6 +189,19 @@ function RequestDelete() {
 									: fi
 										? "Kirjaudu Kickillä"
 										: "Sign in with Kick"}
+							</Button>
+							<Button
+								disabled={pending}
+								onClick={() => void signIn("google")}
+								variant="outline"
+							>
+								{signingProvider === "google"
+									? fi
+										? "Avataan Googlea..."
+										: "Opening Google..."
+									: fi
+										? "Kirjaudu Googlella"
+										: "Sign in with Google"}
 							</Button>
 						</>
 					)}

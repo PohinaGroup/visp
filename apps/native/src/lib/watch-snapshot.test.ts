@@ -2,10 +2,13 @@ import type { ChatMessage } from "@VISP/api/chat/contract";
 import { describe, expect, test } from "bun:test";
 import { buildWatchSnapshot } from "./watch-snapshot";
 
-function message(id: string): ChatMessage {
+function message(
+	id: string,
+	provider: ChatMessage["provider"] = "twitch",
+): ChatMessage {
 	return {
 		id,
-		provider: "twitch",
+		provider,
 		sentAt: "2026-07-18T00:00:00.000Z",
 		sender: {
 			id: "viewer",
@@ -33,7 +36,9 @@ describe("watch snapshot", () => {
 			configuration: { cameraId: "back", width: 1280, height: 720, fps: 30 },
 			liveStartedAt: 100,
 			message: "Reconnect attempt 2 of 3",
-			messages: [1, 2, 3, 4, 5].map((id) => message(String(id))),
+			messages: [1, 2, 3, 4]
+				.map((id) => message(String(id)))
+				.concat([message("5", "youtube")]),
 			obs: {
 				configured: true,
 				connected: true,
@@ -46,6 +51,10 @@ describe("watch snapshot", () => {
 			state: "reconnecting",
 			statuses: { twitch: "connected", kick: "disconnected" },
 			updatedAt: 200,
+			viewers: [
+				{ provider: "twitch", count: 12 },
+				{ provider: "youtube", count: null },
+			],
 		});
 
 		expect(snapshot.chat.messages.map(({ id }) => id)).toEqual(["3", "4", "5"]);
@@ -57,6 +66,11 @@ describe("watch snapshot", () => {
 			badges: ["Moderator"],
 			text: "Hi Wave",
 		});
+		expect(snapshot.chat.messages[2]?.provider).toBe("youtube");
+		expect(snapshot.viewers).toEqual([
+			{ provider: "twitch", count: 12 },
+			{ provider: "youtube", count: null },
+		]);
 		expect(snapshot.stream).toEqual({
 			state: "reconnecting",
 			liveStartedAt: 100,

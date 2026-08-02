@@ -69,7 +69,7 @@ export function DashboardPage() {
 						}
 						eyebrow={t("Live signal path")}
 						subtitle={t(
-							"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.",
+							"Devices publish to the relay and Direct sends them to Twitch, Kick, or YouTube. Add OBS afterward for monitoring, recording, or scenes.",
 						)}
 						title={t("Dashboard")}
 					/>
@@ -87,8 +87,11 @@ export function DashboardPage() {
 							}
 						/>
 						<VStack gap={4}>
-							<ObsControlCard />
 							<DirectCard />
+							<Text color="secondary" type="supporting">
+								{t("Optional OBS source")}
+							</Text>
+							<ObsControlCard />
 							<ConnectionsCard />
 							{advancedMode ? (
 								<VStack gap={2}>

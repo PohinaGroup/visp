@@ -103,6 +103,7 @@ export function useStreamSettingsModel({
 					PROVIDER_SCOPES[provider].streamKeyRequest,
 				),
 			onRevealPublishDevice: streamAccount.revealPublishDevice,
+			onUpdateYoutubeTitle: streamAccount.updateYoutubeTitle,
 			publishDevices: streamAccount.publishDevices,
 			revealedDeviceUrls: streamAccount.revealedDeviceUrls,
 		},

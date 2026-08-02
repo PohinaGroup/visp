@@ -75,13 +75,13 @@ function Loading() {
 }
 
 function SignIn() {
-	const [pending, setPending] = useState<"twitch" | "kick">();
+	const [pending, setPending] = useState<"twitch" | "kick" | "google">();
 
-	const signIn = async (provider: "twitch" | "kick") => {
+	const signIn = async (provider: "twitch" | "kick" | "google") => {
 		setPending(provider);
 		const callbackURL = window.location.origin;
 		const result =
-			provider === "twitch"
+			provider !== "kick"
 				? await authClient.signIn.social({ provider, callbackURL })
 				: await authClient.signIn.oauth2({
 						providerId: provider,
@@ -102,7 +102,7 @@ function SignIn() {
 					</div>
 					<CardTitle className="text-xl">VISP Admin</CardTitle>
 					<CardDescription>
-						Sign in with the same Twitch or Kick account you use with VISP.
+						Sign in with the same Twitch, Kick, or Google account you use with VISP.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-2">
@@ -112,6 +112,14 @@ function SignIn() {
 						onClick={() => signIn("twitch")}
 					>
 						{pending === "twitch" ? "Opening Twitch…" : "Continue with Twitch"}
+					</Button>
+					<Button
+						className="w-full"
+						disabled={Boolean(pending)}
+						variant="outline"
+						onClick={() => signIn("google")}
+					>
+						{pending === "google" ? "Opening Google…" : "Continue with Google"}
 					</Button>
 					<Button
 						className="w-full"
@@ -291,14 +299,8 @@ function DetailItem({
 	);
 }
 
-// Mirrors the flags admin.users.setFlag accepts. directBeta gates relay
-// capacity; the better* flags gate spend at hosted providers.
+// Mirrors the hosted-feature flags admin.users.setFlag accepts.
 const USER_FLAGS = [
-	{
-		key: "directBeta",
-		label: "VISP Direct",
-		hint: "Each forwarder is a full distribution encode on one relay node.",
-	},
 	{
 		key: "betterTts",
 		label: "Better TTS",
@@ -918,6 +920,10 @@ function RelayAdmin() {
 												}
 											}}
 										/>
+										<p className="text-muted-foreground text-xs">
+											{relay.activeForwarders} active ·{" "}
+											{relay.reservedForwarders} reserved
+										</p>
 									</td>
 									<td>
 										{relay.drainedAt ? (

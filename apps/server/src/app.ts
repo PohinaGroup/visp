@@ -84,6 +84,15 @@ export function createApp() {
 		.use(ttsRoutes)
 		.use(audioIsolationRoutes)
 		.use(subtitlesRoutes)
+		.get("/api/auth/google-local-callback", ({ request }) => {
+			const incoming = new URL(request.url);
+			const callback = new URL(
+				"/api/auth/callback/google",
+				env.BETTER_AUTH_URL,
+			);
+			callback.search = incoming.search;
+			return Response.redirect(callback.toString(), 302);
+		})
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {
 				return auth.handler(request);

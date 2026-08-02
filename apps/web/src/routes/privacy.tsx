@@ -43,11 +43,13 @@ function PrivacyPage() {
 					VISP is a self-hosted SRT/RTMP relay and control plane for remote live
 					streaming. You are never asked to paste a broadcast/stream key. If you
 					turn on VISP Direct for a device, VISP retrieves that platform's
-					stream key from Twitch or Kick using permission you grant in their
-					OAuth screen, uses it only to run the forwarding process while that
-					device is live, and does not store it as a separate value or return it
-					to any client app. VISP relays live media and provides account,
-					dashboard, and device features around that relay.
+					stream destination from Twitch, Kick, or YouTube using permission you
+					grant in their OAuth screen, uses it only to run the forwarding
+					process while that device is live, and does not store a stream key as
+					a separate value or return it to any client app. YouTube Direct
+					creates a public broadcast with automatic start and stop. VISP relays
+					live media and provides account, dashboard, and device features around
+					that relay.
 				</p>
 			</section>
 
@@ -55,8 +57,8 @@ function PrivacyPage() {
 				<h2>3. Data we process</h2>
 				<ul>
 					<li>
-						<strong>Account data</strong> from Twitch or Kick sign-in: name,
-						email address, profile image, and linked provider account
+						<strong>Account data</strong> from Twitch, Kick, or Google sign-in:
+						name, email address, profile image, and linked provider account
 						identifiers.
 					</li>
 					<li>
@@ -129,12 +131,13 @@ function PrivacyPage() {
 				<p>
 					We use infrastructure and subprocessors necessary to run VISP (for
 					example hosting, database, object storage for snapshots, and OAuth
-					identity providers Twitch and Kick). When analytics is configured, it
-					runs on our own self-hosted Rybbit instance, so analytics data is not
-					shared with a third-party analytics provider. Stream destinations you
-					choose (OBS, platforms) receive the media you publish; VISP does not
-					take ownership of your stream keys, and retrieves them only for the
-					duration of a VISP Direct session you have enabled.
+					identity providers Twitch, Kick, and Google). When analytics is
+					configured, it runs on our own self-hosted Rybbit instance, so
+					analytics data is not shared with a third-party analytics provider.
+					Stream destinations you choose (OBS, platforms) receive the media you
+					publish; VISP does not take ownership of your stream keys, and
+					retrieves them only for the duration of a VISP Direct session you have
+					enabled.
 				</p>
 			</section>
 

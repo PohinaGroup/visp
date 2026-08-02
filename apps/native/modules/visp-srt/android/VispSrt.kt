@@ -1312,14 +1312,17 @@ class VispSrtView(context: Context, appContext: AppContext) :
       val sender = message["sender"] as? Map<*, *>
       senderPaint.color = parseChatColor(sender?.get("color") as? String)
       var senderX = 14f
-      val twitch = message["provider"] == "twitch"
+      val provider = message["provider"] as? String
+      val providerInitial = if (provider == "twitch") "T" else if (provider == "youtube") "Y" else "K"
+      val providerBackground = if (provider == "twitch") "#9146FF" else if (provider == "youtube") "#FF0000" else "#53FC18"
+      val providerForeground = if (provider == "kick") "#071005" else "#FFFFFF"
       drawChatChip(
         canvas,
-        if (twitch) "T" else "K",
+        providerInitial,
         senderX,
         (y + 8).toFloat(),
-        Color.parseColor(if (twitch) "#9146FF" else "#53FC18"),
-        Color.parseColor(if (twitch) "#FFFFFF" else "#071005"),
+        Color.parseColor(providerBackground),
+        Color.parseColor(providerForeground),
       )
       senderX += 24
       badges(message).take(4).forEach { badge ->

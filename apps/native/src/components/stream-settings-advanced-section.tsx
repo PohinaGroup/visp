@@ -1,4 +1,5 @@
 import * as UI from "@expo/ui";
+import { useEffect, useState } from "react";
 import type { BondingMode } from "../../modules/visp-srt";
 import type { apiClient } from "../lib/backend";
 import {
@@ -23,9 +24,14 @@ export type AccountSettings = {
 export type AdvancedSettings = {
 	directOutputs?: DirectOutputs;
 	installationId?: string;
-	onApplyDirectSelection: (pathId: number, selection: string) => void;
-	onAuthorizeDirect: (provider: "twitch" | "kick") => void;
+	onApplyDirectSelection: (
+		pathId: number,
+		provider: "twitch" | "kick" | "youtube",
+		enabled: boolean,
+	) => void;
+	onAuthorizeDirect: (provider: "twitch" | "kick" | "youtube") => void;
 	onRevealPublishDevice: (pathId: number) => void;
+	onUpdateYoutubeTitle: (title: string) => void;
 	publishDevices: PublishDevices;
 	revealedDeviceUrls: Record<number, string>;
 };
@@ -35,18 +41,16 @@ export type NetworkSettings = {
 	onUpdateBondingMode: (mode: BondingMode) => Promise<void>;
 };
 
-function directSelectionOf(path: DirectPath) {
-	if (path.twitch && path.kick) return "both";
-	if (path.twitch) return "twitch";
-	if (path.kick) return "kick";
-	return "off";
-}
-
 function directStateSummary(path: DirectPath) {
-	const parts = (["twitch", "kick"] as const).flatMap((provider) => {
+	const parts = (["twitch", "kick", "youtube"] as const).flatMap((provider) => {
 		const state = path.state[provider];
 		if (!state) return [];
-		const label = provider === "twitch" ? "Twitch" : "Kick";
+		const label =
+			provider === "twitch"
+				? "Twitch"
+				: provider === "kick"
+					? "Kick"
+					: "YouTube";
 		return [`${label} ${path.error[provider] ?? state}`];
 	});
 	return parts.length > 0 ? parts.join(" · ") : "No direct output";
@@ -64,6 +68,11 @@ function directWarning(outputs: DirectOutputs) {
 	if (outputs.paths.some((path) => path.twitch && path.kick)) {
 		lines.push(
 			"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout during a multistreaming session.",
+		);
+	}
+	if (outputs.paths.some((path) => path.youtube)) {
+		lines.push(
+			"VISP creates a new public YouTube broadcast when publishing starts.",
 		);
 	}
 	return lines.join("\n\n");
@@ -91,6 +100,16 @@ export function AdvancedSection({
 	settingsDisabled: boolean;
 }) {
 	const hasAdvanced = Boolean(account);
+	const [youtubeTitle, setYoutubeTitle] = useState(
+		advanced.directOutputs?.youtubeTitle ?? "Live from VISP",
+	);
+	const youtubeTitleInput = UI.useNativeState(youtubeTitle);
+	useEffect(() => {
+		if (advanced.directOutputs?.youtubeTitle) {
+			setYoutubeTitle(advanced.directOutputs.youtubeTitle);
+			youtubeTitleInput.value = advanced.directOutputs.youtubeTitle;
+		}
+	}, [advanced.directOutputs?.youtubeTitle, youtubeTitleInput]);
 
 	return (
 		<>
@@ -140,143 +159,144 @@ export function AdvancedSection({
 			) : null}
 
 			{hasAdvanced && advancedOpen ? (
-				<>
-					{account && advanced.publishDevices.length > 0 ? (
-						<UI.FieldGroup.Section title="Publishing devices">
-							{advanced.publishDevices.map((device) => {
-								const revealedUrl = advanced.revealedDeviceUrls[device.id];
-								const origin =
-									device.publishOrigin === "native"
-										? "VISP Native"
-										: device.publishOrigin === "web"
-											? "Web"
-											: "Legacy";
-								return (
-									<UI.Row alignment="center" key={device.id} spacing={12}>
-										<UI.Column spacing={2}>
-											<UI.Text>
-												{device.nativeInstallationId === advanced.installationId
-													? `${device.label} · This device`
-													: device.label}
-											</UI.Text>
-											<UI.Text textStyle={SUBTLE_TEXT}>
-												{`${origin} · ${device.publishing ? "Live" : "Offline"}`}
-											</UI.Text>
-											{revealedUrl ? (
-												<UI.Text
-													numberOfLines={3}
-													textStyle={{ color: SUBTLE, fontSize: 11 }}
-												>
-													{revealedUrl}
-												</UI.Text>
-											) : null}
-										</UI.Column>
-										<UI.Spacer flexible />
-										{device.publishRevealable && !revealedUrl ? (
-											<UI.Button
-												label="Reveal"
-												onPress={() =>
-													advanced.onRevealPublishDevice(device.id)
-												}
-												variant="text"
-											/>
-										) : null}
-									</UI.Row>
-								);
-							})}
-						</UI.FieldGroup.Section>
-					) : null}
-
-					{account && advanced.directOutputs ? (
-						<UI.FieldGroup.Section title="Direct output">
-							{advanced.directOutputs.betaEnabled ? (
-								<>
-									{advanced.directOutputs.providers.map((provider) => (
-										<UI.Row
-											alignment="center"
-											key={provider.provider}
-											spacing={12}
-										>
-											<UI.Column spacing={2}>
-												<UI.Text>
-													{provider.provider === "twitch" ? "Twitch" : "Kick"}
-												</UI.Text>
-												<UI.Text textStyle={SUBTLE_TEXT}>
-													{provider.canReadStreamKey
-														? "Authorized"
-														: provider.linked
-															? "Needs streaming permission"
-															: "Not linked"}
-												</UI.Text>
-											</UI.Column>
-											<UI.Spacer flexible />
-											<UI.Button
-												disabled={chatBusy}
-												label={
-													provider.canReadStreamKey
-														? "Reauthorize"
-														: "Authorize"
-												}
-												onPress={() =>
-													advanced.onAuthorizeDirect(provider.provider)
-												}
-												variant="outlined"
-											/>
-										</UI.Row>
-									))}
-									{advanced.directOutputs.paths.map((path) => (
-										<UI.Row alignment="center" key={path.id} spacing={12}>
-											<UI.Column spacing={2}>
-												<UI.Text>{path.label}</UI.Text>
-												<UI.Text textStyle={SUBTLE_TEXT}>
-													{path.publishing
-														? "Live · stop to change outputs"
-														: directStateSummary(path)}
-												</UI.Text>
-											</UI.Column>
-											<UI.Spacer flexible />
-											<UI.Picker
-												enabled={!path.publishing}
-												onValueChange={(selection) =>
-													advanced.onApplyDirectSelection(
-														path.id,
-														String(selection),
-													)
-												}
-												selectedValue={directSelectionOf(path)}
-											>
-												<UI.Picker.Item label="Off" value="off" />
-												<UI.Picker.Item label="Twitch" value="twitch" />
-												<UI.Picker.Item label="Kick" value="kick" />
-												<UI.Picker.Item label="Both" value="both" />
-											</UI.Picker>
-										</UI.Row>
-									))}
-									<UI.FieldGroup.SectionFooter>
-										<UI.Text textStyle={SUBTLE_TEXT}>
-											{directWarning(advanced.directOutputs)}
+				account && advanced.publishDevices.length > 0 ? (
+					<UI.FieldGroup.Section title="Publishing devices">
+						{advanced.publishDevices.map((device) => {
+							const revealedUrl = advanced.revealedDeviceUrls[device.id];
+							const origin =
+								device.publishOrigin === "native"
+									? "VISP Native"
+									: device.publishOrigin === "web"
+										? "Web"
+										: "Legacy";
+							return (
+								<UI.Row alignment="center" key={device.id} spacing={12}>
+									<UI.Column spacing={2}>
+										<UI.Text>
+											{device.nativeInstallationId === advanced.installationId
+												? `${device.label} · This device`
+												: device.label}
 										</UI.Text>
-									</UI.FieldGroup.SectionFooter>
-								</>
-							) : (
-								<UI.FieldGroup.SectionFooter>
-									<UI.Text textStyle={SUBTLE_TEXT}>
-										VISP Direct is in limited beta. It runs the platform encode
-										on a single relay node, so access is handed out a few
-										accounts at a time.
-									</UI.Text>
-								</UI.FieldGroup.SectionFooter>
-							)}
-						</UI.FieldGroup.Section>
-					) : null}
+										<UI.Text textStyle={SUBTLE_TEXT}>
+											{`${origin} · ${device.publishing ? "Live" : "Offline"}`}
+										</UI.Text>
+										{revealedUrl ? (
+											<UI.Text
+												numberOfLines={3}
+												textStyle={{ color: SUBTLE, fontSize: 11 }}
+											>
+												{revealedUrl}
+											</UI.Text>
+										) : null}
+									</UI.Column>
+									<UI.Spacer flexible />
+									{device.publishRevealable && !revealedUrl ? (
+										<UI.Button
+											label="Reveal"
+											onPress={() => advanced.onRevealPublishDevice(device.id)}
+											variant="text"
+										/>
+									) : null}
+								</UI.Row>
+							);
+						})}
+					</UI.FieldGroup.Section>
+				) : null
+			) : null}
 
-					{account ? (
-						<DestinationSection
-							destination={destination}
-							settingsDisabled={settingsDisabled}
-						/>
-					) : null}
-				</>
+			{account && advanced.directOutputs ? (
+				<UI.FieldGroup.Section title="Streaming destination">
+					{advanced.directOutputs.providers.map((provider) => (
+						<UI.Row alignment="center" key={provider.provider} spacing={12}>
+							<UI.Column spacing={2}>
+								<UI.Text>
+									{provider.provider === "twitch"
+										? "Twitch"
+										: provider.provider === "kick"
+											? "Kick"
+											: "YouTube"}
+								</UI.Text>
+								<UI.Text textStyle={SUBTLE_TEXT}>
+									{provider.canReadStreamKey
+										? "Authorized"
+										: provider.linked
+											? "Needs streaming permission"
+											: "Not linked"}
+								</UI.Text>
+							</UI.Column>
+							<UI.Spacer flexible />
+							<UI.Button
+								disabled={chatBusy}
+								label={provider.canReadStreamKey ? "Reauthorize" : "Authorize"}
+								onPress={() => advanced.onAuthorizeDirect(provider.provider)}
+								variant="outlined"
+							/>
+						</UI.Row>
+					))}
+					<UI.TextInput
+						maxLength={100}
+						placeholder="YouTube broadcast title"
+						value={youtubeTitleInput}
+						onChangeText={setYoutubeTitle}
+					/>
+					<UI.Button
+						disabled={!youtubeTitle.trim()}
+						label="Save YouTube title"
+						onPress={() => advanced.onUpdateYoutubeTitle(youtubeTitle.trim())}
+						variant="outlined"
+					/>
+					{advanced.directOutputs.paths.map((path) => (
+						<UI.Column key={path.id} spacing={8}>
+							<UI.Row alignment="center" spacing={12}>
+								<UI.Column spacing={2}>
+								<UI.Text>{path.label}</UI.Text>
+								<UI.Text textStyle={SUBTLE_TEXT}>
+									{path.publishing
+										? "Live · stop to change outputs"
+										: directStateSummary(path)}
+								</UI.Text>
+								</UI.Column>
+							</UI.Row>
+							{(["twitch", "kick", "youtube"] as const).map(
+								(provider) => (
+									<UI.Switch
+										disabled={path.publishing}
+										key={provider}
+										label={
+											provider === "twitch"
+												? "Twitch"
+												: provider === "kick"
+													? "Kick"
+													: "YouTube"
+										}
+										value={path[provider]}
+										onValueChange={(enabled) =>
+											advanced.onApplyDirectSelection(
+												path.id,
+												provider,
+												enabled,
+											)
+										}
+									/>
+								),
+							)}
+						</UI.Column>
+					))}
+					<UI.FieldGroup.SectionFooter>
+						<UI.Text textStyle={SUBTLE_TEXT}>
+							{directWarning(advanced.directOutputs)}
+						</UI.Text>
+					</UI.FieldGroup.SectionFooter>
+				</UI.FieldGroup.Section>
+			) : null}
+
+			{hasAdvanced && advancedOpen ? (
+				account ? (
+					<DestinationSection
+						destination={destination}
+						settingsDisabled={settingsDisabled}
+					/>
+				) : null
 			) : null}
 		</>
 	);

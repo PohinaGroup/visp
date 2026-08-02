@@ -5,9 +5,9 @@ icon: Antenna
 ---
 
 VISP Direct forwards one publishing device to Twitch, Kick, or both, without
-OBS in the path. It is opt-in per device and currently limited beta: access is
-handed out per account because the relay is a single node and Direct runs the
-platform encode there.
+OBS in the path. It is the default Twitch/Kick output. Before publishing, VISP
+reserves encoder capacity on the assigned relay; a full relay blocks Go Live
+instead of silently starting without a platform output.
 
 ## What changes
 
@@ -28,17 +28,17 @@ not add a second upload from your phone.
 
 ## Enable it
 
-1. On the dashboard, open **Direct output**.
+1. During setup, choose Twitch or Kick and authorize streaming. Existing users
+   can instead open **Direct output** on the dashboard.
 2. Next to Twitch or Kick, choose **Authorize streaming**. This re-opens the
    provider's consent screen and asks for permission to read your stream key.
    VISP requests every permission you had already granted at the same time, so
    authorizing Direct never switches off chat or title and category editing.
 3. Pick **Off**, **Twitch**, **Kick**, or **Both** for the device.
 
-Outputs are saved per device and can only be changed while that device is
-offline. One device may own a given platform at a time — Twitch on your phone
-and Kick on a second device is allowed, two devices publishing to Twitch is
-not.
+Outputs are saved as the account default. The newest device takes ownership at
+Go Live when the previous owner is offline. A running device is never
+interrupted automatically.
 
 ## Your stream key
 

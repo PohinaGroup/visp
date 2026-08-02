@@ -2,16 +2,20 @@ import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq, inArray } from "drizzle-orm";
 import { hasChannelWriteScope } from "../channel/stream-info";
-import { hasScope, hasStreamKeyScope, parseScopes } from "../scopes";
+import { hasChatScope, hasStreamKeyScope, parseScopes } from "../scopes";
 import type { ChatProvider } from "./contract";
 import { chatHub } from "./hub";
 import { createKickSubscription, deleteKickSubscription } from "./kick";
 
-const PROVIDERS = ["twitch", "kick"] as const;
+const PROVIDERS = ["twitch", "kick", "youtube"] as const;
+
+export function chatAuthProvider(provider: ChatProvider) {
+	return provider === "youtube" ? "google" : provider;
+}
 
 export class ChatConnectionError extends Error {
 	constructor(
-		readonly code: "not-linked" | "twitch-consent-required",
+		readonly code: "not-linked" | "consent-required",
 		message: string,
 	) {
 		super(message);
@@ -26,7 +30,7 @@ export async function listChatConnections(userId: string) {
 			.where(
 				and(
 					eq(account.userId, userId),
-					inArray(account.providerId, [...PROVIDERS]),
+					inArray(account.providerId, ["twitch", "kick", "google"]),
 				),
 			),
 		db
@@ -38,7 +42,9 @@ export async function listChatConnections(userId: string) {
 		enabled.map((connection) => connection.provider),
 	);
 	return PROVIDERS.map((provider) => {
-		const linked = accounts.find((entry) => entry.provider === provider);
+		const linked = accounts.find(
+			(entry) => entry.provider === chatAuthProvider(provider),
+		);
 		return {
 			provider,
 			linked: Boolean(linked),
@@ -46,12 +52,11 @@ export async function listChatConnections(userId: string) {
 			// What the provider actually granted. Link calls build their scope
 			// request from this, never from the caller's intent.
 			grantedScopes: parseScopes(linked?.scope),
-			needsConsent:
-				provider === "twitch" &&
-				Boolean(linked) &&
-				!hasScope(linked?.scope, "user:read:chat"),
+			needsConsent: Boolean(linked) && !hasChatScope(provider, linked?.scope),
 			canManageChannel:
-				Boolean(linked) && hasChannelWriteScope(provider, linked?.scope),
+				provider !== "youtube" &&
+				Boolean(linked) &&
+				hasChannelWriteScope(provider, linked?.scope),
 			canReadStreamKey:
 				Boolean(linked) && hasStreamKeyScope(provider, linked?.scope),
 		};
@@ -63,14 +68,17 @@ export async function enableChatConnection(
 	provider: ChatProvider,
 ) {
 	const linked = await db.query.account.findFirst({
-		where: and(eq(account.userId, userId), eq(account.providerId, provider)),
+		where: and(
+			eq(account.userId, userId),
+			eq(account.providerId, chatAuthProvider(provider)),
+		),
 	});
 	if (!linked)
 		throw new ChatConnectionError("not-linked", `Link ${provider} first`);
-	if (provider === "twitch" && !hasScope(linked.scope, "user:read:chat")) {
+	if (!hasChatScope(provider, linked.scope)) {
 		throw new ChatConnectionError(
-			"twitch-consent-required",
-			"Twitch chat permission is required",
+			"consent-required",
+			`${provider === "twitch" ? "Twitch" : "YouTube"} chat permission is required`,
 		);
 	}
 	const existing = await db.query.chatConnection.findFirst({
@@ -80,11 +88,11 @@ export async function enableChatConnection(
 		),
 	});
 	if (existing) {
-		if (provider === "twitch") chatHub.requestConnectorRefresh(userId);
+		if (provider !== "kick") chatHub.requestConnectorRefresh(userId);
 		else chatHub.status(userId, "kick", "connected");
 		return existing;
 	}
-	if (provider === "twitch") {
+	if (provider !== "kick") {
 		const [created] = await db
 			.insert(chatConnection)
 			.values({ userId, provider })
@@ -145,7 +153,7 @@ export async function disableChatConnection(
 			() => undefined,
 		);
 	}
-	if (provider === "twitch") chatHub.requestConnectorRefresh(userId);
+	if (provider !== "kick") chatHub.requestConnectorRefresh(userId);
 	else chatHub.status(userId, "kick", "disconnected");
 	return { disabled: Boolean(removed) };
 }

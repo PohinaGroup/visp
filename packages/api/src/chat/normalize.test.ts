@@ -3,6 +3,7 @@ import {
 	kickEmoteUrl,
 	normalizeKickMessage,
 	normalizeTwitchMessage,
+	normalizeYoutubeMessage,
 	twitchEmoteUrl,
 } from "./normalize";
 
@@ -111,5 +112,57 @@ describe("chat normalization", () => {
 				0,
 			),
 		).toBe(500);
+	});
+
+	test("normalizes displayable YouTube messages and author roles", () => {
+		const message = normalizeYoutubeMessage({
+			id: "yt-1",
+			snippet: {
+				type: "superChatEvent",
+				hasDisplayContent: true,
+				displayMessage: "Great stream!",
+				publishedAt: "2026-08-02T12:00:00Z",
+			},
+			authorDetails: {
+				channelId: "channel-1",
+				displayName: "YouTube Viewer",
+				isChatOwner: true,
+				isChatModerator: true,
+				isChatSponsor: true,
+				isVerified: true,
+			},
+		});
+
+		expect(message).toMatchObject({
+			id: "yt-1",
+			provider: "youtube",
+			sender: {
+				id: "channel-1",
+				name: "YouTube Viewer",
+				badges: [
+					{ type: "broadcaster", label: "Broadcaster" },
+					{ type: "moderator", label: "Moderator" },
+					{ type: "subscriber", label: "Member" },
+					{ type: "verified", label: "Verified" },
+				],
+			},
+			fragments: [{ type: "text", text: "Great stream!" }],
+		});
+		expect(message?.sender.color).toMatch(/^#[0-9A-F]{6}$/);
+	});
+
+	test("ignores non-displayable and malformed YouTube events", () => {
+		expect(
+			normalizeYoutubeMessage({
+				id: "tombstone",
+				snippet: { type: "tombstone", hasDisplayContent: false },
+			}),
+		).toBeNull();
+		expect(
+			normalizeYoutubeMessage({
+				id: "missing-author",
+				snippet: { hasDisplayContent: true, displayMessage: "Hello" },
+			}),
+		).toBeNull();
 	});
 });

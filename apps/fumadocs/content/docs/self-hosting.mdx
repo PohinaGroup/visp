@@ -28,7 +28,7 @@ secrets out of Git. Put production env files under `/etc/visp/` with mode
 - [Bun](https://bun.sh/) 1.3.14+ and PostgreSQL 18 on the app host (matching
   the local Compose target)
 - `ffmpeg` and `curl` on the relay host
-- Twitch and Kick developer applications for OAuth (and Kick chat webhooks)
+- Twitch and Kick developer applications plus a Google OAuth web client with YouTube Data API v3 enabled
 - A private S3-compatible bucket for live-path JPEG snapshots
 - DNS for your app, admin, relay, browser-publisher, and docs hostnames
 
@@ -104,7 +104,7 @@ remain disabled.
    builds, migrations, and the portal.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`:
 
-   - Set Twitch and Kick credentials and the snapshot bucket settings.
+   - Set Twitch, Kick, and Google credentials and the snapshot bucket settings.
    - Point `MEDIAMTX_API_URL` at the relay's Tailscale Control API
      (`http://100.x.x.x:9997`).
    - Generate `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32` and
@@ -165,7 +165,15 @@ remain disabled.
    Twitch: https://APP_DOMAIN/api/auth/callback/twitch
    Kick OAuth: https://APP_DOMAIN/api/auth/oauth2/callback/kick
    Kick webhook: https://APP_DOMAIN/api/webhooks/kick
+   Google: https://APP_DOMAIN/api/auth/callback/google
    ```
+
+   The Google client type is **Web application**. Add `https://APP_DOMAIN` as
+   an authorized JavaScript origin, enable YouTube Data API v3, and add
+   `https://www.googleapis.com/auth/youtube.force-ssl` to the consent screen.
+   A public external app needs Google verification for this scope. Store the
+   credentials only as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in
+   `/etc/visp/app.env`; every VISP client uses the same server callback.
 
    The Kick app needs the `user:read` scope. Chat delivery uses the server's
    app token and `chat.message.sent` webhook subscriptions.

@@ -1,4 +1,9 @@
-import type { ChatMessage, ChatProviderStatus } from "@VISP/api/chat/contract";
+import type {
+	ChatMessage,
+	ChatProvider,
+	ChatProviderStatus,
+} from "@VISP/api/chat/contract";
+import type { DirectProvider } from "@VISP/api/direct";
 import type { StreamState, VideoConfiguration } from "../../modules/visp-srt";
 import type { AudioTier } from "./audio-level";
 
@@ -16,16 +21,17 @@ export type WatchSnapshot = {
 		reconnectAttempt?: number;
 	};
 	chat: {
-		statuses: Partial<Record<"twitch" | "kick", ChatProviderStatus["state"]>>;
+		statuses: Partial<Record<ChatProvider, ChatProviderStatus["state"]>>;
 		messages: Array<{
 			id: string;
-			provider: "twitch" | "kick";
+			provider: ChatProvider;
 			senderName: string;
 			senderColor: string;
 			badges: string[];
 			text: string;
 		}>;
 	};
+	viewers?: Array<{ provider: DirectProvider; count: number | null }>;
 	obs?: {
 		configured: boolean;
 		connected: boolean;
@@ -46,6 +52,7 @@ export function buildWatchSnapshot({
 	reconnectAttempt,
 	state,
 	statuses,
+	viewers = [],
 	updatedAt = Date.now(),
 }: {
 	audioTier: AudioTier;
@@ -56,8 +63,9 @@ export function buildWatchSnapshot({
 	obs?: WatchSnapshot["obs"];
 	reconnectAttempt?: number;
 	state: StreamState;
-	statuses: Partial<Record<"twitch" | "kick", ChatProviderStatus["state"]>>;
+	statuses: Partial<Record<ChatProvider, ChatProviderStatus["state"]>>;
 	updatedAt?: number;
+	viewers?: Array<{ provider: DirectProvider; count: number | null }>;
 }): WatchSnapshot {
 	return {
 		version: 1,
@@ -83,6 +91,7 @@ export function buildWatchSnapshot({
 				text: chatMessage.fragments.map((fragment) => fragment.text).join(""),
 			})),
 		},
+		viewers,
 		obs,
 	};
 }

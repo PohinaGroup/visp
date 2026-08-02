@@ -157,7 +157,7 @@ build_android() {
   for abi in arm64-v8a armeabi-v7a x86_64; do
     local name="android-${abi}"
     local prefix="$BUILD_DIR/install-$name"
-    local cmake_args=(-DANDROID_ABI="$abi" -DANDROID_PLATFORM=android-24)
+    local cmake_args=(-DANDROID_ABI="$abi" -DANDROID_PLATFORM=android-24 -DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON)
     build_mbedtls "$name" "$toolchain" "$prefix" "${cmake_args[@]}"
     build_srt "$name" "$toolchain" "$prefix" ON "${cmake_args[@]}"
     mkdir -p "$VENDOR_DIR/android/jniLibs/$abi"
