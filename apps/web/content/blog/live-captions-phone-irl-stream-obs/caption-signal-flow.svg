@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Phone caption signal flow</title>
+  <desc id="desc">Speech becomes a caption overlay inside a phone camera feed, which passes through a relay to a home production monitor and two streaming destinations.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071421"/>
+      <stop offset="1" stop-color="#10283a"/>
+    </linearGradient>
+    <linearGradient id="phone" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#243d50"/>
+      <stop offset="1" stop-color="#0b1721"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#14546c"/>
+      <stop offset="1" stop-color="#091a28"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto" markerUnits="strokeWidth">
+      <path d="M0 0L8 4 0 8Z" fill="#42d5ff"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" rx="48" fill="url(#bg)"/>
+  <circle cx="174" cy="180" r="118" fill="#17354b" opacity=".45"/>
+  <circle cx="1452" cy="760" r="176" fill="#123f51" opacity=".38"/>
+  <path d="M455 450H665M875 450H1085M1330 450H1450" fill="none" stroke="#42d5ff" stroke-width="14" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <g transform="translate(100 165)">
+    <rect x="0" y="0" width="355" height="570" rx="54" fill="url(#phone)" stroke="#6ee4ff" stroke-width="6"/>
+    <rect x="25" y="53" width="305" height="462" rx="28" fill="url(#screen)"/>
+    <rect x="129" y="20" width="98" height="12" rx="6" fill="#688497"/>
+    <circle cx="178" cy="544" r="12" fill="#688497"/>
+    <circle cx="178" cy="226" r="77" fill="#d79b72"/>
+    <path d="M87 417c20-93 67-137 91-137s73 44 91 137" fill="#172b3a"/>
+    <path d="M122 225c16-67 102-69 115 0-20-23-94-23-115 0Z" fill="#10202c"/>
+    <g fill="#e8fbff" stroke="#8feaff" stroke-width="3">
+      <rect x="60" y="342" width="235" height="47" rx="18" opacity=".93"/>
+      <rect x="82" y="402" width="191" height="47" rx="18" opacity=".83"/>
+    </g>
+  </g>
+  <g transform="translate(520 286)" fill="none" stroke="#6ee4ff" stroke-width="11" stroke-linecap="round">
+    <path d="M0 164h25l15-50 24 105 24-152 28 202 25-155 24 105 23-55h30"/>
+  </g>
+  <g transform="translate(665 270)">
+    <path d="M105 0 210 58v244l-105 60L0 302V58Z" fill="#153b4c" stroke="#6ee4ff" stroke-width="7"/>
+    <path d="m0 58 105 61 105-61M105 119v243" fill="none" stroke="#42d5ff" stroke-width="6" opacity=".8"/>
+    <circle cx="105" cy="182" r="30" fill="#42d5ff" opacity=".9" filter="url(#glow)"/>
+  </g>
+  <g transform="translate(1085 220)">
+    <rect x="0" y="0" width="305" height="390" rx="28" fill="#0a151f" stroke="#6ee4ff" stroke-width="7"/>
+    <rect x="27" y="28" width="251" height="303" rx="15" fill="url(#screen)"/>
+    <rect x="112" y="390" width="82" height="65" rx="10" fill="#274357"/>
+    <rect x="65" y="448" width="176" height="23" rx="11" fill="#38566a"/>
+    <circle cx="153" cy="166" r="53" fill="#d79b72"/>
+    <path d="M75 305c15-66 54-98 78-98s64 32 78 98" fill="#172b3a"/>
+    <path d="M113 165c11-46 70-48 80 0-16-16-66-16-80 0Z" fill="#10202c"/>
+    <g fill="#e8fbff" stroke="#8feaff" stroke-width="2">
+      <rect x="60" y="246" width="186" height="34" rx="13" opacity=".93"/>
+      <rect x="78" y="288" width="150" height="29" rx="12" opacity=".8"/>
+    </g>
+  </g>
+  <g transform="translate(1450 355)">
+    <circle cx="52" cy="0" r="50" fill="#42d5ff" opacity=".9" filter="url(#glow)"/>
+    <circle cx="52" cy="190" r="50" fill="#58e3a1" opacity=".9" filter="url(#glow)"/>
+  </g>
+</svg>
