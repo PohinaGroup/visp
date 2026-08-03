@@ -1,0 +1,247 @@
+---
+title: "OBS pudottaa ruutuja IRL-striimissä: mikä yhteys pettää?"
+description: "Selvitä IRL-striimin ruutuhävikki erottamalla puhelimen relay-yhteys, OBS:n vastaanotto, kotistudion lähetys ja enkooderin ylikuorma."
+publishedAt: 2026-08-03
+coverAlt: "IRL-kuvaaja lähettää puhelinkameran syötteen kolmen hohtavan tarkistuspisteen kautta brändittömälle kotistudion näytölle"
+---
+
+Kun IRL-striimin kuva pysähtyy, **"dropped frames" ei ole vielä diagnoosi**.
+Puhelimesta OBS:ään kulkevassa tuotannossa on kolme verkko-osuutta: puhelin
+lähettää tuotantosyötteen relaylle, OBS lukee syötteen relaylta ja OBS lähettää
+valmiin ohjelman Twitchiin tai Kickiin. Lisäksi OBS voi menettää ruutuja jo
+ennen verkkoon lähettämistä, jos renderöinti tai enkooderi ylikuormittuu.
+
+Vika löytyy nopeimmin seuraamalla jokaista osuutta lähinnä olevaa mittaria.
+VISPin live-näkymän bittinopeus, kiertoaika ja pakettihäviö kuvaavat julkaisijan
+ulos lähtevää yhteyttä. OBS:n Stats-ikkuna erottaa verkkohävikin renderöinti-
+ja enkoodausviiveestä. Twitch Inspector tai Kickin striiminäkymä kertoo vielä,
+saapuuko valmis lähetys palveluun terveenä.
+
+![Puhelin lähettää videon relaylle, relay syöttää koti-OBS:ää ja OBS lähettää valmiin striimin katsojille, ja jokaisella osuudella on oma yhteyden tarkistuspiste](./irl-stream-health-checkpoints.svg)
+
+## Lyhyt vastaus: paikanna huono osuus ennen asetusten muuttamista
+
+Käytä tätä taulukkoa ongelman aikana:
+
+| Mitä näet | Todennäköisin tarkistuspiste | Ensimmäinen hyödyllinen toimi |
+| --- | --- | --- |
+| VISPin häviö tai RTT kasvaa samalla, kun mitattu bittinopeus laskee | Puhelin → relay | Kevennä puhelimen tuotantosyötettä ja testaa oikea reitti |
+| VISP pysyy livenä ja luvut rauhallisina, mutta Media Source jäätyy OBS:ssä | Relay → OBS tai OBS-lähde | Tarkista kodin latausyhteys, lähteen tila ja OBS-loki |
+| Etälähde liikkuu normaalisti, mutta OBS:n **Dropped Frames (Network)** kasvaa | OBS → Twitch tai Kick | Testaa kodin lähetysyhteys ja laske OBS:n lopullista bittinopeutta |
+| OBS:n **Frames missed due to rendering lag** kasvaa | OBS:n renderöinti | Vähennä GPU-kuormaa tai yksinkertaista sceneä |
+| OBS:n **Skipped frames due to encoding lag** kasvaa | OBS:n enkooderi | Kevennä enkoodausta, resoluutiota tai ruudunpäivitystä |
+| OBS ja VISP näyttävät terveiltä, mutta Twitch raportoi epävakaasta ingestistä | Palveluun lähtevä striimi | Tarkista Twitch Inspector ja valittu ingest-reitti |
+
+Älä muuta puhelimen bittinopeutta, SRT-viivettä, OBS:n lopullista bittinopeutta
+ja scenen monimutkaisuutta samalla kertaa. Yksi hallittu muutos kertoo, mikä
+ketjun osa todella parani.
+
+## Tarkistuspiste 1: puhelimesta VISP-relaylle
+
+Julkaisun aikana VISPin puhelinsovellus näyttää tiiviillä live-rivillä mitatun
+bittinopeuden, RTT:n ja pakettihäviön. Sama tuore näyte näkyy laitteen kohdalla
+VISPin hallintanäkymässä. Selainjulkaisija raportoi vastaavat WebRTC-luvut;
+Larixin tai Moblinin kaltainen kolmannen osapuolen enkooderi voi näyttää omat
+tilastonsa sen sijaan.
+
+Lue kolmea lukua näin:
+
+- **Bittinopeus** kertoo, mitä julkaisija lähettää juuri nyt. Se ei ole yhteyden
+  teoreettinen kapasiteetti eikä OBS:n palveluun lähettämä lopullinen
+  bittinopeus.
+- **RTT** on julkaisijan ja vastaanottavan vertaispään välinen kiertoaika. Se ei
+  ole yksisuuntainen viive eikä koko striimin viive kamerasta katsojan ruudulle.
+- **Pakettihäviö** kertoo näytteen aikana puuttuneiksi havaittujen pakettien
+  osuuden. Jatkuva suunta merkitsee enemmän kuin yksi lyhyt piikki.
+
+Haivisionin virallinen [SRT-tilastojen
+viite](https://github.com/Haivision/srt/blob/master/docs/API/statistics.md)
+määrittelee `msRTT`:n hetkelliseksi kiertoaikamittaukseksi ja erottaa lähetetyt,
+hävinneet, uudelleenlähetetyt ja liian myöhään pudotetut paketit. Ero on
+olennainen: SRT:n havaitsema häviö ei tarkoita, että sama prosenttiosuus
+videoruuduista saapui OBS:ään rikkinäisenä. SRT voi pyytää puuttuvan paketin
+uudelleenlähetystä niin kauan kuin se mahtuu asetettuun viiveikkunaan.
+
+Korjausaika ei ole rajaton. Haivisionin [SRT-viiveen
+dokumentaatio](https://github.com/Haivision/srt/blob/master/docs/features/latency.md)
+selittää, että SRT-viive tarkoittaa verkon toimitusviivettä, ei kameran
+kaappausta, enkoodausta, dekoodausta tai näyttämistä. Suurempi puskuri antaa
+myöhäisille paketeille enemmän aikaa, mutta se ei luo puuttuvaa lähetyskaistaa.
+
+VISP merkitsee tällä hetkellä yhteyden **Congested**-tilaan, kun raportoitu
+häviö saavuttaa 2 prosenttia tai RTT 400 millisekuntia. Ne ovat VISPin
+tuoterajoja, eivät kaikkien mobiiliverkkojen yleispätevä laki. Sovelluksen
+[avoin adaptiivisen bittinopeuden
+logiikka](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
+alkaa laskea tavoitetta jo ennen varoitusta ja nostaa sitä vasta terveempien
+näytteiden jälkeen. Katso usean sekunnin suuntaa yhden täydellisen luvun sijaan.
+
+## Tarkistuspiste 2: relaylta koti-OBS:ään
+
+Julkaisijan terve näyte todistaa, että puhelin saavutti VISP-relayn. Se ei
+todista, että kotistudion OBS lukee relayta ongelmitta. VISPin tuottama OBS:n
+scene collection käyttää Media Sourcea, joka vastaanottaa alkuperäisen
+tuotantosyötteen SRT:llä ja yhdistää automaattisesti uudelleen.
+
+Jos hallintanäkymä näyttää edelleen **Live**, puhelimen luvut pysyvät vakaina
+ja lähde silti lakkaa etenemästä OBS:ssä, keskity väliosaan:
+
+1. Avaa kyseinen Media Source suoraan OBS:ssä ja varmista, jäätyikö vain se.
+2. Tarkista kotiyhteyden latausliikenne ja salliko verkko edelleen SRT:n
+   UDP-vastaanoton.
+3. Avaa OBS:ssä **Help → Log Files → View Current Log** ja etsi samalta
+   kellonajalta Media Sourcen katkeaminen tai dekoodausvirhe.
+4. Varmista, että lähde käyttää nykyistä lukuosoitetta. Jaetun OBS-lukutunnuksen
+   kierrättäminen mitätöi vanhat osoitteet.
+5. Anna automaattisen uudelleenyhdistämisen toimia ennen lähteen rakentamista
+   uudelleen.
+
+VISP välittää syötteen transkoodaamatta. Se ei voi korjata OBS:n sisäistä
+dekoodausongelmaa eikä muuttaa lähdettä pienemmäksi relaylla. [VISPin
+enkooderi- ja varasceneohje](https://docs.visp-stream.com/docs/broadcaster-setup)
+dokumentoi tuotetut Media Sourcet, viiveluotaimen, uudelleenyhdistämisen ja
+varascenen makrot.
+
+## Tarkistuspiste 3: OBS:stä Twitchiin tai Kickiin
+
+OBS:n verkkolaskuri kuvaa eri lähetystä kuin puhelimen yhteys. Virallisen
+[OBS:n yhteysongelmien
+ohjeen](https://obsproject.com/kb/stream-connection-troubleshooting) mukaan
+verkossa pudonneet ruudut tarkoittavat, ettei OBS pysty ylläpitämään yhteyttä
+tai asetettua bittinopeutta etäpalvelimelle. Jos VISP-lähde liikkuu normaalisti
+laskurin kasvaessa, puhelimen tuotantosyötteen pienentäminen ei välttämättä
+korjaa varsinaista vikaa. Testaa kodin lähetysyhteys ja OBS:n lopullinen
+ulostulo.
+
+Twitchissä [Twitch Inspector](https://help.twitch.tv/s/article/guide-to-using-twitch-inspector)
+näyttää jokaisen lähetyksen terveyden ja tekniset tiedot. Sen testitila ei
+lähetä seuraajille ilmoitusta. Kickin virallinen [viive- ja
+puskuriongelmien ohje](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+ohjaa ensin OBS:n oikean alakulman dropped frames -laskuriin ja sitten
+lähetyskaistaan sekä lopullisen enkooderin asetuksiin.
+
+Twitchin tai Kickin striimiavain pysyy tässä työnkulussa OBS:ssä. VISP kuljettaa
+kenttälähteen; OBS hallitsee palveluun lähtevää enkoodausta ja lähetystä. Siksi
+kahden bittinopeuden ja kahden verkkodiagnoosin pitää pysyä erillään.
+
+## Verkkohävikki, renderöintiviive ja enkoodausviive ovat eri asioita
+
+Avaa OBS:ssä **View → Stats** jo ennen harjoitusta. Kolme laskuria vastaavat
+eri kysymyksiin:
+
+- **Dropped Frames (Network)**: OBS enkoodasi ruudun, mutta ei saanut sitä
+  luotettavasti perille lopullisen verkkoulostulon kautta.
+- **Frames missed due to rendering lag**: OBS ei ehtinyt sommitella sceneä
+  ajoissa, yleensä liian suuren GPU-kuorman vuoksi.
+- **Skipped frames due to encoding lag**: enkooderi ei ehtinyt tuottaa lähtevää
+  ruutua aikataulussa.
+
+Virallinen [OBS:n enkoodauskyvyn
+vianetsintä](https://obsproject.com/kb/encoding-performance-troubleshooting)
+käsittelee renderöinnin ja enkooderin ylikuormaa paikallisina
+suorituskykyongelmina, ei internet-hävikkinä. Käytännön korjauksia ovat
+ulostuloresoluution tai ruudunpäivityksen laskeminen sekä raskaiden lähteiden
+ja suodattimien vähentäminen. Nopeampi mobiiliyhteys ei korjaa täyteen
+kuormitettua kotistudion GPU:ta, eikä yksinkertaisempi scene korjaa
+mobiiliverkon katvealuetta.
+
+## Viiden minuutin rajaustesti
+
+Tee testi mahdollisuuksien mukaan niin, että yksi seuraa puhelinta ja toinen
+OBS:ää:
+
+1. Avaa VISPin live-tila, OBS Stats ja palvelun terveystila.
+2. Kirjaa laskurit yhden terveen minuutin ajalta.
+3. Toista reitti tai scene, jossa vika ilmenee.
+4. Merkitse ensimmäisenä muuttuva tarkistuspiste: VISPin yhteysluvut, Media
+   Source, OBS:n suorituskykylaskuri vai palvelun ingest-tila.
+5. Muuta yhtä asiaa ja toista sama reitti viiden minuutin ajan.
+
+Jos puhelinyhteys heikkenee ensin, siirry 1080p:stä 720p:hen tai 60 fps:stä
+30 fps:ään ennen pienten viivesäätöjen jahtaamista. [IRL-striimin
+bittinopeusopas](/blog/best-bitrate-irl-streaming-phone-obs) antaa varovaiset
+lähtötasot tuotantosyötteelle.
+
+Jos OBS:n verkkohävikki kasvaa ensin, laske lopullista bittinopeutta ja testaa
+kodin lähetysyhteys. Jos renderöinti- tai enkoodausviive kasvaa, kevennä OBS:n
+kuormaa. Jos vain Media Source epäonnistuu, tutki relaylta kotiin kulkeva
+lukuosuus ja lähteen asetukset.
+
+## Mitä yksi puhdas nopeustesti ei todista
+
+Nopeustesti mittaa lyhyen siirron itse valitsemalleen palvelimelle. Live-reitti
+käyttää eri päätepisteitä, kestää pidempään ja voi kulkea vaihtuvan
+mobiilipeiton läpi. Livepaketeilla on myös määräaika, joten hetkellisille
+vaihteluille on vähemmän tilaa. Käytä nopeustestiä karkean kapasiteetin
+arviointiin ja varmista tulos oikealla julkaisijalla, relaylla, koti-OBS:llä ja
+palvelun ingestillä.
+
+Hallintanäkymän **Measure relay RTT** mittaa vain siitä verkosta, jossa painat
+painiketta. Kotistudiolla tehty mittaus kertoo kodin ja relayn välisestä
+reitistä, ei kenttäpuhelimen mobiiliyhteydestä. Käsin määritettävän enkooderin
+kanssa aja luotain samassa kenttäverkossa ja käytä [enkooderi- ja
+varasceneohjeen](https://docs.visp-stream.com/docs/broadcaster-setup)
+pyöristettyä suositusta.
+
+## Tavalliset virhetulkinnat
+
+### "OBS näyttää nollaa pudotettua ruutua, joten puhelinyhteys on hyvä"
+
+Ei välttämättä. OBS:n verkkohävikkilaskuri koskee sen ulostuloa palveluun.
+Etälähde voi jäätyä ennen OBS:n ulostuloa samalla, kun paikalliset scenet
+jatkavat täydellisesti.
+
+### "Pakettihäviö ei ole nolla, joten katsojat menettivät saman määrän videota"
+
+Ei välttämättä. SRT voi lähettää puuttuvan paketin uudelleen ennen sen
+toistoaikaa. Jatkuva häviö kuluttaa silti kaistaa ja korjausaikaa, joten seuraa
+suuntaa ja lopullista kuvaa äläkä rinnasta paketteja suoraan videoruutuihin.
+
+### "Suurempi SRT-viive korjaa liian pienen kaistan"
+
+Ei. Suurempi viive antaa uudelleenlähetyksille enemmän aikaa. Se ei saa
+2 Mbps:n reittiä kuljettamaan 6 Mbps:n tuotantosyötettä.
+
+### "WiFi ja mobiilidata kaksinkertaistavat käytettävän bittinopeuden"
+
+Eivät. VISPin valinnainen natiivisovelluksen multi-link-tila lähettää samat
+SRT-paketit molempien yhteyksien kautta redundanssia varten ja hylkää
+duplikaatit relaylla. Se ei laske nopeuksia yhteen suuremmaksi
+bittinopeusbudjetiksi, ja se voi likimain kaksinkertaistaa mobiilidatan käytön.
+[Puhelinsovelluksen dokumentaatio](https://docs.visp-stream.com/docs/phone-app)
+selittää nykyiset tilat ja yhteyskohtaisen live-tilan.
+
+## Harjoittele vika, älä vain onnistunutta polkua
+
+Ennen oikeaa Twitch- tai Kick-IRL-lähetystä:
+
+- kävele oikea reitti vähintään 15 minuutin ajan;
+- pidä VISPin yhteysluvut ja OBS Stats näkyvissä;
+- varmista etälähteen etenevä kuva ja puhdas ääni;
+- katkaise puhelimen yhteys hetkeksi ja varmista automaattinen palautuminen;
+- tarkista OBS:n siirtyminen paikalliseen varasceneen;
+- testaa lopullinen ulostulo Twitch Inspectorilla tai Kickin striiminäkymässä;
+  ja
+- tallenna harjoituksen OBS-loki, jos jokin laskuri kasvaa.
+
+Yksikään mittari ei lupaa virheetöntä striimiä. Yhdessä tarkistuspisteet kertovat,
+mihin seuraavat viisi minuuttia kannattaa käyttää: kenttäpuhelimeen,
+relaylta studioon kulkevaan lukuosuuteen, kotienkooderiin vai palveluun
+lähtevään yhteyteen.
+
+## Lähteet ja seuraavat askeleet
+
+- [VISPin puhelin- ja selainsovellus](https://docs.visp-stream.com/docs/phone-app)
+- [VISPin enkooderit, SRT-viive, uudelleenyhdistäminen ja varascene](https://docs.visp-stream.com/docs/broadcaster-setup)
+- [VISPin live-yhteyden ja adaptiivisen bittinopeuden toteutus](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
+- [Haivisionin SRT-tilastot](https://github.com/Haivision/srt/blob/master/docs/API/statistics.md)
+- [Haivisionin SRT-viive](https://github.com/Haivision/srt/blob/master/docs/features/latency.md)
+- [OBS:n yhteysongelmien vianetsintä](https://obsproject.com/kb/stream-connection-troubleshooting)
+- [OBS:n enkoodauskyvyn vianetsintä](https://obsproject.com/kb/encoding-performance-troubleshooting)
+- [Twitch Inspector](https://help.twitch.tv/s/article/guide-to-using-twitch-inspector)
+- [Kickin viive- ja puskuriongelmien vianetsintä](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+
+Jos haluat nämä tarkistuspisteet puhelimesta studioon kulkevaan työnkulkuun,
+[kokeile VISPiä](https://visp-stream.com): julkaise yksi puhelinlähde, seuraa
+sen live-yhteyslukuja OBS Statsin rinnalla ja varmista jokainen verkko-osuus
+ennen oikeaa lähetystä.
