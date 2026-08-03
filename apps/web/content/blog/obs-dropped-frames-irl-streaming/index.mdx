@@ -1,0 +1,239 @@
+---
+title: "OBS Dropped Frames During IRL Streaming: Which Connection Is Failing?"
+description: "Diagnose OBS dropped frames in an IRL stream by separating phone-to-relay loss, relay-to-OBS trouble, home upload failure, and encoder overload."
+publishedAt: 2026-08-03
+coverAlt: "An IRL creator sends a phone camera feed through three glowing checkpoints to an unbranded home production monitor"
+---
+
+When an IRL stream freezes, **“dropped frames” is not one diagnosis**. A
+phone-to-OBS production has three network legs: the phone sends a contribution
+feed to the relay, OBS reads that feed from the relay, and OBS uploads the
+finished program to Twitch or Kick. OBS can also miss frames before the final
+upload because its renderer or encoder is overloaded.
+
+The fastest fix is to watch the checkpoint closest to each leg. VISP's live
+bitrate, round-trip time, and packet-loss figures describe the publisher's
+outbound link. The OBS Stats window separates network drops from rendering and
+encoding lag. Twitch Inspector or Kick's stream view then confirms whether the
+finished broadcast is reaching the platform cleanly.
+
+![A phone sends video to a relay, the relay feeds home OBS, and OBS sends the finished stream to viewers, with a separate health checkpoint on every leg](./irl-stream-health-checkpoints.svg)
+
+## The short answer: locate the bad leg before changing settings
+
+Use this table while the problem is happening:
+
+| What you see | Most likely checkpoint | First useful action |
+| --- | --- | --- |
+| VISP loss or RTT rises while its measured bitrate falls | Phone → relay | Lower the phone contribution load and test the real route |
+| VISP remains live and calm, but its Media Source freezes in OBS | Relay → OBS or the OBS source | Check the home download path, source state, and OBS log |
+| The remote source moves normally, but OBS **Dropped Frames (Network)** rises | OBS → Twitch or Kick | Test the home upload and lower the final OBS bitrate |
+| OBS **Frames missed due to rendering lag** rises | OBS renderer | Reduce GPU load or simplify the scene |
+| OBS **Skipped frames due to encoding lag** rises | OBS encoder | Reduce encoding load, resolution, or frame rate |
+| OBS and VISP look healthy, but Twitch reports unstable ingest | Platform-facing stream | Check Twitch Inspector and the chosen ingest route |
+
+Do not change the phone bitrate, SRT latency, OBS output bitrate, and scene
+complexity at the same time. One controlled change tells you which part of the
+chain actually improved.
+
+## Checkpoint 1: phone to VISP relay
+
+While publishing, the VISP phone app shows a compact live line with measured
+bitrate, RTT, and packet loss. The same fresh sample appears beside the device
+on the VISP dashboard. The browser publisher reports comparable WebRTC
+figures; a third-party encoder such as Larix or Moblin may expose its own
+statistics instead.
+
+Read the three numbers like this:
+
+- **Bitrate** is what the publisher is sending now. It is not the connection's
+  theoretical capacity and not the final bitrate OBS sends to the platform.
+- **RTT** is the round-trip time between the publisher and its receiving peer.
+  It is not one-way delay and not total glass-to-glass stream latency.
+- **Packet loss** is the share of packets the sender observed missing during
+  the sample. A short spike matters less than a sustained trend.
+
+Haivision's official [SRT statistics
+reference](https://github.com/Haivision/srt/blob/master/docs/API/statistics.md)
+defines `msRTT` as an instantaneous round-trip measurement and distinguishes
+sent, lost, retransmitted, and dropped packet counters. That distinction
+matters: loss detected by SRT does **not** mean the same percentage of video
+frames reached OBS damaged. SRT can request retransmission while a packet is
+still inside the configured latency window.
+
+The recovery window is finite. Haivision's [SRT latency
+documentation](https://github.com/Haivision/srt/blob/master/docs/features/latency.md)
+explains that SRT latency covers network delivery, not camera capture,
+encoding, decoding, or display. A larger buffer gives late packets more time,
+but it cannot create missing upload capacity.
+
+VISP currently labels a path **Congested** when reported loss reaches 2% or RTT
+reaches 400 ms. Those are product thresholds, not a universal law of mobile
+networks. The app's [open-source adaptive-bitrate
+logic](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
+starts reducing its target before that label appears and raises it again only
+after healthier samples. Watch the direction over several seconds instead of
+trying to hold one perfect number.
+
+## Checkpoint 2: relay to home OBS
+
+A healthy publisher sample proves that the phone reached its VISP relay. It
+does not prove that the home OBS computer is reading the relay cleanly. The
+generated OBS scene collection uses a Media Source that receives the original
+contribution feed over SRT and reconnects automatically.
+
+If the dashboard still says **Live**, phone metrics remain steady, and the
+source nevertheless stops advancing in OBS, focus on the middle leg:
+
+1. Open the affected Media Source directly in OBS and confirm whether only
+   that source is frozen.
+2. Check the home connection's download activity and whether the network still
+   permits the SRT/UDP read path.
+3. Open **Help → Log Files → View Current Log** in OBS and look for the Media
+   Source disconnect or decode error at the matching time.
+4. Confirm that the source still uses the current read URL. Rotating the shared
+   OBS read credential invalidates older URLs.
+5. Let automatic reconnect work before rebuilding the source.
+
+VISP relays the feed without transcoding. It cannot repair a decoder problem
+inside OBS or turn the source into a lower resolution between the relay and
+the studio. The [VISP encoder and fallback
+guide](https://docs.visp-stream.com/docs/broadcaster-setup) documents the
+generated Media Sources, latency probe, reconnect behavior, and fallback-scene
+macros.
+
+## Checkpoint 3: OBS to Twitch or Kick
+
+OBS's network counter describes a different upload from the phone's link.
+According to the official [OBS stream connection troubleshooting
+guide](https://obsproject.com/kb/stream-connection-troubleshooting), dropped
+network frames mean OBS cannot maintain the connection or configured bitrate
+to the remote ingest server. If the VISP source is moving normally while this
+counter climbs, lowering the phone's contribution bitrate may not fix the
+actual failure. Test the home upload and the final OBS output instead.
+
+For Twitch, [Twitch Inspector](https://help.twitch.tv/s/article/guide-to-using-twitch-inspector)
+shows the health and specification of each broadcast and supports a test mode
+that does not notify followers. For Kick, the official [lag and buffering
+guide](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+directs creators to the dropped-frame counter in the lower-right corner of
+OBS, then to upload capacity and final encoder settings.
+
+The Twitch or Kick stream key remains in OBS in this workflow. VISP carries
+the field source; OBS owns the platform-facing encode and upload. That is why
+the two bitrate values and two network diagnoses must stay separate.
+
+## Network drops, rendering lag, and encoding lag are different
+
+Open **View → Stats** in OBS before the rehearsal. The three counters answer
+different questions:
+
+- **Dropped Frames (Network)**: OBS encoded the frame but could not deliver it
+  through the final network output reliably.
+- **Frames missed due to rendering lag**: OBS could not compose the scene on
+  time, commonly because the GPU was too busy.
+- **Skipped frames due to encoding lag**: the encoder could not produce the
+  outgoing frame on schedule.
+
+The official [OBS encoding performance
+guide](https://obsproject.com/kb/encoding-performance-troubleshooting) treats
+rendering and encoding overload as local performance problems, not internet
+loss. Its practical remedies include reducing output resolution or frame rate
+and removing expensive sources or filters. A faster mobile connection cannot
+solve a saturated home GPU, just as a simpler scene cannot fix a dead cellular
+zone.
+
+## A five-minute isolation test
+
+Run this with one person watching the phone and another watching OBS if
+possible:
+
+1. Open the VISP live status, OBS Stats, and the platform health view.
+2. Note all counters while the picture is healthy for one minute.
+3. Reproduce the route or scene that causes the failure.
+4. Mark which checkpoint changes first: VISP link figures, the Media Source,
+   an OBS performance counter, or the platform ingest status.
+5. Change one variable and repeat the same route for five minutes.
+
+If the phone link degrades first, move from 1080p to 720p or from 60 fps to 30
+fps before chasing small latency adjustments. The [IRL bitrate
+guide](/blog/best-bitrate-irl-streaming-phone-obs) gives conservative starting
+points for the contribution feed.
+
+If OBS network drops rise first, lower the final output bitrate and retest the
+home uplink. If rendering or encoding lag rises, lower OBS workload. If only
+the Media Source fails, investigate the relay-to-home read leg and source
+configuration.
+
+## What one clean speed test cannot prove
+
+A speed test measures a short transfer to its own selected server. Your live
+route uses different endpoints, lasts longer, and may cross moving cellular
+coverage. It also has less room for bursts because live packets have a
+deadline. Use a speed test for rough capacity planning, then validate with the
+actual publisher, relay, home OBS computer, and platform ingest.
+
+The dashboard's **Measure relay RTT** action is useful only from the network
+where you run it. If you click it at the home studio, it measures home to
+relay—not the field phone's mobile route. For a manual encoder, run the probe
+on the same field network and follow the rounded recommendation in [Encoders
+and fallback](https://docs.visp-stream.com/docs/broadcaster-setup).
+
+## Common mistakes when reading stream health
+
+### “OBS shows zero dropped frames, so the phone link is good”
+
+Not necessarily. OBS's dropped-network-frame counter covers its output to the
+platform. The remote source can freeze before it reaches the OBS output while
+local scenes continue streaming perfectly.
+
+### “Packet loss is nonzero, so viewers lost the same amount of video”
+
+Not necessarily. SRT may retransmit a missing packet before its playback
+deadline. Sustained loss still consumes bandwidth and recovery time, so follow
+the trend and the resulting picture rather than equating packets with frames.
+
+### “More SRT latency fixes low bandwidth”
+
+No. More latency can give retransmissions longer to arrive. It does not make a
+2 Mbps route carry a 6 Mbps contribution feed.
+
+### “Wi-Fi plus cellular doubles the available bitrate”
+
+No. VISP's optional native multi-link mode sends duplicate SRT packets over
+both links for redundancy and discards duplicate arrivals. It does not add the
+two speeds into one larger bitrate budget, and it can roughly double mobile
+data use. The [phone app documentation](https://docs.visp-stream.com/docs/phone-app)
+explains the current modes and live per-link status.
+
+## Rehearse the failure, not only the happy path
+
+Before a real Twitch or Kick IRL session:
+
+- walk the actual route for at least 15 minutes;
+- keep VISP link figures and OBS Stats visible;
+- confirm the remote source advances with clean audio;
+- interrupt the phone connection briefly and confirm automatic recovery;
+- verify that OBS switches to a local fallback scene;
+- test Twitch Inspector or the Kick stream view with the final output; and
+- save the OBS log from the rehearsal if any counter rises.
+
+No single metric promises a flawless stream. Together, the checkpoints tell
+you where to spend the next five minutes: the field phone, the relay-to-studio
+read path, the home encoder, or the platform upload.
+
+## Sources and next steps
+
+- [VISP phone and browser app](https://docs.visp-stream.com/docs/phone-app)
+- [VISP encoders, SRT latency, reconnects, and fallback](https://docs.visp-stream.com/docs/broadcaster-setup)
+- [VISP live link and adaptive-bitrate implementation](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
+- [Haivision SRT statistics](https://github.com/Haivision/srt/blob/master/docs/API/statistics.md)
+- [Haivision SRT latency](https://github.com/Haivision/srt/blob/master/docs/features/latency.md)
+- [OBS stream connection troubleshooting](https://obsproject.com/kb/stream-connection-troubleshooting)
+- [OBS encoding performance troubleshooting](https://obsproject.com/kb/encoding-performance-troubleshooting)
+- [Twitch Inspector](https://help.twitch.tv/s/article/guide-to-using-twitch-inspector)
+- [Kick lag and buffering troubleshooting](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+
+If you want these checkpoints in a phone-to-studio workflow, [try
+VISP](https://visp-stream.com): publish one phone source, watch its live link
+figures beside OBS Stats, and prove each network leg before the real stream.
