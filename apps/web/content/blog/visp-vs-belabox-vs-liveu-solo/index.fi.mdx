@@ -2,6 +2,7 @@
 title: "VISP, BELABOX vai LiveU Solo IRL-suoratoistoon?"
 description: "Vertaa VISPiä, BELABOXia ja LiveU Soloa IRL-suoratoistossa, verkkobondingissa, laitteistossa, OBS-tuotannossa ja toimintavarmuudessa."
 publishedAt: 2026-07-22
+updatedAt: 2026-08-03
 coverAlt: "Valintapolut vertailevat VISPiä, BELABOXia ja LiveU Soloa IRL-suoratoistossa"
 ---
 
@@ -15,8 +16,8 @@ bonding-enkooderi pilvipalveluineen.**
 ## Mitä kukin järjestelmä ratkaisee?
 
 VISP tunnistaa puhelimen tai enkooderin, välittää syötteen relay-palvelun kautta
-OBS:ään ja voi ohjata OBS:ää etänä. Se säilyttää nykyisen kotistudion mutta ei
-yhdistä useita verkkoyhteyksiä.
+OBS:ään ja voi ohjata OBS:ää etänä. Natiivisovellus voi monistaa paketit Wi-Fiin
+ja mobiiliin, mutta ei summaa yhteyksien kapasiteettia.
 
 BELABOX yhdistää tyypillisesti pienen Linux-lähettimen, videokaappauksen,
 useita modeemeja tai yhteyksiä sekä vastaanottavan Belaboxin tai oman palvelimen.
@@ -31,7 +32,7 @@ laite-, tilaus- ja palveluriippuvuutta.
 | Ominaisuus | VISP | BELABOX | LiveU Solo |
 | --- | --- | --- | --- |
 | Päämuoto | Ohjelmisto ja relay | Rakennettava lähetin | Valmis enkooderilaite |
-| Verkkobonding | Ei | Kyllä, kokoonpanosta riippuen | Kyllä, tuetulla palvelulla |
+| Usean verkon toiminta | Kahden linkin pakettimonistus; ei kaistojen summausta | SRTLA-bonding kokoonpanosta riippuen | Tuetun palvelun bonding |
 | Kamera | Puhelin, selain tai SRT/RTMP-enkooderi | HDMI/USB-kaappaus tai tuettu lähde | HDMI/SDI mallista riippuen |
 | OBS-työnkulku | Suora etäkameralähde ja ohjaus | Vastaanotin tuottaa lähteen OBS:lle | Pilvipalvelun ulostulo tai suora kohde |
 | Käyttöönotto | Kevyt | Teknisesti vaativa | Valmistajan ohjaama |
@@ -87,8 +88,9 @@ medialähteeksi.
 
 ### Voiko VISP yhdistää mobiilidatan ja Wi-Fin?
 
-Ei. VISP välittää yhden julkaisuyhteyden. Bonding vaatii sitä tukevan lähettimen
-ja vastaanottavan palvelun.
+VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin yhden linkin vian varalta.
+Se ei summaa kaistoja; kapasiteetin aggregointi vaatii bonding-lähettimen tai
+-palvelun.
 
 ### Voiko BELABOX lähettää kuvan OBS:ään?
 

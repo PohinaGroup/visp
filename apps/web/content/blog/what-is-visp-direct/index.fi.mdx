@@ -1,25 +1,24 @@
 ---
 title: "Mikä VISP Direct on ja hyötyisitkö siitä?"
-description: "Lue, miten VISP Direct lähettää yhden puhelinsyötteen Twitchiin, Kickiin tai molempiin ilman OBS:ää ja milloin OBS on edelleen hyödyllinen."
+description: "Lue, miten VISP Direct lähettää yhden puhelinsyötteen Twitchiin, Kickiin, YouTubeen tai niiden yhdistelmään ilman OBS:ää."
 publishedAt: 2026-07-28
+updatedAt: 2026-08-03
 coverAlt: "Puhelin lähettää yhden syaanin syötteen suojatun relayn kautta kahdelle kohderuudulle kotistudion näytön jäädessä valinnaiseksi"
 ---
 
-**VISP Direct** lähettää yhden julkaisulaitteen Twitchiin, Kickiin tai
-molempiin ilman, että OBS on jakelureitillä. Puhelin kuvaa, pakkaa ja lähettää
+**VISP Direct** lähettää yhden julkaisulaitteen Twitchiin, Kickiin, YouTubeen
+tai niiden yhdistelmään ilman, että OBS on jakelureitillä. Puhelin kuvaa, pakkaa ja lähettää
 edelleen yhden syötteen VISPille. Relay purkaa kuvalähteen ja tekee jokaiselle
 valitulle alustalle erillisen H.264-video- ja stereo-AAC-jakelukoodauksen.
 
 Direct sopii tilanteeseen, jossa puhelin on koko tuotanto. Hyöty korostuu
-Twitchin ja Kickin samanaikaisessa lähetyksessä. Se ei kuitenkaan ole
+usean alustan samanaikaisessa lähetyksessä. Se ei kuitenkaan ole
 automaattisesti parempi versio kaikista VISP-työnkuluista. Jos lähetys tarvitsee
 OBS-kohtauksia, hälytyksiä, paikallisia mikrofoneja, tallennusta, värinkorjausta
 tai varakuvaa, tavallinen puhelin–VISP–OBS-reitti on edelleen järkevämpi.
 
 Direct tarkistaa relayn koodauskapasiteetin ennen Go Live -toimintoa, sillä
 jokainen kohde käyttää yhden täyden jakelukoodauksen.
-
-![Puhelin tuo VISPille yhden syötteen, josta Direct tekee erilliset Twitch- ja Kick-lähdöt; tavallinen OBS-lukureitti säilyy käytettävissä](./visp-direct-flow.svg)
 
 ## Mitä muuttuu, kun VISP Direct otetaan käyttöön?
 
@@ -28,16 +27,16 @@ Tavallisessa VISP-työnkulussa puhelin toimii etäkamerana:
 1. Puhelin koodaa kameran ja mikrofonin H.264- ja AAC-muotoon.
 2. Se julkaisee yhden tunnistetun SRT-syötteen VISP-relaylle.
 3. OBS lukee syötteen, eikä VISP transkoodaa sitä matkalla.
-4. OBS miksaa ohjelman, koodaa lopullisen kuvan ja lähettää sen Twitchiin tai
-   Kickiin.
+4. OBS miksaa ohjelman, koodaa lopullisen kuvan ja lähettää sen valittuihin
+   kohteisiin.
 
 Direct säilyttää kaksi ensimmäistä vaihetta ja muuttaa jakelun. Relay lukee
 kuvalähteen paikallisesti, tekee alustalle sopivan koodauksen ja julkaisee sen
 lähetysavaimella, jonka VISP hakee antamasi valtuutuksen perusteella. Julkinen
 lähetys ei enää tarvitse OBS:ää.
 
-Kun valitset **Both**, puhelin lähettää edelleen vain yhden kuvalähteen. Relay
-käynnistää kaksi itsenäistä prosessia: yhden Twitchille ja yhden Kickille.
+Kun valitset useita kohteita, puhelin lähettää edelleen vain yhden kuvalähteen.
+Relay käynnistää yhden itsenäisen prosessin jokaista valittua kohdetta kohti.
 Toinen kohde voi yrittää yhteyttä uudelleen keskeyttämättä toista.
 
 Direct ei siis vain kopioi puhelimen bittivirtaa alustalle. VISP koodaa jokaisen
@@ -51,12 +50,12 @@ kanavamäärällä tai näytteenottotaajuudella.
 | --- | --- | --- |
 | Missä valmis ohjelma rakennetaan? | Puhelimessa; relay tekee vain jakelukoodaukset | OBS:ssä puhelinsyötteestä ja muista lähteistä |
 | Lähettääkö puhelin yhden syötteen? | Kyllä, myös kahdelle alustalle lähetettäessä | Kyllä |
-| Kuka koodaa Twitch- tai Kick-lähdön? | VISP-relay erikseen jokaiselle kohteelle | OBS |
+| Kuka koodaa kohdelähdön? | VISP-relay erikseen jokaiselle kohteelle | OBS |
 | Voiko OBS tarkkailla tai tallentaa syötteen? | Kyllä, mutta se lukee alkuperäisen kuvalähteen | Kyllä, ja OBS omistaa myös julkisen lähdön |
 | Ovatko OBS-kohtaukset, hälytykset, grafiikat ja paikallisäänet mukana? | Vain jos ne on jo yhdistetty puhelimen kuvaan | Kyllä |
 | Voiko yhden alustan vikaantuminen jättää toisen käyntiin? | Kyllä, kohteet toimivat erikseen | Riippuu OBS:n tai monilähetyksen toteutuksesta |
-| Bondaako VISP verkkoyhteyksiä? | Ei | Ei |
-| Onko toiminto yleisesti saatavilla? | Kyllä, Twitchille ja Kickille | OBS säilyy valinnaisena lukupolkuna |
+| Käyttääkö VISP useaa verkkoyhteyttä? | Natiivisovellus voi monistaa paketit Wi-Fiin ja mobiiliin; kaistoja ei summata | Sama natiivijulkaisun valinta on käytettävissä |
+| Onko toiminto yleisesti saatavilla? | Kyllä, Twitchille, Kickille ja YouTubelle | OBS säilyy valinnaisena lukupolkuna |
 
 OBS voi lukea Direct-laitetta samaan aikaan tarkkailua tai tallennusta varten.
 OBS näkee puhelimen kuvalähteen, ei katsojille lähetettävää jakelukoodausta.
@@ -87,7 +86,7 @@ voi olla tarkoituksella yksinkertaisessa lähetyksessä arvokas.
 Valitse Direct, kun kaikki seuraavat pitävät paikkansa:
 
 - yksi puhelin tai enkooderi sisältää jo valmiin kuvan ja äänen;
-- sama ohjelma halutaan Twitchiin, Kickiin tai molempiin;
+- sama ohjelma halutaan Twitchiin, Kickiin, YouTubeen tai niiden yhdistelmään;
 - OBS:n ei tarvitse lisätä tuotantoelementtejä;
 - hyväksyt relayn tekemät kohdekoodaukset;
 - olet testannut todellisen kenttäverkon, lämpötilan, äänen ja
@@ -137,14 +136,16 @@ tunnistetun kanavan
 [julkisen Channels-rajapintansa](https://api.kick.com/swagger/index.html)
 kautta, kun kanavan ja lähetysavaimen lukemiseen tarvittavat oikeudet on
 myönnetty.
+YouTubessa VISP luo tai valitsee julkisen live-lähetyksen ja liittää siihen
+RTMPS-streamin, kun Google-tili on myöntänyt YouTube-oikeudet.
 
 Lähetyksen alkaessa VISP hakee avaimen, rakentaa kohdeosoitteen muistissa ja
 antaa sen relayn välitysprosessille. Avainta ei palauteta selain- tai
 puhelinsovellukseen eikä tallenneta omaksi tietokantakentäkseen. Muistissa
 oleva kohde katoaa, kun prosessi päättyy.
 
-Raja on tärkeä: tavallinen relay–OBS-reitti ei edelleenkään koske Twitchin tai
-Kickin lähetysavaimeen. Direct on erikseen hyväksyttävä, laitekohtainen
+Raja on tärkeä: tavallinen relay–OBS-reitti ei edelleenkään koske kohteiden
+tunnuksiin. Direct on erikseen hyväksyttävä, laitekohtainen
 lisätoiminto.
 
 Oikeuden voi myöhemmin perua alustalla. Silloin kyseinen kohde epäonnistuu ja
@@ -153,7 +154,7 @@ VISP pyytää valtuuttamaan sen uudelleen. Toinen kohde voi jatkaa toimintaansa.
 ## Käytännön rajat ennen Directin valintaa
 
 **Kapasiteetti varataan ennen julkaisua.** Yksi Direct-kohde käyttää yhden
-relayn välityspaikan ja Twitch sekä Kick yhdessä kaksi. Täysi relay estää Go
+relayn välityspaikan ja kaikkien kolmen alustan valinta kolme. Täysi relay estää Go
 Live -toiminnon sen sijaan, että alustalähtö jäisi hiljaisesti pois.
 
 **Yksi laite omistaa yhden alustan.** Voit lähettää yhdellä puhelimella
@@ -162,13 +163,13 @@ kahta omaa laitettasi Twitchiin yhtä aikaa. Omistus varmistetaan myös
 tietokannan rajoitteella, ei vain käyttöliittymässä.
 
 **Kohteita voi vaihtaa vain laitteen ollessa offline-tilassa.** Pysäytä
-julkaisu ennen kuin vaihdat vaihtoehtojen Off, Twitch, Kick ja Both välillä.
+julkaisu ennen kuin muutat alustojen valintaruutuja.
 Näin suoran kuvalähteen kohteet eivät muutu kesken lähetyksen.
 
-**Direct ei bondaa verkkoja.** SRT voi lähettää kadonneita paketteja uudelleen
-viiveikkunansa sisällä, mutta VISP ei yhdistä mobiili- ja Wi-Fi-yhteyttä yhdeksi
-siirtotieksi. Kun puhelimen yhteys katoaa, Directillä ei ole välitettävää
-mediaa. Bondauksen tarvitseva tekijä voi lisätä erillisen verkkokerroksen.
+**Natiivijulkaisu voi käyttää kahta linkkiä.** Sovellus voi monistaa paketit
+Wi-Fiin ja mobiiliin, mutta ei summaa niiden kapasiteettia. Kun molemmat yhteydet
+katoavat, Directillä ei ole välitettävää mediaa. Kaistojen aggregointia tarvitseva
+tekijä voi lisätä erillisen verkkokerroksen.
 [VISP- ja Speedify-opas](/blog/bond-cellular-wifi-visp-speedify) näyttää yhden
 vaihtoehdon väittämättä ominaisuutta VISPin omaksi.
 
@@ -176,9 +177,9 @@ vaihtoehdon väittämättä ominaisuutta VISPin omaksi.
 ovat käytössä. Direct siirtää kohdekoodaukset relaylle, mutta ei muuta
 suoratoistoa vähävirtaiseksi tehtäväksi.
 
-**Kaksi alustaa käyttää relayn resursseja.** Molempiin lähettäminen
-kaksinkertaistaa relayn Direct-prosessorityön ja lähtevän median kaistan. Se ei
-kaksinkertaista puhelimen lähetystä.
+**Jokainen alusta käyttää relayn resursseja.** Useampi kohde kasvattaa Directin
+prosessorityötä ja lähtevän median kaistaa kerran jokaista kohdetta kohti. Se ei
+kasvata puhelimen lähetystä.
 
 ## Alustojen säännöt ovat edelleen voimassa
 
@@ -201,11 +202,11 @@ koska ne voivat muuttua VISPistä riippumatta.
 
 Directin käyttöönotto:
 
-1. Luo VISP-tili tai kirjaudu sisään Twitchillä tai Kickillä.
+1. Luo VISP-tili tai kirjaudu sisään Twitchillä, Kickillä tai Googlella.
 2. Lisää puhelin omaksi julkaisulaitteekseen.
 3. Avaa hallintapaneelin **Direct output**.
-4. Valtuuta Twitch, Kick tai molemmat lähettämistä varten.
-5. Valitse laitteen ollessa offline-tilassa **Twitch**, **Kick** tai **Both**.
+4. Valtuuta tarvitsemasi Twitch-, Kick- ja/tai YouTube-lähdöt.
+5. Valitse laitteen ollessa offline-tilassa kohteiden valintaruudut.
 6. Käynnistä puhelimen kuvalähde ja seuraa kunkin kohteen tilaa.
 7. Tarkista julkinen kanava toisella mykistetyllä laitteella.
 8. Pysäytä ja yhdistä kerran uudelleen ennen kuin luotat reittiin tapahtumassa.
@@ -214,7 +215,7 @@ Directin käyttöönotto:
 sisältää ajantasaiset ohjaimet, tilat, virheilmoitukset ja tunnusten käsittelyn.
 
 Lyhyt päätös on tämä: valitse Direct, kun yhden laitteen valmis ohjelma halutaan
-Twitchiin tai Kickiin ilman OBS:ää. Pidä OBS mukana, kun studio on osa
+Twitchiin, Kickiin ja/tai YouTubeen ilman OBS:ää. Pidä OBS mukana, kun studio on osa
 ohjelmaa. Jos Direct vastaa tuotantoasi, [kokeile VISPiä](https://visp-stream.com),
 luo testilaite ja tee yksi yksityinen harjoitus ennen seuraavaa julkista
 lähetystä.

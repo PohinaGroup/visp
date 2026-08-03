@@ -15,7 +15,7 @@ export const Route = createFileRoute("/")({
 			{
 				name: "description",
 				content:
-					"Stream from a phone or browser straight to Twitch or Kick. Add OBS when you need monitoring, recording, or scenes.",
+					"Stream from a phone or browser straight to Twitch, Kick, or YouTube. Add OBS when you need monitoring, recording, or scenes.",
 			},
 			{ property: "og:locale", content: "en_US" },
 		],
@@ -70,7 +70,7 @@ function SignalChain({ locale }: { locale: Locale }) {
 			aria-label={
 				locale === "fi"
 					? "Signaaliketju puhelimen kamerasta sovelluksen kautta kodin OBS-studioon ja suoratoistopalveluihin."
-					: "Signal chain: phone or browser through the VISP relay and Direct to Twitch or Kick, with OBS optional."
+					: "Signal chain: phone or browser through the VISP relay and Direct to Twitch, Kick, or YouTube, with OBS optional."
 			}
 			viewBox="0 0 1000 80"
 			className="block w-full text-foreground"
@@ -163,7 +163,7 @@ const channels = [
 	{
 		tag: "KEY",
 		title: "No key pasting",
-		body: "VISP retrieves the Twitch or Kick stream key through OAuth only while starting Direct output and never returns it to the publisher.",
+		body: "VISP obtains the authorized destination credentials only while starting Direct output and never returns them to the publisher.",
 	},
 ];
 
@@ -225,7 +225,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				{
 					tag: "KEY",
 					title: "Ei lähetysavaimen liittämistä",
-					body: "VISP hakee Twitchin tai Kickin lähetysavaimen OAuth-luvalla vain Direct-lähdön käynnistämiseksi eikä palauta sitä julkaisijalle.",
+					body: "VISP hakee valtuutetun kohteen tunnukset vain Direct-lähdön käynnistämiseksi eikä palauta niitä julkaisijalle.",
 				},
 			]
 		: channels;
@@ -329,8 +329,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							</h1>
 							<p className="max-w-md text-lg text-muted-foreground leading-relaxed">
 								{fi
-									? "Lähetä puhelimesta tai selaimesta VISP-relayn kautta suoraan Twitchiin tai Kickiin. Lisää sama syöte OBS:ään vain tarvittaessa."
-									: "Stream from a phone or browser through the VISP relay straight to Twitch or Kick. Add the same feed to OBS only when you need it."}
+									? "Lähetä puhelimesta tai selaimesta VISP-relayn kautta suoraan Twitchiin, Kickiin tai YouTubeen. Lisää sama syöte OBS:ään vain tarvittaessa."
+									: "Stream from a phone or browser through the VISP relay straight to Twitch, Kick, or YouTube. Add the same feed to OBS only when you need it."}
 							</p>
 							<p className="font-medium text-base">
 								{fi ? "Helposti parempi" : "Full production. Zero leash."}
@@ -372,8 +372,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</div>
 						<p className="mt-6 max-w-xl text-muted-foreground text-sm leading-relaxed">
 							{fi
-								? "Lähde yhdistyy relayhin, ja Direct lähettää Twitchiin tai Kickiin. OBS on valinnainen."
-								: "The source connects to the relay, and Direct sends to Twitch or Kick. OBS is optional."}
+								? "Lähde yhdistyy relayhin, ja Direct lähettää Twitchiin, Kickiin tai YouTubeen. OBS on valinnainen."
+								: "The source connects to the relay, and Direct sends to Twitch, Kick, or YouTube. OBS is optional."}
 						</p>
 					</section>
 
@@ -485,7 +485,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				welcome={
 					fi
 						? "Hei, olen Seppo. Mietitkö, sopiiko VISP lähetykseesi? Kysy, mitä se tekee, mitä tarvitset tai miten puhelimet ja etävieraat yhdistetään OBS:ään."
-						: "Hi, I'm Seppo. Ask how Direct sends a phone or browser to Twitch or Kick, or how to add OBS afterward."
+						: "Hi, I'm Seppo. Ask how Direct sends a phone or browser to Twitch, Kick, or YouTube, or how to add OBS afterward."
 				}
 				onOpenChange={setSeppoOpen}
 			/>

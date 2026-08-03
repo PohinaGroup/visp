@@ -353,6 +353,7 @@ final class VispSrtView: ExpoView {
     audioIsolationMode = nextMode
     applyNativeVoiceProcessing(enabled: nextMode == .native, promptMicModes: becameNative)
     if mixer != nil {
+      preview.resetPreviewTiming()
       try? configureAudioSession(AVAudioSession.sharedInstance())
     }
 
@@ -836,12 +837,38 @@ final class VispSrtView: ExpoView {
     let nextBondingMode = ["broadcast", "backup"].contains(bondingMode) ? bondingMode : "off"
     if mixer != nil,
        configuration == nextConfiguration,
-       videoBitrateCeiling == nextVideoBitrateCeiling,
-       self.bondingMode == nextBondingMode {
+       videoBitrateCeiling == nextVideoBitrateCeiling {
+      self.bondingMode = nextBondingMode
       return
     }
+    let previousZoom = selectedZoom
     if configuration?.position != position {
       selectedZoom = defaultZoom(camera.zoomLevels)
+    }
+    if let mixer {
+      let previousConfiguration = configuration
+      guard let device = captureDevice(position: position) else {
+        throw VispSrtFailure.cameraUnavailable
+      }
+      do {
+        preview.resetPreviewTiming()
+        try await attachVideo(device, to: mixer, configuration: nextConfiguration)
+        try await mixer.setFrameRate(Double(frameRate))
+        configuration = nextConfiguration
+        videoBitrateCeiling = nextVideoBitrateCeiling
+        self.bondingMode = nextBondingMode
+        return
+      } catch {
+        selectedZoom = previousZoom
+        if
+          let previousConfiguration,
+          let previousCamera = captureDevice(position: previousConfiguration.position)
+        {
+          try? await attachVideo(previousCamera, to: mixer, configuration: previousConfiguration)
+          try? await mixer.setFrameRate(Double(previousConfiguration.frameRate))
+        }
+        throw VispSrtFailure.configurationUnavailable
+      }
     }
     configuration = nextConfiguration
     videoBitrateCeiling = nextVideoBitrateCeiling
@@ -867,7 +894,6 @@ final class VispSrtView: ExpoView {
 
   func switchCamera(_ cameraID: String) async throws {
     guard
-      currentState != .idle,
       currentState != .stopping,
       currentState != .error,
       let mixer,
@@ -889,7 +915,7 @@ final class VispSrtView: ExpoView {
     }
     let previousZoom = selectedZoom
     do {
-      preview.clearPreviewForCameraSwitch()
+      preview.resetPreviewTiming()
       selectedZoom = defaultZoom(capability.zoomLevels)
       let next = VideoConfiguration(
         frameRate: current.frameRate,

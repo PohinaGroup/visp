@@ -10,17 +10,17 @@ address before enabling a service.
 
 ## 1. Prove the relay with static credentials
 
-Install MediaMTX **v1.19.2**. For Linux amd64, the pinned archive SHA-256 is:
+Install MediaMTX **v1.19.3**. For Linux amd64, the pinned archive SHA-256 is:
 
 ```text
-f9c601cc303ceca8fad2883917b022882672c5bc56311e92dbceb16e5f20c60c  mediamtx_v1.19.2_linux_amd64.tar.gz
+a7ba21268fccda3ebc43fdad76b87fddb85ce77e725b5cb637bca724b5394fbe  mediamtx_v1.19.3_linux_amd64.tar.gz
 ```
 
-Download both the archive and `checksums.sha256` from the official v1.19.2
+Download both the archive and `checksums.sha256` from the official v1.19.3
 release, then run:
 
 ```bash
-grep 'mediamtx_v1.19.2_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
+grep 'mediamtx_v1.19.3_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
 sudo install -m 0755 mediamtx /usr/local/bin/mediamtx
 ```
 

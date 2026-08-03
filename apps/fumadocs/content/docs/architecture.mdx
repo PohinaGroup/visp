@@ -12,7 +12,7 @@ transcoding it; the app decides who may connect and tracks what is live.
 | Piece | Runs | Responsibility |
 | --- | --- | --- |
 | Relay hosts | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
-| App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch and Kick login, support operations, path and credential state, MediaMTX authentication, OBS control |
+| App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch, Kick, and Google login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
 | OBS Remote | `remote.visp-stream.com` (also iOS/Android) | Dedicated stream and scene control surface using the broadcaster's VISP account |
@@ -118,11 +118,11 @@ but does not move an existing path automatically. For the relay-to-OBS path the
 assigned relay forwards the H.264/AAC (or WebRTC H.264/Opus) feed exactly as
 published — no transcode, no provider stream key.
 
-VISP Direct is the one exception and the default Twitch/Kick output. When a
+VISP Direct is the one exception and the default Twitch/Kick/YouTube output. When a
 device owns a Direct destination, the relay runs
 a full distribution encode per destination (H.264 + AAC stereo, never a stream
-copy) and retrieves the Twitch or Kick stream key through OAuth consent at
-stream start. The key is built into a destination URL in memory, passed to the
-forwarding process, and never returned to a client app or stored as its own
-database value. What OBS reads stays the contribution feed, not the platform
-encode.
+copy). At stream start it retrieves a Twitch or Kick key through OAuth consent,
+or creates a public YouTube broadcast and obtains its RTMPS ingest destination.
+The destination is passed to the forwarding process and never returned to a
+client app or stored as a separate database value. What OBS reads stays the
+contribution feed, not the platform encode.

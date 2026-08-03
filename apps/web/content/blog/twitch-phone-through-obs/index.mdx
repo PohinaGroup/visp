@@ -2,6 +2,7 @@
 title: "How to Stream on Twitch From Your Phone Through OBS"
 description: "Stream on Twitch from your phone through OBS while keeping scenes, alerts, fallback, and your Twitch stream key on the home studio computer."
 publishedAt: 2026-07-27
+updatedAt: 2026-08-03
 coverAlt: "An unbranded phone films a street performance, sends it through a transparent relay cube into a home production desk, and viewers receive the finished program"
 ---
 
@@ -130,9 +131,9 @@ holds the contribution bitrate with margin.
 
 These settings describe the phone-to-VISP feed, not the OBS-to-Twitch output.
 VISP does not transcode the incoming video to a different resolution or
-bitrate. It also does not bond cellular and Wi-Fi into one connection. If the
-selected network cannot carry the feed, the relay cannot create the missing
-bandwidth.
+bitrate. VISP Native can duplicate packets over cellular and Wi-Fi, but it does
+not combine their capacity. If neither network can carry the feed, the relay
+cannot create the missing bandwidth.
 
 Start the phone contribution and wait for its dashboard row to show **Live**.
 Watch the source in OBS for several minutes, move as you will during the real

@@ -2,6 +2,7 @@
 title: "SRT vai RTMP: kumpi tuo puhelinkameran OBS:ään?"
 description: "Vertaa SRT:tä ja RTMP:tä puhelinkameran tuonnissa OBS:ään: pakettien korjaus, itse säädettävä viive, tunnusten rajat ja milloin RTMP on oikea valinta."
 publishedAt: 2026-07-26
+updatedAt: 2026-08-03
 coverAlt: "Yhtenäinen ja katkoviivainen signaalilinja lähtevät puhelinmerkistä, kohtaavat relay-lohkon ja OBS-studion lohkon ja päättyvät punaiseen kohdepisteeseen Twitchille tai Kickille"
 ---
 
@@ -113,7 +114,8 @@ SRT-syöte kestää olosuhteet, joissa RTMP-syöte alkaa jonottaa ja pysähtyy.
 
 ## Mitä relay ei korjaa puolestasi
 
-VISP **ei transkoodaa videota eikä yhdistä verkkoyhteyksiä.** Se tunnistaa
+Relay **ei transkoodaa videota eikä summaa verkkoyhteyksien kapasiteettia.**
+VISP Native voi erikseen monistaa paketit Wi-Fiin ja mobiiliin. Relay tunnistaa
 julkaisevan laitteen, välittää sen lähettämän yksittäisen virran ja tarjoaa
 OBS:lle erillisen lukuosoitteen. Tästä seuraa kaksi asiaa, ja ne pätevät
 samalla tavalla SRT:hen ja RTMP:hen:

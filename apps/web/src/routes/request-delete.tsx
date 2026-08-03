@@ -227,8 +227,8 @@ function RequestDelete() {
 					<ul className="flex list-disc flex-col gap-2 pl-5 text-sm">
 						<li>
 							{fi
-								? "VISP-profiilisi: nimi, sähköpostiosoite, profiilikuva sekä yhdistetyt Twitch- tai Kick-tilit ja tunnisteet"
-								: "Your VISP profile, including name, email address, profile image, and linked Twitch or Kick accounts and tokens"}
+								? "VISP-profiilisi: nimi, sähköpostiosoite, profiilikuva sekä yhdistetyt Twitch-, Kick- tai Google-tilit ja tunnisteet"
+								: "Your VISP profile, including name, email address, profile image, and linked Twitch, Kick, or Google accounts and tokens"}
 						</li>
 						<li>
 							{fi
@@ -292,8 +292,8 @@ function RequestDelete() {
 					{legalEntity.email}
 				</a>{" "}
 				{fi
-					? `(${legalEntity.companyName}). Liitä viestiin Twitch- tai Kick-käyttäjänimesi ja käytä aihetta ”VISP account deletion”. Katso myös `
-					: `(${legalEntity.companyName}) with your Twitch or Kick username and the subject “VISP account deletion.” See also `}
+					? `(${legalEntity.companyName}). Liitä viestiin Twitch-, Kick- tai Google-tilisi tunniste ja käytä aihetta ”VISP account deletion”. Katso myös `
+					: `(${legalEntity.companyName}) with your Twitch, Kick, or Google account identifier and the subject “VISP account deletion.” See also `}
 				<Link
 					className="text-foreground underline underline-offset-4"
 					to={fi ? "/fi/contact" : "/contact"}

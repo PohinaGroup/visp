@@ -71,7 +71,7 @@ export HOOK_SECRET=test-secret RTSP_PORT=8554
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
-# MediaMTX starts runOnReady with Setpgid, so give the script its own process
+# MediaMTX starts runOnAvailable with Setpgid, so give the script its own process
 # group here too — otherwise its "kill 0" would signal this test runner.
 perl -e 'use POSIX qw(setsid); setsid(); exec @ARGV' \
 	bash "$root/visp-snapshot" http://app.test path-1 srt &
@@ -111,7 +111,7 @@ test "$started_pids" -eq 3 || fail "expected 3 live ffmpeg children, saw $starte
 # Signal only the script, not the group. MediaMTX does signal the whole group
 # on its own terminate, which would hide the bug: the trap has to tear the
 # children down itself, or any other exit path orphans them and
-# runOnReadyRestart brings up a second set against the same stream key.
+# runOnAvailableRestart brings up a second set against the same stream key.
 kill -TERM "$script_pid" 2>/dev/null || true
 wait "$script_pid" 2>/dev/null || true
 sleep 2

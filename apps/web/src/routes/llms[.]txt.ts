@@ -18,7 +18,7 @@ export const Route = createFileRoute("/llms.txt")({
 				return new Response(
 					`# VISP
 
-> VISP sends phone and browser cameras through an authenticated SRT relay directly to Twitch or Kick. The same contribution feed can optionally be read in OBS. VISP does not bond networks.
+> VISP sends phone and browser cameras through an authenticated relay directly to Twitch, Kick, or YouTube. The same contribution feed can optionally be read in OBS. The native app can duplicate packets over Wi-Fi and cellular without aggregating their capacity.
 
 ## Documentation
 

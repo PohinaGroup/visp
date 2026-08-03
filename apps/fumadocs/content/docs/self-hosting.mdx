@@ -37,17 +37,17 @@ units expect that path.
 
 ## 1. Prove the relay with static credentials
 
-Install MediaMTX **v1.19.2**. For Linux amd64, the pinned archive SHA-256 is:
+Install MediaMTX **v1.19.3**. For Linux amd64, the pinned archive SHA-256 is:
 
 ```text
-f9c601cc303ceca8fad2883917b022882672c5bc56311e92dbceb16e5f20c60c  mediamtx_v1.19.2_linux_amd64.tar.gz
+a7ba21268fccda3ebc43fdad76b87fddb85ce77e725b5cb637bca724b5394fbe  mediamtx_v1.19.3_linux_amd64.tar.gz
 ```
 
-Download the archive and `checksums.sha256` from the official v1.19.2 release,
+Download the archive and `checksums.sha256` from the official v1.19.3 release,
 then:
 
 ```bash
-grep 'mediamtx_v1.19.2_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
+grep 'mediamtx_v1.19.3_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
 sudo install -m 0755 mediamtx /usr/local/bin/mediamtx
 ```
 
@@ -175,8 +175,14 @@ remain disabled.
    credentials only as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in
    `/etc/visp/app.env`; every VISP client uses the same server callback.
 
-   The Kick app needs the `user:read` scope. Chat delivery uses the server's
-   app token and `chat.message.sent` webhook subscriptions.
+	The Kick app needs the `user:read` scope. Chat delivery uses the server's
+	app token and `chat.message.sent` webhook subscriptions.
+
+	Set `AI_GATEWAY_API_KEY` if Seppo is enabled. Optional hosted speech features
+	use `ELEVENLABS_API_KEY`; `ELEVENLABS_VOICE_ID` additionally enables hosted
+	chat text-to-speech. Leave both ElevenLabs values unset to keep captions,
+	audio isolation, and speech on-device. Disclose and contract for these
+	external processors before enabling them for users.
 6. Expose only public **TCP 443**. Allow SSH only over Tailscale. Create DNS
    for the app, admin, browser-publisher, OBS Remote, and docs hostnames before
    Caddy obtains certificates.

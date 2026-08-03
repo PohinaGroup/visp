@@ -2,6 +2,7 @@
 title: "Näin striimaat Twitchiin puhelimesta OBS:n kautta"
 description: "Striimaa Twitchiin puhelimesta OBS:n kautta ja pidä kohtaukset, hälytykset, varakuva sekä Twitchin lähetysavain kotistudion koneella."
 publishedAt: 2026-07-27
+updatedAt: 2026-08-03
 coverAlt: "Tunnukseton puhelin kuvaa katuesitystä, lähettää kuvan läpinäkyvän relay-kuution kautta kotistudioon ja valmis ohjelma jatkaa katsojille"
 ---
 
@@ -133,9 +134,9 @@ reitti kestää kuvalähteen bittinopeuden riittävällä marginaalilla.
 
 Nämä asetukset koskevat puhelimen ja VISPin välistä syötettä, eivät OBS:n
 Twitch-ulostuloa. VISP ei transkoodaa saapuvaa videota toiseen tarkkuuteen tai
-bittinopeuteen. Se ei myöskään niputa mobiili- ja Wi-Fi-yhteyttä yhdeksi
-yhteydeksi. Jos valittu verkko ei kanna syötettä, relay ei voi luoda puuttuvaa
-kaistaa.
+bittinopeuteen. VISP Native voi monistaa paketit mobiili- ja Wi-Fi-yhteyteen,
+mutta ei summaa niiden kapasiteettia. Jos kumpikaan verkko ei kanna syötettä,
+relay ei voi luoda puuttuvaa kaistaa.
 
 Käynnistä puhelimen kuvalähde ja odota, että sen rivi näyttää
 hallintapaneelissa **Live**. Seuraa lähdettä OBS:ssä usean minuutin ajan, liiku
@@ -250,7 +251,8 @@ muuttamista.
 
 VISP on kuvalähteiden tunnistettu SRT/RTMP-relay ja hallintataso. Se ei ylläpidä
 OBS:ää, miksaa kohtauksia palvelimella, lähetä valmista ohjelmaa Twitchiin,
-transkoodaa videota eikä niputa verkkoyhteyksiä. Puhelin enkoodaa
+transkoodaa relay-to-OBS-videota eikä summaa verkkoyhteyksien kapasiteettia.
+Native voi silti monistaa paketit kahdelle linkille. Puhelin enkoodaa
 kenttäsyötteen, OBS kokoaa ja enkoodaa ohjelman ja Twitch vastaanottaa
 lopullisen ulostulon suoraan OBS:stä.
 

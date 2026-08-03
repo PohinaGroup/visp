@@ -2,6 +2,7 @@
 title: "Paras bittinopeus IRL-striimiin: 720p vai 1080p puhelimesta OBS:ään?"
 description: "Valitse mobiilin IRL-striimin bittinopeus 720p- tai 1080p-kuvalle, mitoita kentän ja kotistudion yhteydet erikseen ja testaa oikea reitti."
 publishedAt: 2026-07-26
+updatedAt: 2026-08-03
 coverAlt: "Bränditön puhelinkamera lähettää yhden syaanin tuotantosyötteen kaupunkiympäristöstä tummaan kotistudioon"
 ---
 
@@ -199,9 +200,10 @@ dokumentoi H.264:n, CBR:n, kahden sekunnin avainruutuvälin ja enintään
 puhelin-enkooderiin automaattisesti. Kenttäyhteys ratkaisee edelleen sen, mitä
 se kestää.
 
-## VISP ei transkoodaa eikä bondaa yhteyksiä
+## Relay ei transkoodaa eikä summaa yhteyksiä
 
-VISP **ei transkoodaa videota eikä bondaa verkkoyhteyksiä**. OBS vastaanottaa
+Relay **ei transkoodaa videota eikä summaa verkkoyhteyksien kapasiteettia**.
+VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin, mutta OBS vastaanottaa
 sen koodekin, resoluution, ruudunpäivityksen ja bittinopeuden, jonka puhelin
 tuottaa. Relay ei muuta 1080p-syötettä pienemmän bittinopeuden 720p-syötteeksi,
 kun mobiiliyhteys heikkenee, eikä se yhdistä mobiilidataa ja WiFiä yhdeksi

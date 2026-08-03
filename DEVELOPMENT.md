@@ -56,6 +56,9 @@ commands still require every schema-required value. Important groups are:
 - `AI_GATEWAY_API_KEY` authenticates the server-side Seppo setup assistant with
   Vercel AI Gateway. Create the key in Vercel and never expose it as a `VITE_*`
   variable.
+- Optional `ELEVENLABS_API_KEY` enables account-gated hosted captions and audio
+  isolation. Add `ELEVENLABS_VOICE_ID` to enable hosted chat text-to-speech.
+  Without them, the app uses on-device fallbacks or hides the hosted option.
 - `HOOK_SECRET`, `MEDIAMTX_API_URL`, `RELAY_HOST`, and `RELAY_PING_URL` connect
   the app to the local MediaMTX and Portless relay domains.
 - `S3_*` configures private snapshot storage. The launcher points these values

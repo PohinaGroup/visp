@@ -1,12 +1,12 @@
 ---
 title: Direct-lähtö
-description: Lähetä laite suoraan Twitchiin tai Kickiin ilman OBS:ää.
+description: Lähetä laite suoraan Twitchiin, Kickiin tai YouTubeen ilman OBS:ää.
 ---
 
 # Direct-lähtö
 
-VISP Direct välittää yhden julkaisulaitteen suoraan Twitchiin, Kickiin tai
-molempiin ilman OBS:ää. Se on Twitch- ja Kick-lähetysten oletuspolku. VISP
+VISP Direct välittää yhden julkaisulaitteen suoraan mihin tahansa Twitchin,
+Kickin ja YouTuben yhdistelmään ilman OBS:ää. Se on alustalähetysten oletuspolku. VISP
 varaa relayn koodauskapasiteetin ennen julkaisua; täysi relay estää lähetyksen
 aloituksen sen sijaan, että alustalähtö jäisi hiljaisesti pois.
 
@@ -24,17 +24,17 @@ OBS:lle koskematta siihen. Kun Direct on käytössä laitteella:
 VISP Native käyttää Directissä pienempää syötteen bittinopeutta, mutta 1080p on
 edelleen valittavissa; alustan kuvanlaatu tulee relayn koodauksesta.
 
-Molempiin alustoihin lähettäminen kaksinkertaistaa relayn kuormituksen. Se ei
-lisää puhelimen lähetyksiä.
+Jokainen valittu alusta käyttää oman välityspaikan ja koodauksen. Usean alustan
+valinta kasvattaa relayn kuormitusta, mutta ei lisää puhelimen lähetyksiä.
 
 ## Käyttöönotto
 
-1. Valitse käyttöönotossa Twitch tai Kick ja valtuuta lähetys. Nykyinen käyttäjä
+1. Valitse käyttöönotossa Twitch, Kick tai YouTube ja valtuuta lähetys. Nykyinen käyttäjä
    voi avata hallintapaneelista **Direct output**.
-2. Valitse Twitchin tai Kickin kohdalta **Authorize streaming**. VISP pyytää
+2. Valitse kohteen vierestä **Authorize streaming**. VISP pyytää
    samalla kaikki aiemmin myöntämäsi oikeudet, joten Directin valtuutus ei
    koskaan katkaise chattia tai otsikon ja kategorian muokkausta.
-3. Valitse laitteelle **Off**, **Twitch**, **Kick** tai **Both**.
+3. Ota laitteelle käyttöön haluamasi yhdistelmä kohteista **Twitch**, **Kick** ja **YouTube**.
 
 Asetus tallennetaan tilin oletukseksi. Uusin laite ottaa kohteet omistukseensa
 Go Live -painalluksella, kun edellinen omistaja on offline. Käynnissä olevaa
@@ -42,10 +42,11 @@ lähetystä ei koskaan keskeytetä automaattisesti.
 
 ## Lähetysavaimesi
 
-Lähetysavainta ei koskaan pyydetä liittämään. VISP hakee sen lähetyksen
-alkaessa myöntämälläsi luvalla, rakentaa kohdeosoitteen muistiin, antaa sen
-välitysprosessille ja unohtaa sen lähetyksen päättyessä. Sitä ei lähetetä
-selain- tai puhelinsovellukseen eikä tallenneta omaksi tietokantakentäkseen.
+Lähetysavainta ei koskaan pyydetä liittämään. VISP hakee Twitchin tai Kickin
+avaimen lähetyksen alkaessa myöntämälläsi luvalla, rakentaa kohdeosoitteen
+muistiin ja unohtaa sen lähetyksen päättyessä. YouTubelle VISP luo julkisen
+lähetyksen ja käyttää palvelun palauttamaa RTMPS-kohdetta. Tunnuksia ei lähetetä
+selain- tai puhelinsovellukseen eikä tallenneta omiksi tietokantakentikseen.
 
 Relay-OBS-polku on ennallaan eikä koske lähetysavaimeen lainkaan.
 
@@ -65,6 +66,9 @@ OBS lukee laitteesi syötteen, ei sitä koodausta jonka alusta vastaanottaa.
 - **Kick.** Partnereiden on kytkettävä Kickin oma Multistreaming-asetus päälle
   ennen molempiin lähettämistä. Kick pienentää tällä hetkellä Partner
   Program -tuottoa multistreaming-istunnon ajan. VISP ei kytke tätä puolestasi.
+- **YouTube.** Direct luo julkaisemisen alkaessa uuden julkisen lähetyksen,
+  käyttää automaattista käynnistystä ja pysäytystä sekä tilille määritettyä
+  oletusotsikkoa.
 
 ## Kun jokin epäonnistuu
 

@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Lakiasiat"
 			title="Tietosuojaseloste"
 			description="Tässä selosteessa kuvataan, miten VISP käsittelee henkilötietoja käyttäessäsi verkkosivustoa, hallintapaneelia, mobiilisovelluksia ja suoratoiston relay-palveluja."
-			updated="26. heinäkuuta 2026"
+			updated="3. elokuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Rekisterinpitäjä</h2>
@@ -80,7 +80,22 @@ function PrivacyPage() {
 					</li>
 					<li>
 						<strong>Chat-yhteyden metatiedot</strong>, kuten tilaustunnisteet.
-						VISP ei säilytä chat-viestien sisältöä sisältöarkistona.
+						VISP ei säilytä chat-viestien sisältöä sisältöarkistona. Jos otat
+						pilvipohjaisen tekstistä puheeksi -toiminnon käyttöön, puheeksi
+						valittu teksti lähetetään puhepalvelulle äänitiedoston luomiseksi.
+					</li>
+					<li>
+						<strong>Valinnainen puheenkäsittely</strong>: kun tililläsi on
+						pilvitekstitys tai parempi ääneneristys käytössä ja kytket toiminnon
+						päälle, mikrofonin suora ääni lähetetään ElevenLabsille tekstin tai
+						eristetyn äänen tuottamista varten. Laitteessa toimivat tavalliset
+						vaihtoehdot eivät lähetä mikrofonin ääntä ElevenLabsille.
+					</li>
+					<li>
+						<strong>Avustajakeskustelut</strong>: Sepolle lähettämäsi viestit ja
+						hallintapaneelissa myös salaisuuksista ja kuvista puhdistettu
+						tilayhteenveto lähetetään määritetyn tekoäly-yhdyskäytävän kautta
+						mallipalvelulle vastauksen tuottamiseksi.
 					</li>
 					<li>
 						<strong>Turvallisuus- ja palvelulokit</strong> luotettavuutta,
@@ -98,7 +113,7 @@ function PrivacyPage() {
 					<li>
 						<strong>Palvelun tarjoaminen</strong> (sopimus / sopimusta edeltävät
 						toimet): tilin luominen, tunnistaminen, relay-määritykset ja
-						hallintapaneeli.
+						hallintapaneeli, valinnainen puheenkäsittely ja avustajatoiminnot.
 					</li>
 					<li>
 						<strong>Turvallisuus ja eheys</strong> (oikeutettu etu): istuntojen
@@ -126,11 +141,15 @@ function PrivacyPage() {
 					Käytämme VISPin toimintaan tarvittavia infrastruktuuripalveluja ja
 					alikäsittelijöitä, kuten hostingia, tietokantaa, tilannekuvien
 					objektitallennusta sekä Twitchiä, Kickiä ja Googlea
-					OAuth-tunnistukseen. Kun analytiikka on käytössä, se toimii omalla
-					itse ylläpitämällämme Rybbit-palvelimella, joten analytiikkatietoja ei
-					jaeta ulkopuoliselle analytiikkapalvelulle. Valitsemasi
-					suoratoistokohteet saavat julkaisemasi median; VISP hakee Directin
-					lähetysavaimen vain valtuuttamasi lähdön käynnistämistä varten.
+					OAuth-tunnistukseen. Valinnaiset puhetoiminnot käyttävät ElevenLabsia.
+					Seppo käyttää määritettyä tekoäly-yhdyskäytävää ja mallipalvelua
+					(tällä hetkellä Google Geminiä). Palvelut käsittelevät vain käyttäjän
+					käynnistämän toiminnon tarvitsemat tiedot. Kun analytiikka on
+					käytössä, se toimii omalla itse ylläpitämällämme Rybbit-palvelimella,
+					joten analytiikkatietoja ei jaeta ulkopuoliselle
+					analytiikkapalvelulle. Valitsemasi suoratoistokohteet saavat
+					julkaisemasi median; VISP hakee Directin lähetysavaimen vain
+					valtuuttamasi lähdön käynnistämistä varten.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">
@@ -163,6 +182,12 @@ function PrivacyPage() {
 					<li>
 						Turvallisuus- ja palvelulokeja säilytetään enintään 90 päivää, ellei
 						laki vaadi pidempää aikaa.
+					</li>
+					<li>
+						Valinnaisten puhetoimintojen ja avustajan syötteitä ei säilytetä
+						VISPissä sisältöarkistona. Ulkoisen palvelun käsittelyyn ja
+						säilytykseen sovelletaan myös sen palveluehtoja ja
+						tietojenkäsittelyjärjestelyjä.
 					</li>
 				</ul>
 				<p>

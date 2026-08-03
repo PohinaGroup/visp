@@ -5,13 +5,11 @@ icon: Smartphone
 ---
 
 The VISP app publishes the selected camera and microphone over SRT to your
-relay path. Direct sends that feed to Twitch or Kick. OBS can optionally read
+relay path. Direct sends that feed to Twitch, Kick, or YouTube. OBS can optionally read
 the original contribution feed for monitoring, recording, and scenes.
 
 For the first-run path — sign in, authorize Direct, go live, and optionally add
 OBS — follow [Get started](/docs/get-started).
-
-![Phone app ready to go live](./images/app-ready.png)
 
 ## Platforms
 
@@ -27,20 +25,14 @@ through Play internal testing. Client links live on
 is a static site served by the app host; it publishes over WHIP through the
 relay's WebRTC port.
 
-![Browser publisher](./images/browser-publish.png)
-
 ## Sign in and go live
 
-1. Sign in with Twitch or Kick. The app creates a publishing device for this
+1. Sign in with Twitch, Kick, or Google. The app creates a publishing device for this
    phone automatically and stores its publish URL in the platform's secure
    storage — you never copy credentials by hand.
 2. Open settings to pick the camera, resolution, and frame rate, then go live.
    The stream appears in OBS as the corresponding relay path's Media Source.
 3. Stopping releases the publisher and the media devices.
-
-![Camera settings sheet](./images/app-settings.png)
-
-![Live over SRT](./images/app-live.png)
 
 Each phone is its own publishing device: revoking or rotating one phone in the
 portal never disconnects the others. Use two signed-in phones to feed two
@@ -75,12 +67,18 @@ exactly as before.
 - **Viewer counts** show the current audience for each selected Direct output.
   A dash means the provider did not expose a current count.
 - **Stream info sheet** edits the title and metadata on the provider without
-  leaving the app.
+  leaving the app. Twitch and Kick support title/category editing; YouTube's
+  default Direct title is configured separately.
+- **Picture in Picture** can keep supported iPhone capture visible while you use
+  another app. Background behavior still depends on the device and OS.
+- **Subtitles** can burn English or Finnish speech into the camera picture.
+  On-device recognition is the default; hosted recognition appears only for
+  accounts where it is enabled.
+- **Audio isolation** is available on supported iPhones, with an optional hosted
+  mode where enabled. Test it before relying on it live.
 - **OBS control** starts and stops the home OBS stream and switches scenes
   through the paired [OBS plugin](/docs/obs-remote-control). The control
   reflects whether OBS is currently connected.
-
-![OBS program scene picker on the phone](./images/app-obs-control.png)
 
 ## Apple Watch companion
 

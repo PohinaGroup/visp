@@ -7,10 +7,10 @@ path="$2"
 source_type="${3:-}"
 snapshot_file="$(mktemp --suffix=.jpg)"
 
-# MediaMTX starts runOnReady with Setpgid, so this script leads its own process
+# MediaMTX starts runOnAvailable with Setpgid, so this script leads its own process
 # group and "kill 0" reaches every forwarder without touching MediaMTX itself.
 # Without it, exiting the shell orphans the FFmpeg children: they keep pushing a
-# dead RTSP read to Twitch and Kick, and runOnReadyRestart then starts a second
+# dead RTSP read to Twitch and Kick, and runOnAvailableRestart then starts a second
 # set on the next ready event — two processes, one stream key.
 #
 # Do NOT add "set -m" here. Job control puts every background job in a *new*

@@ -2,6 +2,7 @@
 title: "How to Use Your Phone as a Remote Camera in OBS"
 description: "Send an iPhone or Android camera over the internet into OBS with VISP while keeping your scenes, alerts, controls, and stream key at home."
 publishedAt: 2026-07-22
+updatedAt: 2026-08-03
 coverAlt: "A phone sends video through VISP to an OBS studio and then to streaming platforms"
 ---
 
@@ -19,7 +20,7 @@ relay, and the home OBS computer can read the authenticated feed.
 
 ## What you need
 
-- A VISP account signed in with Twitch or Kick
+- A VISP account signed in with Twitch, Kick, or Google
 - OBS Studio on the home computer
 - The VISP Remote Control plugin for the simplest OBS setup, or a media source
   configured manually
@@ -43,15 +44,16 @@ program to the destination. This separation is useful because a phone outage
 does not automatically end the platform broadcast. OBS can show a local
 fallback while the camera reconnects.
 
-VISP does not transcode the incoming feed. Choose a resolution, frame rate, and
-bitrate the phone and mobile connection can sustain. It also does not bond
-networks; read the [mobile-network resilience
+The relay does not transcode the incoming feed. Choose a resolution, frame rate,
+and bitrate the phone and mobile connection can sustain. VISP Native can
+duplicate packets over Wi-Fi and cellular without aggregating their capacity;
+read the [mobile-network resilience
 guide](/blog/keep-stream-live-bad-mobile-network) if the route has weak
 coverage.
 
 ## Step 1: Sign in and choose the phone workflow
 
-Open VISP and sign in with the Twitch or Kick identity used for the production.
+Open VISP and sign in with the Twitch, Kick, or Google identity used for the production.
 During setup, choose the phone-to-OBS use case and the VISP app as the publisher.
 The setup flow creates or claims a publishing device for the phone.
 
@@ -129,8 +131,6 @@ or another source.
 
 The Twitch or Kick stream key never needs to enter VISP or the phone. OBS owns
 the final output exactly as it did before the remote camera was added.
-
-![VISP phone application with live stream and OBS controls](./app-live.jpg)
 
 ## Browser and third-party alternatives
 

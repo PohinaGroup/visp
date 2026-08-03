@@ -28,12 +28,15 @@ function BrandLockup() {
 	);
 }
 
-export function StreamLoading() {
+export function StreamLoading({
+	label = "Loading publish destination...",
+}: { label?: string } = {}) {
 	return (
 		<View style={styles.loading}>
 			<StatusBar style="light" />
+			<BrandLockup />
 			<ActivityIndicator color="#ffffff" />
-			<Text style={styles.loadingText}>Loading publish destination...</Text>
+			<Text style={styles.loadingText}>{label}</Text>
 		</View>
 	);
 }

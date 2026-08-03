@@ -2,6 +2,7 @@
 title: "How to Control OBS From Your Phone Without Port Forwarding"
 description: "Control OBS from your phone over the internet without port forwarding: pair VISP, start or stop streaming, switch scenes, and test recovery."
 publishedAt: 2026-07-26
+updatedAt: 2026-08-03
 coverAlt: "A phone sends glowing control pulses through a secure cloud path to a home computer running a live production"
 ---
 
@@ -202,7 +203,8 @@ video and AAC audio over SRT while control requests use the app API and the OBS
 plugin's authenticated outbound WSS connection. OBS still renders the final scenes and sends the finished
 program to Twitch or Kick.
 
-VISP **does not transcode video and does not bond network connections**. It
+The relay **does not transcode video or aggregate network capacity**. VISP
+Native can duplicate packets over Wi-Fi and cellular, but it
 cannot lower an unsuitable camera bitrate at the relay, combine cellular and
 Wi-Fi into one resilient uplink, or make a control command cross a total outage.
 Those boundaries remain true even though control and camera publishing appear

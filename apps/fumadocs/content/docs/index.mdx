@@ -1,15 +1,16 @@
 ---
 title: VISP
-description: Stream a phone or browser directly to Twitch or Kick, with OBS optional.
+description: Stream a phone or browser directly to Twitch, Kick, or YouTube, with OBS optional.
 icon: Radio
 ---
 
 VISP sends phone and browser cameras through an authenticated relay directly to
-Twitch or Kick. OBS can optionally read the original contribution feed for
+Twitch, Kick, or YouTube. OBS can optionally read the original contribution feed for
 monitoring, recording, scenes, alerts, and graphics.
 
-Direct fetches the Twitch or Kick stream key with OAuth consent and holds it
-only while forwarding runs. Relay encoder capacity is reserved before Go Live.
+Direct resolves the selected destination with OAuth consent only while forwarding
+runs. Twitch and Kick keys are held in memory; YouTube uses a newly created public
+broadcast and its ingest destination. Relay encoder capacity is reserved before Go Live.
 The optional relay-to-OBS workflow never uses the provider stream key.
 The dashboard starts in **Simple** mode with labeled copyable URLs; switch to
 **Advanced** for RTMP fallbacks, read credentials, and latency tuning. If you
@@ -41,6 +42,7 @@ get stuck during setup or on the dashboard, ask **Seppo** for help.
 
 ## What VISP does not do
 
-VISP does not transcode, bond networks, host OBS, or manage your destination
-stream key. MediaMTX accepts one publisher per path: the first wins until it
-disconnects.
+The ordinary relay-to-OBS path does not transcode. VISP Native can duplicate SRT
+packets over Wi-Fi and cellular for resilience, but it does not combine their
+bandwidth. VISP does not host OBS. MediaMTX accepts one publisher per path: the
+first wins until it disconnects.

@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Legal"
 			title="Privacy Policy"
 			description="This policy explains how VISP processes personal data when you use the website, dashboard, mobile apps, and related streaming relay services."
-			updated="26 July 2026"
+			updated="3 August 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Controller</h2>
@@ -84,7 +84,23 @@ function PrivacyPage() {
 					<li>
 						<strong>Chat connection metadata</strong> needed to connect chat
 						integrations (for example subscription IDs). Chat message content is
-						not retained by VISP as a content archive.
+						not retained by VISP as a content archive. If you enable hosted
+						text-to-speech, the text selected for speech is sent to the hosted
+						speech provider to create the requested audio.
+					</li>
+					<li>
+						<strong>Optional speech-processing data</strong>: if your account
+						has hosted captions or hosted audio isolation enabled and you turn
+						the feature on, live microphone audio is sent to ElevenLabs to
+						produce caption text or isolated audio. The normal on-device speech
+						and audio options do not send microphone audio to ElevenLabs.
+					</li>
+					<li>
+						<strong>Assistant conversations</strong>: messages sent to Seppo
+						and, when you use it on the dashboard, a sanitized service-status
+						summary. These are sent through the configured AI gateway to the
+						selected model provider to generate a reply. Secrets and snapshot
+						contents are not included in that summary.
 					</li>
 					<li>
 						<strong>Security and service logs</strong> for reliability, abuse
@@ -103,7 +119,7 @@ function PrivacyPage() {
 					<li>
 						<strong>Providing the service</strong> (contract / steps prior to
 						contract): account creation, authentication, relay configuration,
-						dashboard, and related features.
+						dashboard, optional speech processing and assistant features.
 					</li>
 					<li>
 						<strong>Security and integrity</strong> (legitimate interests):
@@ -131,8 +147,11 @@ function PrivacyPage() {
 				<p>
 					We use infrastructure and subprocessors necessary to run VISP (for
 					example hosting, database, object storage for snapshots, and OAuth
-					identity providers Twitch, Kick, and Google). When analytics is
-					configured, it runs on our own self-hosted Rybbit instance, so
+					identity providers Twitch, Kick, and Google). Optional hosted speech
+					features use ElevenLabs. Seppo uses the configured AI gateway and
+					model provider (currently Google Gemini). Those providers process only
+					the content needed to provide the feature you invoke. When analytics
+					is configured, it runs on our own self-hosted Rybbit instance, so
 					analytics data is not shared with a third-party analytics provider.
 					Stream destinations you choose (OBS, platforms) receive the media you
 					publish; VISP does not take ownership of your stream keys, and
@@ -172,6 +191,12 @@ function PrivacyPage() {
 					<li>
 						Security and service logs: up to 90 days, unless law requires
 						longer.
+					</li>
+					<li>
+						Optional speech and assistant inputs: VISP does not retain them as a
+						content archive; the external provider's processing and retention
+						are also governed by its applicable service terms and
+						data-processing arrangements.
 					</li>
 				</ul>
 				<p>

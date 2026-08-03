@@ -33,6 +33,11 @@ The launcher generates missing local secrets and reports blank Twitch, Kick, or 
 credentials. Those provider flows require real credentials; unrelated local
 features still start.
 
+`AI_GATEWAY_API_KEY` enables Seppo through Vercel AI Gateway. Optional
+`ELEVENLABS_API_KEY` enables account-gated hosted captions and audio isolation;
+add `ELEVENLABS_VOICE_ID` for hosted chat text-to-speech. Without those optional
+values, the native app uses on-device fallbacks or hides the hosted option.
+
 Register the callbacks for the providers you exercise locally:
 
 ```text

@@ -753,9 +753,9 @@ class VispSrtView(context: Context, appContext: AppContext) :
           if (
             stream != null &&
             configuration == nextConfiguration &&
-            videoBitrateCeilingBps == nextVideoBitrateCeilingBps &&
-            this.bondingMode == nextBondingMode
+            videoBitrateCeilingBps == nextVideoBitrateCeilingBps
           ) {
+            this.bondingMode = nextBondingMode
             promise.resolve()
             return@withPermissions
           }
@@ -764,8 +764,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
           videoBitrateCeilingBps = nextVideoBitrateCeilingBps
           targetBitrateBps = videoBitrateCeilingBps
           this.bondingMode = nextBondingMode
-          cleanup()
-          configure(isPortrait())
+          configure(isPortrait(), clearPreview = false)
           promise.resolve()
         } catch (error: Throwable) {
           fail("configuration-unavailable", CONFIGURATION_UNAVAILABLE, promise, error)
@@ -789,8 +788,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
             val id = inputId.toIntOrNull() ?: throw IllegalArgumentException()
             audioInputs().firstOrNull { it.id == id }?.id ?: throw IllegalArgumentException()
           }
-          cleanup()
-          configure(isPortrait())
+          configure(isPortrait(), clearPreview = false)
           promise.resolve()
         } catch (error: Throwable) {
           fail("audio-input-unavailable", AUDIO_INPUT_UNAVAILABLE, promise, error)
@@ -806,7 +804,6 @@ class VispSrtView(context: Context, appContext: AppContext) :
     if (
       current == null ||
       currentStream == null ||
-      state == StreamState.IDLE ||
       state == StreamState.STOPPING ||
       state == StreamState.ERROR
     ) {
@@ -1040,7 +1037,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
   override fun onAuthSuccess() = Unit
 
-  private fun configure(portrait: Boolean): StreamBase {
+  private fun configure(portrait: Boolean, clearPreview: Boolean = true): StreamBase {
     if (
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA) ||
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
@@ -1050,7 +1047,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
     intentionalStop = true
     stream?.let { current ->
-      if (current.isOnPreview) current.stopPreview(true)
+      if (current.isOnPreview) current.stopPreview(clearPreview)
       current.release()
     }
     stream = null

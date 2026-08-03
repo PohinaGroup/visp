@@ -7,16 +7,15 @@ icon: Rocket
 
 ## 1. Sign in
 
-Open [visp-stream.com](https://visp-stream.com), press **Try VISP free**, then sign in with Twitch or Kick. VISP uses that login
+Open [visp-stream.com](https://visp-stream.com), press **Try VISP free**, then sign in with Twitch, Kick, or Google. VISP uses that login
 only to identify your account.
-
-![Sign in to VISP with Twitch or Kick](./images/web-login.png)
 
 ## 2. Authorize Direct
 
-Choose Twitch or Kick, select your phone or browser source, and authorize VISP
-to retrieve the stream key when output starts. The key is never shown to the
-publisher or stored as a separate value.
+Choose Twitch, Kick, or YouTube, select your phone or browser source, and
+authorize VISP to resolve the destination when output starts. Twitch and Kick
+keys are never shown to the publisher or stored as separate values. YouTube
+Direct creates a new public broadcast and uses its ingest destination.
 
 The dashboard opens with Direct output first. Existing OBS-first users keep
 their current behavior until they explicitly switch.
@@ -29,7 +28,7 @@ provider authorization and relay encoder capacity before capture starts.
 
 ## 4. Verify Direct
 
-Wait until the selected Twitch or Kick output reports **Live**. A contribution
+Wait until every selected Direct output reports **Live**. A contribution
 feed connected to the relay is not enough. You may skip this test, but the
 setup remains marked unverified.
 
@@ -54,16 +53,12 @@ feed, not the distribution encode delivered to viewers.
 ### Phone app
 
 Install the iOS (TestFlight) or Android (Play internal) build from the
-[download page](https://visp-stream.com/download). Sign in with the same Twitch
-or Kick account. The app creates a publishing device for that phone
+[download page](https://visp-stream.com/download). Sign in with the same Twitch,
+Kick, or Google account. The app creates a publishing device for that phone
 automatically.
 
 Pick the camera and microphone in settings, confirm **READY**, then tap
 **Go Live**.
-
-![Camera settings: camera, resolution, and frame rate](./images/app-settings.png)
-
-![Phone app ready to go live](./images/app-ready.png)
 
 ### Browser app
 
@@ -88,8 +83,6 @@ seconds.
 You can also open
 [remote.visp-stream.com](https://remote.visp-stream.com) in a browser for the
 dedicated OBS Remote control surface.
-
-![Phone OBS program scene picker](./images/app-obs-control.png)
 
 A short signal drop does not end the destination broadcast by itself. Keep OBS
 on a fallback scene while the phone reconnects — see

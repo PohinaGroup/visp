@@ -7,7 +7,7 @@ phone; Expo Go does not include the native SRT module.
 Start with the repository's [development guide](../../DEVELOPMENT.md) for the
 API, database, provider callbacks, and shared environment setup.
 
-Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch or Kick sign-in, the app creates and securely stores its publish URL automatically.
+Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch, Kick, or Google sign-in, the app creates and securely stores its publish URL automatically.
 
 Expo SDK 57 sets the deployment target to iOS 16.4, so this app cannot retain the original iOS 15 target without downgrading Expo. The upstream libsrt 1.5.4 x86_64 simulator slice is incomplete; arm64 iPhones and Apple-silicon simulators are supported.
 
@@ -57,11 +57,12 @@ bun run --cwd apps/native check-types
 ## Release distribution
 
 The production application identifier is `com.pohinagroup.visp` on both
-platforms. A stable `vX.Y.Z` GitHub Release runs
-`.eas/workflows/release.yml` on EAS's SDK 57 image, builds both production
-binaries, submits Android to Play internal testing, and distributes iOS to the
-`VISP Internal` TestFlight group. The GitHub workflow waits for EAS completion;
-it does not publish an OTA update.
+platforms. The EAS workflow at `.eas/workflows/release.yml` can build both
+production binaries, submit Android to Play internal testing, and distribute
+iOS to the `VISP Internal` TestFlight group. The stable GitHub Release workflow
+does not currently invoke it; mobile releases are started separately until the
+commented EAS job in `.github/workflows/release.yml` is enabled. It does not
+publish an OTA update.
 
 Before the first release, link this directory to the correct EAS project with
 `eas init`, connect the GitHub repository in Expo, and configure production

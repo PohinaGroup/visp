@@ -113,12 +113,10 @@ export function AdvancedSection({
 
 	return (
 		<>
-			{account ? null : (
-				<DestinationSection
-					destination={destination}
-					settingsDisabled={settingsDisabled}
-				/>
-			)}
+			<DestinationSection
+				destination={destination}
+				settingsDisabled={settingsDisabled}
+			/>
 
 			{account ? (
 				<ExpanderRow
@@ -288,15 +286,6 @@ export function AdvancedSection({
 						</UI.Text>
 					</UI.FieldGroup.SectionFooter>
 				</UI.FieldGroup.Section>
-			) : null}
-
-			{hasAdvanced && advancedOpen ? (
-				account ? (
-					<DestinationSection
-						destination={destination}
-						settingsDisabled={settingsDisabled}
-					/>
-				) : null
 			) : null}
 		</>
 	);

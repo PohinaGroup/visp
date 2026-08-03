@@ -78,6 +78,9 @@ import { useStreamSettingsModel } from "../lib/use-stream-settings-model";
 import { useStreamSpeechFeatures } from "../lib/use-stream-speech-features";
 import { useWatchSnapshotSync } from "../lib/use-watch-snapshot-sync";
 
+const afterPaint = () =>
+	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
 export default function Index() {
 	const window = useWindowDimensions();
 	const cameraRef = useRef<VispSrtViewRef>(null);
@@ -107,6 +110,9 @@ export default function Index() {
 	const [obsStatus, setObsStatus] = useState<ObsStatus>();
 	const [liveStartedAt, setLiveStartedAt] = useState<number>();
 	const [previewing, setPreviewing] = useState(false);
+	// Camera bring-up takes seconds and paints nothing but a black preview, so the
+	// controls look frozen. Cover them until prepare() settles (success or failure).
+	const [starting, setStarting] = useState(true);
 	const [settingsOpen, setSettingsOpen] = useState(false);
 	const [streamInfoOpen, setStreamInfoOpen] = useState(false);
 	const [selectedAudioInputId, setSelectedAudioInputId] = useState("default");
@@ -244,6 +250,7 @@ export default function Index() {
 		if (imageStabilizationEnabled === undefined) {
 			return;
 		}
+		setStarting(true);
 		try {
 			await cameraRef.current?.setImageStabilization(imageStabilizationEnabled);
 			const requestedPermissions = await cameraRef.current?.prepare();
@@ -267,6 +274,8 @@ export default function Index() {
 			}
 		} catch {
 			// The native module emits a sanitized error with the correct cause.
+		} finally {
+			setStarting(false);
 		}
 	}, [contributionMode, imageStabilizationEnabled, bondingMode]);
 
@@ -518,6 +527,7 @@ export default function Index() {
 			const previous = configuration;
 			setConfiguration(next);
 			try {
+				await afterPaint();
 				await configureVideoCapture(
 					cameraRef.current,
 					next,
@@ -568,15 +578,38 @@ export default function Index() {
 				return;
 			}
 			try {
-				if (isPublishing(state)) {
-					const next = configurationForLiveCamera(camera, configuration);
-					await cameraRef.current?.switchCamera(camera.id);
+				let compatible: VideoConfiguration | undefined;
+				if (configuration) {
+					try {
+						compatible = configurationForLiveCamera(camera, configuration);
+					} catch (error) {
+						if (isPublishing(state)) throw error;
+					}
+				}
+				if (compatible && configuration) {
+					const next = compatible;
 					setConfiguration(next);
+					await afterPaint();
+					try {
+						await cameraRef.current?.switchCamera(camera.id);
+					} catch (error) {
+						setConfiguration((current) =>
+							current === next ? configuration : current,
+						);
+						if (isPublishing(state)) throw error;
+						if (
+							!(await applyConfiguration(
+								configurationForCamera(camera, configuration),
+							))
+						)
+							return;
+					}
 					setSelectedZoom(defaultZoomLevel(camera));
 				} else if (
-					await applyConfiguration(
+					!isPublishing(state) &&
+					(await applyConfiguration(
 						configurationForCamera(camera, configuration),
-					)
+					))
 				) {
 					setSelectedZoom(defaultZoomLevel(camera));
 				}
@@ -864,6 +897,11 @@ export default function Index() {
 				/>
 			) : null}
 			<StreamSettingsSheet {...settingsModel} />
+			{starting ? (
+				<View style={StyleSheet.absoluteFill}>
+					<StreamLoading label="Starting camera..." />
+				</View>
+			) : null}
 		</View>
 	);
 }

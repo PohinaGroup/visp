@@ -2,6 +2,7 @@
 title: "OBS:n ohjaaminen puhelimella ilman porttiohjausta"
 description: "Ohjaa OBS:ää puhelimella internetin yli ilman porttiohjausta: yhdistä VISP, käynnistä tai pysäytä lähetys ja vaihda kohtauksia turvallisesti."
 publishedAt: 2026-07-26
+updatedAt: 2026-08-03
 coverAlt: "Puhelin lähettää hohtavia ohjauspulsseja suojattua pilvipolkua pitkin kotikoneelle, jolla pyörii suora tuotanto"
 ---
 
@@ -208,7 +209,8 @@ AAC-ääntä SRT:llä samalla kun ohjauspyynnöt kulkevat sovellusrajapinnan ja
 OBS-lisäosan todennetun WSS-yhteyden kautta. OBS koostaa edelleen valmiit kohtaukset ja
 lähettää ohjelman Twitchiin tai Kickiin.
 
-VISP **ei transkoodaa videota eikä yhdistä verkkoyhteyksiä**. Se ei voi laskea
+Relay **ei transkoodaa videota eikä summaa verkkoyhteyksien kapasiteettia**.
+VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin, mutta relay ei voi laskea
 liian suurta kamerabittinopeutta välityspalvelimella, yhdistää mobiilidataa ja
 Wi-Fiä yhdeksi vikasietoiseksi siirtotieksi tai viedä ohjauskomentoa täydellisen
 katkoksen yli. Rajat eivät muutu, vaikka ohjaus ja kameralähetys näkyvät samassa

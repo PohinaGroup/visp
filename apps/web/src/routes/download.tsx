@@ -70,8 +70,8 @@ function DownloadPage() {
 				</h1>
 				<p className="max-w-prose text-muted-foreground">
 					{fi
-						? "Kirjaudu sisään, valitse Twitch tai Kick ja lähetä puhelimesta tai selaimesta VISP Directillä. OBS on saatavilla valinnaisena lähteenä."
-						: "Sign in, choose Twitch or Kick, and publish from your phone or browser with VISP Direct. OBS remains available as an optional source. Self-hosting is available for operators who want to run their own relay."}
+						? "Kirjaudu sisään, valitse Twitch, Kick tai YouTube ja lähetä puhelimesta tai selaimesta VISP Directillä. OBS on saatavilla valinnaisena lähteenä."
+						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS remains available as an optional source. Self-hosting is available for operators who want to run their own relay."}
 				</p>
 			</header>
 
@@ -83,8 +83,8 @@ function DownloadPage() {
 					<ol className="list-decimal space-y-2 pl-5">
 						<li>
 							{fi
-								? "Kirjaudu Twitchillä tai Kickillä luodaksesi VISP-tilin."
-								: "Sign in with Twitch or Kick to create your VISP account."}
+								? "Kirjaudu Twitchillä, Kickillä tai Googlella luodaksesi VISP-tilin."
+								: "Sign in with Twitch, Kick, or Google to create your VISP account."}
 						</li>
 						<li>
 							{fi

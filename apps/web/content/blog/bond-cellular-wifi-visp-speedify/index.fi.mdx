@@ -1,7 +1,8 @@
 ---
 title: "Näin niputat mobiili- ja Wi-Fi-yhteyden VISP-puhelinlähetykseen Speedifyllä"
-description: "VISP ei niputa yhteyksiä. Katso, miten Speedify yhdistää Wi-Fin ja mobiilin VISP-puhelinlähetyksen alle, missä se auttaa ja missä SRT:n rajat pätevät."
+description: "Vertaa VISP Nativen kahden linkin pakettimonistusta Speedifyn Wi-Fi- ja mobiilibondingiin ja opi, milloin kumpikin auttaa."
 publishedAt: 2026-07-25
+updatedAt: 2026-08-03
 coverAlt: "Kenttäpuhelimen Wi-Fi- ja mobiiliyhteydet niputetaan Speedifyllä yhdeksi tunneliksi, joka syöttää yhden SRT-virran VISP-releen kautta kotistudion OBS:ään"
 ---
 
@@ -13,26 +14,24 @@ Speedify yhdistää puhelimen Wi-Fi- ja mobiiliyhteyden yhdeksi vakaaksi
 tunneliksi enkooderin alla, VISP autentikoi ja välittää yhden syötteen, ja OBS
 pitää valmiin Twitch- tai Kick-lähetyksen hallinnassaan.
 
-Tämä on tärkeää yhden rehellisen rajoituksen takia: **VISP ei niputa
-verkkoyhteyksiä eikä transkoodaa videota.** VISP on itse ylläpidettävä
+Työkalut ratkaisevat eri ongelmia: **VISP Native voi monistaa paketit Wi-Fiin ja
+mobiiliin, kun taas Speedify voi aggregoida linkkien kapasiteettia.** VISP on itse ylläpidettävä
 SRT/RTMP-rele ja ohjaustaso. Se antaa jokaiselle julkaisevalle laitteelle
 peruutettavan pääsyn ja tuo sen syötteen OBS:ään, mutta se kuljettaa juuri sen
 yhden virran, jonka enkooderi lähettää. Jos ongelmasi on epävakaa yhteys eikä
 studion työnkulku, niputus kuuluu VISP:n alapuoliseen kerrokseen — ja Speedify
 on yksi tapa lisätä se.
 
-![Kenttäpuhelin niputtaa Wi-Fi- ja mobiiliyhteytensä Speedifyn kautta yhdeksi SRT-syötteeksi, jonka VISP välittää OBS:ään ja edelleen Twitchiin tai Kickiin](./speedify-visp-obs-flow.svg)
-
-## Miksi VISP ei niputa, ja mitä se sinulle tarkoittaa
+## Nativen monistus vai Speedifyn bonding
 
 [VISP-rele](https://docs.visp-stream.com/docs/architecture) sijaitsee
 julkaisevien laitteiden ja OBS:n välissä. Puhelin ottaa yhteyden ulospäin
 VISP:iin, OBS ottaa yhteyden ulospäin VISP:iin, eikä kotiverkko tarvitse
 sisääntulevaa porttia. Tämä rakenne pitää Twitch- tai Kick-avaimen OBS:ssä ja
 antaa peruuttaa jokaisen laitteen erikseen. Sitä se **ei** tee, että
-yhdistäisi kaksi internetyhteyttä yhdeksi kestäväksi linkiksi. Osoita yksi
-SRT-virta VISP-videolähteeseen, ja saat täsmälleen yhden autentikoidun polun —
-joka ei ole yhtään kestävämpi kuin sitä kuljettava yhteys.
+yhdistäisi kaksi internetyhteyttä suuremman kapasiteetin linkiksi. VISP Native
+lähettää sen sijaan samat paketit Wi-Fiin ja mobiiliin, jotta kumpi tahansa kopio
+voi saapua. Se parantaa vikasietoisuutta summaamatta kaistoja.
 
 Todellista niputusta voi lisätä kolmella yleisellä tavalla, ja ne elävät eri
 kerroksissa:
@@ -82,7 +81,7 @@ voi ajaa samalla puhelimella, joka julkaisee VISP:iin.
 
 ## Mitä tarvitset
 
-- VISP-tili kirjautuneena Twitchiin tai Kickiin
+- VISP-tili kirjautuneena Twitchiin, Kickiin tai Googleen
 - Tavallinen VISP-julkaisijasi puhelimessa: natiivisovellus tai enkooderi kuten
   [Larix Broadcaster](/blog/larix-broadcaster-obs-srt) tai Moblin
 - Speedify asennettuna samaan kenttälaitteeseen, vähintään kaksi toimivaa
@@ -196,8 +195,8 @@ tarvitset niputuksen, joka ei riipu kuluttajan VPN-palvelusta.
 
 ## Mitä tämä kokoonpano ei tee
 
-VISP välittää autentikoidun syötteen; se ei niputa yhteyksiä eikä transkoodaa.
-Speedify hoitaa niputuksen, mutta se ei voi keksiä kaistaa: jos molemmat linkit
+VISPin relay-to-OBS-polku ei transkoodaa. Native monistaa paketteja ja Speedify
+voi aggregoida yhteyksiä, mutta kumpikaan ei voi keksiä kaistaa: jos molemmat linkit
 ovat samassa kohdassa kyllästyneet tai kuolleet, mikään niputustila ei pidä
 lähetystä hengissä — ja silloin OBS-varascene ansaitsee paikkansa. Vain yksi
 julkaisija voi omistaa VISP-laitepolun kerrallaan, joten anna jokaiselle
