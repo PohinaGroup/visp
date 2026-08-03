@@ -1,4 +1,14 @@
 export type ChatProvider = "twitch" | "kick" | "youtube";
+
+/**
+ * YouTube chat rides on the Google account link. Lives here, not in
+ * `connections.ts`, so the dashboard can call it without dragging the db (and
+ * with it `dotenv`, `node:fs`) into the browser bundle.
+ */
+export function chatAuthProvider(provider: ChatProvider) {
+	return provider === "youtube" ? "google" : provider;
+}
+
 export type ChatCorner =
 	| "top-left"
 	| "top-right"

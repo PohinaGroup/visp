@@ -1,5 +1,4 @@
-import { chatAuthProvider } from "@VISP/api/chat/connections";
-import type { ChatProvider } from "@VISP/api/chat/contract";
+import { chatAuthProvider, type ChatProvider } from "@VISP/api/chat/contract";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";

@@ -3,15 +3,13 @@ import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq, inArray } from "drizzle-orm";
 import { hasChannelWriteScope } from "../channel/stream-info";
 import { hasChatScope, hasStreamKeyScope, parseScopes } from "../scopes";
-import type { ChatProvider } from "./contract";
+import { type ChatProvider, chatAuthProvider } from "./contract";
 import { chatHub } from "./hub";
 import { createKickSubscription, deleteKickSubscription } from "./kick";
 
 const PROVIDERS = ["twitch", "kick", "youtube"] as const;
 
-export function chatAuthProvider(provider: ChatProvider) {
-	return provider === "youtube" ? "google" : provider;
-}
+export { chatAuthProvider };
 
 export class ChatConnectionError extends Error {
 	constructor(
