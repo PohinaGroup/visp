@@ -1,0 +1,223 @@
+---
+title: "Näin vähennät tuulen ja taustamelun iPhonen IRL-lähetyksessä"
+description: "Vähennä tuulta ja taustamelua iPhonen IRL-lähetyksessä mikrofonin sijoittelulla, VISPin ääneneristyksellä ja maltillisella OBS-suodatuksella."
+publishedAt: 2026-08-03
+coverAlt: "Ulkona kuvaava iPhone-sisällöntuottaja käyttää tuulisuojattua mikrofonia, josta puhdas ääniaalto kulkee kotistudioon"
+---
+
+Tuuli voi pilata IRL-lähetyksen, vaikka kuva ja mobiiliyhteys toimisivat
+moitteettomasti. Yleinen virhe on käsitellä kaikkea ylimääräistä ääntä yhtenä
+ongelmana. **Mikrofoniin osuva tuuli, äänekäs ihmisjoukko, tasainen taustahurina
+ja leikkautuva ääni tarvitsevat eri korjaukset.** Yksi voimakas
+kohinanpoistosuodatin ei korjaa niitä kaikkia, ja pahimmillaan se tekee puheesta
+ohutta tai katkonaisen kuuloista.
+
+Kun iPhone lähettää kuvan OBS:ään, etene tässä järjestyksessä: estä tuulta
+pääsemästä mikrofoniin, valitse oikea äänitulo, käytä yhtä tilanteeseen sopivaa
+eristysvaihetta ja arvioi tulos OBS-tallenteesta. Näin ratkaisu pysyy
+ymmärrettävänä myös silloin, kun olet jo ulkona aloittamassa Twitch- tai
+Kick-lähetystä.
+
+![Tuulta vähennetään ensin mikrofonilla, puhe voidaan eristää iPhonessa, VISP kuljettaa syötteen ja OBS:ssä tehdään lopputarkistus sekä tarvittaessa maltillinen kohinanpoisto](./wind-noise-audio-path.svg)
+
+## Lyhyt vastaus: korjaa ensimmäinen huono vaihe
+
+Aloita siitä, mitä todella kuulet, älä ensimmäisestä mieleen tulevasta
+suodattimesta:
+
+| Oire | Ensimmäinen toimi |
+| --- | --- |
+| Matala jyrinä tai puuskat ilman osuessa mikrofoniin | Lisää oikein asennettu tuulisuoja ja siirrä mikrofoni pois suorasta ilmavirrasta |
+| Puhe kuuluu, mutta liikenne tai ihmisjoukko kilpailee sen kanssa | Siirrä mikrofoni lähemmäs ja kokeile sitten VISPin ääneneristystä iPhonessa |
+| Kotistudion OBS-miksaukseen jää lievä tasainen kohina | Kokeile yhtä OBS:n Noise Suppression -suodatinta puhelinlähteeseen |
+| Kovat sanat rätisevät tai litistyvät | Pienennä tulovahvistusta tai muuta mikrofonin paikkaa; kohinanpoisto ei korjaa leikkautumista |
+| Ympäristön ääni kuuluu olennaisesti tarinaan | Jätä eristys pois tai käytä sitä kevyesti, jotta paikka kuulostaa edelleen aidolta |
+| Ääni myöhästyy pilvikäsittelyn jälkeen | Tee taputustesti ja korjaa vain mitattu ero |
+
+Järjestys on tärkeä, koska jokainen myöhempi vaihe saa käsiteltäväkseen sen,
+mitä aiempi vaihe tallensi. Jos tuuli yliohjaa mikrofonikapselin, ohjelmisto näkee
+vain pahasti vaurioituneen signaalin. Kun mikrofonilta tuleva ääni on ehjä ja
+jäljellä on vain lievää melua, ohjelmiston tehtävä on paljon helpompi.
+
+## 1. Pysäytä tuuli mikrofonilla
+
+Vaahtomuovisuoja auttaa hengitysääniin ja kevyeen ilmavirtaan, mutta paljas
+puhelinmikrofoni on huono kohde rantakadun puuskassa. Käytä kuljettamallesi
+mikrofonille tarkoitettua tuulisuojaa ja asenna se valmistajan ohjeen mukaan.
+Esimerkiksi Shuren
+[tuulisuojaohjeessa](https://pubs.shure.com/view/guide/A2WS/en-US.pdf)
+tuulisuojan tehtäväksi kuvataan hengitys- ja tuuliäänten vaimentaminen
+ulkokäytössä. Sopiva varuste riippuu mikrofonista; olennainen asia on fyysinen
+suoja, ei juuri kyseinen malli.
+
+Myös sijoittelu ratkaisee:
+
+1. Vie mikrofoni lähelle puhujaa sen sijaan, että nostaisit kaukana olevan
+   mikrofonin vahvistusta.
+2. Pidä mikrofoni poissa käden liikkeen, polkupyörän, avoimen autonikkunan tai
+   rannan suorasta ilmavirrasta.
+3. Estä vaatetta, olkahihnaa ja kaapelia hankaamasta mikrofonia tai liitintä.
+4. Jos käytät langallista tai langatonta ulkoista mikrofonia, varmista ennen
+   lähtöä, että iPhone todella valitsi sen.
+5. Tallenna kävelyä, kääntymistä ja normaalia puheääntä. Paikallaan tehty
+   sisätesti ei paljasta käsittely- eikä tuuliääniä.
+
+Kaikkea ympäristön ääntä ei pidä poistaa automaattisesti. Askeleet, yleisö ja
+tapahtumapaikan äänet voivat olla tärkeä osa IRL-lähetystä. Tavoitteena on
+ymmärrettävä puhe ilman rikkovia tuulenpuuskia, ei jatkuva studiomainen
+hiljaisuus.
+
+## 2. Valitse äänitulo ennen eristyksen käyttöönottoa
+
+Pysäytä lähetys VISPin iPhone-sovelluksessa ennen mikrofonin vaihtamista. Avaa
+**Settings → Audio**, valitse **System default** tai haluamasi nimetty äänitulo
+ja puhu samalla, kun seuraat mikrofonin tasoa.
+
+Irrota tai peitä hetkeksi mikrofoni, jonka uskot olevan käytössä. Jos mittari
+liikkuu edelleen tavalliseen tapaan, puhelin tallentaa todennäköisesti toista
+äänituloa. Korjaa valinta ennen eristysasetuksia. Hyvinkään suodatettu väärä
+mikrofoni ei muutu oikeaksi äänilähteeksi.
+
+VISPin natiivisovellus yhdistää valitun mikrofonin H.264-kamerakuvaan ja
+lähettää syötteen SRT:llä. Tavallinen välitysreitti tunnistaa ja välittää
+syötteen, mutta ei transkoodaa eikä normalisoi puhelimen ääntä matkalla
+OBS:ään. Nykyinen tallennus- ja lähetysprosessi kuvataan
+[puhelinsovelluksen ohjeessa](https://docs.visp-stream.com/fi/docs/phone-app).
+
+## 3. Ota VISPin Audio isolation käyttöön iPhonessa
+
+Kun lähetys on pysäytetty, avaa **Settings → Audio** ja ota **Audio isolation**
+käyttöön. Valitsin on tällä hetkellä iOS-ominaisuus, eikä sitä näytetä Android-
+tai selainlähettimessä.
+
+VISP käyttää tällöin iPhonen paikallista puheenkäsittelyreittiä. Jos iOS avaa
+mikrofonitilojen valinnan, valitse **Voice Isolation**. Applen nykyisen
+[mikrofonitilaohjeen](https://support.apple.com/en-us/101993) mukaan Voice
+Isolation vaimentaa ympäristön ääniä ja selkeyttää puhetta, kun taas Wide
+Spectrum jättää ympäristöäänet suodattamatta. Apple huomauttaa myös, että
+valittu tila on sovelluskohtainen. Puhelun aikana tehtyä valintaa ei siis pidä
+olettaa automaattisesti VISPissä aktiiviseksi.
+
+Käynnistä testisyöte ja tallenna OBS:ssä neljä näytettä:
+
+- kymmenen sekuntia oikeaa taustaa ilman puhetta;
+- tavallista puhetta mikrofoniin päin;
+- puhetta kävellessä ja kääntyessä;
+- yksi tarkoituksella äänekäs lause.
+
+Kuuntele muutakin kuin kohinan määrää. Tarkista, katoavatko sanojen loput,
+muuttuuko ääni metalliseksi ja häviävätkö halutut tapahtumapaikan äänet. Voice
+Isolation painottaa puhetta. Kytke se pois, jos bändi, katuesitys, yleisö tai
+luonnonäänet ovat itse sisältöä eivätkä häiriöitä.
+
+## 4. Ymmärrä Better audio isolation -asetuksen ero
+
+Joillakin VISP-tileillä näkyy toinen **Better audio isolation** -valitsin, kun
+Audio isolation on käytössä. Se ei ole vain saman paikallisen käsittelyn
+voimakkaampi taso.
+
+| Tila | Missä käsittely tapahtuu | Käytännön kompromissi |
+| --- | --- | --- |
+| Audio isolation | iPhonen paikallisella äänireitillä | Ei pilvipohjaisen ääneneristyksen edestakaista verkkokierrosta; paras ensimmäinen ohjelmistotesti |
+| Better audio isolation | VISPin sovelluspalvelimen ja ElevenLabsin kautta | Voi poistaa monimutkaisempaa taustamelua, mutta käyttää lisää lähetyskaistaa ja lisää noin puoli sekuntia viivettä |
+| OBS Noise Suppression | Kotistudion OBS-koneella syötteen saavuttua | Sopii lievään jäännöskohinaan OBS-lähdössä; ei puhdista OBS:n ohittavaa VISP Direct -lähetystä |
+
+VISPin pilvikäsittely lähettää lyhyitä 16 kHz:n mono-PCM-paloja tunnistetun
+sovelluspalvelimen kautta ElevenLabsille. ElevenLabs kuvaa
+[Audio Isolation -suoratoistorajapinnan](https://elevenlabs.io/docs/api-reference/audio-isolation/stream)
+poistavan taustamelua äänestä, ja rajapinta tukee samaa raakaa PCM-muotoa. Koska
+kyse on ulkoisesta käsittelystä, arvioi sen viive, lähetyskaistan käyttö ja
+oman tuotantosi tietosuojavaatimukset eri tavalla kuin täysin paikallinen tila.
+
+Better audio isolation näkyy vain, kun ominaisuus on sallittu tilille. Lisäksi
+VISP-asennuksen pilvipalveluntarjoajan asetusten pitää olla kunnossa. Jos
+valitsinta ei näy, paikallinen vaihtoehto on tavallinen reitti. Älä rakenna
+lähetyssuunnitelmaa sellaisen ominaisuuden varaan, jota tilillä ei ole.
+
+Kun otat pilvieristyksen käyttöön, toista sama tallenne ja lisää näkyvä
+kädentaputus. Sovellus kerää tarkoituksella noin puolen sekunnin äänipalan
+jokaista käsittelypyyntöä varten, joten tarkista huulisynkronointi valmiista
+tiedostosta. Älä kopioi toisen puhelimen tai yhteyden synkronointiarvoa. Mittaa
+juuri tämä laite, mikrofoni ja reitti.
+
+## 5. Lisää OBS-kohinanpoisto vain lievään jäännösmeluun
+
+Jos puhelinsyöte kuulostaa jo hyvältä mutta siinä on vielä lievä tasainen
+kohina, OBS voi käsitellä Media Source -lähteen ennen lopullista Twitch- tai
+Kick-lähtöä:
+
+1. Avaa VISP-puhelinlähteen **Filters** OBS:n Audio Mixerissä.
+2. Lisää **Noise Suppression**.
+3. Aloita RNNoise-menetelmällä ja tee lyhyt paikallinen tallenne.
+4. Vertaa tallennetta samalla kuunteluvoimakkuudella versioon, jossa suodatin
+   on pois käytöstä.
+5. Säilytä suodatin vain, jos puhe paranee ilman pumppaavaa ääntä tai katoavia
+   tavuja.
+
+OBS:n virallisen
+[Noise Suppression Filter -ohjeen](https://obsproject.com/kb/noise-suppression-filter)
+mukaan suodatin on tarkoitettu lievään tausta- tai valkoiseen kohinaan. Se ei
+yleensä tehoa suureen melumäärään, kuten äänekkääseen huoneeseen. Ohje varoittaa
+myös, että Speexin voimakkaampi vaimennus voi vääristää muita ääniä, puhe mukaan
+lukien. Siksi OBS-suodatin tulee mikrofonin sijoittelun jälkeen eikä sen tilalle.
+
+Älä pinoa paikallista eristystä, pilvieristystä ja vahvaa OBS-suodatinta vain
+siksi, että kaikki ovat saatavilla. Muuta yhtä asiaa kerrallaan. Peräkkäiset
+puheprosessorit voivat tulkita edellisen vaiheen jäljet kohinaksi ja poistaa
+enemmän kuin tarkoitit.
+
+OBS-suodatin vaikuttaa vain OBS:n ohjelmalähtöön. Jos VISP Direct lähettää
+puhelinsyötteen Twitchiin, Kickiin tai molempiin ilman OBS:ää jakelureitillä,
+OBS-suodatin ei voi muuttaa katsojien kuulemaa ääntä. Puhdista ääni silloin jo
+iPhonessa. [VISP Directin esittely](/fi/blog/what-is-visp-direct) kertoo, milloin
+alustalähtö ohittaa OBS:n.
+
+## 6. Arvioi tulos tallenteesta, älä mittarista
+
+Tasomittari kertoo, että ääntä tulee ja lähestyvätkö huiput leikkautumista. Se
+ei kerro, peittääkö tuuli konsonantit tai vahingoittaako eristys puheääntä.
+OBS:n nykyinen
+[Audio Mixer Guide](https://obsproject.com/kb/audio-mixer-guide) suosittelee
+tarkistamaan signaalin ensin alkuperäisellä laitteella ja sitten OBS:ssä sekä
+tallentamaan ja kuuntelemaan tuloksen ennen suoraa lähetystä.
+
+Käytä kuulokkeita ja vertaa tiedostoja suunnilleen samalla
+toistovoimakkuudella. Hiljaisempi näyte voi vaikuttaa puhtaammalta, vaikka
+kohinaa ei olisi poistettu. Sisällytä jokaiseen vertailuun hiljaisuutta, puhetta,
+äänekäs kohta, liikettä ja taputus.
+
+Jos kotistudiossa on etäoperaattori, tarkista lisäksi julkinen lähetys toisella
+äänettömälle asetetulla laitteella. Paikallinen OBS-tallenne todistaa
+puhelinsyötteen ja loppumiksauksen toimivuuden. Alustatarkistus puolestaan
+varmistaa, että oikea Twitch- tai Kick-ääniraita päätyi katsojille.
+
+## Kenttälista seuraavaan IRL-lähetykseen
+
+Tee nämä ennen lähtöä:
+
+1. asenna ja kiinnitä mikrofonille sopiva tuulisuoja;
+2. yhdistä haluttu mikrofoni ja valitse se VISPissä;
+3. päätä, onko ympäristön ääni sisältöä vai melua;
+4. ota paikallinen Audio isolation käyttöön vain, kun puheen pitää hallita;
+5. käytä Better audio isolation -tilaa vain, kun se on saatavilla ja testi
+   osoittaa sille tarpeen;
+6. tallenna OBS:ssä liike-, äänekkyys- ja taputustesti;
+7. käytä tarvittaessa enintään yhtä maltillista OBS-kohinanpoistosuodatinta;
+8. tallenna testattu scene ja monitorointiasetus;
+9. ota mukaan varamikrofoni tai varaudu palaamaan puhelimen omaan mikrofoniin;
+10. tee lyhyt tarkistus oikeassa paikassa, sillä sisäharjoitus ei toista sen
+    tuulta ja yleisöä.
+
+VISP ei pysty luomaan jälkikäteen hyvää mikrofonisignaalia, eikä sen tavallinen
+välitysreitti transkoodaa ääntä tai yhdistä verkkoyhteyksien kapasiteettia. Se
+antaa iPhonelle hallitun syötereitin kotistudioon, jossa voit tarkistaa ja
+miksata tuloksen ennen Twitchiä tai Kickiä.
+
+Jos ongelmasi on taustamelun sijaan hiljaisuus, kaiku, leikkautuminen tai
+vakiona pysyvä viive, käytä
+[puhelinkameran äänen vianmääritysopasta](/fi/blog/fix-phone-audio-obs).
+Koko lähteen käyttöönotto löytyy oppaasta
+[Näin käytät puhelinta OBS:n etäkamerana](/fi/blog/use-phone-as-remote-camera-obs)
+ja [VISPin aloitusohjeesta](https://docs.visp-stream.com/fi/docs/get-started).
+Kokeile sitten VISPiä yhdessä testiscenessä ja pidä käytössä eristystila, joka
+selviää oikeasta ulkotallenteesta eikä vain hiljaisesta työpöytätestistä.
