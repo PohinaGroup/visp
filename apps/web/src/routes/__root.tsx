@@ -21,6 +21,7 @@ import { CookieBanner } from "../components/cookie-banner";
 import Header from "../components/header";
 import appCss from "../index.css?url";
 import { useLocale } from "../lib/i18n";
+import { legalEntity } from "../lib/legal";
 
 export interface RouterAppContext {
 	trpc: TRPCOptionsProxy<AppRouter>;
@@ -75,7 +76,35 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 				href: "/favicon.png",
 			},
 		],
-		scripts: rybbitHeadScripts(),
+		scripts: [
+			...rybbitHeadScripts(),
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@graph": [
+						{
+							"@type": "WebSite",
+							"@id": `${legalEntity.siteUrl}/#website`,
+							name: legalEntity.productName,
+							url: `${legalEntity.siteUrl}/`,
+							inLanguage: ["en", "fi"],
+							publisher: {
+								"@id": `${legalEntity.siteUrl}/#organization`,
+							},
+						},
+						{
+							"@type": "Organization",
+							"@id": `${legalEntity.siteUrl}/#organization`,
+							name: legalEntity.companyName,
+							url: `${legalEntity.siteUrl}/`,
+							logo: `${legalEntity.siteUrl}/visp-logo.png`,
+							sameAs: [legalEntity.sourceUrl],
+						},
+					],
+				}),
+			},
+		],
 	}),
 
 	component: RootDocument,

@@ -11,6 +11,7 @@ export const legalEntity = {
 	siteUrl: "https://visp-stream.com",
 	releasesUrl: "https://github.com/PohinaGroup/visp/releases",
 	docsUrl: "https://docs.visp-stream.com",
+	xUrl: "https://x.com/VISPstreaming",
 	browserAppUrl: "https://stream.visp-stream.com",
 	iosTestFlightUrl: "https://testflight.apple.com/join/Fc3VttNn",
 	androidPlayTestingUrl:

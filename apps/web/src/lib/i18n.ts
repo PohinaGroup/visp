@@ -205,3 +205,36 @@ export function localizedHead(locale: Locale, path = "/") {
 		},
 	];
 }
+
+// The landing routes only ever set title/description/og:locale, so Google had
+// no site-name signal and echoed the <title> verbatim above the URL in the
+// SERP snippet. The root WebSite JSON-LD supplies the structured site identity;
+// this og/twitter block also gives the homepage a link card.
+export function landingHead(
+	locale: Locale,
+	title: string,
+	description: string,
+) {
+	const canonical = `${siteUrl}${locale === "fi" ? "/fi" : "/"}`;
+	// ponytail: square logo, so summary not summary_large_image. Swap both to
+	// a 1200x630 card when someone designs one.
+	const image = `${siteUrl}/visp-logo.png`;
+	return {
+		meta: [
+			{ title },
+			{ name: "description", content: description },
+			{ property: "og:type", content: "website" },
+			{ property: "og:site_name", content: "VISP" },
+			{ property: "og:title", content: title },
+			{ property: "og:description", content: description },
+			{ property: "og:url", content: canonical },
+			{ property: "og:image", content: image },
+			{ property: "og:locale", content: locale === "fi" ? "fi_FI" : "en_US" },
+			{ name: "twitter:card", content: "summary" },
+			{ name: "twitter:title", content: title },
+			{ name: "twitter:description", content: description },
+			{ name: "twitter:image", content: image },
+		],
+		links: localizedHead(locale),
+	};
+}
