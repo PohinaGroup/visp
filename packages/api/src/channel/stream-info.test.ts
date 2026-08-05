@@ -43,6 +43,19 @@ const tokens = async (provider: ViewerProvider) => ({
 	accessToken: `${provider}-token`,
 });
 
+const savedTitles: string[] = [];
+const saveYoutubeTitle = async (_userId: string, title: string) => {
+	savedTitles.push(title);
+};
+
+const youtubeLinked = async () => [
+	{
+		provider: "google",
+		accountId: "google-1",
+		scope: "https://www.googleapis.com/auth/youtube.force-ssl",
+	},
+];
+
 describe("getViewerCounts", () => {
 	test("returns separate live Twitch and Kick counts", async () => {
 		const calls: Call[] = [];
@@ -203,6 +216,7 @@ describe("updateStreamInfo", () => {
 				fetch: recordingFetch(calls),
 				getAccessToken: tokens,
 				loadAccounts: bothLinked,
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([
@@ -235,6 +249,7 @@ describe("updateStreamInfo", () => {
 				loadAccounts: async () => [
 					{ provider: "kick", accountId: "42", scope: "channel:write" },
 				],
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([{ provider: "kick", ok: true }]);
@@ -254,6 +269,7 @@ describe("updateStreamInfo", () => {
 				),
 				getAccessToken: tokens,
 				loadAccounts: bothLinked,
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([
@@ -273,6 +289,7 @@ describe("updateStreamInfo", () => {
 				loadAccounts: async () => [
 					{ provider: "twitch", accountId: "tw-1", scope: "user:read:chat" },
 				],
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([
@@ -290,10 +307,182 @@ describe("updateStreamInfo", () => {
 				fetch: recordingFetch(calls),
 				getAccessToken: tokens,
 				loadAccounts: bothLinked,
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([{ provider: "kick", ok: true }]);
 		expect(calls).toHaveLength(1);
+	});
+
+	test("retitles the live YouTube broadcast and saves the default", async () => {
+		savedTitles.length = 0;
+		const calls: Call[] = [];
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Hello" },
+			{
+				fetch: recordingFetch(calls, (url) =>
+					url.includes("broadcastStatus=active")
+						? Response.json({
+								items: [
+									{
+										id: "bc-1",
+										snippet: {
+											description: "keep me",
+											scheduledStartTime: "2026-01-01T00:00:00Z",
+										},
+									},
+								],
+							})
+						: new Response(null, { status: 204 }),
+				),
+				getAccessToken: tokens,
+				loadAccounts: youtubeLinked,
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([{ provider: "youtube", ok: true }]);
+		expect(savedTitles).toEqual(["Hello"]);
+		expect(calls).toHaveLength(2);
+		expect(calls[0]?.headers.get("Authorization")).toBe("Bearer youtube-token");
+		expect(calls[1]?.method).toBe("PUT");
+		expect(calls[1]?.url).toBe(
+			"https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet",
+		);
+		// A part=snippet write replaces the snippet, so the rest must be carried.
+		expect(calls[1]?.body).toEqual({
+			id: "bc-1",
+			snippet: {
+				title: "Hello",
+				description: "keep me",
+				scheduledStartTime: "2026-01-01T00:00:00Z",
+			},
+		});
+	});
+
+	test("falls back to the upcoming broadcast when nothing is live", async () => {
+		savedTitles.length = 0;
+		const calls: Call[] = [];
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Later" },
+			{
+				fetch: recordingFetch(calls, (url) =>
+					url.includes("broadcastStatus=upcoming")
+						? Response.json({
+								items: [
+									{
+										id: "bc-2",
+										snippet: { scheduledStartTime: "2026-02-02T00:00:00Z" },
+									},
+								],
+							})
+						: url.includes("broadcastStatus=active")
+							? Response.json({ items: [] })
+							: new Response(null, { status: 204 }),
+				),
+				getAccessToken: tokens,
+				loadAccounts: youtubeLinked,
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([{ provider: "youtube", ok: true }]);
+		expect(calls).toHaveLength(3);
+		expect(calls[2]?.body).toEqual({
+			id: "bc-2",
+			snippet: {
+				title: "Later",
+				scheduledStartTime: "2026-02-02T00:00:00Z",
+			},
+		});
+	});
+
+	test("still saves the default when YouTube has no broadcast", async () => {
+		savedTitles.length = 0;
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Nothing live" },
+			{
+				fetch: recordingFetch([], () => Response.json({ items: [] })),
+				getAccessToken: tokens,
+				loadAccounts: youtubeLinked,
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([
+			{
+				provider: "youtube",
+				ok: false,
+				error: "No YouTube broadcast to update",
+			},
+		]);
+		expect(savedTitles).toEqual(["Nothing live"]);
+	});
+
+	test("YouTube without channel write consent is not called", async () => {
+		savedTitles.length = 0;
+		const calls: Call[] = [];
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Nope" },
+			{
+				fetch: recordingFetch(calls),
+				getAccessToken: tokens,
+				loadAccounts: async () => [
+					{
+						provider: "google",
+						accountId: "google-1",
+						scope: "https://www.googleapis.com/auth/youtube.readonly",
+					},
+				],
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([
+			{ provider: "youtube", ok: false, error: "consent-required" },
+		]);
+		expect(calls).toHaveLength(0);
+		expect(savedTitles).toEqual([]);
+	});
+
+	test("truncates the YouTube title without shortening Twitch's", async () => {
+		savedTitles.length = 0;
+		const long = "a".repeat(140);
+		const calls: Call[] = [];
+		await updateStreamInfo(
+			"user",
+			{ title: long },
+			{
+				fetch: recordingFetch(calls, (url) =>
+					url.includes("broadcastStatus=active")
+						? Response.json({ items: [{ id: "bc-1", snippet: {} }] })
+						: new Response(null, { status: 204 }),
+				),
+				getAccessToken: tokens,
+				loadAccounts: async () => [
+					{
+						provider: "twitch",
+						accountId: "tw-1",
+						scope: "channel:manage:broadcast",
+					},
+					...(await youtubeLinked()),
+				],
+				saveYoutubeTitle,
+			},
+		);
+
+		const twitch = calls.find((call) => call.url.includes("twitch.tv"));
+		expect(twitch?.body).toEqual({ title: long });
+		const put = calls.find((call) => call.method === "PUT");
+		expect(put?.body).toEqual({
+			id: "bc-1",
+			snippet: { title: "a".repeat(100) },
+		});
+		expect(savedTitles).toEqual(["a".repeat(100)]);
 	});
 });
 

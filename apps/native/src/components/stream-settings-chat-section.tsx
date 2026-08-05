@@ -9,8 +9,10 @@ import { VispRoutePicker } from "../../modules/visp-srt";
 import type { apiClient } from "../lib/backend";
 import type { ChatPreferences } from "../lib/chat-preferences";
 import {
+	DESTRUCTIVE,
 	IS_IOS,
 	IS_WEB,
+	ProviderRow,
 	SettingRow,
 	SUBTLE,
 	SUBTLE_TEXT,
@@ -48,40 +50,44 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 		<>
 			<UI.FieldGroup.Section title="Chat">
 				{chat.connections.map((connection) => (
-					<UI.Row alignment="center" key={connection.provider} spacing={12}>
-						<UI.Column spacing={2}>
-							<UI.Text>
-								{PROVIDER_PRESENTATION[connection.provider].label}
-							</UI.Text>
-							<UI.Text textStyle={SUBTLE_TEXT}>
-								{connection.enabled
-									? (chat.errors[connection.provider] ??
-										(chat.statuses[connection.provider] === "error"
-											? `${PROVIDER_PRESENTATION[connection.provider].label} chat could not be started`
-											: `Chat ${chat.statuses[connection.provider] ?? "connected"}`))
-									: connection.linked
-										? "Linked · chat off"
-										: "Not linked"}
-							</UI.Text>
-						</UI.Column>
-						<UI.Spacer flexible />
-						{connection.linked ? (
-							<UI.Button
-								disabled={chat.busy}
-								label="Re-authorize"
-								onPress={() => chat.onReauthorizeConnection(connection)}
-								variant="text"
-							/>
-						) : null}
-						{connection.linked &&
-						chat.connections.filter(({ linked }) => linked).length > 1 ? (
-							<UI.Button
-								disabled={chat.busy}
-								label="Unlink"
-								onPress={() => chat.onUnlinkConnection(connection)}
-								variant="text"
-							/>
-						) : null}
+					<ProviderRow
+						actions={
+							connection.linked ? (
+								<>
+									<UI.Button
+										disabled={chat.busy}
+										label="Re-authorize"
+										onPress={() => chat.onReauthorizeConnection(connection)}
+										variant="text"
+									/>
+									{chat.connections.filter(({ linked }) => linked).length >
+									1 ? (
+										<UI.Button
+											disabled={chat.busy}
+											onPress={() => chat.onUnlinkConnection(connection)}
+											variant="text"
+										>
+											<UI.Text textStyle={{ color: DESTRUCTIVE }}>
+												Unlink
+											</UI.Text>
+										</UI.Button>
+									) : null}
+								</>
+							) : null
+						}
+						key={connection.provider}
+						label={PROVIDER_PRESENTATION[connection.provider].label}
+						status={
+							connection.enabled
+								? (chat.errors[connection.provider] ??
+									(chat.statuses[connection.provider] === "error"
+										? "Chat could not be started"
+										: `Chat ${chat.statuses[connection.provider] ?? "connected"}`))
+								: connection.linked
+									? "Linked · chat off"
+									: "Not linked"
+						}
+					>
 						{connection.linked && !connection.needsConsent ? (
 							<UI.Switch
 								disabled={chat.busy}
@@ -96,7 +102,7 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 								variant="outlined"
 							/>
 						)}
-					</UI.Row>
+					</ProviderRow>
 				))}
 				{!chat.enabled ? (
 					<UI.FieldGroup.SectionFooter>
@@ -122,7 +128,7 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 							<UI.Picker.Item label="Hidden" value="hidden" />
 							<UI.Picker.Item label="Floating" value="floating" />
 							{!IS_WEB ? (
-								<UI.Picker.Item label="Embedded in stream" value="embedded" />
+								<UI.Picker.Item label="Embedded" value="embedded" />
 							) : null}
 						</UI.Picker>
 					</SettingRow>

@@ -34,12 +34,16 @@ export function parseStreamInfoDraft(
 }
 
 export type StreamInfoUpdateResult = {
-	provider: "twitch" | "kick";
+	provider: "twitch" | "kick" | "youtube";
 	ok: boolean;
 	error?: string;
 };
 
-const PROVIDER_LABELS = { twitch: "Twitch", kick: "Kick" } as const;
+export const PROVIDER_LABELS = {
+	twitch: "Twitch",
+	kick: "Kick",
+	youtube: "YouTube",
+} as const;
 
 export function summarizeUpdateResults(results: StreamInfoUpdateResult[]) {
 	if (results.length === 0) return "No linked platform to update";

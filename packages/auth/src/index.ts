@@ -52,10 +52,11 @@ export function createAuth() {
 			// run apps/server/scripts/encrypt-oauth-tokens.ts once after deploying
 			// so no plaintext row is left behind.
 			encryptOAuthTokens: true,
-			accountLinking: {
-				allowDifferentEmails: true,
-				disableImplicitLinking: true,
-			},
+			// Implicit linking stays on so a streamer signing in with Google lands on
+			// the account they already made with Twitch. Better Auth only links when
+			// both the provider's email and the stored one are verified, and Kick
+			// always reports emailVerified: false, so it can never link this way.
+			accountLinking: { allowDifferentEmails: true },
 			// Expo opens the OAuth proxy on EXPO_PUBLIC_SERVER_URL (often
 			// http://127.0.0.1:3000 or a LAN IP) while Twitch returns to
 			// BETTER_AUTH_URL (https://api.visp.localhost). The state cookie

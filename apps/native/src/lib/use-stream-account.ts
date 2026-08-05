@@ -41,6 +41,10 @@ export function useStreamAccount({
 	>([]);
 	const [directOutputs, setDirectOutputs] =
 		useState<Awaited<ReturnType<typeof apiClient.direct.list.query>>>();
+	const [linkedAccounts, setLinkedAccounts] =
+		useState<
+			Awaited<ReturnType<typeof apiClient.channel.linkedAccounts.query>>
+		>();
 	const [installationId, setInstallationId] = useState<string>();
 	const [revealedDeviceUrls, setRevealedDeviceUrls] = useState<
 		Record<number, string>
@@ -68,6 +72,7 @@ export function useStreamAccount({
 			setChatPreferences(DEFAULT_CHAT_PREFERENCES);
 			setChatConnections([]);
 			setPublishDevices([]);
+			setLinkedAccounts(undefined);
 			setInstallationId(undefined);
 			return;
 		}
@@ -118,6 +123,17 @@ export function useStreamAccount({
 	const refreshDirectOutputs = useCallback(async () => {
 		if (!userId) return;
 		setDirectOutputs(await apiClient.direct.list.query());
+	}, [userId]);
+
+	// Each call reads every linked provider's profile live, so it runs on demand
+	// (opening Account, or after a link changes) rather than on every load.
+	const refreshLinkedAccounts = useCallback(async () => {
+		if (!userId) return;
+		try {
+			setLinkedAccounts(await apiClient.channel.linkedAccounts.query());
+		} catch {
+			setLinkedAccounts([]);
+		}
 	}, [userId]);
 
 	const { awaitingAutoProvision, provisionDestination, provisioning } =
@@ -220,16 +236,22 @@ export function useStreamAccount({
 						? await authClient.linkSocial({
 								provider: provider === "youtube" ? "google" : provider,
 								callbackURL: authCallbackURL(),
+								errorCallbackURL: authCallbackURL(),
 								scopes,
 							})
 						: await authClient.oauth2.link({
 								providerId: provider,
 								callbackURL: authCallbackURL(),
+								errorCallbackURL: authCallbackURL(),
 								scopes,
 							});
 				if (result.error)
 					throw new Error(result.error.message ?? `Could not link ${provider}`);
-				await Promise.all([refreshChatConnections(), refreshDirectOutputs()]);
+				await Promise.all([
+					refreshChatConnections(),
+					refreshDirectOutputs(),
+					refreshLinkedAccounts(),
+				]);
 			} catch (error) {
 				showToast(
 					error instanceof Error ? error.message : `Could not link ${provider}`,
@@ -243,6 +265,7 @@ export function useStreamAccount({
 			directOutputs?.providers,
 			refreshChatConnections,
 			refreshDirectOutputs,
+			refreshLinkedAccounts,
 			showToast,
 		],
 	);
@@ -250,6 +273,16 @@ export function useStreamAccount({
 	const linkChatProvider = useCallback(
 		(provider: ChatProvider, chatConsent = false) =>
 			linkProvider(provider, chatConsent ? PROVIDER_SCOPES[provider].chat : []),
+		[linkProvider],
+	);
+
+	/**
+	 * Editing stream info needs channel write, which only Twitch's chat scope
+	 * happens to include — YouTube's grants read-only access.
+	 */
+	const linkChannelProvider = useCallback(
+		(provider: ChatProvider) =>
+			linkProvider(provider, [PROVIDER_SCOPES[provider].channelWrite]),
 		[linkProvider],
 	);
 
@@ -312,7 +345,7 @@ export function useStreamAccount({
 					throw new Error(
 						result.error.message ?? "Provider could not be unlinked",
 					);
-				await refreshChatConnections();
+				await Promise.all([refreshChatConnections(), refreshLinkedAccounts()]);
 			} catch (error) {
 				showToast(
 					error instanceof Error
@@ -323,7 +356,7 @@ export function useStreamAccount({
 				setChatBusy(undefined);
 			}
 		},
-		[refreshChatConnections, showToast],
+		[refreshChatConnections, refreshLinkedAccounts, showToast],
 	);
 
 	return {
@@ -334,13 +367,16 @@ export function useStreamAccount({
 		chatPreferences,
 		directOutputs,
 		installationId,
+		linkChannelProvider,
 		linkChatProvider,
+		linkedAccounts,
 		linkProvider,
 		provisionDestination,
 		provisioning,
 		publishDevices,
 		refreshChatConnections,
 		refreshDirectOutputs,
+		refreshLinkedAccounts,
 		refreshPublishDevices,
 		revealedDeviceUrls,
 		revealPublishDevice,

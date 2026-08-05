@@ -146,7 +146,7 @@ export default function Index() {
 		chatConnections,
 		chatPreferences,
 		installationId,
-		linkChatProvider,
+		linkChannelProvider,
 		provisionDestination,
 		provisioning,
 		publishDevices,
@@ -393,14 +393,27 @@ export default function Index() {
 				provider !== "kick"
 					? await authClient.signIn.social({
 							callbackURL: authCallbackURL(),
+							errorCallbackURL: authCallbackURL(),
 							provider,
 						})
 					: await authClient.signIn.oauth2({
 							callbackURL: authCallbackURL(),
+							errorCallbackURL: authCallbackURL(),
 							providerId: provider,
 						});
 			if (result.error) {
 				setMessage(result.error.message ?? `${provider} sign-in failed.`);
+				return;
+			}
+			// A failed OAuth callback resolves this promise like a success: the
+			// server redirects to errorCallbackURL and iOS hands that URL to the
+			// auth session, not to the app, so the reason never reaches us. No
+			// session after the browser closes is the only signal we get.
+			const { data: signedIn } = await authClient.getSession();
+			if (!signedIn) {
+				setMessage(
+					"Sign-in did not complete. If you already have a VISP account, sign in with the provider you used first, then connect this one from settings.",
+				);
 			}
 		} catch {
 			setMessage(`${provider} sign-in failed.`);
@@ -735,6 +748,7 @@ export default function Index() {
 		onSelectCamera: selectCamera,
 		onUpdateBondingMode: updateBondingMode,
 		onUpdateImageStabilization: updateImageStabilization,
+		publishPathId,
 		selectedAudioInputId,
 		sessionUser: session?.user,
 		setDraft,
@@ -890,7 +904,7 @@ export default function Index() {
 					authorizing={Boolean(chatBusy)}
 					connections={chatConnections}
 					isPresented={streamInfoOpen}
-					onAuthorize={(provider) => void linkChatProvider(provider, true)}
+					onAuthorize={(provider) => void linkChannelProvider(provider)}
 					onDismiss={() => setStreamInfoOpen(false)}
 					showToast={showToast}
 					userId={userId}

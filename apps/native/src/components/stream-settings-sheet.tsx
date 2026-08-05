@@ -16,6 +16,10 @@ import {
 } from "./stream-settings-camera-section";
 import { ChatSection, type ChatSettings } from "./stream-settings-chat-section";
 import {
+	DirectSection,
+	type DirectSettings,
+} from "./stream-settings-direct-section";
+import {
 	type DestinationSettings,
 	IS_WEB,
 	SettingRow,
@@ -30,6 +34,7 @@ export type StreamSettingsSheetProps = {
 	camera: CameraSettings;
 	chat: ChatSettings;
 	destination: DestinationSettings;
+	direct: DirectSettings;
 	isPresented: boolean;
 	network: NetworkSettings;
 	onDismiss: () => void;
@@ -45,6 +50,7 @@ export function StreamSettingsSheet({
 	camera,
 	chat,
 	destination,
+	direct,
 	isPresented,
 	network,
 	onDismiss,
@@ -104,13 +110,14 @@ export function StreamSettingsSheet({
 					</UI.FieldGroup.Section>
 				) : null}
 				{account ? <ChatSection chat={chat} /> : null}
+				{account ? <DirectSection direct={direct} /> : null}
 				<AdvancedSection
 					account={account}
 					accountOpen={accountOpen}
 					advanced={advanced}
 					advancedOpen={advancedOpen}
-					chatBusy={chat.busy}
 					destination={destination}
+					direct={direct}
 					onToggleAccount={onToggleAccount}
 					onToggleAdvanced={onToggleAdvanced}
 					settingsDisabled={camera.settingsDisabled}

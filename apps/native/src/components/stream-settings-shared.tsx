@@ -14,6 +14,17 @@ export type DestinationSettings = {
 	streamUrl: string | null;
 };
 
+export type DirectProvider = "twitch" | "kick" | "youtube";
+export const DIRECT_PROVIDERS = ["twitch", "kick", "youtube"] as const;
+
+export function providerLabel(provider: DirectProvider) {
+	return provider === "twitch"
+		? "Twitch"
+		: provider === "kick"
+			? "Kick"
+			: "YouTube";
+}
+
 // ponytail: iOS Forms put picker labels inline; Material dropdowns read better with the label above.
 export function SettingRow({
 	label,
@@ -35,6 +46,43 @@ export function SettingRow({
 		<UI.Column spacing={4}>
 			<UI.Text textStyle={SUBTLE_TEXT}>{label}</UI.Text>
 			{children}
+		</UI.Column>
+	);
+}
+
+// ponytail: SwiftUI compresses trailing buttons into vertical letter-stacks when a long
+// label shares the row, so: one control on the row, extra actions on a line of their own.
+export function ProviderRow({
+	label,
+	status,
+	actions,
+	children,
+}: {
+	label: string;
+	status?: string;
+	actions?: ReactNode;
+	children?: ReactNode;
+}) {
+	return (
+		<UI.Column spacing={4}>
+			<UI.Row alignment="center" spacing={12}>
+				<UI.Column spacing={2}>
+					<UI.Text numberOfLines={1}>{label}</UI.Text>
+					{status ? (
+						<UI.Text numberOfLines={2} textStyle={SUBTLE_TEXT}>
+							{status}
+						</UI.Text>
+					) : null}
+				</UI.Column>
+				<UI.Spacer flexible />
+				{children}
+			</UI.Row>
+			{actions ? (
+				<UI.Row alignment="center" spacing={16}>
+					{actions}
+					<UI.Spacer flexible />
+				</UI.Row>
+			) : null}
 		</UI.Column>
 	);
 }

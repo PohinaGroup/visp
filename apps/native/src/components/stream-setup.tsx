@@ -30,7 +30,9 @@ function BrandLockup() {
 
 export function StreamLoading({
 	label = "Loading publish destination...",
-}: { label?: string } = {}) {
+}: {
+	label?: string;
+} = {}) {
 	return (
 		<View style={styles.loading}>
 			<StatusBar style="light" />
@@ -62,7 +64,8 @@ export function StreamSignIn({
 				<Text style={styles.eyebrow}>Sign in</Text>
 				<Text style={styles.title}>Sign in to VISP</Text>
 				<Text style={styles.subtitle}>
-					Connect Twitch, Kick, or Google to load your relay destination automatically.
+					Connect Twitch, Kick, or Google to load your relay destination
+					automatically.
 				</Text>
 				{message ? <Text style={styles.formError}>{message}</Text> : null}
 				<Pressable

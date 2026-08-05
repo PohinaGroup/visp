@@ -1,4 +1,3 @@
-import { formatBondedLinks, formatLiveLinkHud } from "@VISP/api/link-stats";
 import { Linking, Pressable, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type {
@@ -17,6 +16,7 @@ import {
 	supportsImageStabilization,
 } from "../lib/camera-settings";
 import { IS_WEB } from "../lib/platform";
+import { LinkStatsHud } from "./link-stats-hud";
 import { ObsControls, type ObsStatus } from "./obs-control-button";
 import { streamScreenStyles as styles } from "./stream-screen.styles";
 import { ZoomButton } from "./zoom-button";
@@ -191,13 +191,10 @@ export function StreamCameraControls({
 							<Text style={styles.format}>
 								{currentCamera?.name ?? "Camera"} · {formatLabel(configuration)}{" "}
 								· {configuration.fps} fps · {IS_WEB ? "WebRTC" : "SRT"}
-								{formatLiveLinkHud(linkStats, state === "live")}
-								{state === "live" && linkStats?.links?.length
-									? ` · ${formatBondedLinks(linkStats.links)}`
-									: ""}
 							</Text>
 						</Pressable>
 					) : null}
+					<LinkStatsHud linkStats={linkStats} live={state === "live"} />
 					{currentCamera && !IS_WEB ? (
 						<View accessibilityRole="toolbar" style={styles.zoomControls}>
 							{currentCamera.zoomLevels.map((level) => (

@@ -34,6 +34,7 @@ export function useStreamSettingsModel({
 	onSelectCamera,
 	onUpdateBondingMode,
 	onUpdateImageStabilization,
+	publishPathId,
 	selectedAudioInputId,
 	sessionUser,
 	setDraft,
@@ -64,6 +65,7 @@ export function useStreamSettingsModel({
 	onSelectCamera: (camera: CameraCapability) => void;
 	onUpdateBondingMode: (mode: BondingMode) => Promise<void>;
 	onUpdateImageStabilization: (enabled: boolean) => void;
+	publishPathId?: number;
 	selectedAudioInputId: string;
 	sessionUser?: { email: string; name: string };
 	setDraft: Dispatch<SetStateAction<string>>;
@@ -83,6 +85,7 @@ export function useStreamSettingsModel({
 		account: sessionUser
 			? {
 					...sessionUser,
+					linkedAccounts: streamAccount.linkedAccounts,
 					onSignOut: () => {
 						setIsPresented(false);
 						void (async () => {
@@ -94,16 +97,8 @@ export function useStreamSettingsModel({
 			: undefined,
 		accountOpen,
 		advanced: {
-			directOutputs: streamAccount.directOutputs,
 			installationId: streamAccount.installationId,
-			onApplyDirectSelection: streamAccount.applyDirectSelection,
-			onAuthorizeDirect: (provider) =>
-				streamAccount.linkProvider(
-					provider,
-					PROVIDER_SCOPES[provider].streamKeyRequest,
-				),
 			onRevealPublishDevice: streamAccount.revealPublishDevice,
-			onUpdateYoutubeTitle: streamAccount.updateYoutubeTitle,
 			publishDevices: streamAccount.publishDevices,
 			revealedDeviceUrls: streamAccount.revealedDeviceUrls,
 		},
@@ -151,6 +146,18 @@ export function useStreamSettingsModel({
 			onRemove: onRemoveDestination,
 			streamUrl,
 		},
+		direct: {
+			busy: Boolean(streamAccount.chatBusy),
+			directOutputs: streamAccount.directOutputs,
+			onApplyDirectSelection: streamAccount.applyDirectSelection,
+			onAuthorizeDirect: (provider) =>
+				streamAccount.linkProvider(
+					provider,
+					PROVIDER_SCOPES[provider].streamKeyRequest,
+				),
+			onUpdateYoutubeTitle: streamAccount.updateYoutubeTitle,
+			publishPathId,
+		},
 		isPresented,
 		network: {
 			bondingMode,
@@ -163,7 +170,10 @@ export function useStreamSettingsModel({
 			},
 		},
 		onDismiss: () => setIsPresented(false),
-		onToggleAccount: () => setAccountOpen((open) => !open),
+		onToggleAccount: () => {
+			if (!accountOpen) void streamAccount.refreshLinkedAccounts();
+			setAccountOpen((open) => !open);
+		},
 		onToggleAdvanced: () => setAdvancedOpen((open) => !open),
 		speech: {
 			audioIsolationEnabled: preferences.audioIsolationEnabled,

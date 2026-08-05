@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import {
 	clampVideoBitrateKbps,
+	formatBondedBitrates,
 	formatBondedLinks,
 	formatLinkStats,
 	formatLiveLinkHud,
+	formatMbps,
 	isLinkCongested,
+	linkHealth,
 	linkStatsFromPath,
 	nextVideoBitrateKbps,
 	videoBitrateCeilingKbps,
@@ -108,6 +111,36 @@ test("formats per-link bonded stats", () => {
 			},
 		]),
 	).toBe("Wi-Fi 2.1 Mb/s · 48 ms · 0.2% · Cellular broken");
+});
+
+describe("formatMbps", () => {
+	test("renders kbps as one decimal of Mb/s", () => {
+		expect(formatMbps(2100)).toBe("2.1");
+		expect(formatMbps(0)).toBe("0.0");
+		expect(formatMbps(6000)).toBe("6.0");
+	});
+});
+
+describe("linkHealth", () => {
+	test("tiers on the shared soft and congestion thresholds", () => {
+		expect(linkHealth(0.1, 40)).toBe("good");
+		expect(linkHealth(0.5, 40)).toBe("soft");
+		expect(linkHealth(0.1, 250)).toBe("soft");
+		expect(linkHealth(2, 40)).toBe("congested");
+		expect(linkHealth(0.1, 400)).toBe("congested");
+	});
+});
+
+describe("formatBondedBitrates", () => {
+	test("shows bitrate per link and falls back to link state", () => {
+		expect(formatBondedBitrates(undefined)).toBe("");
+		expect(
+			formatBondedBitrates([
+				{ bitrateKbps: 3100, state: "connected", transport: "wifi" },
+				{ bitrateKbps: 0, state: "broken", transport: "cellular" },
+			]),
+		).toBe("Wi-Fi 3.1 Mb/s · Cellular broken");
+	});
 });
 
 describe("videoBitrateCeilingKbps", () => {

@@ -52,9 +52,7 @@ export async function listChatConnections(userId: string) {
 			grantedScopes: parseScopes(linked?.scope),
 			needsConsent: Boolean(linked) && !hasChatScope(provider, linked?.scope),
 			canManageChannel:
-				provider !== "youtube" &&
-				Boolean(linked) &&
-				hasChannelWriteScope(provider, linked?.scope),
+				Boolean(linked) && hasChannelWriteScope(provider, linked?.scope),
 			canReadStreamKey:
 				Boolean(linked) && hasStreamKeyScope(provider, linked?.scope),
 		};

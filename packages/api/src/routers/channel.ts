@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { listLinkedAccounts } from "../channel/linked-accounts";
 import {
 	getViewerCounts,
 	searchStreamCategories,
@@ -7,6 +8,9 @@ import {
 import { protectedProcedure, router } from "../index";
 
 export const channelRouter = router({
+	linkedAccounts: protectedProcedure.query(({ ctx }) =>
+		listLinkedAccounts(ctx.session.user.id),
+	),
 	viewerCounts: protectedProcedure
 		.input(
 			z.object({
