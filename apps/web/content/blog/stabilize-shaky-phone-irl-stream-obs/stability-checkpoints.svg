@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Four checkpoints for a stable phone-to-OBS picture</title>
+  <desc id="desc">A phone held with two hands, a cropped stabilization frame, an SRT relay path, and a home studio monitor arranged from left to right.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#081526"/>
+      <stop offset="1" stop-color="#12364b"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38bdf8"/>
+      <stop offset="1" stop-color="#67e8f9"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1600" height="900" rx="56" fill="url(#bg)"/>
+  <path d="M280 450 H1320" stroke="#1d5874" stroke-width="18" stroke-linecap="round"/>
+  <path d="M280 450 H1320" stroke="url(#blue)" stroke-width="5" stroke-linecap="round" filter="url(#glow)"/>
+
+  <g transform="translate(100 245)">
+    <circle cx="180" cy="205" r="170" fill="#0d2437" stroke="#25627d" stroke-width="4"/>
+    <rect x="120" y="68" width="120" height="230" rx="24" fill="#07111d" stroke="#a5f3fc" stroke-width="8"/>
+    <rect x="138" y="94" width="84" height="156" rx="10" fill="#174c66"/>
+    <path d="M76 275 C102 240 120 232 143 237 M284 275 C258 240 240 232 217 237" fill="none" stroke="#d9a982" stroke-width="34" stroke-linecap="round"/>
+    <path d="M68 290 L124 250 M292 290 L236 250" stroke="#d9a982" stroke-width="24" stroke-linecap="round"/>
+    <circle cx="180" cy="205" r="151" fill="none" stroke="#38bdf8" stroke-width="3" stroke-dasharray="8 16" opacity=".7"/>
+    <circle cx="180" cy="384" r="32" fill="#0b1e30" stroke="#67e8f9" stroke-width="3"/>
+    <text x="180" y="396" fill="#e6fbff" font-family="ui-monospace, monospace" font-size="34" text-anchor="middle">1</text>
+  </g>
+
+  <g transform="translate(470 245)">
+    <circle cx="180" cy="205" r="170" fill="#0d2437" stroke="#25627d" stroke-width="4"/>
+    <rect x="65" y="100" width="230" height="150" rx="15" fill="#174c66" stroke="#547d91" stroke-width="5"/>
+    <rect x="92" y="118" width="176" height="114" rx="10" fill="#0b1e30" stroke="#67e8f9" stroke-width="5"/>
+    <path d="M81 92 l28 -28 M279 92 l-28 -28 M81 258 l28 28 M279 258 l-28 28" fill="none" stroke="#38bdf8" stroke-width="8" stroke-linecap="round"/>
+    <path d="M110 205 Q145 145 180 205 T250 205" fill="none" stroke="#a5f3fc" stroke-width="7" stroke-linecap="round"/>
+    <circle cx="180" cy="384" r="32" fill="#0b1e30" stroke="#67e8f9" stroke-width="3"/>
+    <text x="180" y="396" fill="#e6fbff" font-family="ui-monospace, monospace" font-size="34" text-anchor="middle">2</text>
+  </g>
+
+  <g transform="translate(840 245)">
+    <circle cx="180" cy="205" r="170" fill="#0d2437" stroke="#25627d" stroke-width="4"/>
+    <path d="M64 206 C108 148 137 264 180 206 S252 148 296 206" fill="none" stroke="#67e8f9" stroke-width="11" stroke-linecap="round" filter="url(#glow)"/>
+    <circle cx="64" cy="206" r="17" fill="#081526" stroke="#a5f3fc" stroke-width="7"/>
+    <circle cx="296" cy="206" r="17" fill="#081526" stroke="#a5f3fc" stroke-width="7"/>
+    <path d="M118 136 L145 136 M214 274 L241 274" stroke="#547d91" stroke-width="8" stroke-linecap="round"/>
+    <circle cx="180" cy="384" r="32" fill="#0b1e30" stroke="#67e8f9" stroke-width="3"/>
+    <text x="180" y="396" fill="#e6fbff" font-family="ui-monospace, monospace" font-size="34" text-anchor="middle">3</text>
+  </g>
+
+  <g transform="translate(1210 245)">
+    <circle cx="180" cy="205" r="170" fill="#0d2437" stroke="#25627d" stroke-width="4"/>
+    <rect x="52" y="88" width="256" height="164" rx="16" fill="#07111d" stroke="#a5f3fc" stroke-width="7"/>
+    <rect x="74" y="110" width="212" height="120" rx="8" fill="#174c66"/>
+    <path d="M82 191 C119 151 146 178 180 151 C218 121 249 146 278 119" fill="none" stroke="#67e8f9" stroke-width="7" stroke-linecap="round"/>
+    <path d="M180 253 V292 M128 292 H232" stroke="#a5f3fc" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="180" cy="384" r="32" fill="#0b1e30" stroke="#67e8f9" stroke-width="3"/>
+    <text x="180" y="396" fill="#e6fbff" font-family="ui-monospace, monospace" font-size="34" text-anchor="middle">4</text>
+  </g>
+</svg>

@@ -1,0 +1,274 @@
+---
+title: "Näin vakautat tärisevän puhelimen IRL-kuvan OBS:ssä"
+description: "Vakauta puhelimen tärisevä IRL-kuva ennen OBS:ää: valitse tuettu kameratila, kuvaa hallitusti ja testaa rajaus, viive sekä liike."
+publishedAt: 2026-08-05
+coverAlt: "IRL-kuvaaja pitelee puhelinta vakaasti rantakadulla, jolta sininen signaalipolku johtaa kodin lähetysmonitorille"
+---
+
+Vakaa IRL-kuva syntyy puhelimessa ennen kuin SRT, VISP-relay tai OBS koskee
+syötteeseen. Valitse tuettu kameran, tarkkuuden ja kuvataajuuden yhdistelmä,
+ota VISP-natiivisovelluksessa käyttöön **Settings → Camera → Image
+stabilization** ja testaa oikea kävelyreitti. Jos kuva pomppii edelleen,
+paranna otetta tai telinettä ennen verkkoasetusten muuttamista. Jalusta ratkaisee
+kiinteän kuvan, ja gimbaali voi auttaa kävellessä. SRT-viive tai OBS:n
+lähetysnopeus ei poista kameran fyysistä liikettä.
+
+Tavoitteena ei ole täydellisesti ilmassa leijuva kuva, vaan helposti seurattava
+rajaus, jossa kohde pysyy mukana, kuvakulma on riittävä ja kuvausviive pysyy
+hyväksyttävänä. Puhelimen kuvanvakautus voi rajata kuvaa, lisätä hieman
+kuvausviivettä tai näyttää tietynlaisessa liikkeessä luonnottomalta. Se on yksi
+osa kuvauskalustoa, ei ihmekytkin.
+
+![Vakaa puhelimesta OBS:ään kulkeva kuva tarkistetaan neljässä kohdassa: kahden käden otteessa, laitteen kuvanvakautuksessa, SRT-relaypolulla ja OBS:n koko ruudun kuvassa](./stability-checkpoints.svg)
+
+## Erota ensin kameran tärinä verkko-ongelmasta
+
+Kameran tärinä liikuttaa koko näkymää ruudusta toiseen. Kallistuva horisontti,
+askelten toistuva pomppu ja käsien pieni vapina näkyvät, vaikka kuva olisi muuten
+terävä ja jatkuva. Verkko-ongelma näyttää erilaiselta: kuva voi pysähtyä,
+hypähtää eteenpäin, palikoitua tai kadota samalla, kun VISP ilmoittaa
+pakettihävikistä tai uudelleenyhdistämisestä.
+
+Tallenna OBS:ssä lyhyt osuus ja tarkastele sitä ruutu kerrallaan. Jos horisontti
+ja tausta liikkuvat yhdessä peräkkäisissä ruuduissa, korjaa kameran vakautta.
+Jos ruutuja puuttuu tai kuva hajoaa, tutki siirtopolkua.
+[OBS:n pudonneiden ruutujen opas](/fi/blog/obs-dropped-frames-irl-streaming)
+erottaa puhelimesta relayhin kulkevan hävikin, relayn ja OBS:n välisen ongelman
+sekä OBS:n lopullisen alustalähetyksen toisistaan.
+
+Älä kasvata SRT-viivettä korjataksesi näkyviä askelia. SRT-viive antaa kadonneille
+paketeille aikaa saapua uudelleenlähetyksenä, mutta se ei muuta kameran jo
+tallentamaa liikettä. Twitchin tai Kickin bittinopeuden muuttaminen OBS:ssä
+vaikuttaa valmiiseen alustalähetykseen, ei puhelinlähteen fyysiseen liikkeeseen.
+
+## Rakenna vakaus yksinkertaisimmasta kerroksesta alkaen
+
+Aloita kuvaajasta. Se ei maksa mitään ja toimii jokaisella puhelimella:
+
+1. Pitele puhelinta kahdella kädellä tai käytä kahvaa, jossa ranteet pysyvät
+   suorassa ja rentoina.
+2. Pidä kyynärpäät rentoina lähellä vartaloa äläkä ojenna puhelinta käsivarsien
+   varaan.
+3. Ota epätasaisella alustalla lyhyempiä ja pehmeämpiä askelia sekä jousta
+   hieman polvista.
+4. Käännä koko ylävartaloa äläkä nykäise puhelinta pelkillä ranteilla.
+5. Aloita ja lopeta panorointi tarkoituksella ja pidä lyhyt pysähdys molemmissa
+   päissä.
+6. Pidä horisontti näkyvissä, jotta kallistuminen huomataan nopeasti.
+
+Vältä tarpeetonta zoomausta. Kapea kuvakulma suurentaa pienenkin kulmaliikkeen
+osuutta kuvassa. Aloita kameran normaalista laajasta näkymästä, rajaa kohde
+siirtämällä kuvaajaa silloin kun se on turvallista ja lisää zoomia vasta
+vakaustestin jälkeen. VISP näyttää valitun natiivikameran ilmoittamat
+zoomitasot, joten vaihtoehdot vaihtelevat puhelimittain.
+
+Jos kuvaat paikallaan haastattelua, esitystä, ruoanlaittoa tai tapahtuman
+yleiskuvaa, lopeta käsivaralta kuvaaminen kokonaan. Jalusta, puristin tai
+tukevasti tuettu monopodi on lyhyin ratkaisu. Varmista, ettei tuki kaadu
+helposti, peitä kuuman puhelimen ilmanvaihtoa tai jätä mikrofoni- ja
+latauskaapeleita vetämään laitetta. [Puhelimen ylikuumenemisopas](/fi/blog/prevent-phone-overheating-irl-streaming)
+käsittelee ulos asennetun kuvauspaketin lämpöpuolen.
+
+## Ota kuvanvakautus käyttöön VISP-natiivisovelluksessa
+
+Avaa kameran esikatselu ja siirry kohtaan **Settings → Camera**. **Image
+stabilization** -kytkin näkyy vain, kun valittu kamera, tarkkuus ja kuvataajuus
+ilmoittavat tuetun vakautustavan. VISP tarkistaa yhdistelmän laitteesta eikä
+lupaa samaa asetusta kaikille iPhone- tai Android-puhelimille.
+
+Kun asetus on päällä, VISP pyytää käyttöjärjestelmän tukemaa kuvanvakautusta
+ennen kuin puhelin enkoodaa H.264-kuvalähteen. iOS:ssä sovellus pyytää Applen
+standard-kuvanvakautustilaa. Androidissa se pyytää ensin kameran videokuvan
+vakautusta ja voi käyttää kameran optista vakautusta, jos se on tuettu tapa.
+Sovellus ei pinoa Androidin molempia tiloja päällekkäin.
+
+Vakautuksen sijainnilla on merkitystä: OBS saa jo vakautetun kamerakuvan.
+VISP-relay tunnistaa ja välittää SRT-kuvalähteen, mutta ei transkoodaa tai
+vakauta sitä uudelleen. Direct voi luoda alustakohtaiset enkoodaukset
+palvelimella, mutta sekään ei voi palauttaa ennen puhelimen enkoodausta
+menetettyä kuvakulmaa.
+
+Selainlähetin ei tällä hetkellä tarjoa VISPin natiivisovelluksen
+kuvanvakautuskytkintä. Selaimen ja laitteen kamerakäytös voi silti vaihdella,
+mutta tämän oppaan asetus koskee iOS- ja Android-sovelluksia. Tuetut asiakkaat
+ja koko lähetyspolku löytyvät
+[VISP-puhelinsovelluksen ohjeesta](https://docs.visp-stream.com/fi/docs/phone-app).
+
+## Valitse kameran vakauttama kuvamuoto
+
+Jos kytkin katoaa kameran, tarkkuuden tai kuvataajuuden vaihtamisen jälkeen,
+kyseinen yhdistelmä ei ilmoittanut tukevansa vakautusta. Palaa yksinkertaiseen
+lähtötasoon sen sijaan, että olettaisit sovelluksen olevan rikki:
+
+1. valitse takakamera;
+2. valitse tarkkuudeksi 1280×720;
+3. valitse 30 kuvaa sekunnissa;
+4. varmista, että **Image stabilization** tulee näkyviin;
+5. ota se käyttöön ja käynnistä esikatselu;
+6. nosta vain yhtä asetusta kerrallaan, jos lähetys todella tarvitsee enemmän.
+
+VISP suosii 720p-tarkkuutta, kun se on saatavilla, ja valitsee kuvamuodolle
+ensisijaisesti 30 kuvaa sekunnissa. Se on käytännöllinen aloituskohta mobiiliin
+IRL-tuotantoon, ei lupaus siitä, että jokainen puhelin vakauttaa 720p30-kuvan
+yhtä hyvin. Sovellus käyttää oikean kameran ja enkooderin ilmoittamia
+ominaisuuksia.
+
+Androidin virallinen
+[Camera2-kuvanvakautuksen ohje](https://developer.android.com/reference/android/hardware/camera2/CaptureRequest#CONTROL_VIDEO_STABILIZATION_MODE)
+selittää, miksi ominaisuudet tarkistetaan laitteesta: videokuvan vakautus
+muokkaa peräkkäisiä ruutuja ja voi muuttaa rajausaluetta, eivätkä kaikki
+tallennustarkkuudet tai kuvataajuudet toimi kaikissa laitteissa. Apple kertoo
+vastaavasti, että sen
+[standard-kuvanvakautustila](https://developer.apple.com/documentation/avfoundation/avcapturevideostabilizationmode/standard)
+kaventaa kuvakulmaa ja voi lisätä kuvausputken viivettä.
+
+Nämä ovat kameran kompromisseja, eivät VISP-relayn ominaisuuksia. Jätä kasvojen
+ja muiden tärkeiden kohteiden ympärille tilaa. Älä sijoita tärkeää toimintaa
+esikatselun reunaan ennen kuin olet nähnyt vakautetun kuvan OBS:ssä.
+
+[Mobiilin IRL-bittinopeusopas](/fi/blog/best-bitrate-irl-streaming-phone-obs)
+auttaa valitsemaan kuvalähteen bittinopeuden sen jälkeen, kun kuvamuoto on
+vakaa. Pidä kysymykset erillään: tarkkuus ja kuvataajuus määräävät tallennetun
+muodon, vakautus muuttaa liikettä ja rajausta, ja bittinopeus määrää reitin
+kuljettaman pakatun datan määrän.
+
+## Tunnista, milloin gimbaali tai jalusta on oikea ratkaisu
+
+Laitteen kuvanvakautus sopii käsien pieneen liikkeeseen ja tavalliseen kävelyyn,
+mutta todellinen raja riippuu puhelimesta, objektiivista, vauhdista, valosta ja
+kuvamuodosta. Se ei pidä rajusti heiluvaa käsivartta suorassa eikä tee
+juoksukuvasta kiinteää studiokameraa.
+
+Käytä jalustaa tai puristinta, kun kameran ei kuulu liikkua. Käytä käsikahvaa,
+kun kuvaaja tarvitsee nopeaa mutta maltillista liikkumista ja puhelimen oma
+tulos on jo hyvä. Harkitse moottoroitua gimbaalia, jos pitkä kävelyosuus
+pomppii edelleen hyvän kuvaustekniikan ja tuetun vakautuksen jälkeen.
+
+Älä oleta, että useampi vakautuskerros tuottaa aina paremman kuvan. Tee
+gimbaalilla kaksi testitallennusta: toisessa VISP-vakautus on päällä ja toisessa
+pois. Vertaa horisontin vaeltamista, kulmien vääristymistä, panoroinnin
+viivettä ja rajausta lopullisella OBS-kuvapohjalla. Säilytä juuri kyseisellä
+puhelimella ja kuvauspaketilla siistimpi tulos. Testi on nopeampi ja luotettavampi
+kuin yleissääntö tietyn puhelimen ja gimbaalin yhdistämisestä.
+
+Tasapainota valmis kuvauspaketti ennen lähetystä. Kiinnitä suojakuori,
+mikrofonivastaanotin, kaapeli ja mahdollinen pieni valo ennen gimbaalin
+tasapainotusta. Varmista, ettei kaapeli vedä puhelinta panoroinnissa eivätkä
+moottorit yritä kääntää estynyttä akselia. Harjoittele sitten lähetyksen oikea
+kävelyvauhti ja suunnitellut kameraliikkeet.
+
+## Arvioi lopputulos OBS:ssä, älä vain puhelimessa
+
+Puhelimen esikatselu auttaa rajaamaan, mutta katsoja näkee OBS-kohtaukseen
+puretun lähteen ja sen jälkeen alustan enkoodauksen. Tarkista kaikki kolme
+tasoa:
+
+- **Puhelimen esikatselu:** Pysyykö horisontti vakaana? Mahtuuko kohde edelleen
+  rajattuun kuvaan? Alkaako ja päättyykö panorointi luontevasti?
+- **OBS-lähde:** Katso puhelinlähdettä koko ruudulla. Etsi kulmien vääristymistä,
+  toistuvaa pomppua, liikkeen viivettä ja ääntä, joka ei enää tunnu osuvan
+  kuvaan.
+- **OBS-ohjelmakuva:** Sijoita lähde oikeaan kohtaukseen grafiikoiden ja muiden
+  kameroiden kanssa. Varmista, että rajaus jättää yhä tilaa grafiikoille ja
+  tekstityksille.
+- **Lyhyt alustatesti:** Katso lyhyt kohdealustalle tehty testi toisella
+  laitteella ja varmista, että lopullinen enkoodaus säilyttää halutun liikkeen.
+
+OBS voi rajata, skaalata ja sijoittaa lähteen, mutta nämä muunnokset eivät
+peruuta kentällä enkoodattua kameran liikettä. Voimakas suurentaminen voi myös
+tehdä pienestä liikkeestä näkyvämpää. Aseta puhelinlähde kohtauksessa siihen
+kokoon, jossa sitä oikeasti käytetään, ja pidä muunnos samana koko vertailun
+ajan.
+
+Käytä luotua medialähdettä ja varakuva-asetuksia
+[VISP-lähettäjän ohjeesta](https://docs.visp-stream.com/fi/docs/broadcaster-setup).
+Pidä paikallinen varakohtaus valmiina, jotta tuottaja voi vaihtaa siihen siksi
+aikaa, kun kenttäkuvaaja kiinnittää puhelimen uudelleen tai käynnistää
+kuvauksen.
+
+## Tee yksi toistettava vakaustesti
+
+Käytä viiden minuutin reittiä, jossa on oikean ohjelman liikkeitä. Pidä kaikki
+muut muuttujat samoina, kun vertaat vakautusta päällä ja pois.
+
+| Osuus | Toimi näin | Tarkista OBS:stä |
+| --- | --- | --- |
+| 30 sekuntia | Pidä paikallaan rajattu puolikuva | Horisontin vaeltaminen, käsien vapina ja rajaus |
+| 60 sekuntia | Kävele suoraan tavallista vauhtia | Askelten pystypomppu ja kohteen pysyminen kuvassa |
+| 30 sekuntia | Panoroi hitaasti vasemmalle ja oikealle | Viivästynyt aloitus, ylitys ja reunojen vääristyminen |
+| 30 sekuntia | Käänny kulman ympäri | Horisontin palautuminen ja äkilliset rajausmuutokset |
+| 60 sekuntia | Kävele reitin epätasaisimmalla alustalla | Tarvitaanko edelleen parempi ote tai mekaaninen tuki |
+| 30 sekuntia | Pysähdy ja pidä kuva paikallaan | Kuinka nopeasti kuva asettuu |
+
+Tallenna OBS-lähde, ei vain puhelimen näyttöä. Toista reitti samalla kameralla,
+tarkkuudella, kuvataajuudella, zoomilla, otteella ja kävelyvauhdilla. Muuta
+ensimmäisellä kierroksella vain kuvanvakautuskytkintä. Jos päällä oleva asetus
+voittaa, pidä se. Jos se rajaa liikaa tai lisää häiritsevän liikevirheen, ota
+se pois ja paranna fyysistä tukea. Jos kumpikaan tulos ei kelpaa, seuraava askel
+on teline tai gimbaali, ei satunnainen SRT-asetus.
+
+Kun kameraratkaisu on valittu, kulje reitti vielä kerran oikealla Wi-Fi- tai
+mobiiliyhteydellä. Viimeinen kierros testaa vakautta ja siirtoa yhdessä
+sekoittamatta niiden oireita toisiinsa.
+
+## Milloin kuvanvakautus kannattaa poistaa käytöstä?
+
+Poista se käytöstä, kun vakautettu tulos on suunniteltuun kuvaan huonompi.
+Testissä löytyviä tavallisia syitä ovat:
+
+- jalustaan lukittu kuva on jo vakaa eikä lisärajauksesta ole hyötyä;
+- kohde ei enää mahdu kuvakulman kaventumisen jälkeen;
+- hallittu panorointi tuntuu viiveiseltä tai asettuu huonosti;
+- gimbaali ja puhelimen käsittely tuottavat yhdessä luonnottoman korjauksen;
+- tarvittu kamera, tarkkuus tai kuvataajuus ei tue tilaa;
+- käytössä on selainlähetin, jossa VISPin natiiviasetusta ei ole.
+
+Pois-asento on täysin kelvollinen, jos fyysinen kuvauspaketti tekee jo työn.
+Oikea asetus on se, joka voittaa suunnitellulla liikkeellä tehdyn OBS-tallenteen
+vertailun.
+
+## Usein kysyttyä
+
+### Miksi Image stabilization -kytkin puuttuu?
+
+VISP näyttää sen vain, kun valittu natiivikamera, tarkkuus ja kuvataajuus
+ilmoittavat tuen. Kokeile takakameraa 720p30-muodossa ja testaa sitten muita
+asetuksia yksi kerrallaan. Selainlähettimessä tätä kytkintä ei ole.
+
+### Voiko OBS vakauttaa tärisevän puhelinlähteen suorassa lähetyksessä?
+
+VISPin tavallisessa työnkulussa vakautus tehdään puhelimessa. OBS voi muuntaa
+vastaanotettua lähdettä, mutta se ei palauta vakaata kamerapolkua jo
+enkoodatusta tärinästä. Korjaa ensin ote, teline, gimbaali tai puhelimen tuettu
+asetus.
+
+### Tekeekö pidempi SRT-viive kamerasta sulavamman?
+
+Se voi tehdä siirrosta kestävämmän antamalla uudelleenlähetyksille enemmän
+aikaa, mutta se ei poista kameran liikettä. Säädä SRT:tä linkkitilastojen ja
+kuvanvakautusta tallennetun horisontin perusteella.
+
+### Tarvitseeko jokainen kävelylähetys gimbaalin?
+
+Ei. Hyvä ote ja puhelimen tukema kuvanvakautus voivat riittää. Käytä gimbaalia,
+kun tallennettu reitti ei vielä täytä laatutavoitetta ja lisälaite on kuvaajalle
+käytännöllinen.
+
+### Muuttaako kuvanvakautus rajausta?
+
+Se voi muuttaa sitä. Applen mukaan standard-vakautus kaventaa kuvakulmaa, ja
+Android kertoo videovakautuksen voivan muuttaa rajausaluetta. Jätä rajaukseen
+varaa ja tarkista oikea laite OBS:ssä.
+
+## Lähteet ja seuraavat vaiheet
+
+- [Apple: AVCaptureVideoStabilizationMode.standard](https://developer.apple.com/documentation/avfoundation/avcapturevideostabilizationmode/standard)
+- [Android: CaptureRequest-videokuvanvakautus](https://developer.android.com/reference/android/hardware/camera2/CaptureRequest#CONTROL_VIDEO_STABILIZATION_MODE)
+- [VISP-puhelin- ja selainsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISP-enkooderit ja varakohtaus](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+
+Jos haluat pitää puhelimen hallittuna kenttäkamerana ja Twitch- tai
+Kick-tuotannon kotistudion OBS:ssä, [kokeile VISPiä](https://visp-stream.com/download).
+Aloita 720p30-muodosta, vertaa kuvanvakautusta päällä ja pois samalla viiden
+minuutin reitillä ja pidä yksinkertaisin kuvauspaketti, joka tuottaa vakaamman
+OBS-tallenteen.
