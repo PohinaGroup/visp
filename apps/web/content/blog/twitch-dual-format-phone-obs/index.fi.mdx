@@ -1,0 +1,298 @@
+---
+title: "Näin lähetät Twitchiin pysty- ja vaakakuvan puhelimesta"
+description: "Lähetä yksi puhelimen IRL-syöte OBS:ään, rakenna linkitetyt vaaka- ja pystyscenet ja julkaise molemmat Twitchin Dual Formatilla."
+publishedAt: 2026-08-05
+updatedAt: 2026-08-05
+coverAlt: "IRL-kuvaaja lähettää yhden puhelinkameran syötteen kotistudioon, jossa se rajataan vaaka- ja pystykatsojille"
+---
+
+Twitch-katsojille ei tarvitse enää näyttää samaa kuvaa kaikilla näytöillä.
+Dual Format Streaming -toiminnolla OBS voi lähettää samaan Twitch-lähetykseen
+perinteisen vaakasuuntaisen ohjelman ja erikseen sommitellun pystysuuntaisen
+ohjelman. Tietokoneella ja televisiolla katsova näkee edelleen 16:9-version,
+kun taas puhelinta pystyasennossa pitävä voi saada sen näytölle rakennetun
+9:16-version.
+
+IRL-sisällöntuottajan kannattaa pitää kenttäpuhelimen tehtävä pienenä. Älä
+yritä tuottaa ja lähettää puhelimesta kahta erillistä ohjelmaa. Lähetä
+puhelimesta VISPin kautta **yksi vaakasuuntainen kamerasyöte** kotistudion
+OBS:ään ja rakenna vaaka- sekä pystyversiot vasta siellä. Puhelimen
+mobiililähetys pysyy yhtenä. Lisäcanvas, enkoodaus ja Twitchiin lähtevä
+lisäliikenne kuormittavat kotikonetta ja sen verkkoyhteyttä.
+
+![Yksi puhelimen syöte saapuu kotistudioon ennen kuin OBS muodostaa Twitchille erilliset vaaka- ja pystyohjelmat](./phone-dual-format-flow.svg)
+
+Tämä opas noudattaa Twitchin tämänhetkistä OBS- ja Aitum-työnkulkua 5.8.2026.
+Dual Formatin vaatimukset muuttuvat tavallista OBS-lähteen määritystä nopeammin,
+joten tarkista Twitchin
+[virallinen Dual Format -ohje](https://help.twitch.tv/s/article/dual-format-vertical-video?language=en_US)
+uudelleen ennen tärkeää tapahtumaa.
+
+## Lyhyt vastaus
+
+Rakenna signaalireitti näin:
+
+1. Pidä VISP-puhelin vaaka-asennossa ja lähetä yksi H.264/AAC-syöte sen
+   tavalliselle välitysreitille.
+2. Avaa reitti OBS:ssä tavallisena Media Source -lähteenä.
+3. Käytä lähdettä normaalissa vaakascenessä.
+4. Käytä samaa lähdettä myös Aitum Vertical -scenessä ja rajaa tai sijoita se
+   9:16-kuvalle.
+5. Linkitä toisiaan vastaavat vaaka- ja pystyscenet.
+6. Ota Twitch Enhanced Broadcasting käyttöön ja valitse Additional Canvas
+   -kohdassa **Aitum Vertical**.
+7. Aloita lähetys kerran OBS:n pääohjaimista ja tarkista molemmat näkymät
+   oikealla puhelimella.
+
+VISPin välityspalvelin ei rakenna pystyversiota eikä transkoodaa tavallista
+relay-to-OBS-syötettä. Se antaa OBS:lle yhden tunnistetun kenttäkameran lähteen.
+OBS:n ja Twitch Enhanced Broadcastingin työnkulku muodostaa ja toimittaa kaksi
+katsojaversiota.
+
+## Tarkista yhteensopivuus ennen scene-kokoelman rakentamista
+
+Twitchin nykyisessä vaatimuslistassa ovat OBS Studio 32.0.0 tai uudempi,
+uusin Aitum Vertical -lisäosa, Windows tai macOS, Enhanced Broadcasting ja
+tuettu näytönohjaimen enkooderi. Samassa ohjeessa pystysuuntaisen canvasin kooksi
+annetaan 1080×1920 ja 1080p-kokonaisuudelle suositellaan tällä hetkellä
+vähintään 12,5 Mbit/s:n lähetyskaistaa. Nämä ovat kotistudion vaatimuksia,
+eivät kenttäpuhelimen tarvittava lähetysnopeus.
+
+VISPin versioraja on syytä huomata. Nykyinen
+[VISP OBS -lisäosan ohje](https://docs.visp-stream.com/fi/docs/obs-remote-control)
+kohdistuu OBS Studio 31:een, mutta Twitch aloittaa Dual Format -ohjeensa
+OBS 32:sta. Siksi tämä opas käyttää VISPin luomaa **tavallista Media Source
+-reittiä** eikä väitä nykyisen VISP-lisäosapaketin olevan yhteensopiva OBS 32:n
+kanssa. Tarkista VISPin julkaisutiedot ennen kuin asennat molemmat lisäosat
+samaan OBS-versioon.
+
+Tarvitset:
+
+- VISPiin kirjautuneen puhelimen ja sille oman julkaisulaitteen (publishing
+  device);
+- OBS:ssä vakaasti toistuvan VISP-syötteen Media Source -lähteenä;
+- Twitchin nykyiset vaatimukset täyttävän OBS 32:n tai uudemman;
+- uusimman virallisen
+  [Aitum Vertical -lisäosan](https://github.com/Aitum/obs-vertical-canvas);
+- OBS:ään yhdistetyn Twitch-tilin;
+- tarpeeksi kotiverkon lähetyskaistaa ja enkooderin kapasiteettia Enhanced
+  Broadcastingille;
+- toisen puhelimen tai tabletin todellisen mobiilinäkymän tarkistamiseen.
+
+Älä pidä VISP Directin Twitch-lähtöä käytössä tällä julkaisulaitteella, jos OBS
+lähettää ohjelman Twitchiin. Direct ja OBS olisivat silloin
+kaksi samaan kohteeseen pyrkivää julkaisijaa. Tässä työnkulussa puhelin tuottaa
+syötteen OBS:ään ja OBS omistaa Twitch-lähetyksen.
+
+## 1. Valmistele yksi puhdas vaakasuuntainen puhelinlähde
+
+Avaa VISP-puhelinsovellus ennen lähetystä. Valitse etu- tai takakamera,
+resoluutio, kuvataajuus, mikrofoni ja **vaaka-asento**. Sovellus valitsee
+asennon ennen enkooderin käynnistymistä eikä anna vaihtaa sitä aktiivisen
+lähetyksen aikana. Päätä suunta siis ennen Go Live -painiketta.
+
+Vaakakuva on tässä työnkulussa hyödyllinen pääkuva, koska siitä voidaan
+säilyttää tavallinen Twitchin työpöytänäkymä. Pystycanvas voi rajata samasta
+lähteestä sisällöntuottajan ympärille sopivan alueen. Jos lähtökuva olisi
+pystysuuntainen, vaakascene joutuisi täyttämään leveän ruudun kapeasta lähteestä
+tai rakentamaan sen ympärille erillisen sommittelun.
+
+Sommittele kenttäkuva molempia versioita varten:
+
+- pidä kuvaaja lähellä vaakakuvan keskikohtaa;
+- jätä tilaa pään yläpuolelle ja käsien liikkeille;
+- älä sijoita toista tärkeää henkilöä aivan vasempaan tai oikeaan reunaan;
+- pidä kuvaan poltetut tekstitykset ja grafiikat poissa uloimmilta neljänneksiltä;
+- harjoittele etukäteen lähetyksen laajin odotettu liike.
+
+Pystyversio ei voi palauttaa kuva-alaa, jota puhelin ei tallentanut. Hieman
+väljempi ja keskitetty kenttäkuva antaa kotituottajalle rajausvaraa, kun kuvaaja
+kääntyy tai kävelee.
+
+Kirjautuminen ja kaappausasetukset löytyvät
+[VISP-puhelinsovelluksen ohjeesta](https://docs.visp-stream.com/fi/docs/phone-app).
+Jos tämä on studion ensimmäinen etälähde, tee ensin opas
+[Näin käytät puhelinta OBS:n etäkamerana](/fi/blog/use-phone-as-remote-camera-obs)
+ja lisää toinen canvas vasta toimivan perusreitin päälle.
+
+## 2. Lisää VISP-syöte OBS:ään monistamatta tunnuksia
+
+Avaa VISPin hallintapaneelissa **Advanced → OBS read credentials** ja lataa
+tuore scene collection tai paljasta lukemiseen tarkoitettu URL ja lisää reitti
+OBS:ään käsin Media Source -lähteenä. Luotu scene collection käyttää valmiiksi
+OBS:n `ffmpeg_source`-lähdettä, MPEG-TS:ää, pientä puskurointia ja automaattista
+uudelleenyhdistämistä. Reitti kuvataan
+[enkooderi- ja fallback-ohjeessa](https://docs.visp-stream.com/fi/docs/broadcaster-setup).
+
+Anna lähteelle pysyvä nimi, esimerkiksi `IRL-puhelin`. Säilytä yksi varsinainen
+Media Source ja käytä sitä uudelleen eri sceneissä sen sijaan, että tekisit
+lukemis-URL:sta useita lähdekopioita. Näin tunnusten vaihto, äänisuodattimet ja
+uudelleenyhdistämisen asetukset pysyvät yhdessä paikassa.
+
+Tee ennen pystyasettelua lyhyt OBS-tallenne ja varmista, että:
+
+1. puhelinkuva on odotetusti vaakasuunnassa;
+2. puhe tulee oikealle OBS-mikserikanavalle;
+3. vaakascene näyttää koko lähteen venyttämättä sitä;
+4. lyhyt puhelinyhteyden katkos päättyy Media Sourcen uudelleenyhdistämiseen;
+5. fallback-scene on valmis, jos syöte katoaa.
+
+Korjaa ensin varsinainen syöte. Kaksi canvasia näyttää saman jäätyneen kuvan,
+äänivian tai uudelleenyhdistämisongelman kahdesti. Jos terveystiedot ovat
+ristiriidassa, opas
+[OBS:n pudonneiden framejen vianmääritykseen](/fi/blog/obs-dropped-frames-irl-streaming)
+erottaa puhelimen ja relayn välisen ongelman OBS:n ja Twitchin välisestä
+ongelmasta.
+
+## 3. Asenna Aitum Vertical ja tee vain tarvittavat scenet
+
+Sulje OBS, asenna Aitum Verticalin uusin paketti virallisesta projektista ja
+avaa OBS uudelleen. Twitchin mukaan Vertical-dockien pitäisi ilmestyä. Jos niitä
+ei näy, ota ne käyttöön valikosta **Docks → Vertical**.
+
+Älä rakenna koko scene collectionia heti uudelleen. Aloita kolmella
+pystyscenellä:
+
+| Vaakascene | Pystypari | Tarkoitus |
+| --- | --- | --- |
+| IRL live | IRL live vertical | Puhelinkameran keskitetty rajaus ja vain välttämättömät hälytykset |
+| IRL fallback | IRL fallback vertical | Odotuskuva tai paikallinen studiosisältö puhelimen yhdistäessä uudelleen |
+| Ending | Ending vertical | Siisti lopetus, joka vastaa vaakaohjelmaa |
+
+Lisää pystyversion live-sceneen olemassa oleva `IRL-puhelin`-lähde. Säilytä
+sen kuvasuhde. Suurenna lähdettä, kunnes 9:16-canvas täyttyy, rajaa vasenta ja
+oikeaa reunaa ja siirrä kuvaa niin, että henkilö pysyy Twitchin nykyisellä
+pystykuvan turva-alueella. Älä venytä 16:9-kuvaa 9:16-muotoon. Kasvot ja
+ympyrät paljastavat vääristymän heti.
+
+Jos keskeltä tehty rajaus poistaa liikaa ympäristöä, rakenna pystyversiolle oma
+sommittelu. Pidä koko vaakasyöte keskellä ja käytä loppu tila hillittyyn
+taustaan, turva-alueelle sopivaan grafiikkaan tai toiseen tuotantoelementtiin.
+Oikea ratkaisu riippuu siitä, onko paikan näyttäminen vai henkilö tarinan
+pääasia.
+
+Twitchin mukaan pystycanvasille ei tarvita erillistä chat-overlayta, koska
+mobiilisoitin voi näyttää chatin videon päällä. VISPin **Floating**-chat pysyy
+yksityisenä käyttäjän puhelimessa. **Embedded in stream** puolestaan poltetaan
+kamerakuvaan jo ennen OBS:ää, joten tiukka pystyrajaus voi leikata sen pois.
+Ero selitetään tarkemmin
+[puhelimen chat-oppaassa](/fi/blog/twitch-kick-chat-phone-obs).
+
+## 4. Linkitä vaaka- ja pystyscenejen vaihdot
+
+Yhdistä Aitumin scene-linkityksellä jokainen vaakascene sitä vastaavaan
+pystypariin. Twitch suosittelee tekemään vaihdot linkityksen jälkeen
+ensisijaisen vaakasuuntaisen scenevalikon kautta. Yhden tuottajan toiminnon
+pitäisi silloin siirtää molemmat ohjelmat oikeaan sceneen.
+
+Testaa kaikki käytettävät vaihdot:
+
+1. vaihda fallbackista puhelimen live-sceneen;
+2. vaihda paikalliseen studio- tai väliaikasceneen;
+3. palaa fallbackiin;
+4. katkaise puhelimen syöte ja varmista, että molemmat canvasit näyttävät
+   suunnitelluilta;
+5. yhdistä puhelin uudelleen ja odota vakaata toistoa ennen livekuvaan
+   palaamista.
+
+Fallbackin merkitys kasvaa Dual Formatissa. Jos ainoa puhelinsyöte katoaa,
+molemmat katsoja-asettelut menettävät saman lähteen. Tee oikea pystysuuntainen
+fallback sen sijaan, että näyttäisit puuttuvan lähteen laatikon, tyhjän rajauksen
+tai 9:16-muotoon puristetun vaakasuuntaisen odotuskuvan.
+
+Jos kenttäkuvaaja vaihtaa scenejä etänä, testaa koko linkitetty pari oikeasta
+ohjaimesta ennen tapahtumaa. Vaakasuunnan dockissa oikealta näyttävä scenen nimi
+ei yksin todista, että tarkoitettu pystyscene valittiin.
+
+## 5. Ota Twitch Dual Format käyttöön OBS:ssä
+
+Noudata Twitchin nykyistä järjestystä:
+
+1. Avaa OBS:ssä **Settings → Stream**.
+2. Ota **Enhanced Broadcasting** käyttöön Multitrack Streaming -kohdassa.
+3. Valitse Additional Canvas -kohdassa **Aitum Vertical**.
+4. Poista Aitumin asetuksista **Backtrack** käytöstä Twitchin nykyisen ohjeen
+   mukaisesti.
+5. Esikatsele pystycanvas ja tarkista scene, rajaus, hälytykset ja ääni.
+6. Aloita lähetys kerran OBS:n pääohjaimesta. Älä paina erikseen pystycanvasin
+   vihreää Go Live -painiketta.
+
+Twitchin
+[Enhanced Broadcasting -ohje](https://help.twitch.tv/s/article/enhanced-broadcasting?language=en_US)
+kuvaa toiminnon lähettävän useita videoenkoodauksia tuetusta
+lähetysohjelmistosta. Siksi työnkulku kasvattaa kotikoneen ja kotiverkon
+kuormaa, vaikka puhelin lähettää edelleen vain yhden VISP-syötteen.
+
+Käsittele Twitchin kaistalukua esitarkistuksen rajana, älä toimivuustakuuna.
+Tee yksityinen tai vähäriskinen testi vähintään niin pitkänä kuin oikean
+tapahtuman raskain osuus. Seuraa OBS:n CPU- ja GPU-kuormaa, verkon pudonneita
+frameja ja enkooderivaroituksia. Twitch neuvoo pienentämään Multitrackin
+enimmäiskaistaa tai videoraitojen enimmäismäärää, jos enkooderin rajat tulevat
+vastaan.
+
+## 6. Varmista katsojalle saapuva tulos
+
+Start Streaming -painikkeen painaminen ei vielä ole testitulos. Tarkista kolme
+eri pistettä:
+
+| Tarkistuspiste | Mitä se todistaa |
+| --- | --- |
+| VISPin live-tila | Puhelimen syöte saavuttaa relayn |
+| OBS:n molemmat esikatselut | Vaaka- ja pystyscenet sisältävät oikean lähteen ja äänen |
+| Twitch Stream Manager, Inspector ja oikea puhelin | Twitch vastaanottaa molemmat muodot ja mobiilikatsoja saa halutun pystyversion |
+
+Avaa lähetyksen terveystiedot
+[Twitch Inspectorissa](https://inspector.twitch.tv/). Katso sitten kanavaa
+äänettömällä puhelimella sekä pysty- että vaaka-asennossa. Twitchin nykyisessä
+katsojatoiminnassa pystyasennossa oleva laite näyttää oletuksena pystyohjelman,
+ja katsoja voi vaihtaa klassiseen näkymään. Tietokoneen tai television pitäisi
+edelleen saada tavallinen vaakaohjelma.
+
+Tarkista yhteyden lisäksi itse sisältö:
+
+- kuvaaja pysyy näkyvissä kuljettuaan harjoittelualueen molempiin reunoihin;
+- tekstitykset, hälytykset ja yhteistyögrafiikat säilyvät pystysuunnan
+  turva-alueella;
+- pystyohjelmassa on tarkoitettu mikrofoni ja ohjelmaääni;
+- scenevaihdot pysyvät linkitettyinä;
+- uudelleenyhdistämisen jälkeen palataan oikeaan live-sceneen eikä vanhaan
+  fallbackiin;
+- vaakaohjelmaa ei heikennetty vain helpon pystyrajauksen vuoksi.
+
+Twitch säilyttää tällä hetkellä Dual Format -lähetyksen pysty-VOD-version
+lyhyemmän ajan kuin klassisen version, mutta clipit säilyvät molemmissa
+muodoissa. Jos pystyarkisto on tuotannolle tärkeä, lue säilytysajat Twitchin
+nykyisestä ohjeesta sen sijaan, että olettaisit VOD-versioiden elinkaaren
+samanlaiseksi.
+
+## Käytännön esitarkistuslista
+
+Tee nämä ennen oikeaa IRL-lähetystä:
+
+1. poista Twitch Direct käytöstä puhelinreitiltä, jotta OBS on ainoa
+   Twitch-julkaisija;
+2. aseta puhelin vaaka-asentoon ennen lähetystä;
+3. varmista yksi vakaa VISP Media Source ja puhdas ääni OBS:ssä;
+4. asenna Twitchin nykyisen listan täyttävä OBS- ja Aitum-yhdistelmä;
+5. tee vain tarvittavat pystysuuntaiset live-, fallback- ja ending-scenet;
+6. käytä olemassa olevaa puhelinlähdettä ja rajaa kuvaa venyttämättä;
+7. linkitä jokainen pystyscene vaakapariinsa;
+8. ota Enhanced Broadcasting käyttöön ja valitse Additional Canvasiksi Aitum
+   Vertical;
+9. kuormitustestaa kotikoneen enkooderi ja lähetyskaista;
+10. tarkista molemmat muodot Twitch Stream Managerissa ja oikealla puhelimella;
+11. harjoittele puhelimen yhteyskatkos ja palautuminen;
+12. tallenna tai varmuuskopioi testattu OBS scene collection.
+
+Tämä työnkulku ei tee VISPistä Dual Format -enkooderia. VISP toimittaa yhden
+hallittavan ja erikseen peruttavilla tunnuksilla suojatun puhelinsyötteen
+studioon. OBS säilyttää alustayhteyden, Aitum tuottaa lisäcanvasin ja Twitch
+toimittaa kaksi katsojamuotoa. Työnjako sopii IRL-tuotantoon, koska mobiililaite
+voi hoitaa pienimmän luotettavan tehtävän: kaapata kerran ja lähettää kerran.
+
+Jos puhelinlähde ei ole vielä vakaa, aloita
+[puhelin-OBS-oppaasta](/fi/blog/use-phone-as-remote-camera-obs) ja
+[mobiilibittivirtaoppaasta](/fi/blog/best-bitrate-irl-streaming-phone-obs).
+Kokeile sen jälkeen VISPiä yhdellä keskitetyllä vaakalähteellä, rakenna OBS:ään
+yksi sitä vastaava pystyscene ja todista koko Dual Format -reitti
+testilähetyksessä ennen kentälle lähtöä.
