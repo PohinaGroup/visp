@@ -151,6 +151,19 @@ const finnishUi: Record<string, string> = {
 	"Chat is disabled.": "Chat ei ole käytössä.",
 	"Disabling chat keeps the provider available for sign-in. At least one login must remain linked.":
 		"Chatin poistaminen käytöstä säilyttää palvelun kirjautumistapana. Vähintään yhden kirjautumistavan on pysyttävä yhdistettynä.",
+	"OBS chat overlay": "OBS-chatpäällys",
+	"Add a Browser Source in OBS and paste this URL. It shows the chats you enabled above, on a transparent background. Append &corner=top-right, &rows=3, or &fade=1 to change it.":
+		"Lisää OBS:ään Browser Source ja liitä tämä osoite. Se näyttää yllä käyttöön ottamasi chatit läpinäkyvällä taustalla. Voit muuttaa sitä lisäämällä &corner=top-right, &rows=3 tai &fade=1.",
+	"Browser Source URL": "Browser Source -osoite",
+	"Generate overlay URL": "Luo päällysosoite",
+	"Rotate overlay URL": "Vaihda päällysosoite",
+	"Revoke overlay URL": "Mitätöi päällysosoite",
+	"Overlay URL created": "Päällysosoite luotu",
+	"Overlay URL revoked": "Päällysosoite mitätöity",
+	"Replace the overlay URL already pasted into OBS?":
+		"Korvataanko OBS:ään jo liitetty päällysosoite?",
+	"Stop the OBS chat overlay from loading?":
+		"Estetäänkö OBS-chatpäällyksen lataus?",
 	"Connection guidance": "Yhteyssuositus",
 	"Network profile": "Verkkoprofiili",
 	"Estimated RTT (ms)": "Arvioitu RTT (ms)",

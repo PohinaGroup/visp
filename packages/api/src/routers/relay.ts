@@ -50,46 +50,43 @@ import { listSnapshots } from "../snapshots";
 // Postgres or the cache bus only if a strict global request cap is needed.
 const relayMutations = fixedWindow(20, 60_000);
 
-const relayProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
-	let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;
-	try {
-		relayUser = await ensureRelayUser(
-			ctx.session.user.id,
-			ctx.session.user.name,
-		);
-	} catch (error) {
-		throw new TRPCError({
-			code:
-				error instanceof Error && error.message === "Streaming account required"
-					? "FORBIDDEN"
-					: "INTERNAL_SERVER_ERROR",
-			message:
-				error instanceof Error && error.message === "Streaming account required"
-					? "Sign in with Twitch, Kick, or Google to use the relay"
-					: "Could not provision relay account",
-			cause: error,
-		});
-	}
-	if (type === "mutation" && !relayMutations.take(ctx.session.user.id)) {
-		throw new TRPCError({
-			code: "TOO_MANY_REQUESTS",
-			message: "Too many relay changes; try again in a minute",
-		});
-	}
-	const result = await next({ ctx: { ...ctx, relayUser } });
-	if (
-		!result.ok &&
-		result.error.cause instanceof Error &&
-		result.error.cause.message === "Path limit reached"
-	) {
-		throw new TRPCError({
-			code: "TOO_MANY_REQUESTS",
-			message: "Path limit reached",
-			cause: result.error.cause,
-		});
-	}
-	return result;
-});
+export const relayProcedure = protectedProcedure.use(
+	async ({ ctx, next, type }) => {
+		let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;
+		try {
+			relayUser = await ensureRelayUser(
+				ctx.session.user.id,
+				ctx.session.user.name,
+			);
+		} catch (error) {
+			console.error(error);
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Relay account unavailable",
+				cause: error,
+			});
+		}
+		if (type === "mutation" && !relayMutations.take(ctx.session.user.id)) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: "Too many relay changes; try again in a minute",
+			});
+		}
+		const result = await next({ ctx: { ...ctx, relayUser } });
+		if (
+			!result.ok &&
+			result.error.cause instanceof Error &&
+			result.error.cause.message === "Path limit reached"
+		) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: "Path limit reached",
+				cause: result.error.cause,
+			});
+		}
+		return result;
+	},
+);
 
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
 

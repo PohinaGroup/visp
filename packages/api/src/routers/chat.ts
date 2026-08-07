@@ -7,8 +7,14 @@ import {
 	enableChatConnection,
 	listChatConnections,
 } from "../chat/connections";
+import {
+	chatOverlayTokenStatus,
+	issueChatOverlayToken,
+	revokeChatOverlayToken,
+} from "../chat/overlay-token";
 import { chatTickets } from "../chat/tickets";
 import { protectedProcedure, router } from "../index";
+import { relayProcedure } from "./relay";
 
 const provider = z.enum(["twitch", "kick", "youtube"]);
 
@@ -48,6 +54,18 @@ export const chatRouter = router({
 	liveTicket: protectedProcedure.mutation(({ ctx }) =>
 		chatTickets.issue(ctx.session.user.id),
 	),
+	/** The revocable URL credential for the OBS browser-source overlay. */
+	overlay: router({
+		status: relayProcedure.query(({ ctx }) =>
+			chatOverlayTokenStatus(ctx.relayUser.id),
+		),
+		issue: relayProcedure.mutation(({ ctx }) =>
+			issueChatOverlayToken(ctx.relayUser.id),
+		),
+		revoke: relayProcedure.mutation(({ ctx }) =>
+			revokeChatOverlayToken(ctx.relayUser.id),
+		),
+	}),
 	/** What the read-aloud, isolation, and caption settings may offer. */
 	speech: protectedProcedure.query(({ ctx }) =>
 		betterFeatures(ctx.session.user.id),

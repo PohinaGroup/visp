@@ -273,9 +273,12 @@ export function StreamCameraControls({
 							<Pressable accessibilityRole="button" onPress={onEditUrl}>
 								<Text style={styles.urlAction}>Add URL</Text>
 							</Pressable>
-							<Pressable accessibilityRole="button" onPress={onExitPreview}>
-								<Text style={styles.urlAction}>Exit preview</Text>
-							</Pressable>
+							{/* Signed in there is nothing to exit to: this screen is the app. */}
+							{signedIn ? null : (
+								<Pressable accessibilityRole="button" onPress={onExitPreview}>
+									<Text style={styles.urlAction}>Exit preview</Text>
+								</Pressable>
+							)}
 						</View>
 					)}
 				</View>

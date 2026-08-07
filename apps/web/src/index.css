@@ -256,6 +256,27 @@ html[data-theme="dark"][data-astryx-theme="neutral"] {
 	}
 }
 
+/*
+ * OBS browser source. The page only composites over the scene when the
+ * background is genuinely transparent, so this overrides whatever the base
+ * layer paints. The fade mirrors FADE_WINDOW_MS in the native chat model:
+ * opaque for 8s, then a linear ramp over the last 4s of the 12s window.
+ */
+html[data-overlay],
+html[data-overlay] body {
+	background: transparent;
+}
+
+@keyframes visp-chat-fade {
+	0%,
+	66.67% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
+	}
+}
+
 /* App chrome: deep base + a faint cool wash so the desk isn't flat gray. */
 .app-shell {
 	background-color: var(--background);

@@ -15,6 +15,11 @@ import {
 	handleVerifiedKickPayload,
 	reconcileKickSubscriptions,
 } from "@VISP/api/chat/kick";
+import {
+	authenticateChatOverlayToken,
+	issueChatOverlayToken,
+	revokeChatOverlayToken,
+} from "@VISP/api/chat/overlay-token";
 import { prepareDirect, resolveDirectDestinations } from "@VISP/api/direct";
 import {
 	getObsControlStatus,
@@ -1289,6 +1294,33 @@ integration("relay PostgreSQL integration", () => {
 			});
 			expect(paths).toHaveLength(1);
 		}
+	});
+
+	test("scopes the chat overlay token to its owner and drops it on revoke", async () => {
+		await seed();
+		const { token } = await issueChatOverlayToken("user-a");
+		expect(await authenticateChatOverlayToken(token)).toBe("user-a");
+
+		const [id, secret] = token.split(".");
+		expect(
+			await authenticateChatOverlayToken(`${id}.${"0".repeat(64)}`),
+		).toBeNull();
+		expect(
+			await authenticateChatOverlayToken(`${"0".repeat(24)}.${secret}`),
+		).toBeNull();
+
+		// Reissuing invalidates the URL already pasted into OBS.
+		const reissued = await issueChatOverlayToken("user-a");
+		expect(await authenticateChatOverlayToken(token)).toBeNull();
+		expect(await authenticateChatOverlayToken(reissued.token)).toBe("user-a");
+
+		// The OBS control pairing is a separate credential and survives.
+		const pairing = await rotateObsControlToken("user-a");
+		expect(await authenticateChatOverlayToken(reissued.token)).toBe("user-a");
+		expect(await revokeChatOverlayToken("user-a")).toBe(true);
+		expect(await authenticateChatOverlayToken(reissued.token)).toBeNull();
+		expect((await getObsControlStatus("user-a")).configured).toBeTrue();
+		expect(pairing.token).not.toBe(reissued.token);
 	});
 
 	test("enables and disables Twitch and Kick chat without persisting messages", async () => {

@@ -206,12 +206,10 @@ export function StreamSignIn({
 
 export function StreamDestinationEditor({
 	draft,
-	editing,
 	hasInstallation,
 	message,
 	onCancel,
 	onChangeDraft,
-	onPreview,
 	onProvision,
 	onSave,
 	provisioning,
@@ -219,12 +217,10 @@ export function StreamDestinationEditor({
 	streamUrl,
 }: {
 	draft: string;
-	editing: boolean;
 	hasInstallation: boolean;
 	message?: string;
 	onCancel: () => void;
 	onChangeDraft: (draft: string) => void;
-	onPreview: () => void;
 	onProvision: () => void;
 	onSave: () => void;
 	provisioning: boolean;
@@ -279,41 +275,29 @@ export function StreamDestinationEditor({
 				>
 					<Text style={styles.primaryButtonText}>Save destination</Text>
 				</Pressable>
-				{editing ? (
+				{signedIn && !streamUrl ? (
 					<Pressable
 						accessibilityRole="button"
-						onPress={onCancel}
+						disabled={provisioning || !hasInstallation}
+						onPress={onProvision}
 						style={styles.textButton}
 					>
-						<Text style={styles.textButtonLabel}>Cancel</Text>
+						<Text style={styles.textButtonLabel}>
+							{provisioning
+								? "Setting up..."
+								: !hasInstallation
+									? "Preparing device..."
+									: "Try automatic setup again"}
+						</Text>
 					</Pressable>
-				) : (
-					<>
-						<Pressable
-							accessibilityRole="button"
-							disabled={provisioning || !hasInstallation}
-							onPress={onProvision}
-							style={styles.textButton}
-						>
-							<Text style={styles.textButtonLabel}>
-								{provisioning
-									? "Setting up..."
-									: !hasInstallation
-										? "Preparing device..."
-										: "Try automatic setup again"}
-							</Text>
-						</Pressable>
-						<Pressable
-							accessibilityRole="button"
-							onPress={onPreview}
-							style={styles.textButton}
-						>
-							<Text style={styles.textButtonLabel}>
-								Look around without URL
-							</Text>
-						</Pressable>
-					</>
-				)}
+				) : null}
+				<Pressable
+					accessibilityRole="button"
+					onPress={onCancel}
+					style={styles.textButton}
+				>
+					<Text style={styles.textButtonLabel}>Cancel</Text>
+				</Pressable>
 				<LegalAgreement />
 			</SafeAreaView>
 		</KeyboardAvoidingView>

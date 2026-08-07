@@ -117,6 +117,25 @@ function RootDocument() {
 	const isLocalizedLanding = useLocation({
 		select: (l) => l.pathname === "/fi" || l.pathname === "/fi/",
 	});
+	// The OBS browser source composites over the scene: no chrome, no theme
+	// wrapper, and nothing that paints a background. Banners, toasts, and
+	// devtools buttons would all go out on stream.
+	const isOverlay = useLocation({ select: (l) => l.pathname === "/overlay" });
+
+	if (isOverlay) {
+		return (
+			<html lang={locale} data-overlay="">
+				<head>
+					<HeadContent />
+				</head>
+				<body>
+					<Outlet />
+					<Scripts />
+				</body>
+			</html>
+		);
+	}
+
 	return (
 		<html lang={locale} className="dark">
 			<head>

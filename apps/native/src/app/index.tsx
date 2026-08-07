@@ -459,7 +459,10 @@ export default function Index() {
 
 	const toggleStream = useCallback(async () => {
 		if (!streamUrl) {
-			showToast("Add an SRT URL before going live");
+			const reason =
+				"To start streaming you need to either fill in the SRT URL or connect a streaming platform in Settings.";
+			if (IS_WEB) globalThis.alert(reason);
+			else Alert.alert("No destination yet", reason);
 			return;
 		}
 		setMessage(undefined);
@@ -805,11 +808,12 @@ export default function Index() {
 		return <StreamLoading />;
 	}
 
-	if ((!streamUrl && !previewing) || editing) {
+	// A signed-in user without a destination lands in the app, not here: the Go Live
+	// guard tells them to add a URL or link a platform. The editor is opt-in only.
+	if (editing) {
 		return (
 			<StreamDestinationEditor
 				draft={draft}
-				editing={editing}
 				hasInstallation={Boolean(installationId)}
 				message={message}
 				onCancel={() => {
@@ -818,7 +822,6 @@ export default function Index() {
 					setMessage(undefined);
 				}}
 				onChangeDraft={setDraft}
-				onPreview={() => setPreviewing(true)}
 				onProvision={() => void provisionDestination(true)}
 				onSave={() => void save()}
 				provisioning={provisioning}

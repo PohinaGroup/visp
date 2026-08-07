@@ -29,6 +29,13 @@
       "when": 1785701969157,
       "tag": "0003_round_scarecrow",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786101174352,
+      "tag": "0004_wet_the_stranger",
+      "breakpoints": true
     }
   ]
 }

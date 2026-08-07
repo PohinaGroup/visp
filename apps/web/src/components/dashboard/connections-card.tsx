@@ -1,14 +1,24 @@
-import { chatAuthProvider, type ChatProvider } from "@VISP/api/chat/contract";
+import { type ChatProvider, chatAuthProvider } from "@VISP/api/chat/contract";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
+import { env } from "@VISP/env/web";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LinkIcon, MessageCircleIcon, UnlinkIcon } from "lucide-react";
+import {
+	LinkIcon,
+	MessageCircleIcon,
+	MonitorIcon,
+	Trash2Icon,
+	UnlinkIcon,
+} from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
+import { RevealedValue } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
@@ -16,6 +26,95 @@ import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { providerLabel } from "./format";
 import type { ChatConnection } from "./types";
+
+function overlayUrl(token: string) {
+	const serverUrl = import.meta.env.PROD
+		? window.location.origin
+		: env.VITE_SERVER_URL.replace(/\/$/, "");
+	return `${serverUrl}/overlay?t=${token}`;
+}
+
+function ChatOverlayBlock() {
+	const t = useT();
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const statusQuery = useQuery(trpc.chat.overlay.status.queryOptions());
+	// Held in state only: the URL is never retrievable again after this render.
+	const [url, setUrl] = useState<string | null>(null);
+	const issue = useMutation(
+		trpc.chat.overlay.issue.mutationOptions({
+			onSuccess: async ({ token }) => {
+				setUrl(overlayUrl(token));
+				await queryClient.invalidateQueries();
+				toast.success(t("Overlay URL created"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const revoke = useMutation(
+		trpc.chat.overlay.revoke.mutationOptions({
+			onSuccess: async () => {
+				setUrl(null);
+				await queryClient.invalidateQueries();
+				toast.success(t("Overlay URL revoked"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const configured = Boolean(statusQuery.data?.configured);
+
+	return (
+		<Collapsible
+			defaultIsOpen={false}
+			trigger={<Text type="label">{t("OBS chat overlay")}</Text>}
+		>
+			<VStack gap={3} paddingBlock={2}>
+				<Text color="secondary" type="supporting">
+					{t(
+						"Add a Browser Source in OBS and paste this URL. It shows the chats you enabled above, on a transparent background. Append &corner=top-right, &rows=3, or &fade=1 to change it.",
+					)}
+				</Text>
+				{url ? (
+					<RevealedValue label={t("Browser Source URL")} value={url} />
+				) : null}
+				<HStack gap={2} wrap="wrap">
+					<Button
+						icon={<Icon color="inherit" icon={MonitorIcon} size="sm" />}
+						isLoading={issue.isPending}
+						label={
+							configured ? t("Rotate overlay URL") : t("Generate overlay URL")
+						}
+						onClick={() => {
+							if (
+								!configured ||
+								window.confirm(
+									t("Replace the overlay URL already pasted into OBS?"),
+								)
+							) {
+								issue.mutate();
+							}
+						}}
+					/>
+					{configured ? (
+						<Button
+							icon={<Icon color="inherit" icon={Trash2Icon} size="sm" />}
+							isLoading={revoke.isPending}
+							label={t("Revoke overlay URL")}
+							variant="ghost"
+							onClick={() => {
+								if (
+									window.confirm(t("Stop the OBS chat overlay from loading?"))
+								) {
+									revoke.mutate();
+								}
+							}}
+						/>
+					) : null}
+				</HStack>
+			</VStack>
+		</Collapsible>
+	);
+}
 
 function ConnectionActions({
 	connection,
@@ -228,6 +327,7 @@ export function ConnectionsCard() {
 						"Disabling chat keeps the provider available for sign-in. At least one login must remain linked.",
 					)}
 				</Text>
+				<ChatOverlayBlock />
 			</VStack>
 		</Card>
 	);

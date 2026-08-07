@@ -89,6 +89,10 @@ export const appUser = pgTable("app_user", {
 	advancedMode: boolean("advanced_mode").default(false).notNull(),
 	obsControlTokenId: text("obs_control_token_id").unique(),
 	obsControlTokenHash: text("obs_control_token_hash"),
+	// Separate from the OBS control token: rotating that one resets scene and
+	// toggle state, so the browser-source URL gets its own revocable credential.
+	chatOverlayTokenId: text("chat_overlay_token_id").unique(),
+	chatOverlayTokenHash: text("chat_overlay_token_hash"),
 	obsDesiredStreaming: boolean("obs_desired_streaming")
 		.default(false)
 		.notNull(),
