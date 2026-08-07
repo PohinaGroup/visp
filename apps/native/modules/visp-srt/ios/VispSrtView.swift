@@ -1061,7 +1061,7 @@ final class VispSrtView: ExpoView {
         VideoCodecSettings(
           videoSize: size,
           bitRate: videoBitrateCeiling,
-          profileLevel: kVTProfileLevel_H264_Baseline_AutoLevel as String,
+          profileLevel: kVTProfileLevel_H264_Main_AutoLevel as String,
           maxKeyFrameIntervalDuration: 2,
           allowFrameReordering: false,
           isHardwareAcceleratedEnabled: true,
@@ -1377,8 +1377,8 @@ final class VispSrtView: ExpoView {
     guard let camera = cameras.first(where: { $0.position == .back }) ?? cameras.first else {
       throw VispSrtFailure.cameraUnavailable
     }
-    let format = camera.formats.first(where: { $0.width == 1280 && $0.height == 720 }) ??
-      camera.formats.first(where: { $0.width == 1920 && $0.height == 1080 }) ?? camera.formats[0]
+    let format = camera.formats.first(where: { $0.width == 1920 && $0.height == 1080 }) ??
+      camera.formats.first(where: { $0.width == 1280 && $0.height == 720 }) ?? camera.formats[0]
     return VideoConfiguration(
       frameRate: format.frameRates.contains(30) ? 30 : format.frameRates.last!,
       height: format.height,

@@ -112,6 +112,9 @@ export default function Index() {
 	const [obsStatus, setObsStatus] = useState<ObsStatus>();
 	const [liveStartedAt, setLiveStartedAt] = useState<number>();
 	const [previewing, setPreviewing] = useState(false);
+	// A manual-URL user is never routed back to the sign-in screen on its own:
+	// having a destination is exactly what keeps them out of it. Settings asks.
+	const [promptSignIn, setPromptSignIn] = useState(false);
 	// Camera bring-up takes seconds and paints nothing but a black preview, so the
 	// controls look frozen. Cover them until prepare() settles (success or failure).
 	const [starting, setStarting] = useState(true);
@@ -216,6 +219,7 @@ export default function Index() {
 					configuration.width,
 					configuration.height,
 					configuration.fps,
+					contributionMode,
 				)
 			: undefined,
 	});
@@ -724,6 +728,9 @@ export default function Index() {
 				setSettingsOpen(false);
 				setStreamUrl(null);
 				setMessage(undefined);
+				// Without a session the sign-in screen is the only place left to go,
+				// and preview mode would otherwise strand them on a dead camera.
+				if (!session) setPreviewing(false);
 			})();
 		};
 		if (IS_WEB) {
@@ -732,7 +739,9 @@ export default function Index() {
 		}
 		Alert.alert(
 			"Delete VISP destination?",
-			"Your linked device stays on your account and can restore this URL later.",
+			session
+				? "Your linked device stays on your account and can restore this URL later."
+				: "This device forgets the SRT URL and returns to the sign-in screen.",
 			[
 				{ style: "cancel", text: "Cancel" },
 				{
@@ -742,7 +751,7 @@ export default function Index() {
 				},
 			],
 		);
-	}, [setStreamUrl]);
+	}, [session, setStreamUrl]);
 
 	const settingsModel = useStreamSettingsModel({
 		audioInputs,
@@ -762,6 +771,10 @@ export default function Index() {
 		onRemoveDestination: removeUrl,
 		onRetryCamera: prepare,
 		onSelectCamera: selectCamera,
+		onSignIn: () => {
+			setSettingsOpen(false);
+			setPromptSignIn(true);
+		},
 		onUpdateBondingMode: updateBondingMode,
 		onUpdateImageStabilization: updateImageStabilization,
 		publishPathId,
@@ -786,12 +799,19 @@ export default function Index() {
 		return <StreamLoading />;
 	}
 
-	if (!session && !editing && !streamUrl && !previewing) {
+	if (!session && (promptSignIn || (!editing && !streamUrl && !previewing))) {
 		return (
 			<StreamSignIn
 				message={message}
-				onManualSetup={() => setEditing(true)}
-				onPreview={() => setPreviewing(true)}
+				onManualSetup={() => {
+					setPromptSignIn(false);
+					setEditing(true);
+				}}
+				onPreview={() => {
+					setPromptSignIn(false);
+					setPreviewing(true);
+				}}
+				previewLabel={promptSignIn ? "Back to camera" : undefined}
 				onSignIn={(provider) => void signIn(provider)}
 				signingIn={signingIn}
 			/>

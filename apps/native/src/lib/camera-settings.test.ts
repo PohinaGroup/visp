@@ -32,14 +32,14 @@ const camera: CameraCapability = {
 };
 
 describe("camera settings", () => {
-	test("prefers 720p at 30 fps and preserves supported choices", () => {
+	test("prefers 1080p at 30 fps and preserves supported choices", () => {
 		const firstFormat = camera.formats[0];
 		expect(firstFormat).toBeDefined();
 		expect(configurationForCamera(camera)).toEqual({
 			cameraId: "back",
 			fps: 30,
-			height: 720,
-			width: 1280,
+			height: 1080,
+			width: 1920,
 		});
 		if (!firstFormat) return;
 		expect(configurationForFormat("back", firstFormat, 60).fps).toBe(60);
@@ -55,7 +55,7 @@ describe("camera settings", () => {
 				configurationForCamera(camera),
 			),
 		).toThrow("does not support");
-		expect(formatLabel(configurationForCamera(camera))).toBe("720p");
+		expect(formatLabel(configurationForCamera(camera))).toBe("1080p");
 		expect(defaultZoomLevel(camera)).toBe(1);
 		expect(defaultZoomLevel({ ...camera, zoomLevels: [0.5, 2] })).toBe(0.5);
 		expect(formatZoomLevel(2)).toBe("2.0x");

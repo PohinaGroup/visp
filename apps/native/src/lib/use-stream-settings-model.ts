@@ -33,6 +33,7 @@ export function useStreamSettingsModel({
 	onRemoveDestination,
 	onRetryCamera,
 	onSelectCamera,
+	onSignIn,
 	onUpdateBondingMode,
 	onUpdateImageStabilization,
 	publishPathId,
@@ -64,6 +65,7 @@ export function useStreamSettingsModel({
 	onRemoveDestination: () => void;
 	onRetryCamera: () => Promise<void>;
 	onSelectCamera: (camera: CameraCapability) => void;
+	onSignIn: () => void;
 	onUpdateBondingMode: (mode: BondingMode) => Promise<void>;
 	onUpdateImageStabilization: (enabled: boolean) => void;
 	publishPathId?: number;
@@ -198,6 +200,7 @@ export function useStreamSettingsModel({
 			},
 		},
 		onDismiss: () => setIsPresented(false),
+		onSignIn,
 		onToggleAccount: () => {
 			if (!accountOpen) void streamAccount.refreshLinkedAccounts();
 			setAccountOpen((open) => !open);

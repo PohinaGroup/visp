@@ -113,12 +113,14 @@ export function StreamSignIn({
 	onManualSetup,
 	onPreview,
 	onSignIn,
+	previewLabel = "Look around without URL",
 	signingIn,
 }: {
 	message?: string;
 	onManualSetup: () => void;
 	onPreview: () => void;
 	onSignIn: (provider: SignInProvider) => void;
+	previewLabel?: string;
 	signingIn?: SignInProvider;
 }) {
 	return (
@@ -197,7 +199,7 @@ export function StreamSignIn({
 					onPress={onPreview}
 					style={styles.textButton}
 				>
-					<Text style={styles.textButtonLabel}>Look around without URL</Text>
+					<Text style={styles.textButtonLabel}>{previewLabel}</Text>
 				</Pressable>
 			</SafeAreaView>
 		</View>

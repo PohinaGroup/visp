@@ -1580,8 +1580,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
     val camera = cameras.firstOrNull { it.id == "back" }
       ?: cameras.firstOrNull() ?: throw DeviceUnavailableException()
-    val format = camera.formats.firstOrNull { it.width == 1280 && it.height == 720 }
-      ?: camera.formats.firstOrNull { it.width == 1920 && it.height == 1080 }
+    val format = camera.formats.firstOrNull { it.width == 1920 && it.height == 1080 }
+      ?: camera.formats.firstOrNull { it.width == 1280 && it.height == 720 }
       ?: camera.formats.first()
     return VideoConfiguration(
       cameraId = camera.id,

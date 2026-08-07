@@ -8,10 +8,10 @@ export const DEFAULT_IMAGE_STABILIZATION = true;
 
 const preferredFormat = (camera: CameraCapability) =>
 	camera.formats.find(
-		({ width, height }) => width === 1280 && height === 720,
+		({ width, height }) => width === 1920 && height === 1080,
 	) ??
 	camera.formats.find(
-		({ width, height }) => width === 1920 && height === 1080,
+		({ width, height }) => width === 1280 && height === 720,
 	) ??
 	camera.formats[0];
 

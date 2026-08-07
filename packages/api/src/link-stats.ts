@@ -163,10 +163,10 @@ export function videoBitrateCeilingKbps(
 	const short = Math.min(width, height);
 	const long = Math.max(width, height);
 	if (long >= 1920 && short >= 1080) {
-		if (mode === "direct") return fps >= 50 ? 3500 : 2500;
+		if (mode === "direct") return fps >= 50 ? 8000 : 6000;
 		return fps >= 50 ? 8000 : 6000;
 	}
-	return mode === "direct" ? 1500 : 3500;
+	return mode === "direct" ? 4000 : 4500;
 }
 
 /** Lowest ABR target (kbps) for a given ceiling. */

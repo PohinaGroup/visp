@@ -38,6 +38,7 @@ export type StreamSettingsSheetProps = {
 	isPresented: boolean;
 	network: NetworkSettings;
 	onDismiss: () => void;
+	onSignIn: () => void;
 	onToggleAccount: () => void;
 	onToggleAdvanced: () => void;
 	speech: SpeechSettings;
@@ -54,6 +55,7 @@ export function StreamSettingsSheet({
 	isPresented,
 	network,
 	onDismiss,
+	onSignIn,
 	onToggleAdvanced,
 	onToggleAccount,
 	accountOpen,
@@ -118,6 +120,7 @@ export function StreamSettingsSheet({
 					advancedOpen={advancedOpen}
 					destination={destination}
 					direct={direct}
+					onSignIn={onSignIn}
 					onToggleAccount={onToggleAccount}
 					onToggleAdvanced={onToggleAdvanced}
 					settingsDisabled={camera.settingsDisabled}

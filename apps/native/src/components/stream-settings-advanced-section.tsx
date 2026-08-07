@@ -75,6 +75,7 @@ export function AdvancedSection({
 	advancedOpen,
 	destination,
 	direct,
+	onSignIn,
 	onToggleAccount,
 	onToggleAdvanced,
 	settingsDisabled,
@@ -85,27 +86,54 @@ export function AdvancedSection({
 	advancedOpen: boolean;
 	destination: DestinationSettings;
 	direct: DirectSettings;
+	onSignIn: () => void;
 	onToggleAccount: () => void;
 	onToggleAdvanced: () => void;
 	settingsDisabled: boolean;
 }) {
-	const hasAdvanced = Boolean(account);
 	const otherPaths =
 		direct.directOutputs?.paths.filter(
 			(path) => path.id !== direct.publishPathId,
 		) ?? [];
 
+	// A manual-URL user has no account rows to expand, so their destination and
+	// the way back to the sign-in screen sit flat instead of behind expanders.
+	if (!account) {
+		return (
+			<>
+				<DestinationSection
+					destination={destination}
+					settingsDisabled={settingsDisabled}
+				/>
+				<UI.FieldGroup.Section title="Account">
+					<UI.Button
+						disabled={settingsDisabled}
+						onPress={onSignIn}
+						variant="text"
+					>
+						<UI.Text>Sign in</UI.Text>
+					</UI.Button>
+					<UI.FieldGroup.SectionFooter>
+						<UI.Text textStyle={SUBTLE_TEXT}>
+							Signing in links Twitch, Kick, or YouTube and fills the
+							destination for you. Delete the destination above to stream
+							elsewhere.
+						</UI.Text>
+					</UI.FieldGroup.SectionFooter>
+				</UI.FieldGroup.Section>
+			</>
+		);
+	}
+
 	return (
 		<>
-			{account ? (
-				<ExpanderRow
-					label="Account"
-					onToggle={onToggleAccount}
-					open={accountOpen}
-				/>
-			) : null}
+			<ExpanderRow
+				label="Account"
+				onToggle={onToggleAccount}
+				open={accountOpen}
+			/>
 
-			{account && accountOpen ? (
+			{accountOpen ? (
 				<UI.FieldGroup.Section>
 					<UI.Row alignment="center" spacing={12}>
 						<UI.Text>Nickname</UI.Text>
@@ -144,7 +172,7 @@ export function AdvancedSection({
 				</UI.FieldGroup.Section>
 			) : null}
 
-			{account && accountOpen ? (
+			{accountOpen ? (
 				<UI.FieldGroup.Section title="Linked platforms">
 					{account.linkedAccounts ? (
 						account.linkedAccounts.map((entry) => (
@@ -168,21 +196,19 @@ export function AdvancedSection({
 				</UI.FieldGroup.Section>
 			) : null}
 
-			{hasAdvanced ? (
-				<ExpanderRow
-					label="Advanced"
-					onToggle={onToggleAdvanced}
-					open={advancedOpen}
-				/>
-			) : null}
+			<ExpanderRow
+				label="Advanced"
+				onToggle={onToggleAdvanced}
+				open={advancedOpen}
+			/>
 
-			{hasAdvanced && advancedOpen ? (
+			{advancedOpen ? (
 				<>
 					<DestinationSection
 						destination={destination}
 						settingsDisabled={settingsDisabled}
 					/>
-					{account && advanced.publishDevices.length > 0 ? (
+					{advanced.publishDevices.length > 0 ? (
 						<UI.FieldGroup.Section title="Publishing devices">
 							{advanced.publishDevices.map((device) => {
 								const revealedUrl = advanced.revealedDeviceUrls[device.id];
