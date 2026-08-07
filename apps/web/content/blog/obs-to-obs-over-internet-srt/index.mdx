@@ -2,6 +2,7 @@
 title: "How to Send OBS to Another OBS Over the Internet With SRT"
 description: "Send one OBS production to another OBS over the internet with SRT through VISP, without port forwarding or moving the final stream key."
 publishedAt: 2026-07-23
+updatedAt: 2026-08-03
 coverAlt: "Two separate streaming workstations exchange one live program feed through an internet relay"
 ---
 
@@ -44,7 +45,7 @@ video, a browser call workflow such as the one discussed in
 ## What you need
 
 - OBS Studio on the sending and receiving computers
-- A VISP account signed in with Twitch or Kick
+- A VISP account signed in with Twitch, Kick, or Google
 - The VISP OBS plugin on each computer for the shortest setup, or access to the
   dashboard URLs for manual configuration
 - Enough sustained upload at the sending location for the contribution bitrate
@@ -211,8 +212,8 @@ the transition so a short decoder change does not flap between scenes.
 
 ## What VISP does not add to OBS-to-OBS streaming
 
-VISP is the authenticated relay and control plane in this workflow. It does not
-transcode the feed and it does not bond network connections. SRT retransmission
+VISP is the authenticated relay and control plane in this workflow. This
+third-party OBS path does not transcode the feed or aggregate network capacity. SRT retransmission
 can recover some packet loss, but it cannot combine two ISPs or keep sending
 through a total outage. Use a genuine bonding layer when one connection must be
 able to fail without interrupting the contribution.

@@ -2,6 +2,7 @@
 title: "SRT vs RTMP: Which Protocol Should Carry Your Phone Camera Into OBS?"
 description: "Compare SRT and RTMP for sending a phone camera into OBS: packet recovery, latency you tune, credential limits, and when the RTMP fallback wins."
 publishedAt: 2026-07-26
+updatedAt: 2026-08-03
 coverAlt: "A solid signal line and a dashed signal line leave a phone marker, meet a relay block and an OBS studio block, and end at a red destination dot for Twitch or Kick"
 ---
 
@@ -114,7 +115,8 @@ and stalls.
 
 ## What the relay will not fix for you
 
-VISP **does not transcode video and does not bond network connections.** It
+The relay **does not transcode video or aggregate network capacity.** VISP
+Native can separately duplicate packets over Wi-Fi and cellular. The relay
 authenticates a publishing device, relays whatever single stream that device
 sends, and exposes a separate reading URL to OBS. Two consequences follow, and
 they are identical for SRT and RTMP:

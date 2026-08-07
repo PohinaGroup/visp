@@ -32,6 +32,22 @@ const finnishUi: Record<string, string> = {
 	"Live signal path": "Suora signaalipolku",
 	"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.":
 		"Laitteet julkaisevat relaylle, OBS lukee syötteet ja sinä aloitat lähetyksen. Tai lähetä laite suoraan alustalle Direct-lähdöllä.",
+	"Devices publish to the relay and Direct sends them to Twitch or Kick. Add OBS afterward for monitoring, recording, or scenes.":
+		"Laitteet julkaisevat relaylle ja Direct lähettää ne Twitchiin tai Kickiin. Lisää OBS myöhemmin valvontaa, tallennusta tai kohtauksia varten.",
+	"Devices publish to the relay and Direct sends them to Twitch, Kick, or YouTube. Add OBS afterward for monitoring, recording, or scenes.":
+		"Laitteet julkaisevat relaylle ja Direct lähettää ne Twitchiin, Kickiin tai YouTubeen. Lisää OBS myöhemmin valvontaa, tallennusta tai kohtauksia varten.",
+	"Send a publishing device straight to Twitch, Kick, or YouTube without OBS. The relay encodes for each platform.":
+		"Lähetä julkaisulaite suoraan Twitchiin, Kickiin tai YouTubeen ilman OBS:ää. Relay koodaa videon jokaiselle alustalle.",
+	"Default YouTube broadcast title": "YouTube-lähetyksen oletusotsikko",
+	"Save title": "Tallenna otsikko",
+	"YouTube title saved": "YouTube-otsikko tallennettu",
+	"YouTube broadcasts are public": "YouTube-lähetykset ovat julkisia",
+	"VISP creates a new public YouTube broadcast when this device starts publishing.":
+		"VISP luo uuden julkisen YouTube-lähetyksen, kun tämä laite aloittaa julkaisemisen.",
+	"Optional OBS source": "Valinnainen OBS-lähde",
+	"Switch to Direct when you are ready": "Vaihda Directiin, kun olet valmis",
+	"Your existing OBS workflow is unchanged. Authorize a destination and select it below when you are ready to switch to Direct.":
+		"Nykyinen OBS-työnkulkusi ei muutu. Valtuuta kohde ja valitse se alta, kun olet valmis vaihtamaan Directiin.",
 	"Video sources": "Videolähteet",
 	"No publishing devices": "Ei julkaisulaitteita",
 	"Create a device for your first video source.":
@@ -82,6 +98,10 @@ const finnishUi: Record<string, string> = {
 	"No devices": "Ei laitteita",
 	live: "suorana",
 	Relay: "Välitys",
+	Receiving: "Vastaanottaa",
+	Ready: "Valmis",
+	"Choose output": "Valitse lähtö",
+	"OBS only": "Vain OBS",
 	"Keys set": "Avaimet asetettu",
 	"Setup needed": "Määritys tarvitaan",
 	Connected: "Yhdistetty",
@@ -131,6 +151,19 @@ const finnishUi: Record<string, string> = {
 	"Chat is disabled.": "Chat ei ole käytössä.",
 	"Disabling chat keeps the provider available for sign-in. At least one login must remain linked.":
 		"Chatin poistaminen käytöstä säilyttää palvelun kirjautumistapana. Vähintään yhden kirjautumistavan on pysyttävä yhdistettynä.",
+	"OBS chat overlay": "OBS-chatpäällys",
+	"Add a Browser Source in OBS and paste this URL. It shows the chats you enabled above, on a transparent background. Append &corner=top-right, &rows=3, or &fade=1 to change it.":
+		"Lisää OBS:ään Browser Source ja liitä tämä osoite. Se näyttää yllä käyttöön ottamasi chatit läpinäkyvällä taustalla. Voit muuttaa sitä lisäämällä &corner=top-right, &rows=3 tai &fade=1.",
+	"Browser Source URL": "Browser Source -osoite",
+	"Generate overlay URL": "Luo päällysosoite",
+	"Rotate overlay URL": "Vaihda päällysosoite",
+	"Revoke overlay URL": "Mitätöi päällysosoite",
+	"Overlay URL created": "Päällysosoite luotu",
+	"Overlay URL revoked": "Päällysosoite mitätöity",
+	"Replace the overlay URL already pasted into OBS?":
+		"Korvataanko OBS:ään jo liitetty päällysosoite?",
+	"Stop the OBS chat overlay from loading?":
+		"Estetäänkö OBS-chatpäällyksen lataus?",
 	"Connection guidance": "Yhteyssuositus",
 	"Network profile": "Verkkoprofiili",
 	"Estimated RTT (ms)": "Arvioitu RTT (ms)",
@@ -184,4 +217,37 @@ export function localizedHead(locale: Locale, path = "/") {
 			href: `${siteUrl}${englishPath}`,
 		},
 	];
+}
+
+// The landing routes only ever set title/description/og:locale, so Google had
+// no site-name signal and echoed the <title> verbatim above the URL in the
+// SERP snippet. The root WebSite JSON-LD supplies the structured site identity;
+// this og/twitter block also gives the homepage a link card.
+export function landingHead(
+	locale: Locale,
+	title: string,
+	description: string,
+) {
+	const canonical = `${siteUrl}${locale === "fi" ? "/fi" : "/"}`;
+	// ponytail: square logo, so summary not summary_large_image. Swap both to
+	// a 1200x630 card when someone designs one.
+	const image = `${siteUrl}/visp-logo.png`;
+	return {
+		meta: [
+			{ title },
+			{ name: "description", content: description },
+			{ property: "og:type", content: "website" },
+			{ property: "og:site_name", content: "VISP" },
+			{ property: "og:title", content: title },
+			{ property: "og:description", content: description },
+			{ property: "og:url", content: canonical },
+			{ property: "og:image", content: image },
+			{ property: "og:locale", content: locale === "fi" ? "fi_FI" : "en_US" },
+			{ name: "twitter:card", content: "summary" },
+			{ name: "twitter:title", content: title },
+			{ name: "twitter:description", content: description },
+			{ name: "twitter:image", content: image },
+		],
+		links: localizedHead(locale),
+	};
 }

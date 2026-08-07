@@ -3,6 +3,8 @@ export const ADVANCED_SETUP_DEFAULTS = {
 	useCase: "phone_to_obs",
 	destination: "twitch",
 	advancedMode: true,
+	direct: { twitch: false, kick: false, youtube: false },
+	prepareObs: true,
 } as const;
 
 export function getAdvancedSetupAction(

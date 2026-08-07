@@ -4,7 +4,7 @@ import { describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 
 const { machineRoutes } = await import("./machine");
-const { LOG_REDACTION_PATHS } = await import("./app");
+const { createApp, LOG_REDACTION_PATHS } = await import("./app");
 const { deleteSnapshotsForPathIds } = await import("@VISP/auth");
 const app = new Elysia().use(machineRoutes);
 
@@ -108,6 +108,18 @@ describe("machine endpoints", () => {
 		expect(LOG_REDACTION_PATHS).toContain("**.token");
 		expect(LOG_REDACTION_PATHS).toContain("**.device_code");
 		expect(LOG_REDACTION_PATHS).toContain("**.authorization");
+	});
+
+	test("forwards Google's accepted localhost callback to Better Auth", async () => {
+		const response = await createApp().handle(
+			new Request(
+				"http://localhost:3000/api/auth/google-local-callback?code=code&state=state",
+			),
+		);
+		expect(response.status).toBe(302);
+		expect(response.headers.get("location")).toBe(
+			"http://127.0.0.1:3000/api/auth/callback/google?code=code&state=state",
+		);
 	});
 
 	test("deletes every account snapshot and propagates storage failures", async () => {

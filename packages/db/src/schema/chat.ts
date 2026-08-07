@@ -7,7 +7,11 @@ import {
 } from "drizzle-orm/pg-core";
 import { user } from "./auth";
 
-export const chatProvider = pgEnum("chat_provider", ["twitch", "kick"]);
+export const chatProvider = pgEnum("chat_provider", [
+	"twitch",
+	"kick",
+	"youtube",
+]);
 
 export const chatConnection = pgTable(
 	"chat_connection",

@@ -19,6 +19,13 @@ const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
 const LIVE_AFTER_MS = 60_000;
 
+/** The per-user admission flags on app_user, all boolean and all admin-set. */
+const USER_FLAGS = [
+	"betterTts",
+	"betterAudioIsolation",
+	"betterSubtitles",
+] as const;
+
 const pageInput = z.object({
 	cursor: z.string().regex(/^\d+$/).optional(),
 	limit: z.number().int().min(1).max(MAX_PAGE_SIZE).default(PAGE_SIZE),
@@ -37,6 +44,11 @@ const relayFields = z.object({
 
 function iso(value: Date | string | null | undefined) {
 	return value ? new Date(value).toISOString() : null;
+}
+
+/** Audit actions name the column, not the camelCase field. */
+function snakeCase(value: string) {
+	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
 function audit(actorId: string, targetId: string, action: string) {
@@ -109,6 +121,31 @@ export const adminRouter = router({
 						select count(*)::int from "path" admin_relay_path
 						where admin_relay_path.relay_id = ${relay.id}
 							and admin_relay_path.revoked_at is null
+					)`,
+					activeForwarders: sql<number>`(
+						select (
+							count(*) filter (where admin_state.direct_twitch_state in ('starting', 'live', 'retrying')) +
+							count(*) filter (where admin_state.direct_kick_state in ('starting', 'live', 'retrying')) +
+							count(*) filter (where admin_state.direct_youtube_state in ('starting', 'live', 'retrying'))
+						)::int
+						from "path" admin_direct_path
+						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
+						where admin_direct_path.relay_id = ${relay.id}
+							and admin_direct_path.revoked_at is null
+					)`,
+					reservedForwarders: sql<number>`(
+						select (
+							count(*) filter (where admin_state.direct_twitch_reserved_until > now()
+								and (admin_state.direct_twitch_state is null or admin_state.direct_twitch_state not in ('starting', 'live', 'retrying'))) +
+							count(*) filter (where admin_state.direct_kick_reserved_until > now()
+								and (admin_state.direct_kick_state is null or admin_state.direct_kick_state not in ('starting', 'live', 'retrying'))) +
+							count(*) filter (where admin_state.direct_youtube_reserved_until > now()
+								and (admin_state.direct_youtube_state is null or admin_state.direct_youtube_state not in ('starting', 'live', 'retrying')))
+						)::int
+						from "path" admin_direct_path
+						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
+						where admin_direct_path.relay_id = ${relay.id}
+							and admin_direct_path.revoked_at is null
 					)`,
 				})
 				.from(relay)
@@ -283,6 +320,9 @@ export const adminRouter = router({
 						streamDestination: appUser.streamDestination,
 						advancedMode: appUser.advancedMode,
 						onboardedAt: appUser.onboardedAt,
+						betterTts: appUser.betterTts,
+						betterAudioIsolation: appUser.betterAudioIsolation,
+						betterSubtitles: appUser.betterSubtitles,
 						obsStreaming: appUser.obsStreaming,
 						obsSceneCount: sql<number>`coalesce(array_length(${appUser.obsScenes}, 1), 0)`,
 						obsCurrentScene: appUser.obsCurrentScene,
@@ -477,21 +517,22 @@ export const adminRouter = router({
 				return result;
 			}),
 
-		// The only admission control VISP Direct has. Hand it out deliberately:
-		// every Direct forwarder is a full distribution encode on one relay node.
-		setDirectBeta: adminProcedure
+		// These flags gate spend at hosted providers, billed per character
+		// read aloud, per second of isolated mic, and per minute of captions.
+		setFlag: adminProcedure
 			.input(
 				z.object({
 					userId: z.string().min(1),
-					directBeta: z.boolean(),
+					flag: z.enum(USER_FLAGS),
+					enabled: z.boolean(),
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
 				const [result] = await db
 					.update(appUser)
-					.set({ directBeta: input.directBeta })
+					.set({ [input.flag]: input.enabled })
 					.where(eq(appUser.id, input.userId))
-					.returning({ id: appUser.id, directBeta: appUser.directBeta });
+					.returning({ id: appUser.id, enabled: appUser[input.flag] });
 				if (!result) {
 					throw new TRPCError({
 						code: "NOT_FOUND",
@@ -501,7 +542,7 @@ export const adminRouter = router({
 				audit(
 					ctx.session.user.id,
 					input.userId,
-					`set_direct_beta:${input.directBeta}`,
+					`set_${snakeCase(input.flag)}:${input.enabled}`,
 				);
 				return result;
 			}),

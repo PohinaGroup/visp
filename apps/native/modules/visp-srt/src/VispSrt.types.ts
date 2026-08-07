@@ -1,5 +1,5 @@
 import type { LinkMetrics } from "@VISP/api/link-stats";
-import type { StyleProp, ViewStyle } from "react-native";
+import type { ColorValue, StyleProp, ViewStyle } from "react-native";
 
 export type StreamState =
 	| "idle"
@@ -57,6 +57,18 @@ export type AudioInputCapability = {
 	name: string;
 };
 
+export type AudioOutputCapability = {
+	id: string;
+	name: string;
+};
+
+export type VispRoutePickerProps = {
+	accessibilityLabel?: string;
+	activeTintColor?: ColorValue;
+	style?: StyleProp<ViewStyle>;
+	tintColor?: ColorValue;
+};
+
 export type VideoConfiguration = {
 	cameraId: CameraCapability["id"];
 	fps: number;
@@ -80,7 +92,7 @@ export type ChatOverlayCorner =
 
 export type ChatOverlayMessage = {
 	id: string;
-	provider: "twitch" | "kick";
+	provider: "twitch" | "kick" | "youtube";
 	sentAt: string;
 	sender: {
 		id: string;
@@ -105,6 +117,11 @@ export type VispSrtViewRef = {
 		bondingMode?: BondingMode,
 	): Promise<void>;
 	configureAudioInput(audioInputId: string): Promise<void>;
+	setAudioIsolation(
+		mode: "off" | "native" | "better",
+		serverUrl?: string,
+		authCookie?: string,
+	): Promise<void>;
 	switchCamera(cameraId: CameraCapability["id"]): Promise<void>;
 	setImageStabilization(enabled: boolean): Promise<void>;
 	setVideoBitrate(bitrateKbps: number): Promise<void>;
@@ -116,6 +133,14 @@ export type VispSrtViewRef = {
 		corner: ChatOverlayCorner,
 	): Promise<void>;
 	clearChatOverlay(): Promise<void>;
+	updateCaptionsOverlay(text: string): Promise<void>;
+	clearCaptionsOverlay(): Promise<void>;
+	startLiveCaptions(
+		language: string,
+		better: boolean,
+		wsUrl?: string,
+	): Promise<boolean>;
+	stopLiveCaptions(): Promise<void>;
 	start(url: string): Promise<void>;
 	stop(): Promise<void>;
 };

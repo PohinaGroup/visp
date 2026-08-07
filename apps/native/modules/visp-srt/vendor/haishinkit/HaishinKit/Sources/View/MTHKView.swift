@@ -10,11 +10,28 @@ public class MTHKView: MTKView {
     public var videoTrackId: UInt8? = UInt8.max
     public var audioTrackId: UInt8?
     private var displayImage: CIImage?
+    private var lastAppliedPtsSeconds = -1.0
     private lazy var commandQueue: (any MTLCommandQueue)? = {
         return device?.makeCommandQueue()
     }()
     private var context: CIContext?
     private var effects: [any VideoEffect] = .init()
+
+    /// Drop PTS tracking so the next frame is always accepted.
+    public func resetPreviewTiming() {
+        lastAppliedPtsSeconds = -1
+    }
+
+    /// Clear the drawable and PTS tracking (camera switch). Brief black is OK.
+    public func clearPreviewForCameraSwitch() {
+        displayImage = nil
+        lastAppliedPtsSeconds = -1
+        #if os(macOS)
+        needsDisplay = true
+        #else
+        setNeedsDisplay()
+        #endif
+    }
 
     /// Initializes and returns a newly allocated view object with the specified frame rectangle.
     public init(frame: CGRect) {
@@ -143,8 +160,20 @@ extension MTHKView: MediaMixerOutput {
     }
 
     nonisolated public func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
+        let pts = sampleBuffer.presentationTimeStamp.seconds
         Task { @MainActor in
-            displayImage = try? sampleBuffer.imageBuffer?.makeCIImage()
+            if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
+                // Capture-latency recalculation can jump output PTS backward by
+                // hundreds of ms. Treat large jumps as a rebase, not a reorder.
+                if self.lastAppliedPtsSeconds - pts <= 0.25 {
+                    return
+                }
+            }
+            guard let image = try? sampleBuffer.imageBuffer?.makeCIImage() else {
+                return
+            }
+            self.lastAppliedPtsSeconds = pts
+            self.displayImage = image
             #if os(macOS)
             self.needsDisplay = true
             #else
@@ -160,8 +189,18 @@ extension MTHKView: StreamOutput {
     }
 
     nonisolated public func stream(_ stream: some StreamConvertible, didOutput video: CMSampleBuffer) {
+        let pts = video.presentationTimeStamp.seconds
         Task { @MainActor in
-            displayImage = try? video.imageBuffer?.makeCIImage()
+            if self.lastAppliedPtsSeconds >= 0 && pts < self.lastAppliedPtsSeconds - 0.001 {
+                if self.lastAppliedPtsSeconds - pts <= 0.25 {
+                    return
+                }
+            }
+            guard let image = try? video.imageBuffer?.makeCIImage() else {
+                return
+            }
+            self.lastAppliedPtsSeconds = pts
+            self.displayImage = image
             #if os(macOS)
             self.needsDisplay = true
             #else

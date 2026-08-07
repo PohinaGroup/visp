@@ -27,6 +27,7 @@ export const streamingSoftware = pgEnum("streaming_software", [
 ]);
 
 export const setupUseCase = pgEnum("setup_use_case", [
+	"direct",
 	"phone_to_obs",
 	"remote_guest",
 	"multi_cam",
@@ -36,6 +37,7 @@ export const setupUseCase = pgEnum("setup_use_case", [
 export const streamDestination = pgEnum("stream_destination", [
 	"twitch",
 	"kick",
+	"youtube",
 	"other",
 ]);
 
@@ -87,6 +89,10 @@ export const appUser = pgTable("app_user", {
 	advancedMode: boolean("advanced_mode").default(false).notNull(),
 	obsControlTokenId: text("obs_control_token_id").unique(),
 	obsControlTokenHash: text("obs_control_token_hash"),
+	// Separate from the OBS control token: rotating that one resets scene and
+	// toggle state, so the browser-source URL gets its own revocable credential.
+	chatOverlayTokenId: text("chat_overlay_token_id").unique(),
+	chatOverlayTokenHash: text("chat_overlay_token_hash"),
 	obsDesiredStreaming: boolean("obs_desired_streaming")
 		.default(false)
 		.notNull(),
@@ -113,9 +119,29 @@ export const appUser = pgTable("app_user", {
 		.notNull(),
 	obsRecordPaused: boolean("obs_record_paused").default(false).notNull(),
 	obsLastSeenAt: timestamp("obs_last_seen_at", { withTimezone: true }),
+	// Nullable distinguishes existing users who have not chosen a new default
+	// from users who explicitly chose OBS-only (false/false).
+	directTwitch: boolean("direct_twitch"),
+	directKick: boolean("direct_kick"),
+	directYoutube: boolean("direct_youtube"),
+	directYoutubeTitle: text("direct_youtube_title")
+		.default("Live from VISP")
+		.notNull(),
+	directYoutubeStreamId: text("direct_youtube_stream_id"),
 	// VISP Direct admission control. The relay is one node and Direct always
-	// runs distribution encode there, so this gates capacity, not payment.
+	// runs distribution encode there. Kept for one rollback window; unused.
 	directBeta: boolean("direct_beta").default(false).notNull(),
+	// Hosted text-to-speech for reading chat aloud. Every utterance costs money
+	// per character, so this gates spend, not capacity.
+	betterTts: boolean("better_tts").default(false).notNull(),
+	// Hosted ElevenLabs noise isolation for the live mic. Every second billed is
+	// a second of someone's stream, so this gates spend, not capacity.
+	betterAudioIsolation: boolean("better_audio_isolation")
+		.default(false)
+		.notNull(),
+	// Hosted realtime speech-to-text for burned-in captions. Bills per minute of
+	// live audio, so this gates spend, not capacity.
+	betterSubtitles: boolean("better_subtitles").default(false).notNull(),
 	onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 	createdAt: timestamp("created_at", { withTimezone: true })
 		.defaultNow()
@@ -144,6 +170,7 @@ export const relayPath = pgTable(
 		}),
 		directTwitch: boolean("direct_twitch").default(false).notNull(),
 		directKick: boolean("direct_kick").default(false).notNull(),
+		directYoutube: boolean("direct_youtube").default(false).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -163,6 +190,9 @@ export const relayPath = pgTable(
 		uniqueIndex("path_direct_kick_owner")
 			.on(table.userId)
 			.where(sql`${table.directKick}`),
+		uniqueIndex("path_direct_youtube_owner")
+			.on(table.userId)
+			.where(sql`${table.directYoutube}`),
 		check("path_seq_positive", sql`${table.seq} > 0`),
 		check(
 			"path_label_length",
@@ -196,6 +226,18 @@ export const pathState = pgTable(
 		directTwitchError: text("direct_twitch_error"),
 		directKickState: text("direct_kick_state"),
 		directKickError: text("direct_kick_error"),
+		directTwitchReservedUntil: timestamp("direct_twitch_reserved_until", {
+			withTimezone: true,
+		}),
+		directKickReservedUntil: timestamp("direct_kick_reserved_until", {
+			withTimezone: true,
+		}),
+		directYoutubeState: text("direct_youtube_state"),
+		directYoutubeError: text("direct_youtube_error"),
+		directYoutubeReservedUntil: timestamp("direct_youtube_reserved_until", {
+			withTimezone: true,
+		}),
+		directYoutubeBroadcastId: text("direct_youtube_broadcast_id"),
 	},
 	(table) => [
 		check(

@@ -1,7 +1,13 @@
 import { auth } from "@VISP/auth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { DirectError, listDirectOutputs, setDirectOutputs } from "../direct";
+import {
+	DirectError,
+	listDirectOutputs,
+	prepareDirect,
+	setDirectOutputs,
+	setYoutubeSettings,
+} from "../direct";
 import { protectedProcedure, router } from "../index";
 import { linkStatsFromPath } from "../link-stats";
 import {
@@ -44,56 +50,65 @@ import { listSnapshots } from "../snapshots";
 // Postgres or the cache bus only if a strict global request cap is needed.
 const relayMutations = fixedWindow(20, 60_000);
 
-const relayProcedure = protectedProcedure.use(async ({ ctx, next, type }) => {
-	let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;
-	try {
-		relayUser = await ensureRelayUser(
-			ctx.session.user.id,
-			ctx.session.user.name,
-		);
-	} catch (error) {
-		throw new TRPCError({
-			code:
-				error instanceof Error && error.message === "Streaming account required"
-					? "FORBIDDEN"
-					: "INTERNAL_SERVER_ERROR",
-			message:
-				error instanceof Error && error.message === "Streaming account required"
-					? "Sign in with Twitch or Kick to use the relay"
-					: "Could not provision relay account",
-			cause: error,
-		});
-	}
-	if (type === "mutation" && !relayMutations.take(ctx.session.user.id)) {
-		throw new TRPCError({
-			code: "TOO_MANY_REQUESTS",
-			message: "Too many relay changes; try again in a minute",
-		});
-	}
-	const result = await next({ ctx: { ...ctx, relayUser } });
-	if (
-		!result.ok &&
-		result.error.cause instanceof Error &&
-		result.error.cause.message === "Path limit reached"
-	) {
-		throw new TRPCError({
-			code: "TOO_MANY_REQUESTS",
-			message: "Path limit reached",
-			cause: result.error.cause,
-		});
-	}
-	return result;
-});
+export const relayProcedure = protectedProcedure.use(
+	async ({ ctx, next, type }) => {
+		let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;
+		try {
+			relayUser = await ensureRelayUser(
+				ctx.session.user.id,
+				ctx.session.user.name,
+			);
+		} catch (error) {
+			console.error(error);
+			throw new TRPCError({
+				code: "INTERNAL_SERVER_ERROR",
+				message: "Relay account unavailable",
+				cause: error,
+			});
+		}
+		if (type === "mutation" && !relayMutations.take(ctx.session.user.id)) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: "Too many relay changes; try again in a minute",
+			});
+		}
+		const result = await next({ ctx: { ...ctx, relayUser } });
+		if (
+			!result.ok &&
+			result.error.cause instanceof Error &&
+			result.error.cause.message === "Path limit reached"
+		) {
+			throw new TRPCError({
+				code: "TOO_MANY_REQUESTS",
+				message: "Path limit reached",
+				cause: result.error.cause,
+			});
+		}
+		return result;
+	},
+);
 
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
 
 const DIRECT_ERROR_CODES = {
-	"not-allowed": "FORBIDDEN",
 	"not-found": "NOT_FOUND",
+	invalid: "BAD_REQUEST",
 	"path-live": "PRECONDITION_FAILED",
 	"provider-taken": "CONFLICT",
 	"consent-required": "PRECONDITION_FAILED",
+	capacity: "TOO_MANY_REQUESTS",
 } as const;
+
+function directError(error: unknown): never {
+	if (error instanceof DirectError) {
+		throw new TRPCError({
+			code: DIRECT_ERROR_CODES[error.code],
+			message: error.message,
+			cause: error,
+		});
+	}
+	throw error;
+}
 
 const tileFields = z.object({
 	label: z.string().trim().min(1).max(64),
@@ -220,6 +235,7 @@ export const relayRoutes = {
 					publishRevealable: path.publishRevealable,
 					directTwitch: path.directTwitch,
 					directKick: path.directKick,
+					directYoutube: path.directYoutube,
 					publishing: path.publishing,
 					readerCount: path.readerCount,
 					sourceType: path.sourceType,
@@ -346,22 +362,40 @@ export const relayRoutes = {
 			listDirectOutputs(ctx.relayUser.id),
 		),
 		setOutputs: relayProcedure
-			.input(pathIdInput.extend({ twitch: z.boolean(), kick: z.boolean() }))
+			.input(
+				pathIdInput.extend({
+					twitch: z.boolean(),
+					kick: z.boolean(),
+					youtube: z.boolean(),
+				}),
+			)
 			.mutation(async ({ ctx, input }) => {
 				try {
 					return await setDirectOutputs(ctx.relayUser.id, input.pathId, {
 						twitch: input.twitch,
 						kick: input.kick,
+						youtube: input.youtube,
 					});
 				} catch (error) {
-					if (error instanceof DirectError) {
-						throw new TRPCError({
-							code: DIRECT_ERROR_CODES[error.code],
-							message: error.message,
-							cause: error,
-						});
-					}
-					throw error;
+					directError(error);
+				}
+			}),
+		setYoutubeSettings: relayProcedure
+			.input(z.object({ title: z.string().trim().min(1).max(100) }))
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setYoutubeSettings(ctx.relayUser.id, input.title);
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		prepare: relayProcedure
+			.input(pathIdInput)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await prepareDirect(ctx.relayUser.id, input.pathId);
+				} catch (error) {
+					directError(error);
 				}
 			}),
 	}),
@@ -403,13 +437,21 @@ export const relayRoutes = {
 				z.object({
 					software: z.enum(["obs", "visp", "larix", "moblin", "other"]),
 					useCase: z.enum([
+						"direct",
 						"phone_to_obs",
 						"remote_guest",
 						"multi_cam",
 						"other",
 					]),
-					destination: z.enum(["twitch", "kick", "other"]),
+					destination: z.enum(["twitch", "kick", "youtube", "other"]),
 					advancedMode: z.boolean(),
+					direct: z.object({
+						twitch: z.boolean(),
+						kick: z.boolean(),
+						youtube: z.boolean(),
+					}),
+					youtubeTitle: z.string().trim().min(1).max(100).optional(),
+					prepareObs: z.boolean(),
 					createDevice: z.boolean().optional(),
 					redoMode: z.enum(["additive", "wipe"]).optional(),
 				}),
@@ -422,6 +464,7 @@ export const relayRoutes = {
 					}
 					return result;
 				} catch (error) {
+					if (error instanceof DirectError) directError(error);
 					if (
 						error instanceof Error &&
 						error.message ===

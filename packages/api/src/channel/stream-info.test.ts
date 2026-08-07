@@ -1,9 +1,15 @@
 import { describe, expect, test } from "bun:test";
+import type { ViewerProvider } from "./stream-info";
 
 import "../test-env";
 
-const { hasChannelWriteScope, searchStreamCategories, updateStreamInfo } =
-	await import("./stream-info");
+const {
+	getViewerCounts,
+	hasChannelWriteScope,
+	searchStreamCategories,
+	updateStreamInfo,
+} = await import("./stream-info");
+const { channelRouter } = await import("../routers/channel");
 
 type Call = { url: string; method?: string; headers: Headers; body?: unknown };
 
@@ -33,8 +39,160 @@ const bothLinked = async () => [
 	{ provider: "kick", accountId: "42", scope: "user:read,channel:write" },
 ];
 
-const tokens = async (provider: "twitch" | "kick") => ({
+const tokens = async (provider: ViewerProvider) => ({
 	accessToken: `${provider}-token`,
+});
+
+const savedTitles: string[] = [];
+const saveYoutubeTitle = async (_userId: string, title: string) => {
+	savedTitles.push(title);
+};
+
+const youtubeLinked = async () => [
+	{
+		provider: "google",
+		accountId: "google-1",
+		scope: "https://www.googleapis.com/auth/youtube.force-ssl",
+	},
+];
+
+describe("getViewerCounts", () => {
+	test("returns separate live Twitch and Kick counts", async () => {
+		const calls: Call[] = [];
+		const counts = await getViewerCounts("user", ["twitch", "kick"], {
+			fetch: recordingFetch(calls, (url) =>
+				url.includes("twitch.tv")
+					? Response.json({ data: [{ viewer_count: 12 }] })
+					: Response.json({
+							data: [{ stream: { is_live: true, viewer_count: 7 } }],
+						}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+
+		expect(counts).toEqual({ twitch: 12, kick: 7, youtube: null });
+		expect(calls).toHaveLength(2);
+		const twitch = calls.find((call) => call.url.includes("twitch.tv"));
+		expect(twitch?.url).toBe(
+			"https://api.twitch.tv/helix/streams?user_id=tw-1",
+		);
+		expect(twitch?.headers.get("Authorization")).toBe("Bearer twitch-token");
+		expect(twitch?.headers.get("Client-Id")).toBe("test-twitch-client");
+	});
+
+	test("returns zero for offline channels", async () => {
+		const counts = await getViewerCounts("user", ["twitch", "kick"], {
+			fetch: recordingFetch([], (url) =>
+				url.includes("twitch.tv")
+					? Response.json({ data: [] })
+					: Response.json({ data: [{ stream: { is_live: false } }] }),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+
+		expect(counts).toEqual({ twitch: 0, kick: 0, youtube: null });
+	});
+
+	test("isolates failures and malformed counts", async () => {
+		const failed = await getViewerCounts("user", ["twitch", "kick"], {
+			fetch: recordingFetch([], (url) =>
+				url.includes("twitch.tv")
+					? new Response(null, { status: 503 })
+					: Response.json({
+							data: [{ stream: { is_live: true, viewer_count: 4 } }],
+						}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+		expect(failed).toEqual({ twitch: null, kick: 4, youtube: null });
+
+		const malformed = await getViewerCounts("user", ["twitch"], {
+			fetch: recordingFetch([], () =>
+				Response.json({ data: [{ viewer_count: -1 }] }),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+		expect(malformed).toEqual({ twitch: null, kick: null, youtube: null });
+	});
+
+	test("requests only the selected provider", async () => {
+		const calls: Call[] = [];
+		const counts = await getViewerCounts("user", ["kick", "kick"], {
+			fetch: recordingFetch(calls, () =>
+				Response.json({
+					data: [{ stream: { is_live: true, viewer_count: 3 } }],
+				}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: bothLinked,
+		});
+
+		expect(counts).toEqual({ twitch: null, kick: 3, youtube: null });
+		expect(calls).toHaveLength(1);
+		expect(calls[0]?.url).toBe("https://api.kick.com/public/v1/channels");
+	});
+
+	test("returns YouTube concurrent viewers from the active broadcast", async () => {
+		const calls: Call[] = [];
+		const counts = await getViewerCounts("user", ["youtube"], {
+			fetch: recordingFetch(calls, (url) =>
+				url.includes("liveBroadcasts")
+					? Response.json({ items: [{ id: "video-1" }] })
+					: Response.json({
+							items: [{ liveStreamingDetails: { concurrentViewers: "9" } }],
+						}),
+			),
+			getAccessToken: tokens,
+			loadAccounts: async () => [
+				{ provider: "google", accountId: "google-1", scope: "youtube" },
+			],
+		});
+
+		expect(counts).toEqual({ twitch: null, kick: null, youtube: 9 });
+		expect(calls).toHaveLength(2);
+		expect(calls[1]?.url).toContain(
+			"videos?part=liveStreamingDetails&id=video-1",
+		);
+		expect(calls[0]?.headers.get("Authorization")).toBe("Bearer youtube-token");
+	});
+
+	test("distinguishes offline and unavailable YouTube counts", async () => {
+		const account = async () => [
+			{ provider: "google", accountId: "google-1", scope: "youtube" },
+		];
+		const offline = await getViewerCounts("user", ["youtube"], {
+			fetch: recordingFetch([], () => Response.json({ items: [] })),
+			getAccessToken: tokens,
+			loadAccounts: account,
+		});
+		expect(offline.youtube).toBe(0);
+
+		const hidden = await getViewerCounts("user", ["youtube"], {
+			fetch: recordingFetch([], (url) =>
+				url.includes("liveBroadcasts")
+					? Response.json({ items: [{ id: "video-1" }] })
+					: Response.json({ items: [{ liveStreamingDetails: {} }] }),
+			),
+			getAccessToken: tokens,
+			loadAccounts: account,
+		});
+		expect(hidden.youtube).toBeNull();
+	});
+});
+
+test("viewer counts require an authenticated session", async () => {
+	const caller = channelRouter.createCaller({
+		auth: null,
+		headers: new Headers(),
+		session: null,
+	});
+	await expect(
+		caller.viewerCounts({ providers: ["twitch"] }),
+	).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
 
 describe("hasChannelWriteScope", () => {
@@ -58,6 +216,7 @@ describe("updateStreamInfo", () => {
 				fetch: recordingFetch(calls),
 				getAccessToken: tokens,
 				loadAccounts: bothLinked,
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([
@@ -90,6 +249,7 @@ describe("updateStreamInfo", () => {
 				loadAccounts: async () => [
 					{ provider: "kick", accountId: "42", scope: "channel:write" },
 				],
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([{ provider: "kick", ok: true }]);
@@ -109,6 +269,7 @@ describe("updateStreamInfo", () => {
 				),
 				getAccessToken: tokens,
 				loadAccounts: bothLinked,
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([
@@ -128,6 +289,7 @@ describe("updateStreamInfo", () => {
 				loadAccounts: async () => [
 					{ provider: "twitch", accountId: "tw-1", scope: "user:read:chat" },
 				],
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([
@@ -145,10 +307,182 @@ describe("updateStreamInfo", () => {
 				fetch: recordingFetch(calls),
 				getAccessToken: tokens,
 				loadAccounts: bothLinked,
+				saveYoutubeTitle,
 			},
 		);
 		expect(results).toEqual([{ provider: "kick", ok: true }]);
 		expect(calls).toHaveLength(1);
+	});
+
+	test("retitles the live YouTube broadcast and saves the default", async () => {
+		savedTitles.length = 0;
+		const calls: Call[] = [];
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Hello" },
+			{
+				fetch: recordingFetch(calls, (url) =>
+					url.includes("broadcastStatus=active")
+						? Response.json({
+								items: [
+									{
+										id: "bc-1",
+										snippet: {
+											description: "keep me",
+											scheduledStartTime: "2026-01-01T00:00:00Z",
+										},
+									},
+								],
+							})
+						: new Response(null, { status: 204 }),
+				),
+				getAccessToken: tokens,
+				loadAccounts: youtubeLinked,
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([{ provider: "youtube", ok: true }]);
+		expect(savedTitles).toEqual(["Hello"]);
+		expect(calls).toHaveLength(2);
+		expect(calls[0]?.headers.get("Authorization")).toBe("Bearer youtube-token");
+		expect(calls[1]?.method).toBe("PUT");
+		expect(calls[1]?.url).toBe(
+			"https://www.googleapis.com/youtube/v3/liveBroadcasts?part=snippet",
+		);
+		// A part=snippet write replaces the snippet, so the rest must be carried.
+		expect(calls[1]?.body).toEqual({
+			id: "bc-1",
+			snippet: {
+				title: "Hello",
+				description: "keep me",
+				scheduledStartTime: "2026-01-01T00:00:00Z",
+			},
+		});
+	});
+
+	test("falls back to the upcoming broadcast when nothing is live", async () => {
+		savedTitles.length = 0;
+		const calls: Call[] = [];
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Later" },
+			{
+				fetch: recordingFetch(calls, (url) =>
+					url.includes("broadcastStatus=upcoming")
+						? Response.json({
+								items: [
+									{
+										id: "bc-2",
+										snippet: { scheduledStartTime: "2026-02-02T00:00:00Z" },
+									},
+								],
+							})
+						: url.includes("broadcastStatus=active")
+							? Response.json({ items: [] })
+							: new Response(null, { status: 204 }),
+				),
+				getAccessToken: tokens,
+				loadAccounts: youtubeLinked,
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([{ provider: "youtube", ok: true }]);
+		expect(calls).toHaveLength(3);
+		expect(calls[2]?.body).toEqual({
+			id: "bc-2",
+			snippet: {
+				title: "Later",
+				scheduledStartTime: "2026-02-02T00:00:00Z",
+			},
+		});
+	});
+
+	test("still saves the default when YouTube has no broadcast", async () => {
+		savedTitles.length = 0;
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Nothing live" },
+			{
+				fetch: recordingFetch([], () => Response.json({ items: [] })),
+				getAccessToken: tokens,
+				loadAccounts: youtubeLinked,
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([
+			{
+				provider: "youtube",
+				ok: false,
+				error: "No YouTube broadcast to update",
+			},
+		]);
+		expect(savedTitles).toEqual(["Nothing live"]);
+	});
+
+	test("YouTube without channel write consent is not called", async () => {
+		savedTitles.length = 0;
+		const calls: Call[] = [];
+		const results = await updateStreamInfo(
+			"user",
+			{ title: "Nope" },
+			{
+				fetch: recordingFetch(calls),
+				getAccessToken: tokens,
+				loadAccounts: async () => [
+					{
+						provider: "google",
+						accountId: "google-1",
+						scope: "https://www.googleapis.com/auth/youtube.readonly",
+					},
+				],
+				saveYoutubeTitle,
+			},
+		);
+
+		expect(results).toEqual([
+			{ provider: "youtube", ok: false, error: "consent-required" },
+		]);
+		expect(calls).toHaveLength(0);
+		expect(savedTitles).toEqual([]);
+	});
+
+	test("truncates the YouTube title without shortening Twitch's", async () => {
+		savedTitles.length = 0;
+		const long = "a".repeat(140);
+		const calls: Call[] = [];
+		await updateStreamInfo(
+			"user",
+			{ title: long },
+			{
+				fetch: recordingFetch(calls, (url) =>
+					url.includes("broadcastStatus=active")
+						? Response.json({ items: [{ id: "bc-1", snippet: {} }] })
+						: new Response(null, { status: 204 }),
+				),
+				getAccessToken: tokens,
+				loadAccounts: async () => [
+					{
+						provider: "twitch",
+						accountId: "tw-1",
+						scope: "channel:manage:broadcast",
+					},
+					...(await youtubeLinked()),
+				],
+				saveYoutubeTitle,
+			},
+		);
+
+		const twitch = calls.find((call) => call.url.includes("twitch.tv"));
+		expect(twitch?.body).toEqual({ title: long });
+		const put = calls.find((call) => call.method === "PUT");
+		expect(put?.body).toEqual({
+			id: "bc-1",
+			snippet: { title: "a".repeat(100) },
+		});
+		expect(savedTitles).toEqual(["a".repeat(100)]);
 	});
 });
 

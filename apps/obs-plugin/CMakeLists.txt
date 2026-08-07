@@ -24,6 +24,34 @@ endif()
 if(ENABLE_QT)
   find_package(Qt6 COMPONENTS Core Network Widgets REQUIRED)
   target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE Qt6::Core Qt6::Network Qt6::Widgets)
+  if(APPLE)
+    include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/stub-agl.cmake")
+    set(_visp_stub_root "${CMAKE_CURRENT_BINARY_DIR}/stub-frameworks")
+    set(_visp_stub_agl "${CMAKE_CURRENT_BINARY_DIR}/libAGL_stub.dylib")
+    if(CMAKE_OSX_ARCHITECTURES)
+      set(_visp_stub_archs ${CMAKE_OSX_ARCHITECTURES})
+    else()
+      set(_visp_stub_archs "${CMAKE_SYSTEM_PROCESSOR}")
+    endif()
+    visp_configure_stub_agl_framework("${_visp_stub_root}" "${_visp_stub_archs}" "${CMAKE_OSX_SYSROOT}")
+    visp_configure_stub_agl_dylib("${_visp_stub_agl}" "${_visp_stub_archs}" "${CMAKE_OSX_SYSROOT}")
+    target_link_options(
+      ${CMAKE_PROJECT_NAME}
+      PRIVATE "-F${_visp_stub_root}" "-Wl,-rpath,@loader_path"
+    )
+    add_custom_command(
+      TARGET ${CMAKE_PROJECT_NAME}
+      POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy
+              "${CMAKE_CURRENT_SOURCE_DIR}/cmake/macos/bundle-agl-stub.sh"
+              "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
+      COMMAND chmod +x "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
+      COMMAND "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
+              "$<TARGET_FILE:${CMAKE_PROJECT_NAME}>" "${_visp_stub_agl}"
+      COMMENT "Bundle stub AGL dylib for macOS SDKs without AGL"
+      VERBATIM
+    )
+  endif()
   target_compile_options(
     ${CMAKE_PROJECT_NAME}
     PRIVATE $<$<C_COMPILER_ID:Clang,AppleClang>:-Wno-quoted-include-in-framework-header -Wno-comma>

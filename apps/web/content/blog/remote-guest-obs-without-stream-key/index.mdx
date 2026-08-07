@@ -2,6 +2,7 @@
 title: "How to Bring a Remote Guest Into OBS Without Sharing Your Stream Key"
 description: "Bring a remote guest camera into OBS with revocable VISP access while keeping Twitch or Kick credentials and final production control at home."
 publishedAt: 2026-07-22
+updatedAt: 2026-08-03
 coverAlt: "A security boundary keeps the platform stream key in OBS while a guest publishes through VISP"
 ---
 
@@ -70,8 +71,6 @@ The browser needs a network that permits its WebRTC path. VISP's relay accepts
 media over the configured UDP port with a TCP fallback. If both are blocked,
 use the native VISP app or a third-party SRT encoder with a device publishing
 URL.
-
-![VISP browser publisher ready to send a guest camera](./browser-publish.png)
 
 ## Add the guest feed to OBS
 

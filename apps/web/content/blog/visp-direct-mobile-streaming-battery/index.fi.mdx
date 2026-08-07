@@ -1,7 +1,8 @@
 ---
 title: "Näin VISP Direct säästää puhelimen akkua striimatessa"
-description: "Katso, milloin VISP Direct vähentää puhelimen työtä Twitch- ja Kick-monilähetyksessä, mikä jää puhelimelle ja miten säästö mitataan."
+description: "Katso, milloin VISP Direct vähentää puhelimen työtä monialustalähetyksessä, mikä jää puhelimelle ja miten säästö mitataan."
 publishedAt: 2026-07-28
+updatedAt: 2026-08-03
 coverAlt: "Viileänä pysyvä puhelin ja täysi akkukuvake lähettävät yhden syaanin syötteen relaylle, joka tekee kaksi hohtavaa kohdekoodausta"
 ---
 
@@ -20,8 +21,6 @@ Täsmällinen väite on siis tämä: Direct voi välttää puhelimen ylimäärä
 kohdetyön, jos vaihtoehto tekisi puhelimella useamman live-lähdön. Se siirtää
 päällekkäisen jakelutyön relaylle, mutta ei tee mobiilistriimauksesta
 kulutuksetonta.
-
-![Puhelin tekee yhden kamerakoodauksen ja lähetyksen, kun VISP-relay tekee erilliset Twitch- ja Kick-jakelukoodaukset](./battery-workload.svg)
 
 ## Mikä kuluttaa akkua mobiililähetyksessä?
 
@@ -153,8 +152,8 @@ Myös esikatselu ja chat voivat pysyä näytöllä. Kirkas näyttö auttaa ulkon
 kuluttaa energiaa. Floating-chat näkyy vain puhelimella, kun taas Embedded-chat
 on osa lähtevää kuvaa. Kumpikaan tila ei poista suoratoiston perustyötä.
 
-Direct ei myöskään bondaa mobiili- ja Wi-Fi-yhteyttä. Se ei jaa liikennettä
-usealle yhteydelle eikä paikkaa operaattorin katvealuetta.
+VISP Native voi monistaa paketit mobiili- ja Wi-Fi-yhteyteen vikasietoisuutta
+varten, mutta se ei summaa linkkien kapasiteettia eikä vähennä radioiden kokonaistyötä.
 [Mobiili- ja Wi-Fi-bondauksen opas](/blog/bond-cellular-wifi-visp-speedify)
 kuvaa valinnaisen verkkokerroksen ja muistuttaa, että myös
 bondausohjelmisto käyttää puhelimen resursseja.
@@ -233,7 +232,7 @@ paikallisella sisällöllä puhelimen yhdistäessä uudelleen. Lue
 [heikon mobiiliverkon opas](/blog/keep-stream-live-bad-mobile-network) ennen
 kuin vaihdat varakuvan lyhyempään Direct-reittiin.
 
-Directin kapasiteetti on betassa rajallinen. Jokainen alusta käyttää yhden
+Directin kapasiteetti on välittäjäkohtainen. Jokainen alusta käyttää yhden
 relay-välittäjän. Jos paikkaa ei ole vapaana, Direct-lähtö ei käynnisty, vaikka
 tavallinen relay-lukureitti säilyy. Onnistunut harjoitus on välttämätön.
 
@@ -263,6 +262,6 @@ juuri sinun puhelimellesi ja reitillesi.
 Seuraa
 [VISP Directin asennusohjetta](https://docs.visp-stream.com/fi/docs/direct-output),
 valitse Twitch ja Kick laitteen ollessa offline-tilassa ja tee yllä kuvattu
-vertailu. Jos tililläsi on rajatun betan käyttöoikeus ja tulos on parempi,
+vertailu. Jos tulos on parempi,
 [kokeile VISPiä](https://visp-stream.com) kokonaisessa harjoituksessa ennen
 kuin luotat säästöön pitkässä mobiililähetyksessä.

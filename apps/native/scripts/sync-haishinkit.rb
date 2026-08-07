@@ -1,3 +1,8 @@
+# LEGACY — do not run.
+#
+# Superseded by modules/visp-srt/with-root-encoder.cjs, which runs automatically
+# during `expo prebuild`. This script applied the older remote HaishinKit SPM
+# pin (2.2.5) and the Xcode 26 libsrt linker workaround. Kept for reference only.
 require "xcodeproj"
 
 project_path = File.expand_path("../ios/VISP.xcodeproj", __dir__)

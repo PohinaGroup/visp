@@ -60,6 +60,9 @@ jobs:
           cp -R .obs-template/.github/scripts "$PLUGIN_DIR/.github/scripts"
           cp -R .obs-template/.github/actions/setup-macos-codesigning \
             "$PLUGIN_DIR/.github/actions/setup-macos-codesigning"
+          if [[ -d "$PLUGIN_DIR/.github/script-overrides" ]]; then
+            cp -R "$PLUGIN_DIR/.github/script-overrides/." "$PLUGIN_DIR/.github/scripts/"
+          fi
           chmod +x "$PLUGIN_DIR"/.github/scripts/{build,package}-*
 
       - name: Set up macOS signing

@@ -11,6 +11,7 @@ icon: Code
 - Docker with Compose
 - A Twitch application for Twitch login
 - A Kick application when testing Kick login, chat, or metadata
+- A Google OAuth web client with YouTube Data API v3 enabled when testing YouTube Direct
 - Xcode or Android Studio when working on either native Expo app
 
 Install every workspace dependency from the repository root:
@@ -28,16 +29,30 @@ files. Copy the broadcaster example manually because its address depends on your
 cp apps/native/.env.example apps/native/.env.local
 ```
 
-The launcher generates missing local secrets and reports blank Twitch or Kick
+The launcher generates missing local secrets and reports blank Twitch, Kick, or Google
 credentials. Those provider flows require real credentials; unrelated local
 features still start.
+
+`AI_GATEWAY_API_KEY` enables Seppo through Vercel AI Gateway. Optional
+`ELEVENLABS_API_KEY` enables account-gated hosted captions and audio isolation;
+add `ELEVENLABS_VOICE_ID` for hosted chat text-to-speech. Without those optional
+values, the native app uses on-device fallbacks or hides the hosted option.
 
 Register the callbacks for the providers you exercise locally:
 
 ```text
 Twitch: https://api.visp.localhost/api/auth/callback/twitch
 Kick:   https://api.visp.localhost/api/auth/oauth2/callback/kick
+Google: http://localhost:3000/api/auth/google-local-callback
 ```
+
+For Google, create a **Web application** OAuth client. Add
+`http://localhost:3000` as the authorized origin, add the Google callback above
+as the authorized redirect URI, and store its
+client ID and secret as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in the
+server environment. Enable YouTube Data API v3 and add the
+`youtube.force-ssl` scope to the consent screen. See the repository
+`DEVELOPMENT.md` for the complete console and verification walkthrough.
 
 Relay and S3 values point to the local Compose services. Never commit `.env`
 files.

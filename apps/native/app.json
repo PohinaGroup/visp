@@ -2,19 +2,29 @@
   "expo": {
     "name": "VISP",
     "slug": "visp",
-    "version": "1.0.45",
+    "version": "1.4.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "visp",
     "userInterfaceStyle": "dark",
     "ios": {
       "bundleIdentifier": "com.pohinagroup.visp",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "deploymentTarget": "16.4",
       "infoPlist": {
         "NSCameraUsageDescription": "VISP uses the camera to broadcast your video.",
-        "NSMicrophoneUsageDescription": "VISP uses the microphone to include audio in your broadcast."
+        "NSMicrophoneUsageDescription": "VISP uses the microphone to include audio in your broadcast.",
+        "NSPhotoLibraryUsageDescription": "VISP may save stream recordings and related media to your photo library.",
+        "NSSpeechRecognitionUsageDescription": "VISP can burn live captions into your stream using on-device speech recognition.",
+        "UIBackgroundModes": [
+          "audio",
+          "voip"
+        ]
       },
       "supportsTablet": false,
+      "usesAppleSignIn": true,
       "appleTeamId": "VKN9G4GC43"
     },
     "android": {
@@ -50,7 +60,16 @@
           "imageWidth": 176
         }
       ],
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-audio",
+        {
+          "microphonePermission": "VISP uses the microphone to include audio in your broadcast.",
+          "recordAudioAndroid": false,
+          "enableBackgroundPlayback": false,
+          "enableBackgroundRecording": false
+        }
+      ]
     ],
     "experiments": {
       "inlineModules": {

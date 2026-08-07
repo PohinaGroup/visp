@@ -16,10 +16,12 @@
 		"@VISP/auth": "workspace:*",
 		"@VISP/db": "workspace:*",
 		"@VISP/env": "workspace:*",
+		"@VISP/object-store": "workspace:*",
+		"@node-rs/argon2": "^2.0.2",
 		"@trpc/client": "catalog:",
 		"@trpc/server": "catalog:",
-		"drizzle-orm": "^0.45.2",
 		"dotenv": "catalog:",
+		"drizzle-orm": "^0.45.2",
 		"zod": "catalog:"
 	},
 	"devDependencies": {

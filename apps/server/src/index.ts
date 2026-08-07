@@ -7,10 +7,17 @@ import { env } from "@VISP/env/server";
 import { app } from "./app";
 import { startReconciler } from "./machine";
 
-await ensureDefaultRelay();
+// Bind first so deploy smoke checks do not wait on DB bootstrap work.
 app.listen({ hostname: env.SERVER_HOST, port: env.PORT }, () => {
 	console.log(`Server is running on http://${env.SERVER_HOST}:${env.PORT}`);
 });
+
+try {
+	await ensureDefaultRelay();
+} catch (error) {
+	console.error("Failed to ensure default relay", error);
+}
+
 startReconciler();
 subscribeInvalidations(applyInvalidation);
 startChatFanout();

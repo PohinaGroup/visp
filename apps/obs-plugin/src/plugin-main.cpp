@@ -5,6 +5,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QList>
+#include <QSet>
 #include <QString>
 #include <QStringDecoder>
 #include <QStringList>
@@ -732,10 +733,13 @@ static bool add_media_source(const media_source_response &value, QString *error)
 	obs_source_t *source = lookup.source;
 	if (source) {
 		obs_source_update(source, settings);
-	} else {
-		const QString name = unique_source_name(value.name);
-		source = obs_source_create("ffmpeg_source", name.toUtf8().constData(), settings, nullptr);
+		obs_data_release(settings);
+		obs_source_release(source);
+		return true;
 	}
+
+	const QString source_name = unique_source_name(value.name);
+	source = obs_source_create("ffmpeg_source", source_name.toUtf8().constData(), settings, nullptr);
 	obs_data_release(settings);
 	if (!source) {
 		*error = "OBS could not create the Media Source.";
@@ -761,6 +765,51 @@ static bool add_media_source(const media_source_response &value, QString *error)
 		return false;
 	}
 	obs_source_release(scene_source);
+	obs_source_release(source);
+	return true;
+}
+
+struct path_id_collector {
+	QSet<qint64> ids;
+};
+
+static bool collect_visp_path_ids(void *private_data, obs_source_t *source)
+{
+	auto *collector = static_cast<path_id_collector *>(private_data);
+	if (QString::fromUtf8(obs_source_get_unversioned_id(source)) != "ffmpeg_source")
+		return true;
+	obs_data_t *settings = obs_source_get_settings(source);
+	const QString path_id = QString::fromUtf8(obs_data_get_string(settings, "visp_path_id"));
+	obs_data_release(settings);
+	bool ok = false;
+	const qint64 id = path_id.toLongLong(&ok);
+	if (ok && id > 0)
+		collector->ids.insert(id);
+	return true;
+}
+
+static bool update_media_source(const media_source_response &value, QString *error)
+{
+	if (value.id != "ffmpeg_source") {
+		*error = "VISP returned an unsupported OBS source type.";
+		return false;
+	}
+	const QByteArray settings_json = QJsonDocument(value.settings).toJson(QJsonDocument::Compact);
+	obs_data_t *settings = obs_data_create_from_json(settings_json.constData());
+	if (!settings) {
+		*error = "OBS could not read the Media Source settings.";
+		return false;
+	}
+
+	source_lookup lookup{QString::number(value.path_id), value.settings.value("input").toString()};
+	obs_enum_sources(find_visp_source, &lookup);
+	obs_source_t *source = lookup.source;
+	if (!source) {
+		obs_data_release(settings);
+		return true;
+	}
+	obs_source_update(source, settings);
+	obs_data_release(settings);
 	obs_source_release(source);
 	return true;
 }
@@ -928,6 +977,33 @@ private:
 		}
 	}
 
+	void refresh_linked_media_sources(const QList<publishing_device> &devices)
+	{
+		const plugin_config value = settings();
+		if (value.token.isEmpty() || !secure_url(value.control_url))
+			return;
+
+		QSet<qint64> path_ids;
+		for (const publishing_device &device : devices)
+			path_ids.insert(device.id);
+
+		path_id_collector collector;
+		obs_enum_sources(collect_visp_path_ids, &collector);
+		path_ids.unite(collector.ids);
+
+		for (const qint64 path_id : path_ids) {
+			send(endpoint_url(value.control_url, QString("/api/obs/devices/%1/source").arg(path_id)),
+			     true, {}, value.token, [this](int status, const QByteArray &body) {
+				     media_source_response response;
+				     if (status < 200 || status >= 300 ||
+					 !parse_media_source_response(body, &response))
+					     return;
+				     QString error;
+				     update_media_source(response, &error);
+			     });
+		}
+	}
+
 	void load_devices()
 	{
 		const plugin_config value = settings();
@@ -942,6 +1018,7 @@ private:
 			     devices_response response;
 			     if (status >= 200 && status < 300 && parse_devices_response(body, &response)) {
 				     render_devices(response);
+				     refresh_linked_media_sources(response.devices);
 				     return;
 			     }
 			     clear_devices();

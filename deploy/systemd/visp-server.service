@@ -9,12 +9,12 @@ User=root
 Group=root
 WorkingDirectory=/opt/visp/apps/server
 EnvironmentFile=/etc/visp/app.env
-# Run TypeScript entry directly. Bundling `pg` into dist/index.mjs makes Bun
-# 1.3.14 segfault on TLS to managed Postgres; source resolution does not.
-ExecStart=/usr/local/bin/bun run src/index.ts
+# Bun 1.3.x segfaults when node-postgres opens TLS to managed Postgres (even
+# without Bun.S3Client). Node runs the tsdown bundle; `pg` stays external.
+ExecStart=/usr/bin/node dist/index.mjs
 Restart=always
 RestartSec=2
-StartLimitIntervalSec=0
+StartLimitInterval=0
 
 [Install]
 WantedBy=multi-user.target

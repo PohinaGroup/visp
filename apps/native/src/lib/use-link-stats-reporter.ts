@@ -1,10 +1,19 @@
 import {
+	formatBondedLinks,
+	formatLiveLinkHud,
 	LINK_STATS_MIN_INTERVAL_MS,
 	nextVideoBitrateKbps,
 } from "@VISP/api/link-stats";
 import { useCallback, useRef, useState } from "react";
 import type { StreamStatsEvent } from "../../modules/visp-srt";
 import { apiClient } from "./backend";
+
+function linkHudLabel(stats: StreamStatsEvent) {
+	return (
+		formatLiveLinkHud(stats, true) +
+		(stats.links?.length ? ` · ${formatBondedLinks(stats.links)}` : "")
+	);
+}
 
 export function useLinkStatsReporter(options: {
 	live: boolean;
@@ -26,7 +35,11 @@ export function useLinkStatsReporter(options: {
 
 	const onStats = useCallback(
 		({ nativeEvent }: { nativeEvent: StreamStatsEvent }) => {
-			setLinkStats(nativeEvent);
+			setLinkStats((current) =>
+				current && linkHudLabel(current) === linkHudLabel(nativeEvent)
+					? current
+					: nativeEvent,
+			);
 			const now = Date.now();
 			if (
 				live &&

@@ -35,11 +35,11 @@ paths:
   all_others:
     source: publisher
     overridePublisher: false
-    runOnReady: >-
+    runOnAvailable: >-
       /usr/local/libexec/visp-snapshot
       "$APP_ORIGIN" "$MTX_PATH" "$MTX_SOURCE_TYPE"
-    runOnReadyRestart: yes
-    runOnNotReady: >-
+    runOnAvailableRestart: yes
+    runOnUnavailable: >-
       curl --fail --silent --show-error --max-time 2 --request POST
       --header "Content-Type: application/json"
       --header "X-Hook-Secret: $HOOK_SECRET"

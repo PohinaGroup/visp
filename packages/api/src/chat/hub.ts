@@ -8,13 +8,17 @@ import type {
 
 type Listener = (event: ChatLiveEvent) => void;
 type AudienceListener = (userId: string, count: number) => void;
+type ConnectorRefreshListener = (userId: string) => void;
 const CHAT_CHANNEL = "visp_chat";
+const CHAT_REFRESH_CHANNEL = "visp_chat_refresh";
 const MAX_NOTIFY_BYTES = 8_000;
 const CHAT_INSTANCE_ID = randomUUID();
 let fanoutStarted = false;
 
 class ChatHub {
 	private readonly audiences = new Set<AudienceListener>();
+	private readonly connectorRefreshListeners =
+		new Set<ConnectorRefreshListener>();
 	private readonly listeners = new Map<string, Set<Listener>>();
 	private readonly statuses = new Map<
 		string,
@@ -24,6 +28,37 @@ class ChatHub {
 	onAudienceChanged(listener: AudienceListener) {
 		this.audiences.add(listener);
 		return () => this.audiences.delete(listener);
+	}
+
+	onConnectorRefresh(listener: ConnectorRefreshListener) {
+		this.connectorRefreshListeners.add(listener);
+		return () => this.connectorRefreshListeners.delete(listener);
+	}
+
+	requestConnectorRefresh(userId: string) {
+		for (const listener of this.connectorRefreshListeners) listener(userId);
+		if (!fanoutStarted) return;
+		void publishNotification(
+			CHAT_REFRESH_CHANNEL,
+			JSON.stringify({ source: CHAT_INSTANCE_ID, userId }),
+		).catch((error) => {
+			console.error("Chat connector refresh fan-out failed", error);
+		});
+	}
+
+	receiveRemoteRefresh(payload: string) {
+		try {
+			const decoded = JSON.parse(payload) as {
+				source?: string;
+				userId?: string;
+			};
+			if (!decoded.userId || decoded.source === CHAT_INSTANCE_ID) return;
+			for (const listener of this.connectorRefreshListeners) {
+				listener(decoded.userId);
+			}
+		} catch {
+			// Ignore malformed notifications from the shared database channel.
+		}
 	}
 
 	subscribe(userId: string, listener: Listener) {
@@ -88,9 +123,10 @@ class ChatHub {
 		userId: string,
 		provider: ChatProvider,
 		state: ChatProviderStatus["state"],
+		error?: string,
 	) {
 		const statuses = this.statuses.get(userId) ?? new Map();
-		const status = { provider, state } satisfies ChatProviderStatus;
+		const status = { provider, state, error } satisfies ChatProviderStatus;
 		statuses.set(provider, status);
 		this.statuses.set(userId, statuses);
 		this.publish(userId, { type: "status", status });
@@ -105,7 +141,14 @@ export const chatHub = new ChatHub();
 
 export function startChatFanout() {
 	fanoutStarted = true;
-	return subscribeNotifications(CHAT_CHANNEL, (payload) =>
+	const stopChat = subscribeNotifications(CHAT_CHANNEL, (payload) =>
 		chatHub.receiveRemote(payload),
 	);
+	const stopRefresh = subscribeNotifications(CHAT_REFRESH_CHANNEL, (payload) =>
+		chatHub.receiveRemoteRefresh(payload),
+	);
+	return () => {
+		stopChat();
+		stopRefresh();
+	};
 }

@@ -27,7 +27,8 @@ done
 case "$url" in
 	*/direct-destinations)
 		printf 'twitch rtmps://twitch.test/app/TWITCHKEY\n'
-		printf 'kick rtmps://kick.test/app/KICKKEY\n' ;;
+		printf 'kick rtmps://kick.test/app/KICKKEY\n'
+		printf 'youtube rtmps://youtube.test/app/YOUTUBEKEY\n' ;;
 	*/direct-state) printf '%s\n' "$data" >>"$FAKE_STATE_LOG" ;;
 esac
 exit 0
@@ -70,7 +71,7 @@ export HOOK_SECRET=test-secret RTSP_PORT=8554
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
-# MediaMTX starts runOnReady with Setpgid, so give the script its own process
+# MediaMTX starts runOnAvailable with Setpgid, so give the script its own process
 # group here too — otherwise its "kill 0" would signal this test runner.
 perl -e 'use POSIX qw(setsid); setsid(); exec @ARGV' \
 	bash "$root/visp-snapshot" http://app.test path-1 srt &
@@ -78,7 +79,7 @@ script_pid=$!
 sleep 3
 
 forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
-test "$forwards" -eq 2 || fail "expected 2 forwarders, started $forwards"
+test "$forwards" -eq 3 || fail "expected 3 forwarders, started $forwards"
 
 # No pipeline: a subshell here would swallow every failure below.
 while read -r args; do
@@ -97,18 +98,20 @@ grep -q '"provider":"twitch","state":"starting"' "$FAKE_STATE_LOG" ||
 	fail "twitch start was not reported"
 grep -q '"provider":"kick","state":"starting"' "$FAKE_STATE_LOG" ||
 	fail "kick start was not reported"
+grep -q '"provider":"youtube","state":"starting"' "$FAKE_STATE_LOG" ||
+	fail "youtube start was not reported"
 
-if grep -q 'TWITCHKEY\|KICKKEY' "$FAKE_STATE_LOG"; then
+if grep -q 'TWITCHKEY\|KICKKEY\|YOUTUBEKEY' "$FAKE_STATE_LOG"; then
 	fail "a stream key reached the state hook"
 fi
 
 started_pids="$(ls "$FAKE_PID_DIR" | wc -l | tr -d ' ')"
-test "$started_pids" -eq 2 || fail "expected 2 live ffmpeg children, saw $started_pids"
+test "$started_pids" -eq 3 || fail "expected 3 live ffmpeg children, saw $started_pids"
 
 # Signal only the script, not the group. MediaMTX does signal the whole group
 # on its own terminate, which would hide the bug: the trap has to tear the
 # children down itself, or any other exit path orphans them and
-# runOnReadyRestart brings up a second set against the same stream key.
+# runOnAvailableRestart brings up a second set against the same stream key.
 kill -TERM "$script_pid" 2>/dev/null || true
 wait "$script_pid" 2>/dev/null || true
 sleep 2
@@ -119,5 +122,5 @@ for pid in $(ls "$FAKE_PID_DIR"); do
 done
 test "$orphans" -eq 0 || fail "$orphans forwarder(s) survived MediaMTX stop"
 
-printf 'ok: 2 distribution-encoded forwarders, no orphans, no keys in state\n'
+printf 'ok: 3 distribution-encoded forwarders, no orphans, no keys in state\n'
 exit 0

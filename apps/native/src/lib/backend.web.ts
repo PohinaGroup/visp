@@ -2,12 +2,21 @@ import type { AppRouter } from "@VISP/api/routers/index";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
+import {
+	normalizeServerOrigin,
+	authenticatedFetch as postAuthenticatedFetch,
+	authenticatedPost as postAuthenticatedPost,
+} from "./server-api";
 
-const serverUrl = process.env.EXPO_PUBLIC_SERVER_URL?.replace(/\/$/, "");
-
-if (!serverUrl) {
-	throw new Error("EXPO_PUBLIC_SERVER_URL is not configured");
+function resolveServerUrl(): string {
+	const url = normalizeServerOrigin();
+	if (!url) {
+		throw new Error("EXPO_PUBLIC_SERVER_URL is not configured");
+	}
+	return url;
 }
+
+const serverUrl = resolveServerUrl();
 
 export const authClient = createAuthClient({
 	baseURL: `${serverUrl}/api/auth`,
@@ -17,6 +26,28 @@ export const authClient = createAuthClient({
 
 export function authCallbackURL(): string {
 	return new URL("/", globalThis.location.origin).toString();
+}
+
+export function serverOrigin(): string {
+	return serverUrl;
+}
+
+export function sessionCookie(): undefined {
+	return undefined;
+}
+
+export function authenticatedFetch(
+	path: string,
+	init: RequestInit = {},
+): Promise<Response> {
+	return postAuthenticatedFetch(serverUrl, path, init);
+}
+
+export function authenticatedPost(
+	path: string,
+	body: unknown,
+): Promise<Response> {
+	return postAuthenticatedPost(serverUrl, path, body);
 }
 
 export const apiClient = createTRPCClient<AppRouter>({

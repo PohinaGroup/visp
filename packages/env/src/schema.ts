@@ -12,12 +12,20 @@ export const serverEnvSchema = {
 	DATABASE_URL: z.string().min(1),
 	/**
 	 * Optional PEM path for managed Postgres CA verification.
-	 * Prefer installing the CA into the system trust store instead: Bun 1.3.x
-	 * can segfault when ssl.ca is set alongside Bun.S3Client.
+	 * Prefer installing the CA into the system trust store instead. The API
+	 * process ignores this value and never passes ssl.ca (Bun 1.3.x OpenSSL
+	 * can segfault when a custom CA PEM is combined with other TLS clients).
 	 */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
 	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
+	/**
+	 * Hosted text-to-speech, better audio isolation, and better captions.
+	 * Optional: without the key those routes answer 503 and the app falls back.
+	 */
+	ELEVENLABS_API_KEY: z.string().min(1).optional(),
+	/** A multilingual ElevenLabs voice; one voice covers Finnish and English. */
+	ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
 	/**
 	 * Active publishing paths allowed per user. A calibration knob: raise only
 	 * after measuring relay capacity and abuse pressure.
@@ -27,6 +35,8 @@ export const serverEnvSchema = {
 	BETTER_AUTH_URL: z.url(),
 	CORS_ORIGIN: z.url(),
 	HOOK_SECRET: z.string().min(32),
+	GOOGLE_CLIENT_ID: z.string().min(1),
+	GOOGLE_CLIENT_SECRET: z.string().min(1),
 	KICK_CLIENT_ID: z.string().min(1),
 	KICK_CLIENT_SECRET: z.string().min(1),
 	/** Bootstrap value for the database-backed default relay. */

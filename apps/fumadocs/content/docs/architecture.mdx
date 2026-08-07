@@ -12,7 +12,7 @@ transcoding it; the app decides who may connect and tracks what is live.
 | Piece | Runs | Responsibility |
 | --- | --- | --- |
 | Relay hosts | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
-| App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch and Kick login, support operations, path and credential state, MediaMTX authentication, OBS control |
+| App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch, Kick, and Google login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
 | OBS Remote | `remote.visp-stream.com` (also iOS/Android) | Dedicated stream and scene control surface using the broadcaster's VISP account |
@@ -32,7 +32,8 @@ MediaMTX asks the app before every new connection by calling
 2. Everything else must present a username and password.
 3. Allowed combinations are SRT publish/read, RTMP publish/read, and WebRTC
    publish. Other protocols and actions are rejected.
-4. The app verifies the credential against the matching Argon2id hash and
+4. For Direct publishes, the app atomically reserves relay encoder capacity.
+5. The app verifies the credential against the matching Argon2id hash and
    answers allow or deny.
 
 Because the app sits only on connection establishment, an app outage leaves
@@ -104,9 +105,11 @@ propagate more slowly than same-instance WebSocket updates.
 
 Twitch chat uses the signed-in broadcaster's account. Kick chat is delivered by
 Kick's `chat.message.sent` webhook to `POST /api/webhooks/kick`, verified with
-Kick's RSA signature, a timestamp window, and replay detection, then fanned out
-to native clients over a WebSocket. The native app can also edit stream
-metadata on the provider.
+Kick's RSA signature, a timestamp window, and replay detection. YouTube chat is
+read from the authenticated channel's active broadcast and follows YouTube's
+server-provided polling interval. All three are fanned out to browser and native
+clients over the same WebSocket. The native app can edit Twitch and Kick stream
+metadata separately.
 
 ## Boundaries
 
@@ -115,11 +118,11 @@ but does not move an existing path automatically. For the relay-to-OBS path the
 assigned relay forwards the H.264/AAC (or WebRTC H.264/Opus) feed exactly as
 published — no transcode, no provider stream key.
 
-VISP Direct is the one exception, and it is opt-in per publishing device and
-gated to a beta flag. When a device has a Direct output enabled, the relay runs
+VISP Direct is the one exception and the default Twitch/Kick/YouTube output. When a
+device owns a Direct destination, the relay runs
 a full distribution encode per destination (H.264 + AAC stereo, never a stream
-copy) and retrieves the Twitch or Kick stream key through OAuth consent at
-stream start. The key is built into a destination URL in memory, passed to the
-forwarding process, and never returned to a client app or stored as its own
-database value. What OBS reads stays the contribution feed, not the platform
-encode.
+copy). At stream start it retrieves a Twitch or Kick key through OAuth consent,
+or creates a public YouTube broadcast and obtains its RTMPS ingest destination.
+The destination is passed to the forwarding process and never returned to a
+client app or stored as a separate database value. What OBS reads stays the
+contribution feed, not the platform encode.

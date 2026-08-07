@@ -13,6 +13,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RequestDeleteRouteImport } from './routes/request-delete'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as OverlayRouteImport } from './routes/overlay'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as DownloadRouteImport } from './routes/download'
@@ -51,6 +52,11 @@ const RequestDeleteRoute = RequestDeleteRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverlayRoute = OverlayRouteImport.update({
+  id: '/overlay',
+  path: '/overlay',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -156,6 +162,7 @@ export interface FileRoutesByFullPath {
   '/download': typeof DownloadRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/overlay': typeof OverlayRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -180,6 +187,7 @@ export interface FileRoutesByTo {
   '/download': typeof DownloadRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/overlay': typeof OverlayRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -206,6 +214,7 @@ export interface FileRoutesById {
   '/download': typeof DownloadRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/overlay': typeof OverlayRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/llms.txt'
     | '/login'
+    | '/overlay'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
@@ -256,6 +266,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/llms.txt'
     | '/login'
+    | '/overlay'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
@@ -281,6 +292,7 @@ export interface FileRouteTypes {
     | '/download'
     | '/llms.txt'
     | '/login'
+    | '/overlay'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
@@ -307,6 +319,7 @@ export interface RootRouteChildren {
   DownloadRoute: typeof DownloadRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
+  OverlayRoute: typeof OverlayRoute
   PrivacyRoute: typeof PrivacyRoute
   RequestDeleteRoute: typeof RequestDeleteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -350,6 +363,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overlay': {
+      id: '/overlay'
+      path: '/overlay'
+      fullPath: '/overlay'
+      preLoaderRoute: typeof OverlayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -511,6 +531,7 @@ const rootRouteChildren: RootRouteChildren = {
   DownloadRoute: DownloadRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
+  OverlayRoute: OverlayRoute,
   PrivacyRoute: PrivacyRoute,
   RequestDeleteRoute: RequestDeleteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

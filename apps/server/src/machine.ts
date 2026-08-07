@@ -3,6 +3,7 @@ import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
 	DIRECT_STATES,
+	DirectError,
 	resolveDirectDestinations,
 } from "@VISP/api/direct";
 import {
@@ -219,7 +220,10 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 					user: body.user,
 				});
 				return allowed ? status(200, "ok") : status(401, "unauthorized");
-			} catch {
+			} catch (error) {
+				if (error instanceof DirectError) {
+					return status(409, error.message);
+				}
 				return status(503, "authentication unavailable");
 			}
 		},

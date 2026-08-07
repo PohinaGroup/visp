@@ -4,23 +4,17 @@ import { useEffect, useState } from "react";
 import { MeterMark } from "@/components/meter-mark";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { authClient } from "@/lib/auth-client";
-import { type Locale, localeSearch, localizedHead } from "@/lib/i18n";
+import { type Locale, landingHead, localeSearch } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import { scheduleLandingSeppoAutoOpen } from "@/lib/seppo-landing";
 
 export const Route = createFileRoute("/")({
-	head: () => ({
-		meta: [
-			{ title: "VISP — streaming without the leash" },
-			{
-				name: "description",
-				content:
-					"Use phones as remote cameras in OBS, keep your production at home, and stay live through mobile network drops.",
-			},
-			{ property: "og:locale", content: "en_US" },
-		],
-		links: localizedHead("en"),
-	}),
+	head: () =>
+		landingHead(
+			"en",
+			"VISP — IRL Streaming to Twitch, Kick & YouTube from Phone or OBS",
+			"VISP streams from a phone or browser straight to Twitch, Kick, or YouTube. Add OBS when you need monitoring, recording, or scenes.",
+		),
 	component: () => <HomeComponent locale="en" />,
 });
 
@@ -51,18 +45,18 @@ function TryCta({
 	);
 }
 
-// The signature: phone → home studio → everywhere as one precise patch diagram.
+// The signature: source → relay → Direct → platform as one precise patch diagram.
 const CHAIN = [
-	{ x: 120, tag: "CAM 01", label: "phone" },
-	{ x: 380, tag: "ENCODE", label: "app" },
-	{ x: 640, tag: "STUDIO", label: "obs" },
-	{ x: 900, tag: "OUT", label: "everywhere" },
+	{ x: 120, tag: "SOURCE", label: "phone/browser" },
+	{ x: 380, tag: "RELAY", label: "visp" },
+	{ x: 640, tag: "DIRECT", label: "encode" },
+	{ x: 900, tag: "OUT", label: "twitch/kick" },
 ] as const;
 
 function SignalChain({ locale }: { locale: Locale }) {
 	const labels =
 		locale === "fi"
-			? ["puhelin", "sovellus", "obs", "kaikkialle"]
+			? ["puhelin/selain", "visp", "koodaus", "twitch/kick"]
 			: CHAIN.map((item) => item.label);
 	return (
 		<svg
@@ -70,7 +64,7 @@ function SignalChain({ locale }: { locale: Locale }) {
 			aria-label={
 				locale === "fi"
 					? "Signaaliketju puhelimen kamerasta sovelluksen kautta kodin OBS-studioon ja suoratoistopalveluihin."
-					: "Signal chain: phone camera through the app to your home OBS studio, out to everywhere."
+					: "Signal chain: phone or browser through the VISP relay and Direct to Twitch, Kick, or YouTube, with OBS optional."
 			}
 			viewBox="0 0 1000 80"
 			className="block w-full text-foreground"
@@ -126,17 +120,17 @@ function SignalChain({ locale }: { locale: Locale }) {
 
 const productShots = [
 	{
-		src: "/marketing/app-live.png",
+		src: "/marketing/app-live.jpg",
 		alt: "Live control with OBS status",
 		tag: "LIVE",
 	},
 	{
-		src: "/marketing/app-obs-control.png",
+		src: "/marketing/app-obs-control.jpg",
 		alt: "Ready to go live with chat overlay",
 		tag: "READY",
 	},
 	{
-		src: "/marketing/app-settings.png",
+		src: "/marketing/app-settings.jpg",
 		alt: "Camera settings — resolution, frame rate, relay",
 		tag: "CONFIG",
 	},
@@ -148,22 +142,112 @@ const channels = [
 	{
 		tag: "CAM",
 		title: "Two cameras, one stream",
-		body: "Run multiple phone cams — each with its own mic — into the same broadcast. A second phone becomes a real scene, not a video-call window.",
+		body: "Publish from the VISP mobile app or browser. The newest offline device takes Direct ownership when it goes live.",
 	},
 	{
 		tag: "OBS",
-		title: "Your studio, untouched",
-		body: "Scenes, alerts, graphics, years of muscle memory — all keep working. VISP plugs into the OBS setup you already have. Plugin live in beta.",
+		title: "OBS when you need it",
+		body: "Add the contribution feed to OBS for monitoring, recording, scenes, or multi-camera production without changing the Direct platform encode.",
 	},
 	{
 		tag: "NET",
-		title: "Streams that survive",
-		body: "A short signal drop doesn't end the broadcast. The home studio keeps the show alive while your phone reconnects.",
+		title: "Capacity before capture",
+		body: "VISP checks authorization, ownership, and relay encoder capacity before the publisher starts.",
 	},
 	{
 		tag: "KEY",
-		title: "Keys that stay home",
-		body: "Every camera gets its own private access you can revoke anytime. Your broadcast key never enters VISP.",
+		title: "No key pasting",
+		body: "VISP obtains the authorized destination credentials only while starting Direct output and never returns them to the publisher.",
+	},
+];
+
+const steps = [
+	{
+		tag: "STEP 01",
+		title: "Connect a destination",
+		body: "Sign in and authorize Twitch, Kick, or YouTube once. VISP stores the destination, not a stream key you have to carry around. You can connect more than one account and pick the destination at the moment you go live.",
+	},
+	{
+		tag: "STEP 02",
+		title: "Publish from phone or browser",
+		body: "Open the VISP app on iOS or Android, or the browser publisher on a laptop, and start the feed. Before a single frame is accepted, the relay checks that the publisher is authorized, that it owns the destination, and that encoder capacity is actually free — so a stream fails at the start, when you can still fix it, instead of ten minutes into a live broadcast.",
+	},
+	{
+		tag: "STEP 03",
+		title: "Direct sends it out",
+		body: "The relay encodes the contribution feed and sends it straight to the platform. Nothing else has to be running: no home PC, no OBS, no machine waiting on your desk. When you do want scenes, overlays, a local recording, or a second camera, add the same feed to OBS and the platform encode keeps running untouched.",
+	},
+];
+
+const stepsFi = [
+	{
+		tag: "VAIHE 01",
+		title: "Yhdistä kohde",
+		body: "Kirjaudu sisään ja valtuuta Twitch, Kick tai YouTube kerran. VISP tallentaa kohteen, ei lähetysavainta jota joutuisit kuljettamaan mukanasi. Voit yhdistää useamman tilin ja valita kohteen vasta lähetystä aloittaessasi.",
+	},
+	{
+		tag: "VAIHE 02",
+		title: "Julkaise puhelimesta tai selaimesta",
+		body: "Avaa VISP-sovellus iOS- tai Android-laitteella tai selainjulkaisija läppärillä ja käynnistä syöte. Ennen kuin yhtäkään kuvaa hyväksytään, relay tarkistaa että julkaisija on valtuutettu, että se omistaa kohteen ja että koodauskapasiteettia on vapaana — lähetys kaatuu siis heti alussa, kun ehdit vielä korjata sen, eikä kymmenen minuuttia lähetyksen alkamisen jälkeen.",
+	},
+	{
+		tag: "VAIHE 03",
+		title: "Direct hoitaa lähetyksen",
+		body: "Relay koodaa syötteen ja lähettää sen suoraan alustalle. Mitään muuta ei tarvitse olla käynnissä: ei kotikonetta, ei OBS:ää, ei pöydällä odottavaa tietokonetta. Kun haluat kohtauksia, grafiikoita, paikallisen tallenteen tai toisen kameran, lisää sama syöte OBS:ään — alustalle menevä koodaus jatkuu koskemattomana.",
+	},
+];
+
+const faq = [
+	{
+		q: "Do I need OBS to stream with VISP?",
+		a: "No. Direct takes the phone or browser feed to Twitch, Kick, or YouTube on its own. OBS is there for the sessions where you want monitoring, recording, scenes, or multi-camera production — it is an addition, never a requirement.",
+	},
+	{
+		q: "Which platforms can I stream to?",
+		a: "Twitch, Kick, and YouTube. You authorize the account once and VISP handles the destination from there.",
+	},
+	{
+		q: "Do I have to paste a stream key into my phone?",
+		a: "No. VISP fetches the authorized destination credentials only while starting the Direct output, and never returns them to the publishing device. A lost or borrowed phone does not leak your key.",
+	},
+	{
+		q: "Can I use Wi-Fi and cellular at the same time?",
+		a: "The native app can duplicate packets across both links, which covers you when one of them drops out. It does not aggregate their bandwidth — two half-speed connections do not add up to one fast one.",
+	},
+	{
+		q: "What happens if I switch phones mid-stream?",
+		a: "The newest offline device takes Direct ownership when it goes live, so handing off to a second camera is a matter of starting the feed on it.",
+	},
+	{
+		q: "What does VISP cost?",
+		a: "It is free during the beta. Sign in, connect a platform, and go live.",
+	},
+];
+
+const faqFi = [
+	{
+		q: "Tarvitsenko OBS:n VISPin kanssa?",
+		a: "Et. Direct vie puhelimen tai selaimen syötteen Twitchiin, Kickiin tai YouTubeen ilman muuta ohjelmistoa. OBS on niitä lähetyksiä varten, joissa haluat valvontaa, tallennusta, kohtauksia tai monikameratuotantoa — se on lisä, ei vaatimus.",
+	},
+	{
+		q: "Mihin palveluihin voin lähettää?",
+		a: "Twitchiin, Kickiin ja YouTubeen. Valtuutat tilin kerran, ja VISP hoitaa kohteen siitä eteenpäin.",
+	},
+	{
+		q: "Pitääkö lähetysavain liittää puhelimeen?",
+		a: "Ei. VISP hakee valtuutetun kohteen tunnukset vain Direct-lähdön käynnistämiseksi eikä palauta niitä julkaisevalle laitteelle. Kadonnut tai lainattu puhelin ei siis vuoda avaintasi.",
+	},
+	{
+		q: "Voinko käyttää Wi-Fiä ja mobiiliverkkoa yhtä aikaa?",
+		a: "Natiivisovellus voi monistaa paketit molempiin yhteyksiin, mikä auttaa kun toinen katkeaa. Se ei kuitenkaan yhdistä niiden kaistaa — kaksi puolinopeaa yhteyttä eivät summaudu yhdeksi nopeaksi.",
+	},
+	{
+		q: "Mitä tapahtuu jos vaihdan puhelinta kesken lähetyksen?",
+		a: "Uusin offline-laite saa Direct-omistajuuden aloittaessaan, joten toiseen kameraan vaihtaminen onnistuu käynnistämällä syöte siinä.",
+	},
+	{
+		q: "Mitä VISP maksaa?",
+		a: "Beta on ilmainen. Kirjaudu sisään, yhdistä alusta ja aloita lähetys.",
 	},
 ];
 
@@ -179,6 +263,7 @@ const footerLinks: LandingLink[] = [
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
 	{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
+	{ label: "X", href: legalEntity.xUrl, external: true },
 	{ label: "Privacy", href: "/privacy", external: false },
 	{ label: "Contact", href: "/contact", external: false },
 	{ label: "Terms", href: "/terms", external: false },
@@ -209,23 +294,23 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 		? [
 				{
 					tag: "CAM",
-					title: "Kaksi puhelinta striimaamassa, yksi striimi ulos",
-					body: "Aja useita puhelinkameroita omine mikrofoneineen samaan striimiin.",
+					title: "Puhelin tai selain lähteenä",
+					body: "Julkaise VISP-mobiilisovelluksella tai selaimella. Uusin offline-laite saa Direct-omistajuuden aloittaessaan.",
 				},
 				{
 					tag: "OBS",
-					title: "Overlayt ja grafiikat säilyy ennallaan",
-					body: "Kohtaukset, alertit, grafiikat ja plugarit jatkaa toimintaansa. VISPin tarkoitus on täydentää kokonaisuutta, ei korvata sitä.",
+					title: "OBS tarvittaessa",
+					body: "Lisää alkuperäinen syöte OBS:ään valvontaa, tallennusta, kohtauksia tai monikameratuotantoa varten.",
 				},
 				{
 					tag: "NET",
-					title: "Lähetys, joka kestää",
-					body: "Lyhyt yhteyskatko ei lopeta lähetystä. Kotistudio pitää ohjelman käynnissä, kun puhelin muodostaa yhteyden uudelleen.",
+					title: "Kapasiteetti tarkistetaan ensin",
+					body: "VISP tarkistaa valtuutuksen, omistajuuden ja relayn koodauskapasiteetin ennen julkaisun aloitusta.",
 				},
 				{
 					tag: "KEY",
-					title: "Streamkeyt pysyy turvassa",
-					body: "Jokainen kamera saa oman helposti hallittavan käyttöoikeuden.",
+					title: "Ei lähetysavaimen liittämistä",
+					body: "VISP hakee valtuutetun kohteen tunnukset vain Direct-lähdön käynnistämiseksi eikä palauta niitä julkaisijalle.",
 				},
 			]
 		: channels;
@@ -259,6 +344,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 	const localizedFooterLinks: LandingLink[] = fi
 		? [
 				...localizedNavLinks,
+				{ label: "X", href: legalEntity.xUrl, external: true },
 				{ label: "Tietosuoja", href: "/privacy", external: false },
 				{ label: "Käyttöehdot", href: "/terms", external: false },
 				{ label: "Evästeet", href: "/cookies", external: false },
@@ -329,8 +415,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							</h1>
 							<p className="max-w-md text-lg text-muted-foreground leading-relaxed">
 								{fi
-									? "Käytä useita puhelinkameroita yhdessä skenessä, jaa myös kaverin ruutu striimissä ja jatka lähetystä myös kun yhteys tippuu."
-									: "Run multiple phone cams with their own mics, pull a guest onto the stream, and keep broadcasting when the signal dips."}
+									? "Lähetä puhelimesta tai selaimesta VISP-relayn kautta suoraan Twitchiin, Kickiin tai YouTubeen. Lisää sama syöte OBS:ään vain tarvittaessa."
+									: "Stream from a phone or browser through the VISP relay straight to Twitch, Kick, or YouTube. Add the same feed to OBS only when you need it."}
 							</p>
 							<p className="font-medium text-base">
 								{fi ? "Helposti parempi" : "Full production. Zero leash."}
@@ -350,7 +436,12 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 									<img
 										src={shot.src}
 										alt={shot.alt}
-										loading="lazy"
+										width={560}
+										height={996}
+										// Hero shots are the mobile LCP element — lazy defers them
+										// behind everything else and tanks LCP.
+										loading="eager"
+										fetchPriority={i === 0 ? "high" : "auto"}
 										decoding="async"
 										className="aspect-[9/16] w-full object-cover"
 									/>
@@ -372,8 +463,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</div>
 						<p className="mt-6 max-w-xl text-muted-foreground text-sm leading-relaxed">
 							{fi
-								? "Puhelin mukana. OBS kotona."
-								: "Phones in the field. OBS at home. Platforms get the feed — one chain, no truck in between."}
+								? "Lähde yhdistyy relayhin, ja Direct lähettää Twitchiin, Kickiin tai YouTubeen. OBS on valinnainen."
+								: "The source connects to the relay, and Direct sends to Twitch, Kick, or YouTube. OBS is optional."}
 						</p>
 					</section>
 
@@ -406,11 +497,65 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</ul>
 					</section>
 
+					{/* How it works */}
+					<section className="border-border border-t py-20">
+						<span className={eyebrow}>
+							{fi ? "Näin se toimii" : "How it works"}
+						</span>
+						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
+							{fi
+								? "Kolme kysymystä, ei kolmea viikonloppua"
+								: "Three questions, not three weekends"}
+						</h2>
+						<p className="mt-6 max-w-2xl text-muted-foreground leading-relaxed">
+							{fi
+								? "Perinteinen IRL-lähetys vaatii kotona pyörivän koneen, encoderin ja kasan asetuksia, jotka pitää saada kohdalleen ennen kuin ensimmäinenkään kuva liikkuu. VISP siirtää sen työn relayhin: puhelin tai selain lähettää kameran, VISP koodaa sen ja toimittaa alustalle. Kotikone saa olla sammuksissa."
+								: "Traditional IRL streaming asks for a machine at home, an encoder, and a stack of settings that all have to be right before a single frame moves. VISP moves that work into the relay: your phone or browser sends the camera, VISP encodes it, and the platform receives it. The computer at home can stay off."}
+						</p>
+						<ol className="mt-12 grid gap-px border border-border bg-border md:grid-cols-3">
+							{(fi ? stepsFi : steps).map((s) => (
+								<li key={s.tag} className="bg-background p-8">
+									<span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">
+										{s.tag}
+									</span>
+									<h3 className="mt-4 font-display font-semibold text-2xl uppercase leading-tight tracking-tight">
+										{s.title}
+									</h3>
+									<p className="mt-3 text-muted-foreground leading-relaxed">
+										{s.body}
+									</p>
+								</li>
+							))}
+						</ol>
+					</section>
+
+					{/* FAQ */}
+					<section className="border-border border-t py-20">
+						<span className={eyebrow}>
+							{fi ? "Usein kysyttyä" : "Frequently asked"}
+						</span>
+						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
+							{fi ? "Kysymyksiä ennen betaa" : "Questions before the beta"}
+						</h2>
+						<dl className="mt-12 grid gap-x-12 gap-y-10 sm:grid-cols-2">
+							{(fi ? faqFi : faq).map((item) => (
+								<div key={item.q}>
+									<dt className="font-display font-semibold text-xl leading-snug tracking-tight">
+										{item.q}
+									</dt>
+									<dd className="mt-3 text-muted-foreground leading-relaxed">
+										{item.a}
+									</dd>
+								</div>
+							))}
+						</dl>
+					</section>
+
 					{/* Closing CTA */}
 					<section className="border-border border-t py-24 text-center">
 						<span className={eyebrow}>{fi ? "" : "Join the beta"}</span>
 						<h2 className="mt-5 font-display font-semibold text-6xl uppercase leading-none tracking-tight sm:text-7xl">
-							{fi ? "Liity betaan" : "It's free"}
+							{fi ? "Liity VISP-betaan" : "VISP is free"}
 						</h2>
 						<div className="mt-8 flex flex-col items-center gap-3">
 							<TryCta locale={locale} size="lg" />
@@ -485,7 +630,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				welcome={
 					fi
 						? "Hei, olen Seppo. Mietitkö, sopiiko VISP lähetykseesi? Kysy, mitä se tekee, mitä tarvitset tai miten puhelimet ja etävieraat yhdistetään OBS:ään."
-						: "Hi, I'm Seppo. Curious whether VISP fits your stream? Ask me what it does, what you need, or how phones and remote guests reach OBS."
+						: "Hi, I'm Seppo. Ask how Direct sends a phone or browser to Twitch, Kick, or YouTube, or how to add OBS afterward."
 				}
 				onOpenChange={setSeppoOpen}
 			/>

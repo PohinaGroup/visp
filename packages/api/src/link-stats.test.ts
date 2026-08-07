@@ -1,13 +1,15 @@
 import { describe, expect, test } from "bun:test";
 import {
 	clampVideoBitrateKbps,
+	formatBondedBitrates,
 	formatBondedLinks,
 	formatLinkStats,
 	formatLiveLinkHud,
+	formatMbps,
 	isLinkCongested,
+	linkHealth,
 	linkStatsFromPath,
 	nextVideoBitrateKbps,
-	videoBitrateCeilingKbps,
 	videoBitrateFloorKbps,
 } from "./link-stats";
 
@@ -110,21 +112,33 @@ test("formats per-link bonded stats", () => {
 	).toBe("Wi-Fi 2.1 Mb/s · 48 ms · 0.2% · Cellular broken");
 });
 
-describe("videoBitrateCeilingKbps", () => {
-	test("uses 3500 for 720p", () => {
-		expect(videoBitrateCeilingKbps(1280, 720, 30, "full")).toBe(3500);
-		expect(videoBitrateCeilingKbps(720, 1280, 30)).toBe(3500);
+describe("formatMbps", () => {
+	test("renders kbps as one decimal of Mb/s", () => {
+		expect(formatMbps(2100)).toBe("2.1");
+		expect(formatMbps(0)).toBe("0.0");
+		expect(formatMbps(6000)).toBe("6.0");
 	});
+});
 
-	test("uses 6000 for 1080p30 and 8000 for 1080p60", () => {
-		expect(videoBitrateCeilingKbps(1920, 1080, 30, "full")).toBe(6000);
-		expect(videoBitrateCeilingKbps(1080, 1920, 60, "full")).toBe(8000);
+describe("linkHealth", () => {
+	test("tiers on the shared soft and congestion thresholds", () => {
+		expect(linkHealth(0.1, 40)).toBe("good");
+		expect(linkHealth(0.5, 40)).toBe("soft");
+		expect(linkHealth(0.1, 250)).toBe("soft");
+		expect(linkHealth(2, 40)).toBe("congested");
+		expect(linkHealth(0.1, 400)).toBe("congested");
 	});
+});
 
-	test("uses the lighter Direct ladder without changing format", () => {
-		expect(videoBitrateCeilingKbps(1280, 720, 30, "direct")).toBe(1500);
-		expect(videoBitrateCeilingKbps(1920, 1080, 30, "direct")).toBe(2500);
-		expect(videoBitrateCeilingKbps(1080, 1920, 50, "direct")).toBe(3500);
+describe("formatBondedBitrates", () => {
+	test("shows bitrate per link and falls back to link state", () => {
+		expect(formatBondedBitrates(undefined)).toBe("");
+		expect(
+			formatBondedBitrates([
+				{ bitrateKbps: 3100, state: "connected", transport: "wifi" },
+				{ bitrateKbps: 0, state: "broken", transport: "cellular" },
+			]),
+		).toBe("Wi-Fi 3.1 Mb/s · Cellular broken");
 	});
 });
 

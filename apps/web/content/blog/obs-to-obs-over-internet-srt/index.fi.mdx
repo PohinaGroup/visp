@@ -2,6 +2,7 @@
 title: "OBS-kuvan lähettäminen toiseen OBS:ään internetin yli SRT:llä"
 description: "Lähetä OBS-tuotanto toiseen OBS:ään internetin yli SRT:llä VISPin kautta ilman porttiohjausta tai lopullisen lähetysavaimen siirtämistä."
 publishedAt: 2026-07-23
+updatedAt: 2026-08-03
 coverAlt: "Kaksi erillistä suoratoistotyöpistettä vaihtaa yhden ohjelmasyötteen internet-relayn kautta"
 ---
 
@@ -210,7 +211,8 @@ viivästää vaihtoa, jotta lyhyt dekooderin tilamuutos ei sahaa kohtausten väl
 ## Mitä VISP ei lisää OBS:stä OBS:ään -yhteyteen?
 
 VISP toimii tässä työnkulussa tunnistettuna relay-palvelimena ja ohjaustasona.
-Se ei transkoodaa syötettä eikä bondaa verkkoyhteyksiä. SRT:n
+Tämä kolmannen osapuolen OBS-polku ei transkoodaa syötettä eikä summaa
+verkkoyhteyksien kapasiteettia. SRT:n
 uudelleenlähetys voi palauttaa osan kadonneista paketeista, mutta se ei yhdistä
 kahta internetliittymää tai jatka lähetystä täydellisen katkon läpi. Käytä
 oikeaa bonding-kerrosta, jos yhden yhteyden pitää voida vikaantua katkaisematta
@@ -264,7 +266,7 @@ sijaan, että käytät normaalisti suoraan kohdepalveluun lähettävää profiil
 - Twitchin tai Kickin avain on vain vastaanottavan OBS:n profiilissa.
 - Paikallinen varakohtaus toimii lähettäjän ollessa offline-tilassa.
 - Pakotettu katko palautuu samaan medialähteeseen.
-- Tiimi tietää, ettei VISP transkoodaa tai bondaa yhteyksiä.
+- Tiimi tietää, ettei relay transkoodaa tai summaa yhteyksien kapasiteettia.
 
 ## Usein kysyttyä
 
@@ -287,7 +289,7 @@ painike lähettää valmiin ohjelman Twitchiin tai Kickiin.
 
 Käytä tällä internetin yli kulkevalla etäreitillä oletuksena SRT:tä. Käytä
 VISPin RTMP-varavaihtoehtoa, jos lähettävä verkko estää UDP:n. Kumpikaan
-vaihtoehto ei transkoodaa syötettä, luo kaistaa tai bondaa yhteyksiä.
+vaihtoehto ei transkoodaa syötettä, luo kaistaa tai aggregoi yhteyksiä.
 
 ## Lähteet ja seuraavat vaiheet
 

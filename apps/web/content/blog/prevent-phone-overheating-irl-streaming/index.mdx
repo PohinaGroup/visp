@@ -1,0 +1,279 @@
+---
+title: "How to Stop Your Phone Overheating While IRL Streaming to OBS"
+description: "Prevent phone overheating during IRL streaming to OBS with safer camera settings, shade, ventilation, power planning, and a tested fallback."
+publishedAt: 2026-07-29
+coverAlt: "A shaded phone on a streaming grip films a sunny city while a blue signal path reaches a cool home OBS studio"
+---
+
+If your phone overheats while sending an IRL camera to OBS, fix the **thermal
+budget**, not one mystery setting. Start at 720p30, keep the phone shaded and
+ventilated, reduce display brightness, avoid stacking other demanding jobs on
+the device, and test the charging plan for the full length of the broadcast.
+Keep a local fallback scene ready in OBS so you can stop the camera safely if
+the operating system shows a temperature warning.
+
+A warm phone is not automatically failing. Apple says camera apps, high-quality
+video streaming, and wireless charging can normally make an iPhone warm.
+Google lists high-definition recording, large uploads, mobile data, and doing
+those jobs while charging among the reasons a Pixel may heat up. The production
+problem begins when the device has to protect itself by limiting charging,
+performance, the camera, the display, or the network connection.
+
+![Camera encoding, the display, network radio, charging, and hot surroundings consume a phone's thermal budget, while shade, ventilation, modest video settings, lower brightness, and a tested fallback create cooling margin](./thermal-budget.svg)
+
+## Understand what the phone is doing
+
+In the standard VISP-to-OBS workflow, the field phone still performs the first
+video encode. The VISP app captures the selected camera and microphone,
+encodes H.264 video and AAC audio, and sends one contribution feed over SRT.
+The relay authenticates and forwards that feed. OBS decodes it, builds the
+finished program, and sends the Twitch or Kick broadcast from the home
+computer.
+
+That design keeps OBS scenes, browser sources, alerts, recording, and the
+platform stream key off the phone. It does not make phone capture free. During
+an outdoor broadcast, one device may be:
+
+- running the camera and hardware video encoder continuously;
+- keeping a bright preview and chat visible;
+- uploading the contribution feed over a mobile radio;
+- running maps, Bluetooth audio, or another production app;
+- charging from a power bank;
+- absorbing heat from the sun and warm air.
+
+Each task may work alone. Heat becomes a problem when they run together faster
+than the phone can release it.
+
+Apple's current [temperature guidance](https://support.apple.com/en-euro/118431)
+documents the resulting protections: charging can slow or stop, the display can
+dim or go black, cellular signal can weaken as radios enter a low-power state,
+camera features can be disabled, and some workloads can run at lower frame
+rates. Google's [Pixel heat guidance](https://support.google.com/pixelphone/answer/3333708?hl=en)
+similarly says a hot phone may reduce CPU and charging performance, disable the
+camera, limit mobile data or Wi-Fi, enter low-power mode, or shut down.
+
+Those protections are safety features. Do not try to defeat them during a live
+show.
+
+## Start with a cooler video baseline
+
+Use the lowest format that meets the production need, then move upward only
+after a full-duration test. The VISP phone app prefers **720p at 30 fps** when
+the selected camera supports it. That is a useful IRL baseline: it asks the
+camera and encoder to process fewer pixels and frames than 1080p60, while OBS
+can still place the feed inside a normal scene.
+
+Do not increase resolution, frame rate, and bitrate together. Change one
+variable, run the phone for the expected show duration, and observe whether the
+device remains stable. A ten-minute indoor check cannot validate a two-hour
+walk in afternoon sun.
+
+Use this order:
+
+1. begin at 720p30;
+2. select a bitrate the real field upload can sustain with margin;
+3. test camera motion, fine detail, and OBS composition;
+4. raise resolution only when the picture genuinely needs it;
+5. test the new setting outdoors for the full planned duration.
+
+Lowering bitrate alone is not guaranteed to solve heat on every model. Camera
+capture, scaling, frame rate, screen brightness, radios, ambient temperature,
+and charging all remain in the budget. Treat each change as a measured
+experiment, not a universal cure.
+
+The [mobile IRL bitrate guide](/blog/best-bitrate-irl-streaming-phone-obs)
+helps choose a contribution setting without confusing it with the separate OBS
+upload to Twitch or Kick.
+
+## Keep direct heat away and let warm air escape
+
+Shade is the highest-value physical change because it removes an external heat
+source without reducing picture quality. Position the operator, mount, or a
+small sun hood so the phone body stays out of direct sunlight. Do not leave it
+against a sun-heated window, vehicle dashboard, or dark enclosed bag between
+shots.
+
+Apple specifies an ambient operating range of 0–35°C for iPhone and warns that
+extended camera use in hot conditions or direct sunlight can change device
+performance. Google also says to keep a Pixel out of direct sunlight and away
+from enclosed or poorly ventilated areas.
+
+Build the rig around airflow:
+
+- leave the back and edges of the phone open rather than pressed against fabric;
+- avoid wrapping the phone and power bank together in one insulated pouch;
+- keep the power bank separate so its heat does not warm the phone;
+- check that the mount does not cover the whole rear surface;
+- test the final rig, not the bare phone on a desk.
+
+A purpose-built mount can be safer than improvising a sealed weather cover.
+If rain protection is required, account for its loss of ventilation and test it
+under the same weather and charging conditions.
+
+## Reduce display and app load
+
+The preview does not need maximum brightness in shade. Reduce brightness until
+the operator can still judge framing, status, and chat safely. Google explicitly
+recommends lowering display brightness when a Pixel gets too warm.
+
+Remove avoidable foreground work too. Do not run a public Twitch or Kick
+playback on the same phone just to confirm that OBS is live; that adds video
+decoding and download activity while the device is already capturing and
+uploading. Use VISP's stream status and chat view on the camera phone, and
+check the public program from a second muted device when possible.
+
+Navigation may be essential during an IRL stream, but it is still part of the
+heat budget. Apple's guidance specifically names extended GPS navigation in
+hot conditions. If the route needs maps, test camera, navigation, screen
+brightness, Bluetooth, and charging together rather than validating each app
+separately.
+
+## Treat charging as another heat input
+
+A power bank solves runtime, not cooling. Charging adds heat at the same time
+the phone is capturing and transmitting. Apple lists wireless charging among
+the normal causes of warmth, while Google calls out resource-heavy use during
+charging and instructs users to disconnect power if the phone becomes too hot.
+
+Use a practical power plan:
+
+1. start with the phone charged rather than recovering a nearly empty battery
+   at maximum speed during the show;
+2. use a known-good cable and charger appropriate for the device;
+3. keep the power bank physically separate from the phone;
+4. rehearse while charging, because a battery-only test proves a different rig;
+5. watch for a charging-paused or temperature warning;
+6. if the device reports excessive heat, cut to fallback, stop capture, unplug
+   it, move it to a cooler shaded place, and let it cool.
+
+Do not promise an uninterrupted show by forcing the phone to keep charging.
+Apple and Google both describe charging limits as part of the device's thermal
+protection. Respecting that limit is safer than protecting the current shot.
+
+## Tell heat apart from a bad network
+
+Heat and network congestion can both look like a stuttering remote camera, but
+the first checks differ.
+
+| Symptom | Check first |
+| --- | --- |
+| The whole phone is hot, display dims, charging pauses, or an OS warning appears | Stop the camera and cool the device |
+| VISP reports rising packet loss or RTT while the phone otherwise behaves normally | Lower bitrate or improve the route |
+| Camera or frame rate becomes limited after a long warm run | Treat it as thermal protection |
+| OBS drops frames on its platform connection while the phone feed is stable | Troubleshoot the home OBS uplink |
+| The feed stops immediately when the app leaves the foreground | Return to the VISP app and keep it active |
+| The phone feed stops but OBS and local sources continue | Use the fallback scene while the phone recovers |
+
+Do not keep raising SRT latency to solve a hot device. SRT latency gives packet
+retransmissions time to arrive; it does not cool the camera or encoder. The
+[VISP encoder guide](https://docs.visp-stream.com/docs/broadcaster-setup)
+explains how to tune that network recovery window from measured round-trip
+time.
+
+## Rehearse the failure, not only the happy path
+
+Run a thermal rehearsal before an important Twitch or Kick broadcast:
+
+1. assemble the exact mount, case, cable, power bank, microphone, and headset;
+2. choose 720p30 and the planned bitrate;
+3. start the phone feed and receive it in OBS;
+4. run any chat, maps, and Bluetooth equipment you will use live;
+5. place the rig in shade under realistic ambient conditions;
+6. let it run for at least the planned segment length;
+7. record whether the display dims, charging changes, the camera stutters, or
+   the operating system warns;
+8. stop and restart the phone feed, then confirm the same OBS source recovers;
+9. force one failure and verify OBS switches to local fallback;
+10. keep the coolest settings that still produce an acceptable picture.
+
+VISP's generated OBS Media Source reconnects to the same device path after the
+phone returns. The home OBS broadcast can remain live throughout, showing a
+local slate, studio camera, recap video, or other planned scene. Follow the
+[bad-mobile-network guide](/blog/keep-stream-live-bad-mobile-network) for the
+full fallback and reconnection workflow.
+
+## What to do during a temperature warning
+
+Treat the warning as a stop signal:
+
+1. switch OBS to the local fallback scene;
+2. stop the VISP camera stream if the interface still responds;
+3. disconnect charging;
+4. move the phone away from sunlight into a cooler, ventilated place;
+5. allow it to cool before restarting;
+6. resume at a lower format or with fewer simultaneous tasks;
+7. verify stable video and audio in OBS before cutting back.
+
+Apple tells users who see its temperature warning to turn off the device, move
+it to a cooler environment away from direct sunlight, and allow it to cool.
+Google likewise says to unplug a phone that is too hot, move it somewhere
+cooler, and stop using it until it cools down. Follow the instructions shown by
+your own device rather than a live-production shortcut.
+
+## Know what VISP changes—and what it does not
+
+VISP keeps the phone as a contribution source and moves final production to
+OBS. That removes the need to render OBS scenes, browser alerts, and the final
+platform encode on the field phone. The Twitch or Kick stream key stays in OBS.
+
+On the normal relay-to-OBS path, VISP **does not transcode** the contribution.
+If the phone sends an unnecessarily demanding format, the relay will not turn
+it into a cooler one. Change resolution, frame rate, and bitrate at the phone.
+
+The relay also **does not bond network connections or combine their capacity
+into a faster upload**. A native multi-link redundancy mode can send duplicate
+SRT packets over Wi-Fi and cellular, but redundancy is not extra cooling or
+aggregated throughput and may increase radio and data use. Leave it out of the
+first thermal baseline, then test it separately only if the route requires that
+resilience.
+
+For the complete source setup, use the
+[VISP phone app documentation](https://docs.visp-stream.com/docs/phone-app)
+and [phone-as-a-remote-camera guide](/blog/use-phone-as-remote-camera-obs).
+
+## Frequently asked questions
+
+### Is it normal for a phone to feel warm while streaming?
+
+Yes. Continuous camera use, encoding, network upload, display use, and charging
+can make a device warm. The actionable boundary is changed behavior or an
+operating-system warning: dimming, paused charging, limited camera or radio
+functions, reduced performance, or shutdown.
+
+### Should I lower bitrate or resolution first?
+
+Start with a complete 720p30 baseline and a bitrate the route can sustain.
+Resolution and frame rate change camera and encoding work; bitrate changes the
+encoder target and network load. The thermal result varies by phone, so change
+one setting and repeat the same full-duration test.
+
+### Is Wi-Fi always cooler than cellular?
+
+Not always, but Google recommends Wi-Fi instead of mobile data when possible
+for a Pixel that runs hot. For a moving IRL stream, stability and coverage still
+matter. Test the actual radio, signal conditions, and route rather than assuming
+the network label decides the temperature.
+
+### Will sending the camera to OBS stop overheating?
+
+It can reduce the work compared with building and distributing the whole show
+on the phone, because OBS handles scenes and final output at home. The phone
+still captures, encodes, displays, and uploads its contribution, so it still
+needs a thermal plan.
+
+### Should I keep streaming after the phone shows a temperature warning?
+
+No. Switch OBS to fallback, follow the device's warning, disconnect power if
+instructed, and let the phone cool before restarting.
+
+## Sources and next steps
+
+- [Apple: If your iPhone or iPad gets too hot or too cold](https://support.apple.com/en-euro/118431)
+- [Google: Help keep your Pixel phone from feeling too warm or hot](https://support.google.com/pixelphone/answer/3333708?hl=en)
+- [VISP phone and browser app](https://docs.visp-stream.com/docs/phone-app)
+- [VISP encoders and fallback](https://docs.visp-stream.com/docs/broadcaster-setup)
+
+If you want the phone to remain a managed camera while the home studio owns
+the Twitch or Kick production, [try VISP](https://visp-stream.com/download),
+start with the 720p30 baseline above, and run the full thermal rehearsal before
+the next long outdoor stream.

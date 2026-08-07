@@ -25,7 +25,7 @@ export const Route = createFileRoute("/download")({
 			{
 				name: "description",
 				content:
-					"Join the VISP hosted beta and get the phone apps, browser publisher, and OBS plugin.",
+					"Use VISP Direct from the phone app or browser, with the OBS plugin available as an optional source.",
 			},
 		],
 	}),
@@ -70,8 +70,8 @@ function DownloadPage() {
 				</h1>
 				<p className="max-w-prose text-muted-foreground">
 					{fi
-						? "Hostattu beta on nopein tapa kokeilla VISPiä. Kirjaudu sisään, valitse striimausohjelma ja lähetä puhelimen tai selaimen kamera kotona olevaan OBS-setuppiin."
-						: "The hosted beta is the fastest way to try VISP. Sign in, pick a client, and send a phone or browser camera into your home OBS setup. Self-hosting is available for operators who want to run their own relay."}
+						? "Kirjaudu sisään, valitse Twitch, Kick tai YouTube ja lähetä puhelimesta tai selaimesta VISP Directillä. OBS on saatavilla valinnaisena lähteenä."
+						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS remains available as an optional source. Self-hosting is available for operators who want to run their own relay."}
 				</p>
 			</header>
 
@@ -83,8 +83,8 @@ function DownloadPage() {
 					<ol className="list-decimal space-y-2 pl-5">
 						<li>
 							{fi
-								? "Kirjaudu Twitchillä tai Kickillä luodaksesi VISP-tilin."
-								: "Sign in with Twitch or Kick to create your VISP account."}
+								? "Kirjaudu Twitchillä, Kickillä tai Googlella luodaksesi VISP-tilin. iPhonella voit myös käyttää Sign in with Applea."
+								: "Sign in with Twitch, Kick, or Google to create your VISP account. On iPhone you can also use Sign in with Apple."}
 						</li>
 						<li>
 							{fi
@@ -93,8 +93,8 @@ function DownloadPage() {
 						</li>
 						<li>
 							{fi
-								? "Striimaa tuetulla softalla, ja näät feedin OBS:ssä."
-								: "Publish from a supported client below, then watch the feed in OBS."}
+								? "Julkaise tuetulla sovelluksella Directiin tai lisää sama syöte OBS:ään."
+								: "Publish to Direct with a supported client, or add the same feed to OBS."}
 						</li>
 					</ol>
 					<div className="flex flex-wrap gap-2">

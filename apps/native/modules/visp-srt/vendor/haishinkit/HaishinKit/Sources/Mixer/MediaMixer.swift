@@ -132,6 +132,16 @@ public final actor MediaMixer {
     @ScreenActor
     private lazy var displayLink = DisplayLinkChoreographer()
 
+    /// Mixed audio output from the capture pipeline.
+    public var audioOutputStream: AsyncStream<(AVAudioPCMBuffer, AVAudioTime)> {
+        audioIO.output
+    }
+
+    /// Per-track audio input before mixing. Used for hosted noise isolation.
+    public var audioInputStream: AsyncStream<(UInt8, AVAudioPCMBuffer, AVAudioTime)> {
+        audioIO.input
+    }
+
     /// Creates a new instance.
     ///
     /// - Parameters:

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Wind-noise reduction path from microphone to OBS</title>
+  <desc id="desc">Wind reaches a protected microphone beside an iPhone, a clean speech waveform travels through a VISP relay to an OBS workstation, and a final waveform reaches viewers.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071526"/>
+      <stop offset="1" stop-color="#102942"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#f59e0b"/>
+      <stop offset="0.38" stop-color="#35d0ba"/>
+      <stop offset="1" stop-color="#38bdf8"/>
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0 0 14 7 0 14Z" fill="#38bdf8"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#background)"/>
+  <circle cx="195" cy="240" r="150" fill="#f59e0b" opacity="0.08"/>
+  <circle cx="1370" cy="690" r="220" fill="#38bdf8" opacity="0.07"/>
+
+  <g fill="none" stroke="#f59e0b" stroke-linecap="round" opacity="0.72">
+    <path d="M35 310 C120 250 185 285 258 350" stroke-width="12"/>
+    <path d="M20 375 C115 320 182 350 262 402" stroke-width="7"/>
+    <path d="M75 440 C145 405 205 420 272 458" stroke-width="4"/>
+  </g>
+
+  <g transform="translate(250 250)">
+    <rect x="0" y="22" width="82" height="300" rx="38" fill="#17263a" stroke="#53657a" stroke-width="8"/>
+    <ellipse cx="41" cy="28" rx="65" ry="75" fill="#74869a"/>
+    <g stroke="#c8d3df" stroke-width="7" stroke-linecap="round" opacity="0.85">
+      <path d="M4 0 78 56M10 62 72 -8M-7 30 86 28M22 -26 56 84"/>
+    </g>
+    <path d="M41 322 V410" stroke="#53657a" stroke-width="18" stroke-linecap="round"/>
+    <path d="M-30 410 H112" stroke="#53657a" stroke-width="18" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(445 178)">
+    <rect width="255" height="500" rx="42" fill="#07111e" stroke="#6f8296" stroke-width="10"/>
+    <rect x="18" y="58" width="219" height="378" rx="12" fill="#102a3f"/>
+    <circle cx="127.5" cy="465" r="16" fill="#52667a"/>
+    <circle cx="60" cy="28" r="12" fill="#182c3d"/>
+    <path d="M55 262 h28 l18 -52 30 108 28 -78 22 44 h32" fill="none" stroke="#35d0ba" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+  </g>
+
+  <path d="M735 430 C820 360 895 360 982 430" fill="none" stroke="url(#signal)" stroke-width="12" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <g transform="translate(1008 327)">
+    <path d="M0 110 C28 25 95 0 155 42 C210 5 302 54 294 135 C345 160 330 245 270 252 H55 C-25 250 -40 145 0 110Z" fill="#163750" stroke="#35d0ba" stroke-width="9"/>
+    <path d="M82 130 h22 l16 -42 26 94 24 -62 18 32 h36" fill="none" stroke="#35d0ba" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <path d="M1322 455 H1395" fill="none" stroke="#38bdf8" stroke-width="12" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+  <g transform="translate(1390 285)">
+    <rect x="0" y="0" width="170" height="250" rx="14" fill="#0b1827" stroke="#6f8296" stroke-width="9"/>
+    <rect x="16" y="18" width="138" height="145" rx="6" fill="#123451"/>
+    <path d="M32 94 h17 l12 -33 19 67 19 -49 15 28 h26" fill="none" stroke="#38bdf8" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M85 250 V306M38 306 H132" stroke="#6f8296" stroke-width="13" stroke-linecap="round"/>
+  </g>
+
+  <g fill="none" stroke="#38bdf8" stroke-linecap="round" opacity="0.8" filter="url(#glow)">
+    <path d="M1380 690 h25 l18 -58 26 122 26 -96 22 48 h55" stroke-width="10"/>
+    <path d="M1380 760 h42 l14 -34 20 68 17 -49 24 23 h55" stroke-width="6" opacity="0.6"/>
+  </g>
+</svg>

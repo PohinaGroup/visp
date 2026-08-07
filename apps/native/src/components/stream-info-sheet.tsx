@@ -5,15 +5,16 @@ import {
 	type CategorySuggestion,
 	loadStreamInfoDraft,
 	mergeCategorySuggestions,
+	PROVIDER_LABELS,
 	saveStreamInfoDraft,
 	summarizeUpdateResults,
 } from "../lib/stream-info";
-
-const SUBTLE_TEXT = { color: "#8a919c", fontSize: 13 } as const;
+import { ProviderRow, SUBTLE_TEXT } from "./stream-settings-shared";
 
 type ChatConnections = Awaited<
 	ReturnType<typeof apiClient.chat.connections.list.query>
 >;
+type Provider = ChatConnections[number]["provider"];
 
 function suggestionBadge(suggestion: CategorySuggestion) {
 	return [
@@ -36,7 +37,7 @@ export function StreamInfoSheet({
 	authorizing: boolean;
 	connections: ChatConnections;
 	isPresented: boolean;
-	onAuthorize: (provider: "twitch" | "kick") => void;
+	onAuthorize: (provider: Provider) => void;
 	onDismiss: () => void;
 	showToast: (text: string, spinning?: boolean) => void;
 	userId: string;
@@ -186,18 +187,18 @@ export function StreamInfoSheet({
 				{needingConsent.length > 0 ? (
 					<UI.FieldGroup.Section>
 						{needingConsent.map((connection) => (
-							<UI.Row alignment="center" key={connection.provider} spacing={12}>
-								<UI.Text>
-									{`Allow VISP to edit your ${connection.provider === "twitch" ? "Twitch" : "Kick"} stream info`}
-								</UI.Text>
-								<UI.Spacer flexible />
+							<ProviderRow
+								key={connection.provider}
+								label={PROVIDER_LABELS[connection.provider]}
+								status="Allow VISP to edit stream info"
+							>
 								<UI.Button
 									disabled={authorizing}
 									label="Authorize"
 									onPress={() => onAuthorize(connection.provider)}
 									variant="outlined"
 								/>
-							</UI.Row>
+							</ProviderRow>
 						))}
 					</UI.FieldGroup.Section>
 				) : null}
@@ -211,7 +212,7 @@ export function StreamInfoSheet({
 					{canUpdate ? null : (
 						<UI.FieldGroup.SectionFooter>
 							<UI.Text textStyle={SUBTLE_TEXT}>
-								Authorize Twitch or Kick above to update stream info.
+								Authorize a platform above to update stream info.
 							</UI.Text>
 						</UI.FieldGroup.SectionFooter>
 					)}

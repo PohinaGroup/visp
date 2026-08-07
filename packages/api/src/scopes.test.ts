@@ -1,12 +1,31 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	hasChatScope,
 	hasScope,
 	hasStreamKeyScope,
 	linkScopes,
 	PROVIDER_SCOPES,
 	parseScopes,
 } from "./scopes";
+
+describe("hasChatScope", () => {
+	test("accepts YouTube readonly or existing Direct consent", () => {
+		expect(
+			hasChatScope(
+				"youtube",
+				"openid https://www.googleapis.com/auth/youtube.readonly",
+			),
+		).toBe(true);
+		expect(
+			hasChatScope(
+				"youtube",
+				"openid https://www.googleapis.com/auth/youtube.force-ssl",
+			),
+		).toBe(true);
+		expect(hasChatScope("youtube", "openid email")).toBe(false);
+	});
+});
 
 describe("parseScopes", () => {
 	test("splits space and comma separated scope strings", () => {
@@ -66,5 +85,11 @@ describe("hasStreamKeyScope", () => {
 		expect(hasStreamKeyScope("kick", "streamkey:read channel:read")).toBe(true);
 		expect(hasStreamKeyScope("kick", "streamkey:read")).toBe(false);
 		expect(hasStreamKeyScope("twitch", "channel:read:stream_key")).toBe(true);
+		expect(
+			hasStreamKeyScope(
+				"youtube",
+				"openid https://www.googleapis.com/auth/youtube.force-ssl",
+			),
+		).toBe(true);
 	});
 });

@@ -7,10 +7,10 @@ path="$2"
 source_type="${3:-}"
 snapshot_file="$(mktemp --suffix=.jpg)"
 
-# MediaMTX starts runOnReady with Setpgid, so this script leads its own process
+# MediaMTX starts runOnAvailable with Setpgid, so this script leads its own process
 # group and "kill 0" reaches every forwarder without touching MediaMTX itself.
 # Without it, exiting the shell orphans the FFmpeg children: they keep pushing a
-# dead RTSP read to Twitch and Kick, and runOnReadyRestart then starts a second
+# dead RTSP read to Twitch and Kick, and runOnAvailableRestart then starts a second
 # set on the next ready event — two processes, one stream key.
 #
 # Do NOT add "set -m" here. Job control puts every background job in a *new*
@@ -82,15 +82,10 @@ forward() {
 		kill "$watcher" 2>/dev/null
 		reason="$(tail -n 1 "$log" 2>/dev/null)"
 
-		if test "$((SECONDS - started))" -ge 60; then
-			# It ran long enough to have been working, so this is a fresh
-			# outage rather than a destination that never starts.
-			backoff=2
-			report_state "$provider" retrying "$reason"
-		else
-			report_state "$provider" failed "$reason"
-		fi
-
+		# A running retry loop still owns its encoder slot. Provider consent
+		# failures are reported before a forwarder is started.
+		test "$((SECONDS - started))" -lt 60 || backoff=2
+		report_state "$provider" retrying "$reason"
 		sleep "$backoff"
 		backoff="$((backoff * 2))"
 		test "$backoff" -le 60 || backoff=60
@@ -99,8 +94,8 @@ forward() {
 
 hook ready "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" || true
 
-# The app resolves the owner, checks the beta flag and the concurrency cap,
-# refreshes provider tokens, and returns only the destinations it approved, as
+# The app verifies the reservation and provider consent, then returns only the
+# destinations it approved, as
 # "provider url" lines. Empty output — including when the app is unavailable —
 # means no Direct output starts and the relay-to-OBS path is unaffected.
 destinations="$(
@@ -134,5 +129,6 @@ while true; do
 				"$upload_url" || true
 		fi
 	fi
-	sleep 60
+	sleep 60 &
+	wait "$!"
 done

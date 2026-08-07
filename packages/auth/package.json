@@ -16,6 +16,7 @@
 		"@better-auth/expo": "catalog:",
 		"@VISP/db": "workspace:*",
 		"@VISP/env": "workspace:*",
+		"@VISP/object-store": "workspace:*",
 		"better-auth": "catalog:",
 		"dotenv": "catalog:",
 		"zod": "catalog:"

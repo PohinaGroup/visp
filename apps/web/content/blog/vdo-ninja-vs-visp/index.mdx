@@ -2,6 +2,7 @@
 title: "VDO.Ninja vs VISP: Which Is Better for Remote Cameras in OBS?"
 description: "Compare VDO.Ninja and VISP for remote cameras, guests, latency, security, and repeatable phone-to-OBS live production workflows."
 publishedAt: 2026-07-22
+updatedAt: 2026-08-03
 coverAlt: "Two signal paths compare VDO.Ninja with VISP for bringing remote cameras into OBS"
 ---
 
@@ -30,11 +31,11 @@ in a call or operating as a camera source.
 | Feed reaches OBS | Browser source or other VDO.Ninja output | Authenticated SRT/RTMP media source or OBS plugin |
 | Remote OBS commands | Available through VDO.Ninja options | Authenticated start, stop, and scene commands through the VISP plugin |
 | Destination stream key on the phone | Not required | Not required |
-| Network bonding | No | No |
+| Multiple-network behavior | No built-in bonding | Native app can duplicate packets over Wi-Fi and cellular; no capacity aggregation |
 
 The final row matters for IRL streaming. WebRTC and SRT can respond to packet
-loss in different ways, but neither product combines two mobile carriers into
-one bonded connection. If a stream must cross repeated dead zones, read our
+loss in different ways. VISP Native can duplicate packets over two links, but
+does not combine their bandwidth. If a stream must cross repeated dead zones, read our
 [guide to mobile-stream resilience](/blog/keep-stream-live-bad-mobile-network)
 before choosing the transport.
 
@@ -76,10 +77,8 @@ the phone never receives the Twitch or Kick destination stream key.
 This architecture makes the home computer the continuity point. If a phone
 briefly loses signal, OBS can remain live to the destination and show a local
 fallback scene while the field source reconnects. VISP does not transcode the
-feed or bond networks; the encoder and available connection still determine
-what reaches the relay.
-
-![VISP dashboard showing managed publishing devices](./visp-dashboard.png)
+relay-to-OBS feed. Its native app can duplicate packets over Wi-Fi and cellular;
+the encoder and available connections still determine what reaches the relay.
 
 ## Latency and reliability are different goals
 
@@ -107,7 +106,7 @@ protect rooms and links according to the options they choose. That makes guest
 onboarding fast: the person with the right link can join without creating a
 profile.
 
-VISP requires the broadcaster to sign in with Twitch or Kick. Every publishing
+VISP requires the broadcaster to sign in with Twitch, Kick, or Google. Every publishing
 device receives independent access that can be revoked without replacing the
 credentials used by other cameras. OBS read access is separate from publish
 access. This is useful when a camera belongs to a contractor, guest, or old
@@ -162,8 +161,8 @@ through its paired OBS plugin. Review the access model before granting either.
 
 ### Does either product bond Wi-Fi and cellular?
 
-No. Add a bonding product or dedicated encoder if losing one network must not
-interrupt the feed.
+VISP Native can duplicate packets over Wi-Fi and cellular for failover. Add a
+bonding product when both links must contribute capacity.
 
 ### Can I try VISP without replacing my OBS setup?
 

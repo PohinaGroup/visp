@@ -267,3 +267,49 @@ export function normalizeKickMessage(payload: unknown): ChatMessage | null {
 		fragments,
 	});
 }
+
+export function normalizeYoutubeMessage(payload: unknown): ChatMessage | null {
+	if (!payload || typeof payload !== "object") return null;
+	const message = payload as Record<string, unknown>;
+	const snippet = (message.snippet ?? {}) as Record<string, unknown>;
+	const author = (message.authorDetails ?? {}) as Record<string, unknown>;
+	if (
+		snippet.hasDisplayContent !== true ||
+		snippet.type === "tombstone" ||
+		snippet.type === "chatEndedEvent"
+	) {
+		return null;
+	}
+	const senderId = identifier(author.channelId, 128);
+	const badges: ChatBadge[] = [
+		...(author.isChatOwner === true
+			? [{ type: "broadcaster", label: "Broadcaster" }]
+			: []),
+		...(author.isChatModerator === true
+			? [{ type: "moderator", label: "Moderator" }]
+			: []),
+		...(author.isChatSponsor === true
+			? [{ type: "subscriber", label: "Member" }]
+			: []),
+		...(author.isVerified === true
+			? [{ type: "verified", label: "Verified" }]
+			: []),
+	];
+	return finish({
+		id: identifier(message.id),
+		provider: "youtube",
+		sentAt: date(snippet.publishedAt),
+		sender: {
+			id: senderId,
+			name: string(author.displayName, MAX_NAME_LENGTH),
+			color: senderColor(undefined, senderId),
+			badges,
+		},
+		fragments: [
+			{
+				type: "text",
+				text: string(snippet.displayMessage, MAX_MESSAGE_LENGTH),
+			},
+		],
+	});
+}

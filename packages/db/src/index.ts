@@ -1,5 +1,4 @@
 import { env } from "@VISP/env/server";
-import { readFileSync } from "node:fs";
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 
@@ -31,21 +30,17 @@ function isLocalDatabaseHost(hostname: string): boolean {
 	);
 }
 
-function databaseSslConfig():
-	| false
-	| { rejectUnauthorized: true; ca?: string } {
+function databaseSslConfig(): false | { rejectUnauthorized: true } {
 	const parsed = new URL(env.DATABASE_URL);
 	const sslmode = parsed.searchParams.get("sslmode");
-	const sslCaPath = env.DATABASE_SSL_CA;
 
-	// Prefer the system trust store (update-ca-certificates). Passing a custom
-	// CA PEM via ssl.ca triggers Bun 1.3.x OpenSSL segfaults when Bun.S3Client
-	// is also constructed in the same process.
-	if (sslCaPath) {
-		return {
-			ca: readFileSync(sslCaPath, "utf8"),
-			rejectUnauthorized: true,
-		};
+	// Never pass a custom CA PEM via ssl.ca: Bun 1.3.x OpenSSL can segfault
+	// when that is combined with Bun.S3Client in the same process. Install the
+	// provider CA into the system trust store (update-ca-certificates) instead.
+	if (env.DATABASE_SSL_CA) {
+		console.warn(
+			"DATABASE_SSL_CA is set but ignored; use the system trust store for Postgres TLS",
+		);
 	}
 
 	const urlRequestsSsl =
@@ -55,7 +50,10 @@ function databaseSslConfig():
 
 	// Bun's node-postgres often ignores sslmode in the URL, so pass `ssl`
 	// explicitly. Remote hosts default to TLS (UpCloud requires encryption).
-	if (urlRequestsSsl || (!isLocalDatabaseHost(parsed.hostname) && sslmode !== "disable")) {
+	if (
+		urlRequestsSsl ||
+		(!isLocalDatabaseHost(parsed.hostname) && sslmode !== "disable")
+	) {
 		return { rejectUnauthorized: true };
 	}
 

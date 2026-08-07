@@ -1,11 +1,12 @@
 import type {
 	ChatLiveEvent,
 	ChatMessage,
+	ChatProvider,
 	ChatProviderStatus,
 } from "@VISP/api/chat/contract";
-import { useEffect, useState } from "react";
+import { PROVIDER_PRESENTATION } from "@VISP/api/chat/contract";
+import { useEffect, useRef, useState } from "react";
 import { apiClient } from "./backend";
-import { visibleChatMessages } from "./chat-model";
 
 export type { VisibleChatMessage } from "./chat-model";
 
@@ -25,20 +26,27 @@ function liveEvent(value: unknown): value is ChatLiveEvent {
 export function useLiveChat(
 	userId: string | undefined,
 	active: boolean,
-	disappearingMessages: boolean,
+	onMessage?: (message: ChatMessage) => void,
 ) {
+	const onMessageRef = useRef(onMessage);
+	useEffect(() => {
+		onMessageRef.current = onMessage;
+	});
 	const [messages, setMessages] = useState<
 		Array<ChatMessage & { receivedAt: number }>
 	>([]);
 	const [statuses, setStatuses] = useState<
-		Partial<Record<"twitch" | "kick", ChatProviderStatus["state"]>>
+		Partial<Record<ChatProvider, ChatProviderStatus["state"]>>
 	>({});
-	const [now, setNow] = useState(Date.now());
+	const [errors, setErrors] = useState<Partial<Record<ChatProvider, string>>>(
+		{},
+	);
 
 	useEffect(() => {
 		if (!active || !userId) {
 			setMessages([]);
 			setStatuses({});
+			setErrors({});
 			return;
 		}
 		let disposed = false;
@@ -51,7 +59,8 @@ export function useLiveChat(
 			try {
 				const { ticket } = await apiClient.chat.liveTicket.mutate();
 				if (disposed) return;
-				socket = new WebSocket(socketUrl(ticket));
+				const url = socketUrl(ticket);
+				socket = new WebSocket(url);
 				socket.onopen = () => {
 					retry = 0;
 				};
@@ -65,9 +74,27 @@ export function useLiveChat(
 								...current,
 								[event.status.provider]: event.status.state,
 							}));
+							setErrors((current) => ({
+								...(event.status.state === "connected"
+									? { ...current, [event.status.provider]: undefined }
+									: event.status.state === "error"
+										? {
+												...current,
+												[event.status.provider]:
+													event.status.error ??
+													`${PROVIDER_PRESENTATION[event.status.provider].label} chat could not be started`,
+											}
+										: event.status.error
+											? {
+													...current,
+													[event.status.provider]: event.status.error,
+												}
+											: current),
+							}));
 							return;
 						}
 						const receivedAt = Date.now();
+						onMessageRef.current?.(event.message);
 						setMessages((current) =>
 							[
 								...current.filter(
@@ -85,6 +112,7 @@ export function useLiveChat(
 				socket.onclose = () => {
 					if (disposed) return;
 					setStatuses({});
+					setErrors({});
 					const delay = Math.min(15_000, 1_000 * 2 ** Math.min(retry, 4));
 					retry += 1;
 					reconnectTimer = setTimeout(() => void connect(), delay);
@@ -102,15 +130,9 @@ export function useLiveChat(
 		};
 	}, [active, userId]);
 
-	useEffect(() => {
-		if (!active || !disappearingMessages) return;
-		setNow(Date.now());
-		const timer = setInterval(() => setNow(Date.now()), 250);
-		return () => clearInterval(timer);
-	}, [active, disappearingMessages]);
-
 	return {
-		messages: visibleChatMessages(messages, disappearingMessages, now),
+		errors,
+		messages,
 		recentMessages: messages,
 		statuses,
 	};

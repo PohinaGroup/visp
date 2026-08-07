@@ -25,6 +25,7 @@ type EventSubEnvelope = {
 			keepalive_timeout_seconds?: number | null;
 			reconnect_url?: string | null;
 		};
+		subscription?: { status?: string };
 	};
 };
 
@@ -62,8 +63,16 @@ export async function createTwitchChatSubscription(
 			}),
 		},
 	);
-	if (!response.ok)
-		throw new Error(`Twitch subscription failed (${response.status})`);
+	if (!response.ok) {
+		const payload = (await response.json().catch(() => null)) as {
+			message?: unknown;
+		} | null;
+		throw new Error(
+			typeof payload?.message === "string"
+				? payload.message
+				: `Twitch subscription failed (${response.status})`,
+		);
+	}
 }
 
 class TwitchConnector {
@@ -125,8 +134,15 @@ class TwitchConnector {
 				if (subscribe) {
 					try {
 						await this.subscribe(sessionId);
-					} catch {
-						chatHub.status(this.userId, "twitch", "error");
+					} catch (error) {
+						chatHub.status(
+							this.userId,
+							"twitch",
+							"error",
+							error instanceof Error
+								? error.message
+								: "Twitch chat could not be started",
+						);
 						this.socket?.close();
 						return;
 					}
@@ -165,9 +181,18 @@ class TwitchConnector {
 				}
 				break;
 			}
-			case "revocation":
-				chatHub.status(this.userId, "twitch", "error");
+			case "revocation": {
+				const reason = message.payload?.subscription?.status;
+				chatHub.status(
+					this.userId,
+					"twitch",
+					"error",
+					reason
+						? `Twitch chat revoked: ${reason.replaceAll("_", " ")}`
+						: "Twitch revoked the chat subscription",
+				);
 				break;
+			}
 		}
 	}
 
@@ -206,10 +231,20 @@ class TwitchConnectorManager {
 	constructor() {
 		chatHub.onAudienceChanged(
 			(userId, count) =>
-				void this.audienceChanged(userId, count).catch(() =>
-					chatHub.status(userId, "twitch", "error"),
+				void this.audienceChanged(userId, count).catch((error) =>
+					chatHub.status(
+						userId,
+						"twitch",
+						"error",
+						error instanceof Error
+							? error.message
+							: "Twitch chat could not be started",
+					),
 				),
 		);
+		chatHub.onConnectorRefresh((userId) => {
+			void this.refresh(userId);
+		});
 	}
 
 	private async audienceChanged(userId: string, count: number) {
@@ -225,8 +260,15 @@ class TwitchConnectorManager {
 		await this.stop(userId);
 		await this.pending.get(userId)?.catch(() => undefined);
 		await this.stop(userId);
-		await this.ensureStarted(userId).catch(() =>
-			chatHub.status(userId, "twitch", "error"),
+		await this.ensureStarted(userId).catch((error) =>
+			chatHub.status(
+				userId,
+				"twitch",
+				"error",
+				error instanceof Error
+					? error.message
+					: "Twitch chat could not be started",
+			),
 		);
 	}
 
@@ -265,7 +307,7 @@ class TwitchConnectorManager {
 			enabled &&
 			!this.connectors.has(userId)
 		) {
-			const lock = await tryAdvisoryLock(`chat:${userId}`, () => {
+			const lock = await tryAdvisoryLock(`chat:twitch:${userId}`, () => {
 				void this.lockLost(userId);
 			});
 			if (!lock) {

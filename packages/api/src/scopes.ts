@@ -39,6 +39,14 @@ export const PROVIDER_SCOPES = {
 		// channel:read, so Direct needs both scopes to read it.
 		streamKeyRequest: ["streamkey:read", "channel:read"],
 	},
+	youtube: {
+		/** Google supplies identity scopes; Direct adds only YouTube access. */
+		base: [],
+		chat: ["https://www.googleapis.com/auth/youtube.readonly"],
+		channelWrite: "https://www.googleapis.com/auth/youtube.force-ssl",
+		streamKey: "https://www.googleapis.com/auth/youtube.force-ssl",
+		streamKeyRequest: ["https://www.googleapis.com/auth/youtube.force-ssl"],
+	},
 } as const;
 
 export type ScopeProvider = keyof typeof PROVIDER_SCOPES;
@@ -58,6 +66,18 @@ export function hasStreamKeyScope(
 ) {
 	return PROVIDER_SCOPES[provider].streamKeyRequest.every((name) =>
 		hasScope(scope, name),
+	);
+}
+
+export function hasChatScope(
+	provider: ScopeProvider,
+	scope: string | null | undefined,
+) {
+	if (provider === "kick") return true;
+	if (provider === "twitch") return hasScope(scope, "user:read:chat");
+	return (
+		hasScope(scope, PROVIDER_SCOPES.youtube.chat[0]) ||
+		hasScope(scope, PROVIDER_SCOPES.youtube.streamKey)
 	);
 }
 

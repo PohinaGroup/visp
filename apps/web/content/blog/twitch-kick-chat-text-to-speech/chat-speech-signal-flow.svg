@@ -1,0 +1,99 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Separate chat speech and camera paths</title>
+  <desc id="desc">Blue and green chat bubbles become private headphone audio on a field phone while a separate camera signal travels through a relay to a home production monitor.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07182c"/>
+      <stop offset="0.54" stop-color="#102a45"/>
+      <stop offset="1" stop-color="#151d2b"/>
+    </linearGradient>
+    <linearGradient id="phone" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#213f5c"/>
+      <stop offset="1" stop-color="#0b1725"/>
+    </linearGradient>
+    <linearGradient id="relay" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#24d7e7" stop-opacity=".7"/>
+      <stop offset="1" stop-color="#48d987" stop-opacity=".25"/>
+    </linearGradient>
+    <filter id="glow" x="-80%" y="-80%" width="260%" height="260%">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <filter id="softShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="20" flood-color="#020b14" flood-opacity=".55"/>
+    </filter>
+  </defs>
+
+  <rect width="1600" height="900" rx="44" fill="url(#background)"/>
+  <circle cx="246" cy="138" r="260" fill="#139fda" opacity=".07"/>
+  <circle cx="1368" cy="728" r="280" fill="#ef9b42" opacity=".08"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="118" y="244" width="206" height="120" rx="32" fill="#35baf2"/>
+    <path d="M252 364h44l-44 38z" fill="#35baf2"/>
+    <rect x="214" y="104" width="242" height="132" rx="34" fill="#42e1df"/>
+    <path d="M360 236h44l-44 40z" fill="#42e1df"/>
+    <rect x="60" y="432" width="228" height="126" rx="34" fill="#63d88f"/>
+    <path d="M204 558h44l-44 40z" fill="#63d88f"/>
+  </g>
+
+  <path d="M324 304C426 306 468 342 546 388" fill="none" stroke="#35baf2" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+  <path d="M456 170C520 216 500 308 556 382" fill="none" stroke="#42e1df" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+  <path d="M288 496C418 498 474 456 548 410" fill="none" stroke="#63d88f" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+
+  <g filter="url(#softShadow)">
+    <rect x="520" y="224" width="300" height="520" rx="52" fill="url(#phone)" stroke="#7facc7" stroke-width="8"/>
+    <rect x="554" y="278" width="232" height="356" rx="28" fill="#10283e"/>
+    <circle cx="594" cy="316" r="20" fill="#182f44" stroke="#57dcec" stroke-width="6"/>
+    <path d="M600 480l52-54 56 46 44-34v126H600z" fill="#2495ad" opacity=".45"/>
+    <circle cx="704" cy="380" r="34" fill="#f1b45e" opacity=".72"/>
+    <rect x="632" y="676" width="78" height="12" rx="6" fill="#8aa7bc"/>
+  </g>
+
+  <g transform="translate(898 160)" filter="url(#softShadow)">
+    <path d="M80 90c-54 32-80 90-80 156 0 120 92 218 210 230 20 2 38-14 38-34v-78c0-20-16-36-36-36h-32c-28 0-50-22-50-50V174c0-42 32-76 74-80l52-4V24C182 12 122 30 80 90z" fill="#203c55"/>
+    <path d="M244 162c38 28 60 70 60 116s-22 88-60 116" fill="none" stroke="#39d9ea" stroke-width="20" stroke-linecap="round"/>
+    <path d="M286 116c58 42 92 98 92 162s-34 120-92 162" fill="none" stroke="#39d9ea" stroke-width="12" stroke-linecap="round" opacity=".55"/>
+    <rect x="180" y="254" width="92" height="78" rx="30" fill="#0d1b28" stroke="#7c9db2" stroke-width="8"/>
+  </g>
+
+  <path d="M810 384c82-62 114-60 168-34" fill="none" stroke="#40daea" stroke-width="12" stroke-linecap="round" filter="url(#glow)"/>
+  <g fill="none" stroke="#40daea" stroke-width="9" stroke-linecap="round" opacity=".92">
+    <path d="M834 374v-30"/>
+    <path d="M856 360v-64"/>
+    <path d="M878 368v-42"/>
+    <path d="M900 356v-82"/>
+    <path d="M922 364v-52"/>
+    <path d="M944 372v-26"/>
+  </g>
+
+  <path d="M672 744C760 822 892 822 984 744" fill="none" stroke="#f0a84d" stroke-width="14" stroke-linecap="round"/>
+  <path d="M672 744C760 822 892 822 984 744" fill="none" stroke="#f7bd70" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+
+  <g transform="translate(944 612)" filter="url(#softShadow)">
+    <path d="M0 96L96 0l96 96-96 96z" fill="url(#relay)" stroke="#4adcec" stroke-width="8"/>
+    <path d="M48 96l48-48 48 48-48 48z" fill="#0e2e43" stroke="#63d88f" stroke-width="5"/>
+  </g>
+
+  <path d="M1136 708h122" fill="none" stroke="#f0a84d" stroke-width="14" stroke-linecap="round"/>
+  <path d="M1136 708h122" fill="none" stroke="#f7bd70" stroke-width="4" stroke-linecap="round" filter="url(#glow)"/>
+
+  <g transform="translate(1248 552)" filter="url(#softShadow)">
+    <rect x="0" y="0" width="270" height="184" rx="22" fill="#0b1725" stroke="#d9a45e" stroke-width="8"/>
+    <rect x="24" y="24" width="222" height="132" rx="10" fill="#17344a"/>
+    <path d="M24 128l62-52 58 34 52-52 50 42v56H24z" fill="#2d7f92" opacity=".62"/>
+    <circle cx="194" cy="62" r="20" fill="#f0ad58"/>
+    <path d="M92 184v34m86-34v34M54 220h162" fill="none" stroke="#9db0bd" stroke-width="10" stroke-linecap="round"/>
+  </g>
+
+  <g opacity=".34" fill="#b8e7f0">
+    <circle cx="402" cy="730" r="5"/>
+    <circle cx="444" cy="760" r="4"/>
+    <circle cx="1168" cy="214" r="5"/>
+    <circle cx="1228" cy="264" r="4"/>
+    <circle cx="1374" cy="308" r="6"/>
+  </g>
+</svg>
