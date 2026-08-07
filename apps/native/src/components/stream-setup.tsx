@@ -1,4 +1,6 @@
+import * as AppleAuthentication from "expo-apple-authentication";
 import { StatusBar } from "expo-status-bar";
+import { useEffect, useState } from "react";
 import {
 	ActivityIndicator,
 	KeyboardAvoidingView,
@@ -9,10 +11,37 @@ import {
 	View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { openLegalUrl, PRIVACY_URL, TERMS_URL } from "../lib/legal";
+import { IS_IOS } from "../lib/platform";
 import {
 	METER_BARS,
 	streamScreenStyles as styles,
 } from "./stream-screen.styles";
+
+/** App Store 5.1.1(i): privacy policy must be reachable inside the app. */
+function LegalAgreement() {
+	return (
+		<Text style={styles.legalText}>
+			By continuing, you agree to the{" "}
+			<Text
+				accessibilityRole="link"
+				onPress={() => openLegalUrl(TERMS_URL)}
+				style={styles.legalLink}
+			>
+				Terms of Service
+			</Text>{" "}
+			and{" "}
+			<Text
+				accessibilityRole="link"
+				onPress={() => openLegalUrl(PRIVACY_URL)}
+				style={styles.legalLink}
+			>
+				Privacy Policy
+			</Text>
+			.
+		</Text>
+	);
+}
 
 // The de-neoned VISP lockup: wordmark + level-meter mark.
 function BrandLockup() {
@@ -43,6 +72,42 @@ export function StreamLoading({
 	);
 }
 
+export type SignInProvider = "apple" | "google" | "kick" | "twitch";
+
+// Rendered only where Apple supports it: the module ships a stub that answers
+// false on Android and web, and the button itself renders nothing there.
+function AppleSignInButton({
+	disabled,
+	onPress,
+}: {
+	disabled: boolean;
+	onPress: () => void;
+}) {
+	const [available, setAvailable] = useState(false);
+
+	useEffect(() => {
+		let active = true;
+		void AppleAuthentication.isAvailableAsync().then((supported) => {
+			if (active) setAvailable(supported);
+		});
+		return () => {
+			active = false;
+		};
+	}, []);
+
+	if (!available) return null;
+	return (
+		<AppleAuthentication.AppleAuthenticationButton
+			buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.WHITE}
+			buttonType={AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN}
+			cornerRadius={4}
+			onPress={onPress}
+			pointerEvents={disabled ? "none" : "auto"}
+			style={[styles.appleButton, disabled && styles.buttonDisabled]}
+		/>
+	);
+}
+
 export function StreamSignIn({
 	message,
 	onManualSetup,
@@ -53,8 +118,8 @@ export function StreamSignIn({
 	message?: string;
 	onManualSetup: () => void;
 	onPreview: () => void;
-	onSignIn: (provider: "twitch" | "kick" | "google") => void;
-	signingIn?: "twitch" | "kick" | "google";
+	onSignIn: (provider: SignInProvider) => void;
+	signingIn?: SignInProvider;
 }) {
 	return (
 		<View style={styles.setupBackground}>
@@ -64,10 +129,15 @@ export function StreamSignIn({
 				<Text style={styles.eyebrow}>Sign in</Text>
 				<Text style={styles.title}>Sign in to VISP</Text>
 				<Text style={styles.subtitle}>
-					Connect Twitch, Kick, or Google to load your relay destination
-					automatically.
+					{IS_IOS
+						? "Apple, Twitch, Kick, or Google loads your relay destination automatically."
+						: "Twitch, Kick, or Google loads your relay destination automatically."}
 				</Text>
 				{message ? <Text style={styles.formError}>{message}</Text> : null}
+				<AppleSignInButton
+					disabled={Boolean(signingIn)}
+					onPress={() => onSignIn("apple")}
+				/>
 				<Pressable
 					accessibilityRole="button"
 					disabled={Boolean(signingIn)}
@@ -114,6 +184,7 @@ export function StreamSignIn({
 						{signingIn === "kick" ? "Opening Kick..." : "Continue with Kick"}
 					</Text>
 				</Pressable>
+				<LegalAgreement />
 				<Pressable
 					accessibilityRole="button"
 					onPress={onManualSetup}
@@ -243,6 +314,7 @@ export function StreamDestinationEditor({
 						</Pressable>
 					</>
 				)}
+				<LegalAgreement />
 			</SafeAreaView>
 		</KeyboardAvoidingView>
 	);

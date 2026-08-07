@@ -2,6 +2,12 @@ import * as UI from "@expo/ui";
 import type { BondingMode } from "../../modules/visp-srt";
 import type { apiClient } from "../lib/backend";
 import {
+	openLegalUrl,
+	PRIVACY_URL,
+	REQUEST_DELETE_URL,
+	TERMS_URL,
+} from "../lib/legal";
+import {
 	DirectPathSwitches,
 	type DirectSettings,
 	directStateSummary,
@@ -26,6 +32,7 @@ export type AccountSettings = {
 	email: string;
 	linkedAccounts?: LinkedAccounts;
 	name: string;
+	onDeleteAccount: () => void;
 	onSignOut: () => void;
 };
 
@@ -116,6 +123,23 @@ export function AdvancedSection({
 					</UI.Row>
 					<UI.Button onPress={account.onSignOut} variant="text">
 						<UI.Text textStyle={{ color: DESTRUCTIVE }}>Sign out</UI.Text>
+					</UI.Button>
+					{/* App Store 5.1.1(v): deletion has to start in the app itself. */}
+					<UI.Button onPress={account.onDeleteAccount} variant="text">
+						<UI.Text textStyle={{ color: DESTRUCTIVE }}>Delete account</UI.Text>
+					</UI.Button>
+					{/* App Store 5.1.1(i): policy must stay reachable after sign-in. */}
+					<UI.Button onPress={() => openLegalUrl(PRIVACY_URL)} variant="text">
+						<UI.Text>Privacy Policy</UI.Text>
+					</UI.Button>
+					<UI.Button onPress={() => openLegalUrl(TERMS_URL)} variant="text">
+						<UI.Text>Terms of Service</UI.Text>
+					</UI.Button>
+					<UI.Button
+						onPress={() => openLegalUrl(REQUEST_DELETE_URL)}
+						variant="text"
+					>
+						<UI.Text>Delete account on the web</UI.Text>
 					</UI.Button>
 				</UI.FieldGroup.Section>
 			) : null}

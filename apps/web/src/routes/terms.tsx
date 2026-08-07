@@ -24,7 +24,7 @@ function TermsPage() {
 			eyebrow="Legal"
 			title="Terms of Service"
 			description="These terms govern access to and use of VISP, including the website, dashboard, apps, and streaming relay services."
-			updated="19 July 2026"
+			updated="6 August 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Operator</h2>
@@ -54,7 +54,7 @@ function TermsPage() {
 					Kick, YouTube, and any other platform rules that apply to your
 					broadcasts. You are responsible for activity under your VISP account
 					and for keeping credentials and devices secure. Sign-in uses Twitch,
-					Kick, and/or Google OAuth.
+					Kick, and/or Google OAuth, and Sign in with Apple on the iOS app.
 				</p>
 			</section>
 

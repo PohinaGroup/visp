@@ -24,7 +24,7 @@ function TermsPage() {
 			eyebrow="Lakiasiat"
 			title="Käyttöehdot"
 			description="Nämä ehdot koskevat VISPin verkkosivuston, hallintapaneelin, sovellusten ja suoratoiston relay-palvelujen käyttöä."
-			updated="19. heinäkuuta 2026"
+			updated="6. elokuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Palveluntarjoaja</h2>
@@ -51,7 +51,8 @@ function TermsPage() {
 					Kickin, YouTuben sekä muiden lähetykseesi sovellettavien palvelujen
 					sääntöjä. Vastaat VISP-tililläsi tapahtuvasta toiminnasta sekä
 					tunnusten ja laitteiden turvallisuudesta. Kirjautuminen käyttää
-					Twitchin, Kickin ja/tai Googlen OAuthia.
+					Twitchin, Kickin ja/tai Googlen OAuthia sekä iOS-sovelluksessa Sign in
+					with Applea.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">

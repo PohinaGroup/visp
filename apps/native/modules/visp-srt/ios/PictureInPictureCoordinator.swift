@@ -43,6 +43,9 @@ private final class PictureInPictureFrameTap: MediaMixerOutput, @unchecked Senda
   func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {}
 }
 
+// Uses AVPictureInPictureVideoCallViewController so the camera can keep
+// publishing while the app is backgrounded in PiP. That path requires the
+// `voip` UIBackgroundMode in Info.plist / app.json — do not remove it.
 @MainActor
 final class PictureInPictureCoordinator: NSObject, @preconcurrency AVPictureInPictureControllerDelegate {
   var onFailure: (() -> Void)?

@@ -15,6 +15,9 @@ export const streamScreenStyles = StyleSheet.create({
 		gap: 10,
 		marginBottom: 28,
 	},
+	// Apple's own button draws its background and label, so only the box is ours.
+	// It must stay at least as prominent as the other providers (App Store 4.8).
+	appleButton: { height: 52, marginTop: 18, width: "100%" },
 	buttonDisabled: { opacity: 0.4 },
 	buttonPressed: { transform: [{ scale: 0.98 }] },
 	container: { backgroundColor: "#07090d", flex: 1 },
@@ -258,6 +261,17 @@ export const streamScreenStyles = StyleSheet.create({
 		fontSize: 16,
 		lineHeight: 23,
 		maxWidth: 360,
+	},
+	legalLink: {
+		color: "#c4cad4",
+		fontSize: 12,
+		textDecorationLine: "underline",
+	},
+	legalText: {
+		color: "#8a93a2",
+		fontSize: 12,
+		lineHeight: 18,
+		marginTop: 18,
 	},
 	textButton: { alignItems: "flex-start", marginTop: 16, paddingVertical: 10 },
 	textButtonLabel: { color: "#c4cad4", fontSize: 15, fontWeight: "600" },

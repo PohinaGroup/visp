@@ -36,10 +36,12 @@ import { StreamInfoSheet } from "../components/stream-info-sheet";
 import { streamScreenStyles as styles } from "../components/stream-screen.styles";
 import { StreamSettingsSheet } from "../components/stream-settings-sheet";
 import {
+	type SignInProvider,
 	StreamDestinationEditor,
 	StreamLoading,
 	StreamSignIn,
 } from "../components/stream-setup";
+import { appleIdToken, isAppleCancellation } from "../lib/apple-sign-in";
 import { type AudioTier, audioTierForLevel } from "../lib/audio-level";
 import { apiClient, authCallbackURL, authClient } from "../lib/backend";
 import {
@@ -117,7 +119,7 @@ export default function Index() {
 	const [streamInfoOpen, setStreamInfoOpen] = useState(false);
 	const [selectedAudioInputId, setSelectedAudioInputId] = useState("default");
 	const [selectedZoom, setSelectedZoom] = useState(1);
-	const [signingIn, setSigningIn] = useState<"twitch" | "kick" | "google">();
+	const [signingIn, setSigningIn] = useState<SignInProvider>();
 	const [state, setState] = useState<StreamState>("idle");
 	const [preflighting, setPreflighting] = useState(false);
 	const [reconnectAttempt, setReconnectAttempt] = useState<number>();
@@ -385,10 +387,20 @@ export default function Index() {
 		}
 	}, [draft, setStreamUrl, streamOwner]);
 
-	const signIn = useCallback(async (provider: "twitch" | "kick" | "google") => {
+	const signIn = useCallback(async (provider: SignInProvider) => {
 		setSigningIn(provider);
 		setMessage(undefined);
 		try {
+			// Apple never opens a browser: the identity token is verified inline, so
+			// this result is the whole answer and the probe below does not apply.
+			if (provider === "apple") {
+				const { error } = await authClient.signIn.social({
+					idToken: await appleIdToken(),
+					provider,
+				});
+				if (error) setMessage(error.message ?? "Apple sign-in failed.");
+				return;
+			}
 			const result =
 				provider !== "kick"
 					? await authClient.signIn.social({
@@ -415,7 +427,8 @@ export default function Index() {
 					"Sign-in did not complete. If you already have a VISP account, sign in with the provider you used first, then connect this one from settings.",
 				);
 			}
-		} catch {
+		} catch (error) {
+			if (isAppleCancellation(error)) return;
 			setMessage(`${provider} sign-in failed.`);
 		} finally {
 			setSigningIn(undefined);

@@ -83,8 +83,8 @@ function DownloadPage() {
 					<ol className="list-decimal space-y-2 pl-5">
 						<li>
 							{fi
-								? "Kirjaudu Twitchillä, Kickillä tai Googlella luodaksesi VISP-tilin."
-								: "Sign in with Twitch, Kick, or Google to create your VISP account."}
+								? "Kirjaudu Twitchillä, Kickillä tai Googlella luodaksesi VISP-tilin. iPhonella voit myös käyttää Sign in with Applea."
+								: "Sign in with Twitch, Kick, or Google to create your VISP account. On iPhone you can also use Sign in with Apple."}
 						</li>
 						<li>
 							{fi

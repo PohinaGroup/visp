@@ -7,7 +7,21 @@ phone; Expo Go does not include the native SRT module.
 Start with the repository's [development guide](../../DEVELOPMENT.md) for the
 API, database, provider callbacks, and shared environment setup.
 
-Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch, Kick, or Google sign-in, the app creates and securely stores its publish URL automatically.
+Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch, Kick, Google, or Apple sign-in, the app creates and securely stores its publish URL automatically.
+
+Sign in with Apple is iOS-only and required by App Store guideline 4.8, since
+every other option is a third-party login. It uses the native sheet rather than
+a browser redirect, so it needs the **Sign In with Apple** capability enabled on
+the App ID; see the OAuth section of the [development guide](../../DEVELOPMENT.md).
+
+The iOS `voip` background mode is required for live Picture-in-Picture
+(`AVPictureInPictureVideoCallViewController`). Keep it alongside `audio`; do
+not remove it during App Review cleanups.
+
+Privacy Policy and Terms open from the sign-in screen, destination editor, and
+Account settings (`https://visp-stream.com/privacy` and `/terms`). Use those
+same URLs in App Store Connect and Play Console. For Play account deletion,
+also register `https://visp-stream.com/request-delete`.
 
 Expo SDK 57 sets the deployment target to iOS 16.4, so this app cannot retain the original iOS 15 target without downgrading Expo. The upstream libsrt 1.5.4 x86_64 simulator slice is incomplete; arm64 iPhones and Apple-silicon simulators are supported.
 

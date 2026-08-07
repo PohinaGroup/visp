@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Legal"
 			title="Privacy Policy"
 			description="This policy explains how VISP processes personal data when you use the website, dashboard, mobile apps, and related streaming relay services."
-			updated="3 August 2026"
+			updated="6 August 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Controller</h2>
@@ -57,8 +57,9 @@ function PrivacyPage() {
 				<h2>3. Data we process</h2>
 				<ul>
 					<li>
-						<strong>Account data</strong> from Twitch, Kick, or Google sign-in:
-						name, email address, profile image, and linked provider account
+						<strong>Account data</strong> from Twitch, Kick, Google, or Apple
+						(iOS) sign-in: name, email address (including Apple private relay
+						addresses when chosen), profile image, and linked provider account
 						identifiers.
 					</li>
 					<li>

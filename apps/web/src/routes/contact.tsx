@@ -24,7 +24,7 @@ function ContactPage() {
 			eyebrow="Legal"
 			title="Contact"
 			description="Company information and how to reach the team behind VISP."
-			updated="19 July 2026"
+			updated="6 August 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>Company</h2>
@@ -50,8 +50,8 @@ function ContactPage() {
 				</p>
 				<p>
 					For account deletion requests when you cannot sign in, email the same
-					address with subject “VISP account deletion” and your Twitch, Kick, or
-					Google account identifier. You can also use the{" "}
+					address with subject “VISP account deletion” and your Twitch, Kick,
+					Google, or Apple account identifier. You can also use the{" "}
 					<Link to="/request-delete">account deletion page</Link> when signed
 					in.
 				</p>

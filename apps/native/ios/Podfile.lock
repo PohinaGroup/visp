@@ -197,6 +197,8 @@ PODS:
     - GoogleUtilities/UserDefaults
     - React-Core
     - RecaptchaInterop
+  - ExpoAppleAuthentication (57.0.1):
+    - ExpoModulesCore
   - ExpoAsset (57.0.7):
     - ExpoModulesCore
   - ExpoAudio (57.0.3):
@@ -2515,6 +2517,7 @@ DEPENDENCIES:
   - "expo-dev-menu (from `../../../node_modules/.bun/expo-dev-menu@57.0.6+a61e663c5b46ab7f/node_modules/expo-dev-menu`)"
   - "expo-dev-menu-interface (from `../../../node_modules/.bun/expo-dev-menu-interface@57.0.0+a61e663c5b46ab7f/node_modules/expo-dev-menu-interface/ios`)"
   - "ExpoAdapterGoogleSignIn (from `../../../node_modules/.bun/@react-native-google-signin+google-signin@16.1.4+a61e663c5b46ab7f/node_modules/@react-native-google-signin/google-signin/expo/ios`)"
+  - "ExpoAppleAuthentication (from `../../../node_modules/.bun/expo-apple-authentication@57.0.1+a61e663c5b46ab7f/node_modules/expo-apple-authentication/ios`)"
   - "ExpoAsset (from `../../../node_modules/.bun/expo-asset@57.0.7+a61e663c5b46ab7f/node_modules/expo-asset/ios`)"
   - "ExpoAudio (from `../../../node_modules/.bun/expo-audio@57.0.3+0ac539177b5e6470/node_modules/expo-audio/ios`)"
   - "ExpoCrypto (from `../../../node_modules/.bun/expo-crypto@57.0.1+a61e663c5b46ab7f/node_modules/expo-crypto/ios`)"
@@ -2658,6 +2661,8 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/expo-dev-menu-interface@57.0.0+a61e663c5b46ab7f/node_modules/expo-dev-menu-interface/ios"
   ExpoAdapterGoogleSignIn:
     :path: "../../../node_modules/.bun/@react-native-google-signin+google-signin@16.1.4+a61e663c5b46ab7f/node_modules/@react-native-google-signin/google-signin/expo/ios"
+  ExpoAppleAuthentication:
+    :path: "../../../node_modules/.bun/expo-apple-authentication@57.0.1+a61e663c5b46ab7f/node_modules/expo-apple-authentication/ios"
   ExpoAsset:
     :path: "../../../node_modules/.bun/expo-asset@57.0.7+a61e663c5b46ab7f/node_modules/expo-asset/ios"
   ExpoAudio:
@@ -2892,6 +2897,7 @@ SPEC CHECKSUMS:
   expo-dev-menu: f76b2f016892b2659c85ad84bc6ed573e809d381
   expo-dev-menu-interface: 7a59e803916fbfd1b96c75ff91ea8dddac7e722f
   ExpoAdapterGoogleSignIn: cfc75819d7d2490488250ce5634f57f92c60a2b8
+  ExpoAppleAuthentication: 97d113f0f2680067e6e76d3c9249e7e1fc026b42
   ExpoAsset: 98143758ff37e14c9ff2a4e7673097db00473011
   ExpoAudio: b69f36525132edba8d87a715b3a20c678ef78b30
   ExpoCrypto: 366380ffafeb22cc9795438cddcbfa299e1aaf42

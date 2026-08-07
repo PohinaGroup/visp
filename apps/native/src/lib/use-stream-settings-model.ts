@@ -11,6 +11,7 @@ import type {
 import type { ChatSettings } from "../components/stream-settings-chat-section";
 import type { StreamSettingsSheetProps } from "../components/stream-settings-sheet";
 import { authClient } from "./backend";
+import { confirmDestructive } from "./platform";
 import type { useStreamAccount } from "./use-stream-account";
 import type { useStreamSpeechFeatures } from "./use-stream-speech-features";
 
@@ -86,6 +87,33 @@ export function useStreamSettingsModel({
 			? {
 					...sessionUser,
 					linkedAccounts: streamAccount.linkedAccounts,
+					onDeleteAccount: () => {
+						confirmDestructive(
+							"Delete your VISP account?",
+							"This permanently removes your account, its publish destinations, and its stored snapshots.",
+							"Delete",
+							async () => {
+								setIsPresented(false);
+								await camera?.stop();
+								const { error } = await authClient.deleteUser();
+								if (error) {
+									// Better Auth refuses to delete from a session older than
+									// a day, which a phone left signed in always is. Every
+									// other 400 carries its own message, so match the code.
+									showToast(
+										error.code === "SESSION_EXPIRED"
+											? "Sign out and sign back in, then delete the account."
+											: (error.message ?? "Account deletion failed."),
+									);
+									return;
+								}
+								// The server session is already gone, so this request will
+								// fail — but the Expo client clears the stored cookie before
+								// sending it, which is the part that matters here.
+								await authClient.signOut().catch(() => undefined);
+							},
+						);
+					},
 					onSignOut: () => {
 						setIsPresented(false);
 						void (async () => {

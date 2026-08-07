@@ -15,6 +15,13 @@ import {
 import { fetchKickAuthUser } from "./kick-user-info";
 import { adminAccess, adminRoles } from "./permissions";
 
+/**
+ * Audience for Apple identity tokens. A public identifier rather than a secret,
+ * so it stays here next to the other provider wiring instead of in the env
+ * schema; keep it equal to `ios.bundleIdentifier` in apps/native/app.json.
+ */
+const APPLE_BUNDLE_IDENTIFIER = "com.pohinagroup.visp";
+
 export const adminUserIds = env.ADMIN_USER_IDS.split(",")
 	.map((id) => id.trim())
 	.filter(Boolean);
@@ -96,6 +103,15 @@ export function createAuth() {
 			},
 		},
 		socialProviders: {
+			// App Store guideline 4.8: the iOS app offers only third-party logins, so
+			// it must offer this one too. It is native-only — the phone sends an
+			// identity token straight from ASAuthorization, so verification needs the
+			// bundle identifier as the audience and never the Services ID or the
+			// .p8-signed client secret the browser redirect flow would require.
+			apple: {
+				appBundleIdentifier: APPLE_BUNDLE_IDENTIFIER,
+				clientId: APPLE_BUNDLE_IDENTIFIER,
+			},
 			google: {
 				clientId: env.GOOGLE_CLIENT_ID,
 				clientSecret: env.GOOGLE_CLIENT_SECRET,

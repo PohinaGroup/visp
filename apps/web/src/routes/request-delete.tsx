@@ -132,8 +132,8 @@ function RequestDelete() {
 					<ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
 						<li>
 							{fi
-								? "Kirjaudu VISPiin yhdistetyllä Twitch-, Kick- tai Google-tilillä."
-								: "Sign in with a Twitch, Kick, or Google account connected to VISP."}
+								? "Kirjaudu VISPiin yhdistetyllä Twitch-, Kick- tai Google-tilillä. Pelkällä Apple-tilillä kirjaudu sähköpostilla alla."
+								: "Sign in with a Twitch, Kick, or Google account connected to VISP. Apple-only accounts: use the email path below."}
 						</li>
 						<li>
 							{fi
@@ -227,8 +227,8 @@ function RequestDelete() {
 					<ul className="flex list-disc flex-col gap-2 pl-5 text-sm">
 						<li>
 							{fi
-								? "VISP-profiilisi: nimi, sähköpostiosoite, profiilikuva sekä yhdistetyt Twitch-, Kick- tai Google-tilit ja tunnisteet"
-								: "Your VISP profile, including name, email address, profile image, and linked Twitch, Kick, or Google accounts and tokens"}
+								? "VISP-profiilisi: nimi, sähköpostiosoite, profiilikuva sekä yhdistetyt Twitch-, Kick-, Google- tai Apple-tilit ja tunnisteet"
+								: "Your VISP profile, including name, email address, profile image, and linked Twitch, Kick, Google, or Apple accounts and tokens"}
 						</li>
 						<li>
 							{fi
@@ -292,8 +292,8 @@ function RequestDelete() {
 					{legalEntity.email}
 				</a>{" "}
 				{fi
-					? `(${legalEntity.companyName}). Liitä viestiin Twitch-, Kick- tai Google-tilisi tunniste ja käytä aihetta ”VISP account deletion”. Katso myös `
-					: `(${legalEntity.companyName}) with your Twitch, Kick, or Google account identifier and the subject “VISP account deletion.” See also `}
+					? `(${legalEntity.companyName}). Liitä viestiin Twitch-, Kick-, Google- tai Apple-tilisi tunniste ja käytä aihetta ”VISP account deletion”. Katso myös `
+					: `(${legalEntity.companyName}) with your Twitch, Kick, Google, or Apple account identifier and the subject “VISP account deletion.” See also `}
 				<Link
 					className="text-foreground underline underline-offset-4"
 					to={fi ? "/fi/contact" : "/contact"}

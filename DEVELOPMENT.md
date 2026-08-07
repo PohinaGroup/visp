@@ -92,6 +92,19 @@ Kick:   https://api.visp.localhost/api/auth/oauth2/callback/kick
 Google: http://localhost:3000/api/auth/google-local-callback
 ```
 
+Apple needs no callback URL. It runs only in the iOS app, which hands Better
+Auth an identity token straight from the native sheet, so there is no browser
+redirect, no Services ID, and no `.p8` client secret. The one setup step lives
+outside this repo: enable the **Sign In with Apple** capability on App ID
+`com.pohinagroup.visp` in the Apple Developer portal, or the entitlement that
+`ios.usesAppleSignIn` generates will fail to sign. The audience Better Auth
+verifies against is the bundle identifier hardcoded in `packages/auth/src/index.ts`;
+keep it equal to `ios.bundleIdentifier` in `apps/native/app.json`.
+
+The native iOS app keeps `voip` in `UIBackgroundModes` for live Picture-in-Picture
+via `AVPictureInPictureVideoCallViewController`. That is intentional; do not
+remove it when scrubbing unused background modes for App Review.
+
 ### Google and YouTube credentials
 
 1. Open [Google Cloud Console](https://console.cloud.google.com/), create or

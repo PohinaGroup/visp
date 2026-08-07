@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Lakiasiat"
 			title="Tietosuojaseloste"
 			description="Tässä selosteessa kuvataan, miten VISP käsittelee henkilötietoja käyttäessäsi verkkosivustoa, hallintapaneelia, mobiilisovelluksia ja suoratoiston relay-palveluja."
-			updated="3. elokuuta 2026"
+			updated="6. elokuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Rekisterinpitäjä</h2>
@@ -52,9 +52,10 @@ function PrivacyPage() {
 				<h2>3. Käsittelemämme tiedot</h2>
 				<ul>
 					<li>
-						<strong>Tilitiedot</strong> Twitch-, Kick- tai
-						Google-kirjautumisesta: nimi, sähköpostiosoite, profiilikuva ja
-						yhdistetyn palvelutilin tunnisteet.
+						<strong>Tilitiedot</strong> Twitch-, Kick-, Google- tai
+						Apple-kirjautumisesta (iOS): nimi, sähköpostiosoite (mukaan lukien
+						Applen yksityinen välityssähköposti, jos valitset sen), profiilikuva
+						ja yhdistetyn palvelutilin tunnisteet.
 					</li>
 					<li>
 						<strong>Todennustiedot</strong>: turvallisesti tallennetut

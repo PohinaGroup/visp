@@ -24,7 +24,7 @@ function ContactPage() {
 			eyebrow="Lakiasiat"
 			title="Yhteystiedot"
 			description="Yrityksen tiedot ja yhteydenotto VISP-tiimiin."
-			updated="19. heinäkuuta 2026"
+			updated="6. elokuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>Yritys</h2>
@@ -49,8 +49,8 @@ function ContactPage() {
 				</p>
 				<p>
 					Jos et voi kirjautua sisään ja haluat poistaa tilisi, lähetä samaan
-					osoitteeseen viesti aiheella ”VISP-tilin poistaminen” sekä Twitch- tai
-					Kick-käyttäjänimesi. Kirjautuneena voit käyttää myös{" "}
+					osoitteeseen viesti aiheella ”VISP-tilin poistaminen” sekä Twitch-,
+					Kick-, Google- tai Apple-tunnisteesi. Kirjautuneena voit käyttää myös{" "}
 					<Link to="/request-delete" search={{ lang: "fi" }}>
 						tilin poistosivua
 					</Link>
