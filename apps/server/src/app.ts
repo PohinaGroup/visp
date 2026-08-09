@@ -39,6 +39,9 @@ export const LOG_REDACTION_PATHS = [
 	// VISP Direct destination URLs embed the platform stream key.
 	"**.destinations",
 	"**.stream_key",
+	// Presigned BRB card URLs are bearer credentials for the object store.
+	"**.backgroundUrl",
+	"**.imageUrl",
 ];
 
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {

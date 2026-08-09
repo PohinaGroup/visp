@@ -20,7 +20,7 @@ OBS — follow [Get started](/docs/get-started).
 | Browser app | Current Chrome, Edge, or Safari at `stream.visp-stream.com` | WebRTC (H.264/Opus) |
 
 The iOS build ships through the `VISP Internal` TestFlight group and Android
-through Play internal testing. Client links live on
+through Google Play. Client links live on
 [visp-stream.com/download](https://visp-stream.com/download). The browser app
 is a static site served by the app host; it publishes over WHIP through the
 relay's WebRTC port.
@@ -64,6 +64,8 @@ exactly as before.
 - **Floating chat** overlays Twitch, Kick, and YouTube messages on the capture screen.
   Kick messages arrive through the server's webhook subscription, so they work
   without keeping a Kick tab open anywhere.
+- **OBS chat overlay** stays blank until a chat message arrives; append `&debug=1`
+  to its Browser Source URL to show connection status.
 - **Viewer counts** show the current audience for each selected Direct output.
   A dash means the provider did not expose a current count.
 - **Stream info sheet** edits the title and metadata on the provider without

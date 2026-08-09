@@ -4,6 +4,12 @@ import { useEffect, useState } from "react";
 import { MeterMark } from "@/components/meter-mark";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { authClient } from "@/lib/auth-client";
+import {
+	COMPARISON_CHECKED,
+	comparisonProducts,
+	comparisonRows,
+	comparisonRowsFi,
+} from "@/lib/comparison";
 import { type Locale, landingHead, localeSearch } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import { scheduleLandingSeppoAutoOpen } from "@/lib/seppo-landing";
@@ -13,7 +19,8 @@ export const Route = createFileRoute("/")({
 		landingHead(
 			"en",
 			"VISP — IRL Streaming to Twitch, Kick & YouTube from Phone or OBS",
-			"VISP streams from a phone or browser straight to Twitch, Kick, or YouTube. Add OBS when you need monitoring, recording, or scenes.",
+			"VISP streams from a phone or browser straight to Twitch, Kick, or YouTube, with no computer running at home. Free during beta, where cloud IRL services bill $120–180 a month.",
+			faq,
 		),
 	component: () => <HomeComponent locale="en" />,
 });
@@ -197,7 +204,7 @@ const stepsFi = [
 	},
 ];
 
-const faq = [
+export const faq = [
 	{
 		q: "Do I need OBS to stream with VISP?",
 		a: "No. Direct takes the phone or browser feed to Twitch, Kick, or YouTube on its own. OBS is there for the sessions where you want monitoring, recording, scenes, or multi-camera production — it is an addition, never a requirement.",
@@ -224,7 +231,7 @@ const faq = [
 	},
 ];
 
-const faqFi = [
+export const faqFi = [
 	{
 		q: "Tarvitsenko OBS:n VISPin kanssa?",
 		a: "Et. Direct vie puhelimen tai selaimen syötteen Twitchiin, Kickiin tai YouTubeen ilman muuta ohjelmistoa. OBS on niitä lähetyksiä varten, joissa haluat valvontaa, tallennusta, kohtauksia tai monikameratuotantoa — se on lisä, ei vaatimus.",
@@ -286,6 +293,62 @@ const LANDING_SEPPO_SUGGESTIONS = [
 
 const eyebrow =
 	"font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground";
+
+function ComparisonTable({ locale }: { locale: Locale }) {
+	const fi = locale === "fi";
+	const rows = fi ? comparisonRowsFi : comparisonRows;
+	return (
+		// A real <table>: crawlers and answer engines parse it, a grid of divs
+		// they do not.
+		<div className="mt-12 overflow-x-auto">
+			<table className="w-full min-w-[860px] border-collapse border border-border text-left text-sm">
+				<caption className="sr-only">
+					{fi
+						? "VISPin, IRLToolkitin, Streamable.runin, IRLServerin ja BELABOXin vertailu"
+						: "VISP compared with IRLToolkit, Streamable.run, IRLServer, and BELABOX"}
+				</caption>
+				<thead>
+					<tr>
+						<th scope="col" className="border-border border-b p-4" />
+						{comparisonProducts.map((product, i) => (
+							<th
+								key={product}
+								scope="col"
+								className={`border-border border-b p-4 font-display font-semibold text-base uppercase tracking-tight ${
+									i === 0 ? "bg-card" : "text-muted-foreground"
+								}`}
+							>
+								{product}
+							</th>
+						))}
+					</tr>
+				</thead>
+				<tbody>
+					{rows.map((row) => (
+						<tr key={row.label}>
+							<th
+								scope="row"
+								className="border-border border-b p-4 font-mono font-normal text-muted-foreground text-xs uppercase tracking-[0.2em]"
+							>
+								{row.label}
+							</th>
+							{row.cells.map((cell, i) => (
+								<td
+									key={comparisonProducts[i]}
+									className={`border-border border-b p-4 align-top leading-relaxed ${
+										i === 0 ? "bg-card font-medium" : "text-muted-foreground"
+									}`}
+								>
+									{cell}
+								</td>
+							))}
+						</tr>
+					))}
+				</tbody>
+			</table>
+		</div>
+	);
+}
 
 export function HomeComponent({ locale }: { locale: Locale }) {
 	const [seppoOpen, setSeppoOpen] = useState(false);
@@ -527,6 +590,27 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 								</li>
 							))}
 						</ol>
+					</section>
+
+					{/* Comparison */}
+					<section id="compare" className="border-border border-t py-20">
+						<span className={eyebrow}>{fi ? "Vertailu" : "Comparison"}</span>
+						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
+							{fi
+								? "Ilmainen, eikä kotikonetta tarvita"
+								: "Free, and no PC at home"}
+						</h2>
+						<p className="mt-6 max-w-2xl text-muted-foreground leading-relaxed">
+							{fi
+								? "Pilvipohjaiset IRL-palvelut maksavat 120–180 dollaria kuukaudessa ja olettavat, että haluat niiden OBS:n. Pelkät relay-palvelut ovat halvempia, mutta jättävät koneen pyörimään kotiin. VISP on betan ajan ilmainen eikä tarvitse kumpaakaan. Jos tarvitset oikeaa mobiiliyhteyksien niputusta jo tänään, BELABOX tai SRTLA-syötteen tukeva pilvipalvelu on yhä parempi valinta."
+								: "Cloud IRL services run $120–180 a month and assume you want their OBS. Relay-only services are cheaper but leave a machine running at home. VISP is free during the beta and needs neither. If you need real cellular bonding today, BELABOX or a cloud service with SRTLA ingest is still the better buy."}
+						</p>
+						<ComparisonTable locale={locale} />
+						<p className="mt-6 font-mono text-muted-foreground text-xs">
+							{fi
+								? `Julkiset listahinnat, tarkistettu ${COMPARISON_CHECKED}.`
+								: `Public list prices, checked ${COMPARISON_CHECKED}.`}
+						</p>
 					</section>
 
 					{/* FAQ */}

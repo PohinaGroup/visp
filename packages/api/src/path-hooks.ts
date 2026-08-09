@@ -6,7 +6,7 @@ import {
 	relayStreamSession,
 } from "@VISP/db/schema/index";
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
-import { stopDirectForPaths } from "./direct";
+import { handleSourceGone } from "./brb";
 import { CLEARED_LINK_STATS } from "./link-stats";
 
 export async function applyPathHook(
@@ -41,7 +41,9 @@ export async function applyPathHook(
 						publishing,
 						sourceType: publishing ? input.sourceType : null,
 						lastEventAt: now,
-						...(publishing ? {} : CLEARED_LINK_STATS),
+						// The publisher is back, so the card comes down and the next
+						// drop starts its own BRB window rather than inheriting this one.
+						...(publishing ? { brbSince: null } : CLEARED_LINK_STATS),
 					},
 				});
 			if (publishing) {
@@ -65,9 +67,9 @@ export async function applyPathHook(
 					);
 			}
 		});
-		// The source is gone, so no forwarder can still be running against it.
-		// Leaving them counted would hold slots against the concurrency cap.
-		if (!publishing) await stopDirectForPaths([path.id]);
+		// The source is gone. Forwarders either hold the broadcast open on the
+		// BRB card or get torn down so their slots stop counting.
+		if (!publishing) await handleSourceGone([path.id]);
 		return true;
 	}
 
@@ -167,6 +169,7 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 						linkRttMs: sql`case when excluded.publishing then ${pathState.linkRttMs} else null end`,
 						linkPacketLossPct: sql`case when excluded.publishing then ${pathState.linkPacketLossPct} else null end`,
 						linkStatsAt: sql`case when excluded.publishing then ${pathState.linkStatsAt} else null end`,
+						brbSince: sql`case when excluded.publishing then null else ${pathState.brbSince} end`,
 					},
 				});
 		}
@@ -216,8 +219,9 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 			);
 	});
 
-	// A missed not-ready hook must free Direct capacity too.
-	await stopDirectForPaths(stoppedIds);
+	// A missed not-ready hook must free Direct capacity too — through the same
+	// helper, or this poll would tear down a BRB card the hook just raised.
+	await handleSourceGone(stoppedIds);
 }
 
 export async function reconcilePathState(apiUrl?: string) {

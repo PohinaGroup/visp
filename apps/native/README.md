@@ -72,7 +72,7 @@ bun run --cwd apps/native check-types
 
 The production application identifier is `com.pohinagroup.visp` on both
 platforms. The EAS workflow at `.eas/workflows/release.yml` can build both
-production binaries, submit Android to Play internal testing, and distribute
+production binaries, submit Android to Google Play production, and distribute
 iOS to the `VISP Internal` TestFlight group. The stable GitHub Release workflow
 does not currently invoke it; mobile releases are started separately until the
 commented EAS job in `.github/workflows/release.yml` is enabled. It does not

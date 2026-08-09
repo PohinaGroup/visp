@@ -52,7 +52,7 @@ feed, not the distribution encode delivered to viewers.
 
 ### Phone app
 
-Install the iOS (TestFlight) or Android (Play internal) build from the
+Install the iOS (TestFlight) or Android (Google Play) build from the
 [download page](https://visp-stream.com/download). Sign in with the same Twitch,
 Kick, or Google account. The app creates a publishing device for that phone
 automatically.
@@ -72,6 +72,9 @@ With the phone or browser live, select the imported device scene in OBS. The
 Media Source should show your camera feed. If the preview is black, wait a few
 seconds for SRT/WebRTC to connect, then check that the matching video source is
 live in the dashboard.
+
+The OBS chat overlay Browser Source stays blank until a chat message arrives;
+append `&debug=1` to its URL to show connection status.
 
 ### Control optional OBS from your phone
 

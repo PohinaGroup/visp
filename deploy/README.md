@@ -68,6 +68,26 @@ disconnecting either side behaves as expected. Only then install
    DIRECT_VIDEO_FPS=30
    ```
 
+	When a customer enables "never drop again", a dropped ingest keeps its
+	forwarders running against the same destination and swaps the live encode
+	for their BRB card. The defaults below need no changes; the font must exist
+	or the card renders without its message:
+
+   ```text
+   BRB_WIDTH=1920
+   BRB_HEIGHT=1080
+   BRB_FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+   BRB_TICK_SECONDS=15
+   BRB_MAX_SECONDS=21600
+   ```
+
+	`BRB_MAX_SECONDS` is a stuck-process ceiling, not a product limit: the app
+	answers every tick and owns the stop decision. A held card occupies an
+	encoder slot exactly like a live forwarder, so size the cap below with the
+	worst case in mind. The forwarders keep their locks, the publisher marker
+	and the card background in `/run/visp`, created by `RuntimeDirectory=visp`
+	in the MediaMTX unit; restarting MediaMTX ends every held card.
+
 	The matching per-relay cap is configured in the admin console. The
 	bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
 	Twitch + Kick on one source counts as two.

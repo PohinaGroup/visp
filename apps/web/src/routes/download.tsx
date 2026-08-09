@@ -19,16 +19,34 @@ export const Route = createFileRoute("/download")({
 	validateSearch: z.object({
 		lang: z.literal("fi").optional(),
 	}),
-	head: () => ({
-		meta: [
-			{ title: "Download & beta access — VISP" },
-			{
-				name: "description",
-				content:
-					"Use VISP Direct from the phone app or browser, with the OBS plugin available as an optional source.",
-			},
-		],
-	}),
+	head: () => {
+		const title = "Download & beta access — VISP";
+		const description =
+			"Use VISP Direct from the phone app or browser, with the OBS plugin available as an optional source.";
+		const canonical = `${legalEntity.siteUrl}/download`;
+		const image = `${legalEntity.siteUrl}/og-card.png`;
+		// The Finnish variant is ?lang=fi on this same path, so there is no
+		// alternate URL to declare — canonical only.
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:type", content: "website" },
+				{ property: "og:site_name", content: "VISP" },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: canonical },
+				{ property: "og:image", content: image },
+				{ property: "og:image:width", content: "1200" },
+				{ property: "og:image:height", content: "630" },
+				{ name: "twitter:card", content: "summary_large_image" },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:image", content: image },
+			],
+			links: [{ rel: "canonical", href: canonical }],
+		};
+	},
 	loader: () => getObsPluginRelease(),
 	component: DownloadPage,
 });
@@ -205,23 +223,23 @@ function DownloadPage() {
 							<CardTitle>{fi ? "Android-sovellus" : "Android app"}</CardTitle>
 							<CardDescription>
 								{fi
-									? "Astetta helpompi tapa striimata Android-puhelimelta. Android 7+ Playn avoimessa testauksessa. SRT-julkaisu fyysiseltä laitteelta."
-									: "A bit easier way to stream from mobile. Android 7+ via Play open testing. SRT publish from a physical device."}
+									? "Astetta helpompi tapa striimata Android-puhelimelta. Android 7+ Google Playssa. SRT-julkaisu fyysiseltä laitteelta."
+									: "A bit easier way to stream from mobile. Android 7+ on Google Play. SRT publish from a physical device."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
 								{fi
-									? "Liity avoimeen testausohjelmaan millä tahansa Google-tilillä ja asenna VISP Google Playsta."
-									: "Join the open testing program with any Google account, then install VISP from Google Play."}
+									? "Asenna VISP Google Playsta millä tahansa Google-tilillä."
+									: "Install VISP from Google Play with any Google account."}
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
-								href={legalEntity.androidPlayTestingUrl}
+								href={legalEntity.androidPlayStoreUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
-								{fi ? "Liity Google Playssa" : "Join on Google Play"}
+								{fi ? "Asenna Google Playsta" : "Get it on Google Play"}
 							</a>
 						</CardContent>
 					</Card>

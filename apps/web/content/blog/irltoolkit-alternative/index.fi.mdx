@@ -1,0 +1,117 @@
+---
+title: "IRLToolkitin vaihtoehdot: mistä maksat ja milloin ilmainen riittää"
+description: "Vertaa IRLToolkitin pilvi-OBS:n hintaa halvempiin relay-palveluihin ja ilmaisiin vaihtoehtoihin ja löydä lähetystapa, joka sopii omaan tekemiseesi."
+publishedAt: 2026-08-09
+coverAlt: "Hintavertailukortti, jossa VISPin signaaliketju kulkee puhelimesta relayn ja Directin kautta suoratoistopalveluun"
+---
+
+[IRLToolkit](https://irltoolkit.com/) maksaa **129 dollaria kuukaudessa**
+Standard-tasolla ja **179** Advanced-tasolla. Hinnalla saat hallitun pilvi-OBS:n,
+SRTLA-syötteen, katkosuojan ja hallintapaneelin, jota moderaattorisi voi ajaa
+sinun ollessasi ulkona. Se on oikea tuote oikeaan ongelmaan, ja päätoimiselle
+IRL-tekijälle hinta on usein perusteltu.
+
+Se on myös väärä ostos monelle, joka sen tekee. **Valitse pilvi-OBS-palvelu, kun
+tarvitset kohtauksia, grafiikoita ja moderaattorin ohjausta ollessasi kaukana
+koneelta. Valitse jotain halvempaa, kun tarvitset oikeasti vain sen, että
+puhelimen kamera saapuu Twitchiin luotettavasti.**
+
+Tämä teksti auttaa erottamaan nuo kaksi tilannetta toisistaan.
+
+## Lyhyt vertailu
+
+| | VISP | IRLToolkit | Streamable.run | IRLServer | BELABOX |
+| --- | --- | --- | --- | --- | --- |
+| Hinta | Ilmainen betan ajan | 129–179 $ / kk | 120–180 $ / kk | 10–20 $ / kk | Laitteisto + oma palvelin |
+| Kotikone | Ei tarvita | Ei tarvita — pilvi-OBS | Ei tarvita — pilvi-OBS | Tarvitaan — ajat OBS:n itse | Tarvitaan — ajat OBS:n itse |
+| Puhelinsovellus mukana | iOS, Android, selain | Oma encoder | Oma encoder | Oma encoder | Oma laitteistoencoder |
+| Mobiiliyhteyksien niputus | Ei — vain pakettien monistus | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA, oma protokolla |
+| Kohtaukset ja grafiikat | Oma OBS, valinnainen | Pilvi-OBS mukana | Pilvi-OBS mukana | Oma OBS | Oma OBS |
+| Lähdekoodi | GPL-2.0, itse ylläpidettävä | Suljettu | Suljettu | Suljettu | Avoin lähdekoodi |
+
+Julkiset listahinnat, tarkistettu 9. elokuuta 2026.
+
+Lue niputusrivi ennen hintariviä. Jos liikut alueilla, joissa kuuluvuus on
+katkonaista, ja tarvitset kahden mobiiliyhteyden yhdistämistä yhdeksi
+käyttökelpoiseksi kaistaksi, maksulliset palvelut ja BELABOX tekevät jotain mitä
+VISP ei tee — eikä hintaero muuta sitä. Siirry kohtaan
+[milloin maksaminen kannattaa](#milloin-maksaminen-kannattaa).
+
+## Mitä 129 dollarilla oikeasti saa
+
+Kolme asiaa, ja ne kannattaa erottaa, koska useimmat tarvitsevat vain yhden.
+
+**Koneen, jota et omista.** Pilvi-OBS tarkoittaa, että OBS pyörii jonkun toisen
+koneella, joten kotikoneesi voi olla sammuksissa. Tämä on se osa, jota useimmat
+ostajat oikeasti hakevat — eikä se enää vaadi kuukausimaksua.
+
+**Kohtaukset, grafiikat ja alertit.** Täysi OBS pilvessä antaa aloitusruudut,
+chat-päällykset, sponsorilogot ja kohtausvaihdot, joita voi ohjata puhelimesta
+tai moderaattorin toimesta. Jos ohjelmassasi on tuotantoarvoa kameran lisäksi,
+tämä on syy maksaa.
+
+**SRTLA-niputus ja katkosuoja.** Useita verkkoyhteyksiä yhdistettynä ja
+odotusruutu, kun syöte kuolee. Tekijälle, jonka toimeentulo on lähetys ja jonka
+reitti on arvaamaton, tämä on vakuutus eikä ylellisyyttä.
+
+## Mitä VISP tekee sen sijaan
+
+VISP siirtää koodauksen relayhin eikä pilvi-OBS:ään. Puhelin tai selain lähettää
+yhden syötteen, relay koodaa sen jakelua varten ja toimittaa suoraan Twitchiin,
+Kickiin tai YouTubeen. Kotikone pysyy sammuksissa, eikä polulla ole OBS:ää ellet
+itse halua.
+
+Tämä kattaa listan ensimmäisen kohdan, ja kattaa sen ilmaiseksi betan ajan. Se ei
+anna pilvikohtauksia eikä yhdistä kaistaa.
+
+Kaksi asiaa, joita maksulliset palvelut eivät tee:
+
+- **Puhelinsovellus kuuluu tuotteeseen.** iOS, Android ja selainjulkaisija sen
+  sijaan että määrittäisit Larixin tai Moblinin itse. Lisätiedot
+  [puhelinsovelluksen ohjeissa](https://docs.visp-stream.com/docs/phone-app).
+- **Lähetysavain ei koskaan päädy laitteelle.** VISP hakee valtuutetut
+  alustatunnukset palvelimella lähdön käynnistyessä eikä palauta niitä
+  julkaisijalle. Kadonnut tai lainattu puhelin ei vuoda avaintasi. Vertaa tätä
+  avaimen liittämiseen kolmannen osapuolen encoderiin, kuten artikkelissa
+  [etävieraan lisääminen OBS:ään ilman lähetysavainta](/blog/remote-guest-obs-without-stream-key).
+
+Jos haluat myöhemmin kohtauksia, saman syötteen voi lukea omaan OBS:ään
+häiritsemättä alustalle menevää koodausta. Se on
+[puhelin etäkamerana](/blog/use-phone-as-remote-camera-obs) -työnkulku, ja se on
+lisä eikä eri tuote.
+
+## Milloin maksaminen kannattaa
+
+Ole rehellinen siitä, mitkä näistä kuvaavat sinua:
+
+- **Tarvitset oikeaa niputusta jo tänään.** Kaksi tai useampi mobiiliyhteys
+  yhdistettynä, ei monistettuna. BELABOX tai SRTLA-palvelu on vastaus. VISPin
+  natiivisovellus voi monistaa paketit Wi-Fin ja mobiiliyhteyden yli, mikä kestää
+  toisen katkeamisen, mutta kaksi puolinopeaa yhteyttä eivät summaudu yhdeksi
+  nopeaksi.
+- **Moderaattori ajaa tuotantoasi kun kävelet.** Pilvi-OBS hallintapaneelilla on
+  rakennettu juuri tähän.
+- **Ohjelmasi on kohtausvetoinen etkä ole koskaan lähellä konetta.** Pilvi-OBS.
+- **Katkot maksavat sinulle rahaa.** Maksullinen katkosuoja ja tukisopimus ovat
+  129 dollarin arvoisia päätoimiselle tekijälle, ja laskelma on eri kuin
+  harrastajalla.
+
+## Milloin ilmainen riittää
+
+- Puhelin on koko ohjelma — kävely, ajelu, tapahtuma tai puhuva pää.
+- Haluat *kokeilla* IRL-lähettämistä ennen kuin sitoudut kuukausimaksuun.
+- Sinulla on jo OBS kotona ja tarvitset vain kameran saapuvan luotettavasti.
+- Haluat lähettää Twitchiin, Kickiin ja YouTubeen ilman kotona pyörivää konetta,
+  eli [ilman kotikonetta](/blog/stream-to-twitch-without-a-pc) -työnkulun.
+
+## Vaihtaminen tai pelkkä testaaminen
+
+Mikään tässä ei vaadi päätöstä etukäteen. Valtuuta alusta kerran, julkaise
+puhelinsovelluksesta tai selaimesta ja katso, onko puuttuvilla paloilla oikeasti
+merkitystä sinun ohjelmassasi. Jos on, maksulliset palvelut ovat yhä olemassa, ja
+tiedät täsmälleen minkä ominaisuuden ostat sen sijaan että arvaisit.
+
+Jos osoittautuu että tarvitset niputusta, käytämme mieluummin rahasi BELABOXiin
+kuin meihin — se on todellinen kyky jota meillä ei vielä ole, ja
+[vertailumme BELABOXista ja LiveU Solosta](/blog/visp-vs-belabox-vs-liveu-solo)
+käy läpi kummankin paikan.

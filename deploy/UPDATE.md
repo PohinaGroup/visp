@@ -142,7 +142,7 @@ return to that origin, and WebRTC through the configured relay. At
 account and receives live OBS state. At `docs.visp-stream.com`, check `/docs`,
 `/api/search`, `/llms.txt`, and `/llms-full.txt`.
 
-In Expo, confirm Android reached Play internal testing and iOS reached the
+In Expo, confirm Android reached Google Play production and iOS reached the
 `VISP Internal` TestFlight group only when the EAS release job is enabled. In
 the GitHub Release, confirm Windows, macOS, and Ubuntu OBS packages are present,
 the macOS package is notarized, and every package matches `SHA256SUMS.txt`.

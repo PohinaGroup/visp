@@ -1,5 +1,6 @@
 import "./test-env";
 
+import { brbTick, stopBrb } from "@VISP/api/brb";
 import {
 	publishInvalidation,
 	subscribeInvalidations,
@@ -1518,6 +1519,8 @@ integration("VISP Direct boundaries", () => {
 	}
 
 	let youtubeBroadcastCreates = 0;
+	// Completing a broadcast cannot be undone, so BRB must never trigger one.
+	let youtubeBroadcastCompletes = 0;
 	const providerFetch = (async (
 		input: Parameters<typeof fetch>[0],
 		init?: RequestInit,
@@ -1571,6 +1574,11 @@ integration("VISP Direct boundaries", () => {
 		}
 		if (url.includes("/liveBroadcasts/bind"))
 			return Response.json({ id: "youtube-broadcast" });
+		if (url.includes("/liveBroadcasts/transition")) {
+			if (url.includes("broadcastStatus=complete"))
+				youtubeBroadcastCompletes += 1;
+			return Response.json({ id: "youtube-broadcast" });
+		}
 		return new Response(null, { status: 404 });
 	}) as typeof fetch;
 
@@ -1963,5 +1971,151 @@ integration("VISP Direct boundaries", () => {
 			.where(eq(pathState.pathId, data.pathA.id));
 		expect(state?.directTwitchState).toBe("stopped");
 		expect(state?.directKickState).toBe("stopped");
+	});
+
+	// "Never drop again": the ingest going away must not end the broadcast.
+	async function seedLiveBrb() {
+		const data = await seedDirect();
+		await db.update(relay).set({ maxForwarders: 3 });
+		await db
+			.update(appUser)
+			.set({
+				directTwitch: true,
+				directYoutube: true,
+				brbEnabled: true,
+				brbMessage: "  Back in five  ",
+			})
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true, directYoutube: true })
+			.where(eq(relayPath.id, data.pathA.id));
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		return data;
+	}
+
+	const stateFor = async (pathId: number) =>
+		(await db.select().from(pathState).where(eq(pathState.pathId, pathId)))[0];
+
+	test("a dropped ingest holds the broadcast instead of ending it", async () => {
+		youtubeBroadcastCompletes = 0;
+		globalThis.fetch = providerFetch;
+		const data = await seedLiveBrb();
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.publishing).toBe(false);
+		expect(state?.brbSince).not.toBeNull();
+		// Not "stopped": the forwarders are still up, holding the card.
+		expect(state?.directTwitchState).toBe("starting");
+		// Completing this is irreversible, which is the whole risk of the feature.
+		expect(state?.directYoutubeBroadcastId).toBe("youtube-broadcast");
+		expect(youtubeBroadcastCompletes).toBe(0);
+	});
+
+	test("a repeated source-gone signal cannot tear down a raised card", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const first = await stateFor(data.pathA.id);
+
+		// The 10s reconciler keeps seeing the same missing path and routes
+		// through the same helper, so a second signal must change nothing.
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const second = await stateFor(data.pathA.id);
+		expect(second?.brbSince?.getTime()).toBe(first?.brbSince?.getTime());
+		expect(second?.directYoutubeBroadcastId).toBe("youtube-broadcast");
+	});
+
+	test("a tick keeps the encoder slot reserved and reports the card", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		await db
+			.update(pathState)
+			.set({ directTwitchReservedUntil: new Date(Date.now() - 1) })
+			.where(eq(pathState.pathId, data.pathA.id));
+
+		const tick = await brbTick("alpha-1", "twitch", {
+			presign: async () => "https://objects.test/signed",
+		});
+
+		expect(tick).toEqual({
+			stop: false,
+			message: "Back in five",
+			backgroundUrl: "https://objects.test/signed",
+		});
+		const state = await stateFor(data.pathA.id);
+		expect(state?.directTwitchState).toBe("brb");
+		// A held forwarder still burns a slot; letting the reservation lapse
+		// would hand its capacity to someone else while it is still encoding.
+		expect(state?.directTwitchReservedUntil?.getTime()).toBeGreaterThan(
+			Date.now(),
+		);
+	});
+
+	test("the dashboard stop ends the card on the next tick", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		expect(await stopBrb("user-a", data.pathA.id)).toBe(true);
+
+		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
+		expect((await stateFor(data.pathA.id))?.brbSince).toBeNull();
+	});
+
+	test("another user cannot stop this stream", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		expect(await stopBrb("user-b", data.pathA.id)).toBe(false);
+		expect((await stateFor(data.pathA.id))?.brbSince).not.toBeNull();
+	});
+
+	test("the publisher coming back clears the card", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+
+		// A stale marker would put the next drop straight past the ceiling.
+		expect((await stateFor(data.pathA.id))?.brbSince).toBeNull();
+		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
+	});
+
+	test("a reconnect does not resolve a provider the relay still holds", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await prepareDirect("user-a", data.pathA.id);
+		// Only what the reconnect itself resolves counts here.
+		youtubeBroadcastCreates = 0;
+
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(),
+			["youtube"],
+		);
+
+		expect(destinations.map((entry) => entry.provider)).toEqual(["twitch"]);
+		// Resolving it again would mint a second broadcast against a live one.
+		expect(youtubeBroadcastCreates).toBe(0);
+	});
+
+	test("without BRB a dropped ingest still tears the forwarders down", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbEnabled: false })
+			.where(eq(appUser.id, "user-a"));
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeNull();
+		expect(state?.directTwitchState).toBe("stopped");
+		expect(state?.directYoutubeBroadcastId).toBeNull();
 	});
 });

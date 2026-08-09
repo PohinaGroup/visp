@@ -124,9 +124,9 @@ export const adminRouter = router({
 					)`,
 					activeForwarders: sql<number>`(
 						select (
-							count(*) filter (where admin_state.direct_twitch_state in ('starting', 'live', 'retrying')) +
-							count(*) filter (where admin_state.direct_kick_state in ('starting', 'live', 'retrying')) +
-							count(*) filter (where admin_state.direct_youtube_state in ('starting', 'live', 'retrying'))
+							count(*) filter (where admin_state.direct_twitch_state in ('starting', 'live', 'retrying', 'brb')) +
+							count(*) filter (where admin_state.direct_kick_state in ('starting', 'live', 'retrying', 'brb')) +
+							count(*) filter (where admin_state.direct_youtube_state in ('starting', 'live', 'retrying', 'brb'))
 						)::int
 						from "path" admin_direct_path
 						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
@@ -136,11 +136,11 @@ export const adminRouter = router({
 					reservedForwarders: sql<number>`(
 						select (
 							count(*) filter (where admin_state.direct_twitch_reserved_until > now()
-								and (admin_state.direct_twitch_state is null or admin_state.direct_twitch_state not in ('starting', 'live', 'retrying'))) +
+								and (admin_state.direct_twitch_state is null or admin_state.direct_twitch_state not in ('starting', 'live', 'retrying', 'brb'))) +
 							count(*) filter (where admin_state.direct_kick_reserved_until > now()
-								and (admin_state.direct_kick_state is null or admin_state.direct_kick_state not in ('starting', 'live', 'retrying'))) +
+								and (admin_state.direct_kick_state is null or admin_state.direct_kick_state not in ('starting', 'live', 'retrying', 'brb'))) +
 							count(*) filter (where admin_state.direct_youtube_reserved_until > now()
-								and (admin_state.direct_youtube_state is null or admin_state.direct_youtube_state not in ('starting', 'live', 'retrying')))
+								and (admin_state.direct_youtube_state is null or admin_state.direct_youtube_state not in ('starting', 'live', 'retrying', 'brb')))
 						)::int
 						from "path" admin_direct_path
 						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id

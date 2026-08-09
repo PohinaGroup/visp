@@ -1,4 +1,5 @@
 import { type AdvisoryLock, tryAdvisoryLock } from "@VISP/api/advisory-lock";
+import { brbTick } from "@VISP/api/brb";
 import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
@@ -271,7 +272,11 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				// Destination URLs carry stream keys: returned to the relay only,
 				// never to a client app, never logged. Plain "provider url" lines
 				// so the bash forwarder splits fields instead of parsing JSON.
-				const { destinations } = await resolveDirectDestinations(body.path);
+				const { destinations } = await resolveDirectDestinations(
+					body.path,
+					undefined,
+					body.skip,
+				);
 				return new Response(
 					destinations
 						.map((entry) => `${entry.provider} ${entry.url}\n`)
@@ -282,7 +287,45 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				return status(503, "direct destinations unavailable");
 			}
 		},
-		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				// Providers the relay is still forwarding for, held over a drop.
+				skip: t.Optional(
+					t.Array(t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name)))),
+				),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/brb",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const tick = await brbTick(body.path, body.provider);
+				// One line, same plain-text contract as direct-destinations. The
+				// message is base64 so it survives the field split and never
+				// reaches a shell word on the relay.
+				const line = tick.stop
+					? "stop\n"
+					: `brb ${Buffer.from(tick.message, "utf8").toString("base64")} ${
+							tick.backgroundUrl ?? "-"
+						}\n`;
+				return new Response(line, {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			} catch {
+				return status(503, "brb unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+			}),
+		},
 	)
 	.post(
 		"/api/hooks/direct-state",

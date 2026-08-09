@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Direct relay and cloud OBS paths</title><desc id="desc">VISP takes a short route through a relay while a managed service adds bonding and cloud OBS.</desc>
+  <rect width="1600" height="900" rx="48" fill="#081426"/>
+  <g font-family="system-ui" text-anchor="middle"><text x="800" y="100" fill="white" font-size="58" font-weight="700">Choose the path your show uses</text>
+  <text x="155" y="280" fill="#67e8f9" font-size="34">VISP</text><text x="155" y="610" fill="#d8b4fe" font-size="34">Managed</text>
+  <g font-size="30" font-weight="650"><rect x="280" y="205" width="260" height="130" rx="28" fill="#164e63"/><text x="410" y="285" fill="white">Phone</text><rect x="670" y="205" width="260" height="130" rx="28" fill="#155e75"/><text x="800" y="285" fill="white">Relay</text><rect x="1060" y="205" width="260" height="130" rx="28" fill="#0e7490"/><text x="1190" y="285" fill="white">Platform</text>
+  <rect x="210" y="535" width="230" height="130" rx="28" fill="#581c87"/><text x="325" y="615" fill="white">Encoder</text><rect x="515" y="535" width="230" height="130" rx="28" fill="#6b21a8"/><text x="630" y="615" fill="white">Bonding</text><rect x="820" y="535" width="230" height="130" rx="28" fill="#7e22ce"/><text x="935" y="615" fill="white">Cloud OBS</text><rect x="1125" y="535" width="230" height="130" rx="28" fill="#9333ea"/><text x="1240" y="615" fill="white">Platform</text></g></g>
+  <g stroke-linecap="round" stroke-width="14"><path d="M555 270h100M945 270h100" stroke="#67e8f9"/><path d="M455 600h45M760 600h45M1065 600h45" stroke="#d8b4fe"/></g>
+</svg>

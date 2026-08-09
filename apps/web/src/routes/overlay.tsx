@@ -4,6 +4,8 @@ import {
 	type ChatFragment,
 	type ChatLiveEvent,
 	type ChatMessage,
+	type ChatProvider,
+	type ChatProviderStatus,
 	PROVIDER_CHIP,
 	PROVIDER_PRESENTATION,
 } from "@VISP/api/chat/contract";
@@ -46,11 +48,12 @@ export const Route = createFileRoute("/overlay")({
 		rows: z.coerce.number().int().min(1).max(20).optional().catch(undefined),
 		// Not z.coerce.boolean(): it maps the strings "0" and "false" to true.
 		fade: z.unknown().optional(),
+		debug: z.unknown().optional(),
 	}),
 	component: ChatOverlay,
 });
 
-function isFadeEnabled(value: unknown) {
+function isTruthy(value: unknown) {
 	return value === true || value === "1" || value === "true";
 }
 
@@ -87,7 +90,16 @@ async function mintTicket(token: string) {
  */
 function useOverlayChat(token: string | undefined, rows: number) {
 	const [messages, setMessages] = useState<BufferedMessage[]>([]);
-	const [revoked, setRevoked] = useState(false);
+	const [phase, setPhase] = useState<
+		"connecting" | "live" | "retrying" | "revoked"
+	>("connecting");
+	const [retryCount, setRetryCount] = useState(0);
+	const [statuses, setStatuses] = useState<
+		Partial<Record<ChatProvider, ChatProviderStatus>>
+	>({});
+	const [mintFailure, setMintFailure] = useState<
+		"revoked" | "unavailable" | undefined
+	>();
 
 	useEffect(() => {
 		if (!token) return;
@@ -98,30 +110,39 @@ function useOverlayChat(token: string | undefined, rows: number) {
 
 		const reconnect = () => {
 			if (disposed) return;
+			setPhase("retrying");
 			const delay = Math.min(15_000, 1_000 * 2 ** Math.min(retry, 4));
 			retry += 1;
+			setRetryCount(retry);
 			reconnectTimer = setTimeout(() => void connect(), delay);
 		};
 
 		const connect = async () => {
 			if (disposed) return;
+			setPhase("connecting");
 			let ticket: string;
 			try {
 				ticket = await mintTicket(token);
 			} catch (error) {
 				// A revoked token never recovers on its own; stop hammering the API.
 				if (error instanceof Error && error.message === "revoked") {
-					if (!disposed) setRevoked(true);
+					if (!disposed) {
+						setMintFailure("revoked");
+						setPhase("revoked");
+					}
 					return;
 				}
+				setMintFailure("unavailable");
 				reconnect();
 				return;
 			}
 			if (disposed) return;
-			setRevoked(false);
+			setMintFailure(undefined);
 			socket = new WebSocket(socketUrl(ticket));
 			socket.onopen = () => {
 				retry = 0;
+				setRetryCount(0);
+				setPhase("live");
 			};
 			socket.onerror = () => socket?.close();
 			socket.onclose = reconnect;
@@ -133,8 +154,13 @@ function useOverlayChat(token: string | undefined, rows: number) {
 				} catch {
 					return;
 				}
-				// Provider status has nowhere to go on a stream overlay.
-				if (event.type !== "message") return;
+				if (event.type === "status") {
+					setStatuses((current) => ({
+						...current,
+						[event.status.provider]: event.status,
+					}));
+					return;
+				}
 				const message = event.message;
 				const key = `${message.provider}-${message.id}`;
 				setMessages((current) =>
@@ -157,7 +183,7 @@ function useOverlayChat(token: string | undefined, rows: number) {
 		};
 	}, [token, rows]);
 
-	return { messages, revoked, setMessages };
+	return { messages, mintFailure, phase, retryCount, setMessages, statuses };
 }
 
 /** Drops each message once its CSS fade has finished. */
@@ -250,17 +276,91 @@ function cornerStyle(corner: (typeof CORNERS)[number]): CSSProperties {
 	};
 }
 
+function DebugHud({
+	corner,
+	fade,
+	messages,
+	mintFailure,
+	phase,
+	retryCount,
+	rows,
+	statuses,
+}: {
+	corner: (typeof CORNERS)[number];
+	fade: boolean;
+	messages: BufferedMessage[];
+	mintFailure: "revoked" | "unavailable" | undefined;
+	phase: "connecting" | "live" | "retrying" | "revoked";
+	retryCount: number;
+	rows: number;
+	statuses: Partial<Record<ChatProvider, ChatProviderStatus>>;
+}) {
+	const [now, setNow] = useState(Date.now());
+	useEffect(() => {
+		const timer = setInterval(() => setNow(Date.now()), 1_000);
+		return () => clearInterval(timer);
+	}, []);
+	const providers = Object.values(statuses);
+	const lastMessageAt = messages.at(-1)?.receivedAt;
+	const oppositeCorner = corner
+		.replace("top", "TEMP")
+		.replace("bottom", "top")
+		.replace("TEMP", "bottom")
+		.replace("left", "TEMP")
+		.replace("right", "left")
+		.replace("TEMP", "right") as (typeof CORNERS)[number];
+
+	return (
+		<div
+			style={{
+				...cornerStyle(oppositeCorner),
+				background: "#111",
+				color: "#fff",
+				fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+				fontSize: 12,
+				lineHeight: 1.5,
+				maxWidth: 360,
+				padding: 10,
+				position: "absolute",
+			}}
+		>
+			<div>phase: {phase}</div>
+			<div>retries: {retryCount}</div>
+			<div>last mint failure: {mintFailure ?? "none"}</div>
+			<div>
+				messages: {messages.length} (last:{" "}
+				{lastMessageAt
+					? `${Math.floor((now - lastMessageAt) / 1_000)}s ago`
+					: "never"}
+				)
+			</div>
+			<div>
+				corner: {corner} / rows: {rows} / fade: {String(fade)}
+			</div>
+			{providers.length === 0 ? <div>providers: none</div> : null}
+			{providers.map((status) => (
+				<div key={status.provider}>
+					{status.provider}: {status.state}
+					{status.error ? ` — ${status.error}` : ""}
+				</div>
+			))}
+		</div>
+	);
+}
+
 function ChatOverlay() {
 	const search = Route.useSearch();
 	const token = search.t;
 	const corner = search.corner ?? "bottom-left";
 	const rows = search.rows ?? 8;
-	const fade = isFadeEnabled(search.fade);
-	const { messages, revoked, setMessages } = useOverlayChat(token, rows);
+	const fade = isTruthy(search.fade);
+	const debug = isTruthy(search.debug);
+	const { messages, mintFailure, phase, retryCount, setMessages, statuses } =
+		useOverlayChat(token, rows);
 	useFadeExpiry(fade, messages, setMessages);
 
-	if (!token || revoked) {
-		return (
+	if (!token || phase === "revoked") {
+		const error = (
 			<p
 				style={{
 					color: "#FF5A5A",
@@ -275,12 +375,44 @@ function ChatOverlay() {
 					: "Missing overlay token. Copy the Browser Source URL from the VISP dashboard."}
 			</p>
 		);
+		if (!debug || !token) return error;
+		return (
+			<>
+				{error}
+				<DebugHud
+					{...{
+						corner,
+						fade,
+						messages,
+						mintFailure,
+						phase,
+						retryCount,
+						rows,
+						statuses,
+					}}
+				/>
+			</>
+		);
 	}
 
 	// An empty buffer must leave the source fully transparent.
-	if (messages.length === 0) return null;
+	if (messages.length === 0)
+		return debug ? (
+			<DebugHud
+				{...{
+					corner,
+					fade,
+					messages,
+					mintFailure,
+					phase,
+					retryCount,
+					rows,
+					statuses,
+				}}
+			/>
+		) : null;
 
-	return (
+	const chat = (
 		<div
 			style={{
 				backgroundColor: "rgba(0,0,0,0.64)",
@@ -354,5 +486,23 @@ function ChatOverlay() {
 				</div>
 			))}
 		</div>
+	);
+	if (!debug) return chat;
+	return (
+		<>
+			<DebugHud
+				{...{
+					corner,
+					fade,
+					messages,
+					mintFailure,
+					phase,
+					retryCount,
+					rows,
+					statuses,
+				}}
+			/>
+			{chat}
+		</>
 	);
 }

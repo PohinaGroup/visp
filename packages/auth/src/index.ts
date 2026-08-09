@@ -49,6 +49,18 @@ export async function deleteSnapshotsForPathIds(
 	);
 }
 
+/** Both extensions: only one is ever recorded, but either may exist. */
+export async function deleteBrbImagesForUser(
+	userId: string,
+	client: Pick<ObjectStore, "delete"> = snapshots,
+) {
+	await Promise.all(
+		["png", "jpg"].map((extension) =>
+			client.delete(`brb/${userId}.${extension}`),
+		),
+	);
+}
+
 export function createAuth() {
 	const db = createDb();
 
@@ -93,6 +105,7 @@ export function createAuth() {
 					});
 					try {
 						await deleteSnapshotsForPathIds(paths.map((path) => path.id));
+						await deleteBrbImagesForUser(user.id);
 					} catch (cause) {
 						throw new APIError("BAD_REQUEST", {
 							cause,

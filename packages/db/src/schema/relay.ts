@@ -73,80 +73,99 @@ export const relay = pgTable(
 	],
 );
 
-export const appUser = pgTable("app_user", {
-	id: text("id")
-		.primaryKey()
-		.references(() => user.id, { onDelete: "cascade" }),
-	handle: text("handle").notNull().unique(),
-	publishSecretHash: text("publish_secret_hash"),
-	readSecretHash: text("read_secret_hash"),
-	readSecretEncrypted: text("read_secret_encrypted"),
-	secretsRotatedAt: timestamp("secrets_rotated_at", { withTimezone: true }),
-	deviceCount: integer("device_count"),
-	streamingSoftware: streamingSoftware("streaming_software"),
-	setupUseCase: setupUseCase("setup_use_case"),
-	streamDestination: streamDestination("stream_destination"),
-	advancedMode: boolean("advanced_mode").default(false).notNull(),
-	obsControlTokenId: text("obs_control_token_id").unique(),
-	obsControlTokenHash: text("obs_control_token_hash"),
-	// Separate from the OBS control token: rotating that one resets scene and
-	// toggle state, so the browser-source URL gets its own revocable credential.
-	chatOverlayTokenId: text("chat_overlay_token_id").unique(),
-	chatOverlayTokenHash: text("chat_overlay_token_hash"),
-	obsDesiredStreaming: boolean("obs_desired_streaming")
-		.default(false)
-		.notNull(),
-	obsStreaming: boolean("obs_streaming").default(false).notNull(),
-	obsScenes: text("obs_scenes").array().default(sql`ARRAY[]::text[]`).notNull(),
-	obsCurrentScene: text("obs_current_scene"),
-	obsDesiredScene: text("obs_desired_scene"),
-	obsCommandVersion: integer("obs_command_version").default(0).notNull(),
-	obsAppliedVersion: integer("obs_applied_version").default(0).notNull(),
-	obsDesiredRecording: boolean("obs_desired_recording")
-		.default(false)
-		.notNull(),
-	obsRecording: boolean("obs_recording").default(false).notNull(),
-	obsDesiredVirtualCam: boolean("obs_desired_virtual_cam")
-		.default(false)
-		.notNull(),
-	obsVirtualCam: boolean("obs_virtual_cam").default(false).notNull(),
-	obsDesiredReplayBuffer: boolean("obs_desired_replay_buffer")
-		.default(false)
-		.notNull(),
-	obsReplayBuffer: boolean("obs_replay_buffer").default(false).notNull(),
-	obsDesiredRecordPaused: boolean("obs_desired_record_paused")
-		.default(false)
-		.notNull(),
-	obsRecordPaused: boolean("obs_record_paused").default(false).notNull(),
-	obsLastSeenAt: timestamp("obs_last_seen_at", { withTimezone: true }),
-	// Nullable distinguishes existing users who have not chosen a new default
-	// from users who explicitly chose OBS-only (false/false).
-	directTwitch: boolean("direct_twitch"),
-	directKick: boolean("direct_kick"),
-	directYoutube: boolean("direct_youtube"),
-	directYoutubeTitle: text("direct_youtube_title")
-		.default("Live from VISP")
-		.notNull(),
-	directYoutubeStreamId: text("direct_youtube_stream_id"),
-	// VISP Direct admission control. The relay is one node and Direct always
-	// runs distribution encode there. Kept for one rollback window; unused.
-	directBeta: boolean("direct_beta").default(false).notNull(),
-	// Hosted text-to-speech for reading chat aloud. Every utterance costs money
-	// per character, so this gates spend, not capacity.
-	betterTts: boolean("better_tts").default(false).notNull(),
-	// Hosted ElevenLabs noise isolation for the live mic. Every second billed is
-	// a second of someone's stream, so this gates spend, not capacity.
-	betterAudioIsolation: boolean("better_audio_isolation")
-		.default(false)
-		.notNull(),
-	// Hosted realtime speech-to-text for burned-in captions. Bills per minute of
-	// live audio, so this gates spend, not capacity.
-	betterSubtitles: boolean("better_subtitles").default(false).notNull(),
-	onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
-	createdAt: timestamp("created_at", { withTimezone: true })
-		.defaultNow()
-		.notNull(),
-});
+export const appUser = pgTable(
+	"app_user",
+	{
+		id: text("id")
+			.primaryKey()
+			.references(() => user.id, { onDelete: "cascade" }),
+		handle: text("handle").notNull().unique(),
+		publishSecretHash: text("publish_secret_hash"),
+		readSecretHash: text("read_secret_hash"),
+		readSecretEncrypted: text("read_secret_encrypted"),
+		secretsRotatedAt: timestamp("secrets_rotated_at", { withTimezone: true }),
+		deviceCount: integer("device_count"),
+		streamingSoftware: streamingSoftware("streaming_software"),
+		setupUseCase: setupUseCase("setup_use_case"),
+		streamDestination: streamDestination("stream_destination"),
+		advancedMode: boolean("advanced_mode").default(false).notNull(),
+		obsControlTokenId: text("obs_control_token_id").unique(),
+		obsControlTokenHash: text("obs_control_token_hash"),
+		// Separate from the OBS control token: rotating that one resets scene and
+		// toggle state, so the browser-source URL gets its own revocable credential.
+		chatOverlayTokenId: text("chat_overlay_token_id").unique(),
+		chatOverlayTokenHash: text("chat_overlay_token_hash"),
+		obsDesiredStreaming: boolean("obs_desired_streaming")
+			.default(false)
+			.notNull(),
+		obsStreaming: boolean("obs_streaming").default(false).notNull(),
+		obsScenes: text("obs_scenes")
+			.array()
+			.default(sql`ARRAY[]::text[]`)
+			.notNull(),
+		obsCurrentScene: text("obs_current_scene"),
+		obsDesiredScene: text("obs_desired_scene"),
+		obsCommandVersion: integer("obs_command_version").default(0).notNull(),
+		obsAppliedVersion: integer("obs_applied_version").default(0).notNull(),
+		obsDesiredRecording: boolean("obs_desired_recording")
+			.default(false)
+			.notNull(),
+		obsRecording: boolean("obs_recording").default(false).notNull(),
+		obsDesiredVirtualCam: boolean("obs_desired_virtual_cam")
+			.default(false)
+			.notNull(),
+		obsVirtualCam: boolean("obs_virtual_cam").default(false).notNull(),
+		obsDesiredReplayBuffer: boolean("obs_desired_replay_buffer")
+			.default(false)
+			.notNull(),
+		obsReplayBuffer: boolean("obs_replay_buffer").default(false).notNull(),
+		obsDesiredRecordPaused: boolean("obs_desired_record_paused")
+			.default(false)
+			.notNull(),
+		obsRecordPaused: boolean("obs_record_paused").default(false).notNull(),
+		obsLastSeenAt: timestamp("obs_last_seen_at", { withTimezone: true }),
+		// Nullable distinguishes existing users who have not chosen a new default
+		// from users who explicitly chose OBS-only (false/false).
+		directTwitch: boolean("direct_twitch"),
+		directKick: boolean("direct_kick"),
+		directYoutube: boolean("direct_youtube"),
+		directYoutubeTitle: text("direct_youtube_title")
+			.default("Live from VISP")
+			.notNull(),
+		directYoutubeStreamId: text("direct_youtube_stream_id"),
+		// VISP Direct admission control. The relay is one node and Direct always
+		// runs distribution encode there. Kept for one rollback window; unused.
+		directBeta: boolean("direct_beta").default(false).notNull(),
+		// Hosted text-to-speech for reading chat aloud. Every utterance costs money
+		// per character, so this gates spend, not capacity.
+		betterTts: boolean("better_tts").default(false).notNull(),
+		// Hosted ElevenLabs noise isolation for the live mic. Every second billed is
+		// a second of someone's stream, so this gates spend, not capacity.
+		betterAudioIsolation: boolean("better_audio_isolation")
+			.default(false)
+			.notNull(),
+		// Hosted realtime speech-to-text for burned-in captions. Bills per minute of
+		// live audio, so this gates spend, not capacity.
+		betterSubtitles: boolean("better_subtitles").default(false).notNull(),
+		// "Never drop again". When the ingest drops, the relay holds the outgoing
+		// stream up on a BRB card instead of letting the platform end the broadcast.
+		// Off by default; `snapshot` needs no setup, so enabling it is one toggle.
+		brbEnabled: boolean("brb_enabled").default(false).notNull(),
+		brbMessage: text("brb_message"),
+		brbSource: text("brb_source").default("snapshot").notNull(),
+		brbImageKey: text("brb_image_key"),
+		onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		check(
+			"app_user_brb_source_known",
+			sql`${table.brbSource} in ('snapshot', 'image', 'color')`,
+		),
+	],
+);
 
 export const relayPath = pgTable(
 	"path",
@@ -238,6 +257,10 @@ export const pathState = pgTable(
 			withTimezone: true,
 		}),
 		directYoutubeBroadcastId: text("direct_youtube_broadcast_id"),
+		// Non-null means the source is gone but the forwarders are still up on
+		// the BRB card. The single live flag for "never drop again": everything
+		// else about BRB derives from it.
+		brbSince: timestamp("brb_since", { withTimezone: true }),
 	},
 	(table) => [
 		check(

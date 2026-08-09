@@ -24,6 +24,9 @@ const STATE_TONE = {
 	live: "success",
 	starting: "warning",
 	retrying: "warning",
+	// The ingest dropped but the broadcast is still up on the BRB card. Not an
+	// error — the whole point is that nothing was lost.
+	brb: "warning",
 	failed: "error",
 	stopped: "neutral",
 } as const;
@@ -47,7 +50,8 @@ function ProviderState({
 				variant={STATE_TONE[state]}
 			/>
 			<Text type="supporting">
-				{providerLabel(provider)}: {t(state)}
+				{providerLabel(provider)}:{" "}
+				{t(state === "brb" ? "showing BRB card" : state)}
 			</Text>
 			{error ? (
 				<Text color="secondary" type="supporting">

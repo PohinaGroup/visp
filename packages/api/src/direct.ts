@@ -15,18 +15,26 @@ export const DIRECT_PROVIDERS = ["twitch", "kick", "youtube"] as const;
 export type DirectProvider = (typeof DIRECT_PROVIDERS)[number];
 type AuthProvider = "twitch" | "kick" | "google";
 
-/** Reported by the relay; `stopped` is also what a not-ready path settles to. */
+/**
+ * Reported by the relay; `stopped` is also what a not-ready path settles to.
+ * `brb` means the source is gone but the forwarder is still up, holding the
+ * platform broadcast open on the user's be-right-back card.
+ */
 export const DIRECT_STATES = [
 	"starting",
 	"live",
 	"retrying",
+	"brb",
 	"failed",
 	"stopped",
 ] as const;
 export type DirectState = (typeof DIRECT_STATES)[number];
 
-/** States that occupy a slot against DIRECT_MAX_FORWARDERS. */
-const ACTIVE_STATES = sql`('starting', 'live', 'retrying')`;
+/**
+ * States that occupy a slot against DIRECT_MAX_FORWARDERS. A BRB forwarder
+ * still runs a full x264 encode, so it counts exactly like a live one.
+ */
+const ACTIVE_STATES = sql`('starting', 'live', 'retrying', 'brb')`;
 
 const KICK_API = "https://api.kick.com/public/v1";
 const YOUTUBE_API = "https://www.googleapis.com/youtube/v3";
@@ -634,6 +642,8 @@ export async function saveDirectPreferences(
 						directKickReservedUntil: null,
 						directYoutubeReservedUntil: null,
 						directYoutubeBroadcastId: null,
+						// Moving or clearing Direct output ends any held BRB card.
+						brbSince: null,
 					})
 					.where(inArray(pathState.pathId, pathIds));
 			}
@@ -649,7 +659,7 @@ export async function saveDirectPreferences(
 	});
 }
 
-const RESERVATION_MS = 60_000;
+export const RESERVATION_MS = 60_000;
 
 /** Atomically transfers Direct ownership and reserves this relay's encoders. */
 export async function prepareDirect(userId: string, pathId: number) {
@@ -979,6 +989,10 @@ async function youtubeDirectDestination(
 export async function resolveDirectDestinations(
 	slug: string,
 	dependencies: DirectDependencies = defaultDependencies,
+	// Providers the relay still has a forwarder for, held over a drop on BRB.
+	// Resolving them again would mint a second YouTube broadcast while the
+	// first one is still live, and hand out a destination nobody consumes.
+	skip: readonly DirectProvider[] = [],
 ): Promise<{ destinations: DirectDestination[] }> {
 	const [path] = await db
 		.select({
@@ -997,7 +1011,9 @@ export async function resolveDirectDestinations(
 		.where(and(eq(relayPath.slug, slug), isNull(relayPath.revokedAt)))
 		.limit(1);
 	const enabled = path
-		? DIRECT_PROVIDERS.filter((provider) => path[provider])
+		? DIRECT_PROVIDERS.filter(
+				(provider) => path[provider] && !skip.includes(provider),
+			)
 		: [];
 	if (!path || enabled.length === 0) return { destinations: [] };
 
@@ -1097,6 +1113,8 @@ export async function stopDirectForPaths(pathIds: number[]) {
 			directKickReservedUntil: null,
 			directYoutubeReservedUntil: null,
 			directYoutubeBroadcastId: null,
+			// A hard stop is the end of BRB too, whatever got us here.
+			brbSince: null,
 		})
 		.where(inArray(pathState.pathId, pathIds));
 	await Promise.allSettled(

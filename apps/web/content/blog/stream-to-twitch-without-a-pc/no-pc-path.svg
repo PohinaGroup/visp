@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Streaming without a home PC</title><desc id="desc">A phone publishes through the VISP relay directly to a streaming platform while the home computer remains off.</desc>
+  <rect width="1600" height="900" rx="48" fill="#07111f"/><text x="800" y="115" fill="white" font-family="system-ui" font-size="58" font-weight="700" text-anchor="middle">The desk stays dark</text>
+  <g font-family="system-ui" font-size="34" font-weight="650" text-anchor="middle"><rect x="135" y="315" width="300" height="250" rx="42" fill="#164e63" stroke="#67e8f9" stroke-width="6"/><text x="285" y="455" fill="white">Phone</text><rect x="650" y="315" width="300" height="250" rx="42" fill="#312e81" stroke="#a5b4fc" stroke-width="6"/><text x="800" y="455" fill="white">VISP relay</text><rect x="1165" y="315" width="300" height="250" rx="42" fill="#581c87" stroke="#d8b4fe" stroke-width="6"/><text x="1315" y="455" fill="white">Platform</text></g>
+  <g stroke-linecap="round" stroke-width="18"><path d="M465 440h150" stroke="#67e8f9"/><path d="M985 440h145" stroke="#d8b4fe"/></g><text x="800" y="720" fill="#94a3b8" font-family="system-ui" font-size="38" text-anchor="middle">No home computer · no cloud OBS</text>
+</svg>

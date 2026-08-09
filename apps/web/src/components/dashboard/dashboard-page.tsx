@@ -13,6 +13,7 @@ import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import { BrbCard } from "./brb-card";
 import { ChainStrip } from "./chain-strip";
 import { ConnectionsCard } from "./connections-card";
 import { CredentialsCard } from "./credentials-card";
@@ -88,6 +89,7 @@ export function DashboardPage() {
 						/>
 						<VStack gap={4}>
 							<DirectCard />
+							<BrbCard />
 							<Text color="secondary" type="supporting">
 								{t("Optional OBS source")}
 							</Text>

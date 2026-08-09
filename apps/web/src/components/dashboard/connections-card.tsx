@@ -1,6 +1,5 @@
 import { type ChatProvider, chatAuthProvider } from "@VISP/api/chat/contract";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
-import { env } from "@VISP/env/web";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -28,10 +27,7 @@ import { providerLabel } from "./format";
 import type { ChatConnection } from "./types";
 
 function overlayUrl(token: string) {
-	const serverUrl = import.meta.env.PROD
-		? window.location.origin
-		: env.VITE_SERVER_URL.replace(/\/$/, "");
-	return `${serverUrl}/overlay?t=${token}`;
+	return `${window.location.origin}/overlay?t=${token}`;
 }
 
 function ChatOverlayBlock() {
@@ -71,11 +67,20 @@ function ChatOverlayBlock() {
 			<VStack gap={3} paddingBlock={2}>
 				<Text color="secondary" type="supporting">
 					{t(
-						"Add a Browser Source in OBS and paste this URL. It shows the chats you enabled above, on a transparent background. Append &corner=top-right, &rows=3, or &fade=1 to change it.",
+						"Add a Browser Source in OBS and paste this URL. It shows the chats you enabled above, on a transparent background. Append &corner=top-right, &rows=3, &fade=1, or &debug=1 to change it.",
 					)}
 				</Text>
 				{url ? (
-					<RevealedValue label={t("Browser Source URL")} value={url} />
+					<HStack gap={2} vAlign="center" wrap="wrap">
+						<RevealedValue label={t("Browser Source URL")} value={url} />
+						<Button
+							label={t("Preview")}
+							variant="secondary"
+							onClick={() =>
+								window.open(`${url}&debug=1`, "_blank", "noreferrer")
+							}
+						/>
+					</HStack>
 				) : null}
 				<HStack gap={2} wrap="wrap">
 					<Button
