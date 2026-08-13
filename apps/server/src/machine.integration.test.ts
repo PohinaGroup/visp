@@ -5,6 +5,7 @@ import {
 	publishInvalidation,
 	subscribeInvalidations,
 } from "@VISP/api/cache-bus";
+import { setBotSettings } from "@VISP/api/chat/bot";
 import {
 	disableChatConnection,
 	enableChatConnection,
@@ -54,6 +55,7 @@ import {
 	account,
 	appUser,
 	session as authSession,
+	chatBotAlert,
 	chatConnection,
 	pathState,
 	relay,
@@ -120,6 +122,28 @@ async function seed() {
 		.returning();
 	if (!pathA || !pathB) throw new Error("test paths were not created");
 	return { pathA, pathB, publishA, readA, publishB, readB };
+}
+
+/**
+ * Alerts are fire-and-forget by design — a chat outage must not fail a path
+ * hook — so the tests wait for them rather than assuming they land inline.
+ */
+async function alertsFor(pathId: number, expected: number) {
+	let rows = await db.query.chatBotAlert.findMany({
+		where: eq(chatBotAlert.pathId, pathId),
+	});
+	for (let attempt = 0; attempt < 40 && rows.length < expected; attempt += 1) {
+		await Bun.sleep(25);
+		rows = await db.query.chatBotAlert.findMany({
+			where: eq(chatBotAlert.pathId, pathId),
+		});
+	}
+	return rows.map((row) => row.event).sort();
+}
+
+/** Give a claim that should never happen time to happen before ruling it out. */
+function settleAlerts() {
+	return Bun.sleep(150);
 }
 
 function machineAuth(input: {
@@ -487,6 +511,118 @@ integration("relay PostgreSQL integration", () => {
 				where: eq(relayStreamSession.pathId, data.pathA.id),
 			}),
 		).toHaveLength(0);
+	});
+
+	test("announces each stream transition once, however often it is reported", async () => {
+		const data = await seed();
+		await setBotSettings("user-a", {
+			enabled: true,
+			commandsEnabled: true,
+			prefix: "!",
+			targets: { twitch: true, kick: true, youtube: true },
+			alerts: { live: true, brb: true, back: true, offline: true },
+			messages: { live: null, brb: null, back: null, offline: null },
+		});
+		// The ready hook fires again on every publisher keepalive, and the
+		// reconciler re-reports the same state every ten seconds.
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		expect(await alertsFor(data.pathA.id, 1)).toEqual(["live"]);
+
+		// BRB is off for this account, so a lost source is the end of the stream.
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		expect(await alertsFor(data.pathA.id, 2)).toEqual(["live", "offline"]);
+
+		globalThis.fetch = (async () =>
+			new Response(JSON.stringify({ items: [] }), {
+				status: 200,
+			})) as unknown as typeof fetch;
+		await reconcilePathState("http://relay.test:9997");
+		await settleAlerts();
+		expect(await alertsFor(data.pathA.id, 2)).toEqual(["live", "offline"]);
+
+		// A stream that never announces cannot be told about.
+		await setBotSettings("user-b", {
+			enabled: false,
+			commandsEnabled: true,
+			prefix: "!",
+			targets: { twitch: true, kick: true, youtube: true },
+			alerts: { live: true, brb: true, back: true, offline: true },
+			messages: { live: null, brb: null, back: null, offline: null },
+		});
+		await applyPathHook("ready", {
+			path: data.pathB.slug,
+			sourceType: "srtConn",
+		});
+		await settleAlerts();
+		expect(
+			await db.query.chatBotAlert.findMany({
+				where: eq(chatBotAlert.pathId, data.pathB.id),
+			}),
+		).toHaveLength(0);
+	});
+
+	test("holds the stream on a BRB card and says so exactly once", async () => {
+		const data = await seed();
+		await db
+			.update(appUser)
+			.set({ brbEnabled: true })
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true })
+			.where(eq(relayPath.id, data.pathA.id));
+		await setBotSettings("user-a", {
+			enabled: true,
+			commandsEnabled: true,
+			prefix: "!",
+			targets: { twitch: true, kick: true, youtube: true },
+			alerts: { live: true, brb: true, back: true, offline: true },
+			messages: { live: null, brb: null, back: null, offline: null },
+		});
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		await db
+			.update(pathState)
+			.set({ directTwitchState: "live" })
+			.where(eq(pathState.pathId, data.pathA.id));
+
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		const held = await db.query.pathState.findFirst({
+			where: eq(pathState.pathId, data.pathA.id),
+		});
+		expect(held?.brbSince).toBeInstanceOf(Date);
+
+		// The reconciler re-reports the same missing source every tick; the card
+		// keeps its original drop time and chat is not told twice.
+		globalThis.fetch = (async () =>
+			new Response(JSON.stringify({ items: [] }), {
+				status: 200,
+			})) as unknown as typeof fetch;
+		await reconcilePathState("http://relay.test:9997");
+		const stillHeld = await db.query.pathState.findFirst({
+			where: eq(pathState.pathId, data.pathA.id),
+		});
+		expect(stillHeld?.brbSince?.getTime()).toBe(held?.brbSince?.getTime());
+		await settleAlerts();
+		expect(
+			(
+				await db.query.chatBotAlert.findMany({
+					where: eq(chatBotAlert.pathId, data.pathA.id),
+				})
+			)
+				.map((row) => row.event)
+				.sort(),
+		).toEqual(["brb", "live"]);
 	});
 
 	test("protects admin data and lets a break-glass admin ban users", async () => {
@@ -1383,6 +1519,15 @@ integration("relay PostgreSQL integration", () => {
 				canManageChannel: false,
 				canReadStreamKey: false,
 			},
+			{
+				provider: "youtube",
+				linked: false,
+				enabled: false,
+				grantedScopes: [],
+				needsConsent: false,
+				canManageChannel: false,
+				canReadStreamKey: false,
+			},
 		]);
 		expect(await db.select().from(chatConnection)).toHaveLength(2);
 
@@ -2046,6 +2191,7 @@ integration("VISP Direct boundaries", () => {
 			stop: false,
 			message: "Back in five",
 			backgroundUrl: "https://objects.test/signed",
+			source: "snapshot",
 		});
 		const state = await stateFor(data.pathA.id);
 		expect(state?.directTwitchState).toBe("brb");
@@ -2064,6 +2210,21 @@ integration("VISP Direct boundaries", () => {
 
 		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
 		expect((await stateFor(data.pathA.id))?.brbSince).toBeNull();
+	});
+
+	// The phone stops its own encoder first, so its stop can arrive before
+	// MediaMTX has even noticed the ingest is gone. Clearing the marker alone
+	// would then be undone by the not-ready hook landing behind it.
+	test("ending from the publisher survives a later not-ready hook", async () => {
+		const data = await seedLiveBrb();
+
+		expect(await stopBrb("user-a", data.pathA.id)).toBe(true);
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeNull();
+		expect(state?.directTwitchState).toBe("stopped");
+		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
 	});
 
 	test("another user cannot stop this stream", async () => {

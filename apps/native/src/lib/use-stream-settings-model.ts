@@ -177,6 +177,7 @@ export function useStreamSettingsModel({
 			streamUrl,
 		},
 		direct: {
+			brb: streamAccount.brb,
 			busy: Boolean(streamAccount.chatBusy),
 			directOutputs: streamAccount.directOutputs,
 			onApplyDirectSelection: streamAccount.applyDirectSelection,
@@ -185,6 +186,10 @@ export function useStreamSettingsModel({
 					provider,
 					PROVIDER_SCOPES[provider].streamKeyRequest,
 				),
+			onEndBrb: () => {
+				if (publishPathId) void streamAccount.endBrb(publishPathId);
+			},
+			onUpdateBrb: (over) => void streamAccount.updateBrb(over),
 			onUpdateYoutubeTitle: streamAccount.updateYoutubeTitle,
 			publishPathId,
 		},

@@ -2,6 +2,7 @@ import * as UI from "@expo/ui";
 import { useEffect, useState } from "react";
 import type { apiClient } from "../lib/backend";
 import {
+	DESTRUCTIVE,
 	DIRECT_PROVIDERS,
 	type DirectProvider,
 	ProviderRow,
@@ -14,7 +15,14 @@ export type DirectOutputs = Awaited<
 >;
 export type DirectPath = DirectOutputs["paths"][number];
 
+export type BrbSettings = {
+	defaultMessage: string;
+	enabled: boolean;
+	message: string;
+};
+
 export type DirectSettings = {
+	brb?: BrbSettings;
 	busy: boolean;
 	directOutputs?: DirectOutputs;
 	onApplyDirectSelection: (
@@ -23,9 +31,16 @@ export type DirectSettings = {
 		enabled: boolean,
 	) => void;
 	onAuthorizeDirect: (provider: DirectProvider) => void;
+	onEndBrb: () => void;
+	onUpdateBrb: (over: { enabled?: boolean; message?: string }) => void;
 	onUpdateYoutubeTitle: (title: string) => void;
 	publishPathId?: number;
 };
+
+/** Providers whose broadcast the relay is still holding up on the BRB card. */
+export function brbHoldingProviders(path: DirectPath) {
+	return DIRECT_PROVIDERS.filter((provider) => path.state[provider] === "brb");
+}
 
 export function directStateSummary(path: DirectPath) {
 	const parts = DIRECT_PROVIDERS.flatMap((provider) => {
@@ -76,6 +91,75 @@ export function DirectPathSwitches({
 			}
 		/>
 	));
+}
+
+/**
+ * The phone is the thing that drops, so it also has to be able to end a held
+ * broadcast. Background choice stays on the dashboard: it needs an upload.
+ */
+export function BrbSection({ direct }: { direct: DirectSettings }) {
+	const brb = direct.brb;
+	const [message, setMessage] = useState(brb?.message ?? "");
+	const messageInput = UI.useNativeState(message);
+	useEffect(() => {
+		if (brb) {
+			setMessage(brb.message);
+			messageInput.value = brb.message;
+		}
+	}, [brb, messageInput]);
+
+	if (!brb) return null;
+	const ownPath = direct.directOutputs?.paths.find(
+		(path) => path.id === direct.publishPathId,
+	);
+	const holding = ownPath ? brbHoldingProviders(ownPath) : [];
+
+	return (
+		<UI.FieldGroup.Section title="Never drop again">
+			<UI.Switch
+				label="Show a BRB card when my stream drops"
+				value={brb.enabled}
+				onValueChange={(enabled) => direct.onUpdateBrb({ enabled })}
+			/>
+			{brb.enabled ? (
+				<>
+					<UI.TextInput
+						maxLength={120}
+						placeholder={brb.defaultMessage}
+						value={messageInput}
+						onChangeText={setMessage}
+					/>
+					<UI.Button
+						disabled={message.trim() === brb.message.trim()}
+						label="Save message"
+						onPress={() => direct.onUpdateBrb({ message: message.trim() })}
+						variant="outlined"
+					/>
+				</>
+			) : null}
+			{holding.length > 0 ? (
+				<ProviderRow
+					label="Your card is up"
+					status={`${holding.map(providerLabel).join(" · ")} · go live again to come back`}
+				>
+					<UI.Button
+						disabled={direct.busy}
+						onPress={direct.onEndBrb}
+						variant="outlined"
+					>
+						<UI.Text textStyle={{ color: DESTRUCTIVE }}>End broadcast</UI.Text>
+					</UI.Button>
+				</ProviderRow>
+			) : null}
+			<UI.FieldGroup.SectionFooter>
+				<UI.Text textStyle={SUBTLE_TEXT}>
+					When your ingest drops, VISP keeps the outgoing stream running and
+					shows this card instead. Your hosts stay and the VOD does not split.
+					Pick the background on the VISP dashboard.
+				</UI.Text>
+			</UI.FieldGroup.SectionFooter>
+		</UI.FieldGroup.Section>
+	);
 }
 
 export function DirectSection({ direct }: { direct: DirectSettings }) {

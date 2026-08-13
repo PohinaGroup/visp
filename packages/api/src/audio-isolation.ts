@@ -19,10 +19,7 @@ export async function isolateAudioChunk(
 	audio: ArrayBuffer,
 	overrides: Partial<IsolationDependencies> = {},
 ): Promise<ArrayBuffer> {
-	const {
-		fetch: request,
-		apiKey,
-	}: IsolationDependencies = {
+	const { fetch: request, apiKey }: IsolationDependencies = {
 		fetch,
 		apiKey: env.ELEVENLABS_API_KEY,
 		...overrides,

@@ -16,6 +16,7 @@ import {
 } from "./stream-settings-camera-section";
 import { ChatSection, type ChatSettings } from "./stream-settings-chat-section";
 import {
+	BrbSection,
 	DirectSection,
 	type DirectSettings,
 } from "./stream-settings-direct-section";
@@ -113,6 +114,7 @@ export function StreamSettingsSheet({
 				) : null}
 				{account ? <ChatSection chat={chat} /> : null}
 				{account ? <DirectSection direct={direct} /> : null}
+				{account ? <BrbSection direct={direct} /> : null}
 				<AdvancedSection
 					account={account}
 					accountOpen={accountOpen}

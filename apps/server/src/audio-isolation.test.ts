@@ -19,6 +19,8 @@ describe("audio isolation route", () => {
 
 	test("is mounted on the app", async () => {
 		const { createApp } = await import("./app");
-		expect(createApp().router.static["/api/audio-isolation"]?.POST).toBeDefined();
+		expect(
+			createApp().router.static["/api/audio-isolation"]?.POST,
+		).toBeDefined();
 	});
 });

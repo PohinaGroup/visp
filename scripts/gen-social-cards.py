@@ -185,6 +185,11 @@ CARDS = [
         ["Streamable.run", "vs VISP"],
         "Comparison",
     ),
+    (
+        WEB / "content" / "blog" / "irl-chat-bot-alerts-without-a-pc" / "cover.png",
+        ["Tell chat", "you dropped"],
+        "Guide",
+    ),
 ]
 
 

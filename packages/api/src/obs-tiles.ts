@@ -36,7 +36,10 @@ function serialize(row: Row): ObsTileRow {
 
 // A scene tile keeps its target; a stream tile never carries one.
 function normalize(input: TileInput): TileInput {
-	return { ...input, sceneName: input.action === "scene" ? input.sceneName : null };
+	return {
+		...input,
+		sceneName: input.action === "scene" ? input.sceneName : null,
+	};
 }
 
 export async function listObsTiles(userId: string): Promise<ObsTileRow[]> {

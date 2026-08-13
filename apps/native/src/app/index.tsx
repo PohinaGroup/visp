@@ -25,6 +25,10 @@ import type {
 } from "../../modules/visp-srt";
 import { VispSrtView } from "../../modules/visp-srt";
 import {
+	BrbHoldBanner,
+	useBrbHoldPolling,
+} from "../components/brb-hold-banner";
+import {
 	DirectViewerOverlay,
 	useDirectViewerCounts,
 } from "../components/direct-viewer-overlay";
@@ -34,6 +38,7 @@ import type { ObsStatus } from "../components/obs-control-button";
 import { StreamCameraControls } from "../components/stream-camera-controls";
 import { StreamInfoSheet } from "../components/stream-info-sheet";
 import { streamScreenStyles as styles } from "../components/stream-screen.styles";
+import { brbHoldingProviders } from "../components/stream-settings-direct-section";
 import { StreamSettingsSheet } from "../components/stream-settings-sheet";
 import {
 	type SignInProvider,
@@ -82,6 +87,45 @@ import { useWatchSnapshotSync } from "../lib/use-watch-snapshot-sync";
 
 const afterPaint = () =>
 	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+type StopChoice = "cancel" | "card" | "end";
+
+/**
+ * ponytail: the web build keeps the plain confirm and always ends the
+ * broadcast — the dashboard is a tab away there, and stacking two confirms
+ * reads worse than it helps. Give it the three-way prompt if the web app ever
+ * ships as someone's only surface.
+ */
+function confirmStop(holdPossible: boolean): Promise<StopChoice> {
+	if (IS_WEB) {
+		return Promise.resolve(
+			globalThis.confirm("Are you sure?") ? "end" : "cancel",
+		);
+	}
+	if (!holdPossible) {
+		return new Promise((resolve) => {
+			Alert.alert("Are you sure?", undefined, [
+				{ onPress: () => resolve("cancel"), style: "cancel", text: "Cancel" },
+				{ onPress: () => resolve("end"), style: "destructive", text: "Stop" },
+			]);
+		});
+	}
+	return new Promise((resolve) => {
+		Alert.alert(
+			"Stop streaming?",
+			"Your BRB card can hold the broadcast open until you come back.",
+			[
+				{ onPress: () => resolve("cancel"), style: "cancel", text: "Cancel" },
+				{ onPress: () => resolve("card"), text: "Show BRB card" },
+				{
+					onPress: () => resolve("end"),
+					style: "destructive",
+					text: "End broadcast",
+				},
+			],
+		);
+	});
+}
 
 export default function Index() {
 	const window = useWindowDimensions();
@@ -147,9 +191,11 @@ export default function Index() {
 	});
 	const {
 		awaitingAutoProvision,
+		brb,
 		chatBusy,
 		chatConnections,
 		chatPreferences,
+		endBrb,
 		installationId,
 		linkChannelProvider,
 		provisionDestination,
@@ -194,6 +240,23 @@ export default function Index() {
 	const viewerActive = appState === "active" && isPublishing(state);
 	const viewerCounts = useDirectViewerCounts(viewerActive, directProviders);
 	const directContribution = Boolean(directProviders.length);
+	const directPath = streamAccount.directOutputs?.paths.find(
+		({ id }) => id === publishPathId,
+	);
+	const holdingProviders = useMemo(
+		() => (directPath ? brbHoldingProviders(directPath) : []),
+		[directPath],
+	);
+	// A hold can only appear once this device has stopped, and it has to be
+	// visible until it is ended — so watch for one exactly while idle.
+	useBrbHoldPolling(
+		appState === "active" &&
+			!isStreamSession(state) &&
+			Boolean(userId) &&
+			(holdingProviders.length > 0 ||
+				Boolean(streamAccount.brb?.enabled && directProviders.length > 0)),
+		refreshDirectOutputs,
+	);
 	const contributionMode = directContribution ? "direct" : "full";
 	const speechFeatures = useStreamSpeechFeatures(cameraNode, {
 		appState,
@@ -472,25 +535,18 @@ export default function Index() {
 		setMessage(undefined);
 		try {
 			if (isStreamSession(state)) {
-				const confirmed = IS_WEB
-					? globalThis.confirm("Are you sure?")
-					: await new Promise<boolean>((resolve) => {
-							Alert.alert("Are you sure?", undefined, [
-								{
-									onPress: () => resolve(false),
-									style: "cancel",
-									text: "Cancel",
-								},
-								{
-									onPress: () => resolve(true),
-									style: "destructive",
-									text: "Stop",
-								},
-							]);
-						});
-				if (!confirmed) return;
+				// With BRB armed, stopping is two intentions wearing one button: a
+				// break, or the end of the stream. Only the person pressing it knows.
+				const holdPossible = Boolean(
+					brb?.enabled && directProviders.length > 0 && publishPathId,
+				);
+				const choice = await confirmStop(holdPossible);
+				if (choice === "cancel") return;
 				setToast(undefined);
 				await cameraRef.current?.stop();
+				if (choice === "end" && holdPossible && publishPathId) {
+					await endBrb(publishPathId);
+				}
 			} else {
 				if (!(await confirmBondingDataUse())) return;
 				showToast("Connecting to relay service…", true);
@@ -523,9 +579,12 @@ export default function Index() {
 		}
 	}, [
 		bondingMode,
+		brb?.enabled,
 		confirmBondingDataUse,
 		configuration,
 		contributionMode,
+		directProviders.length,
+		endBrb,
 		publishPathId,
 		refreshDirectOutputs,
 		refreshPublishDevices,
@@ -897,6 +956,13 @@ export default function Index() {
 				active={viewerActive}
 				counts={viewerCounts}
 				providers={directProviders}
+			/>
+			<BrbHoldBanner
+				busy={preflighting}
+				providers={streaming ? [] : holdingProviders}
+				onEnd={() => {
+					if (publishPathId) void endBrb(publishPathId);
+				}}
 			/>
 			<EmbeddedChatOverlayBridge
 				cameraRef={cameraRef}

@@ -1,0 +1,98 @@
+---
+title: Chat-botti
+description: Kerro chatissa kun lähetys alkaa, katkeaa tai palaa, ja vastaa komentoihin kuten !bitrate.
+---
+
+# Chat-botti
+
+VISPin chat-botti kirjoittaa Twitchin, Kickin ja YouTuben chattiin kahdessa
+tilanteessa: kun lähetyksen tila muuttuu ja kun joku kirjoittaa komennon. Se
+toimii relayn puolella, joten se toimii myös tietokoneen ollessa sammuksissa ja
+puhelimen taskussa.
+
+Viestit lähetetään **omalla tililläsi**, ei erillisenä bottikäyttäjänä.
+
+## Mitä se voi kertoa
+
+| Ilmoitus | Milloin | Oletusteksti |
+| --- | --- | --- |
+| Live | Julkaisulaite aloittaa lähetyksen | Now live. |
+| Signaali katkesi | Lähde katoaa ja BRB pitää lähetystä yllä | Signal dropped — the stream is held on the BRB card, back shortly. |
+| Palasi | Lähde palaa katkon jälkeen | Back — the signal recovered after \{downtime\}. |
+| Lähetys päättyi | Lähde katoaa ja lähdöt puretaan | Stream ended after \{uptime\}. Thanks for watching! |
+
+"Signaali katkesi" ja "Lähetys päättyi" ovat eri tapahtumia. Kumman saat,
+riippuu siitä pitääkö **Älä koskaan katkea** lähetystä yllä: jos pitää, chat
+kuulee BRB-kortista; jos ei, chat kuulee että lähetys loppui.
+
+Jokainen ilmoitus lähtee kerran laitetta ja tilanmuutosta kohden riippumatta
+siitä, kuinka monta kertaa relay raportoi sen.
+
+## Käyttöönotto
+
+1. Avaa hallintapaneeli ja etsi **Chat-botti**.
+2. Kytke päälle **Anna VISPin kirjoittaa chattiini**.
+3. Valitse alustat. Jos oikeutta ei vielä ole, näkyy **Anna kirjoituslupa** —
+   se avaa alustan lupanäkymän.
+4. Paina **Lähetä testiviesti** varmistaaksesi että viesti menee perille.
+
+VISP pyytää samalla kaikki aiemmin myöntämäsi oikeudet, joten botin valtuutus ei
+katkaise chatin lukemista, Directiä tai otsikon muokkausta.
+
+### Oikeudet alustoittain
+
+| Alusta | Oikeus | Yleensä jo myönnetty? |
+| --- | --- | --- |
+| Twitch | `user:write:chat` | Ei — yksi lisälupa |
+| Kick | `chat:write` | Ei — yksi lisälupa |
+| YouTube | `youtube.force-ssl` | Kyllä, jos käytät Directiä tai muokkaat otsikoita VISPistä |
+
+## Komennot
+
+Komentojen etuliite on `!`.
+
+| Komento | Kenelle | Vastaa |
+| --- | --- | --- |
+| `!bitrate` | Kaikille | Bittinopeus, vasteaika ja pakettihävikki |
+| `!uptime` | Kaikille | Kuinka kauan lähetys on ollut käynnissä |
+| `!viewers` | Kaikille | Katsojamäärät linkitetyiltä alustoilta |
+| `!commands` | Kaikille | Julkisten komentojen lista |
+| `!title <teksti>` | Sinulle ja moderaattoreille | Päivittää otsikon jokaisella alustalla |
+
+Omat komennot ovat tekstivastauksia: lisää ne hallintapaneelin kohdasta
+**Sanamuodot ja komennot**. Samanniminen oma komento ohittaa valmiin komennon.
+
+Botti vastaa sillä alustalla, jolta kysymys tuli. Se ei toista yhden katsojan
+vastausta kaikissa chateissa.
+
+## Rajat, tarkoituksella
+
+- **Yksi rivi, 200 merkkiä.** Pidemmät vastaukset katkaistaan.
+- **20 viestiä minuutissa alustaa kohden** ja vähintään 1,5 sekuntia viestien
+  välissä. Silmukassa jauhava botti on se, joka johtaa porttikieltoon.
+- **Katsojilla on jäähy** omissa komennoissa (oletus 10 sekuntia). Sinulla ja
+  moderaattoreilla ei ole.
+- **Botti kuuntelee vain kun laite julkaisee** tai kun BRB-kortti pitää
+  lähetystä yllä. Offline-tilassa se ei ole yhteydessä chattiin.
+
+## Muuttujat
+
+Ilmoitusteksteissä voi käyttää muuttujia `\{device\}` (julkaisulaitteen nimi),
+`\{uptime\}` ja `\{downtime\}`. Tyhjä kenttä käyttää oletustekstiä.
+
+## Vianetsintä
+
+**"Anna kirjoituslupa" palaa aina näkyviin.** Lupanäkymä suljettiin kesken tai
+alusta poisti oikeuden. Tee valtuutus uudelleen ja varmista että chat-oikeus on
+valittuna.
+
+**YouTubeen ei tule mitään.** YouTuben chat on olemassa vain lähetyksen ajan ja
+sen pitää olla käytössä kyseisessä lähetyksessä. Tarkista ensin
+[Direct-lähtö](/docs/direct-output).
+
+**Komennot eivät toimi.** Tarkista että **Vastaa chat-komentoihin** on päällä,
+että chat on käytössä kyseisellä alustalla ja että jokin laite todella julkaisee.
+
+**Ilmoitus jäi tulematta vaikka lähetys katkesi.** Sama tapahtuma vaimennetaan
+minuutin ajaksi laitetta kohden, joten nopeasti kahdesti pätkivä yhteys kertoo
+siitä vain kerran.

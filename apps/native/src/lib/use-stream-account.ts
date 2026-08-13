@@ -41,6 +41,8 @@ export function useStreamAccount({
 	>([]);
 	const [directOutputs, setDirectOutputs] =
 		useState<Awaited<ReturnType<typeof apiClient.direct.list.query>>>();
+	const [brb, setBrb] =
+		useState<Awaited<ReturnType<typeof apiClient.brb.get.query>>>();
 	const [linkedAccounts, setLinkedAccounts] =
 		useState<
 			Awaited<ReturnType<typeof apiClient.channel.linkedAccounts.query>>
@@ -74,6 +76,7 @@ export function useStreamAccount({
 			setPublishDevices([]);
 			setLinkedAccounts(undefined);
 			setInstallationId(undefined);
+			setBrb(undefined);
 			return;
 		}
 		loadChatPreferences(userId)
@@ -93,6 +96,10 @@ export function useStreamAccount({
 			.query()
 			.then(setPublishDevices)
 			.catch(() => setPublishDevices([]));
+		apiClient.brb.get
+			.query()
+			.then(setBrb)
+			.catch(() => setBrb(undefined));
 		loadOrCreateInstallationId()
 			.then(setInstallationId)
 			.catch(() => setMessage("This installation could not be identified."));
@@ -124,6 +131,48 @@ export function useStreamAccount({
 		if (!userId) return;
 		setDirectOutputs(await apiClient.direct.list.query());
 	}, [userId]);
+
+	const updateBrb = useCallback(
+		async (over: { enabled?: boolean; message?: string }) => {
+			if (!brb) return;
+			const next = { ...brb, ...over };
+			setBrb(next);
+			try {
+				await apiClient.brb.update.mutate({
+					enabled: next.enabled,
+					message: next.message,
+					// The phone edits the switch and the message; the background
+					// picker, which needs an image upload, stays on the dashboard.
+					source: next.source,
+				});
+			} catch (error) {
+				setBrb(brb);
+				showToast(
+					error instanceof Error
+						? error.message
+						: "The BRB card could not be saved",
+				);
+			}
+		},
+		[brb, showToast],
+	);
+
+	/** Ends a broadcast the relay is still holding up on the BRB card. */
+	const endBrb = useCallback(
+		async (pathId: number) => {
+			try {
+				await apiClient.brb.stop.mutate({ pathId });
+				await refreshDirectOutputs();
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? error.message
+						: "The broadcast could not be ended",
+				);
+			}
+		},
+		[refreshDirectOutputs, showToast],
+	);
 
 	// Each call reads every linked provider's profile live, so it runs on demand
 	// (opening Account, or after a link changes) rather than on every load.
@@ -362,10 +411,12 @@ export function useStreamAccount({
 	return {
 		applyDirectSelection,
 		awaitingAutoProvision,
+		brb,
 		chatBusy,
 		chatConnections,
 		chatPreferences,
 		directOutputs,
+		endBrb,
 		installationId,
 		linkChannelProvider,
 		linkChatProvider,
@@ -385,6 +436,7 @@ export function useStreamAccount({
 		reauthorizeChatProvider,
 		toggleChatConnection,
 		unlinkChatProvider,
+		updateBrb,
 		updateChatPreferences,
 		updateYoutubeTitle,
 	};

@@ -1,5 +1,5 @@
 import { type ChatProvider, chatAuthProvider } from "@VISP/api/chat/contract";
-import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
+import { PROVIDER_SCOPES } from "@VISP/api/scopes";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -19,9 +19,10 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { RevealedValue } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
-import { authClient, authRedirectURL } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
+import { linkProvider } from "@/lib/link-provider";
 import { useTRPC } from "@/utils/trpc";
 import { providerLabel } from "./format";
 import type { ChatConnection } from "./types";
@@ -222,27 +223,12 @@ export function ConnectionsCard() {
 		const granted =
 			connections.data?.find((entry) => entry.provider === provider)
 				?.grantedScopes ?? [];
-		const scopes = linkScopes(
+		const result = await linkProvider({
 			provider,
 			granted,
-			chatConsent ? PROVIDER_SCOPES[provider].chat : [],
-		);
-		const callbackURL = authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`);
-		const result =
-			provider !== "kick"
-				? await authClient.linkSocial({
-						provider: chatAuthProvider(provider),
-						callbackURL,
-						scopes,
-					})
-				: await authClient.oauth2.link({
-						providerId: provider,
-						callbackURL,
-						errorCallbackURL: authRedirectURL(
-							`/dashboard?error=kick_link_failed${fi ? "&lang=fi" : ""}`,
-						),
-						scopes,
-					});
+			adding: chatConsent ? PROVIDER_SCOPES[provider].chat : [],
+			fi,
+		});
 		if (result.error) {
 			toast.error(result.error.message ?? `Could not link ${provider}`);
 		}

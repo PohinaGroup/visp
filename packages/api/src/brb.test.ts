@@ -5,7 +5,9 @@ import "./test-env";
 const { brbBackgroundKey, brbHolds, brbImageKey, splitBrbEligible } =
 	await import("./brb");
 
-const path = (over: Partial<Parameters<typeof splitBrbEligible>[0][0]> = {}) => ({
+const path = (
+	over: Partial<Parameters<typeof splitBrbEligible>[0][0]> = {},
+) => ({
 	pathId: 1,
 	brbEnabled: true,
 	revoked: false,
@@ -34,7 +36,9 @@ describe("splitBrbEligible", () => {
 			]),
 		).toEqual({ brbIds: [], stopIds: [1] });
 		expect(
-			splitBrbEligible([path({ providers: [{ enabled: false, state: "live" }] })]),
+			splitBrbEligible([
+				path({ providers: [{ enabled: false, state: "live" }] }),
+			]),
 		).toEqual({ brbIds: [], stopIds: [1] });
 		expect(
 			splitBrbEligible([path({ providers: [{ enabled: true, state: null }] })]),

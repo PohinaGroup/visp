@@ -27,10 +27,7 @@ export async function createScribeToken(
 	{ language }: { language: SubtitleLanguage },
 	overrides: Partial<TokenDependencies> = {},
 ): Promise<ScribeTokenResult> {
-	const {
-		fetch: request,
-		apiKey,
-	}: TokenDependencies = {
+	const { fetch: request, apiKey }: TokenDependencies = {
 		fetch,
 		apiKey: env.ELEVENLABS_API_KEY,
 		...overrides,
@@ -47,9 +44,7 @@ export async function createScribeToken(
 		},
 	);
 	if (!response.ok) {
-		throw new SubtitlesError(
-			`Subtitles provider returned ${response.status}`,
-		);
+		throw new SubtitlesError(`Subtitles provider returned ${response.status}`);
 	}
 
 	const body = (await response.json()) as { token?: unknown };

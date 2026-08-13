@@ -225,6 +225,35 @@ const finnishUi: Record<string, string> = {
 	"Download the scene file": "Lataa kohtaustiedosto",
 	"Download OBS scene file": "Lataa OBS-kohtaustiedosto",
 	"Check for a live connection": "Tarkista suora yhteys",
+	"Chat bot": "Chat-botti",
+	"See what the chat bot posts and answers":
+		"Katso mitä chat-botti kirjoittaa ja mihin se vastaa",
+	"Posts to your chat when the stream goes live, drops, or comes back, and answers commands like !bitrate. Messages appear as your own account.":
+		"Kirjoittaa chattiin kun lähetys alkaa, katkeaa tai palaa, ja vastaa komentoihin kuten !bitrate. Viestit näkyvät omalla tililläsi.",
+	"Let VISP post in my chat": "Anna VISPin kirjoittaa chattiini",
+	"Post on": "Kirjoita alustoille",
+	"Send test": "Lähetä testiviesti",
+	"test message sent": "testiviesti lähetetty",
+	"posting is not authorized yet": "kirjoituslupaa ei ole vielä annettu",
+	"Authorize posting": "Anna kirjoituslupa",
+	"Could not authorize posting": "Kirjoitusluvan antaminen epäonnistui",
+	"Say when the stream goes live": "Kerro kun lähetys alkaa",
+	"Say when the signal drops": "Kerro kun signaali katkeaa",
+	"Say when the signal comes back": "Kerro kun signaali palaa",
+	"Say when the stream ends": "Kerro kun lähetys päättyy",
+	"Answer chat commands": "Vastaa chat-komentoihin",
+	"Wording and commands": "Sanamuodot ja komennot",
+	"Placeholders: {device}, {uptime}, {downtime}. Leave a field empty to use the default wording.":
+		"Muuttujat: {device}, {uptime}, {downtime}. Jätä kenttä tyhjäksi käyttääksesi oletustekstiä.",
+	"Custom commands": "Omat komennot",
+	"Add command": "Lisää komento",
+	"Command saved": "Komento tallennettu",
+	Command: "Komento",
+	Reply: "Vastaus",
+	Remove: "Poista",
+	"Join at example.com/discord": "Liity: example.com/discord",
+	"Built in: !bitrate, !uptime, !viewers, !commands, and !title for you and your mods.":
+		"Valmiina: !bitrate, !uptime, !viewers, !commands sekä !title sinulle ja moderaattoreillesi.",
 };
 
 export function useT() {
