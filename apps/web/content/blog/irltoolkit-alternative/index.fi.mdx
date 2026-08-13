@@ -27,6 +27,7 @@ Tämä teksti auttaa erottamaan nuo kaksi tilannetta toisistaan.
 | Puhelinsovellus mukana | iOS, Android, selain | Oma encoder | Oma encoder | Oma encoder | Oma laitteistoencoder |
 | Mobiiliyhteyksien niputus | Ei — vain pakettien monistus | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA, oma protokolla |
 | Kohtaukset ja grafiikat | Oma OBS, valinnainen | Pilvi-OBS mukana | Pilvi-OBS mukana | Oma OBS | Oma OBS |
+| Chat-ilmoitus katkosta | Sisäänrakennettu, relaylta | Moderaattorin varassa | Moderaattorin varassa | Ei | Ei |
 | Lähdekoodi | GPL-2.0, itse ylläpidettävä | Suljettu | Suljettu | Suljettu | Avoin lähdekoodi |
 
 Julkiset listahinnat, tarkistettu 9. elokuuta 2026.
@@ -69,6 +70,10 @@ Kaksi asiaa, joita maksulliset palvelut eivät tee:
 - **Puhelinsovellus kuuluu tuotteeseen.** iOS, Android ja selainjulkaisija sen
   sijaan että määrittäisit Larixin tai Moblinin itse. Lisätiedot
   [puhelinsovelluksen ohjeissa](https://docs.visp-stream.com/docs/phone-app).
+- **Chat saa tiedon katkosta.** Relay tietää eron BRB-kortilla pidetyn katkon
+  ja päättyneen lähetyksen välillä ja kirjoittaa oikean viestin Twitchin,
+  Kickin ja YouTuben chattiin. Lisää:
+  [IRL-chatbotin ilmoitukset](/blog/irl-chat-bot-alerts-without-a-pc).
 - **Lähetysavain ei koskaan päädy laitteelle.** VISP hakee valtuutetut
   alustatunnukset palvelimella lähdön käynnistyessä eikä palauta niitä
   julkaisijalle. Kadonnut tai lainattu puhelin ei vuoda avaintasi. Vertaa tätä

@@ -15,6 +15,7 @@ import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { BrbCard } from "./brb-card";
 import { ChainStrip } from "./chain-strip";
+import { ChatBotCard } from "./chat-bot-card";
 import { ConnectionsCard } from "./connections-card";
 import { CredentialsCard } from "./credentials-card";
 import { DirectCard } from "./direct-card";
@@ -95,6 +96,7 @@ export function DashboardPage() {
 							</Text>
 							<ObsControlCard />
 							<ConnectionsCard />
+							<ChatBotCard />
 							{advancedMode ? (
 								<VStack gap={2}>
 									<Text color="secondary" type="supporting">

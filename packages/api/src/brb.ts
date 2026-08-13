@@ -1,7 +1,8 @@
 import { db } from "@VISP/db";
 import { appUser, pathState, relayPath } from "@VISP/db/schema/index";
 import type { ObjectStore } from "@VISP/object-store";
-import { and, eq, inArray, sql } from "drizzle-orm";
+import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { announceStreamEvent } from "./chat/alerts";
 import {
 	type DirectProvider,
 	RESERVATION_MS,
@@ -108,8 +109,16 @@ const PROVIDER_ENABLED = {
  * unconditional `stopDirectForPaths` calls so the not-ready hook and the 10s
  * reconciler cannot race each other into completing a YouTube broadcast that
  * BRB is still holding open.
+ *
+ * `justStopped` is the subset that actually transitioned out of publishing on
+ * this call. Both callers run repeatedly against paths that are already down,
+ * so it is the only thing that separates "the stream just ended" from "the
+ * stream is still ended".
  */
-export async function handleSourceGone(pathIds: number[]) {
+export async function handleSourceGone(
+	pathIds: number[],
+	justStopped: readonly number[] = [],
+) {
 	if (pathIds.length === 0) return;
 	const rows = await db
 		.select({
@@ -142,19 +151,31 @@ export async function handleSourceGone(pathIds: number[]) {
 	);
 	const holding = new Set(brbIds);
 	if (brbIds.length > 0) {
-		// coalesce keeps the original drop time across the reconciler's re-runs.
-		await db
+		// Only rows entering BRB now. Skipping the ones that already have a time
+		// keeps the original drop time across the reconciler's re-runs, exactly
+		// as the old coalesce did, and makes the returned ids the real drops.
+		const entered = await db
 			.update(pathState)
-			.set({ brbSince: sql`coalesce(${pathState.brbSince}, now())` })
-			.where(inArray(pathState.pathId, brbIds));
+			.set({ brbSince: sql`now()` })
+			.where(and(inArray(pathState.pathId, brbIds), isNull(pathState.brbSince)))
+			.returning({ pathId: pathState.pathId });
+		for (const row of entered) void announceStreamEvent(row.pathId, "brb");
 	}
 	// Ids with no row at all (deleted path) belong to the hard-stop side too.
 	await stopDirectForPaths(pathIds.filter((id) => !holding.has(id)));
+	for (const pathId of justStopped) {
+		if (!holding.has(pathId)) void announceStreamEvent(pathId, "offline");
+	}
 }
 
 export type BrbTick =
 	| { stop: true }
-	| { stop: false; message: string; backgroundUrl: string | null };
+	| {
+			stop: false;
+			message: string;
+			backgroundUrl: string | null;
+			source: BrbSource;
+	  };
 
 /**
  * Backs `POST /api/hooks/brb`. Returning `stop` is what ends a held forwarder,
@@ -231,6 +252,9 @@ export async function brbTick(
 		stop: false,
 		message: row.message?.trim() || DEFAULT_BRB_MESSAGE,
 		backgroundUrl,
+		// The relay needs the source, not just the URL: "snapshot" is what makes
+		// it prefer its own local grab over the round trip, and what blurs the card.
+		source: row.source as BrbSource,
 	};
 }
 
@@ -324,22 +348,27 @@ export async function clearBrbImage(
 	return { hasImage: false };
 }
 
-/** The dashboard's way out of BRB: clearing the marker stops the next tick. */
+/**
+ * "End the broadcast now", from the dashboard or from the phone's stop button.
+ *
+ * Clearing `brbSince` alone is not enough: the phone stops before MediaMTX has
+ * noticed, so the not-ready hook lands afterwards and `handleSourceGone` would
+ * re-arm the hold behind us. A full teardown also moves the provider states out
+ * of HOLDABLE_STATES, which is what makes this safe in either order.
+ */
 export async function stopBrb(userId: string, pathId: number) {
 	const [row] = await db
-		.update(pathState)
-		.set({ brbSince: null })
+		.select({ id: relayPath.id })
+		.from(relayPath)
 		.where(
 			and(
-				eq(pathState.pathId, pathId),
-				sql`exists (
-					select 1 from ${relayPath}
-					where ${relayPath.id} = ${pathState.pathId}
-						and ${relayPath.userId} = ${userId}
-						and ${relayPath.revokedAt} is null
-				)`,
+				eq(relayPath.id, pathId),
+				eq(relayPath.userId, userId),
+				isNull(relayPath.revokedAt),
 			),
 		)
-		.returning({ pathId: pathState.pathId });
-	return Boolean(row);
+		.limit(1);
+	if (!row) return false;
+	await stopDirectForPaths([pathId]);
+	return true;
 }

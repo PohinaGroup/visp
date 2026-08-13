@@ -27,6 +27,7 @@ This post is about telling those two situations apart.
 | Phone app included | iOS, Android, browser | Bring your own encoder | Bring your own encoder | Bring your own encoder | Dedicated hardware encoder |
 | Cellular bonding | No — packet duplication only | Yes — SRTLA ingest | Yes — SRTLA ingest | Yes — SRTLA ingest | Yes — SRTLA, its own protocol |
 | Scenes and overlays | Your own OBS, optional | Cloud OBS included | Cloud OBS included | Your own OBS | Your own OBS |
+| Chat alerts on a drop | Built in, from the relay | Moderator-driven | Moderator-driven | No | No |
 | Source available | GPL-2.0, self-hostable | Closed | Closed | Closed | Open source |
 
 Public list prices, checked 9 August 2026.
@@ -68,6 +69,10 @@ Two things it does that the paid services do not:
 - **The phone app is part of the product.** iOS, Android, and a browser publisher,
   rather than "configure Larix or Moblin yourself." Details in the
   [phone app docs](https://docs.visp-stream.com/docs/phone-app).
+- **Chat is told when the signal drops.** The relay knows the difference
+  between a dropout it is holding on a BRB card and a stream that ended, and
+  posts the right one to Twitch, Kick, and YouTube chat. Details in
+  [IRL chat bot alerts](/blog/irl-chat-bot-alerts-without-a-pc).
 - **Your stream key never reaches the device.** VISP resolves authorized platform
   credentials on the server while starting the output and never returns them to
   the publisher. A lost or borrowed phone does not leak your key. Compare that to

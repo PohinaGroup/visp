@@ -1,0 +1,101 @@
+---
+title: Chat bot
+description: Post live, BRB, and back alerts to your chat, and answer commands like !bitrate.
+icon: MessageCircle
+---
+
+The VISP chat bot writes to Twitch, Kick, and YouTube chat on two occasions:
+when your stream changes state, and when someone types a command. It runs on
+the relay side, so it works with your computer off and keeps working while your
+phone is in your pocket.
+
+Messages are posted **as your own account**, not as a separate bot user.
+
+## What it can say
+
+| Alert | Fires when | Default wording |
+| --- | --- | --- |
+| Live | A publishing device starts sending | Now live. |
+| Signal dropped | The source disappears and [BRB](/docs/direct-output) holds the broadcast | Signal dropped — the stream is held on the BRB card, back shortly. |
+| Back | The source returns after a drop | Back — the signal recovered after \{downtime\}. |
+| Stream ended | The source disappears and the outputs are torn down | Stream ended after \{uptime\}. Thanks for watching! |
+
+"Signal dropped" and "Stream ended" are different events. Which one you get
+depends on whether **Never drop again** is holding the broadcast open: if it is,
+chat hears that you are on the BRB card; if it is not, chat hears that the
+stream is over.
+
+Each alert fires once per device per transition, no matter how many times the
+relay reports it.
+
+## Turn it on
+
+1. Open the dashboard and find **Chat bot**.
+2. Switch on **Let VISP post in my chat**.
+3. Choose the platforms to post on. Anything not authorized yet shows
+   **Authorize posting** — that re-opens the provider's consent screen.
+4. Press **Send test** next to a platform to prove delivery end to end.
+
+VISP asks for every permission you had already granted at the same time, so
+authorizing the bot never switches off chat reading, Direct, or title editing.
+
+### Permissions each platform needs
+
+| Platform | Permission | Usually already granted? |
+| --- | --- | --- |
+| Twitch | `user:write:chat` | No — one extra consent |
+| Kick | `chat:write` | No — one extra consent |
+| YouTube | `youtube.force-ssl` | Yes, if you use Direct or edit titles from VISP |
+
+## Commands
+
+Commands are off-limits to nobody by default; the prefix is `!`.
+
+| Command | Who | Answers with |
+| --- | --- | --- |
+| `!bitrate` | Anyone | Live bitrate, round-trip time, and packet loss |
+| `!uptime` | Anyone | How long the current stream has been up |
+| `!viewers` | Anyone | Viewer counts from each linked platform |
+| `!commands` | Anyone | The list of public commands |
+| `!title <text>` | You and your moderators | Updates the title on every platform that allows it |
+
+Custom commands are plain text replies: add them under **Wording and commands**
+on the dashboard card. A custom command with the same name as a built-in wins,
+so `!uptime` can be replaced with your own answer.
+
+The bot replies on the platform the question came from. It does not repeat one
+viewer's answer across all three chats.
+
+## Limits, on purpose
+
+- **One line, 200 characters.** Longer replies are truncated.
+- **20 messages a minute per platform**, and at least 1.5 seconds between them.
+  A bot that loops is what gets an account timed out.
+- **Viewers wait out a cooldown** on custom commands (10 seconds by default).
+  You and your moderators do not.
+- **The bot only listens while a device is publishing** or while the BRB card is
+  holding the broadcast. It is not connected to your chat when you are offline.
+
+## Placeholders
+
+Alert wording accepts `\{device\}` (the publishing device's label), `\{uptime\}`,
+and `\{downtime\}`. Leave a field empty to use the default wording.
+
+## Troubleshooting
+
+**"Authorize posting" keeps coming back.** The consent screen was closed before
+finishing, or the platform dropped the permission. Re-run it and confirm the
+chat permission is ticked.
+
+**Nothing is posted on YouTube.** YouTube chat only exists while a broadcast is
+live, and live chat must be enabled for that broadcast. Check
+[Direct output](/docs/direct-output) first: if VISP did not create a broadcast,
+there is no chat to write to.
+
+**Commands are ignored.** Check that **Answer chat commands** is on, that chat
+is enabled for that platform under **Chat connections**, and that a device is
+actually publishing.
+
+**Alerts are missing but the stream did drop.** Alerts are suppressed for a
+minute after the same event on the same device, so a link that flaps twice in
+quick succession only says so once.

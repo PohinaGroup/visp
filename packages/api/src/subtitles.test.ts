@@ -77,10 +77,7 @@ describe("createScribeToken", () => {
 		const { calls, deps } = recorder(() => new Response(null));
 
 		await expect(
-			createScribeToken(
-				{ language: "en" },
-				{ ...deps, apiKey: undefined },
-			),
+			createScribeToken({ language: "en" }, { ...deps, apiKey: undefined }),
 		).rejects.toThrow("Better subtitles are not configured");
 		expect(calls).toHaveLength(0);
 	});

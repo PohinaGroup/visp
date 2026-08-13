@@ -312,7 +312,7 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 					? "stop\n"
 					: `brb ${Buffer.from(tick.message, "utf8").toString("base64")} ${
 							tick.backgroundUrl ?? "-"
-						}\n`;
+						} ${tick.source}\n`;
 				return new Response(line, {
 					headers: { "Content-Type": "text/plain; charset=utf-8" },
 				});

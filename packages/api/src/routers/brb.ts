@@ -57,7 +57,7 @@ export const brbRouter = router({
 			if (!(await stopBrb(ctx.relayUser.id, input.pathId))) {
 				throw new TRPCError({
 					code: "NOT_FOUND",
-					message: "This device is not showing a BRB card",
+					message: "Publishing device not found",
 				});
 			}
 			return { pathId: input.pathId };

@@ -56,9 +56,13 @@ export const subtitlesRoutes = new Elysia({ name: "subtitles-routes" }).post(
 			});
 		} catch (error) {
 			if (error instanceof SubtitlesError) {
-				return status(502, { error: "Better subtitles are unavailable right now" });
+				return status(502, {
+					error: "Better subtitles are unavailable right now",
+				});
 			}
-			return status(502, { error: "Better subtitles are unavailable right now" });
+			return status(502, {
+				error: "Better subtitles are unavailable right now",
+			});
 		}
 	},
 	{ parse: "none" },
