@@ -1,0 +1,222 @@
+---
+title: "How to Use an External Microphone for Phone IRL Streaming"
+description: "Connect and verify an external phone microphone for Twitch or Kick IRL streaming, then prevent wrong-input, clipping, and route-change failures."
+publishedAt: 2026-08-14
+coverAlt: "An IRL creator wearing a compact external microphone while a clean audio waveform travels from a phone toward a home streaming studio"
+---
+
+An external microphone can make an IRL stream easier to understand, but merely
+plugging one into a phone does not prove that the streaming app is using it.
+The phone may keep its built-in microphone, a wireless receiver may change the
+playback route, and a loud transmitter can clip before OBS ever sees the
+signal.
+
+The reliable workflow is short: **connect the microphone before capture,
+select the named input in VISP, prove it with the phone meter, and judge a real
+recording or platform test.** This guide applies whether the finished show goes
+through a home OBS studio or VISP Direct to Twitch or Kick.
+
+![An external microphone feeds the selected phone input, which VISP carries either into a home OBS mix or through Direct to a streaming destination](./external-mic-audio-path.svg)
+
+## The short answer: verify the route, not the connector
+
+Use these checkpoints in order:
+
+1. Stop the VISP contribution if it is running.
+2. Connect and power the microphone, receiver, or audio interface.
+3. Open **Settings → Audio → Microphone** in the VISP phone app.
+4. Choose the named input instead of assuming **System default** changed.
+5. Speak close to that microphone and watch the phone's audio indicator.
+6. Start a test and record it in OBS, or check the Direct output from a second
+   device through headphones.
+7. Disconnect and reconnect the accessory once before the real stream, then
+   repeat the selection check.
+
+Do not leave the final proof until viewers arrive. A connector can fit, a
+receiver can show a green light, and the wrong microphone can still be active.
+
+## Pick the simplest microphone route that meets the job
+
+No connector type is automatically best for every IRL stream. Choose around
+movement, weather, monitoring, and the sound you need to capture.
+
+| Input route | Good fit | Check before going live |
+| --- | --- | --- |
+| Phone's built-in microphone | A quick test or ambient scene where the phone stays near the speaker | Wind, handling noise, and changing distance |
+| Wired lavalier or compact phone microphone | One nearby speaker with minimal equipment | Correct phone adapter, cable rub, strain relief, and whether the input appears by name |
+| USB audio interface or plug-in wireless receiver | A microphone system with its own gain or a feed from a venue mixer | Power draw, adapter stability, input gain, mono/stereo layout, and what happens if the cable moves |
+| Bluetooth headset microphone | Cable-free speech when the phone exposes the headset as an input | The actual selected input, return-audio route, battery, range, and reconnection behavior |
+
+Follow the accessory maker's compatibility instructions for your exact phone.
+A USB-C, Lightning, TRRS, or Bluetooth label alone does not guarantee that a
+particular phone, adapter, and microphone combination exposes an input to
+third-party capture apps.
+
+For outdoor speech, microphone placement and wind protection usually matter
+more than adding aggressive processing later. The
+[iPhone wind and background-noise guide](/blog/reduce-wind-noise-iphone-irl-streaming)
+explains that separate problem in detail.
+
+## 1. Connect the microphone before opening its capture session
+
+Mount the microphone and secure every adapter before starting the VISP stream.
+If the accessory has a receiver or interface, power it on and wait until the
+phone recognizes it. Then open VISP settings.
+
+VISP lists the audio inputs currently reported by iOS or Android. On iPhone,
+the app reads `AVAudioSession.availableInputs` and asks the system to use the
+selected port. Apple's
+[setPreferredInput documentation](https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferredinput%28_%3A%29)
+is careful about the distinction: the method requests an input-route change,
+and the current route is the way to determine whether it took effect.
+
+Android has the same useful caution. VISP reads the available input devices
+and requests the selected device from its microphone capture source. Android's
+[AudioRouting reference](https://developer.android.com/reference/android/media/AudioRouting.html)
+states that a preferred device is not guaranteed to be the device actually
+used for recording. That is why the meter and listening test are part of the
+setup, not optional troubleshooting.
+
+Keep the stream stopped while changing the microphone. VISP deliberately
+disables the picker during an active contribution so the capture session does
+not change underneath a live Twitch or Kick show.
+
+## 2. Select the named input and prove it is active
+
+In **Settings → Audio → Microphone**, choose the accessory name when it is
+available. Use **System default** only when you intentionally want the phone to
+decide the route.
+
+Then run a wrong-input test:
+
+1. Hold the external microphone at its real on-air position.
+2. Speak a normal sentence, then one louder sentence.
+3. Move the external microphone farther away while keeping the phone still.
+4. Briefly cover the phone's built-in microphone area without touching the
+   external microphone.
+5. Watch how the VISP audio indicator changes.
+
+The meter should follow the microphone you selected. If it behaves as though
+the phone itself is still listening, stop and reselect the input. If the named
+device has disappeared, reconnect it, reopen settings, and check again.
+
+The meter proves that sound reaches the capture path, but it cannot identify
+distortion, radio interference, cable noise, or a hollow Bluetooth route.
+Listen to a recording before deciding the setup is good.
+
+## 3. Set gain before using the OBS fader
+
+Speak at the loudest realistic level for the event. Include cheering, turning
+your head, walking, and clothing movement. If the external receiver or audio
+interface has an input-gain control, lower it there when loud words crackle or
+flatten. If it has no gain control, change microphone distance or use a better
+matched input rather than expecting the OBS fader to repair clipped capture.
+
+VISP's microphone picker selects the input; it is not a replacement for the
+accessory's gain control. The ordinary relay path forwards the phone
+contribution into OBS without normalizing or repairing its audio.
+
+In OBS, confirm that exactly one phone source moves in the Audio Mixer and make
+a local recording. OBS's official
+[Audio Mixer Guide](https://obsproject.com/kb/audio-mixer-guide) recommends
+checking levels at the original device and again in OBS, then listening back
+before going live. Lowering an OBS fader makes a clipped signal quieter; it
+does not make the clipped waveform clean.
+
+If you hear silence, echo, a fixed delay, or only one side of an interface,
+continue with the
+[phone-camera audio troubleshooting guide](/blog/fix-phone-audio-obs).
+
+## 4. Check return audio after the input changes
+
+An external audio device can affect more than capture. Connecting or
+disconnecting a headset, receiver, or interface may also change where the
+phone plays chat text-to-speech, alerts, monitoring, or other app audio.
+Apple documents plug, unplug, and configuration events as
+[audio-route changes](https://developer.apple.com/documentation/avfaudio/avaudiosession/routechangenotification).
+Android audio capture similarly exposes routing-change notifications through
+its AudioRouting API.
+
+Test the complete field experience with headphones where appropriate:
+
+- confirm the intended microphone still drives the VISP meter;
+- play one chat text-to-speech message if you use that feature;
+- check that return audio does not leak from a speaker into the microphone;
+- lock the cable and receiver where normal walking cannot pull them loose;
+- verify the accessory's battery and expected operating range;
+- repeat the test after one disconnect and reconnect.
+
+Do not assume a successful desk recording proves the roaming setup. Body
+position, a pocketed receiver, nearby radio traffic, wind, and cable movement
+only appear in a realistic walking test.
+
+## 5. Verify the path you will actually broadcast
+
+The final check differs slightly between an OBS-first and Direct workflow.
+
+### Phone to VISP to OBS to Twitch or Kick
+
+Start the phone contribution, select the matching VISP Media Source in OBS,
+and confirm its Audio Mixer meter moves. Record at least 30 seconds with normal
+speech, a loud sentence, silence, movement, and a hand clap. Listen on
+headphones and ordinary speakers, then check the private or public platform
+output from a second device through headphones.
+
+OBS owns the final mix in this path, so it is also where you balance the phone
+against music, alerts, a studio host, or other cameras. The external microphone
+is already encoded beside the phone video before that source reaches OBS.
+
+### Phone to VISP Direct to Twitch or Kick
+
+OBS is not in the delivery path, so an OBS filter or fader cannot change what
+Direct viewers hear. Run a short platform test and listen from a second device
+through headphones. Confirm both speech and the wanted environmental sound
+before ending the test.
+
+The [VISP phone-app documentation](https://docs.visp-stream.com/docs/phone-app)
+describes both contribution paths. VISP can carry the selected microphone with
+the phone camera, but it cannot restore audio that clipped at the accessory or
+guarantee that a disconnected input will change routes cleanly during a live
+show.
+
+## Plan for a microphone disconnect
+
+Treat an unplugged receiver or dead wireless transmitter as an on-air fault,
+not as a seamless input switch. When VISP refreshes settings and a saved input
+is no longer available, it clears that unavailable selection back toward the
+system default. The operating system still controls the actual route, so stop,
+reconnect, reselect, and verify whenever the production allows.
+
+For an OBS production, keep a local fallback scene ready while the field
+operator fixes audio. For Direct, the platform feed has no home-OBS layer to
+hide the repair, so a tested built-in-microphone fallback matters even more.
+
+Before leaving, rehearse this recovery once:
+
+1. stop the contribution;
+2. disconnect the external microphone;
+3. select and test **System default**;
+4. reconnect the accessory;
+5. select it by name again;
+6. make one more recording or platform check.
+
+## External-microphone checklist for an IRL stream
+
+Before every Twitch or Kick broadcast:
+
+1. charge the microphone, transmitter, receiver, and phone;
+2. secure the windscreen, cable, adapter, and strain relief;
+3. connect the accessory before starting capture;
+4. select the named microphone in VISP while stopped;
+5. prove it with the phone meter and a wrong-input test;
+6. test normal and loud speech without clipping;
+7. confirm chat TTS or other return audio still goes where intended;
+8. record and listen through the real OBS or Direct path;
+9. carry a built-in-microphone or spare-accessory recovery plan;
+10. repeat a short check at the real location.
+
+An external microphone is useful only when the phone is actually capturing it.
+Start with the [VISP getting-started guide](https://docs.visp-stream.com/docs/get-started),
+connect one microphone, and try VISP with a short private test before building
+the rest of the production. If the route survives movement, a loud sentence,
+and one reconnect, it is ready for a real IRL rehearsal.
