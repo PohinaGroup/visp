@@ -223,7 +223,7 @@ const DESTINATION_OPTIONS: {
 
 const MANUAL_PUBLISH_STEPS: Record<
 	Exclude<Publisher, "visp" | "web">,
-	{ name: string; primary: "srt" | "rtmp"; steps: string[] }
+	{ name: string; primary: "srt" | "rtmp" | "srtla"; steps: string[] }
 > = {
 	obs: {
 		name: "OBS Studio",
@@ -245,10 +245,11 @@ const MANUAL_PUBLISH_STEPS: Record<
 	},
 	moblin: {
 		name: "Moblin",
-		primary: "srt",
+		primary: "srtla",
 		steps: [
 			"Open Moblin and go to Settings → Streams → Create stream.",
 			"Paste your link as the stream URL and save.",
+			"The link is an SRTLA one, so Moblin can send over Wi-Fi and mobile data at the same time. Turn on the connections you want under Settings → Streams → your stream → SRT(LA).",
 		],
 	},
 	other: {
@@ -1558,7 +1559,9 @@ function CredentialsReady({
 	const primary =
 		manual?.primary === "rtmp"
 			? (publishUrl?.rtmp ?? "")
-			: (publishUrl?.srt ?? "");
+			: manual?.primary === "srtla"
+				? (publishUrl?.srtla ?? "")
+				: (publishUrl?.srt ?? "");
 	const destinationLabel =
 		destination === "twitch"
 			? "Twitch"

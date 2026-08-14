@@ -58,6 +58,7 @@ services:
       - "host.docker.internal:host-gateway"
     ports:
       - "127.0.0.1:1935:1935"
+      - "127.0.0.1:5000:5000/udp"
       - "127.0.0.1:8189:8189/udp"
       - "127.0.0.1:8554:8554"
       - "127.0.0.1:8889:8889"
@@ -113,6 +114,16 @@ services:
       VISP_BOND_IDLE_TIMEOUT_MS: 15000
       VISP_BOND_MAX_GROUPS: 64
       VISP_BOND_MAX_LINKS: 2
+    network_mode: service:mediamtx
+    profiles: ["bonding"]
+
+  srtla-rec:
+    build:
+      context: .
+      dockerfile: deploy/relay/srtla-rec/Dockerfile
+    depends_on:
+      mediamtx:
+        condition: service_healthy
     network_mode: service:mediamtx
     profiles: ["bonding"]
 

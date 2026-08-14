@@ -62,16 +62,20 @@ export function MaskedUrlWithFallback({
 	label,
 	srt,
 	rtmp,
+	srtla,
 	getSrt,
 	getRtmp,
+	getSrtla,
 	docsHref,
 	docsLabel,
 }: {
 	label: string;
 	srt: string;
 	rtmp: string;
+	srtla?: string;
 	getSrt: () => Promise<string>;
 	getRtmp: () => Promise<string>;
+	getSrtla?: () => Promise<string>;
 	docsHref?: string;
 	docsLabel?: string;
 }) {
@@ -113,6 +117,28 @@ export function MaskedUrlWithFallback({
 					</VStack>
 				</Card>
 			</Collapsible>
+			{srtla && getSrtla ? (
+				<Collapsible
+					defaultIsOpen={false}
+					trigger={
+						<Text color="secondary" type="supporting">
+							Bonding two connections with BELABOX or Moblin? Show the SRTLA URL
+						</Text>
+					}
+				>
+					<Card padding={3} variant="muted">
+						<VStack gap={2}>
+							<HStack gap={3} hAlign="between" vAlign="center">
+								<Text type="label">SRTLA</Text>
+								<CopyButton label="Copy URL" value={getSrtla} />
+							</HStack>
+							<Text type="code" wordBreak="break-all">
+								{srtla}
+							</Text>
+						</VStack>
+					</Card>
+				</Collapsible>
+			) : null}
 		</VStack>
 	);
 }
