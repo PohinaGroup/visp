@@ -31,6 +31,9 @@ public actor SRTConnection: NetworkConnection {
   }
   public var bondedLinkPerformance: [SRTBondedLinkPerformance] {
     get async {
+      if bondingMode == "srtla" {
+        return srtlaClient?.statistics() ?? []
+      }
       return await socket?.bondedLinkPerformance() ?? []
     }
   }
@@ -40,6 +43,7 @@ public actor SRTConnection: NetworkConnection {
   private var listener: SRTSocket?
   private var networkMonitor: NetworkMonitor?
   private let bondingMode: String
+  private var srtlaClient: SRTLAClient?
 
   /// Creates an object.
   public init(bondingMode: String = "off") {
@@ -83,7 +87,24 @@ public actor SRTConnection: NetworkConnection {
   /// - srt://:9000?mode=listener
   ///   - Wait for connections as a server.
   public func connect(_ uri: URL?) async throws {
-    guard let url = SRTSocketURL(uri) else {
+    var socketURI = uri
+    if bondingMode == "srtla" {
+      guard
+        let uri,
+        let host = uri.host,
+        let remotePort = uri.port,
+        var components = URLComponents(url: uri, resolvingAgainstBaseURL: false)
+      else {
+        throw Error.unsupportedUri(uri)
+      }
+      let client = SRTLAClient()
+      let localPort = try await client.start(host: host, port: UInt16(remotePort))
+      components.host = "127.0.0.1"
+      components.port = Int(localPort)
+      socketURI = components.url
+      srtlaClient = client
+    }
+    guard let url = SRTSocketURL(socketURI) else {
       throw Error.unsupportedUri(uri)
     }
     do {
@@ -126,6 +147,8 @@ public actor SRTConnection: NetworkConnection {
         }
       }
     } catch let error as SRTSocket.Error {
+      srtlaClient?.stop()
+      srtlaClient = nil
       switch error {
       case .rejected(let reason):
         throw Error.failedToConnect(reason)
@@ -133,6 +156,8 @@ public actor SRTConnection: NetworkConnection {
         throw Error.invalidState
       }
     } catch {
+      srtlaClient?.stop()
+      srtlaClient = nil
       throw Error.invalidState
     }
   }
@@ -149,6 +174,8 @@ public actor SRTConnection: NetworkConnection {
     }
     await socket?.stopRunning()
     socket = nil
+    srtlaClient?.stop()
+    srtlaClient = nil
     await listener?.stopRunning()
     listener = nil
     uri = nil

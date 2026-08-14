@@ -17,7 +17,7 @@ export type StreamStateEvent = {
 	state: StreamState;
 };
 
-export type BondingMode = "off" | "broadcast" | "backup";
+export type BondingMode = "off" | "srtla" | "broadcast" | "backup";
 export type LinkTransport = "wifi" | "cellular";
 export type BondedLinkStats = {
 	bitrateKbps: number;

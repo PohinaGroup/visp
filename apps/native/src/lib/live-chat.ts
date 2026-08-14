@@ -1,4 +1,5 @@
 import type {
+	ChatAlert,
 	ChatLiveEvent,
 	ChatMessage,
 	ChatProvider,
@@ -27,11 +28,17 @@ export function useLiveChat(
 	userId: string | undefined,
 	active: boolean,
 	onMessage?: (message: ChatMessage) => void,
+	onAlert?: (alert: ChatAlert) => void,
 ) {
 	const onMessageRef = useRef(onMessage);
+	const onAlertRef = useRef(onAlert);
 	useEffect(() => {
 		onMessageRef.current = onMessage;
+		onAlertRef.current = onAlert;
 	});
+	const [alerts, setAlerts] = useState<
+		Array<ChatAlert & { receivedAt: number }>
+	>([]);
 	const [messages, setMessages] = useState<
 		Array<ChatMessage & { receivedAt: number }>
 	>([]);
@@ -44,6 +51,7 @@ export function useLiveChat(
 
 	useEffect(() => {
 		if (!active || !userId) {
+			setAlerts([]);
 			setMessages([]);
 			setStatuses({});
 			setErrors({});
@@ -55,6 +63,7 @@ export function useLiveChat(
 		let socket: WebSocket | undefined;
 
 		const connect = async () => {
+			setAlerts([]);
 			setMessages([]);
 			try {
 				const { ticket } = await apiClient.chat.liveTicket.mutate();
@@ -91,6 +100,21 @@ export function useLiveChat(
 												}
 											: current),
 							}));
+							return;
+						}
+						if (event.type === "alert") {
+							const receivedAt = Date.now();
+							onAlertRef.current?.(event.alert);
+							setAlerts((current) =>
+								[
+									...current.filter(
+										(alert) =>
+											alert.id !== event.alert.id ||
+											alert.provider !== event.alert.provider,
+									),
+									{ ...event.alert, receivedAt },
+								].slice(-3),
+							);
 							return;
 						}
 						const receivedAt = Date.now();
@@ -131,6 +155,7 @@ export function useLiveChat(
 	}, [active, userId]);
 
 	return {
+		alerts,
 		errors,
 		messages,
 		recentMessages: messages,

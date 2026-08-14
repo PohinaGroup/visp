@@ -120,7 +120,9 @@ mock.module("../../modules/visp-srt", () => ({
 	},
 }));
 
-const { enqueueChatMessage, stopChatSpeech } = await import("./chat-speech");
+const { enqueueAlert, enqueueChatMessage, stopChatSpeech } = await import(
+	"./chat-speech"
+);
 
 async function nextDrain() {
 	await new Promise((resolve) => setTimeout(resolve, 10));
@@ -148,6 +150,25 @@ describe("Android speech output routing", () => {
 		);
 		await nextDrain();
 		expect(routedSpeech).toEqual([["device says Joni", "en-US", "42"]]);
+		stopChatSpeech();
+	});
+
+	test("reads an alert once across redelivery", async () => {
+		routedSpeech.length = 0;
+		const alert = {
+			id: "raid-1",
+			provider: "twitch" as const,
+			kind: "raid" as const,
+			sentAt: new Date(0).toISOString(),
+			name: "Raider",
+			amount: 12,
+		};
+		enqueueAlert(alert, "en-US", false, "42");
+		enqueueAlert(alert, "en-US", false, "42");
+		await nextDrain();
+		expect(routedSpeech).toEqual([
+			["Raider raided with 12 viewers", "en-US", "42"],
+		]);
 		stopChatSpeech();
 	});
 });

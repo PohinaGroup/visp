@@ -23,6 +23,11 @@ export const PROVIDER_SCOPES = {
 		/** Appended to by better-auth; nothing to re-request. */
 		base: [],
 		chat: ["user:read:chat", "channel:manage:broadcast"],
+		alerts: [
+			"moderator:read:followers",
+			"channel:read:subscriptions",
+			"bits:read",
+		],
 		/** What the bot needs to post; the message lands as the streamer. */
 		chatWrite: ["user:write:chat"],
 		channelWrite: "channel:manage:broadcast",
@@ -35,6 +40,7 @@ export const PROVIDER_SCOPES = {
 		/** Mirrors the genericOAuth config in packages/auth; see the note above. */
 		base: ["user:read", "channel:write"],
 		chat: [],
+		alerts: [],
 		chatWrite: ["chat:write"],
 		channelWrite: "channel:write",
 		streamKey: "streamkey:read",
@@ -46,6 +52,7 @@ export const PROVIDER_SCOPES = {
 		/** Google supplies identity scopes; Direct adds only YouTube access. */
 		base: [],
 		chat: ["https://www.googleapis.com/auth/youtube.readonly"],
+		alerts: [],
 		// liveChatMessages.insert rides on the same scope title edits use, so a
 		// YouTube streamer who authorized Direct already granted this.
 		chatWrite: ["https://www.googleapis.com/auth/youtube.force-ssl"],
@@ -94,6 +101,15 @@ export function hasChatScope(
 	return (
 		hasScope(scope, PROVIDER_SCOPES.youtube.chat[0]) ||
 		hasScope(scope, PROVIDER_SCOPES.youtube.streamKey)
+	);
+}
+
+export function hasAlertScope(
+	provider: ScopeProvider,
+	scope: string | null | undefined,
+) {
+	return PROVIDER_SCOPES[provider].alerts.every((name) =>
+		hasScope(scope, name),
 	);
 }
 

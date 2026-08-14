@@ -577,7 +577,10 @@ class VispSrtView(context: Context, appContext: AppContext) :
                 BondedSrtNative.stop(context)
                 promise.resolve()
               } else {
-                current.startStream("udp://127.0.0.1:$port")
+                current.startStream(
+                  if (bondingMode == "srtla") localSrtUrl(url, port)
+                  else "udp://127.0.0.1:$port",
+                )
                 promise.resolve()
               }
             }
@@ -749,7 +752,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
           if (fps !in format.fps) throw IllegalArgumentException()
           val nextConfiguration = VideoConfiguration(cameraId, width, height, fps)
           val nextVideoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
-          val nextBondingMode = bondingMode.takeIf { it == "broadcast" || it == "backup" } ?: "off"
+          val nextBondingMode =
+            bondingMode.takeIf { it == "srtla" || it == "broadcast" || it == "backup" } ?: "off"
           if (
             stream != null &&
             configuration == nextConfiguration &&
@@ -1601,12 +1605,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
         uri.port in 1..65_535 &&
         streamId?.startsWith("publish:") == true,
     )
-    return if (bondingMode == "off") {
-      trimmed
-    } else {
-      uri.buildUpon().encodedAuthority("${uri.host}:8891").build().toString()
+    return when (bondingMode) {
+      "srtla" -> uri.buildUpon().encodedAuthority("${uri.host}:5000").build().toString()
+      "broadcast", "backup" ->
+        uri.buildUpon().encodedAuthority("${uri.host}:8891").build().toString()
+      else -> trimmed
     }
   }
+
+  private fun localSrtUrl(value: String, port: Int): String =
+    Uri.parse(value).buildUpon().encodedAuthority("127.0.0.1:$port").build().toString()
 
   private fun isPortrait(): Boolean =
     if (width > 0 && height > 0) height >= width

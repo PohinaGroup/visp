@@ -303,9 +303,14 @@ final actor SRTSocket {
       guard srt_bstats(link.id, &memberPerf, 1) != SRT_ERROR else {
         return nil
       }
+      let packets = memberPerf.pktSent + Int64(memberPerf.pktSndLoss)
       return .init(
+        bitrateKbps: max(0, Int((memberPerf.mbpsSendRate * 1_000).rounded())),
         id: link.id,
-        performance: .init(mon: memberPerf),
+        packetLossPct: packets > 0
+          ? 100 * Double(memberPerf.pktSndLoss) / Double(packets)
+          : 0,
+        rttMs: max(0, Int(memberPerf.msRTT.rounded())),
         state: Status(link.sockstate)?.debugDescription ?? "unknown",
         token: link.token
       )

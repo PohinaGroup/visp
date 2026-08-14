@@ -3,9 +3,9 @@ import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq } from "drizzle-orm";
 import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
-import type { ChatMessage } from "./contract";
+import type { ChatLiveEvent } from "./contract";
 import { chatHub } from "./hub";
-import { normalizeYoutubeMessage } from "./normalize";
+import { normalizeYoutubeAlert, normalizeYoutubeMessage } from "./normalize";
 
 const YOUTUBE_API = "https://www.googleapis.com/youtube/v3";
 const DISCOVERY_INTERVAL_MS = 15_000;
@@ -121,9 +121,24 @@ export async function fetchYoutubeChatPage(
 
 export function youtubePageMessages(page: YoutubeChatPage, initial: boolean) {
 	if (initial) return [];
-	return (page.items ?? []).flatMap<ChatMessage>((item) => {
+	return (page.items ?? []).flatMap<ChatLiveEvent>((item) => {
+		const type =
+			item && typeof item === "object"
+				? (item as { snippet?: { type?: unknown } }).snippet?.type
+				: undefined;
+		if (
+			type === "newSponsorEvent" ||
+			type === "memberMilestoneChatEvent" ||
+			type === "membershipGiftingEvent" ||
+			type === "giftMembershipReceivedEvent" ||
+			type === "superChatEvent" ||
+			type === "superStickerEvent"
+		) {
+			const alert = normalizeYoutubeAlert(item);
+			return alert ? [{ type: "alert", alert }] : [];
+		}
 		const message = normalizeYoutubeMessage(item);
-		return message ? [message] : [];
+		return message ? [{ type: "message", message }] : [];
 	});
 }
 
@@ -193,8 +208,8 @@ class YoutubeConnector {
 					"YouTube chat did not return a continuation cursor",
 				);
 			}
-			for (const message of youtubePageMessages(page, this.initialPage)) {
-				chatHub.publish(this.userId, { type: "message", message });
+			for (const event of youtubePageMessages(page, this.initialPage)) {
+				chatHub.publish(this.userId, event);
 			}
 			this.initialPage = false;
 			this.pageToken = page.nextPageToken;

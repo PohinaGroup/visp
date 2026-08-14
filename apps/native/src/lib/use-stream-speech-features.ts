@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@VISP/api/chat/contract";
+import type { ChatAlert, ChatMessage } from "@VISP/api/chat/contract";
 import { useCallback, useEffect, useState } from "react";
 import { type AppStateStatus, Platform } from "react-native";
 import type {
@@ -10,7 +10,12 @@ import type {
 import VispSrtModule from "../../modules/visp-srt";
 import { loadSpeechOutput, saveSpeechOutput } from "./audio-preferences";
 import type { ChatPreferences } from "./chat-preferences";
-import { enqueueChatMessage, hasVoiceFor, stopChatSpeech } from "./chat-speech";
+import {
+	enqueueAlert,
+	enqueueChatMessage,
+	hasVoiceFor,
+	stopChatSpeech,
+} from "./chat-speech";
 import { IS_WEB } from "./platform";
 import type { SpokenCaptionLanguage } from "./speech-preferences";
 import { isSpokenLocale } from "./spoken-language";
@@ -151,6 +156,13 @@ export function useStreamSpeechFeatures(
 		},
 		[betterVoice, speechActive, speechOutputId, spokenLanguage],
 	);
+	const onChatAlert = useCallback(
+		(alert: ChatAlert) => {
+			if (!speechActive || !spokenLanguage) return;
+			enqueueAlert(alert, spokenLanguage, betterVoice, speechOutputId);
+		},
+		[betterVoice, speechActive, speechOutputId, spokenLanguage],
+	);
 
 	return {
 		captions: {
@@ -164,6 +176,7 @@ export function useStreamSpeechFeatures(
 			active: speechActive,
 			currentAudioOutput,
 			language: spokenLanguage,
+			onAlert: onChatAlert,
 			onMessage: onChatMessage,
 			outputId: speechOutputId,
 			outputs: speechOutputs,

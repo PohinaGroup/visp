@@ -4,6 +4,7 @@ import { absoluteSiteUrl } from "@/lib/blog";
 import { listBlogPosts } from "@/lib/blog.server";
 
 const publicPaths = [
+	"/affiliate",
 	"/blog",
 	"/contact",
 	"/cookies",

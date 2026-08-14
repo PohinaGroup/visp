@@ -18,8 +18,8 @@ export const Route = createFileRoute("/")({
 	head: () =>
 		landingHead(
 			"en",
-			"VISP — IRL Streaming to Twitch, Kick & YouTube from Phone or OBS",
-			"VISP streams from a phone or browser straight to Twitch, Kick, or YouTube, with no computer running at home. Free during beta, where cloud IRL services bill $120–180 a month.",
+			"VISP — Replace Cloud OBS with Your Own Streaming PC",
+			"Send phone and browser feeds to OBS on hardware you own. Keep your scenes, overlays, and control without a $120–180 monthly cloud OBS subscription. VISP is free during beta.",
 			faq,
 		),
 	component: () => <HomeComponent locale="en" />,
@@ -52,26 +52,26 @@ function TryCta({
 	);
 }
 
-// The signature: source → relay → Direct → platform as one precise patch diagram.
+// The signature: source → relay → home OBS → platform as one precise patch diagram.
 const CHAIN = [
 	{ x: 120, tag: "SOURCE", label: "phone/browser" },
 	{ x: 380, tag: "RELAY", label: "visp" },
-	{ x: 640, tag: "DIRECT", label: "encode" },
-	{ x: 900, tag: "OUT", label: "twitch/kick" },
+	{ x: 640, tag: "STUDIO", label: "home OBS" },
+	{ x: 900, tag: "OUT", label: "your platform" },
 ] as const;
 
 function SignalChain({ locale }: { locale: Locale }) {
 	const labels =
 		locale === "fi"
-			? ["puhelin/selain", "visp", "koodaus", "twitch/kick"]
+			? ["puhelin/selain", "visp", "kodin OBS", "oma alusta"]
 			: CHAIN.map((item) => item.label);
 	return (
 		<svg
 			role="img"
 			aria-label={
 				locale === "fi"
-					? "Signaaliketju puhelimen kamerasta sovelluksen kautta kodin OBS-studioon ja suoratoistopalveluihin."
-					: "Signal chain: phone or browser through the VISP relay and Direct to Twitch, Kick, or YouTube, with OBS optional."
+					? "Signaaliketju puhelimesta tai selaimesta VISP-relayn kautta kodin OBS-studioon ja suoratoistopalveluun."
+					: "Signal chain: phone or browser through the VISP relay to OBS on your home hardware, then to your streaming platform."
 			}
 			viewBox="0 0 1000 80"
 			className="block w-full text-foreground"
@@ -147,71 +147,71 @@ const productShots = [
 // not decoration. No 01/02/03 — these are channels, not a sequence.
 const channels = [
 	{
-		tag: "CAM",
-		title: "Two cameras, one stream",
-		body: "Publish from the VISP mobile app or browser. The newest offline device takes Direct ownership when it goes live.",
+		tag: "OWN",
+		title: "Use the hardware you own",
+		body: "Run OBS on your existing PC or Mac instead of renting a cloud machine every month.",
 	},
 	{
 		tag: "OBS",
-		title: "OBS when you need it",
-		body: "Add the contribution feed to OBS for monitoring, recording, scenes, or multi-camera production without changing the Direct platform encode.",
+		title: "Keep your whole OBS workflow",
+		body: "Your scenes, overlays, alerts, plugins, and local recordings stay where you already built them.",
 	},
 	{
-		tag: "NET",
-		title: "Capacity before capture",
-		body: "VISP checks authorization, ownership, and relay encoder capacity before the publisher starts.",
+		tag: "FIELD",
+		title: "Bring the field feed home",
+		body: "Publish from the VISP mobile app or browser and pull the authenticated contribution feed into OBS.",
 	},
 	{
-		tag: "KEY",
-		title: "No key pasting",
-		body: "VISP obtains the authorized destination credentials only while starting Direct output and never returns them to the publisher.",
+		tag: "BILL",
+		title: "Drop the cloud studio bill",
+		body: "VISP is free during beta, replacing $1,440–$2,160 a year in cloud OBS subscription fees.",
 	},
 ];
 
 const steps = [
 	{
 		tag: "STEP 01",
-		title: "Connect a destination",
-		body: "Sign in and authorize Twitch, Kick, or YouTube once. VISP stores the destination, not a stream key you have to carry around. You can connect more than one account and pick the destination at the moment you go live.",
+		title: "Connect your home OBS",
+		body: "Install the VISP OBS plugin and sign in. It adds your authenticated remote feeds without port forwarding or hand-pasting Media Source URLs.",
 	},
 	{
 		tag: "STEP 02",
 		title: "Publish from phone or browser",
-		body: "Open the VISP app on iOS or Android, or the browser publisher on a laptop, and start the feed. Before a single frame is accepted, the relay checks that the publisher is authorized, that it owns the destination, and that encoder capacity is actually free — so a stream fails at the start, when you can still fix it, instead of ten minutes into a live broadcast.",
+		body: "Open the VISP app on iOS or Android, or use the browser publisher on a laptop. VISP carries that contribution feed back to your studio.",
 	},
 	{
 		tag: "STEP 03",
-		title: "Direct sends it out",
-		body: "The relay encodes the contribution feed and sends it straight to the platform. Nothing else has to be running: no home PC, no OBS, no machine waiting on your desk. When you do want scenes, overlays, a local recording, or a second camera, add the same feed to OBS and the platform encode keeps running untouched.",
+		title: "Produce on hardware you own",
+		body: "Switch scenes, run overlays and alerts, record locally, and send the finished show from your own OBS to Twitch, Kick, YouTube, or any custom destination.",
 	},
 ];
 
 const stepsFi = [
 	{
 		tag: "VAIHE 01",
-		title: "Yhdistä kohde",
-		body: "Kirjaudu sisään ja valtuuta Twitch, Kick tai YouTube kerran. VISP tallentaa kohteen, ei lähetysavainta jota joutuisit kuljettamaan mukanasi. Voit yhdistää useamman tilin ja valita kohteen vasta lähetystä aloittaessasi.",
+		title: "Yhdistä kodin OBS",
+		body: "Asenna VISP OBS -lisäosa ja kirjaudu sisään. Se lisää valtuutetut etäsyötteet ilman porttiohjausta tai Media Source -osoitteiden käsin liittämistä.",
 	},
 	{
 		tag: "VAIHE 02",
 		title: "Julkaise puhelimesta tai selaimesta",
-		body: "Avaa VISP-sovellus iOS- tai Android-laitteella tai selainjulkaisija läppärillä ja käynnistä syöte. Ennen kuin yhtäkään kuvaa hyväksytään, relay tarkistaa että julkaisija on valtuutettu, että se omistaa kohteen ja että koodauskapasiteettia on vapaana — lähetys kaatuu siis heti alussa, kun ehdit vielä korjata sen, eikä kymmenen minuuttia lähetyksen alkamisen jälkeen.",
+		body: "Avaa VISP-sovellus iOS- tai Android-laitteella tai käytä selainjulkaisijaa läppärillä. VISP kuljettaa syötteen takaisin studioosi.",
 	},
 	{
 		tag: "VAIHE 03",
-		title: "Direct hoitaa lähetyksen",
-		body: "Relay koodaa syötteen ja lähettää sen suoraan alustalle. Mitään muuta ei tarvitse olla käynnissä: ei kotikonetta, ei OBS:ää, ei pöydällä odottavaa tietokonetta. Kun haluat kohtauksia, grafiikoita, paikallisen tallenteen tai toisen kameran, lisää sama syöte OBS:ään — alustalle menevä koodaus jatkuu koskemattomana.",
+		title: "Tuota omalla laitteistollasi",
+		body: "Vaihda kohtauksia, aja grafiikat ja hälytykset, tallenna paikallisesti ja lähetä valmis ohjelma omasta OBS:stä Twitchiin, Kickiin, YouTubeen tai muuhun kohteeseen.",
 	},
 ];
 
 export const faq = [
 	{
-		q: "Do I need OBS to stream with VISP?",
-		a: "No. Direct takes the phone or browser feed to Twitch, Kick, or YouTube on its own. OBS is there for the sessions where you want monitoring, recording, scenes, or multi-camera production — it is an addition, never a requirement.",
+		q: "Can VISP replace my cloud OBS subscription?",
+		a: "Yes, if you already have a computer that can run OBS. VISP brings the remote phone or browser feed into your own OBS, where your existing scenes, overlays, alerts, and plugins keep working.",
 	},
 	{
-		q: "Which platforms can I stream to?",
-		a: "Twitch, Kick, and YouTube. You authorize the account once and VISP handles the destination from there.",
+		q: "How much can I save?",
+		a: "Unlimited cloud OBS plans in this comparison cost $120–180 per month, or $1,440–$2,160 over 12 months. VISP is free during beta. Your hardware, electricity, and internet costs are separate.",
 	},
 	{
 		q: "Do I have to paste a stream key into my phone?",
@@ -226,19 +226,19 @@ export const faq = [
 		a: "The newest offline device takes Direct ownership when it goes live, so handing off to a second camera is a matter of starting the feed on it.",
 	},
 	{
-		q: "What does VISP cost?",
-		a: "It is free during the beta. Sign in, connect a platform, and go live.",
+		q: "Do I have to use OBS?",
+		a: "No. Direct can send a phone or browser feed straight to Twitch, Kick, or YouTube. Use your own OBS when you want scenes, overlays, alerts, plugins, or local recording.",
 	},
 ];
 
 export const faqFi = [
 	{
-		q: "Tarvitsenko OBS:n VISPin kanssa?",
-		a: "Et. Direct vie puhelimen tai selaimen syötteen Twitchiin, Kickiin tai YouTubeen ilman muuta ohjelmistoa. OBS on niitä lähetyksiä varten, joissa haluat valvontaa, tallennusta, kohtauksia tai monikameratuotantoa — se on lisä, ei vaatimus.",
+		q: "Voiko VISP korvata pilvi-OBS-tilaukseni?",
+		a: "Kyllä, jos omistat jo tietokoneen, joka pyörittää OBS:ää. VISP tuo puhelimen tai selaimen etäsyötteen omaan OBS:ääsi, jossa nykyiset kohtaukset, grafiikat, hälytykset ja lisäosat toimivat edelleen.",
 	},
 	{
-		q: "Mihin palveluihin voin lähettää?",
-		a: "Twitchiin, Kickiin ja YouTubeen. Valtuutat tilin kerran, ja VISP hoitaa kohteen siitä eteenpäin.",
+		q: "Kuinka paljon voin säästää?",
+		a: "Vertailun rajattomat pilvi-OBS-tilaukset maksavat 120–180 dollaria kuukaudessa eli 1 440–2 160 dollaria vuodessa. VISP on betan ajan ilmainen. Laitteisto, sähkö ja internetyhteys eivät sisälly laskelmaan.",
 	},
 	{
 		q: "Pitääkö lähetysavain liittää puhelimeen?",
@@ -253,8 +253,8 @@ export const faqFi = [
 		a: "Uusin offline-laite saa Direct-omistajuuden aloittaessaan, joten toiseen kameraan vaihtaminen onnistuu käynnistämällä syöte siinä.",
 	},
 	{
-		q: "Mitä VISP maksaa?",
-		a: "Beta on ilmainen. Kirjaudu sisään, yhdistä alusta ja aloita lähetys.",
+		q: "Onko minun pakko käyttää OBS:ää?",
+		a: "Ei. Direct voi lähettää puhelimen tai selaimen syötteen suoraan Twitchiin, Kickiin tai YouTubeen. Käytä omaa OBS:ää, kun haluat kohtaukset, grafiikat, hälytykset, lisäosat tai paikallisen tallennuksen.",
 	},
 ];
 
@@ -266,6 +266,7 @@ type LandingLink = {
 };
 
 const footerLinks: LandingLink[] = [
+	{ label: "Affiliates", href: "/affiliate", external: false },
 	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
@@ -278,6 +279,7 @@ const footerLinks: LandingLink[] = [
 ];
 
 const navLinks: LandingLink[] = [
+	{ label: "Affiliates", href: "/affiliate", external: false },
 	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
@@ -286,13 +288,62 @@ const navLinks: LandingLink[] = [
 ];
 
 const LANDING_SEPPO_SUGGESTIONS = [
-	"What is VISP for?",
-	"Can I use my phone with OBS?",
-	"What do I need to get started?",
+	"Can VISP replace cloud OBS?",
+	"How much would I save?",
+	"How do I connect my home OBS?",
 ];
 
 const eyebrow =
 	"font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground";
+
+const annualCosts = [
+	{ product: "VISP + your OBS", cost: "$0 during beta", width: "0%" },
+	{ product: "IRLToolkit", cost: "$1,548–$2,148", width: "99.4%" },
+	{ product: "Streamable.run", cost: "$1,440–$2,160", width: "100%" },
+] as const;
+
+const annualCostsFi = [
+	{ product: "VISP + oma OBS", cost: "0 $ betan ajan", width: "0%" },
+	{ product: "IRLToolkit", cost: "1 548–2 148 $", width: "99.4%" },
+	{ product: "Streamable.run", cost: "1 440–2 160 $", width: "100%" },
+] as const;
+
+function AnnualCostChart({ locale }: { locale: Locale }) {
+	const fi = locale === "fi";
+	return (
+		<figure className="mt-12 border border-border bg-card p-6 sm:p-8">
+			<figcaption className="font-display font-semibold text-2xl uppercase tracking-tight">
+				{fi ? "12 kuukauden ohjelmistokulut" : "12-month software cost"}
+			</figcaption>
+			<p className="mt-2 text-muted-foreground text-sm">
+				{fi
+					? "Kun omistat jo OBS:ää pyörittävän tietokoneen."
+					: "When you already own a computer that can run OBS."}
+			</p>
+			<ul className="mt-8 flex flex-col gap-6">
+				{(fi ? annualCostsFi : annualCosts).map((row) => (
+					<li key={row.product}>
+						<div className="mb-2 flex items-baseline justify-between gap-4">
+							<span className="font-medium">{row.product}</span>
+							<span className="font-mono text-sm">{row.cost}</span>
+						</div>
+						<div className="h-3 bg-muted" aria-hidden="true">
+							<div
+								className="h-full min-w-px bg-primary"
+								style={{ width: row.width }}
+							/>
+						</div>
+					</li>
+				))}
+			</ul>
+			<p className="mt-6 font-mono text-muted-foreground text-xs">
+				{fi
+					? "Ei sisällä laitteistoa, sähköä tai internetyhteyttä."
+					: "Excludes hardware, electricity, and internet service."}
+			</p>
+		</figure>
+	);
+}
 
 function ComparisonTable({ locale }: { locale: Locale }) {
 	const fi = locale === "fi";
@@ -356,24 +407,24 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 	const localizedChannels = fi
 		? [
 				{
-					tag: "CAM",
-					title: "Puhelin tai selain lähteenä",
-					body: "Julkaise VISP-mobiilisovelluksella tai selaimella. Uusin offline-laite saa Direct-omistajuuden aloittaessaan.",
+					tag: "OMA",
+					title: "Käytä omistamaasi laitteistoa",
+					body: "Aja OBS:ää nykyisellä PC:lläsi tai Macillasi sen sijaan, että vuokraisit pilvikoneen joka kuukausi.",
 				},
 				{
 					tag: "OBS",
-					title: "OBS tarvittaessa",
-					body: "Lisää alkuperäinen syöte OBS:ään valvontaa, tallennusta, kohtauksia tai monikameratuotantoa varten.",
+					title: "Pidä koko OBS-työnkulkusi",
+					body: "Kohtaukset, grafiikat, hälytykset, lisäosat ja paikalliset tallenteet säilyvät siellä, minne ne jo rakensit.",
 				},
 				{
-					tag: "NET",
-					title: "Kapasiteetti tarkistetaan ensin",
-					body: "VISP tarkistaa valtuutuksen, omistajuuden ja relayn koodauskapasiteetin ennen julkaisun aloitusta.",
+					tag: "FIELD",
+					title: "Tuo kenttäsyöte kotiin",
+					body: "Julkaise VISP-mobiilisovelluksella tai selaimella ja vedä valtuutettu syöte OBS:ään.",
 				},
 				{
-					tag: "KEY",
-					title: "Ei lähetysavaimen liittämistä",
-					body: "VISP hakee valtuutetun kohteen tunnukset vain Direct-lähdön käynnistämiseksi eikä palauta niitä julkaisijalle.",
+					tag: "LASKU",
+					title: "Pudota pilvistudion lasku",
+					body: "VISP on betan ajan ilmainen ja korvaa 1 440–2 160 dollarin vuotuiset pilvi-OBS-maksut.",
 				},
 			]
 		: channels;
@@ -392,6 +443,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 		: productShots;
 	const localizedNavLinks: LandingLink[] = fi
 		? [
+				{ label: "Kumppanit", href: "/affiliate", external: false },
 				{ label: "Blogi", href: "/blog", external: false },
 				{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
 				{
@@ -471,18 +523,27 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 					{/* Hero */}
 					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-28">
 						<div className="flex flex-col gap-7">
-							<h1 className="font-display font-semibold text-6xl uppercase leading-[0.92] tracking-tight sm:text-7xl md:text-[5.5rem]">
-								{fi ? "Livetä" : "Go live from"}
+							<span className={eyebrow}>
+								{fi
+									? "Tekijöille, jotka maksavat OBS:n vuokraa"
+									: "For creators paying rent on OBS"}
+							</span>
+							<h1 className="font-display font-semibold text-5xl uppercase leading-[0.92] tracking-tight sm:text-6xl md:text-[4.75rem]">
+								{fi ? "Oma OBS." : "Your OBS."}
 								<br />
-								{fi ? "mistä tahansa" : "anywhere"}
+								{fi ? "Oma laitteisto." : "Your hardware."}
+								<br />
+								{fi ? "Ei pilvistudiolaskua." : "No cloud studio bill."}
 							</h1>
 							<p className="max-w-md text-lg text-muted-foreground leading-relaxed">
 								{fi
-									? "Lähetä puhelimesta tai selaimesta VISP-relayn kautta suoraan Twitchiin, Kickiin tai YouTubeen. Lisää sama syöte OBS:ään vain tarvittaessa."
-									: "Stream from a phone or browser through the VISP relay straight to Twitch, Kick, or YouTube. Add the same feed to OBS only when you need it."}
+									? "Lähetä puhelimen tai selaimen syöte VISPin kautta omalla tietokoneellasi pyörivään OBS:ään. Pidä kohtaukset, grafiikat ja hallinta — älä 120–180 dollarin kuukausilaskua."
+									: "Send phone and browser feeds through VISP to OBS running on your own computer. Keep your scenes, overlays, and control — not the $120–180 monthly bill."}
 							</p>
-							<p className="font-medium text-base">
-								{fi ? "Helposti parempi" : "Full production. Zero leash."}
+							<p className="font-display font-semibold text-2xl uppercase tracking-tight">
+								{fi
+									? "Säästä 1 440–2 160 $ vuodessa"
+									: "Save $1,440–$2,160 a year"}
 							</p>
 						</div>
 
@@ -526,22 +587,24 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</div>
 						<p className="mt-6 max-w-xl text-muted-foreground text-sm leading-relaxed">
 							{fi
-								? "Lähde yhdistyy relayhin, ja Direct lähettää Twitchiin, Kickiin tai YouTubeen. OBS on valinnainen."
-								: "The source connects to the relay, and Direct sends to Twitch, Kick, or YouTube. OBS is optional."}
+								? "Kentällä oleva puhelin tai selain yhdistyy VISP-relayhin. Oma OBS-studiosi vastaanottaa syötteen, tuottaa ohjelman ja lähettää sen valitsemallesi alustalle."
+								: "Your phone or browser connects to the VISP relay. Your home OBS receives the feed, produces the show, and sends it to the platform you choose."}
 						</p>
 					</section>
 
 					{/* Channels */}
 					<section className="py-20">
 						<h2 className="max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
-							{fi ? "Ei ehkä kaikille." : "Not for everyone."}
+							{fi
+								? "Pilvi ei omista studiotasi."
+								: "The cloud doesn't own your studio."}
 							<br />
 							{fi
-								? "Mutta tekijöille, jotka haluavat enemmän."
-								: "For creators who want more."}
+								? "Sinä omistat jo tarvitsemasi."
+								: "You already own what you need."}
 						</h2>
 						<h3 className="mt-14 mb-4 font-display font-semibold text-2xl uppercase leading-none tracking-tight">
-							{fi ? "Käyttötarkoituksia" : "Use cases"}
+							{fi ? "Mitä pidät" : "What you keep"}
 						</h3>
 						<ul className="grid gap-px border border-border bg-border sm:grid-cols-2">
 							{localizedChannels.map((c) => (
@@ -567,13 +630,13 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</span>
 						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
 							{fi
-								? "Kolme kysymystä, ei kolmea viikonloppua"
-								: "Three questions, not three weekends"}
+								? "Vaihda pilvi-OBS omaan OBS:ääsi"
+								: "Move cloud OBS back to your OBS"}
 						</h2>
 						<p className="mt-6 max-w-2xl text-muted-foreground leading-relaxed">
 							{fi
-								? "Perinteinen IRL-lähetys vaatii kotona pyörivän koneen, encoderin ja kasan asetuksia, jotka pitää saada kohdalleen ennen kuin ensimmäinenkään kuva liikkuu. VISP siirtää sen työn relayhin: puhelin tai selain lähettää kameran, VISP koodaa sen ja toimittaa alustalle. Kotikone saa olla sammuksissa."
-								: "Traditional IRL streaming asks for a machine at home, an encoder, and a stack of settings that all have to be right before a single frame moves. VISP moves that work into the relay: your phone or browser sends the camera, VISP encodes it, and the platform receives it. The computer at home can stay off."}
+								? "Pilvi-OBS vuokraa sinulle etäkoneen ja valmiin tuotantoympäristön. Jos sinulla on jo OBS:ää pyörittävä tietokone, maksat samasta kapasiteetista kahdesti. VISP kuljettaa kenttäsyötteen omaan studioosi."
+								: "Cloud OBS rents you a remote computer and production environment. If you already own a machine that runs OBS, you are paying twice for the same capacity. VISP carries the field feed to the studio you own."}
 						</p>
 						<ol className="mt-12 grid gap-px border border-border bg-border md:grid-cols-3">
 							{(fi ? stepsFi : steps).map((s) => (
@@ -597,14 +660,15 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						<span className={eyebrow}>{fi ? "Vertailu" : "Comparison"}</span>
 						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
 							{fi
-								? "Ilmainen, eikä kotikonetta tarvita"
-								: "Free, and no PC at home"}
+								? "Lopeta jo omistamasi OBS:n vuokraaminen"
+								: "Stop renting the OBS you already own"}
 						</h2>
 						<p className="mt-6 max-w-2xl text-muted-foreground leading-relaxed">
 							{fi
-								? "Pilvipohjaiset IRL-palvelut maksavat 120–180 dollaria kuukaudessa ja olettavat, että haluat niiden OBS:n. Pelkät relay-palvelut ovat halvempia, mutta jättävät koneen pyörimään kotiin. VISP on betan ajan ilmainen eikä tarvitse kumpaakaan. Jos tarvitset oikeaa mobiiliyhteyksien niputusta jo tänään, BELABOX tai SRTLA-syötteen tukeva pilvipalvelu on yhä parempi valinta."
-								: "Cloud IRL services run $120–180 a month and assume you want their OBS. Relay-only services are cheaper but leave a machine running at home. VISP is free during the beta and needs neither. If you need real cellular bonding today, BELABOX or a cloud service with SRTLA ingest is still the better buy."}
+								? "Vertailun rajattomat pilvi-OBS-tilaukset maksavat 120–180 dollaria kuukaudessa. Jos sinulla on jo OBS:ää pyörittävä tietokone, VISP tuo syötteen siihen betan ajan ilmaiseksi — 12 kuukauden ohjelmistosäästö on 1 440–2 160 dollaria. Jos tarvitset hallitun pilvistudion tai aitoa mobiiliyhteyksien niputusta, maksullinen palvelu voi silti olla oikea valinta."
+								: "Unlimited cloud OBS plans in this comparison cost $120–180 a month. If you already have a computer that runs OBS, VISP brings the feed to it free during beta — a 12-month software saving of $1,440–$2,160. If you need a managed cloud studio or true cellular bonding, a paid service can still be the right choice."}
 						</p>
+						<AnnualCostChart locale={locale} />
 						<ComparisonTable locale={locale} />
 						<p className="mt-6 font-mono text-muted-foreground text-xs">
 							{fi
@@ -637,16 +701,20 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 
 					{/* Closing CTA */}
 					<section className="border-border border-t py-24 text-center">
-						<span className={eyebrow}>{fi ? "" : "Join the beta"}</span>
+						<span className={eyebrow}>
+							{fi
+								? "Pidä studio. Pudota tilaus."
+								: "Keep the studio. Drop the subscription."}
+						</span>
 						<h2 className="mt-5 font-display font-semibold text-6xl uppercase leading-none tracking-tight sm:text-7xl">
-							{fi ? "Liity VISP-betaan" : "VISP is free"}
+							{fi ? "Tuo OBS takaisin kotiin" : "Bring OBS back home"}
 						</h2>
 						<div className="mt-8 flex flex-col items-center gap-3">
 							<TryCta locale={locale} size="lg" />
 							<p className="max-w-md text-muted-foreground text-sm leading-relaxed">
 								{fi
-									? "Käyttöönotto vaatii kolme kysymystä, ei kolmea viikonloppua. Puhelinsovellukset, selainjulkaisu ja OBS-lisäosa "
-									: "Setup takes three questions, not three weekends. Phone apps, browser publisher, and OBS plugin — "}
+									? "VISP on betan ajan ilmainen. Hanki puhelinsovellus, selainjulkaisija ja OBS-lisäosa: "
+									: "VISP is free during beta. Get the phone apps, browser publisher, and OBS plugin — "}
 								<Link
 									to="/download"
 									search={fi ? { lang: "fi" } : {}}
@@ -705,16 +773,16 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				suggestions={
 					fi
 						? [
-								"Mihin VISPiä käytetään?",
-								"Voinko käyttää puhelintani OBS:n kanssa?",
-								"Mitä tarvitsen aloittamiseen?",
+								"Voiko VISP korvata pilvi-OBS:n?",
+								"Kuinka paljon säästäisin?",
+								"Miten yhdistän kodin OBS:n?",
 							]
 						: LANDING_SEPPO_SUGGESTIONS
 				}
 				welcome={
 					fi
-						? "Hei, olen Seppo. Mietitkö, sopiiko VISP lähetykseesi? Kysy, mitä se tekee, mitä tarvitset tai miten puhelimet ja etävieraat yhdistetään OBS:ään."
-						: "Hi, I'm Seppo. Ask how Direct sends a phone or browser to Twitch, Kick, or YouTube, or how to add OBS afterward."
+						? "Hei, olen Seppo. Kysy, miten vaihdat pilvi-OBS:n omalla laitteistollasi pyörivään OBS:ään, mitä tarvitset tai kuinka paljon voit säästää."
+						: "Hi, I'm Seppo. Ask how to replace cloud OBS with OBS on hardware you own, what you need, or how much you could save."
 				}
 				onOpenChange={setSeppoOpen}
 			/>

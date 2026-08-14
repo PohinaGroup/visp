@@ -59,7 +59,34 @@ describe("YouTube chat", () => {
 		expect(page.pollingIntervalMillis).toBe(4321);
 		expect(youtubePageMessages(page, true)).toEqual([]);
 		expect(youtubePageMessages(page, false)).toMatchObject([
-			{ id: "message-1", provider: "youtube" },
+			{
+				type: "message",
+				message: { id: "message-1", provider: "youtube" },
+			},
+		]);
+	});
+
+	test("turns paid and membership items into alerts without recipient spam", () => {
+		const page = {
+			items: [
+				{
+					id: "gift",
+					snippet: {
+						type: "membershipGiftingEvent",
+						membershipGiftingDetails: { giftMembershipsCount: 5 },
+					},
+					authorDetails: { displayName: "Gifter" },
+				},
+				{
+					id: "recipient",
+					snippet: { type: "giftMembershipReceivedEvent" },
+					authorDetails: { displayName: "Recipient" },
+				},
+			],
+		};
+
+		expect(youtubePageMessages(page, false)).toMatchObject([
+			{ type: "alert", alert: { id: "gift", kind: "gift", amount: 5 } },
 		]);
 	});
 

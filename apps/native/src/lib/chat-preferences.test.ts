@@ -13,8 +13,17 @@ describe("chat display preferences", () => {
 		expect(
 			parseChatPreferences(JSON.stringify({ mode: "floating" })),
 		).toMatchObject({
+			alerts: true,
 			mode: "floating",
 			disappearingMessages: false,
+		});
+	});
+
+	test("preserves disabled viewer alerts", () => {
+		expect(
+			parseChatPreferences(JSON.stringify({ alerts: false })),
+		).toMatchObject({
+			alerts: false,
 		});
 	});
 

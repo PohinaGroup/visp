@@ -499,6 +499,12 @@ export async function setDirectOutputs(
 	pathId: number,
 	outputs: { twitch: boolean; kick: boolean; youtube: boolean },
 ) {
+	if (!outputs.twitch && !outputs.kick && !outputs.youtube) {
+		throw new DirectError(
+			"invalid",
+			"Choose Route to Home Studio to turn off Direct output",
+		);
+	}
 	await db.transaction(async (tx) => {
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
 		const [path] = await tx

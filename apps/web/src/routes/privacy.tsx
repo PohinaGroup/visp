@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Legal"
 			title="Privacy Policy"
 			description="This policy explains how VISP processes personal data when you use the website, dashboard, mobile apps, and related streaming relay services."
-			updated="6 August 2026"
+			updated="14 August 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Controller</h2>
@@ -104,6 +104,12 @@ function PrivacyPage() {
 						contents are not included in that summary.
 					</li>
 					<li>
+						<strong>Affiliate application data</strong>: your name, email
+						address, YouTube channel and relevant-content URLs, description of
+						your audience and setup, and disclosure acknowledgement when you
+						apply to the creator program.
+					</li>
+					<li>
 						<strong>Security and service logs</strong> for reliability, abuse
 						prevention, and debugging.
 					</li>
@@ -121,6 +127,11 @@ function PrivacyPage() {
 						<strong>Providing the service</strong> (contract / steps prior to
 						contract): account creation, authentication, relay configuration,
 						dashboard, optional speech processing and assistant features.
+					</li>
+					<li>
+						<strong>Affiliate applications</strong> (steps prior to contract /
+						contract): reviewing applications, responding to applicants, and
+						administering accepted creator relationships.
 					</li>
 					<li>
 						<strong>Security and integrity</strong> (legitimate interests):
@@ -185,6 +196,11 @@ function PrivacyPage() {
 					<li>
 						Snapshots: replaced while live; expire within about one day after
 						updates stop.
+					</li>
+					<li>
+						Unsuccessful affiliate applications: deleted within 12 months of the
+						decision. Accepted partner data is retained for the relationship and
+						any longer accounting or legal period that applies.
 					</li>
 					<li>
 						Encrypted backups: up to 30 days before overwrite after deletion.

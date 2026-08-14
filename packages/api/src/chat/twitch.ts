@@ -5,7 +5,7 @@ import { env } from "@VISP/env/server";
 import { and, eq } from "drizzle-orm";
 import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
 import { chatHub } from "./hub";
-import { normalizeTwitchMessage } from "./normalize";
+import { normalizeTwitchAlert, normalizeTwitchMessage } from "./normalize";
 import { loadTwitchBadges } from "./twitch-badges";
 
 const EVENTSUB_URL =
@@ -14,6 +14,7 @@ const RETRY_DELAYS = [1_000, 2_000, 5_000, 10_000, 20_000];
 
 type EventSubEnvelope = {
 	metadata?: {
+		message_id?: string;
 		message_timestamp?: string;
 		message_type?: string;
 		subscription_type?: string;
@@ -43,35 +44,72 @@ export async function createTwitchChatSubscription(
 	},
 ) {
 	const token = await dependencies.getAccessToken(input.userId);
-	const response = await dependencies.fetch(
-		"https://api.twitch.tv/helix/eventsub/subscriptions",
+	const subscriptions = [
 		{
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token.accessToken}`,
-				"Client-Id": env.TWITCH_CLIENT_ID,
-				"Content-Type": "application/json",
+			type: "channel.chat.message",
+			version: "1",
+			condition: {
+				broadcaster_user_id: input.broadcasterId,
+				user_id: input.broadcasterId,
 			},
-			body: JSON.stringify({
-				type: "channel.chat.message",
-				version: "1",
-				condition: {
-					broadcaster_user_id: input.broadcasterId,
-					user_id: input.broadcasterId,
-				},
-				transport: { method: "websocket", session_id: input.sessionId },
-			}),
+			required: true,
 		},
-	);
-	if (!response.ok) {
+		{
+			type: "channel.raid",
+			version: "1",
+			condition: { to_broadcaster_user_id: input.broadcasterId },
+			required: false,
+		},
+		{
+			type: "channel.follow",
+			version: "2",
+			condition: {
+				broadcaster_user_id: input.broadcasterId,
+				moderator_user_id: input.broadcasterId,
+			},
+			required: false,
+		},
+		...[
+			"channel.subscribe",
+			"channel.subscription.message",
+			"channel.subscription.gift",
+			"channel.cheer",
+		].map((type) => ({
+			type,
+			version: "1",
+			condition: { broadcaster_user_id: input.broadcasterId },
+			required: false,
+		})),
+	];
+	for (const subscription of subscriptions) {
+		const response = await dependencies.fetch(
+			"https://api.twitch.tv/helix/eventsub/subscriptions",
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token.accessToken}`,
+					"Client-Id": env.TWITCH_CLIENT_ID,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					type: subscription.type,
+					version: subscription.version,
+					condition: subscription.condition,
+					transport: { method: "websocket", session_id: input.sessionId },
+				}),
+			},
+		);
+		if (response.ok) continue;
 		const payload = (await response.json().catch(() => null)) as {
 			message?: unknown;
 		} | null;
-		throw new Error(
+		const error = new Error(
 			typeof payload?.message === "string"
 				? payload.message
-				: `Twitch subscription failed (${response.status})`,
+				: `Twitch ${subscription.type} subscription failed (${response.status})`,
 		);
+		if (subscription.required) throw error;
+		console.error(`Twitch ${subscription.type} alert unavailable`, error);
 	}
 }
 
@@ -156,20 +194,30 @@ class TwitchConnector {
 				break;
 			}
 			case "notification": {
-				if (message.metadata.subscription_type !== "channel.chat.message")
-					return;
-				const normalized = normalizeTwitchMessage(
-					{
-						...message.payload?.event,
-						sent_at: message.metadata.message_timestamp,
-					},
-					(setId, versionId) => this.badges.get(`${setId}/${versionId}`),
-				);
-				if (normalized)
+				const type = message.metadata.subscription_type;
+				if (!type) return;
+				if (type === "channel.chat.message") {
+					const normalized = normalizeTwitchMessage(
+						{
+							...message.payload?.event,
+							sent_at: message.metadata.message_timestamp,
+						},
+						(setId, versionId) => this.badges.get(`${setId}/${versionId}`),
+					);
+					if (!normalized) return;
 					chatHub.publish(this.userId, {
 						type: "message",
 						message: normalized,
 					});
+					return;
+				}
+				const alert = normalizeTwitchAlert(
+					type,
+					message.payload?.event,
+					message.metadata.message_id,
+					message.metadata.message_timestamp,
+				);
+				if (alert) chatHub.publish(this.userId, { type: "alert", alert });
 				break;
 			}
 			case "session_reconnect": {
@@ -183,6 +231,12 @@ class TwitchConnector {
 			}
 			case "revocation": {
 				const reason = message.payload?.subscription?.status;
+				if (message.metadata.subscription_type !== "channel.chat.message") {
+					console.error(
+						`Twitch ${message.metadata.subscription_type ?? "alert"} revoked${reason ? `: ${reason}` : ""}`,
+					);
+					return;
+				}
 				chatHub.status(
 					this.userId,
 					"twitch",

@@ -6,7 +6,9 @@ const BONDING_MODE_KEY = "visp.network.bonding-mode";
 const bondingWarning = booleanPreference("visp.network.bonding-warning-seen");
 
 export function parseBondingMode(value: string | null): BondingMode {
-	return value === "broadcast" || value === "backup" ? value : "off";
+	return value === "srtla" || value === "broadcast" || value === "backup"
+		? value
+		: "off";
 }
 
 export async function loadBondingMode(): Promise<BondingMode> {

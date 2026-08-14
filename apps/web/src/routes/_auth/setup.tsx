@@ -1011,7 +1011,11 @@ function SetupWizard() {
 	const navigate = useNavigate();
 	const status = useQuery(trpc.secrets.status.queryOptions());
 	const [step, setStep] = useState<WizardStep>(
-		authorizedDestination ? "authorize" : redo ? "redo" : "destination",
+		authorizedDestination
+			? "authorize"
+			: redo && !restoredRedoMode
+				? "redo"
+				: "destination",
 	);
 	const [redoMode, setRedoMode] = useState<RedoMode | null>(
 		restoredRedoMode ?? null,

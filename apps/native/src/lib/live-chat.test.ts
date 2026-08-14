@@ -1,6 +1,6 @@
-import type { ChatMessage } from "@VISP/api/chat/contract";
+import type { ChatAlert, ChatMessage } from "@VISP/api/chat/contract";
 import { describe, expect, test } from "bun:test";
-import { visibleChatMessages } from "./chat-model";
+import { visibleAlerts, visibleChatMessages } from "./chat-model";
 
 const message = (
 	id: string,
@@ -33,5 +33,27 @@ describe("visible chat messages", () => {
 			visibleChatMessages([message("fade", 0)], true, 10_000)[0]?.opacity,
 		).toBe(0.5);
 		expect(visibleChatMessages([message("gone", 0)], true, 12_000)).toEqual([]);
+	});
+});
+
+describe("visible alerts", () => {
+	test("always fades and keeps only the latest three", () => {
+		const alerts = [1, 2, 3, 4].map(
+			(id): ChatAlert & { receivedAt: number } => ({
+				id: String(id),
+				provider: "twitch",
+				kind: "follow",
+				sentAt: new Date(0).toISOString(),
+				name: `viewer-${id}`,
+				receivedAt: id * 100,
+			}),
+		);
+		expect(visibleAlerts(alerts, 1_000).map(({ id }) => id)).toEqual([
+			"2",
+			"3",
+			"4",
+		]);
+		expect(visibleAlerts(alerts.slice(0, 1), 10_100)[0]?.opacity).toBe(0.5);
+		expect(visibleAlerts(alerts.slice(0, 1), 12_100)).toEqual([]);
 	});
 });

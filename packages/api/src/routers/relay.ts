@@ -5,6 +5,7 @@ import {
 	DirectError,
 	listDirectOutputs,
 	prepareDirect,
+	saveDirectPreferences,
 	setDirectOutputs,
 	setYoutubeSettings,
 } from "../direct";
@@ -361,6 +362,20 @@ export const relayRoutes = {
 		list: relayProcedure.query(({ ctx }) =>
 			listDirectOutputs(ctx.relayUser.id),
 		),
+		setMode: relayProcedure
+			.input(z.object({ mode: z.literal("obs") }))
+			.mutation(async ({ ctx }) => {
+				try {
+					await saveDirectPreferences(ctx.relayUser.id, {
+						twitch: false,
+						kick: false,
+						youtube: false,
+					});
+					return { mode: "obs" as const };
+				} catch (error) {
+					directError(error);
+				}
+			}),
 		setOutputs: relayProcedure
 			.input(
 				pathIdInput.extend({

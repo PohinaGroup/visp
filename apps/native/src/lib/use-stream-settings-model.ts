@@ -155,6 +155,7 @@ export function useStreamSettingsModel({
 			currentAudioOutput: speech.currentAudioOutput,
 			enabled: chatEnabled,
 			errors: chatErrors,
+			onAuthorizeAlerts: streamAccount.authorizeAlertProvider,
 			onSelectOutput: speech.selectOutput,
 			onReauthorizeConnection: streamAccount.reauthorizeChatProvider,
 			onToggleConnection: streamAccount.toggleChatConnection,

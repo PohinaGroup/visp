@@ -161,6 +161,7 @@ function useOverlayChat(token: string | undefined, rows: number) {
 					}));
 					return;
 				}
+				if (event.type !== "message") return;
 				const message = event.message;
 				const key = `${message.provider}-${message.id}`;
 				setMessages((current) =>

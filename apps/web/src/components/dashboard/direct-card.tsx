@@ -153,7 +153,7 @@ export function DirectCard() {
 			<VStack gap={4}>
 				<VStack gap={1}>
 					<HStack gap={1.5} vAlign="center">
-						<Heading level={2}>{t("Direct output")}</Heading>
+						<Heading level={2}>{t("Direct to Platform")}</Heading>
 						<DocsHelpLink
 							href={docs.directOutput}
 							label={t("See how Direct output works")}
@@ -222,28 +222,42 @@ export function DirectCard() {
 									</HStack>
 									<VStack gap={2}>
 										{(["twitch", "kick", "youtube"] as const).map(
-											(provider) => (
-												<Switch
-													key={provider}
-													disabledMessage={t(
-														"Stop this device before changing its Direct outputs",
-													)}
-													isDisabled={path.publishing || setOutputs.isPending}
-													label={providerLabel(provider)}
-													labelSpacing="spread"
-													value={path[provider]}
-													onChange={(value) =>
-														setOutputs.mutate({
-															pathId: path.id,
-															twitch:
-																provider === "twitch" ? value : path.twitch,
-															kick: provider === "kick" ? value : path.kick,
-															youtube:
-																provider === "youtube" ? value : path.youtube,
-														})
-													}
-												/>
-											),
+											(provider) => {
+												const lastOutput =
+													path[provider] &&
+													Number(path.twitch) +
+														Number(path.kick) +
+														Number(path.youtube) ===
+														1;
+												return (
+													<Switch
+														key={provider}
+														disabledMessage={t(
+															lastOutput
+																? "Choose Route to Home Studio above to turn off Direct output"
+																: "Stop this device before changing its Direct outputs",
+														)}
+														isDisabled={
+															lastOutput ||
+															path.publishing ||
+															setOutputs.isPending
+														}
+														label={providerLabel(provider)}
+														labelSpacing="spread"
+														value={path[provider]}
+														onChange={(value) =>
+															setOutputs.mutate({
+																pathId: path.id,
+																twitch:
+																	provider === "twitch" ? value : path.twitch,
+																kick: provider === "kick" ? value : path.kick,
+																youtube:
+																	provider === "youtube" ? value : path.youtube,
+															})
+														}
+													/>
+												);
+											},
 										)}
 									</VStack>
 									<ProviderState

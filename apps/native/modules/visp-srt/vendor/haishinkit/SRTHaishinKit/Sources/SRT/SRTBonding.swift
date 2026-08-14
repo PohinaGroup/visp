@@ -9,8 +9,10 @@ struct SRTBondingSource {
 }
 
 public struct SRTBondedLinkPerformance: Sendable {
+  public let bitrateKbps: Int
   public let id: Int32
-  public let performance: SRTPerformanceData
+  public let packetLossPct: Double
+  public let rttMs: Int
   public let state: String
   public let token: Int32
 }

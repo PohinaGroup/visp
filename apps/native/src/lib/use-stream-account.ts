@@ -301,10 +301,12 @@ export function useStreamAccount({
 					refreshDirectOutputs(),
 					refreshLinkedAccounts(),
 				]);
+				return true;
 			} catch (error) {
 				showToast(
 					error instanceof Error ? error.message : `Could not link ${provider}`,
 				);
+				return false;
 			} finally {
 				setChatBusy(undefined);
 			}
@@ -377,6 +379,31 @@ export function useStreamAccount({
 		[linkChatProvider],
 	);
 
+	const authorizeAlertProvider = useCallback(
+		async (connection: (typeof chatConnections)[number]) => {
+			const linked = await linkProvider(connection.provider, [
+				...PROVIDER_SCOPES[connection.provider].alerts,
+				...(connection.needsConsent
+					? PROVIDER_SCOPES[connection.provider].chat
+					: []),
+			]);
+			if (!linked || !connection.enabled) return;
+			try {
+				await apiClient.chat.connections.enable.mutate({
+					provider: connection.provider,
+				});
+				await refreshChatConnections();
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? error.message
+						: "Alert authorization could not be applied",
+				);
+			}
+		},
+		[linkProvider, refreshChatConnections, showToast],
+	);
+
 	const unlinkChatProvider = useCallback(
 		async (connection: (typeof chatConnections)[number]) => {
 			setChatBusy(connection.provider);
@@ -410,6 +437,7 @@ export function useStreamAccount({
 
 	return {
 		applyDirectSelection,
+		authorizeAlertProvider,
 		awaitingAutoProvision,
 		brb,
 		chatBusy,

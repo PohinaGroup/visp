@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	hasAlertScope,
 	hasChatScope,
 	hasScope,
 	hasStreamKeyScope,
@@ -8,6 +9,25 @@ import {
 	PROVIDER_SCOPES,
 	parseScopes,
 } from "./scopes";
+
+describe("hasAlertScope", () => {
+	test("requires every Twitch alert scope and no extra consent elsewhere", () => {
+		expect(
+			hasAlertScope(
+				"twitch",
+				"moderator:read:followers channel:read:subscriptions bits:read",
+			),
+		).toBe(true);
+		expect(
+			hasAlertScope(
+				"twitch",
+				"moderator:read:followers channel:read:subscriptions",
+			),
+		).toBe(false);
+		expect(hasAlertScope("kick", "")).toBe(true);
+		expect(hasAlertScope("youtube", "")).toBe(true);
+	});
+});
 
 describe("hasChatScope", () => {
 	test("accepts YouTube readonly or existing Direct consent", () => {

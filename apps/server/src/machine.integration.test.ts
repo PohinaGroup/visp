@@ -1488,9 +1488,18 @@ integration("relay PostgreSQL integration", () => {
 				return Response.json({ access_token: "app-token", expires_in: 3600 });
 			}
 			if (url.endsWith("/events/subscriptions") && init?.method === "POST") {
+				const body = JSON.parse(String(init.body)) as {
+					events: Array<{ name: string }>;
+				};
 				return Response.json({
-					data: [{ subscription_id: "kick-subscription" }],
+					data: body.events.map(({ name }, index) => ({
+						name,
+						subscription_id: `kick-subscription-${index}`,
+					})),
 				});
+			}
+			if (url.endsWith("/events/subscriptions") && !init?.method) {
+				return Response.json({ data: [] });
 			}
 			if (url.includes("/events/subscriptions?") && init?.method === "DELETE") {
 				return new Response(null, { status: 204 });
@@ -1507,6 +1516,7 @@ integration("relay PostgreSQL integration", () => {
 				enabled: true,
 				grantedScopes: ["user:read:chat"],
 				needsConsent: false,
+				needsAlertConsent: true,
 				canManageChannel: false,
 				canReadStreamKey: false,
 			},
@@ -1516,6 +1526,7 @@ integration("relay PostgreSQL integration", () => {
 				enabled: true,
 				grantedScopes: ["user:read"],
 				needsConsent: false,
+				needsAlertConsent: false,
 				canManageChannel: false,
 				canReadStreamKey: false,
 			},
@@ -1525,6 +1536,7 @@ integration("relay PostgreSQL integration", () => {
 				enabled: false,
 				grantedScopes: [],
 				needsConsent: false,
+				needsAlertConsent: false,
 				canManageChannel: false,
 				canReadStreamKey: false,
 			},
@@ -1562,7 +1574,18 @@ integration("relay PostgreSQL integration", () => {
 				return Response.json({ data: [] });
 			}
 			if (url.endsWith("/events/subscriptions") && init?.method === "POST") {
-				return Response.json({ data: [{ subscription_id: "reconciled-sub" }] });
+				const body = JSON.parse(String(init.body)) as {
+					events: Array<{ name: string }>;
+				};
+				return Response.json({
+					data: body.events.map(({ name }, index) => ({
+						name,
+						subscription_id:
+							name === "chat.message.sent"
+								? "reconciled-sub"
+								: `reconciled-alert-${index}`,
+					})),
+				});
 			}
 			return new Response(null, { status: 500 });
 		}) as typeof fetch;
@@ -1589,6 +1612,22 @@ integration("relay PostgreSQL integration", () => {
 			events.some(
 				(event) =>
 					event.type === "message" && event.message.id === "kick-message",
+			),
+		).toBe(true);
+		expect(
+			await handleVerifiedKickPayload(
+				{
+					broadcaster: { user_id: 67890 },
+					follower: { username: "Follower" },
+				},
+				"channel.followed",
+				"kick-follow",
+				"2026-07-17T10:00:00.000Z",
+			),
+		).toBe("accepted");
+		expect(
+			events.some(
+				(event) => event.type === "alert" && event.alert.id === "kick-follow",
 			),
 		).toBe(true);
 

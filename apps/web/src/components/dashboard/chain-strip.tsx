@@ -116,31 +116,50 @@ export function ChainStrip() {
 			state: live > 0 ? "ok" : "idle",
 			value: live > 0 ? t("Receiving") : t("Ready"),
 		},
-		{
-			href: holding ? "#dashboard-brb" : "#dashboard-direct",
-			label: "Direct",
-			state: holding
-				? "warn"
-				: liveOutputs.length > 0
-					? "live"
-					: configured
-						? "ok"
-						: "warn",
-			value: holding
-				? t("BRB card")
-				: liveOutputs.length > 0
-					? `${liveOutputs.length} ${t("live")}`
-					: configured
-						? t("Ready")
-						: t("Choose output"),
-		},
-		{
-			href: "#dashboard-direct",
-			label: t("Output"),
-			state: liveOutputs.length > 0 ? "live" : configured ? "idle" : "warn",
-			value: destinations.join(" + ") || t("OBS only"),
-		},
 	];
+	if (direct.data?.mode === "obs") {
+		nodes.push(
+			{
+				href: "#obs-control",
+				label: t("Primary mode"),
+				state: "ok",
+				value: t("Route to Home Studio"),
+			},
+			{
+				href: "#obs-control",
+				label: t("Output"),
+				state: "idle",
+				value: "OBS",
+			},
+		);
+	} else {
+		nodes.push(
+			{
+				href: holding ? "#dashboard-brb" : "#dashboard-direct",
+				label: t("Direct to Platform"),
+				state: holding
+					? "warn"
+					: liveOutputs.length > 0
+						? "live"
+						: configured
+							? "ok"
+							: "warn",
+				value: holding
+					? t("BRB card")
+					: liveOutputs.length > 0
+						? `${liveOutputs.length} ${t("live")}`
+						: configured
+							? t("Ready")
+							: t("Choose output"),
+			},
+			{
+				href: "#dashboard-direct",
+				label: t("Output"),
+				state: liveOutputs.length > 0 ? "live" : configured ? "idle" : "warn",
+				value: destinations.join(" + ") || t("Choose output"),
+			},
+		);
+	}
 
 	return (
 		<nav

@@ -1,8 +1,12 @@
 import { describe, expect, test } from "bun:test";
+import { alertText, type ChatAlert } from "./contract";
 import {
 	kickEmoteUrl,
+	normalizeKickAlert,
 	normalizeKickMessage,
+	normalizeTwitchAlert,
 	normalizeTwitchMessage,
+	normalizeYoutubeAlert,
 	normalizeYoutubeMessage,
 	twitchEmoteUrl,
 } from "./normalize";
@@ -164,5 +168,111 @@ describe("chat normalization", () => {
 				snippet: { hasDisplayContent: true, displayMessage: "Hello" },
 			}),
 		).toBeNull();
+	});
+});
+
+const alert = (over: Partial<ChatAlert>): ChatAlert => ({
+	id: "event-1",
+	provider: "twitch",
+	kind: "follow",
+	sentAt: "2026-08-14T10:00:00.000Z",
+	name: "Viewer",
+	...over,
+});
+
+describe("alertText", () => {
+	test("formats every alert kind", () => {
+		expect(alertText(alert({ kind: "follow" }))).toBe("Viewer followed");
+		expect(
+			alertText(
+				alert({ kind: "sub", amount: 12, tier: "1000", message: "Hi" }),
+			),
+		).toBe("Viewer subscribed for 12 months · Tier 1: Hi");
+		expect(alertText(alert({ kind: "gift", amount: 5 }))).toBe(
+			"Viewer gifted 5 subscriptions",
+		);
+		expect(alertText(alert({ kind: "cheer", amount: 100 }))).toBe(
+			"Viewer cheered 100 bits",
+		);
+		expect(alertText(alert({ kind: "raid", amount: 1 }))).toBe(
+			"Viewer raided with 1 viewer",
+		);
+	});
+
+	test("keeps provider-formatted YouTube amounts", () => {
+		expect(
+			alertText(alert({ provider: "youtube", kind: "cheer", amount: "€5.00" })),
+		).toBe("Viewer sent €5.00");
+	});
+});
+
+describe("viewer alert normalizers", () => {
+	test("normalizes a Twitch raid envelope", () => {
+		expect(
+			normalizeTwitchAlert(
+				"channel.raid",
+				{ from_broadcaster_user_name: "Raider", viewers: 42 },
+				"event-1",
+				"2026-08-14T10:00:00Z",
+			),
+		).toEqual({
+			id: "event-1",
+			provider: "twitch",
+			kind: "raid",
+			sentAt: "2026-08-14T10:00:00.000Z",
+			name: "Raider",
+			amount: 42,
+			message: undefined,
+			tier: undefined,
+		});
+	});
+
+	test("drops the per-recipient Twitch gift subscription", () => {
+		expect(
+			normalizeTwitchAlert(
+				"channel.subscribe",
+				{ is_gift: true, user_name: "Recipient" },
+				"event-1",
+			),
+		).toBeNull();
+	});
+
+	test("uses Kick webhook metadata for alerts without payload ids", () => {
+		expect(
+			normalizeKickAlert(
+				"channel.followed",
+				{ follower: { username: "Follower" } },
+				"kick-event",
+				"2026-08-14T10:00:00Z",
+			),
+		).toMatchObject({
+			id: "kick-event",
+			kind: "follow",
+			name: "Follower",
+			provider: "kick",
+			sentAt: "2026-08-14T10:00:00.000Z",
+		});
+	});
+
+	test("normalizes YouTube Super Chat display currency", () => {
+		expect(
+			normalizeYoutubeAlert({
+				id: "youtube-event",
+				snippet: {
+					type: "superChatEvent",
+					publishedAt: "2026-08-14T10:00:00Z",
+					superChatDetails: {
+						amountDisplayString: "$10.00",
+						userComment: "Great stream",
+					},
+				},
+				authorDetails: { displayName: "Supporter" },
+			}),
+		).toMatchObject({
+			id: "youtube-event",
+			kind: "cheer",
+			amount: "$10.00",
+			message: "Great stream",
+		});
 	});
 });

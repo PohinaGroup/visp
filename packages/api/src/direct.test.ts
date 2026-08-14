@@ -7,6 +7,7 @@ const {
 	createYoutubeDestination,
 	kickIngestDestination,
 	sanitizeDirectError,
+	setDirectOutputs,
 	streamKeyDestination,
 } = await import("./direct");
 
@@ -138,6 +139,16 @@ describe("streamKeyDestination", () => {
 			),
 		).rejects.toThrow("Twitch did not return a stream key");
 	});
+});
+
+test("Direct output cannot silently become Home Studio mode", async () => {
+	await expect(
+		setDirectOutputs("user-a", 1, {
+			twitch: false,
+			kick: false,
+			youtube: false,
+		}),
+	).rejects.toThrow("Choose Route to Home Studio");
 });
 
 describe("createYoutubeDestination", () => {

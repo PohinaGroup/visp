@@ -1,4 +1,4 @@
-import type { ChatMessage } from "@VISP/api/chat/contract";
+import type { ChatAlert, ChatMessage } from "@VISP/api/chat/contract";
 import { isSpokenLocale, type SpokenLocale } from "./spoken-language";
 
 export type ChatDisplayMode = "hidden" | "floating" | "embedded";
@@ -14,6 +14,7 @@ export type SpokenLanguage = SpokenLocale;
 export type ChatPreferences = {
 	mode: ChatDisplayMode;
 	corner: ChatCorner;
+	alerts: boolean;
 	disappearingMessages: boolean;
 	speechLanguage: SpeechLanguage;
 	betterVoice: boolean;
@@ -23,10 +24,15 @@ export type VisibleChatMessage = ChatMessage & {
 	opacity: number;
 	receivedAt: number;
 };
+export type VisibleChatAlert = ChatAlert & {
+	opacity: number;
+	receivedAt: number;
+};
 
 export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = {
 	mode: "hidden",
 	corner: "bottom-left",
+	alerts: true,
 	disappearingMessages: false,
 	speechLanguage: "off",
 	betterVoice: false,
@@ -73,6 +79,7 @@ export function parseChatPreferences(value: string | null): ChatPreferences {
 			corner: corners.has(parsed.corner as ChatCorner)
 				? (parsed.corner as ChatCorner)
 				: DEFAULT_CHAT_PREFERENCES.corner,
+			alerts: parsed.alerts !== false,
 			disappearingMessages: parsed.disappearingMessages === true,
 			speechLanguage: parseSpeechLanguage(parsed.speechLanguage),
 			betterVoice: parsed.betterVoice === true,
@@ -157,5 +164,21 @@ export function visibleChatMessages(
 						Math.max(0, (FADE_WINDOW_MS - (now - message.receivedAt)) / 4_000),
 					)
 				: 1,
+		}));
+}
+
+export function visibleAlerts(
+	alerts: Array<ChatAlert & { receivedAt: number }>,
+	now = Date.now(),
+): VisibleChatAlert[] {
+	return alerts
+		.filter((alert) => now - alert.receivedAt < FADE_WINDOW_MS)
+		.slice(-3)
+		.map((alert) => ({
+			...alert,
+			opacity: Math.min(
+				1,
+				Math.max(0, (FADE_WINDOW_MS - (now - alert.receivedAt)) / 4_000),
+			),
 		}));
 }

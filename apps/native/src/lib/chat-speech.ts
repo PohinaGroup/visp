@@ -1,4 +1,8 @@
-import type { ChatMessage } from "@VISP/api/chat/contract";
+import {
+	alertText,
+	type ChatAlert,
+	type ChatMessage,
+} from "@VISP/api/chat/contract";
 import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import { File, Paths } from "expo-file-system";
 import * as Speech from "expo-speech";
@@ -50,11 +54,40 @@ export function enqueueChatMessage(
 	betterVoice: boolean,
 	outputId = "default",
 ) {
-	const key = `${message.provider}:${message.id}`;
+	enqueue(
+		`${message.provider}:${message.id}`,
+		speechUtterance(message, language),
+		language,
+		betterVoice,
+		outputId,
+	);
+}
+
+export function enqueueAlert(
+	alert: ChatAlert,
+	language: SpokenLanguage,
+	betterVoice: boolean,
+	outputId = "default",
+) {
+	enqueue(
+		`alert:${alert.provider}:${alert.id}`,
+		alertText(alert),
+		language,
+		betterVoice,
+		outputId,
+	);
+}
+
+function enqueue(
+	key: string,
+	text: string,
+	language: SpokenLanguage,
+	betterVoice: boolean,
+	outputId: string,
+) {
 	if (spoken.has(key)) return;
 	if (spoken.size > 500) spoken.clear();
 	spoken.add(key);
-	const text = speechUtterance(message, language);
 	if (!text) return;
 	stopped = false;
 	queue.push({ text, language, better: betterVoice, outputId });

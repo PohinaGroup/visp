@@ -27,6 +27,19 @@ export function localeSearch(locale: Locale) {
 const finnishUi: Record<string, string> = {
 	Dashboard: "Hallintapaneeli",
 	"Dashboard detail level": "Hallintapaneelin tarkkuustaso",
+	"Primary operational mode": "Ensisijainen toimintatila",
+	"Primary mode": "Ensisijainen tila",
+	"Direct to Platform": "Suoraan alustalle",
+	"Route to Home Studio": "Reititä kotistudioon",
+	"Primary mode saved": "Ensisijainen tila tallennettu",
+	"Choose one primary publishing path. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.":
+		"Valitse yksi ensisijainen julkaisupolku. Direct lähettää syötteen alustalle; kotistudiotilassa syöte menee OBS:ään, joka vastaa alustalähdöstä.",
+	"Select where the final stream is produced. These modes are separate and cannot run as one output path.":
+		"Valitse, missä lopullinen lähetys tuotetaan. Tilat ovat erillisiä, eikä niitä voi käyttää yhtenä lähtöpolkuna.",
+	"Switch to Route to Home Studio? This turns off every Direct platform output.":
+		"Vaihdetaanko kotistudioreititykseen? Tämä poistaa kaikki Direct-alustalähdöt käytöstä.",
+	"Choose Route to Home Studio above to turn off Direct output":
+		"Poista Direct-lähtö käytöstä valitsemalla yllä Reititä kotistudioon",
 	Simple: "Yksinkertainen",
 	Advanced: "Edistynyt",
 	"Live signal path": "Suora signaalipolku",

@@ -7,8 +7,8 @@ export const Route = createFileRoute("/fi/")({
 	head: () =>
 		landingHead(
 			"fi",
-			"VISP — IRL-suoratoisto puhelimella tai OBS:llä Twitchiin ja YouTubeen",
-			"VISP lähettää puhelimesta tai selaimesta suoraan Twitchiin, Kickiin tai YouTubeen ilman kotona pyörivää konetta. Betan ajan ilmainen, kun pilvipalvelut maksavat 120–180 $ kuukaudessa.",
+			"VISP — Korvaa pilvi-OBS omalla striimaustietokoneellasi",
+			"Lähetä puhelimen tai selaimen syöte omalla laitteistollasi pyörivään OBS:ään. Pidä kohtaukset, grafiikat ja hallinta ilman 120–180 dollarin kuukausittaista pilvi-OBS-tilausta.",
 			faqFi,
 		),
 	component: () => <HomeComponent locale="fi" />,

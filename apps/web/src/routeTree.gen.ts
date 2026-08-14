@@ -20,6 +20,7 @@ import { Route as DownloadRouteImport } from './routes/download'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AffiliateRouteImport } from './routes/affiliate'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FiIndexRouteImport } from './routes/fi/index'
@@ -89,6 +90,11 @@ const ContactRoute = ContactRouteImport.update({
   path: '/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AffiliateRoute = AffiliateRouteImport.update({
+  id: '/affiliate',
+  path: '/affiliate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
@@ -156,6 +162,7 @@ const FiBlogSlugRoute = FiBlogSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/affiliate': typeof AffiliateRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
@@ -181,6 +188,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/affiliate': typeof AffiliateRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
@@ -208,6 +216,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/affiliate': typeof AffiliateRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
@@ -235,6 +244,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/affiliate'
     | '/contact'
     | '/cookies'
     | '/device'
@@ -260,6 +270,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/affiliate'
     | '/contact'
     | '/cookies'
     | '/device'
@@ -286,6 +297,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_auth'
+    | '/affiliate'
     | '/contact'
     | '/cookies'
     | '/device'
@@ -313,6 +325,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  AffiliateRoute: typeof AffiliateRoute
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
   DeviceRoute: typeof DeviceRoute
@@ -412,6 +425,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/affiliate': {
+      id: '/affiliate'
+      path: '/affiliate'
+      fullPath: '/affiliate'
+      preLoaderRoute: typeof AffiliateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
@@ -525,6 +545,7 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  AffiliateRoute: AffiliateRoute,
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
   DeviceRoute: DeviceRoute,

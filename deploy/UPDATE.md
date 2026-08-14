@@ -16,6 +16,18 @@ Restarting the gateway disconnects bonded publishers. Ordinary publishers on
 UDP 8890 continue through MediaMTX. Roll back by reinstalling the previous
 `visp-bond` binary and restarting only this unit.
 
+`srtla_rec` is deployed the same way and on the same terms:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart srtla-rec
+sudo systemctl status --no-pager srtla-rec
+```
+
+It must be running on every relay before a release that shows SRTLA URLs goes
+out, because the portal offers `srtla://<relay>:5000` for every path. Restarting
+it disconnects SRTLA publishers only.
+
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,

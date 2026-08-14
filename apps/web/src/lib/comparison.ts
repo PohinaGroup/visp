@@ -1,12 +1,13 @@
-// The comparison matrix behind the landing "Free, and no PC at home" section
+// The comparison matrix behind the landing cloud-vs-home OBS section
 // and the llms.txt answer-engine summary, so a reader and an LLM see the same
 // table. Prices are the vendors' public list prices on the checked date.
 //
-// Rows 4 and 5 are losses on purpose. blogs.md: "Comparisons should help
-// readers choose the right workflow, including cases where another product is
-// the better fit." A table VISP wins outright is a table nobody believes.
+// Row 4 is a partial and row 5 is a loss, on purpose. blogs.md: "Comparisons
+// should help readers choose the right workflow, including cases where another
+// product is the better fit." A table VISP wins outright is a table nobody
+// believes.
 
-export const COMPARISON_CHECKED = "2026-08-09";
+export const COMPARISON_CHECKED = "2026-08-14";
 
 export const comparisonProducts = [
 	"VISP",
@@ -36,7 +37,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Computer at home",
 		cells: [
-			"Not needed",
+			"Use your own OBS, or Direct without it",
 			"Not needed — cloud OBS",
 			"Not needed — cloud OBS",
 			"Required — you run OBS",
@@ -56,7 +57,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Cellular bonding",
 		cells: [
-			"No — packet duplication only",
+			"SRTLA ingest — not in the app yet",
 			"Yes — SRTLA ingest",
 			"Yes — SRTLA ingest",
 			"Yes — SRTLA ingest",
@@ -66,7 +67,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Scenes and overlays",
 		cells: [
-			"Your own OBS, optional",
+			"Chat overlay; scenes in your own OBS",
 			"Cloud OBS included",
 			"Cloud OBS included",
 			"Your own OBS",
@@ -99,7 +100,7 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Kotikone",
 		cells: [
-			"Ei tarvita",
+			"Oma OBS tai Direct ilman sitä",
 			"Ei tarvita — pilvi-OBS",
 			"Ei tarvita — pilvi-OBS",
 			"Tarvitaan — ajat OBS:n itse",
@@ -119,7 +120,7 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Mobiiliyhteyksien niputus",
 		cells: [
-			"Ei — vain pakettien monistus",
+			"SRTLA-vastaanotto — ei vielä sovelluksessa",
 			"Kyllä — SRTLA",
 			"Kyllä — SRTLA",
 			"Kyllä — SRTLA",
@@ -129,7 +130,7 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Kohtaukset ja grafiikat",
 		cells: [
-			"Oma OBS, valinnainen",
+			"Chat-grafiikka; kohtaukset omassa OBS:ssä",
 			"Pilvi-OBS mukana",
 			"Pilvi-OBS mukana",
 			"Oma OBS",

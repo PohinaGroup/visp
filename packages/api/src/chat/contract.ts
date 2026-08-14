@@ -56,6 +56,51 @@ export type ChatProviderStatus = {
 	error?: string;
 };
 
+export type ChatAlertKind = "follow" | "sub" | "gift" | "cheer" | "raid";
+
+export type ChatAlert = {
+	id: string;
+	provider: ChatProvider;
+	kind: ChatAlertKind;
+	sentAt: string;
+	name: string;
+	amount?: number | string;
+	tier?: string;
+	message?: string;
+};
+
+function alertTier(tier?: string) {
+	return tier === "1000"
+		? "Tier 1"
+		: tier === "2000"
+			? "Tier 2"
+			: tier === "3000"
+				? "Tier 3"
+				: tier;
+}
+
+export function alertText(alert: ChatAlert) {
+	const tier = alertTier(alert.tier);
+	const suffix = `${tier ? ` · ${tier}` : ""}${alert.message ? `: ${alert.message}` : ""}`;
+	switch (alert.kind) {
+		case "follow":
+			return `${alert.name} followed`;
+		case "sub":
+			return `${alert.name} subscribed${typeof alert.amount === "number" ? ` for ${alert.amount} month${alert.amount === 1 ? "" : "s"}` : ""}${suffix}`;
+		case "gift": {
+			const amount = typeof alert.amount === "number" ? alert.amount : 1;
+			return `${alert.name} gifted ${amount} subscription${amount === 1 ? "" : "s"}${tier ? ` · ${tier}` : ""}`;
+		}
+		case "cheer":
+			return `${alert.name} ${typeof alert.amount === "string" ? `sent ${alert.amount}` : `cheered ${alert.amount ?? 0} bits`}${alert.message ? `: ${alert.message}` : ""}`;
+		case "raid": {
+			const amount = typeof alert.amount === "number" ? alert.amount : 0;
+			return `${alert.name} raided with ${amount} viewer${amount === 1 ? "" : "s"}`;
+		}
+	}
+}
+
 export type ChatLiveEvent =
 	| { type: "message"; message: ChatMessage }
-	| { type: "status"; status: ChatProviderStatus };
+	| { type: "status"; status: ChatProviderStatus }
+	| { type: "alert"; alert: ChatAlert };

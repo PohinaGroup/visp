@@ -42,6 +42,12 @@ export const LOG_REDACTION_PATHS = [
 	// Presigned BRB card URLs are bearer credentials for the object store.
 	"**.backgroundUrl",
 	"**.imageUrl",
+	// Public affiliate applications contain contact details and creator notes.
+	"**.applicantName",
+	"**.email",
+	"**.youtubeChannelUrl",
+	"**.relevantVideoUrl",
+	"**.audienceAndSetup",
 ];
 
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {

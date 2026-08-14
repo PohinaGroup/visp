@@ -108,6 +108,9 @@ describe("machine endpoints", () => {
 		expect(LOG_REDACTION_PATHS).toContain("**.token");
 		expect(LOG_REDACTION_PATHS).toContain("**.device_code");
 		expect(LOG_REDACTION_PATHS).toContain("**.authorization");
+		expect(LOG_REDACTION_PATHS).toContain("**.applicantName");
+		expect(LOG_REDACTION_PATHS).toContain("**.email");
+		expect(LOG_REDACTION_PATHS).toContain("**.audienceAndSetup");
 	});
 
 	test("forwards Google's accepted localhost callback to Better Auth", async () => {

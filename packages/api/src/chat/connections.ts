@@ -2,10 +2,19 @@ import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq, inArray } from "drizzle-orm";
 import { hasChannelWriteScope } from "../channel/stream-info";
-import { hasChatScope, hasStreamKeyScope, parseScopes } from "../scopes";
+import {
+	hasAlertScope,
+	hasChatScope,
+	hasStreamKeyScope,
+	parseScopes,
+} from "../scopes";
 import { type ChatProvider, chatAuthProvider } from "./contract";
 import { chatHub } from "./hub";
-import { createKickSubscription, deleteKickSubscription } from "./kick";
+import {
+	createKickSubscription,
+	deleteKickSubscription,
+	deleteKickSubscriptionsForBroadcaster,
+} from "./kick";
 
 const PROVIDERS = ["twitch", "kick", "youtube"] as const;
 
@@ -51,6 +60,8 @@ export async function listChatConnections(userId: string) {
 			// request from this, never from the caller's intent.
 			grantedScopes: parseScopes(linked?.scope),
 			needsConsent: Boolean(linked) && !hasChatScope(provider, linked?.scope),
+			needsAlertConsent:
+				Boolean(linked) && !hasAlertScope(provider, linked?.scope),
 			canManageChannel:
 				Boolean(linked) && hasChannelWriteScope(provider, linked?.scope),
 			canReadStreamKey:
@@ -105,7 +116,10 @@ export async function enableChatConnection(
 		chatHub.requestConnectorRefresh(userId);
 		return connection;
 	}
-	const subscriptionId = await createKickSubscription(linked.accountId);
+	const subscriptions = await createKickSubscription(linked.accountId);
+	const subscriptionId = subscriptions.get("chat.message.sent");
+	if (!subscriptionId)
+		throw new Error("Kick chat subscription response was invalid");
 	try {
 		const [created] = await db
 			.insert(chatConnection)
@@ -116,7 +130,11 @@ export async function enableChatConnection(
 			chatHub.status(userId, "kick", "connected");
 			return created;
 		}
-		await deleteKickSubscription(subscriptionId).catch(() => undefined);
+		await Promise.all(
+			[...subscriptions.values()].map((id) =>
+				deleteKickSubscription(id).catch(() => undefined),
+			),
+		);
 		const connection = await db.query.chatConnection.findFirst({
 			where: and(
 				eq(chatConnection.userId, userId),
@@ -126,7 +144,11 @@ export async function enableChatConnection(
 		if (connection) chatHub.status(userId, "kick", "connected");
 		return connection;
 	} catch (error) {
-		await deleteKickSubscription(subscriptionId).catch(() => undefined);
+		await Promise.all(
+			[...subscriptions.values()].map((id) =>
+				deleteKickSubscription(id).catch(() => undefined),
+			),
+		);
 		throw error;
 	}
 }
@@ -135,6 +157,15 @@ export async function disableChatConnection(
 	userId: string,
 	provider: ChatProvider,
 ) {
+	const linked =
+		provider === "kick"
+			? await db.query.account.findFirst({
+					where: and(
+						eq(account.userId, userId),
+						eq(account.providerId, "kick"),
+					),
+				})
+			: undefined;
 	const [removed] = await db
 		.delete(chatConnection)
 		.where(
@@ -144,8 +175,8 @@ export async function disableChatConnection(
 			),
 		)
 		.returning();
-	if (removed?.kickSubscriptionId) {
-		await deleteKickSubscription(removed.kickSubscriptionId).catch(
+	if (removed && linked) {
+		await deleteKickSubscriptionsForBroadcaster(linked.accountId).catch(
 			() => undefined,
 		);
 	}

@@ -168,7 +168,6 @@ final class VispSrtView: ExpoView {
   private var imageStabilizationEnabled = true
   private var lastPktSndLossTotal: Int32 = 0
   private var lastPktSentTotal: Int64 = 0
-  private var lastBondedTotals: [Int32: (sent: Int64, lost: Int32)] = [:]
   private var lastLinkDegraded: Bool?
   private var lockedOrientation: AVCaptureVideoOrientation?
   private var lastAppliedOrientation: AVCaptureVideoOrientation?
@@ -834,7 +833,8 @@ final class VispSrtView: ExpoView {
       width: width
     )
     let nextVideoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
-    let nextBondingMode = ["broadcast", "backup"].contains(bondingMode) ? bondingMode : "off"
+    let nextBondingMode = ["srtla", "broadcast", "backup"].contains(bondingMode)
+      ? bondingMode : "off"
     if mixer != nil,
        configuration == nextConfiguration,
        videoBitrateCeiling == nextVideoBitrateCeiling {
@@ -984,7 +984,7 @@ final class VispSrtView: ExpoView {
     var url = try validatedURL(value)
     if bondingMode != "off",
        var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-      components.port = 8891
+      components.port = bondingMode == "srtla" ? 5000 : 8891
       if let bondedURL = components.url {
         url = bondedURL
       }
@@ -1471,7 +1471,6 @@ final class VispSrtView: ExpoView {
     stopStatsLoop()
     lastPktSndLossTotal = 0
     lastPktSentTotal = 0
-    lastBondedTotals = [:]
     lastLinkDegraded = nil
     statsTask = Task { @MainActor [weak self] in
       while let self, !Task.isCancelled {
@@ -1508,23 +1507,13 @@ final class VispSrtView: ExpoView {
     let rttMs = max(0, Int(performance.msRTT.rounded()))
     let bonded = await connection.bondedLinkPerformance
     let links: [[String: Any]] = bonded.map { link in
-      let previous = lastBondedTotals[link.id] ?? (0, 0)
-      let linkSent = max(0, link.performance.pktSentTotal - previous.sent)
-      let linkLost = max(0, Int64(link.performance.pktSndLossTotal) - Int64(previous.lost))
-      lastBondedTotals[link.id] = (
-        link.performance.pktSentTotal,
-        link.performance.pktSndLossTotal
-      )
-      let loss = linkSent + linkLost > 0
-        ? 100.0 * Double(linkLost) / Double(linkSent + linkLost)
-        : 0
       return [
         "id": String(link.id),
         "transport": link.token == 1 ? "cellular" : "wifi",
         "state": link.state,
-        "rttMs": max(0, Int(link.performance.msRTT.rounded())),
-        "packetLossPct": min(100, max(0, loss)),
-        "bitrateKbps": max(0, Int((link.performance.mbpsSendRate * 1_000).rounded())),
+        "rttMs": link.rttMs,
+        "packetLossPct": link.packetLossPct,
+        "bitrateKbps": link.bitrateKbps,
       ]
     }
     if bondingMode != "off" {

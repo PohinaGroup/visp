@@ -77,13 +77,7 @@ export function StreamSettingsSheet({
 							<UI.Switch
 								disabled={camera.settingsDisabled}
 								onValueChange={(enabled) =>
-									void network.onUpdateBondingMode(
-										enabled
-											? network.bondingMode === "backup"
-												? "backup"
-												: "broadcast"
-											: "off",
-									)
+									void network.onUpdateBondingMode(enabled ? "srtla" : "off")
 								}
 								value={network.bondingMode !== "off"}
 							/>
@@ -99,17 +93,20 @@ export function StreamSettingsSheet({
 									}
 									selectedValue={network.bondingMode}
 								>
+									<UI.Picker.Item label="SRTLA (aggregating)" value="srtla" />
 									<UI.Picker.Item label="Broadcast" value="broadcast" />
 									<UI.Picker.Item label="Main + backup" value="backup" />
 								</UI.Picker>
 							</SettingRow>
 						) : null}
-						<UI.FieldGroup.SectionFooter>
-							<UI.Text textStyle={SUBTLE_TEXT}>
-								Uses Wi-Fi and cellular together. This can roughly double mobile
-								data use.
-							</UI.Text>
-						</UI.FieldGroup.SectionFooter>
+						{network.bondingMode === "broadcast" ? (
+							<UI.FieldGroup.SectionFooter>
+								<UI.Text textStyle={SUBTLE_TEXT}>
+									Broadcast sends every packet over both links and can roughly
+									double mobile data use.
+								</UI.Text>
+							</UI.FieldGroup.SectionFooter>
+						) : null}
 					</UI.FieldGroup.Section>
 				) : null}
 				{account ? <ChatSection chat={chat} /> : null}

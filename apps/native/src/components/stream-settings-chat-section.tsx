@@ -31,6 +31,7 @@ export type ChatSettings = {
 	enabled: boolean;
 	errors: Partial<Record<ChatProvider, string>>;
 	onReauthorizeConnection: (connection: ChatConnections[number]) => void;
+	onAuthorizeAlerts: (connection: ChatConnections[number]) => void;
 	onToggleConnection: (connection: ChatConnections[number]) => void;
 	onUnlinkConnection: (connection: ChatConnections[number]) => void;
 	onSelectOutput: (outputId: string) => Promise<void>;
@@ -88,7 +89,9 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 									: "Not linked"
 						}
 					>
-						{connection.linked && !connection.needsConsent ? (
+						{connection.linked &&
+						!connection.needsConsent &&
+						!(chat.preferences.alerts && connection.needsAlertConsent) ? (
 							<UI.Switch
 								disabled={chat.busy}
 								onValueChange={() => chat.onToggleConnection(connection)}
@@ -97,8 +100,12 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 						) : (
 							<UI.Button
 								disabled={chat.busy}
-								label={connection.needsConsent ? "Authorize" : "Link"}
-								onPress={() => chat.onToggleConnection(connection)}
+								label={connection.linked ? "Authorize" : "Link"}
+								onPress={() =>
+									connection.needsAlertConsent && chat.preferences.alerts
+										? chat.onAuthorizeAlerts(connection)
+										: chat.onToggleConnection(connection)
+								}
 								variant="outlined"
 							/>
 						)}
@@ -115,6 +122,17 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 
 			{chat.enabled ? (
 				<UI.FieldGroup.Section title="Chat overlay">
+					<SettingRow label="Alerts">
+						<UI.Switch
+							onValueChange={(alerts) =>
+								chat.onUpdatePreferences((current) => ({
+									...current,
+									alerts,
+								}))
+							}
+							value={chat.preferences.alerts}
+						/>
+					</SettingRow>
 					<SettingRow label="Position">
 						<UI.Picker
 							onValueChange={(mode) =>

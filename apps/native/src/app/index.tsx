@@ -24,6 +24,7 @@ import type {
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
 import { VispSrtView } from "../../modules/visp-srt";
+import { AlertBanner } from "../components/alert-banner";
 import {
 	BrbHoldBanner,
 	useBrbHoldPolling,
@@ -290,6 +291,7 @@ export default function Index() {
 		userId,
 		appState === "active",
 		speechFeatures.speech.onMessage,
+		speechFeatures.speech.onAlert,
 	);
 
 	useEffect(() => {
@@ -503,7 +505,11 @@ export default function Index() {
 	}, []);
 
 	const confirmBondingDataUse = useCallback(async () => {
-		if (IS_WEB || bondingMode === "off" || (await hasSeenBondingWarning())) {
+		if (
+			IS_WEB ||
+			bondingMode !== "broadcast" ||
+			(await hasSeenBondingWarning())
+		) {
 			return true;
 		}
 		return new Promise<boolean>((resolve) => {
@@ -986,6 +992,9 @@ export default function Index() {
 					}
 					position={chatPreferences.floating[orientation]}
 				/>
+			) : null}
+			{chatEnabled && chatPreferences.alerts ? (
+				<AlertBanner alerts={liveChat.alerts} />
 			) : null}
 			{toast ? (
 				<View
