@@ -425,11 +425,12 @@ function buildSrtUrl(
 	plaintext: string,
 	latencyMicros?: number,
 	port = 8890,
+	scheme: "srt" | "srtla" = "srt",
 ) {
 	const latency = latencyMicros ? `&latency=${latencyMicros}` : "";
 	// ponytail: every relay uses the shared MediaMTX ports; add DB columns only
 	// if a relay ever differs.
-	return `srt://${host}:${port}?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
+	return `${scheme}://${host}:${port}?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
 }
 
 function buildRtmpUrl(
@@ -457,6 +458,18 @@ function buildPublishUrls(
 			value,
 			undefined,
 			8891,
+		),
+		// srtla_rec forwards the SRT session on to MediaMTX untouched, so the
+		// stream ID below still carries the credentials the auth hook checks.
+		srtla: buildSrtUrl(
+			path.relayHost,
+			"publish",
+			path.slug,
+			handle,
+			value,
+			undefined,
+			5000,
+			"srtla",
 		),
 		rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, value),
 	};

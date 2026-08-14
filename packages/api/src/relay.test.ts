@@ -26,6 +26,10 @@ describe("relay guidance", () => {
 			"streamid=publish:streamer-1:streamer:*****",
 		);
 		expect(urls.publish?.srtBonded).toContain("relay.test:8891");
+		expect(urls.publish?.srtla).toStartWith("srtla://eu-relay.test:5000");
+		expect(urls.publish?.srtla).toContain(
+			"streamid=publish:streamer-1:streamer:*****",
+		);
 		expect(urls.read?.srt).toContain("streamid=read:streamer-1:streamer:*****");
 		expect(urls.publish?.rtmp).toContain("pass=*****");
 		expect(urls.read?.rtmp).toContain("pass=*****");

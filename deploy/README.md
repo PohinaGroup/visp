@@ -159,12 +159,29 @@ disconnecting either side behaves as expected. Only then install
    `relay/Caddyfile`; install `systemd/caddy-relay.conf` as the packaged unit's
    `caddy.service.d/visp.conf` drop-in and set `RELAY_DOMAIN` and `APP_DOMAIN` in
    `/etc/visp/caddy.env`.
-5. Permit public UDP 8890, UDP 8891, TCP 1935, TCP 443, and both UDP and TCP
+5. Build the SRTLA receiver, which accepts BELABOX, Moblin, and other SRTLA
+   senders on UDP 5000 and forwards the reassembled SRT session to MediaMTX:
+
+   ```bash
+   git clone https://github.com/BELABOX/srtla.git /tmp/srtla
+   git -C /tmp/srtla checkout 37862da3d0c13b46956efd3f88877053293d97d6
+   make -C /tmp/srtla srtla_rec
+   sudo install -m 0755 /tmp/srtla/srtla_rec /usr/local/bin/srtla_rec
+   ```
+
+   Install and enable `systemd/srtla-rec.service`. It needs no libsrt: the
+   receiver only shuffles UDP datagrams, and the SRT handshake — stream ID
+   included — passes through to MediaMTX untouched, so HTTP authentication is
+   unchanged here too. Like `visp-bond`, it publishes as `127.0.0.1`; read the
+   real client address from its group log. `srtla_rec` is AGPL-3.0 and stays a
+   separate binary; keep it out of any VISP build.
+6. Permit public UDP 5000, UDP 8890, UDP 8891, TCP 1935, TCP 443, and both UDP
+   and TCP
    8189. Permit
    TCP 9997 and SSH only on the Tailscale interface. Mirror the same rules in
    the UpCloud firewall. Port 8189 carries WebRTC media; TCP is the fallback
    when UDP is blocked.
-6. In Tailscale ACLs, allow only the app box to reach relay TCP 9997.
+7. In Tailscale ACLs, allow only the app box to reach relay TCP 9997.
 
 The Control API deliberately excludes only the `api` action from HTTP auth. It
 is still protected by its Tailscale bind, ACL, and host firewall. Metrics and
