@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <title>Required and optional layers of an IRL streaming budget</title>
+  <rect width="1600" height="900" fill="#0b0d10"/>
+  <text x="100" y="100" fill="#f2f3f5" font-family="Arial" font-size="48" font-weight="700">UNBUNDLE THE MONTHLY IRL STREAMING BILL</text>
+  <g font-family="Arial" font-size="30">
+    <rect x="100" y="180" width="650" height="210" rx="12" fill="#15191f" stroke="#72d7ff" stroke-width="4"/><text x="150" y="245" fill="#72d7ff" font-weight="700">BASE PATH</text><text x="150" y="305" fill="#f2f3f5">Phone or encoder</text><text x="150" y="355" fill="#f2f3f5">One sustainable data connection</text>
+    <rect x="850" y="180" width="650" height="210" rx="12" fill="#15191f" stroke="#72d7ff" stroke-width="4"/><text x="900" y="245" fill="#72d7ff" font-weight="700">TRANSPORT</text><text x="900" y="305" fill="#f2f3f5">Relay endpoint when needed</text><text x="900" y="355" fill="#f2f3f5">Direct platform or home OBS output</text>
+    <rect x="100" y="500" width="400" height="230" rx="12" fill="#15191f" stroke="#d8ff52" stroke-width="4"/><text x="150" y="565" fill="#d8ff52" font-weight="700">PRODUCTION</text><text x="150" y="625" fill="#f2f3f5">Scenes and overlays</text><text x="150" y="675" fill="#f2f3f5">Cloud OBS</text>
+    <rect x="600" y="500" width="400" height="230" rx="12" fill="#15191f" stroke="#d8ff52" stroke-width="4"/><text x="650" y="565" fill="#d8ff52" font-weight="700">RESILIENCE</text><text x="650" y="625" fill="#f2f3f5">Extra SIMs</text><text x="650" y="675" fill="#f2f3f5">Bonding and fallback</text>
+    <rect x="1100" y="500" width="400" height="230" rx="12" fill="#15191f" stroke="#ff9d66" stroke-width="4"/><text x="1150" y="565" fill="#ff9d66" font-weight="700">OPERATIONS</text><text x="1150" y="625" fill="#f2f3f5">Managed support</text><text x="1150" y="675" fill="#f2f3f5">Operator time</text>
+  </g>
+  <text x="800" y="825" fill="#9299a3" font-family="monospace" font-size="26" text-anchor="middle">BASE PATH FIRST · OPTIONAL LAYERS ONLY AFTER A MEASURED NEED</text>
+</svg>
