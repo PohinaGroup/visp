@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>DIY BELABOX setup responsibilities</title>
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <text x="70" y="88" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">DIY BONDED ENCODER</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial" font-size="64" font-weight="700">BELABOX IS MORE</text>
+  <text x="70" y="270" fill="#f2f3f5" font-family="Arial" font-size="64" font-weight="700">THAN THE BOX</text>
+  <path d="M150 430H1050" stroke="#59616d" stroke-width="5"/>
+  <g fill="#0b0d10" stroke-width="5"><circle cx="180" cy="430" r="58" stroke="#72d7ff"/><circle cx="460" cy="430" r="58" stroke="#d8ff52"/><circle cx="740" cy="430" r="58" stroke="#ff9d66"/><circle cx="1020" cy="430" r="58" stroke="#72d7ff"/></g>
+  <g fill="#f2f3f5" font-family="monospace" font-size="20" text-anchor="middle"><text x="180" y="438">LINUX</text><text x="460" y="438">MODEMS</text><text x="740" y="438">POWER</text><text x="1020" y="438">VPS</text></g>
+  <text x="90" y="565" fill="#9299a3" font-family="monospace" font-size="21">FLEXIBILITY MEANS OWNING THE WHOLE PATH</text>
+</svg>

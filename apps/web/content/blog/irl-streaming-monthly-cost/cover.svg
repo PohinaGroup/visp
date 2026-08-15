@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>IRL streaming monthly cost layers</title>
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <text x="70" y="88" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">IRL STREAMING BUDGET</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial" font-size="66" font-weight="700">WHEN $129/MO</text>
+  <text x="70" y="270" fill="#f2f3f5" font-family="Arial" font-size="66" font-weight="700">IS TOO MUCH</text>
+  <path d="M90 430H1110" stroke="#59616d" stroke-width="4"/>
+  <circle cx="180" cy="430" r="13" fill="#72d7ff"/><circle cx="430" cy="430" r="13" fill="#72d7ff"/><circle cx="680" cy="430" r="13" fill="#d8ff52"/><circle cx="930" cy="430" r="13" fill="#ff9d66"/>
+  <g fill="#f2f3f5" font-family="monospace" font-size="21" text-anchor="middle"><text x="180" y="482">DATA</text><text x="430" y="482">RELAY</text><text x="680" y="482">PRODUCTION</text><text x="930" y="482">BONDING</text></g>
+  <text x="90" y="565" fill="#9299a3" font-family="monospace" font-size="21">PAY ONLY FOR THE LAYER YOUR SHOW USES</text>
+</svg>
