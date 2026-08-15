@@ -1619,12 +1619,12 @@ function CredentialsReady({
 						steps={
 							fi
 								? [
-										"Asenna VISP iOS:lle TestFlightista tai Androidille Google Playsta.",
+										"Asenna VISP iOS:lle App Storesta tai Androidille Google Playsta.",
 										"Avaa sovellus ja kirjaudu samalla Twitch- tai Kick-tilillä.",
 										"Salli kamera ja mikrofoni — VISP ottaa laitteen käyttöön ja aloittaa SRT-julkaisun.",
 									]
 								: [
-										"Install VISP for iOS (TestFlight) or Android (Google Play).",
+										"Install VISP for iOS (App Store) or Android (Google Play).",
 										"Open the app and sign in with the same Twitch, Kick, or Google account.",
 										"Allow camera and mic — VISP claims this device and starts publishing over SRT.",
 									]
@@ -1632,8 +1632,8 @@ function CredentialsReady({
 					/>
 					<HStack gap={2} wrap="wrap">
 						<ExternalLinkButton
-							href={legalEntity.iosTestFlightUrl}
-							label={fi ? "Liity TestFlightissa" : "Join on TestFlight"}
+							href={legalEntity.iosAppStoreUrl}
+							label={fi ? "Lataa App Storesta" : "Download on the App Store"}
 						/>
 						<ExternalLinkButton
 							href={legalEntity.androidPlayStoreUrl}

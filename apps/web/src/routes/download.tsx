@@ -197,23 +197,23 @@ function DownloadPage() {
 							<CardTitle>{fi ? "iOS-sovellus" : "iOS app"}</CardTitle>
 							<CardDescription>
 								{fi
-									? "Astetta helpompi tapa striimata iOS-puhelimelta. iOS 16.4+ TestFlightin avoimessa testauksessa."
-									: "A bit easier way to stream from mobile. iOS 16.4+ via TestFlight open testing."}
+									? "Astetta helpompi tapa striimata iOS-puhelimelta. iOS 16.4+ App Storessa."
+									: "A bit easier way to stream from mobile. iOS 16.4+ on the App Store."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
 								{fi
-									? "Asenna TestFlight-sovellus ja liity VISP-betaan."
-									: "Install the TestFlight app, then join the VISP beta."}
+									? "Asenna VISP App Storesta."
+									: "Install VISP from the App Store."}
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
-								href={legalEntity.iosTestFlightUrl}
+								href={legalEntity.iosAppStoreUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
-								{fi ? "Liity TestFlightissa" : "Join on TestFlight"}
+								{fi ? "Lataa App Storesta" : "Download on the App Store"}
 							</a>
 						</CardContent>
 					</Card>

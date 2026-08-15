@@ -13,7 +13,7 @@ export const legalEntity = {
 	docsUrl: "https://docs.visp-stream.com",
 	xUrl: "https://x.com/VISPstreaming",
 	browserAppUrl: "https://stream.visp-stream.com",
-	iosTestFlightUrl: "https://testflight.apple.com/join/Fc3VttNn",
+	iosAppStoreUrl: "https://apps.apple.com/fi/app/visp-easy-streaming/id6791948092",
 	androidPlayStoreUrl:
 		"https://play.google.com/store/apps/details?id=com.pohinagroup.visp",
 	supervisoryAuthority: {

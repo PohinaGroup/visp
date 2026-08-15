@@ -493,18 +493,18 @@ export async function setYoutubeSettings(userId: string, title: string) {
  * Saved per device and changeable only while that device is offline. One path
  * may own a given provider at a time; Twitch on one device and Kick on another
  * is permitted.
+ *
+ * Clearing every provider *is* Route to Home Studio, just expressed on a device
+ * toggle. The dashboard disables the last switch so it never asks for this, but
+ * the phone has no mode control, so refusing here strands shipped app builds
+ * with Direct output they cannot turn off.
  */
 export async function setDirectOutputs(
 	userId: string,
 	pathId: number,
 	outputs: { twitch: boolean; kick: boolean; youtube: boolean },
 ) {
-	if (!outputs.twitch && !outputs.kick && !outputs.youtube) {
-		throw new DirectError(
-			"invalid",
-			"Choose Route to Home Studio to turn off Direct output",
-		);
-	}
+	const clearing = !outputs.twitch && !outputs.kick && !outputs.youtube;
 	await db.transaction(async (tx) => {
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
 		const [path] = await tx
@@ -558,10 +558,12 @@ export async function setDirectOutputs(
 			.update(relayPath)
 			.set({ directTwitch: false, directKick: false, directYoutube: false })
 			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
-		const previousPathIds = currentOwners
-			.filter((entry) => entry.id !== pathId)
+		// Home Studio clears this device too, so it resets itself along with the
+		// ones losing ownership.
+		const resetPathIds = currentOwners
+			.filter((entry) => clearing || entry.id !== pathId)
 			.map((entry) => entry.id);
-		if (previousPathIds.length > 0) {
+		if (resetPathIds.length > 0) {
 			await tx
 				.update(pathState)
 				.set({
@@ -569,8 +571,11 @@ export async function setDirectOutputs(
 					directKickReservedUntil: null,
 					directYoutubeReservedUntil: null,
 					directYoutubeBroadcastId: null,
+					// Clearing Direct output ends any held BRB card, matching the
+					// mode switch in saveDirectPreferences.
+					...(clearing ? { brbSince: null } : {}),
 				})
-				.where(inArray(pathState.pathId, previousPathIds));
+				.where(inArray(pathState.pathId, resetPathIds));
 		}
 		await tx
 			.update(relayPath)

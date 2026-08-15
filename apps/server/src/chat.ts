@@ -30,14 +30,23 @@ export const chatRoutes = new Elysia({
 	name: "chat-routes",
 })
 	.ws("/api/chat/live", {
-		query: t.Object({ ticket: t.String({ minLength: 20, maxLength: 128 }) }),
+		query: t.Object({
+			ticket: t.String({ minLength: 20, maxLength: 128 }),
+			// Alerts shipped after the 1.4.x app builds, and those treat every
+			// non-status frame as a chat message: they read `event.message.id` off
+			// an alert and crash the overlay. Old clients never send this, so
+			// defaulting it off is what keeps them alive.
+			alerts: t.Optional(t.String()),
+		}),
 		open(ws) {
 			const userId = chatTickets.consume(ws.data.query.ticket);
 			if (!userId) {
 				ws.close(1008, "Invalid or expired chat ticket");
 				return;
 			}
+			const wantsAlerts = ws.data.query.alerts === "1";
 			const unsubscribe = chatHub.subscribe(userId, (event) => {
+				if (event.type === "alert" && !wantsAlerts) return;
 				try {
 					ws.send(JSON.stringify(event));
 				} catch {

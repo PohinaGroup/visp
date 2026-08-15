@@ -141,14 +141,19 @@ describe("streamKeyDestination", () => {
 	});
 });
 
-test("Direct output cannot silently become Home Studio mode", async () => {
-	await expect(
-		setDirectOutputs("user-a", 1, {
-			twitch: false,
-			kick: false,
-			youtube: false,
-		}),
-	).rejects.toThrow("Choose Route to Home Studio");
+test("clearing every provider is a Home Studio switch, not a refusal", async () => {
+	// The switch itself needs a database, so this covers the narrower thing that
+	// regressed a shipped app: the request is no longer refused up front, so a
+	// phone with no mode control can still turn Direct output off.
+	const failure = await setDirectOutputs("user-a", 1, {
+		twitch: false,
+		kick: false,
+		youtube: false,
+	}).then(
+		() => undefined,
+		(reason: unknown) => reason,
+	);
+	expect(String(failure)).not.toContain("Choose Route to Home Studio");
 });
 
 describe("createYoutubeDestination", () => {

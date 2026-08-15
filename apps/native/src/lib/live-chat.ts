@@ -17,6 +17,9 @@ function socketUrl(ticket: string) {
 	const url = new URL("/api/chat/live", server);
 	url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
 	url.searchParams.set("ticket", ticket);
+	// Opts this build into alert frames; the server withholds them otherwise so
+	// older app builds, which mistake an alert for a chat message, keep working.
+	url.searchParams.set("alerts", "1");
 	return url.toString();
 }
 
