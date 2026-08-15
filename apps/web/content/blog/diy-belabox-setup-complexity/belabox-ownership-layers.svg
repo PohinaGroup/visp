@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <title>Hardware, networking, Linux, and relay layers of a DIY BELABOX</title>
+  <rect width="1600" height="900" fill="#0b0d10"/>
+  <text x="100" y="100" fill="#f2f3f5" font-family="Arial" font-size="48" font-weight="700">A DIY BELABOX IS FOUR SYSTEMS</text>
+  <path d="M310 285H1290M310 605H1290" stroke="#59616d" stroke-width="5"/>
+  <g font-family="Arial" text-anchor="middle">
+    <circle cx="250" cy="285" r="110" fill="#15191f" stroke="#72d7ff" stroke-width="5"/><text x="250" y="275" fill="#72d7ff" font-size="30" font-weight="700">CAPTURE</text><text x="250" y="322" fill="#f2f3f5" font-size="24">board + encoder</text>
+    <circle cx="650" cy="285" r="110" fill="#15191f" stroke="#d8ff52" stroke-width="5"/><text x="650" y="275" fill="#d8ff52" font-size="30" font-weight="700">NETWORKS</text><text x="650" y="322" fill="#f2f3f5" font-size="24">modems + carriers</text>
+    <circle cx="1050" cy="285" r="110" fill="#15191f" stroke="#ff9d66" stroke-width="5"/><text x="1050" y="275" fill="#ff9d66" font-size="30" font-weight="700">LINUX</text><text x="1050" y="322" fill="#f2f3f5" font-size="24">config + recovery</text>
+    <circle cx="1350" cy="605" r="110" fill="#15191f" stroke="#72d7ff" stroke-width="5"/><text x="1350" y="595" fill="#72d7ff" font-size="30" font-weight="700">RELAY</text><text x="1350" y="642" fill="#f2f3f5" font-size="24">cloud or VPS</text>
+  </g>
+  <path d="M1050 395V605H1240" fill="none" stroke="#59616d" stroke-width="5"/>
+  <rect x="220" y="545" width="760" height="150" rx="12" fill="#15191f" stroke="#59616d" stroke-width="3"/>
+  <text x="600" y="610" fill="#f2f3f5" font-family="Arial" font-size="34" text-anchor="middle">Power, cooling, cables, and field recovery</text>
+  <text x="600" y="660" fill="#9299a3" font-family="monospace" font-size="24" text-anchor="middle">EVERY LAYER MUST SURVIVE THE SAME ROUTE</text>
+  <text x="800" y="835" fill="#9299a3" font-family="monospace" font-size="26" text-anchor="middle">DIY SAVES INTEGRATION FEES BY MAKING INTEGRATION YOUR JOB</text>
+</svg>

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>IRL stream continuity through buffering and recovery</title>
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <text x="70" y="88" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">VIEWER CONTINUITY</text>
+  <text x="70" y="190" fill="#f2f3f5" font-family="Arial" font-size="66" font-weight="700">BUFFERING GIVES</text>
+  <text x="70" y="270" fill="#f2f3f5" font-family="Arial" font-size="66" font-weight="700">VIEWERS AN EXIT</text>
+  <path d="M90 435H360" stroke="#72d7ff" stroke-width="7"/><path d="M360 435H545" stroke="#ff9d66" stroke-width="7" stroke-dasharray="20 16"/><path d="M545 435H830" stroke="#d8ff52" stroke-width="7"/><path d="M830 435H1110" stroke="#72d7ff" stroke-width="7"/>
+  <g fill="#f2f3f5" font-family="monospace" font-size="21" text-anchor="middle"><text x="225" y="490">LIVE</text><text x="452" y="490">DROP</text><text x="687" y="490">BRB</text><text x="970" y="490">RECOVERED</text></g>
+  <text x="90" y="565" fill="#9299a3" font-family="monospace" font-size="21">KEEP THE BROADCAST COHERENT WHEN INGEST FAILS</text>
+</svg>

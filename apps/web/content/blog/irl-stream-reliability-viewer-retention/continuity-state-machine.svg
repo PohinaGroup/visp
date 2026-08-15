@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <title>Live, suspect, BRB, and recovering states for an IRL stream</title>
+  <rect width="1600" height="900" fill="#0b0d10"/>
+  <text x="100" y="100" fill="#f2f3f5" font-family="Arial" font-size="48" font-weight="700">DESIGN THE VIEWER-FACING STATES</text>
+  <g font-family="Arial" text-anchor="middle">
+    <rect x="90" y="320" width="260" height="170" rx="18" fill="#15191f" stroke="#72d7ff" stroke-width="5"/><text x="220" y="390" fill="#72d7ff" font-size="34" font-weight="700">LIVE</text><text x="220" y="440" fill="#f2f3f5" font-size="24">healthy field feed</text>
+    <rect x="430" y="320" width="260" height="170" rx="18" fill="#15191f" stroke="#ff9d66" stroke-width="5"/><text x="560" y="390" fill="#ff9d66" font-size="34" font-weight="700">SUSPECT</text><text x="560" y="440" fill="#f2f3f5" font-size="24">confirm the drop</text>
+    <rect x="770" y="320" width="260" height="170" rx="18" fill="#15191f" stroke="#d8ff52" stroke-width="5"/><text x="900" y="390" fill="#d8ff52" font-size="34" font-weight="700">BRB</text><text x="900" y="440" fill="#f2f3f5" font-size="24">output stays live</text>
+    <rect x="1110" y="320" width="330" height="170" rx="18" fill="#15191f" stroke="#72d7ff" stroke-width="5"/><text x="1275" y="390" fill="#72d7ff" font-size="34" font-weight="700">RECOVERING</text><text x="1275" y="440" fill="#f2f3f5" font-size="24">confirm stable media</text>
+  </g>
+  <g fill="none" stroke="#59616d" stroke-width="5"><path d="M350 405H430"/><path d="M690 405H770"/><path d="M1030 405H1110"/><path d="M1275 490V650H220V490"/></g>
+  <g fill="#59616d"><path d="M430 405l-18-12v24z"/><path d="M770 405l-18-12v24z"/><path d="M1110 405l-18-12v24z"/><path d="M220 490l-12 18h24z"/></g>
+  <text x="800" y="610" fill="#f2f3f5" font-family="Arial" font-size="32" text-anchor="middle">Return to live only after current video and audio remain healthy</text>
+  <text x="800" y="750" fill="#9299a3" font-family="monospace" font-size="26" text-anchor="middle">FIELD FEED MAY DROP · PLATFORM SESSION SHOULD NOT HAVE TO</text>
+</svg>

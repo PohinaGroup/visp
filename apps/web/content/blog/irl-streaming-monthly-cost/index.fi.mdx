@@ -1,0 +1,180 @@
+---
+title: "IRL-striimauksen kulut: milloin 129 dollaria kuussa on liikaa"
+description: "Selvitä IRL-striimauksen kiinteät kuukausikulut, arvioi 129 dollarin pilvipalvelu ja rakenna luotettava mutta edullisempi vaihtoehto."
+publishedAt: 2026-08-15
+coverAlt: "IRL-striimauksen budjetti erottaa välttämättömän siirron valinnaisesta pilvituotannosta, bondingista ja tuesta"
+---
+
+IRL-striimauksen vaikein kulu ei usein ole kamera tai reppu. Se on lasku, joka
+toistuu joka kuukausi jo ennen kuin ensimmäinen videominuutti päätyy katsojalle.
+Yhteisökeskusteluissa toistuva ajatus tiivistää ongelman:
+
+> “I looked into IRLToolkit, but $129 per month is out of my budget right now.”
+
+Lainaus esitetään tämän artikkelin taustatutkimuksessa havaittuna yhteisön
+mielipiteenä, ei nimettynä tai itsenäisesti varmennettuna asiakasarviona.
+Budjettiongelma on silti todellinen. Kiinteä tilaus voi olla järkevä
+ammattilaiselle ja mahdoton viikonloppuisin IRL-striimausta kokeilevalle.
+
+Oleellinen kysymys ei ole, onko 129 dollaria kaikille kallis. Kysy **mitä työtä
+kuukausimaksu tekee, tarvitseeko oma lähetys sitä työtä ja mikä on pienin
+luotettava vaihtoehto.**
+
+![IRL-striimauksen kiinteän kuukausilaskun muodostavat kerrokset](./monthly-cost-stack.svg)
+
+## Miksi IRL-striimauksesta syntyy kuukausikulu
+
+IRL-lähetys kulkee useamman järjestelmän läpi kuin työpöydän webkameralähetys.
+Kenttäenkooderi tarvitsee mobiilidataa. Lähetyssyöte voi kulkea relayn kautta.
+Kotitietokone tai pilvi-OBS voi lisätä kohtaukset ja grafiikat. Bonding-palvelu
+voi yhdistää useita yhteyksiä. Valmis ohjelma pitää edelleen toimittaa Twitchiin,
+Kickiin, YouTubeen tai muulle alustalle.
+
+Palvelut niputtavat usein monta tehtävää yhteen tuotteeseen. Se on kätevää, mutta
+saa hankinnan näyttämään jakamattomalta. Pelkkää siirtoyhteyttä tarvitseva
+striimaaja saattaa verrata kokonaista pilvistudiota siihen, ettei hanki mitään.
+
+Erota laskun osat ennen tuotteiden vertailua:
+
+| Kulukerros | Mitä se tuo | Aina tarpeellinen? |
+| --- | --- | --- |
+| Puhelin tai enkooderi | Kuvaa ja pakkaa videon | Kyllä, mutta laite voi olla jo olemassa |
+| Mobiilidata | Kuljettaa kentän lähetyksen | Kyllä |
+| Relay-siirto | Antaa syötteelle saavutettavan päätepisteen | Riippuu työnkulusta |
+| OBS-tuotanto | Kohtaukset, grafiikat, hälytykset ja tallennus | Ei |
+| Pilvilaskenta | Ajaa tuotantoa ilman kotitietokonetta | Ei |
+| Verkkobonding | Käyttää useita yhteyksiä kapasiteettiin tai varmistukseen | Ei |
+| Hallittu tuki | Antaa tuotannolle tukipolun | Ei |
+
+Kaksi ensimmäistä riviä ovat kenttäpolun perusta. Jokaisen muun rivin pitää
+vastata nimettyyn tarpeeseen. Muuten se on toistuva kulu odottamassa perustelua.
+
+## 129 dollarin päätös koskee tuotantoa, ei ammattimaisuuden vaikutelmaa
+
+Pilvi-OBS voi ansaita hintansa. Se voi tarjota etästudion, moderaattorien
+kohtausohjauksen, grafiikat, ingestin, katkossuojan ja tuen samassa paikassa.
+Työkseen lähettävä sisällöntuottaja voi arvostaa pakettia enemmän kuin erillisten
+järjestelmien ylläpitoon kuluvaa aikaa.
+
+Sama paketti voi olla liikaa yhden puhelimen kävelylähetykseen. Jos valmis ohjelma
+on pelkkä puhelimen kamera ja mikrofoni, pilvessä ajettava OBS ei välttämättä tee
+paljon mitään. Käyttämätön kohtausvaihto ei paranna mobiiliverkon kuuluvuutta.
+
+Siksi hintavertailu tarvitsee rinnalle työnkulun. Katso eri palveluroolit
+[IRLToolkit-vaihtoehtojen vertailusta](/fi/blog/irltoolkit-alternative), kun olet
+ensin ratkaissut, tarvitsetko pilvituotantoa lainkaan.
+
+## Aloita pienimmästä luotettavasta polusta
+
+Pienimmän kiinteän kulun ratkaisu käyttää jo olemassa olevia laitteita ja
+palveluita:
+
+1. julkaise omistamallasi puhelimella;
+2. valitse bittinopeus, jonka yksi oikea yhteys kestää;
+3. käytä relayta vain, jos alusta tai OBS-työnkulku tarvitsee sitä;
+4. pidä tuotanto olemassa olevalla kotikoneella tai lähetä suoraan alustalle,
+   jos kohtauksia ei tarvita;
+5. lisää varatila ennen uusia tuotanto-ominaisuuksia.
+
+VISP on beta-aikana maksuton. Se voi toimittaa puhelimen syötteen suoraan
+yhdistetylle alustalle tai tuoda sen OBS:ään. Direct-toimitus poistaa kotikoneen
+yhden kameran lähetyksestä. Olemassa oleva OBS-studio kannattaa pitää mukana,
+kun grafiikoille, tallennukselle tai operaattorille on oikea tarve.
+
+[Edullisimman IRL-kokoonpanon opas](/fi/blog/cheapest-irl-streaming-setup-2026)
+käsittelee laitepuolta. Sen sääntö sopii myös tilauksiin: osta seuraava kerros
+vasta, kun toistuva vika osoittaa sen tarpeelliseksi.
+
+## Pienempi lasku ei tarkoita ilmaista lähetystä
+
+Pilvitilauksen poistaminen ei poista mobiililiittymiä, virtaa, kaapeleita,
+mikrofoneja, kiinnikkeitä tai tekijän aikaa. Koti-OBS käyttää sähköä ja on
+riippuvainen kodin lähetysnopeudesta. Itse ylläpidetty relay vaatii työtä, vaikka
+ohjelmistolisenssi olisi maksuton.
+
+Laske kuukausisummaa ainakin nämä:
+
+- kentän data- ja hotspot-liittymät;
+- pilvilaskenta, relay ja tuotantotilaukset;
+- bonding-palvelu ja lisä-SIM-kortit;
+- vuosittaisten palvelin- ja verkkotunnuskulujen kuukausiosuus;
+- kenttälaitteiden huolto- ja uusimisvara;
+- päivityksiin, testaukseen ja palautukseen käytetty aika.
+
+Näin vältät kaksi huonoa vertailua. Epäluotettavalla palvelimella ajettava
+“ilmainen” ohjelmisto ei ole ilmainen, jos jokainen lähetys vaatii korjaamista.
+Hallittu palvelu ei ole automaattisesti ylihintainen, jos se korvaa tuntien
+ylläpitotyön ja suojaa maksullisia tuotantoja.
+
+## Maksa viasta, jota et voi hyväksyä
+
+Jokaisen luotettavuushankinnan pitää nimetä vika, jota se vähentää.
+
+**Kun yksi operaattori menettää kuuluvuuden**, pienempi bittinopeus voi auttaa
+ruuhkaan mutta ei luoda peittoa. Toinen riippumaton yhteys, pakettien
+monistus tai oikea bonding voi olla perusteltu. Erot avataan
+[mobiili- ja Wi-Fi-bonding-oppaassa](/fi/blog/bond-cellular-wifi-visp-speedify).
+
+**Kun kenttäsyöte katoaa mutta alustalähetyksen pitää jatkua**, relay tai OBS:n
+varakohtaus voi näyttää BRB-tilan uudelleenyhdistämisen ajan. Tämä on jatkuvuus-
+vaatimus, ei välttämättä pilvi-OBS-vaatimus.
+
+**Kun moderaattorin pitää ajaa kohtauksia striimaajan liikkuessa**, etäohjauksella
+on oikea käyttäjä ja tehtävä. Tässä ylläpidetty pilvistudio on helppo perustella.
+
+**Kun katkos vaarantaa sopimuksen tai tulon**, hallittu tuki voi olla tilauksen
+arvokkain osa. Vertaa vasteodotuksia, älä vain ominaisuuslistoja.
+
+## Vertaa koko kokeilujaksoa
+
+Kuukausipalvelu näyttää erilaiselta yhden kuukauden, kolmen kuukauden ja vuoden
+ajalta:
+
+| Kokeilun pituus | Hinta 129 dollarilla kuussa | Ratkaistava kysymys |
+| --- | ---: | --- |
+| Kuukausi | $129 | Onko kokeilulla selkeä onnistumiskriteeri? |
+| Kolme kuukautta | $387 | Käytetäänkö palvelua tarpeeksi yksinkertaisempaan vaihtoehtoon verrattuna? |
+| Kuusi kuukautta | $774 | Voisiko jo omistettu laite tai tietokone tehdä työn? |
+| Vuosi | $1,548 | Tuottaako työnkulku riittävästi pysyvää arvoa? |
+
+Taulukko on laskutoimitus yhteisön 129 dollarin esimerkillä, ei väite palvelun
+nykyhinnasta. Tarkista aina tarjoajan oma hinnasto ennen ostoa.
+
+Määritä maksulliselle kokeilulle tulos etukäteen: vähemmän päättyneitä lähetyksiä,
+onnistunut moderaattorikäyttö, lyhyempi valmisteluaika tai palvelun kattava uusi
+työ. “Tuntui ammattimaiselta” on vaikeampi arvioida kuin kirjattu tulos.
+
+## Vähennä kiinteää kulua tekemättä järjestelmästä haurasta
+
+Halvin rakenne ei ole se, jossa on vähiten laskuja. Se täyttää luotettavuustason
+mahdollisimman vähillä liikkuvilla osilla.
+
+Suoraan alustalle lähettävä puhelin on yksinkertainen, mutta syötteen katkos voi
+päättää lähetyksen. VISP Direct voi pitää alustayhteyden ja BRB-käytöksen relaylla
+ilman kotikonetta. Koti-OBS säilyttää täyden paikallisen tuotannon mutta lisää
+kodin sähkön, verkkoyhteyden ja etähallinnan riippuvuudet. Pilvi-OBS poistaa ne ja
+palauttaa kuukausimaksun.
+
+Valitse lyhin polku, joka kestää tärkeän vian. Tarpeellisen varatilan poistaminen
+säästön vuoksi on näennäissäästöä. Pilvituotannon lisääminen lähetykseen, joka ei
+koskaan vaihda kohtausta, on vastakkainen virhe.
+
+## Milloin tilaus kannattaa pitää
+
+Jatka maksamista, kun palvelu tekee aktiivisesti käytettyä työtä:
+
+- etämoderaattori käyttää pilvituotantoa;
+- kanava tarvitsee pilvikohtauksia ja grafiikoita ilman kotikonetta;
+- integroitu bonding tai hallittu ingest selviää reiteistä, joilla yksi yhteys ei;
+- tukivaste kuuluu tuotantosuunnitelmaan;
+- säästetty työaika on kuukausimaksua arvokkaampi.
+
+Muussa tapauksessa aloita puhelimesta, yhdestä mitatusta yhteydestä ja pienimmästä
+siirtopolusta. Testaa oikea reitti ja katso valmis alustalähetys. Tulokset kertovat,
+kuuluuko seuraava euro dataan, virtaan, ääneen, bondingiin, varatilaan vai
+pilvituotantoon.
+
+Ajatus “129 dollaria kuussa ei mahdu budjettiin” ei pyydä halvempaa kopiota
+kaikista ominaisuuksista. Se pyytää purkamaan ongelman osiin. Kun siirto, tuotanto,
+bonding ja tuki ovat erillisiä päätöksiä, IRL-striimauksen voi aloittaa ilman koko
+kuukausipaketin sitoumusta.
