@@ -143,7 +143,7 @@ final actor SRTSocket {
           return SRT_ERROR
         }
         var remoteaddr = remote.makeSockaddr()
-        if bondingMode != "off" {
+        if bondingMode == "broadcast" || bondingMode == "backup" {
           if let host = url.url.host {
             cellularKeeper = SRTBonding.cellularKeeper(
               host: host,

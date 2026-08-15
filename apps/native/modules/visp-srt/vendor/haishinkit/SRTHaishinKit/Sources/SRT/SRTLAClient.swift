@@ -189,7 +189,11 @@ final class SRTLAClient: @unchecked Sendable {
   private func startListener() {
     do {
       let parameters = NWParameters(dtls: .none, udp: NWProtocolUDP.Options())
-      parameters.acceptLocalOnly = true
+      // SRTConnection dials 127.0.0.1, so this listener has to be *on* loopback.
+      // acceptLocalOnly only restricts to the local link, which leaves the
+      // listener off 127.0.0.1 and the SRT handshake landing nowhere. The
+      // Android sender binds INADDR_LOOPBACK explicitly for the same reason.
+      parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
       let listener = try NWListener(using: parameters)
       listener.stateUpdateHandler = { [weak self] state in
         guard let self else { return }
