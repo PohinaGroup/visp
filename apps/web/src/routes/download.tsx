@@ -84,7 +84,7 @@ function DownloadPage() {
 					{fi ? "Aloita" : "Get started"}
 				</p>
 				<h1 className="font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{fi ? "Lataus ja beta" : "Download & beta"}
+					{fi ? "Aloita striimaus" : "Start streaming"}
 				</h1>
 				<p className="max-w-prose text-muted-foreground">
 					{fi
@@ -106,7 +106,7 @@ function DownloadPage() {
 						</li>
 						<li>
 							{fi
-								? "Vastaa lyhyisiin käyttöönottokysymyksii"
+								? "Vastaa lyhyisiin käyttöönottokysymyksiin."
 								: "Answer the short setup questions."}
 						</li>
 						<li>
