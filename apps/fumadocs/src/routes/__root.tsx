@@ -32,7 +32,10 @@ export const Route = createRootRoute({
           "Broadcaster and operator documentation for the VISP SRT relay.",
       },
     ],
-    links: [{ rel: "stylesheet", href: appCss }],
+    links: [
+      { rel: "stylesheet", href: appCss },
+      { rel: "icon", type: "image/png", href: "/favicon.png" },
+    ],
     scripts: [
       {
         src: "https://analytics.huikaton.online/api/script.js",

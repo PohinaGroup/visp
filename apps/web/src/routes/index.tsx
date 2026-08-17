@@ -370,7 +370,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 		: productShots;
 	const localizedNavLinks: LandingLink[] = fi
 		? [
-				{ label: "Kumppanit", href: "/affiliate", external: false },
+				{ label: "Kumppanit", href: "/fi/affiliate", external: false },
 				{ label: "Blogi", href: "/blog", external: false },
 				{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
 				{

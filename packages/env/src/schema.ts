@@ -8,6 +8,12 @@ const encryptionKey = z.string().refine((value) => {
 export const serverEnvSchema = {
 	ADMIN_ORIGIN: z.url(),
 	ADMIN_USER_IDS: z.string().default(""),
+	/**
+	 * Discord or Slack incoming webhook for founding creator applications.
+	 * Optional: without it applications are only written to the database, where
+	 * nobody is notified about them.
+	 */
+	APPLICATION_WEBHOOK_URL: z.url().optional(),
 	AI_GATEWAY_API_KEY: z.string().min(1),
 	DATABASE_URL: z.string().min(1),
 	/**

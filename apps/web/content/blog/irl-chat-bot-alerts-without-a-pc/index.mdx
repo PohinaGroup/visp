@@ -1,6 +1,6 @@
 ---
 title: "IRL Chat Bot Alerts: Tell Chat You Dropped Before They Ask"
-description: "Post live, BRB, and back alerts to Twitch, Kick, and YouTube chat from the relay itself, with no PC and no cloud OBS, plus commands like !bitrate."
+description: "Post live, BRB, and back alerts to Twitch, Kick, and YouTube chat server-side, with no PC and no cloud OBS, plus commands like !bitrate."
 publishedAt: 2026-08-12
 coverAlt: "A chat bot alert card showing the VISP signal chain from phone through relay to a platform, with the alert branching off at the drop"
 ---
@@ -77,8 +77,9 @@ streamers want the drop alert and nothing else.
 
 ## No PC in the path
 
-The bot runs where the relay runs. Not on your phone, not on a computer at
-home, not in a browser tab you have to remember to leave open.
+The bot runs server-side. The relay sees your source appear or vanish and
+reports it; VISP's app host posts the message. Not on your phone, not on a
+computer at home, not in a browser tab you have to remember to leave open.
 
 That matters more than it sounds. A bot running on your phone dies with the app
 that stopped when you took a call. A bot running on your home PC needs the PC

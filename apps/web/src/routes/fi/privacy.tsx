@@ -99,6 +99,14 @@ function PrivacyPage() {
 						mallipalvelulle vastauksen tuottamiseksi.
 					</li>
 					<li>
+						<strong>Perustajaohjelman hakemustiedot</strong>: nimesi,
+						sähköpostiosoitteesi, YouTube-kanavan ja esimerkkisisällön
+						osoitteet, kuvaus yleisöstäsi ja kalustostasi sekä
+						ilmoitusvelvollisuuden hyväksyntä, kun haet sisällöntuottajien
+						ohjelmaan. Hakemukset välitetään myös sisäiseen tiimichattiimme
+						käsittelyä ja vastaamista varten.
+					</li>
+					<li>
 						<strong>Turvallisuus- ja palvelulokit</strong> luotettavuutta,
 						väärinkäytösten estämistä ja virheiden selvittämistä varten.
 					</li>
@@ -115,6 +123,11 @@ function PrivacyPage() {
 						<strong>Palvelun tarjoaminen</strong> (sopimus / sopimusta edeltävät
 						toimet): tilin luominen, tunnistaminen, relay-määritykset ja
 						hallintapaneeli, valinnainen puheenkäsittely ja avustajatoiminnot.
+					</li>
+					<li>
+						<strong>Perustajaohjelman hakemukset</strong> (sopimusta edeltävät
+						toimet / sopimus): hakemusten käsittely, hakijoille vastaaminen ja
+						hyväksyttyjen kumppanuuksien hoitaminen.
 					</li>
 					<li>
 						<strong>Turvallisuus ja eheys</strong> (oikeutettu etu): istuntojen
@@ -175,6 +188,11 @@ function PrivacyPage() {
 					<li>
 						Tilannekuvat korvataan lähetyksen aikana ja vanhenevat noin
 						vuorokauden kuluessa päivitysten päätyttyä.
+					</li>
+					<li>
+						Hylätyt perustajaohjelman hakemukset poistetaan 12 kuukauden
+						kuluessa päätöksestä. Hyväksyttyjen kumppanien tiedot säilytetään
+						suhteen ajan ja sen jälkeen kirjanpito- tai lakisääteisen ajan.
 					</li>
 					<li>
 						Salatut varmuuskopiot ylikirjoitetaan enintään 30 päivän kuluessa

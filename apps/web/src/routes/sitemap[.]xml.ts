@@ -15,6 +15,7 @@ const publicPaths = [
 ] as const;
 
 const localizedPaths = [
+	"/affiliate",
 	"/blog",
 	"/contact",
 	"/cookies",

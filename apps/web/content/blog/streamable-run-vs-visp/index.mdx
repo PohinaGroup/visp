@@ -24,7 +24,7 @@ package or only needs a reliable path from a camera to a platform.
 | Cloud OBS | No | Yes |
 | Phone publisher | iOS, Android, and browser included | Use a compatible encoder |
 | Scenes and overlays | Use your own OBS | Included in cloud OBS |
-| True cellular bonding | No; packet duplication is available | Yes, with supported ingest workflows |
+| True cellular bonding | SRTLA ingest accepted; not in the VISP app, which duplicates packets | Yes, with supported ingest workflows |
 | Direct platform output | Relay encodes per destination | Cloud production sends the program output |
 | Source | GPL-2.0, self-hostable | Hosted service |
 
@@ -97,9 +97,17 @@ fit through either path independently. Two 2 Mbps links do not become a 4 Mbps
 link. See the [Wi-Fi and cellular bonding guide](/blog/bond-cellular-wifi-visp-speedify)
 for a fuller explanation.
 
+There is a third option that is easy to miss. Every VISP relay accepts SRTLA on
+UDP 5000, so a BELABOX box or Moblin can aggregate several links and publish the
+result into VISP. The bonding happens in that encoder rather than in the VISP
+app, which means real aggregation is available today if you are willing to carry
+a second device. Setup is in the
+[broadcaster setup docs](https://docs.visp-stream.com/docs/broadcaster-setup).
+
 Choose the paid bonding workflow when tests on the real route prove that no
-single carrier can sustain the required bitrate. Do not substitute a lower-cost
-feature with a similar label; the network behavior is different.
+single carrier can sustain the required bitrate and carrying a separate encoder
+is not acceptable. Do not substitute a lower-cost feature with a similar label;
+the network behavior is different.
 
 ## Compare the real monthly cost
 

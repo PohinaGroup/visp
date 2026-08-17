@@ -1,16 +1,17 @@
 # VISP
 
-VISP is a self-hosted SRT/RTMP relay and control plane for remote live
+VISP is a self-hosted SRT/SRTLA/RTMP relay and control plane for remote live
 streaming. Broadcasters sign in with Twitch, Kick, or Google, create independently
 revocable publishing devices, and send one H.264/AAC feed to MediaMTX. Direct
-then distribution-encodes that feed to Twitch, Kick, or YouTube. OBS can optionally read
-the original contribution feed for monitoring, recording, and scenes.
+then distribution-encodes that feed to Twitch, Kick, or YouTube — one FFmpeg
+forwarder per destination, against a per-relay encoder cap. OBS can optionally
+read the original contribution feed for monitoring, recording, and scenes.
 
 ## Architecture
 
 | Component | Responsibility |
 | --- | --- |
-| Relay host | MediaMTX ingest/read, Caddy RTT probe, stream snapshots, Tailscale-only Control API |
+| Relay host | MediaMTX ingest/read, `srtla_rec` SRTLA ingest (UDP 5000), `visp-bond` SRT-group gateway (UDP 8891), Direct FFmpeg forwarders and BRB card, Caddy RTT probe, stream snapshots, Tailscale-only Control API |
 | App host | PostgreSQL, Elysia/tRPC API, Better Auth, portal, admin console, provider integrations |
 | Native app | iOS/Android camera publishing, chat, stream metadata, OBS controls |
 | OBS Remote | Dedicated iOS/Android/web scene and stream control surface |
@@ -19,7 +20,11 @@ the original contribution feed for monitoring, recording, and scenes.
 Publish URLs are encrypted for authenticated re-reveal and also stored as
 Argon2id hashes for relay authentication. Read credentials are one-time rotation
 results. The app is required when a new media connection is authenticated, but
-an established stream survives an app outage.
+an established stream survives an app outage. Direct never returns a platform
+stream key to a publishing device; keys are resolved server-side while output
+runs. The chat bot also runs on the app host — the relay reports source state
+through hooks and the app host posts the messages, so alerts work with the
+broadcaster's computer off.
 
 ## Quick start
 

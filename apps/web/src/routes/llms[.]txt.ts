@@ -33,6 +33,13 @@ ${comparisonMarkdown()}
 
 Public list prices, checked ${COMPARISON_CHECKED}. See ${legalEntity.siteUrl}/#compare.
 
+## Founding creator program
+
+Five IRL streaming creators get VISP Pro free for life in exchange for testing
+VISP on real hardware and publishing an honest verdict. There is no commission
+or revenue share today, because VISP Pro and its billing do not exist yet. See
+${legalEntity.siteUrl}/affiliate.
+
 ## Documentation
 
 - [VISP documentation](${legalEntity.docsUrl}/docs)

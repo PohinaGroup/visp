@@ -1,5 +1,6 @@
 import { db } from "@VISP/db";
 import { affiliateApplication } from "@VISP/db/schema/index";
+import { env } from "@VISP/env/server";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -45,6 +46,34 @@ function requesterKey(headers: Headers, email: string) {
 	return forwarded || headers.get("x-real-ip") || email;
 }
 
+// Discord reads `content`, Slack reads `text`; each ignores the other's key, so
+// one payload works with either webhook URL.
+export async function notifyApplication(
+	input: z.infer<typeof affiliateApplicationInput>,
+	url = env.APPLICATION_WEBHOOK_URL,
+) {
+	if (!url) return;
+	const body = [
+		"**Founding creator application**",
+		`${input.applicantName} — ${input.email}`,
+		input.youtubeChannelUrl,
+		input.relevantVideoUrl,
+		input.audienceAndSetup.slice(0, 1500),
+	].join("\n");
+	try {
+		const response = await fetch(url, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ content: body, text: body }),
+		});
+		if (!response.ok) {
+			console.error(`Application webhook returned ${response.status}`);
+		}
+	} catch (error) {
+		console.error(error);
+	}
+}
+
 export const affiliateRouter = router({
 	submit: publicProcedure
 		.input(affiliateApplicationInput)
@@ -65,6 +94,10 @@ export const affiliateRouter = router({
 				audienceAndSetup: input.audienceAndSetup,
 				disclosureAccepted: input.disclosureAccepted,
 			});
+
+			// The application is already stored; a webhook outage must not fail the
+			// applicant's submit.
+			void notifyApplication(input);
 
 			return { ok: true as const };
 		}),

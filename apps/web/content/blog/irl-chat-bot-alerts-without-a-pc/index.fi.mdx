@@ -1,6 +1,6 @@
 ---
 title: "IRL-chatbotin ilmoitukset: kerro katkosta ennen kuin chat kysyy"
-description: "Lähetä live-, BRB- ja paluuilmoitukset Twitchin, Kickin ja YouTuben chattiin suoraan relaylta ilman tietokonetta, ja vastaa komentoihin kuten !bitrate."
+description: "Lähetä live-, BRB- ja paluuilmoitukset Twitchin, Kickin ja YouTuben chattiin palvelinpuolelta ilman tietokonetta, ja vastaa komentoihin kuten !bitrate."
 publishedAt: 2026-08-12
 coverAlt: "Chatbotin ilmoituskortti, jossa VISPin signaaliketju kulkee puhelimesta relayn kautta alustalle ja ilmoitus haarautuu katkoskohdasta"
 ---
@@ -75,8 +75,10 @@ vain katkosilmoituksen eikä mitään muuta.
 
 ## Ei tietokonetta polulla
 
-Botti pyörii siellä missä relay. Ei puhelimessa, ei kotikoneella, ei
-selainvälilehdessä jonka pitäisi muistaa jättää auki.
+Botti pyörii palvelinpuolella. Relay huomaa lähteen ilmestymisen tai
+katoamisen ja raportoi sen; VISPin sovelluspalvelin lähettää viestin. Ei
+puhelimessa, ei kotikoneella, ei selainvälilehdessä jonka pitäisi muistaa
+jättää auki.
 
 Sillä on enemmän väliä kuin miltä kuulostaa. Puhelimessa pyörivä botti kuolee
 sovelluksen mukana, joka pysähtyi kun otit puhelun. Kotikoneella pyörivä botti
