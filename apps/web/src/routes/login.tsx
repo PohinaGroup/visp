@@ -85,16 +85,21 @@ function RouteComponent() {
 
 	const signIn = async (provider: "twitch" | "kick" | "google") => {
 		setPending(provider);
+		const callbackPath = new URL(returnPath, window.location.origin);
+		callbackPath.searchParams.set("auth_method", provider);
+		const callbackURL = authRedirectURL(
+			`${callbackPath.pathname}${callbackPath.search}`,
+		);
 		const result =
 			provider !== "kick"
 				? await authClient.signIn.social({
 						provider,
-						callbackURL: authRedirectURL(returnPath),
+						callbackURL,
 						errorCallbackURL: authRedirectURL(errorReturnPath),
 					})
 				: await authClient.signIn.oauth2({
 						providerId: provider,
-						callbackURL: authRedirectURL(returnPath),
+						callbackURL,
 						errorCallbackURL: authRedirectURL(errorReturnPath),
 					});
 		if (result.error) {

@@ -21,7 +21,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import { ArrowLeftIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	downloadSceneCollection,
@@ -40,6 +40,7 @@ import {
 	getAdvancedSetupAction,
 } from "@/lib/advanced-setup";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
+import { trackEvent } from "@/lib/analytics";
 import { docs } from "@/lib/docs";
 import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
@@ -610,6 +611,7 @@ function AuthorizeDirectStep({
 		(entry) => entry.provider === destination,
 	);
 	const [authorizing, setAuthorizing] = useState(false);
+	const wasAuthorized = useRef<boolean | undefined>(undefined);
 	const [youtubeTitle, setYoutubeTitle] = useState(
 		direct.data?.youtubeTitle ?? "Live from VISP",
 	);
@@ -623,6 +625,14 @@ function AuthorizeDirectStep({
 			setYoutubeTitle(direct.data.youtubeTitle);
 		}
 	}, [destination, direct.data?.youtubeTitle]);
+
+	useEffect(() => {
+		const authorized = provider?.canReadStreamKey ?? false;
+		if (wasAuthorized.current === false && authorized) {
+			trackEvent("direct_authorized", { provider: destination });
+		}
+		wasAuthorized.current = authorized;
+	}, [destination, provider?.canReadStreamKey]);
 
 	const authorize = async () => {
 		setAuthorizing(true);
@@ -771,6 +781,13 @@ function TestStreamStep({
 	const outputState = provider ? directPath?.state[provider] : null;
 	const outputError = provider ? directPath?.error[provider] : null;
 	const ready = provider ? outputState === "live" : live;
+	const firstLiveTracked = useRef(false);
+
+	useEffect(() => {
+		if (!provider || outputState !== "live" || firstLiveTracked.current) return;
+		firstLiveTracked.current = true;
+		trackEvent("first_live", { provider });
+	}, [outputState, provider]);
 	const outputLabel =
 		outputState === "live"
 			? fi

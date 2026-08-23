@@ -10,6 +10,7 @@ import {
 import { env } from "@VISP/env/server";
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import { hasStreamKeyScope, parseScopes } from "./scopes";
+import { trackRybbitEvent } from "./rybbit";
 
 export const DIRECT_PROVIDERS = ["twitch", "kick", "youtube"] as const;
 export type DirectProvider = (typeof DIRECT_PROVIDERS)[number];
@@ -879,6 +880,29 @@ export async function applyDirectState(input: {
 		.where(eq(relayPath.slug, input.slug))
 		.limit(1);
 	if (!path) return false;
+
+	const [existing] = await db
+		.select({
+			twitch: pathState.directTwitchState,
+			kick: pathState.directKickState,
+			youtube: pathState.directYoutubeState,
+		})
+		.from(pathState)
+		.where(eq(pathState.pathId, path.id))
+		.limit(1);
+	const previousState =
+		input.provider === "twitch"
+			? existing?.twitch
+			: input.provider === "kick"
+				? existing?.kick
+				: existing?.youtube;
+	if (
+		input.state === "live" &&
+		previousState !== "live" &&
+		previousState !== "brb"
+	) {
+		trackRybbitEvent("first_live", { provider: input.provider });
+	}
 
 	const columns =
 		input.provider === "twitch"

@@ -11,10 +11,11 @@ import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinkIcon, ShieldIcon } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
+import { trackEvent } from "@/lib/analytics";
 import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
@@ -114,6 +115,25 @@ export function DirectCard() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const authorizedRef = useRef<Record<string, boolean>>({});
+	const authorizedInitialized = useRef(false);
+
+	useEffect(() => {
+		if (!direct.data) return;
+		for (const provider of direct.data.providers) {
+			const key = provider.provider;
+			const wasAuthorized = authorizedRef.current[key];
+			if (!authorizedInitialized.current) {
+				authorizedRef.current[key] = provider.canReadStreamKey;
+				continue;
+			}
+			if (provider.canReadStreamKey && wasAuthorized === false) {
+				trackEvent("direct_authorized", { provider: key });
+			}
+			authorizedRef.current[key] = provider.canReadStreamKey;
+		}
+		authorizedInitialized.current = true;
+	}, [direct.data]);
 
 	// Re-request the union of granted scopes: asking only for the stream key
 	// would drop this provider's chat and title/category consent.
