@@ -1,0 +1,217 @@
+---
+title: "Näin käytät IRL Prota OBS:n kanssa SRT:llä tai SRTLA:lla"
+description: "Yhdistä Androidin IRL Pro OBS:ään VISPin kautta, valitse SRT tai bondattu SRTLA, suojaa tunnukset ja testaa mobiilipalautuminen."
+publishedAt: 2026-08-23
+updatedAt: 2026-08-23
+coverAlt: "Android-puhelin lähettää mobiili- ja Wi-Fi-reitit suojatun releen kautta kotituotantoon"
+---
+
+Käytä IRL Prota OBS:n kanssa luomalla VISPiin videolähde, kopioimalla sen
+julkaisuosoite IRL Prohon ja lisäämällä erillinen lukuosoite OBS Media Sourceen.
+Valitse tavallinen SRT yhdelle verkkoyhteydelle tai VISPin SRTLA-osoite, kun IRL
+Pron pitää hyödyntää useita yhteyksiä yhteensopivan vastaanottimen kautta.
+
+IRL Pro hoitaa Android-puhelimen kameran, äänen ja mobiilienkoodauksen. VISP
+vastaanottaa tunnistetun kuvalähteen ja antaa koti-OBS:n lukea sen. Twitch- tai
+Kick-avain, scenet, alertit, paikallinen tallennus ja lopullinen lähetys jäävät
+OBS:ään.
+
+![Android-puhelin lähettää mobiili- ja Wi-Fi-liikenteen SRTLA-releelle, josta yksi puhdas lähde jatkaa OBS:ään](./irl-pro-srtla-obs-flow.svg)
+
+## IRL Pron tehtävä kokonaisuudessa
+
+Virallinen [IRL Pron Google Play -sivu](https://play.google.com/store/apps/details?id=app.irlpro.android)
+kuvaa sen Androidin IRL-striimaussovelluksena. IRLToolkitin virallinen
+[IRL Pro -asennusartikkeli](https://kb.irltoolkit.com/nodrop/3-streaming-devices/1-irlpro)
+dokumentoi sen SRTLA-enkooderina ja näyttää sekä automaattisen syvälinkin että
+manuaalisen asetusten tuonnin.
+
+IRL Pro on siis kenttäenkooderi. Se ei korvaa OBS-tuotantoa eikä SRTLA:n
+vaatimaa vastaanotinta. Ketjussa on kolme erikseen testattavaa osaa:
+
+1. IRL Pro kaappaa ja enkoodaa Androidin kameran sekä mikrofonin.
+2. VISP vastaanottaa SRT:n tai kokoaa SRTLA:n ja tarjoaa laitteen lukupolun.
+3. OBS dekoodaa lähteen, miksaa ohjelman ja lähettää lopputuloksen.
+
+Jos puhelimen esikatselu toimii mutta VISP ei näytä laitetta live-tilassa,
+tarkista julkaisuosoite ja verkko. Jos VISP on Live mutta OBS on musta, tarkista
+lukuosoite, koodekki ja Media Source. Vaiheiden erottaminen estää satunnaisen
+asetusten muuttamisen.
+
+## SRT vai SRTLA: valitse ennen osoitteen kopiointia
+
+Molemmat kuljettavat SRT-mediaa, mutta verkkokäyttäytyminen on erilainen.
+
+| Tila | Käytä kun | Verkon toiminta |
+| --- | --- | --- |
+| SRT | Yhdellä Wi-Fi- tai mobiilireitillä on riittävä jatkuva upload | Yksi yhteys kuljettaa kuvalähteen |
+| SRTLA | Käytössä on useita itsenäisiä linkkejä ja tarvitset yhdistämistä tai redundanssia | Lähetin jakaa liikenteen ja yhteensopiva vastaanotin kokoaa yhden SRT-striimin |
+
+Virallinen [BELABOX SRTLA -projekti](https://github.com/BELABOX/srtla) selittää
+arkkitehtuurin: lähetin jakaa yhden SRT-striimin linkeille ja vastaanotin kokoaa
+sen tavalliselle SRT-sovellukselle. SRTLA ei ole vain kaksi kokonaista
+samanaikaista lähetystä.
+
+VISPin nykyinen rele vastaanottaa SRTLA:ta UDP-portissa 5000. Tämä on eri asia
+kuin VISP Nativen valinnainen kahden linkin tila, joka kahdentaa paketit
+yhdistämättä kapasiteettia. Tässä oppaassa aito monitieyhteys syntyy IRL Pron
+SRTLA-osoitteella.
+
+Aloita tavallisella SRT:llä, jos yhdellä yhteydellä on jo selvä marginaali.
+SRTLA tuo arvoa, kun toinen itsenäinen reitti korjaa mitattua ruuhkaa,
+tukiasemavaihtoa tai operaattorikatkoa. Se ei luo peittoa paikkaan, jossa kaikki
+aktiiviset linkit ovat poissa.
+
+## Tarvitset nämä
+
+- Android-puhelimen, johon IRL Pro on asennettu;
+- VISP-tilin ja yhden videolähteen;
+- OBS Studion kotituotantokoneella;
+- yhden testatun verkon SRT:lle tai kaksi oikeasti itsenäistä reittiä SRTLA:lle;
+- riittävän kodin downloadin kuvalähteelle ja uploadin valmiille striimille;
+- kuulokkeet, paikallisen OBS-varascenen ja aikaa koko reitin harjoitukseen.
+
+Päivitä sovellukset ennen harjoitusta, ei juuri ennen lähetystä. Tallenna
+viimeiset toimivat asetukset niin, että kenttäoperaattori osaa palauttaa ne
+paljastamatta tunnuksia.
+
+## 1. Luo oma IRL Pro -lähde
+
+Kirjaudu VISPiin, avaa **Video sources**, valitse **Add device** ja anna pysyvä
+nimi, esimerkiksi “Android-liikkuva kamera”. Yksi laite tarkoittaa yhtä
+julkaisupolkua. Älä jaa sitä toiselle puhelimelle: vain yksi julkaisija voi
+omistaa polun kerrallaan, ja erilliset laitteet on helpompi perua ja valvoa.
+
+Kopioi tavallista SRT:tä varten oletusarvo kohdasta **Add this to video source**.
+SRTLA:ta varten vaihda **Advanced**-näkymään, avaa laite ja näytä SRTLA-osoite.
+Nykyinen [enkooderidokumentaatio](https://docs.visp-stream.com/docs/broadcaster-setup)
+näyttää osoitemuodon ja UDP 5000 -vastaanottoportin.
+
+Käsittele koko osoitetta salasanana. Sen stream ID sisältää laitteen
+julkaisuoikeuden. Älä näytä sitä lähetyksessä, tee siitä julkista QR-koodia tai
+lähetä epäluotetussa chatissa. Jos se vuotaa, vaihda juuri tämän laitteen
+julkaisutunnus.
+
+## 2. Lisää julkaisuasetukset IRL Prohon
+
+IRLToolkitin dokumentoitu työnkulku luo QR-koodin, joka avaa IRL Pron
+yhteysasetuksilla. Manuaalinen vaihtoehto kopioi Larix-yhteensopivan asetuksen
+ja käyttää IRL Prossa polkua **Settings → Import/Export Settings → Import
+settings**. Tämä todistaa asetustuonnin olevan tuettu, mutta IRLToolkit-ingest
+ei ole VISP-tunnus.
+
+Lisää tai muokkaa VISPiä varten striimi IRL Prossa ja käytä kohteena kokonaista
+VISP-julkaisuosoitetta. Jos asennetussa versiossa on yhteensopiva asetustuonti
+tai URL:n avaustoiminto, voit käyttää sitä; muussa tapauksessa liitä osoite
+striimin kohdekenttään. Valikot voivat muuttua, joten varmista nykyinen näyttö
+äläkä pakota vanhaa valikkopolkua.
+
+Älä pura luotua osoitetta osiin, ellei sovellus nimenomaan tarjoa erillisiä
+host-, portti- ja stream ID -kenttiä. Älä vaihda srt://-alkua srtla://-alkuun
+käsin. Kopioi VISPin luoma arvo valitulle tilalle.
+
+## 3. Aseta mobiililähteen profiili
+
+Käytä H.264-videota, AAC-ääntä, vakiobittinopeutta ja kahden sekunnin
+keyframe-väliä. Aloita resoluutiolla, kuvataajuudella ja bittinopeudella, jonka
+yksi oikea kenttälinkki pystyy kantamaan. Myös SRTLA:ssa maltillinen lähde
+palautuu helpommin kuin kaikkien yhteyksien yhteenlaskettua hetkellistä huippua
+jatkuvasti vaativa enkooderi.
+
+VISPin rele–OBS-polku ei transkoodaa. IRL Pron lähettämä resoluutio, koodekki ja
+bittinopeus ovat ne, jotka OBS:n pitää dekoodata. Korjaa liian suuri tai
+yhteensopimaton lähde IRL Prossa, älä odota releen muuntavan sitä.
+
+Testaa lämpö ja akku näytön, kameran, enkooderin ja verkkoliitäntöjen ollessa
+päällä. Puhelimen suorituskyky voi muuttua pitkän ulkolähetyksen aikana,
+varsinkin ladattaessa. [Puhelimen lämpöopas](/blog/prevent-phone-overheating-irl-streaming)
+auttaa testaamaan koko tapahtuman lämpöbudjetin.
+
+## 4. Säädä SRT:n palautumisviive
+
+SRT lähettää kadonneet paketit uudelleen vain, jos ne ehtivät viiveikkunan
+sisään. Liian lyhyt aika aiheuttaa virheitä jitterisessä verkossa. Tarpeettoman
+pitkä lisää kenttä–studio-viivettä.
+
+Suorita VISPin viivetesti puhelimen käyttämässä verkossa ja valitse oikea
+profiili. Nykyiset lähtökohdat ovat langalliselle kolme kertaa mediaani-RTT ja
+vähintään 120 ms, Wi-Fille neljä kertaa RTT ja vähintään 300 ms sekä mobiilille
+kuusi kertaa RTT ja vähintään 600 ms. Mitoita SRTLA:ssa ikkuna niin, että myös
+heikoin aiottu reitti ehtii olla hyödyllinen.
+
+Virallinen [OBS:n SRT-ohje](https://obsproject.com/kb/srt-protocol-streaming-guide)
+selittää myös viiveen ja edestakaisen verkkoajan suhteen. Käytä testitulosta
+lähtökohtana ja seuraa liikettä sekä palautumista oikealla reitillä.
+
+## 5. Varmista SRTLA-linkit
+
+Testaa jokainen linkki yksin ennen yhdistämistä:
+
+1. Julkaise vain mobiiliverkolla ja varmista kuvan saapuvan VISPiin.
+2. Julkaise vain Wi-Fillä ja toista tarkistus.
+3. Ota molemmat käyttöön ja seuraa lähdettä useita minuutteja.
+4. Katkaise yksi polku pysäyttämättä IRL Prota.
+5. Varmista kuvan jatkuvan ja liikenteen siirtyvän toimivalle linkille.
+6. Palauta yhteys ja toista toiselle polulle.
+
+Käytä itsenäisiä verkkoja. Puhelimen Wi-Fi saman operaattorin hotspotissa voi
+jakaa SIMin peittohäiriön. Kaksi liitäntää ei takaa kahta erillistä reittiä.
+SRTLA jakaa paketteja, joten datankäytön ei tarvitse jakautua tasan. Tavoite on
+ehjä koottu striimi, ei identtinen laskuri.
+
+## 6. Lisää IRL Pro -lähde OBS:ään
+
+IRL Pro käyttää julkaisuosoitetta ja OBS erillistä lukuosoitetta. Näytä
+OBS-osoite VISPissä tai lataa luotu scene collection. Manuaalisesti:
+
+1. Lisää OBS:ään **Media Source**.
+2. Poista **Local File**.
+3. Liitä VISPin lukuosoite **Input**-kenttään.
+4. Aseta tarvittaessa **Input Format** arvoksi **mpegts**.
+5. Käynnistä IRL Pro ja odota dekoodattavaa keyframea.
+6. Varmista liike ja mikrofonin ääni paikallisesta tallenteesta.
+
+Scene collection lisää uudelleen yhdistävät laitescenet ja Fallback-scenen.
+VISPin OBS-lisäosa voi myös lisätä lähteen avaamatta kotiin ohjausporttia.
+Kumpikaan tapa ei anna IRL Prolle Twitch- tai Kick-avainta.
+
+Pidä vain yksi puhelinäänen polku aktiivisena. Päällekkäiset kaappaukset luovat
+kaikua. Käytä monitoroinnissa kuulokkeita ja tarkista tallenne tai alusta äläkä
+luota vain liikkuviin mittareihin.
+
+## 7. Testaa katkos ja paluu
+
+Tee ensimmäinen katkostesti ennen suoraa lähetystä. OBS:n tallentaessa katkaise
+mobiiliverkko ja jätä Wi-Fi, sitten tee päinvastoin. Lopuksi katkaise kaikki
+polut niin pitkäksi aikaa, että lähde pysähtyy. OBS:n pitää pysyä auki ja näyttää
+paikallista BRB-sceneä IRL Pron yhdistäessä uudelleen.
+
+Kun lähde palaa, odota vakaa kuva ja ääni ennen takaisin leikkaamista. SRTLA voi
+selvitä yhden polun viasta, kun toinen on käyttökelpoinen. Se ei pidä kuvaa yllä
+kaikkien reittien katveessa. [Huonon mobiiliverkon opas](/blog/keep-stream-live-bad-mobile-network)
+erottaa bittinopeuden, palautumisen ja OBS-varakuvan.
+
+## Tavalliset virheet
+
+**VISP ei näytä Live-tilaa:** varmista julkaisuosoite, UDP-portin toiminta ja
+ettei toinen julkaisija omista laitetta.
+
+**SRT toimii mutta SRTLA ei:** käytä luotua SRTLA-osoitetta ja UDP-porttia 5000,
+älä uudelleennimeä SRT-osoitetta. Molempien päiden pitää tukea SRTLA:ta.
+
+**VISP on Live mutta OBS musta:** varmista lukuosoite, pois kytketty Local File,
+tarvittaessa MPEG-TS sekä IRL Pron H.264/AAC-lähtö.
+
+**Wi-Fi toimii mutta ulkona ei:** laske bittinopeutta, käytä mobiiliverkolle
+sopivaa palautumisikkunaa ja testaa oikealla reitillä.
+
+## Suositeltu ensimmäinen testi
+
+Aloita yhdellä puhelimella, tavallisella SRT:llä, yhdellä VISP-lähteellä ja
+yhdellä OBS Media Sourcella. Kun polku tallentuu puhtaasti, vaihda luotuun
+SRTLA-osoitteeseen, lisää toinen verkko ja tee linkit yksi kerrallaan katkaiseva
+harjoitus. Näin jokaisella vialla on selkeä syy.
+
+Jos IRL Pro on Android-enkooderisi, [kokeile VISPiä](https://app.visp-stream.com)
+nimetyllä testilähteellä ja pidä Twitch- tai Kick-kohde OBS:ssä. Harjoitus kertoo,
+riittääkö tavallinen SRT vai ratkaiseeko SRTLA mitatun mobiiliverkko-ongelman.
