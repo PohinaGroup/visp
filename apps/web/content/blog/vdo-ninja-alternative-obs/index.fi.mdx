@@ -1,0 +1,178 @@
+---
+title: "VDO.Ninja-vaihtoehto OBS:ään, kun tarvitset pysyvän kameran"
+description: "Valitse VDO.Ninja-vaihtoehto vertaamalla selainvieraita, pysyviä kameratunnuksia, SRT-siirtoa ja olennaisia tietosuojan eroja."
+publishedAt: 2026-08-23
+updatedAt: 2026-08-23
+coverAlt: "Selainvieras ja pysyvä ulkokamera käyttävät eri suojattuja reittejä kotistudioon"
+---
+
+VDO.Ninjalle on vaikea nimetä yhtä yleispätevää korvaajaa, koska sen paras
+ominaisuus on erittäin kevyt selainpolku. Vieras avaa linkin, julkaisee kameran
+ja mikrofonin WebRTC:llä, ja OBS vastaanottaa katselulinkin Browser Sourcena.
+Kun tämä on tehtävä, VDO.Ninja voi yhä olla paras valinta.
+
+Vaihtoehto tulee ajankohtaiseksi, kun etäkamera ei ole kertaluonteinen vieras
+vaan nimetty laite, jota käytetään toistuvasti. VISP vastaa tähän eri tarpeeseen:
+jokainen puhelin tai enkooderi saa pysyvän, erikseen peruttavan julkaisupolun,
+lähettää SRT:tä tai RTMP:tä releen kautta ja näkyy OBS:ssä Media Sourcena.
+
+![Selainvieraan ja pysyvän kenttäkameran reitit yhdistyvät samaan OBS-tuotantoon](./browser-versus-device-path.svg)
+
+## Lyhyt vertailu
+
+| Tarve | Parempi lähtökohta |
+| --- | --- |
+| Kutsu vieras yhdellä selainlinkillä | VDO.Ninja |
+| Kaksisuuntainen keskustelu hyvin pienellä viiveellä | VDO.Ninja |
+| Käytä samaa kenttäpuhelinta lähetyksestä toiseen | VISP |
+| Anna jokaiselle kameralle erillinen peruttava tunnus | VISP |
+| Julkaise SRT- tai RTMP-enkooderista | VISP |
+| Käytä selainvierasta ja kenttäkameroita samassa ohjelmassa | Molemmat OBS:ssä |
+
+Tämä ei ole voittaja vie kaiken -vertailu. VDO.Ninja on vuorovaikutukseen hyvin
+sopiva WebRTC-kuvalähde. VISP on itse ylläpidetty rele ja ohjaustaso pysyville
+julkaisulaitteille. Valitse sen mukaan, onko toisessa päässä keskustelija vai
+toistuvasti käytettävä kamera.
+
+## Onko VDO.Ninja turvallinen?
+
+VDO.Ninjan virallinen [tietosuoja- ja turvallisuusohje](https://docs.vdo.ninja/help/privacy-and-security-details)
+kertoo median kulkevan tavallisesti vertaisverkkona eikä palvelun tallentavan
+puhelujen sisältöä. Ohje sanoo myös, että yhdistetyt vertaiset voivat nähdä
+toistensa IP-osoitteet, teknisiä lokitietoja kerätään vähän ja Cloudflaren
+kaltaiset infrastruktuuripalvelut voivat lokittaa kokonaisia osoitteita sekä
+kyselyparametreja. Nämä tiedot eivät tee palvelusta automaattisesti turvatonta,
+vaan kertovat, mitä on suojattava.
+
+Käsittele huoneiden nimiä, stream ID -tunnuksia ja director-linkkejä salaisuuksina.
+Käytä salasanaa sen sijaan, että luottaisit vaikeasti arvattavaan linkkiin.
+[Salasanaohje](https://docs.vdo.ninja/advanced-settings/setup-parameters/and-password)
+selittää, että käyttöliittymässä annettu salasana voidaan pitää URL-osoitteen
+fragmentissa, jota selain ei lähetä palvelimelle. Tavalliseen kyselymerkkijonoon
+kirjoitettu salasana voi puolestaan päätyä lokiin.
+
+Täysin eristetty asennus edellyttää VDO.Ninjan mukaan näkyvän verkkosovelluksen
+lisäksi signalointi- ja yhteydenmuodostuspalveluiden, kuten STUN-, TURN- ja
+WSS-palvelujen, omaa ylläpitoa. Pelkän sivun hostaaminen itse ei automaattisesti
+poista kaikkia kolmannen osapuolen verkkoriippuvuuksia.
+
+Käytännön vastaus on siis tämä: VDO.Ninja tarjoaa perustellun salatun
+WebRTC-polun, kun linkit, huoneet ja salasanat suojataan oikein. Sen
+vertaisverkkomalli on silti tietosuojaltaan erilainen kuin tunnistettujen
+laiteyhteyksien päättävä rele.
+
+## Miksi VDO.Ninjalle etsitään vaihtoehtoa
+
+Tavallisin syy ei ole kuvanlaatu vaan toiminnan jatkuvuus. Vieraslinkki toimii
+erinomaisesti yhden kerran esiintyjälle. Viikoittainen liikkuva kamera tarvitsee
+vakaan nimen, muista lähteistä riippumatta vaihdettavan tunnuksen ja OBS-scenen,
+joka säilyy valmiina lähetyksestä toiseen.
+
+Muita syitä ovat esimerkiksi:
+
+- kenttäenkooderi tukee jo SRT:tä, mutta selain ei toimi siinä luotettavasti;
+- tuottaja haluaa yksisuuntaisen kuvalähteen eikä puhelukäyttöliittymää;
+- jokaiselle kameralle halutaan oma tunnus ja selkeä turvaraja;
+- puhelimesta pitää ohjata rajattuja OBS-toimintoja avaamatta kotiin porttia;
+- Twitch- tai Kick-avainta ei haluta antaa kuvalähteen käyttäjälle;
+- lähteen pitää palata samaan OBS Media Sourceen verkkokatkon jälkeen.
+
+Nämä eivät osoita VDO.Ninjan olevan huono. Ne kuvaavat eri elinkaarella toimivaa
+kameraa.
+
+## Miten VISP muuttaa lähteen mallia
+
+VISPissä tuottaja luo videolähteen ja antaa lähettävälle laitteelle
+julkaisuosoitteen. VISPin oma sovellus voi ottaa lähteen käyttöön automaattisesti,
+kun taas Moblin, Larix, IRL Pro ja muut enkooderit käyttävät luotua SRT-, SRTLA-
+tai RTMP-osoitetta. OBS saa erillisen lukuosoitteen. Lähettäjä ei koskaan tarvitse
+kohdealustan striimiavainta.
+
+Jokainen laite voidaan perua erikseen. Jos yhden lähettäjän osoite vuotaa,
+vaihda vain sen laitteen tunnus. Tilin OBS-lukutunnus on erillinen, ja se kannattaa
+vaihtaa vain, kun kaikki vastaanotto-osoitteet halutaan uusia.
+
+VISPin rele–OBS-polku ei transkoodaa. Puhelin tai enkooderi määrää koodekin,
+resoluution, kuvataajuuden, keyframe-välin ja bittinopeuden. SRT antaa
+pakettien palautukselle aikaikkunan, mutta ei luo kaistaa katvealueelle.
+Ajantasaiset asetukset ovat [videolähteen dokumentaatiossa](https://docs.visp-stream.com/docs/video-source)
+ja [enkooderiohjeessa](https://docs.visp-stream.com/docs/broadcaster-setup).
+
+Malli sopii pysyvälle ulkopuhelimelle, tapahtumakameralle tai toistuvalle
+kuvaajalle. Se on selainlinkkiä raskaampi, kun osallistujien pitää vain nähdä ja
+kuulla toisensa heti.
+
+## Browser Source vai Media Source
+
+OBS-lähdetyyppi seuraa siirtotapaa. VDO.Ninjan
+[perusohje](https://docs.vdo.ninja/getting-started/vdo.ninja-basics) luo
+katselulinkin OBS Browser Sourceen. Selain suorittaa WebRTC-asiakkaan ja piirtää
+etämedian. Lisävertaiset voivat lisätä enkoodaus- tai välitystyötä valitusta
+huonetilasta riippuen.
+
+VISPin SRT-polku tuodaan OBS Media Sourceen. Virallinen
+[OBS:n SRT-ohje](https://obsproject.com/kb/srt-protocol-streaming-guide) kuvaa
+manuaalisen tavan: poista Local File, lisää SRT-osoite Input-kenttään ja käytä
+tarvittaessa MPEG-TS-muotoa. VISP voi myös luoda tuotavan scene collectionin tai
+lisätä lähteen OBS-lisäosalla.
+
+Kumpikaan lähdetyyppi ei ole aina parempi. Browser Source antaa VDO.Ninjalle
+verkkosovelluksen ja vuorovaikutuksen. Media Source pitää erillisen videopolun
+pienenä ja ennakoitavana.
+
+## Viive ja luotettavuus ovat eri päätöksiä
+
+WebRTC painottaa yleensä vuorovaikutusta ja suosii tuoretta kuvaa vanhan
+puuttuvan datan odottamisen sijaan. Se sopii keskusteluun, haastatteluun ja
+etäohjaukseen. VDO.Ninjan vertaisreitti voi lisäksi ohittaa keskitetyn
+mediareleen, kun päätelaitteet yhdistyvät suoraan.
+
+SRT on suunniteltu epäluotettavan verkon kuvalähteeksi. Viiveikkuna antaa aikaa
+kadonneiden pakettien uudelleenlähetykselle. Suurempi ikkuna voi parantaa kuvaa
+jitterisessä mobiiliverkossa mutta lisää kenttä–studio-viivettä. Liikkuvalle
+kameralle se voi olla hyvä vaihtokauppa, jos luonnollista kaksisuuntaista
+keskustelua ei tarvita.
+
+Älä vertaa vain protokollien mainostettua viivettä. Kamera, enkoodausjonot,
+verkko, OBS-puskurointi, lopullinen enkoodaus ja alustasoitin lisäävät kaikki
+aikaa. [SRT:n ja RTMP:n vertailu](/blog/srt-vs-rtmp-phone-camera-obs) näyttää,
+miten palautuminen ja viive painottuvat eri tavoin.
+
+## Milloin VDO.Ninja on edelleen oikea valinta
+
+Pidä VDO.Ninja, kun tuotanto arvostaa välitöntä liittymistä ja vuorovaikutusta:
+
+- vieraalla on vain puhelimen tai kannettavan selain;
+- vieraan pitää kuulla ja nähdä juontaja keskusteluviiveellä;
+- tilapäinen kamera halutaan ilman enkooderin provisiointia;
+- lähdettä ei käytetä esiintymisen jälkeen;
+- tiimi ymmärtää ja suojaa huone-, director- ja katselulinkit.
+
+VDO.Ninja on lisäksi ilmainen ja avoimen lähdekoodin ohjelmisto, jolla on
+dokumentoitu itsehostauspolku. SRT:hen vaihtaminen vain “ammattimaisen” mielikuvan
+vuoksi voi lisätä asetuksia ja viivettä ratkaisematta mitään todellista.
+
+## Milloin VISP on vahvempi vaihtoehto
+
+Valitse VISP, kun kamera muistuttaa hallittua kenttälaitetta enemmän kuin
+puhelun osallistujaa: sama puhelin palaa viikoittain, OBS-scenet säilyvät,
+jokainen kamera tarvitsee oman peruttavan tunnuksen, striimiavain jää studioon
+ja enkooderissa on SRT, SRTLA tai RTMP.
+
+VISPin etäohjaus on tarkoituksella täydellistä OBS WebSocket -automaatiota
+rajatumpi: aktiivisen striimin voi käynnistää tai pysäyttää ja ohjelmascenen
+vaihtaa paritetun lisäosan kautta. Se sopii kenttäoperaattorille, mutta ei korvaa
+laajaa tuotanto-ohjainta.
+
+## Molemmat yhdessä on usein paras ratkaisu
+
+OBS voi vastaanottaa molemmat lähdetyypit samaan tuotantoon. Käytä VDO.Ninjaa
+juontajan ja vieraan keskusteluun. Käytä VISPiä tapahtumapaikan pysyvään
+puhelimeen. Tuottaja leikkaa kuvien välillä, miksaa äänen ja pitää lopullisen
+Twitch- tai Kick-kohteen OBS:ssä. Lisää paluuääni vain tarkoituksella ja
+kuulokkeilla, jotta järjestelmät eivät muodosta kaikua.
+
+Lue syvempi [VDO.Ninja vs VISP -vertailu](/blog/vdo-ninja-vs-visp). Jos pysyvä
+laitemalli sopii lähetykseesi, [kokeile VISPiä](https://app.visp-stream.com)
+yhdellä testikameralla. Jos selainlinkki jo hoitaa työn, pidä VDO.Ninja ja käytä
+säästynyt asennusaika itse ohjelmaan.

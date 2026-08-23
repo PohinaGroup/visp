@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">IRL Pro SRTLA to OBS flow</title>
+  <desc id="desc">An Android phone sends traffic through cellular and Wi-Fi links to an SRTLA receiver, which provides one source to OBS.</desc>
+  <rect width="1600" height="900" rx="48" fill="#071426"/>
+  <rect x="90" y="285" width="250" height="330" rx="48" fill="#102a46" stroke="#e2e8f0" stroke-width="9"/>
+  <circle cx="215" cy="555" r="11" fill="#e2e8f0"/>
+  <path d="M340 390 C520 390 510 250 700 250" fill="none" stroke="#ec4899" stroke-width="18" stroke-linecap="round"/>
+  <path d="M340 510 C520 510 510 650 700 650" fill="none" stroke="#22d3ee" stroke-width="18" stroke-linecap="round"/>
+  <rect x="700" y="240" width="260" height="420" rx="40" fill="#102a46" stroke="#a78bfa" stroke-width="9"/>
+  <path d="M785 405 h90 v105 h-90 z M805 405 v-45 a25 25 0 0 1 50 0 v45" fill="none" stroke="#a78bfa" stroke-width="12"/>
+  <path d="M960 450 H1230" fill="none" stroke="#34d399" stroke-width="20" stroke-linecap="round"/>
+  <rect x="1230" y="285" width="280" height="330" rx="30" fill="#102a46" stroke="#34d399" stroke-width="9"/>
+  <rect x="1280" y="345" width="180" height="120" rx="12" fill="#34d399" opacity=".4"/>
+  <path d="M1300 535 H1440" stroke="#34d399" stroke-width="10"/>
+  <circle cx="610" cy="250" r="24" fill="#ec4899"/>
+  <circle cx="610" cy="650" r="24" fill="#22d3ee"/>
+</svg>
