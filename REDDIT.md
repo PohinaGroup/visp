@@ -14,8 +14,7 @@ link card or use a URL shortener.
 
 ---
 
-## Community matrix :D
-
+## Community matrix :D:D
 | Community | Fit | Rule finding | Action |
 | --- | --- | --- | --- |
 | r/IRLstreaming | Excellent | No community-specific rules returned; sitewide spam rules apply | Participate first, then one transparent, feedback-led post |
