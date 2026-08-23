@@ -14,7 +14,7 @@ link card or use a URL shortener.
 
 ---
 
-## Community matrix
+## Community matrix :D
 
 | Community | Fit | Rule finding | Action |
 | --- | --- | --- | --- |
