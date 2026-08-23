@@ -22,7 +22,7 @@ export const Route = createFileRoute("/download")({
 	head: () => {
 		const title = "Download & beta access — VISP";
 		const description =
-			"Use VISP Direct from the phone app or browser, with the OBS plugin available as an optional source.";
+			"Use VISP Direct from the phone app or browser. Add the OBS plugin when you want a home studio.";
 		const canonical = `${legalEntity.siteUrl}/download`;
 		const image = `${legalEntity.siteUrl}/og-card.png`;
 		// The Finnish variant is ?lang=fi on this same path, so there is no
@@ -89,7 +89,7 @@ function DownloadPage() {
 				<p className="max-w-prose text-muted-foreground">
 					{fi
 						? "Kirjaudu sisään, valitse Twitch, Kick tai YouTube ja lähetä puhelimesta tai selaimesta VISP Directillä. OBS on saatavilla valinnaisena lähteenä."
-						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS remains available as an optional source. Self-hosting is available for operators who want to run their own relay."}
+						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS is optional — add the same feed as a Media Source when you want scenes, overlays, or local recording. Self-hosting is available for operators who want to run their own relay."}
 				</p>
 			</header>
 

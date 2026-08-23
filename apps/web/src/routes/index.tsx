@@ -150,7 +150,7 @@ export const faq = [
 	},
 	{
 		q: "What happens if I switch phones mid-stream?",
-		a: "The newest offline device takes Direct ownership when it goes live, so handing off to a second camera is a matter of starting the feed on it.",
+		a: "When a second phone or browser goes live, it takes over Direct output. To hand off cameras, just start the feed on the new device.",
 	},
 	{
 		q: "Do I have to use OBS?",
@@ -193,7 +193,7 @@ type LandingLink = {
 };
 
 const footerLinks: LandingLink[] = [
-	{ label: "Affiliates", href: "/affiliate", external: false },
+	{ label: "Founding creators", href: "/affiliate", external: false },
 	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
@@ -206,7 +206,7 @@ const footerLinks: LandingLink[] = [
 ];
 
 const navLinks: LandingLink[] = [
-	{ label: "Affiliates", href: "/affiliate", external: false },
+	{ label: "Founding creators", href: "/affiliate", external: false },
 	{ label: "Blog", href: "/blog", external: false },
 	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
