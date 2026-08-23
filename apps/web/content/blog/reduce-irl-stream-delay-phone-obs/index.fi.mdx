@@ -1,0 +1,243 @@
+---
+title: "Miksi IRL-lähetys viivästyy? Puhelimen, OBS:n ja Twitchin/Kickin viive"
+description: "Selvitä, missä viive syntyy puhelimen, OBS:n sekä Twitchin tai Kickin välillä, ja pienennä sitä rikkomatta mobiiliyhteyden vakautta."
+publishedAt: 2026-08-23
+coverAlt: "IRL-kuvaaja lähettää puhelinkameran syötteen hohtavan relayn kautta kotistudioon samalla kun signaalin kaiut havainnollistavat viivettä"
+---
+
+IRL-lähetys voi tuntua myöhäiseltä neljästä eri syystä: puhelin kaappaa ja
+koodaa kuvan, SRT voi pitää paketteja tallessa korjausta varten, OBS purkaa ja
+koodaa ohjelman, ja Twitchin tai Kickin pitää vielä toimittaa se katsojalle.
+Yksi latency-asetus ei poista kaikkia neljää viivettä.
+
+Toimiva ratkaisu on mitata ketju järjestyksessä. Vertaa ensin puhelinta OBS:n
+esikatseluun. Vertaa sitten OBS:ää julkiseen soittimeen. Ota lopuksi mukaan
+paluumatka soittimesta chattiin. Näin tiedät, mikä jono oikeasti kasvaa, ennen
+kuin vaihdat vakautta pienempään numeroon.
+
+![Neljä tarkistuspistettä näyttävät puhelinkameran reitin relayn ja OBS:n kautta alustan soittimeen sekä paluun chatin kautta](./irl-latency-checkpoints.svg)
+
+## IRL-lähetyksen viive ei ole yksi mittaus
+
+Käytä sanaa **viive** täsmällisesti vianhaussa. Seuraavat mittaukset vastaavat
+eri kysymyksiin:
+
+| Mittaus | Mitä siihen kuuluu | Paras tarkistuspaikka |
+| --- | --- | --- |
+| Puhelin → OBS-esikatselu | Kaappaus, puhelimen koodaus, mobiililähetys, SRT-korjaus, relay ja OBS-purku | Kuvaa puhelin ja OBS-näyttö samaan testivideoon |
+| OBS-esikatselu → julkinen soitin | OBS-koodaus ja -lähetys sekä alustan vastaanotto, käsittely, jakelu ja soittimen puskuri | Kuvaa ajastin tai taputus molempien näyttöjen näkyessä |
+| Puhelin → julkinen soitin | Molemmat edelliset reitit | Vertaa todellista tapahtumaa mykistettyyn toiseen laitteeseen |
+| Keskustelun meno-paluu | Videoviive sekä katsojan havainto, kirjoitus, chatin toimitus ja oma vastauksesi | Pyydä moderaattoria lähettämään testisana näkyvän merkin jälkeen |
+
+Älä mittaa videoviivettä pelkällä chatilla. Hidas vastaus voi johtua katsojasta,
+chatista tai omasta lukurytmistäsi, vaikka videoreitti toimii hyvin. Vastaavasti
+OBS:stä paljon jäljessä oleva julkinen soitin ei todista, että puhelimen ja relayn
+välinen yhteys olisi hidas.
+
+## Tee yksi taputustesti koko ketjulle
+
+Kuvassa näkyvä sekuntikello vaikuttaa tarkalta, mutta yksi taputus on helpompi
+tulkita. Aloita lyhyt vähäriskinen testi. Näytä puhelin ja
+OBS-esikatselu samassa kuvassa, jos mahdollista, ja taputa kerran kameran edessä.
+Tallenna testi toisella laitteella soitin mykistettynä, jotta ääni ei ala kiertää.
+
+Katso tallenne kolmessa vaiheessa:
+
+1. Vertaa todellista taputusta OBS-esikatseluun. Suuri ero kuuluu
+   kontribuutioreitille.
+2. Vertaa OBS-esikatselua Twitchin tai Kickin julkiseen soittimeen. Uusi suuri
+   ero syntyy OBS:n jälkeen.
+3. Toista testi viiden minuutin jälkeen oikealla mobiilireitillä. Kasvava viive
+   on tärkeämpi kuin vakaa perusviive, sillä kasvu kertoo jonosta, joka ei ehdi
+   purkautua.
+
+Kirjaa tulos muistiin sen sijaan, että säätäisit tuntuman perusteella. Muuta vain
+yhtä asiaa kerrallaan, käynnistä lähetys uudelleen alustan tai OBS-asetuksen sitä
+vaatiessa ja käytä joka vertailussa samaa katselulaitetta.
+
+## Jos OBS on myöhässä, säädä kontribuutioreittiä
+
+VISP lähettää puhelimen kuvalähteen oletuksena SRT:llä. SRT varaa tarkoituksella
+aikaa myöhässä saapuvien tai uudelleenlähetettävien pakettien korjaamiseen.
+Haivisionin
+[ajantasainen viivedokumentaatio](https://doc.haivision.com/SRT/1.5.4/Haivision/latency)
+määrittelee arvon verkon korjauspuskuriksi ja käyttää yleistä suhdetta
+`SRT Latency = RTT-kerroin × RTT`. Melko hyvässä verkossa ilman merkittävää
+purskehävikkiä sen nyrkkisääntö on noin neljä kertaa meno-paluuaika.
+
+OBS antaa samansuuntaisen lähtökohdan virallisessa
+[SRT-oppaassaan](https://obsproject.com/kb/srt-protocol-streaming-guide): viive
+ilmoitetaan mikrosekunteina ja sen pitäisi olla vähintään 2,5 kertaa RTT. Nämä
+ovat lähtökohtia, eivät keskenään kilpailevia lupauksia. Liikkuvalla
+mobiiliyhteydellä on purskehävikkiä ja tukiasemavaihtoja, joita siisti
+pöytätesti ei näytä.
+
+VISPin hallintapaneelin testi mittaa seitsemän peräkkäistä meno-paluuta, käyttää
+mediaania ja soveltaa oikealle yhteystyypille tarkoitettua profiilia:
+
+| Profiili | Suositus |
+| --- | ---: |
+| Kiinteä | 3× RTT, vähintään 120 ms |
+| Wi-Fi | 4× RTT, vähintään 300 ms |
+| Mobiili | 6× RTT, vähintään 600 ms |
+
+Aja testi verkossa, jota puhelin tai enkooderi todella käyttää. Koko menettely
+löytyy
+[VISPin enkooderi- ja varakuvadokumentaatiosta](https://docs.visp-stream.com/fi/docs/broadcaster-setup).
+Mobiiliarvon laskeminen alle suosituksen voi nopeuttaa siistiä pöytätestiä mutta
+jättää ulkona liian vähän aikaa hävikin korjaamiseen.
+
+Ajattele SRT-viivettä luotettavuusbudjettina, älä lopullisen katsojaviiveen
+ennusteena. Siihen eivät kuulu puhelimen kaappaus, videokoodaus, OBS:n purku ja
+sommittelu, OBS:n lopullinen koodaus, alustan käsittely tai katsojan soitin.
+Haivisionin puskuri on yksi tarkistuspiste koko ketjussa.
+
+### Pienennä bittinopeutta ennen korjausikkunaa
+
+Jos VISPin live-tila näyttää kasvavaa pakettihävikkiä tai kuvalähteen bittinopeus
+ei pysy lähellä tavoitetta, yhteydellä ei ehkä ole riittävästi pelivaraa.
+Korjausikkuna ei ratkaise jatkuvaa ruuhkaa. Laske puhelimen bittinopeutta,
+resoluutiota tai kuvataajuutta ja toista reittitesti.
+[Mobiilibittinopeusopas](/fi/blog/best-bitrate-irl-streaming-phone-obs) selittää,
+miksi puhelimen lähetys, kodin vastaanotto ja OBS:n lähetys tarvitsevat erilliset
+budjetit.
+
+Siksi hyvin pieni SRT-arvo voi käytännössä saada viiveen tuntumaan pahemmalta.
+Määräajasta myöhästyvät paketit näkyvät kuvavirheinä tai pakottavat yhteyden
+uudelleen. Vakaa syöte realistisella korjausikkunalla on yleensä
+vuorovaikutteisempi kuin nimellisesti nopeampi syöte, joka jäätyy toistuvasti.
+
+VISPin luoma OBS scene collection käyttää valmiiksi FFmpeg Media Sourcea,
+MPEG-TS-muotoa, pientä puskurointia ja automaattisia uudelleenyhdistymisiä. Aloita
+luodusta lähteestä äläkä lisää ylimääräisiä toistopuskureita. Relay–OBS-reitti ei
+transkoodaa kuvalähdettä, joten palvelin ei lisää väliin piilotettua
+laatukoodausta. OBS vastaanottaa saman H.264/AAC-ohjelman, jonka julkaisija
+lähetti.
+
+### Redundanssi ei ole pienen viiveen kytkin
+
+VISP Native voi lähettää samat SRT-paketit Wi-Fin ja mobiiliyhteyden kautta,
+kun taas SRTLA-lähettäjä voi jakaa paketteja usealle yhteydelle. Kumpikin tapa
+voi vähentää yhden huonon reitin vaikutusta. Kumpikaan ei tee tiedonsiirrosta
+välitöntä, eikä natiivin monistustila yhdistä kahta yhteyttä yhdeksi suuremmaksi
+lähetyskaistaksi.
+
+Aseta viive heikoimman yhteyden mukaan, joka voi joutua kantamaan lähetystä.
+Toisen yhteyden käyttöönotto ja SRT-ikkunan pienentäminen sen jälkeen olettaa,
+että molemmat verkot pysyvät aina terveinä samaan aikaan. Juuri tältä vialta
+redundanssin pitäisi suojata.
+[Verkon luotettavuusopas](/fi/blog/keep-stream-live-bad-mobile-network) auttaa,
+kun ongelmana ovat jäätymiset tai uudelleenyhdistymiset vakaan viiveen sijaan.
+
+## Jos OBS on ajantasainen mutta soitin myöhässä, tarkista lähtöreitti
+
+Kun OBS seuraa puhelinta nopeasti mutta julkinen soitin ei, lopeta puhelimen
+SRT-arvon muuttaminen. Kyseinen tarkistuspiste on jo kunnossa. Tarkista nämä
+järjestyksessä:
+
+1. Avaa **OBS → Settings → Advanced → Stream Delay**. Poista viive vain, jos se
+   ei ollut tarkoituksellinen.
+2. Jos lähetät Twitchiin, tarkista myös kanavan Stream Manager. Twitchin
+   virallinen [viiveopas](https://help.twitch.tv/s/article/how-to-add-stream-delay?language=en_US)
+   dokumentoi Partnereille alustalla lisättävän viiveen ohjelmistoviiveen lisäksi.
+3. Tarkista Twitchin **Low Latency** -tila, jos nopea chat-keskustelu on tärkeää.
+   Twitchin mukaan tila on oletuksena käytössä useimmilla kanavilla. Sitä
+   vaihdetaan Stream-asetuksissa, ja muutos vaatii lähetyksen uudelleenkäynnistyksen.
+   Katsoja näkee **Latency to Broadcaster** -arvon soittimen Video Stats -näkymästä.
+4. Tarkista OBS:n verkon pudottamat ruudut, renderöintiviive ja koodausviive
+   erikseen. [IRL-lähetyksen dropped frames -opas](/fi/blog/obs-dropped-frames-irl-streaming)
+   yhdistää jokaisen laskurin siihen reittiin, jota se voi oikeasti mitata.
+5. Testaa julkinen soitin toisella yhteydellä. Soitin voi puskuroida katsojan
+   laitteen tai verkon vuoksi, vaikka kuvalähde ja OBS-lähtö toimivat hyvin.
+
+Kickin virallinen
+[viive- ja puskurointiopas](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+aloittaa alustan tilasta ja tarkistaa sitten lähetysyhteyden vakauden,
+bittinopeuden, pudotetut ruudut, resoluution, kuvataajuuden ja enkooderin
+kuorman. Noudata samaa järjestystä sen sijaan, että yrittäisit korjata jokaisen
+myöhäiseltä näyttävän soittimen pienemmällä SRT-arvolla.
+
+Tarkoitukselliselle viiveelle on myös hyvä syy. Twitch mainitsee sijainnin
+suojaamisen nimenomaan IRL-lähetyksen viiveen käyttötapauksena. Jos sijaintisi
+paljastaminen reaaliajassa muodostaa turvallisuusriskin, pidempi keskustelukierto
+voi olla oikea kompromissi. Kerro viiveestä moderaattoreille, jotta he ymmärtävät
+vastaustesi tulevan myöhemmin.
+
+## Pienentääkö VISP Direct viivettä?
+
+[VISP Direct](/fi/blog/what-is-visp-direct) poistaa kotistudion OBS-koneen
+julkiselta reitiltä. Puhelin lähettää yhden kuvalähteen relaylle, ja relay tekee
+erillisen jakelukoodauksen jokaiselle valitulle Twitch-, Kick- tai
+YouTube-kohteelle. Ketjusta poistuvat OBS:n purku ja sommittelu sekä kodin
+lähetysyhteys.
+
+Direct **ei** takaa tiettyä katsojaviivettä. Puhelimen kaappaus, SRT:n
+korjausikkuna, relayn purku ja jakelukoodaus, alustan jakelu sekä soittimen
+puskurointi ovat edelleen mukana. Valitse Direct, kun puhelin on koko ohjelma
+etkä tarvitse OBS-kohtauksia, hälytyksiä, miksausta tai paikallista tallennusta.
+Älä valitse sitä siksi, että ”ei OBS:ää” tarkoittaisi automaattisesti nollaviivettä.
+
+Jos pidät OBS:n mukana, se voi suojata lähetyksen jatkuvuutta varakuvalla
+puhelimen yhdistäessä uudelleen. Tämä vakaus voi olla arvokkaampi kuin ketjun
+lyhentämisellä säästetty pieni viive.
+
+## Pienen viiveen IRL-ennakkotarkistus
+
+Ennen oikeaa lähetystä:
+
+- aja VISPin viivetesti kenttäyhteydellä;
+- säilytä yhteysprofiilin suosittelema SRT-arvo;
+- tarkista puhelimen ja OBS:n ero yhdellä taputuksella;
+- varmista, että OBS Stream Delay ja Twitchin alustaviive ovat tarkoituksellisia;
+- tarkista Twitch Low Latency, kun chatin nopeus on tärkeä;
+- seuraa Twitch- tai Kick-lähtöä mykistetyllä toisella laitteella;
+- toista testi liikkuen vähintään viiden minuutin ajan, ei vain reitittimen vieressä;
+- kirjaa perusmittaus, johon tulevia testejä voi rehellisesti verrata.
+
+Tavoite ei ole pienin mahdollinen numero vaan pienin **vakaa** viive, joka kestää
+oikean lähetysreitin.
+
+## Usein kysytyt kysymykset
+
+### Onko SRT latency sama kuin lähetyksen kokonaisviive?
+
+Ei. Se on korjauspuskuri puhelin–relay- tai relay–OBS-osuudella. Kaappaus,
+koodaukset, OBS, alusta, soitin ja chat lisäävät omat osuutensa.
+
+### Kannattaako SRT-viive asettaa minimiin?
+
+Vain jos mitattu RTT ja hävikki tukevat sitä. Käytä mobiilissa testin
+mobiiliprofiilia ja testaa liikkeessä. Liian lyhyt korjausaika vaihtaa vakaan
+viiveen näkyvään hävikkiin ja uudelleenyhdistymisiin.
+
+### Miksi Twitch tai Kick on myöhässä, vaikka OBS on ajantasainen?
+
+Lisäviive syntyy OBS-esikatselun jälkeen. Tarkista tarkoituksellinen OBS- tai
+alustaviive, OBS-lähdön kunto, alustan tila ja katselulaite. Älä enää pienennä
+puhelimen kuvalähteen viivettä, kun kyseinen tarkistuspiste toimii.
+
+### Voiko suurempi bittinopeus kasvattaa viivettä?
+
+Voi, jos lähetysyhteys ei kanna sitä vakaasti. Jonot kasvavat, paketit myöhästyvät
+tai enkooderi pudottaa ruutuja. Pienempi bittinopeus tai kuvataajuus jättää
+pelivaraa, mutta ei suoraan muuta terveen alustan kiinteää jakelureittiä.
+
+### Voiko viive koskaan olla nolla?
+
+Ei. Kaappaus, koodaus, siirto, purku, alustajakelu ja näyttö vievät kaikki aikaa.
+Optimoi hitain tarkistuspiste ja jätä riittävä puskuri oikealle verkolle.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISPin enkooderit, viivetesti ja varakuva](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [VISP-puhelinsovellus ja live-yhteyden tila](https://docs.visp-stream.com/fi/docs/phone-app)
+- [OBS SRT Protocol Streaming Guide](https://obsproject.com/kb/srt-protocol-streaming-guide)
+- [Haivision SRT latency](https://doc.haivision.com/SRT/1.5.4/Haivision/latency)
+- [Haivision RTT multiplier](https://doc.haivision.com/SRT/1.5.4/Haivision/rtt-multiplier)
+- [Twitch Low Latency Video](https://help.twitch.tv/s/article/low-latency-video?language=en_US)
+- [Twitchin lähetysviive](https://help.twitch.tv/s/article/how-to-add-stream-delay?language=en_US)
+- [Kickin viive- ja puskurointiohje](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+
+Jos haluat mitattavan puhelin–studio-reitin, [kokeile VISPiä](https://visp-stream.com),
+aja relay-testi oikealla reitillä ja etsi jono yhdellä taputustestillä ennen
+seuraavaa Twitch- tai Kick-IRL-lähetystä.

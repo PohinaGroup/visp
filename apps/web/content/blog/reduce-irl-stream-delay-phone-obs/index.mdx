@@ -1,0 +1,238 @@
+---
+title: "Why Is My IRL Stream Delayed? Phone-to-OBS and Twitch/Kick Latency"
+description: "Find where IRL stream delay enters the phone-to-OBS-to-Twitch or Kick path, then reduce latency without sacrificing mobile reliability."
+publishedAt: 2026-08-23
+coverAlt: "An IRL creator sends a phone camera feed through a glowing relay toward a home studio while signal echoes visualize delay"
+---
+
+An IRL stream can feel late for four different reasons: the phone has to capture
+and encode, SRT may hold packets for recovery, OBS has to decode and encode the
+program, and Twitch or Kick still has to deliver it to the viewer. Changing one
+"latency" setting cannot remove all four.
+
+The practical fix is to measure the chain in order. First compare the phone with
+the OBS preview. Then compare OBS with the public player. Finally include the
+return trip from the player to chat. This tells you which queue is actually
+growing before you trade reliability for a smaller number.
+
+![Four checkpoints show a phone camera moving through a relay and OBS to a platform player, then returning through chat](./irl-latency-checkpoints.svg)
+
+## IRL stream delay is not one measurement
+
+Use the word **delay** carefully during troubleshooting. These measurements
+answer different questions:
+
+| Measurement | What it includes | Best place to inspect it |
+| --- | --- | --- |
+| Phone to OBS preview | Capture, phone encode, mobile upload, SRT recovery, relay, and OBS decode | Put the phone and OBS monitor in the same camera shot |
+| OBS preview to public player | OBS encode and upload plus platform ingest, processing, delivery, and player buffering | Film a timer or clap where both screens are visible |
+| Phone to public player | Both paths above | Compare the real action with a muted second device |
+| Conversation round trip | Video delay plus the viewer noticing, typing, chat delivery, and your response | Ask a moderator to send a test word after a visible cue |
+
+Do not use chat alone as a video-latency test. A slow reply may be delayed by the
+viewer, chat, or your own reading rhythm even when the video path is healthy.
+Likewise, a public player that is far behind OBS does not prove the phone-to-relay
+connection is slow.
+
+## Run one clap test from end to end
+
+A stopwatch in frame looks precise, but a single clap is easier to interpret.
+Start a short low-stakes test, show the phone and OBS preview together
+if possible, and clap once in front of the camera. Record the test from a second
+device with its player muted so it cannot create an audio loop.
+
+Review the recording in three steps:
+
+1. Compare the real clap with the OBS preview. A large gap here belongs to the
+   contribution path.
+2. Compare the OBS preview with the public Twitch or Kick player. A large new
+   gap belongs after OBS.
+3. Repeat after five minutes on the actual mobile route. A delay that grows is
+   more important than a stable baseline because growth points to a queue that
+   cannot drain.
+
+Write down the result instead of tuning by feel. Test one change at a time, stop
+and restart the broadcast when the platform or OBS setting requires it, and use
+the same player device for every comparison.
+
+## If OBS is late, tune the contribution path
+
+VISP sends the phone contribution over SRT by default. SRT deliberately reserves
+time to recover packets that arrive late or need retransmission. Haivision's
+[current latency documentation](https://doc.haivision.com/SRT/1.5.4/Haivision/latency)
+defines that value as a network recovery buffer and gives the general relation
+`SRT Latency = RTT Multiplier × RTT`. On a fairly good network without serious
+burst loss, its rule of thumb is about four times the round-trip time.
+
+OBS gives similar guidance in its official
+[SRT streaming guide](https://obsproject.com/kb/srt-protocol-streaming-guide):
+latency is expressed in microseconds and should be at least 2.5 times the RTT.
+These are starting points, not competing guarantees. A moving cellular link has
+burst loss and handoffs that a clean test connection does not.
+
+VISP's dashboard probe measures seven sequential round trips, uses the median,
+and applies a profile intended for the real link:
+
+| Profile | Recommendation |
+| --- | ---: |
+| Wired | 3× RTT, at least 120 ms |
+| Wi-Fi | 4× RTT, at least 300 ms |
+| Cellular | 6× RTT, at least 600 ms |
+
+Run the probe on the network the phone or encoder will actually use. The full
+procedure is in the
+[VISP encoder and fallback documentation](https://docs.visp-stream.com/docs/broadcaster-setup).
+Lowering a cellular value below its recommendation may make a clean desk test
+look faster while leaving too little time to repair loss outdoors.
+
+Treat SRT latency as a reliability budget, not as the final viewer delay. It
+does not include phone capture, video encoding, OBS decoding and compositing,
+the final OBS encode, platform processing, or the viewer's player. Haivision's
+buffer is one checkpoint inside the complete chain.
+
+### Lower bitrate before cutting the recovery window
+
+If VISP's live status shows rising packet loss or the contribution bitrate
+cannot stay near its target, the link may not have enough headroom. A recovery
+window cannot fix sustained congestion. Lower the phone bitrate, resolution, or
+frame rate and repeat the route test. The
+[mobile bitrate guide](/blog/best-bitrate-irl-streaming-phone-obs) explains why
+the phone upload, home download, and OBS upload need separate budgets.
+
+This is also why a very small SRT value can make latency look worse in practice.
+Packets that miss the deadline become visible damage or force a reconnect. A
+stable feed with a realistic recovery window is usually more interactive than
+a nominally faster feed that repeatedly freezes.
+
+VISP's generated OBS scene collection already uses an FFmpeg Media Source,
+MPEG-TS, low buffering, and automatic reconnects. Start with the generated
+source instead of adding extra playback buffers. The relay-to-OBS route does not
+transcode the contribution, so it cannot secretly add a server-side quality
+encode; OBS receives the same H.264/AAC program the publisher sent.
+
+### Redundancy is not a low-latency switch
+
+VISP Native can send duplicate SRT packets over Wi-Fi and cellular, while SRTLA
+senders can distribute packets across more than one link. Either approach can
+reduce the effect of one bad path. Neither makes propagation instant, and the
+native duplicate mode does not combine both links into one larger upload.
+
+Set latency for the weakest link that may carry the stream. Turning on a second
+connection and then cutting the SRT window assumes both networks will always be
+healthy at once—the exact failure the redundancy is meant to survive. Use the
+[network reliability guide](/blog/keep-stream-live-bad-mobile-network) when the
+problem is freezes or reconnects rather than a stable delay.
+
+## If OBS is current but the player is late, inspect the output path
+
+When OBS follows the phone closely but the public player does not, stop changing
+the phone SRT value. That checkpoint has passed. Check these in order:
+
+1. Open **OBS → Settings → Advanced → Stream Delay**. Disable it only if the
+   delay was not intentional.
+2. If you stream to Twitch, also check the channel's Stream Manager. Twitch's
+   official [stream-delay guide](https://help.twitch.tv/s/article/how-to-add-stream-delay?language=en_US)
+   documents a platform-side delay for Partners in addition to software delay.
+3. Confirm Twitch **Low Latency** mode if rapid chat interaction matters. Twitch
+   says the mode is enabled on most channels by default, can be changed under
+   Stream preferences, and requires a stream restart. Viewers can inspect
+   **Latency to Broadcaster** through the player's Video Stats.
+4. Check OBS network dropped frames, rendering lag, and encoding lag separately.
+   The [IRL dropped-frames guide](/blog/obs-dropped-frames-irl-streaming) maps
+   each counter to the leg it can actually diagnose.
+5. Test the public player on a second connection. A player may buffer because of
+   the viewer's device or network even when the contribution and OBS output are
+   healthy.
+
+Kick's official
+[lag and buffering guide](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+starts with platform status, then checks upload stability, bitrate, dropped
+frames, resolution, frame rate, and encoder load. Follow that order instead of
+assuming every delayed-looking player needs a lower SRT setting.
+
+There is also a legitimate reason to keep intentional delay. Twitch explicitly
+lists location privacy as an IRL use case for stream delay. If revealing your
+position in real time is a safety risk, a longer conversation loop may be the
+correct tradeoff. Tell moderators about it so they understand that your replies
+will arrive later.
+
+## Would VISP Direct reduce the delay?
+
+[VISP Direct](/blog/what-is-visp-direct) removes the home OBS computer from the
+public path: the phone sends one contribution to the relay, and the relay makes
+a separate distribution encode for each selected Twitch, Kick, or YouTube
+destination. That removes OBS decoding, compositing, and the home upload from
+the chain.
+
+It does **not** guarantee a particular viewer delay. Phone capture, the SRT
+recovery window, relay decoding and distribution encoding, platform delivery,
+and player buffering still exist. Choose Direct because the phone is the whole
+program and you do not need OBS scenes, alerts, mixing, or a local recording—not
+because "no OBS" automatically means zero latency.
+
+If you keep OBS, it can protect continuity with a fallback scene while the phone
+reconnects. That resilience may be worth more than the small amount of latency
+saved by shortening the chain.
+
+## A low-latency IRL preflight
+
+Before the real stream:
+
+- run the VISP latency probe on the field connection;
+- keep the recommended SRT value for that network profile;
+- verify the phone-to-OBS gap with one clap;
+- confirm OBS Stream Delay and Twitch platform delay are set intentionally;
+- check Twitch Low Latency mode when chat speed matters;
+- watch the Twitch or Kick output from a muted second device;
+- repeat for at least five minutes while moving, not only beside the router;
+- record the baseline so future tests have something honest to beat.
+
+The goal is not the smallest possible number. It is the smallest **stable**
+delay that still survives the route you stream on.
+
+## Frequently asked questions
+
+### Is the SRT latency value my total stream delay?
+
+No. It is a recovery buffer inside the phone-to-relay or relay-to-OBS leg. The
+rest of the capture, encode, OBS, platform, player, and chat path remains.
+
+### Should I set SRT latency to the minimum?
+
+Only if measured RTT and loss support it. On cellular, use the probe's cellular
+profile and test while moving. Too little recovery time trades a stable delay
+for visible loss and reconnects.
+
+### Why is Twitch or Kick late when OBS looks current?
+
+The extra delay is after the OBS preview. Check intentional OBS/platform delay,
+OBS output health, platform status, and the viewing device. Do not keep lowering
+the phone contribution latency once that checkpoint is healthy.
+
+### Can a higher bitrate increase delay?
+
+It can when the available upload cannot carry it consistently. Queues grow,
+packets arrive too late, or the encoder drops frames. Lowering bitrate or frame
+rate leaves headroom; it does not directly change a healthy platform's fixed
+delivery path.
+
+### Can latency ever be zero?
+
+No. Capture, encoding, transport, decoding, platform distribution, and display
+all take time. Optimize the slow checkpoint and keep enough buffer for the
+network you actually have.
+
+## Sources and next steps
+
+- [VISP encoders, latency probe, and fallback](https://docs.visp-stream.com/docs/broadcaster-setup)
+- [VISP phone app and live link status](https://docs.visp-stream.com/docs/phone-app)
+- [OBS SRT Protocol Streaming Guide](https://obsproject.com/kb/srt-protocol-streaming-guide)
+- [Haivision SRT latency](https://doc.haivision.com/SRT/1.5.4/Haivision/latency)
+- [Haivision RTT multiplier](https://doc.haivision.com/SRT/1.5.4/Haivision/rtt-multiplier)
+- [Twitch Low Latency Video](https://help.twitch.tv/s/article/low-latency-video?language=en_US)
+- [Twitch stream delay](https://help.twitch.tv/s/article/how-to-add-stream-delay?language=en_US)
+- [Kick lag and buffering troubleshooting](https://help.kick.com/en/articles/14994379-why-is-my-stream-lagging-or-buffering-on-kick)
+
+If you want a measurable phone-to-studio path, [try VISP](https://visp-stream.com),
+run the relay probe on your real route, and use one clap test to find the queue
+before your next Twitch or Kick IRL stream.
