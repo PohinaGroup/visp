@@ -220,6 +220,36 @@ const LANDING_SEPPO_SUGGESTIONS = [
 	"How does VISP handle connection drops?",
 ];
 
+const heroProofBullets = [
+	{
+		label: "Direct",
+		body: "Authorize once, go live from phone or browser. Stream keys stay out of the publisher.",
+	},
+	{
+		label: "OBS optional",
+		body: "Same contribution feed for monitoring, recording, scenes, and alerts.",
+	},
+	{
+		label: "Remote control",
+		body: "Start, stop, and switch scenes from your phone.",
+	},
+] as const;
+
+const heroProofBulletsFi = [
+	{
+		label: "Direct",
+		body: "Valtuuta kerran ja lähetä puhelimesta tai selaimesta. Lähetysavaimet eivät päädy julkaisulaitteelle.",
+	},
+	{
+		label: "OBS valinnainen",
+		body: "Sama syöte valvontaan, tallennukseen, kohtauksiin ja hälytyksiin.",
+	},
+	{
+		label: "Etäohjaus",
+		body: "Käynnistä, lopeta ja vaihda kohtauksia puhelimesta.",
+	},
+] as const;
+
 const eyebrow =
 	"font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground";
 
@@ -450,32 +480,38 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 					{/* Hero */}
 					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-28">
 						<div className="flex flex-col gap-7">
-							<span className={eyebrow}>
-								{fi
-									? "IRL-striimaus kahdella tavalla"
-									: "Two ways to stream IRL"}
-							</span>
 							<h1 className="font-display font-semibold text-5xl uppercase leading-[0.92] tracking-tight sm:text-6xl md:text-[4.75rem]">
-								{fi ? "Luotettava IRL-striimaus." : "Reliable IRL streaming."}
-								<br />
-								{fi
-									? "Suoraan alustalle tai omaan OBS:ään."
-									: "Direct to your platform or home OBS."}
+								{fi ? "Puhelimesi on kamera." : "Your phone is the camera."}
 							</h1>
 							<p className="max-w-xl text-lg text-muted-foreground leading-relaxed">
 								{fi
-									? "Lähetä puhelimesi kuva suoraan Twitchiin, Kickiin tai YouTubeen. Kun haluat kohtaukset, grafiikat ja paikallisen hallinnan, reititä sama kenttäsyöte turvallisesti kotikoneesi OBS:ään."
-									: "Send your phone camera directly to Twitch, Kick, or YouTube. When you want scenes, overlays, and local control, route the same field feed securely into OBS at home."}
+									? "Lähetä suoraan Twitchiin, Kickiin tai YouTubeen — OBS vain jos tarvitset grafiikat."
+									: "Stream straight to Twitch, Kick, or YouTube — OBS only if you want scenes and graphics."}
 							</p>
 							<div className="flex flex-wrap items-center gap-4">
 								<TryCta locale={locale} size="lg" />
 								<a
-									href="#workflows"
+									href={fi ? `${legalEntity.docsUrl}/fi` : legalEntity.docsUrl}
+									target="_blank"
+									rel="noreferrer"
 									className="text-sm underline underline-offset-4"
 								>
-									{fi ? "Vertaa työnkulkuja" : "Compare workflows"}
+									{fi ? "Lue ohjeet" : "Read the docs"}
 								</a>
 							</div>
+							<ul className="flex flex-col gap-3 text-muted-foreground text-sm leading-relaxed">
+								{(fi ? heroProofBulletsFi : heroProofBullets).map(
+									(item) => (
+										<li key={item.label}>
+											<span className="font-medium text-foreground">
+												{item.label}
+											</span>
+											{" — "}
+											{item.body}
+										</li>
+									),
+								)}
+							</ul>
 						</div>
 
 						{/* Product shots — real captures, reframed in hairline device slabs */}
