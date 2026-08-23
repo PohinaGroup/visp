@@ -935,6 +935,21 @@ export async function applyDirectState(input: {
 	return true;
 }
 
+/** Native Go Live reports platform live via tRPC; emits on portal site 2. */
+export async function reportFirstLiveActivation(
+	userId: string,
+	pathId: number,
+	provider: DirectProvider,
+) {
+	const outputs = await listDirectOutputs(userId);
+	const path = outputs.paths.find((entry) => entry.id === pathId);
+	if (!path?.[provider] || path.state[provider] !== "live") {
+		return { tracked: false as const };
+	}
+	trackRybbitEvent("first_live", { provider });
+	return { tracked: true as const };
+}
+
 export type DirectDestination = { provider: DirectProvider; url: string };
 
 async function youtubeDirectDestination(
