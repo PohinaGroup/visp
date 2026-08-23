@@ -80,6 +80,7 @@ import {
 	validateStreamUrl,
 } from "../lib/stream-url";
 import { useAfterMount } from "../lib/use-after-mount";
+import { useFirstLiveTracking } from "../lib/use-first-live-tracking";
 import { useLinkStatsReporter } from "../lib/use-link-stats-reporter";
 import { useStreamAccount } from "../lib/use-stream-account";
 import { useStreamSettingsModel } from "../lib/use-stream-settings-model";
@@ -256,6 +257,11 @@ export default function Index() {
 			Boolean(userId) &&
 			(holdingProviders.length > 0 ||
 				Boolean(streamAccount.brb?.enabled && directProviders.length > 0)),
+		refreshDirectOutputs,
+	);
+	useFirstLiveTracking(
+		isStreamSession(state) && directProviders.length > 0,
+		directPath,
 		refreshDirectOutputs,
 	);
 	const contributionMode = directContribution ? "direct" : "full";
