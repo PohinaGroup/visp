@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">IRL stream latency checkpoints</title>
+  <desc id="desc">A phone, relay, OBS workstation, platform player, and returning chat message form four measurable stages.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071423"/>
+      <stop offset="1" stop-color="#10263b"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#35d7ff"/>
+      <stop offset="1" stop-color="#ffad5b"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#71e5ff"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" rx="44" fill="url(#bg)"/>
+  <path d="M210 450 H1350" stroke="#163e58" stroke-width="34" stroke-linecap="round"/>
+  <path d="M210 450 H1350" stroke="url(#signal)" stroke-width="8" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+
+  <g transform="translate(105 285)">
+    <rect x="0" y="0" width="210" height="330" rx="34" fill="#0b1b2c" stroke="#71e5ff" stroke-width="7"/>
+    <rect x="25" y="38" width="160" height="222" rx="14" fill="#123550"/>
+    <circle cx="105" cy="292" r="13" fill="#71e5ff"/>
+    <circle cx="65" cy="113" r="32" fill="none" stroke="#ffad5b" stroke-width="8"/>
+    <path d="M65 78 V113 L88 128" fill="none" stroke="#ffad5b" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(415 328)">
+    <path d="M58 182h214c51 0 80-36 80-77 0-43-32-76-75-78C257-14 203-28 164 1c-25 18-38 43-40 72-10-7-22-10-35-10-40 0-71 31-71 70 0 27 14 49 40 49Z" fill="#0d2940" stroke="#71e5ff" stroke-width="7"/>
+    <rect x="104" y="76" width="160" height="68" rx="14" fill="#153f5d"/>
+    <circle cx="137" cy="110" r="8" fill="#71e5ff"/>
+    <path d="M164 99h70M164 119h54" stroke="#b7efff" stroke-width="7" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(850 290)">
+    <rect x="0" y="0" width="285" height="215" rx="20" fill="#0b1b2c" stroke="#71e5ff" stroke-width="7"/>
+    <rect x="25" y="25" width="235" height="150" rx="8" fill="#143751"/>
+    <path d="M68 173h150M143 176v50M102 228h82" stroke="#71e5ff" stroke-width="10" stroke-linecap="round"/>
+    <circle cx="81" cy="94" r="40" fill="none" stroke="#ffad5b" stroke-width="8"/>
+    <path d="M81 52V94L108 112" fill="none" stroke="#ffad5b" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(1265 325)">
+    <rect x="0" y="0" width="225" height="250" rx="26" fill="#0b1b2c" stroke="#ffad5b" stroke-width="7"/>
+    <rect x="23" y="23" width="179" height="145" rx="10" fill="#26374b"/>
+    <path d="M85 69 145 96 85 123Z" fill="#ffad5b"/>
+    <path d="M52 204h121" stroke="#ffcf9b" stroke-width="9" stroke-linecap="round"/>
+  </g>
+
+  <path d="M1378 665 C1220 820 915 820 722 684" fill="none" stroke="#ffad5b" stroke-width="7" stroke-dasharray="20 18" marker-end="url(#arrow)"/>
+  <g transform="translate(720 675)">
+    <path d="M0 0h220a28 28 0 0 1 28 28v82a28 28 0 0 1-28 28H92l-48 48 9-48H28A28 28 0 0 1 0 110Z" fill="#1f354b" stroke="#ffad5b" stroke-width="6"/>
+    <circle cx="73" cy="69" r="10" fill="#ffad5b"/><circle cx="124" cy="69" r="10" fill="#ffad5b"/><circle cx="175" cy="69" r="10" fill="#ffad5b"/>
+  </g>
+
+  <g fill="#071423" stroke="#f1fbff" stroke-width="5">
+    <circle cx="350" cy="450" r="30"/><circle cx="800" cy="450" r="30"/><circle cx="1195" cy="450" r="30"/><circle cx="1378" cy="665" r="30"/>
+  </g>
+  <g fill="#f1fbff" font-family="system-ui, sans-serif" font-size="30" font-weight="700" text-anchor="middle">
+    <text x="350" y="461">1</text><text x="800" y="461">2</text><text x="1195" y="461">3</text><text x="1378" y="676">4</text>
+  </g>
+</svg>
