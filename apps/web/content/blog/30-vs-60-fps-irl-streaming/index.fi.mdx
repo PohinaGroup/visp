@@ -1,0 +1,228 @@
+---
+title: "30 vai 60 FPS IRL-striimiin? Näin valitset kuvataajuuden"
+description: "Valitse puhelimen IRL-striimiin 30 tai 60 FPS liikkeen, mobiiliyhteyden, akun, hämärän, OBS-lähdön ja oikean reittitestin perusteella."
+publishedAt: 2026-08-23
+coverAlt: "IRL-kuvaaja pitää puhelinta kahden virtaavan kuvasarjan vieressä, jotka vertaavat vakaata 30 FPS:n ja nopeampaa 60 FPS:n liikettä"
+---
+
+Useimpien puhelimella tehtävien IRL-striimien kannattaa alkaa **30 FPS:n
+kuvataajuudella**. Se on turvallisempi valinta kävelyyn, keskusteluun,
+matkailuun, pitkiin lähetyksiin, mobiiliyhteydelle ja hämäriin paikkoihin.
+Valitse 60 FPS, kun nopea liike on ohjelman ytimessä—esimerkiksi urheilussa,
+pyöräilyssä, huvipuistolaitteissa tai nopeissa panoroinneissa—ja vasta kun
+puhelin, kenttäyhteys, OBS-kone sekä julkinen Twitch- tai Kick-lähtö ovat
+läpäisseet realistisen testin.
+
+Kyse ei ole suurimman numeron tavoittelusta. Kuvataajuus on yksi osa koko
+puhelimesta katsojalle kulkevaa ketjua, ja 60 FPS pyytää jokaista sen osaa
+käsittelemään kaksinkertaisen määrän kuvia.
+
+![Puhelin lähettää saman relay- ja OBS-reitin kautta joko väljemmän 30 FPS:n kuvasarjan tai tiheämmän 60 FPS:n kuvasarjan](./frame-rate-path.svg)
+
+## Lyhyt vastaus
+
+| IRL-lähetys | Aloita tästä | Miksi |
+| --- | --- | --- |
+| Kävely, matkailu, Just Chatting, haastattelut | 30 FPS | Liike näyttää hyvältä ja mobiiliyhteydelle sekä pitkälle lähetykselle jää enemmän pelivaraa |
+| Yöelämä, sisätilat ja muut hämärät kohteet | 30 FPS | Kameralla on käytettävissä pidempi aikaväli ruutua kohden |
+| Urheilu, pyöräily, nopeat laitteet ja panoroinnit | 60 FPS | Tasaisempi liike voi säilyttää toiminnan, kun koko reitti on vahva |
+| Epävakaa mobiiliyhteys tai vanhempi puhelin | 30 FPS | Helppo vakautusaskel ennen resoluution tai bittinopeuden lisälaskua |
+| Puhelin lähettää 60 FPS mutta OBS 30 FPS | 30 FPS | Lopullinen ohjelma ei pysty säilyttämään ylimääräistä ajallista tarkkuutta |
+
+Kickin nykyinen [mobiililähetyksen laatuopas](https://help.kick.com/en/articles/15159752-settings-and-stream-quality-on-the-kick-go-live-app)
+päätyy samaan käytännön johtopäätökseen: 30 FPS sopii useimmille IRL-sisällöille,
+kun taas 60 FPS on tarkoitettu nopeaan liikkeeseen ja käyttää enemmän kaistaa
+sekä akkua. Myös Twitchin viralliset
+[lähetysohjeet](https://help.twitch.tv/s/article/broadcasting-guidelines?language=en_US)
+antavat erilliset profiilit 30 ja 60 FPS:lle sen sijaan, että 60 FPS olisi
+automaattinen oletus.
+
+## Mitä 30 FPS:n vaihtaminen 60 FPS:ään muuttaa?
+
+30 FPS tuottaa 30 kuvaa sekunnissa ja 60 FPS 60 kuvaa. Suurempi kuvataajuus
+lyhentää liikkeen askelia, joten nopeasti liikkuva kohde tai kameran panorointi
+voi näyttää sulavammalta.
+
+Kuva ei kuitenkaan muutu automaattisesti terävämmäksi. Resoluutio määrää yhden
+ruudun pikselimäärän, kun taas bittinopeus rajoittaa ajan kuluessa käytettävissä
+olevan pakatun datan määrää. Jos bittinopeus pysyy samana mutta ruutumäärä
+kaksinkertaistuu, useampi ruutu kilpailee samasta databudjetista. Vakaa 720p30-
+kuvalähde voi siksi näyttää puhtaammalta kuin liian pienelle bittinopeudelle
+pakotettu 720p60.
+
+Kameralla on myös vähemmän aikaa ruutujen välissä. Apple ilmoittaa kunkin
+kameramuodon tukemat kuvataajuudet
+[`AVFrameRateRange`](https://developer.apple.com/documentation/avfoundation/avframeraterange)-rajapinnan
+kautta, mukaan lukien ruudun lyhin ja pisin kesto. Android ilmoittaa kameran
+FPS-alueet
+[`CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES`](https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)-avaimella.
+Laite hallitsee varsinaista valotusta, mutta 60 FPS:n lyhyempi ruutuväli voi
+tehdä hämärästä huonomman kompromissin kuin päivänvalossa kuvatusta toiminnasta.
+
+## Miksi 30 FPS on hyödyllinen IRL-oletus?
+
+IRL-enkooderi ei ole työpöydällä kiinteän virran ja Ethernet-yhteyden varassa.
+Puhelin kaappaa ja vakauttaa kuvaa, koodaa videota, piirtää esikatselua, käyttää
+chattia ja lähettää yhteydellä, joka muuttuu liikkeen mukana.
+
+30 FPS jättää enemmän toimintavaraa kohtiin, jotka tavallisesti pettävät:
+
+- **Mobiililähetys:** Kick suosittelee 30 FPS:lle pienempiä bittinopeusalueita
+  kuin vastaaville 60 FPS:n muodoille. Pienempi kestävä tavoite jättää tilaa
+  tukiaseman vaihdolle ja lyhyelle ruuhkalle.
+- **Puhelimen kuorma:** Kick toteaa suoraan, että 60 FPS käyttää enemmän akkua.
+  Sen vianhaku neuvoo myös vaihtamaan 60 FPS:stä 30 FPS:ään, jos lähetys
+  nykii.
+- **Hämärä:** pidempi ruutuväli antaa puhelimen automaattiselle
+  kamerajärjestelmälle enemmän pelivaraa kuin 60 FPS:n lyhyempi väli.
+- **Pitkät lähetykset:** pienempi lämpö- ja akkukuorma auttaa kävelylähetystä
+  pysymään tasaisena. Käytä [puhelimen ylikuumenemisopasta](/fi/blog/prevent-phone-overheating-irl-streaming),
+  jos lämpötila jo rajoittaa lähetystä.
+
+30 FPS ei ole huonolaatuinen tila. Haastattelut, kaupunkikävelyt, ruokasisällöt,
+tapahtumat ja keskustelevat IRL-lähetykset hyötyvät yleensä enemmän vakaasta,
+puhtaasta kuvasta kuin muutaman nopean panoroinnin sulavuudesta.
+
+## Milloin 60 FPS kannattaa testata?
+
+Valitse 60 FPS siksi, että sisältö tarvitsee ajallista tarkkuutta, ei siksi,
+että puhelimessa näkyy kytkin. Hyviä käyttökohteita ovat pallon seuraaminen,
+pyöräreitin kuvaaminen, huvipuistolaitteet, tanssi ja muu nopea toiminta.
+
+Varmista ennen asetuksen säilyttämistä kaikki neljä ehtoa:
+
+1. Valittu puhelimen kamera ja resoluutio tarjoavat oikeasti 60 FPS:n.
+2. Todellinen mobiilireitti kestää suuremman kuvalähteen tavoitteen pelivaralla
+   myös liikkuessa.
+3. OBS pystyy piirtämään ja koodaamaan koko tuotannon 60 FPS:n nopeudella ilman
+   viivettä.
+4. Lopullinen Twitch- tai Kick-ohjelma on myös asetettu 60 FPS:lle.
+
+OBS:n [yleisopas](https://obsproject.com/kb/obs-studio-overview) neuvoo
+asettamaan Common FPS Value -arvon lopullisen lähdön mukaan ja varoittaa 60 FPS:n
+olevan 30 FPS:ää huomattavasti raskaampi. Virallinen [koodauksen
+suorituskykyopas](https://obsproject.com/kb/encoding-performance-troubleshooting)
+suosittelee vaihtamaan 60 FPS:stä 30 FPS:ään, jos piirto tai koodaus ei pysy
+mukana.
+
+Jos OBS lähettää 30 FPS:n ohjelmaa, puhelimen 60 FPS:n kuvalähde ei muuta
+julkista lähetystä 60 FPS:ksi. Pidä puhelin 30 FPS:ssä, ellei jokin erikseen
+testattu paikallinen tarve, kuten erillinen tallennus, todella tarvitse
+ylimääräisiä ruutuja.
+
+## Näin VISP käsittelee kuvataajuutta
+
+Avaa VISP-puhelinsovelluksen **Settings → Camera**, kun lähetys on pysäytetty.
+Valitse ensin kamera ja resoluutio. Valitse sitten yksi niistä kuvataajuuksista,
+joita laite ilmoittaa tukevansa juuri kyseisellä yhdistelmällä. VISP ei keksi
+yleistä 60 FPS:n asetusta, vaan natiivit kaappausmoduulit tarkistavat kameramuodot
+ja tuetut nopeusalueet. Android tarkistaa lisäksi laitteistokiihdytetyn
+enkooderin tuen ennen vaihtoehdon näyttämistä.
+
+Sovellus suosii 1080p-kuvaa 30 FPS:n nopeudella, kun yhdistelmä on tarjolla.
+Resoluutio tai kuvataajuus vaihdetaan lähetyksen ollessa pysäytettynä. Nämä
+yksityiskohdat näkyvät avoimessa [kamera-asetusten
+toteutuksessa](https://github.com/PohinaGroup/visp/blob/main/apps/native/src/lib/camera-settings.ts)
+ja [puhelinsovelluksen dokumentaatiossa](https://docs.visp-stream.com/fi/docs/phone-app).
+
+VISP sovittaa kuvalähteen bittinopeutta yhteyden kuntoon kyseisen kuvamuodon
+ylärajan sisällä. Nykyinen [bittinopeuslogiikka](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
+sallii 1080p-kuvalle suuremman ylärajan 50/60 FPS:llä kuin 30 FPS:llä. Yläraja ei
+ole lupaus siitä, että mobiiliyhteys pystyy ylläpitämään nopeutta.
+
+Tavallisessa puhelin–OBS-työnkulussa relay ei transkoodaa syötettä. OBS saa
+puhelimen julkaiseman H.264/AAC-kuvalähteen. VISP Directissä relay tekee
+erillisen jakelukoodauksen jokaiselle valitulle alustalle, joten puhelimen
+kuvalähde ja julkinen alustakoodaus ovat edelleen eri vaiheita.
+
+## Testaa 30 ja 60 FPS oikealla lähetysreitillä
+
+Älä tee päätöstä Wi-Fin vieressä näkyvän esikatselun perusteella. Tallenna kaksi
+yksityistä tai muuten vähäriskistä testiä samalla reitillä, samalla
+resoluutiolla ja samoilla kameran liikkeillä.
+
+Tee kummallakin asetuksella näin:
+
+1. Aloita 30 FPS:stä ja käytä [IRL-bittinopeusoppaan](/fi/blog/best-bitrate-irl-streaming-phone-obs)
+   varovaista lähtöarvoa.
+2. Kulje reitin heikossa kohdassa vähintään kymmenen minuuttia.
+3. Seuraa VISPin live-näkymän bittinopeutta, RTT:tä ja hävikkiä puhelin–relay-
+   tarkistuspisteessä.
+4. Tarkista OBS:stä verkon pudottamat ruudut, renderöintiviive ja koodausviive
+   erikseen.
+5. Katso julkista Twitch- tai Kick-soitinta mykistetyllä toisella yhteydellä.
+6. Toista 60 FPS:llä muuttamatta samalla useita muita asetuksia.
+
+Säilytä 60 FPS vain, jos liike näyttää selvästi paremmalta ja lähetys pysyy
+terveenä puhelimen lämmettyä. Jos testi epäonnistuu, palaa 30 FPS:ään ennen
+laitteiston ostamista tai SRT-korjausikkunan lyhentämistä. [Dropped frames
+-opas](/fi/blog/obs-dropped-frames-irl-streaming) auttaa tunnistamaan, onko heikko
+kohta puhelimen lähetys, relayn ja OBS:n välinen luku, OBS:n piirto, enkooderi vai
+kodin lähetysyhteys.
+
+## Käytännöllinen säätöjärjestys
+
+Kun mobiililähetys on epävakaa, muuta yhtä asiaa kerrallaan tässä järjestyksessä:
+
+1. pienennä kestämätöntä bittinopeutta;
+2. vaihda 60 FPS:stä 30 FPS:ään;
+3. laske resoluutiota, jos reitti tai puhelin kamppailee edelleen;
+4. säilytä mitattuun RTT:hen ja hävikkiin sopiva SRT-korjausikkuna;
+5. testaa uudelleen liikkeessä ja puhelimen saavutettua tavallinen
+   käyttölämpötila.
+
+Älä poista kuvanvakautusta vain pakottaaksesi käyttöön yhdistelmän, jota laite
+ei tue 60 FPS:llä. VISP näyttää vakautuksen vain kamera-, resoluutio- ja
+kuvataajuusyhdistelmille, jotka laite ilmoittaa yhteensopiviksi. Jos tavoitteena
+on tasainen kävelykuva, vertaa vakaata 30 FPS:n tilaa [puhelimen
+vakautusoppaan](/fi/blog/stabilize-shaky-phone-irl-stream-obs) avulla ennen kuin
+uhraat ominaisuuden kuvataajuusnumeron vuoksi.
+
+## Usein kysytyt kysymykset
+
+### Onko 60 FPS aina parempi Twitchissä tai Kickissä?
+
+Ei. Molemmat alustat tukevat 30 ja 60 FPS:n työnkulkuja. 60 FPS auttaa nopeassa
+liikkeessä, mutta 30 FPS on yleensä kestävämpi IRL-valinta puhelimella ja
+mobiiliyhteydellä.
+
+### Käyttääkö 60 FPS kaksi kertaa enemmän dataa?
+
+Ei automaattisesti. Datankäyttö seuraa asetettua bittinopeutta, ei pelkkää
+ruutumäärää. 60 FPS tarvitsee kuitenkin yleensä suuremman bittinopeuden laadun
+säilyttämiseksi, ja Kick suosittelee sen 60 FPS:n tiloille suurempia
+bittinopeusalueita.
+
+### Pienentääkö 60 FPS lähetyksen viivettä?
+
+Se lyhentää kaapattujen ruutujen väliä mutta ei poista SRT-korjausta, OBS:n
+käsittelyä, alustan jakelua tai soittimen puskurointia. Valitse se liikkeen, älä
+koko ketjun viiveen korjaamisen vuoksi.
+
+### Kannattaako puhelimen ja OBS:n käyttää samaa kuvataajuutta?
+
+Yleensä kyllä. Jos julkinen OBS-ohjelma on 30 FPS, 30 FPS:n kuvalähde välttää
+puhelimen ja verkon resurssien käyttämisen ajalliseen tarkkuuteen, jota lopullinen
+lähtö ei pysty näyttämään. Testaa eri kuvataajuuksien lähteitä vain tuotannon
+selkeään tarpeeseen.
+
+### Miksi 60 FPS katoaa joillakin resoluutioilla?
+
+Kameran ja enkooderin kyvyt vaihtelevat puhelimen, linssin ja resoluution mukaan.
+VISP näyttää vain yhdistelmät, jotka nykyinen laite ilmoittaa tuetuiksi.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP-puhelinsovelluksen asetukset](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISPin kamera-asetusten toteutus](https://github.com/PohinaGroup/visp/blob/main/apps/native/src/lib/camera-settings.ts)
+- [VISPin mukautuvan bittinopeuden ylärajat](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
+- [Twitch Broadcasting Guidelines](https://help.twitch.tv/s/article/broadcasting-guidelines?language=en_US)
+- [Kickin mobiililähetyksen laatu](https://help.kick.com/en/articles/15159752-settings-and-stream-quality-on-the-kick-go-live-app)
+- [OBS Studio Overview Guide](https://obsproject.com/kb/obs-studio-overview)
+- [OBS Encoding Performance Troubleshooting](https://obsproject.com/kb/encoding-performance-troubleshooting)
+- [Apple AVFrameRateRange](https://developer.apple.com/documentation/avfoundation/avframeraterange)
+- [Android-kameran FPS-alueet](https://developer.android.com/reference/android/hardware/camera2/CameraCharacteristics.html#CONTROL_AE_AVAILABLE_TARGET_FPS_RANGES)
+
+Jos haluat testata molemmat tilat oikealla puhelin–studio-reitillä, [kokeile
+VISPiä](https://visp-stream.com), aloita 30 FPS:stä ja säilytä 60 FPS vain, kun
+liikkeen parannus kestää koko Twitch- tai Kick-ennakkotarkistuksen.
