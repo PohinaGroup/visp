@@ -44,10 +44,10 @@ function Home() {
             Streamer documentation
           </p>
           <h1 className="font-semibold text-4xl tracking-tight sm:text-6xl">
-            Your phone is the camera. OBS stays the studio.
+            Your phone goes live. OBS is optional.
           </h1>
           <p className="max-w-2xl text-fd-muted-foreground text-lg">
-            Sign in with Twitch or Kick, import a ready-made OBS scene
+            Sign in with Twitch, Kick, or Google, import a ready-made OBS scene
             collection, go live from a phone or browser, and control scenes
             remotely — without ever pasting a stream key.
           </p>
