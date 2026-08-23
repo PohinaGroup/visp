@@ -1,5 +1,3 @@
-import { trackActivationEvent } from "./activation-analytics";
-
 export const FIRST_LIVE_POLL_MS = 3_000;
 type DirectProvider = "twitch" | "kick" | "youtube";
 const DIRECT_PROVIDERS = ["twitch", "kick", "youtube"] as const;
@@ -21,10 +19,4 @@ export function firstLiveProvidersToTrack(
 		if (!path[provider] || path.state[provider] !== "live") return false;
 		return !tracked.has(provider);
 	});
-}
-
-export function trackFirstLiveProviders(providers: readonly DirectProvider[]) {
-	for (const provider of providers) {
-		trackActivationEvent("first_live", { provider });
-	}
 }

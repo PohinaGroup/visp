@@ -2,9 +2,11 @@ import { auth } from "@VISP/auth";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
+	DIRECT_PROVIDERS,
 	DirectError,
 	listDirectOutputs,
 	prepareDirect,
+	reportFirstLiveActivation,
 	saveDirectPreferences,
 	setDirectOutputs,
 	setYoutubeSettings,
@@ -413,6 +415,19 @@ export const relayRoutes = {
 					directError(error);
 				}
 			}),
+		trackFirstLive: relayProcedure
+			.input(
+				pathIdInput.extend({
+					provider: z.enum(DIRECT_PROVIDERS),
+				}),
+			)
+			.mutation(async ({ ctx, input }) =>
+				reportFirstLiveActivation(
+					ctx.relayUser.id,
+					input.pathId,
+					input.provider,
+				),
+			),
 	}),
 	secrets: router({
 		status: relayProcedure.query(({ ctx }) => ({

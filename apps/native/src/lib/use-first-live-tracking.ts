@@ -1,19 +1,31 @@
 import type { DirectProvider } from "@VISP/api/direct";
 import { useEffect, useRef } from "react";
 import type { DirectPath } from "../components/stream-settings-direct-section";
+import { apiClient } from "./backend";
 import {
 	FIRST_LIVE_POLL_MS,
 	firstLiveProvidersToTrack,
-	trackFirstLiveProviders,
 } from "./first-live-tracking";
+
+function trackFirstLiveProviders(
+	pathId: number,
+	providers: readonly DirectProvider[],
+) {
+	for (const provider of providers) {
+		void apiClient.direct.trackFirstLive
+			.mutate({ pathId, provider })
+			.catch(() => undefined);
+	}
+}
 
 /**
  * Native Go Live does not run the portal setup UI, and relay-side server
  * analytics can miss the activation funnel. Poll Direct state while streaming
- * and report first_live to the portal Rybbit site (site 2).
+ * and ask the API to emit first_live via the portal tracker (Rybbit site 2).
  */
 export function useFirstLiveTracking(
 	active: boolean,
+	pathId: number | undefined,
 	directPath: DirectPath | undefined,
 	refreshDirectOutputs: () => Promise<void>,
 ) {
@@ -26,13 +38,13 @@ export function useFirstLiveTracking(
 	}, [active]);
 
 	useEffect(() => {
-		if (!active) return;
+		if (!active || !pathId) return;
 		const pending = firstLiveProvidersToTrack(directPath, tracked.current);
 		if (pending.length > 0) {
 			for (const provider of pending) tracked.current.add(provider);
-			trackFirstLiveProviders(pending);
+			trackFirstLiveProviders(pathId, pending);
 		}
-	}, [active, directPath]);
+	}, [active, directPath, pathId]);
 
 	useEffect(() => {
 		if (!active) return;

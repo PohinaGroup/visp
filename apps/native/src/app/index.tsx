@@ -261,6 +261,7 @@ export default function Index() {
 	);
 	useFirstLiveTracking(
 		isStreamSession(state) && directProviders.length > 0,
+		publishPathId,
 		directPath,
 		refreshDirectOutputs,
 	);
