@@ -49,7 +49,7 @@ function Home() {
           <p className="max-w-2xl text-fd-muted-foreground text-lg">
             Kirjaudu Twitchillä tai Kickillä, tuo valmis OBS-kohtauskokoelma,
             aloita lähetys puhelimesta tai selaimesta ja ohjaa kohtauksia etänä
-            — antamatta lähetysavaintasi VISPille.
+            — liittämättä lähetysavainta puhelimeen.
           </p>
           <div className="flex flex-wrap gap-3">
             <DocsLink page="get-started">Aloita tästä</DocsLink>
