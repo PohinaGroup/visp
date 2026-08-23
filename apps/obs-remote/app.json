@@ -2,7 +2,7 @@
   "expo": {
     "name": "VISP OBS Remote",
     "slug": "obs-remote",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "obsremote",
