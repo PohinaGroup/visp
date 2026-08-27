@@ -99,6 +99,14 @@ struct account_presentation {
 	bool can_disconnect;
 };
 
+enum class output_setup_state { not_configured, configured, configured_device_missing };
+
+struct output_presentation {
+	output_setup_state state;
+	QString label;
+	bool can_configure;
+};
+
 static ticket_request_outcome classify_ticket_outcome(int status, bool transport_ok, bool valid_ticket)
 {
 	if (status == 401)
@@ -135,6 +143,21 @@ static account_presentation present_account(const QString &identity, bool has_cr
 		break;
 	}
 	return result;
+}
+
+static output_presentation present_output(qint64 output_path_id, const QList<publishing_device> &devices,
+					  bool has_credential, bool streaming)
+{
+	if (output_path_id <= 0)
+		return {output_setup_state::not_configured, "This OBS profile is not configured for VISP.",
+			has_credential && !streaming};
+	for (const publishing_device &device : devices) {
+		if (device.id == output_path_id)
+			return {output_setup_state::configured, QString("Publishing as %1.").arg(device.label),
+				has_credential && !streaming};
+	}
+	return {output_setup_state::configured_device_missing,
+		"The saved VISP output device is no longer available.", has_credential && !streaming};
 }
 
 static bool positive_integer(const QJsonValue &value, qint64 *result)
@@ -511,6 +534,15 @@ int main(void)
 	const account_presentation connected =
 		present_account("Connected as streamer", true, control_connection_state::connected);
 	CHECK(!connected.can_retry && connected.connection_message == "Live control connected.");
+	const QList<publishing_device> output_devices{{17, "Studio", false}};
+	const output_presentation absent = present_output(0, output_devices, true, false);
+	CHECK(absent.state == output_setup_state::not_configured && absent.can_configure);
+	const output_presentation matched = present_output(17, output_devices, true, false);
+	CHECK(matched.state == output_setup_state::configured && matched.label.contains("Studio"));
+	const output_presentation missing = present_output(23, output_devices, true, false);
+	CHECK(missing.state == output_setup_state::configured_device_missing);
+	CHECK(!present_output(0, output_devices, false, false).can_configure);
+	CHECK(!present_output(0, output_devices, true, true).can_configure);
 	struct control_response response = {};
 	CHECK(parse_control_response("{\"commandVersion\":7,\"desiredStreaming\":true,\"desiredScene\":\"Main \\\"台\\\"\",\"pollAfterMs\":2000}",
 				     &response));
@@ -952,19 +984,27 @@ public:
 		auto *account_group = new QGroupBox("Account");
 		account_group->setLayout(account_layout);
 
+		output_status.setWordWrap(true);
+		output_guidance.setWordWrap(true);
+		device_label.setText("OBS");
+		configure_output_button = new QPushButton("Use this OBS as an output");
+		connect(configure_output_button, &QPushButton::clicked, this, [this]() { create_output_device(); });
+		auto *output_action = new QHBoxLayout;
+		output_action->addWidget(&device_label, 1);
+		output_action->addWidget(configure_output_button);
+		auto *output_layout = new QVBoxLayout;
+		output_layout->addWidget(&output_status);
+		output_layout->addWidget(&output_guidance);
+		output_layout->addLayout(output_action);
+		auto *output_group = new QGroupBox("This OBS profile output");
+		output_group->setLayout(output_layout);
+
 		devices_layout = new QVBoxLayout(&devices_widget);
 		devices_layout->setContentsMargins(0, 0, 0, 0);
 		auto *scroll = new QScrollArea;
 		scroll->setWidget(&devices_widget);
 		scroll->setWidgetResizable(true);
 		scroll->setMinimumHeight(150);
-
-		device_label.setText("OBS");
-		auto *create_button = new QPushButton("Create and use as OBS output");
-		connect(create_button, &QPushButton::clicked, this, [this]() { create_output_device(); });
-		auto *create_row = new QHBoxLayout;
-		create_row->addWidget(&device_label, 1);
-		create_row->addWidget(create_button);
 
 		auto *form = new QFormLayout;
 		form->addRow("Control URL", &url);
@@ -985,7 +1025,10 @@ public:
 		connect(buttons, &QDialogButtonBox::accepted, this, [this]() { validate_and_accept(); });
 		connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 		connect(&auth_timer, &QTimer::timeout, this, [this]() { poll_device_token(); });
-		connect(&health_timer, &QTimer::timeout, this, [this]() { refresh_account_presentation(); });
+		connect(&health_timer, &QTimer::timeout, this, [this]() {
+			refresh_account_presentation();
+			refresh_output_presentation();
+		});
 		health_timer.start(250);
 
 		auto *layout = new QVBoxLayout(this);
@@ -994,15 +1037,15 @@ public:
 		intro->setWordWrap(true);
 		layout->addWidget(intro);
 		layout->addWidget(account_group);
+		layout->addWidget(output_group);
 		layout->addWidget(new QLabel("Publishing devices"));
 		layout->addWidget(scroll);
-		layout->addWidget(new QLabel("Create a publishing device for this OBS installation"));
-		layout->addLayout(create_row);
 		layout->addSpacing(8);
 		layout->addWidget(advanced_toggle);
 		layout->addWidget(advanced_widget);
 		layout->addWidget(buttons);
 		refresh_account_presentation();
+		refresh_output_presentation();
 
 		if (!settings.token.isEmpty())
 			QTimer::singleShot(0, this, [this]() { load_devices(); });
@@ -1034,6 +1077,25 @@ private:
 		sign_in_button->setEnabled(presentation.can_sign_in);
 		retry_button->setEnabled(presentation.can_retry);
 		disconnect_button->setEnabled(presentation.can_disconnect);
+	}
+
+	void refresh_output_presentation()
+	{
+		const bool has_credential = !token.text().trimmed().isEmpty();
+		const bool streaming = obs_frontend_streaming_active();
+		const output_presentation presentation =
+			present_output(output_path_id, loaded_devices, has_credential, streaming);
+		if (!devices_loaded && output_path_id > 0) {
+			output_status.setText("Checking the saved VISP output device...");
+		} else {
+			output_status.setText(presentation.label);
+		}
+		configure_output_button->setEnabled(presentation.can_configure);
+		output_guidance.setText(!has_credential
+					? "Sign in before configuring this profile's output."
+					: streaming
+						  ? "Stop streaming before replacing this profile's destination."
+						  : "This replaces the current profile's streaming destination.");
 	}
 
 	void retry_connection()
@@ -1076,25 +1138,29 @@ private:
 	void render_devices(const devices_response &response)
 	{
 		clear_devices();
+		loaded_devices = response.devices;
+		devices_loaded = true;
+		refresh_output_presentation();
 		set_account_status(QString("Connected as %1").arg(response.handle));
-		if (response.devices.isEmpty()) {
-			devices_layout->addWidget(new QLabel("No publishing devices yet."));
-			return;
-		}
+		bool rendered_device = false;
 		for (const publishing_device &device : response.devices) {
+			if (device.id == output_path_id)
+				continue;
+			rendered_device = true;
 			auto *row = new QWidget;
 			auto *row_layout = new QHBoxLayout(row);
 			row_layout->setContentsMargins(0, 0, 0, 0);
 			row_layout->addWidget(new QLabel(
 				QString("%1 — %2").arg(device.label, device.publishing ? "live" : "offline")),
 				1);
-			auto *button = new QPushButton(device.id == output_path_id ? "This OBS output" : "Add to scene");
-			button->setEnabled(device.id != output_path_id);
+			auto *button = new QPushButton("Add to scene");
 			connect(button, &QPushButton::clicked, this,
 				[this, id = device.id]() { request_media_source(id); });
 			row_layout->addWidget(button);
 			devices_layout->addWidget(row);
 		}
+		if (!rendered_device)
+			devices_layout->addWidget(new QLabel("No other publishing devices yet."));
 	}
 
 	void refresh_linked_media_sources(const QList<publishing_device> &devices)
@@ -1129,6 +1195,9 @@ private:
 		const plugin_config value = settings();
 		if (value.token.isEmpty() || !secure_url(value.control_url)) {
 			set_account_status("Sign in or enter a valid pairing token.");
+			loaded_devices.clear();
+			devices_loaded = false;
+			refresh_output_presentation();
 			clear_devices();
 			return;
 		}
@@ -1156,7 +1225,10 @@ private:
 		}
 		auth_timer.stop();
 		token.clear();
+		loaded_devices.clear();
+		devices_loaded = false;
 		clear_devices();
+		refresh_output_presentation();
 		set_account_status("Starting browser sign-in...");
 		send(endpoint_url(control_url, "/api/auth/device/code"), true,
 		     {{"client_id", "visp-obs"}, {"scope", "obs"}}, {},
@@ -1253,8 +1325,11 @@ private:
 		auth_timer.stop();
 		token.clear();
 		output_path_id = 0;
+		loaded_devices.clear();
+		devices_loaded = false;
 		clear_devices();
 		set_account_status({});
+		refresh_output_presentation();
 		persist_current_settings("OBS could not save the disconnected state.");
 	}
 
@@ -1339,6 +1414,9 @@ private:
 		url.setText(imported_url);
 		token.setText(imported_token);
 		output_path_id = 0;
+		loaded_devices.clear();
+		devices_loaded = false;
+		refresh_output_presentation();
 		load_devices();
 	}
 
@@ -1373,7 +1451,12 @@ private:
 	QPushButton *disconnect_button = nullptr;
 	QWidget devices_widget;
 	QVBoxLayout *devices_layout = nullptr;
+	QLabel output_status;
+	QLabel output_guidance;
 	QLineEdit device_label;
+	QPushButton *configure_output_button = nullptr;
+	QList<publishing_device> loaded_devices;
+	bool devices_loaded = false;
 	QNetworkAccessManager network;
 	QTimer auth_timer;
 	QTimer health_timer;
