@@ -102,6 +102,32 @@ const finnishUi: Record<string, string> = {
 	"Use a PNG or JPEG image": "Käytä PNG- tai JPEG-kuvaa",
 	"That image is over 5 MB": "Kuva on yli 5 Mt",
 	"Upload failed, try again": "Lataus epäonnistui, yritä uudelleen",
+	Highlights: "Kohokohdat",
+	"Upload highlights": "Lataa kohokohtia",
+	"Highlights will play on next BRB":
+		"Kohokohdat toistetaan seuraavalla BRB:llä",
+	"Still plays until you add clips":
+		"Still-kuva toistetaan, kunnes lisäät klippejä",
+	"Play clip audio": "Toista klipin ääni",
+	"Show BRB message on highlights": "Näytä BRB-viesti kohokohdissa",
+	"MP4 (H.264), up to 30 seconds and 25 MB. Max 5 clips.":
+		"MP4 (H.264), enintään 30 sekuntia ja 25 Mt. Enintään 5 klippiä.",
+	"That clip is over 30 seconds": "Klippi on yli 30 sekuntia",
+	"That clip is over 25 MB": "Klippi on yli 25 Mt",
+	"Use an MP4 (H.264) video": "Käytä MP4 (H.264) -videota",
+	"Highlights library is full (5 clips)":
+		"Kohokohtakirjasto on täynnä (5 klippiä)",
+	"Played {n} highlights": "Toistettiin {n} kohokohtaa",
+	"Highlights unavailable — showed still":
+		"Kohokohdat eivät olleet saatavilla — näytettiin still-kuva",
+	"Clip uploaded": "Klippi ladattu",
+	"Clip removed": "Klippi poistettu",
+	"Highlight order saved": "Kohokohtien järjestys tallennettu",
+	"Move up": "Siirrä ylös",
+	"Move down": "Siirrä alas",
+	Rename: "Nimeä uudelleen",
+	"Remove clip": "Poista klippi",
+	Enabled: "Käytössä",
 	"From your stream": "Lähetyksestäsi",
 	ago: "sitten",
 	"Your latest frame will be used once you have streamed once.":

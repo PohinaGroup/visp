@@ -1,6 +1,18 @@
 import "./test-env";
 
-import { brbTick, stopBrb } from "@VISP/api/brb";
+import {
+	brbHighlightKey,
+	brbHighlightUploadKey,
+	brbTick,
+	confirmBrbHighlightUpload,
+	deleteBrbHighlight,
+	getBrbHighlightUploadUrl,
+	MAX_BRB_HIGHLIGHT_BYTES,
+	reorderBrbHighlights,
+	setBrbHighlightPrefs,
+	stopBrb,
+	updateBrbHighlight,
+} from "@VISP/api/brb";
 import {
 	publishInvalidation,
 	subscribeInvalidations,
@@ -53,6 +65,7 @@ import {
 } from "@VISP/api/relay";
 import { chooseRelay, ensureDefaultRelay } from "@VISP/api/relays";
 import { appRouter } from "@VISP/api/routers/index";
+import { resetRelayMutationLimitForTests } from "@VISP/api/routers/relay";
 import { listSnapshots, snapshotKey } from "@VISP/api/snapshots";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
@@ -60,6 +73,7 @@ import {
 	account,
 	appUser,
 	session as authSession,
+	brbHighlight,
 	chatBotAlert,
 	chatConnection,
 	directDestination,
@@ -70,7 +84,7 @@ import {
 	user,
 } from "@VISP/db/schema/index";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { eq, ne } from "drizzle-orm";
+import { eq, ne, sql } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
 import { nodeAdapter } from "./node-adapter";
@@ -79,6 +93,57 @@ import { obsLiveRoutes } from "./obs-live";
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
 const originalFetch = globalThis.fetch;
 const app = new Elysia().use(machineRoutes);
+const highlightUploadId = "10000000-0000-4000-8000-000000000001";
+
+function validHighlightMp4() {
+	const box = (type: string, ...parts: Uint8Array[]) => {
+		const size = 8 + parts.reduce((total, part) => total + part.length, 0);
+		const bytes = new Uint8Array(size);
+		new DataView(bytes.buffer).setUint32(0, size);
+		bytes.set(new TextEncoder().encode(type), 4);
+		let offset = 8;
+		for (const part of parts) {
+			bytes.set(part, offset);
+			offset += part.length;
+		}
+		return bytes;
+	};
+	const concat = (...parts: Uint8Array[]) => {
+		const bytes = new Uint8Array(
+			parts.reduce((total, part) => total + part.length, 0),
+		);
+		let offset = 0;
+		for (const part of parts) {
+			bytes.set(part, offset);
+			offset += part.length;
+		}
+		return bytes;
+	};
+	const mvhd = new Uint8Array(24);
+	new DataView(mvhd.buffer).setUint32(12, 1000);
+	new DataView(mvhd.buffer).setUint32(16, 750);
+	const tkhd = new Uint8Array(84);
+	new DataView(tkhd.buffer).setUint32(76, 1280 << 16);
+	new DataView(tkhd.buffer).setUint32(80, 720 << 16);
+	const entry = box(
+		"avc1",
+		new Uint8Array(78),
+		box("avcC", new Uint8Array([1, 100, 0, 40, 255, 225, 0])),
+	);
+	const stsd = concat(new Uint8Array(4), new Uint8Array([0, 0, 0, 1]), entry);
+	return concat(
+		box("ftyp", new TextEncoder().encode("isom")),
+		box(
+			"moov",
+			box("mvhd", mvhd),
+			box(
+				"trak",
+				box("tkhd", tkhd),
+				box("mdia", box("minf", box("stbl", box("stsd", stsd)))),
+			),
+		),
+	);
+}
 
 async function seed() {
 	const publishA = "publish-a";
@@ -171,6 +236,7 @@ function machineAuth(input: {
 integration("relay PostgreSQL integration", () => {
 	beforeEach(async () => {
 		clearAuthCacheForTests();
+		resetRelayMutationLimitForTests();
 		await db.delete(user);
 		await ensureDefaultRelay();
 	});
@@ -1648,6 +1714,7 @@ integration("relay PostgreSQL integration", () => {
 integration("VISP Direct boundaries", () => {
 	beforeEach(async () => {
 		clearAuthCacheForTests();
+		resetRelayMutationLimitForTests();
 		await db.delete(user);
 		await ensureDefaultRelay();
 	});
@@ -1678,6 +1745,7 @@ integration("VISP Direct boundaries", () => {
 		await db.insert(account).values([
 			{
 				id: "direct-twitch-a",
+				accessToken: "provider-token",
 				accountId: "tw-a",
 				providerId: "twitch",
 				scope: "user:read:email openid channel:read:stream_key",
@@ -1685,6 +1753,7 @@ integration("VISP Direct boundaries", () => {
 			},
 			{
 				id: "direct-kick-a",
+				accessToken: "provider-token",
 				accountId: "42",
 				providerId: "kick",
 				scope: "user:read channel:write streamkey:read channel:read",
@@ -1933,6 +2002,7 @@ integration("VISP Direct boundaries", () => {
 
 	test("keeps old relay output compatible while v2 carries portrait geometry", async () => {
 		const data = await seedDirect();
+		globalThis.fetch = providerFetch;
 		await db
 			.update(appUser)
 			.set({ directDualOutput: true })
@@ -2516,7 +2586,7 @@ integration("VISP Direct boundaries", () => {
 		await prepareDirect("user-a", data.pathA.id);
 		await db
 			.update(pathState)
-			.set({ directTwitchReservedUntil: new Date(Date.now() - 1) })
+			.set({ directTwitchReservedUntil: sql`now() - interval '1 second'` })
 			.where(eq(pathState.pathId, data.pathA.id));
 
 		expect((await prepareDirect("user-b", data.pathB.id)).outputs).toEqual([
@@ -2618,6 +2688,7 @@ integration("VISP Direct boundaries", () => {
 			message: "Back in five",
 			backgroundUrl: "https://objects.test/signed",
 			source: "snapshot",
+			highlights: null,
 		});
 		const state = await stateFor(data.pathA.id);
 		expect(state?.directTwitchState).toBe("brb");
@@ -2626,6 +2697,763 @@ integration("VISP Direct boundaries", () => {
 		expect(state?.directTwitchReservedUntil?.getTime()).toBeGreaterThan(
 			Date.now(),
 		);
+	});
+
+	test("a drop snapshots enabled highlights and their preferences", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({
+				brbHighlights: true,
+				brbHighlightsMuted: true,
+				brbHighlightsOverlay: false,
+			})
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(brbHighlight).values({
+			id: "clip-a",
+			userId: "user-a",
+			storageKey: "brb/user-a/highlights/clip-a.mp4",
+			filename: "clip.mp4",
+			label: "Clip",
+			durationMs: 10_000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1920,
+			height: 1080,
+			checksum: "a".repeat(64),
+			position: 0,
+		});
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		expect((await stateFor(data.pathA.id))?.brbHighlightsResultAt).toBeNull();
+		const tick = await brbTick("alpha-1", "twitch", {
+			presign: async (key) => `https://objects.test/${key}`,
+		});
+
+		expect(tick).toMatchObject({
+			stop: false,
+			highlights: {
+				clips: [
+					{
+						id: "clip-a",
+						durationMs: 10_000,
+						url: "https://objects.test/brb/user-a/highlights/clip-a.mp4",
+					},
+				],
+				muted: true,
+				overlay: false,
+			},
+		});
+		await db
+			.update(brbHighlight)
+			.set({ enabled: false })
+			.where(eq(brbHighlight.id, "clip-a"));
+		const frozen = await brbTick("alpha-1", "twitch", {
+			presign: async () => "kept",
+		});
+		expect(frozen.stop ? null : frozen.highlights).toEqual({
+			clips: [{ id: "clip-a", durationMs: 10_000, url: "kept" }],
+			muted: true,
+			overlay: false,
+		});
+
+		const headers = {
+			"content-type": "application/json",
+			"x-hook-secret": process.env.HOOK_SECRET ?? "",
+		};
+		const response = await app.handle(
+			new Request("http://localhost/api/hooks/brb", {
+				method: "POST",
+				headers,
+				body: JSON.stringify({ path: "alpha-1", provider: "twitch" }),
+			}),
+		);
+		const fields = (await response.text()).trim().split(" ");
+		expect(fields[0]).toBe("highlights");
+		expect(Buffer.from(fields[2] ?? "", "base64").toString()).toContain(
+			"1 0\n",
+		);
+		const played = (ordinal: number) =>
+			app.handle(
+				new Request("http://localhost/api/hooks/brb-played", {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ path: "alpha-1", ordinal }),
+				}),
+			);
+		await played(1);
+		await played(1);
+		await played(3);
+		await played(2);
+		expect((await stateFor(data.pathA.id))?.brbHighlightsPlayed).toBe(3);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		expect(
+			(await stateFor(data.pathA.id))?.brbHighlightsResultAt,
+		).toBeInstanceOf(Date);
+	});
+
+	test("a failed hold snapshot rolls back its claim and retries with a fresh snapshot", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(brbHighlight).values({
+			id: "fresh",
+			userId: "user-a",
+			storageKey: "brb/user-a/highlights/fresh.mp4",
+			filename: "fresh.mp4",
+			label: "Fresh",
+			durationMs: 1000,
+			byteSize: 100,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "f".repeat(64),
+			position: 0,
+		});
+		await db
+			.update(pathState)
+			.set({
+				brbHighlightsSnapshot: {
+					clips: [{ id: "stale", key: "stale.mp4", durationMs: 500 }],
+					muted: true,
+					overlay: false,
+				},
+			})
+			.where(eq(pathState.pathId, data.pathA.id));
+		await db.execute(
+			sql.raw(`
+				create function test_fail_brb_snapshot() returns trigger language plpgsql as $$
+				begin
+					raise exception 'snapshot failed';
+				end $$;
+				create trigger test_fail_brb_snapshot
+				before update of brb_highlights_snapshot on path_state
+				for each row when (new.brb_since is not null)
+				execute function test_fail_brb_snapshot();
+			`),
+		);
+		try {
+			let failure: unknown;
+			try {
+				await applyPathHook("not-ready", { path: "alpha-1" });
+			} catch (error) {
+				failure = error;
+			}
+			expect((failure as { cause?: Error }).cause?.message).toContain(
+				"snapshot failed",
+			);
+			const failed = await stateFor(data.pathA.id);
+			expect(failed?.brbSince).toBeNull();
+			expect(failed?.brbHighlightsSnapshot?.clips[0]?.id).toBe("stale");
+		} finally {
+			await db.execute(
+				sql.raw("drop trigger test_fail_brb_snapshot on path_state"),
+			);
+			await db.execute(sql.raw("drop function test_fail_brb_snapshot()"));
+		}
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const retried = await stateFor(data.pathA.id);
+		expect(retried?.brbSince).toBeInstanceOf(Date);
+		expect(retried?.brbHighlightsSnapshot?.clips.map(({ id }) => id)).toEqual([
+			"fresh",
+		]);
+	});
+
+	test("a flag-off hold clears the previous hold snapshot", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(pathState)
+			.set({
+				brbHighlightsSnapshot: {
+					clips: [{ id: "old", key: "old.mp4", durationMs: 500 }],
+					muted: false,
+					overlay: true,
+				},
+			})
+			.where(eq(pathState.pathId, data.pathA.id));
+		await db
+			.update(appUser)
+			.set({ brbHighlights: false })
+			.where(eq(appUser.id, "user-a"));
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeInstanceOf(Date);
+		expect(state?.brbHighlightsSnapshot).toBeNull();
+	});
+
+	test("empty, disabled, and flag-off libraries keep the still fallback", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const empty = await brbTick("alpha-1", "twitch", {
+			presign: async () => "unused",
+		});
+		expect(empty.stop ? undefined : empty.highlights).toBeNull();
+		await applyPathHook("ready", { path: "alpha-1" });
+		await db.insert(brbHighlight).values({
+			id: "disabled",
+			userId: "user-a",
+			storageKey: "brb/user-a/highlights/disabled.mp4",
+			filename: "disabled.mp4",
+			label: "Disabled",
+			durationMs: 1000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "d".repeat(64),
+			position: 0,
+			enabled: false,
+		});
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const disabled = await brbTick("alpha-1", "twitch", {
+			presign: async () => "unused",
+		});
+		expect(disabled.stop ? undefined : disabled.highlights).toBeNull();
+		await applyPathHook("ready", { path: "alpha-1" });
+		await db
+			.update(brbHighlight)
+			.set({ enabled: true })
+			.where(eq(brbHighlight.id, "disabled"));
+		await db
+			.update(appUser)
+			.set({ brbHighlights: false })
+			.where(eq(appUser.id, "user-a"));
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const flagOff = await brbTick("alpha-1", "twitch", {
+			presign: async () => "unused",
+		});
+		expect(flagOff.stop ? undefined : flagOff.highlights).toBeNull();
+		expect((await stateFor(data.pathA.id))?.brbHighlightsSnapshot).toBeNull();
+	});
+
+	test("highlight preference patches do not overwrite a concurrent toggle", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+
+		await Promise.all([
+			setBrbHighlightPrefs("user-a", { muted: true }),
+			setBrbHighlightPrefs("user-a", { overlay: false }),
+		]);
+
+		const row = await db.query.appUser.findFirst({
+			where: eq(appUser.id, "user-a"),
+		});
+		expect(row).toMatchObject({
+			brbHighlightsMuted: true,
+			brbHighlightsOverlay: false,
+		});
+	});
+
+	test("highlight CRUD stays account-scoped and enforces the five-clip limit", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-b"));
+		const clips = Array.from({ length: 5 }, (_, position) => ({
+			id: `clip-${position}`,
+			userId: "user-a",
+			storageKey: `brb/user-a/highlights/clip-${position}.mp4`,
+			filename: `clip-${position}.mp4`,
+			label: `Clip ${position}`,
+			durationMs: 10_000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1920,
+			height: 1080,
+			checksum: String(position).repeat(64),
+			position,
+		}));
+		await db.insert(brbHighlight).values(clips);
+		await expect(
+			getBrbHighlightUploadUrl("user-a", { presign: async () => "unused" }),
+		).rejects.toThrow("full");
+
+		expect(
+			await updateBrbHighlight("user-a", "clip-0", {
+				label: "Opening",
+				enabled: false,
+			}),
+		).toMatchObject({ label: "Opening", enabled: false });
+		await reorderBrbHighlights("user-a", clips.map(({ id }) => id).reverse());
+		expect(
+			(
+				await db.query.brbHighlight.findMany({
+					where: eq(brbHighlight.userId, "user-a"),
+					orderBy: (clip, { asc }) => asc(clip.position),
+				})
+			).map(({ id }) => id),
+		).toEqual(clips.map(({ id }) => id).reverse());
+		const deleted: string[] = [];
+		await expect(
+			deleteBrbHighlight("user-a", "clip-0", {
+				delete: async () => {
+					throw new Error("storage unavailable");
+				},
+			}),
+		).rejects.toThrow("storage unavailable");
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, "clip-0"),
+			}),
+		).toBeDefined();
+		expect(
+			await deleteBrbHighlight("user-a", "clip-0", {
+				delete: async (key) => void deleted.push(key),
+			}),
+		).toBe(true);
+		expect(deleted).toEqual(["brb/user-a/highlights/clip-0.mp4"]);
+		expect(
+			await updateBrbHighlight("user-b", "clip-1", { enabled: false }),
+		).toBeNull();
+	});
+
+	test("upload URLs target a temporary key, never the immutable relay key", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		let key = "";
+
+		const target = await getBrbHighlightUploadUrl("user-a", {
+			presign: async (value) => {
+				key = value;
+				return "https://object.test/upload";
+			},
+		});
+
+		expect(key).toBe(
+			brbHighlightUploadKey("user-a", target.id, target.uploadId),
+		);
+		expect(key).not.toBe(brbHighlightKey("user-a", target.id));
+	});
+
+	test("confirm reads and persists actual MP4 metadata instead of the browser claim", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const deleted: string[] = [];
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		const clip = await confirmBrbHighlightUpload(
+			"user-a",
+			{
+				id: "00000000-0000-4000-8000-000000000001",
+				uploadId: highlightUploadId,
+				filename: "real.mp4",
+				label: "Real",
+			},
+			{
+				stat: async () => ({
+					lastModified: new Date(),
+					byteSize: bytes.length,
+					contentType: "video/mp4",
+				}),
+				presign: async () => "https://object.test/real.mp4",
+				copy: async () => undefined,
+				delete: async (key) => void deleted.push(key),
+			},
+		);
+		expect(clip).toMatchObject({
+			durationMs: 750,
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			byteSize: bytes.length,
+			contentType: "video/mp4",
+		});
+		expect(clip?.checksum).toMatch(/^[a-f\d]{64}$/);
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+		]);
+		const retry = await confirmBrbHighlightUpload(
+			"user-a",
+			{
+				id: clip?.id ?? "",
+				uploadId: highlightUploadId,
+				filename: "retry.mp4",
+			},
+			{
+				stat: async () => {
+					throw new Error("retry cannot reach object storage");
+				},
+				presign: async () => "unused",
+				copy: async () => undefined,
+				delete: async (key) => void deleted.push(key),
+			},
+		);
+		expect(retry?.id).toBe(clip?.id);
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+		]);
+	});
+
+	test("a stale upload can neither overwrite nor recreate confirmed media", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const id = "00000000-0000-4000-8000-000000000010";
+		const temporary = brbHighlightUploadKey("user-a", id, highlightUploadId);
+		const final = brbHighlightKey("user-a", id);
+		const objects = new Map<string, Uint8Array>([[temporary, bytes]]);
+		let reading = temporary;
+		globalThis.fetch = Object.assign(
+			async () => new Response(objects.get(reading)),
+			{ preconnect: originalFetch.preconnect },
+		);
+		const client = {
+			stat: async (key: string) => ({
+				lastModified: new Date(),
+				byteSize: objects.get(key)?.length ?? 0,
+				contentType: "video/mp4",
+			}),
+			presign: async (key: string) => {
+				reading = key;
+				return `https://object.test/${key}`;
+			},
+			copy: async (source: string, destination: string) => {
+				const value = objects.get(source);
+				if (!value) throw new Error("missing source");
+				objects.set(destination, value.slice());
+			},
+			delete: async (key: string) => void objects.delete(key),
+		};
+
+		await confirmBrbHighlightUpload(
+			"user-a",
+			{ id, uploadId: highlightUploadId },
+			client,
+		);
+		expect(objects.get(final)).toEqual(bytes);
+		objects.set(temporary, new Uint8Array([1, 2, 3]));
+		expect(objects.get(final)).toEqual(bytes);
+
+		await deleteBrbHighlight("user-a", id, client);
+		objects.set(temporary, bytes);
+		await expect(
+			confirmBrbHighlightUpload(
+				"user-a",
+				{ id, uploadId: highlightUploadId },
+				client,
+			),
+		).rejects.toThrow("expired");
+		expect(objects.has(final)).toBe(false);
+	});
+
+	test("confirm rejects an upload changed while it is promoted", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const changed = new Uint8Array([1, 2, 3]);
+		const id = "00000000-0000-4000-8000-000000000011";
+		const temporary = brbHighlightUploadKey("user-a", id, highlightUploadId);
+		const final = brbHighlightKey("user-a", id);
+		const objects = new Map<string, Uint8Array>([[temporary, bytes]]);
+		let reading = temporary;
+		globalThis.fetch = Object.assign(
+			async () => new Response(objects.get(reading)),
+			{ preconnect: originalFetch.preconnect },
+		);
+		const client = {
+			stat: async (key: string) => ({
+				lastModified: new Date(),
+				byteSize: objects.get(key)?.length ?? 0,
+				contentType: "video/mp4",
+			}),
+			presign: async (key: string) => {
+				reading = key;
+				return `https://object.test/${key}`;
+			},
+			copy: async (_source: string, destination: string) => {
+				objects.set(destination, changed);
+			},
+			delete: async (key: string) => void objects.delete(key),
+		};
+
+		await expect(
+			confirmBrbHighlightUpload(
+				"user-a",
+				{ id, uploadId: highlightUploadId },
+				client,
+			),
+		).rejects.toThrow();
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, id),
+			}),
+		).toBeUndefined();
+		expect(objects.has(final)).toBe(false);
+	});
+
+	test("deleting a frozen clip defers its blob until the hold ends", async () => {
+		await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const key = "brb/user-a/highlights/active.mp4";
+		await db.insert(brbHighlight).values({
+			id: "active",
+			userId: "user-a",
+			storageKey: key,
+			filename: "active.mp4",
+			label: "Active",
+			durationMs: 1000,
+			byteSize: 100,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "a".repeat(64),
+			position: 0,
+		});
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const deleted: string[] = [];
+		const client = {
+			delete: async (value: string) => void deleted.push(value),
+		};
+
+		expect(await deleteBrbHighlight("user-a", "active", client)).toBe(true);
+		expect(deleted).toEqual([]);
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, "active"),
+			}),
+		).toMatchObject({ deletedAt: expect.any(Date), enabled: false });
+		const tick = await brbTick("alpha-1", "twitch", {
+			presign: async () => "https://object.test/active.mp4",
+		});
+		expect(tick.stop ? null : tick.highlights?.clips[0]?.id).toBe("active");
+
+		await applyPathHook(
+			"ready",
+			{ path: "alpha-1", sourceType: "srtConn" },
+			client,
+		);
+		expect(deleted).toEqual([key]);
+	});
+
+	test("confirm allocates after the highest position when a middle clip was deleted", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(brbHighlight).values(
+			[0, 1, 2].map((position) => ({
+				id: `existing-${position}`,
+				userId: "user-a",
+				storageKey: `brb/user-a/highlights/existing-${position}.mp4`,
+				filename: `existing-${position}.mp4`,
+				label: `Existing ${position}`,
+				durationMs: 1000,
+				byteSize: 100,
+				contentType: "video/mp4",
+				codec: "avc1",
+				width: 1280,
+				height: 720,
+				checksum: String(position).repeat(64),
+				position,
+			})),
+		);
+		await deleteBrbHighlight("user-a", "existing-1", {
+			delete: async () => undefined,
+		});
+		const bytes = validHighlightMp4();
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		const clip = await confirmBrbHighlightUpload(
+			"user-a",
+			{
+				id: "00000000-0000-4000-8000-000000000003",
+				uploadId: highlightUploadId,
+			},
+			{
+				stat: async () => ({
+					lastModified: new Date(),
+					byteSize: bytes.length,
+					contentType: "video/mp4",
+				}),
+				presign: async () => "https://object.test/position.mp4",
+				copy: async () => undefined,
+				delete: async () => undefined,
+			},
+		);
+		expect(clip?.position).toBe(3);
+		expect(
+			(
+				await db.query.brbHighlight.findMany({
+					where: eq(brbHighlight.userId, "user-a"),
+				})
+			).map(({ position }) => position),
+		).toEqual(expect.arrayContaining([0, 2, 3]));
+	});
+
+	test("confirm performs object I/O before locking and rechecks deletion before insert", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const deleted: string[] = [];
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		await expect(
+			confirmBrbHighlightUpload(
+				"user-a",
+				{
+					id: "00000000-0000-4000-8000-000000000002",
+					uploadId: highlightUploadId,
+				},
+				{
+					stat: async () => {
+						await db
+							.update(appUser)
+							.set({ brbHighlightsDeleting: true })
+							.where(eq(appUser.id, "user-a"));
+						return {
+							lastModified: new Date(),
+							byteSize: bytes.length,
+							contentType: "video/mp4",
+						};
+					},
+					presign: async () => "https://object.test/race.mp4",
+					copy: async () => undefined,
+					delete: async (key) => void deleted.push(key),
+				},
+			),
+		).rejects.toThrow("not enabled");
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000002",
+				highlightUploadId,
+			),
+			brbHighlightKey("user-a", "00000000-0000-4000-8000-000000000002"),
+		]);
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, "00000000-0000-4000-8000-000000000002"),
+			}),
+		).toBeUndefined();
+	});
+
+	test("confirm rejects oversize, flag-revoked, and deleting-account uploads and cleans up", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const deleted: string[] = [];
+		let presigned = false;
+		const bytes = validHighlightMp4();
+		let byteSize = MAX_BRB_HIGHLIGHT_BYTES + 1;
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		const client = {
+			stat: async () => ({
+				lastModified: new Date(),
+				byteSize,
+				contentType: "video/mp4",
+			}),
+			presign: async () => {
+				presigned = true;
+				return "unused";
+			},
+			copy: async () => undefined,
+			delete: async (key: string) => void deleted.push(key),
+		};
+		const metadata = {
+			id: "00000000-0000-4000-8000-000000000001",
+			uploadId: highlightUploadId,
+			filename: "clip.mp4",
+			label: "Clip",
+			durationMs: 1000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "a".repeat(64),
+		};
+		await expect(
+			confirmBrbHighlightUpload("user-a", metadata, client),
+		).rejects.toThrow("25 MB");
+		expect(presigned).toBe(false);
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+			brbHighlightKey("user-a", "00000000-0000-4000-8000-000000000001"),
+		]);
+		await db
+			.update(appUser)
+			.set({ brbHighlights: false })
+			.where(eq(appUser.id, "user-a"));
+		byteSize = bytes.length;
+		await expect(
+			confirmBrbHighlightUpload("user-a", metadata, client),
+		).rejects.toThrow("not enabled");
+		expect(deleted).toHaveLength(4);
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true, brbHighlightsDeleting: true })
+			.where(eq(appUser.id, "user-a"));
+		await expect(
+			confirmBrbHighlightUpload("user-a", metadata, client),
+		).rejects.toThrow("not enabled");
+		expect(presigned).toBe(true);
+		expect(deleted).toHaveLength(6);
 	});
 
 	test("the dashboard stop ends the card on the next tick", async () => {
@@ -2670,6 +3498,29 @@ integration("VISP Direct boundaries", () => {
 		// A stale marker would put the next drop straight past the ceiling.
 		expect((await stateFor(data.pathA.id))?.brbSince).toBeNull();
 		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
+	});
+
+	test("ready records a hold that becomes active after its initial path read", async () => {
+		const data = await seedLiveBrb();
+		let ready: Promise<boolean> | undefined;
+		await db.transaction(async (tx) => {
+			await tx.execute(
+				sql`select 1 from ${pathState} where ${pathState.pathId} = ${data.pathA.id} for update`,
+			);
+			ready = applyPathHook("ready", {
+				path: "alpha-1",
+				sourceType: "srtConn",
+			});
+			await Bun.sleep(50);
+			await tx
+				.update(pathState)
+				.set({ brbSince: new Date() })
+				.where(eq(pathState.pathId, data.pathA.id));
+		});
+		expect(await ready).toBe(true);
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeNull();
+		expect(state?.brbHighlightsResultAt).toBeInstanceOf(Date);
 	});
 
 	test("a reconnect does not resolve a provider the relay still holds", async () => {

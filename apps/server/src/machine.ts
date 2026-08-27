@@ -1,5 +1,5 @@
 import { type AdvisoryLock, tryAdvisoryLock } from "@VISP/api/advisory-lock";
-import { brbTick } from "@VISP/api/brb";
+import { brbTick, recordBrbHighlightPlayed } from "@VISP/api/brb";
 import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
@@ -339,11 +339,23 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				// One line, same plain-text contract as direct-destinations. The
 				// message is base64 so it survives the field split and never
 				// reaches a shell word on the relay.
+				const message = tick.stop
+					? ""
+					: Buffer.from(tick.message, "utf8").toString("base64");
 				const line = tick.stop
 					? "stop\n"
-					: `brb ${Buffer.from(tick.message, "utf8").toString("base64")} ${
-							tick.backgroundUrl ?? "-"
-						} ${tick.source}\n`;
+					: tick.highlights
+						? `highlights ${message} ${Buffer.from(
+								`${tick.highlights.muted ? 1 : 0} ${tick.highlights.overlay ? 1 : 0}\n${tick.highlights.clips
+									.map(
+										({ id, durationMs, url }) => `${id} ${durationMs} ${url}`,
+									)
+									.join("\n")}`,
+								"utf8",
+							).toString(
+								"base64",
+							)} ${tick.backgroundUrl ?? "-"} ${tick.source}\n`
+						: `brb ${message} ${tick.backgroundUrl ?? "-"} ${tick.source}\n`;
 				return new Response(line, {
 					headers: { "Content-Type": "text/plain; charset=utf-8" },
 				});
@@ -374,6 +386,26 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
 				role: t.Union([t.Literal("landscape"), t.Literal("portrait")]),
 				filter: t.Optional(t.String({ maxLength: 512 })),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/brb-played",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				await recordBrbHighlightPlayed(body.path, body.ordinal);
+				return status(204);
+			} catch {
+				return status(503, "BRB analytics unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				ordinal: t.Integer({ minimum: 1, maximum: 2_000_000_000 }),
 			}),
 		},
 	)

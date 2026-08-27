@@ -1,7 +1,18 @@
 import { db } from "@VISP/db";
-import { appUser, pathState, relayPath } from "@VISP/db/schema/index";
+import {
+	appUser,
+	brbHighlight,
+	pathState,
+	relayPath,
+} from "@VISP/db/schema/index";
 import type { ObjectStore } from "@VISP/object-store";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
+import {
+	cleanupDeletedBrbHighlightsForUser,
+	MAX_BRB_HIGHLIGHT_BYTES,
+	MAX_BRB_HIGHLIGHT_DURATION_MS,
+	MAX_BRB_HIGHLIGHTS,
+} from "./brb-highlights";
 import { announceStreamEvent } from "./chat/alerts";
 import {
 	type DirectProvider,
@@ -9,6 +20,24 @@ import {
 	stopDirectForPaths,
 } from "./direct";
 import { snapshotKey, snapshotReads, snapshotUploads } from "./snapshots";
+
+export {
+	brbHighlightKey,
+	brbHighlightUploadKey,
+	cleanupDeletedBrbHighlightsForPath,
+	cleanupDeletedBrbHighlightsForUser,
+	confirmBrbHighlightUpload,
+	deleteBrbHighlight,
+	getBrbHighlightUploadUrl,
+	inspectBrbHighlightMp4,
+	MAX_BRB_HIGHLIGHT_BYTES,
+	MAX_BRB_HIGHLIGHT_DURATION_MS,
+	MAX_BRB_HIGHLIGHTS,
+	reorderBrbHighlights,
+	setBrbHighlightPrefs,
+	updateBrbHighlight,
+	validateBrbHighlight,
+} from "./brb-highlights";
 
 export const BRB_SOURCES = ["snapshot", "image", "color"] as const;
 export type BrbSource = (typeof BRB_SOURCES)[number];
@@ -40,6 +69,12 @@ export type BrbImageType = keyof typeof BRB_IMAGE_TYPES;
 export function brbImageKey(userId: string, type: BrbImageType) {
 	return `brb/${userId}.${BRB_IMAGE_TYPES[type]}`;
 }
+
+type HighlightSnapshot = {
+	clips: { id: string; key: string; durationMs: number }[];
+	muted: boolean;
+	overlay: boolean;
+};
 
 export type BrbCandidate = {
 	pathId: number;
@@ -151,14 +186,75 @@ export async function handleSourceGone(
 	);
 	const holding = new Set(brbIds);
 	if (brbIds.length > 0) {
-		// Only rows entering BRB now. Skipping the ones that already have a time
-		// keeps the original drop time across the reconciler's re-runs, exactly
-		// as the old coalesce did, and makes the returned ids the real drops.
-		const entered = await db
-			.update(pathState)
-			.set({ brbSince: sql`now()` })
-			.where(and(inArray(pathState.pathId, brbIds), isNull(pathState.brbSince)))
-			.returning({ pathId: pathState.pathId });
+		const entered = await db.transaction(async (tx) => {
+			const owners = await tx
+				.select({
+					pathId: relayPath.id,
+					userId: relayPath.userId,
+					enabled: appUser.brbHighlights,
+					muted: appUser.brbHighlightsMuted,
+					overlay: appUser.brbHighlightsOverlay,
+				})
+				.from(relayPath)
+				.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+				.where(inArray(relayPath.id, brbIds));
+			for (const userId of [
+				...new Set(owners.map(({ userId }) => userId)),
+			].sort()) {
+				await tx.execute(
+					sql`select pg_advisory_xact_lock(hashtext(${userId}))`,
+				);
+			}
+			const clips = await tx
+				.select({
+					id: brbHighlight.id,
+					userId: brbHighlight.userId,
+					key: brbHighlight.storageKey,
+					durationMs: brbHighlight.durationMs,
+				})
+				.from(brbHighlight)
+				.where(
+					and(
+						inArray(
+							brbHighlight.userId,
+							owners.map(({ userId }) => userId),
+						),
+						eq(brbHighlight.enabled, true),
+						isNull(brbHighlight.deletedAt),
+					),
+				)
+				.orderBy(asc(brbHighlight.position));
+			const claimed: { pathId: number }[] = [];
+			for (const owner of owners) {
+				const snapshot: HighlightSnapshot | null = owner.enabled
+					? {
+							clips: clips
+								.filter(({ userId }) => userId === owner.userId)
+								.map(({ id, key, durationMs }) => ({ id, key, durationMs })),
+							muted: owner.muted,
+							overlay: owner.overlay,
+						}
+					: null;
+				claimed.push(
+					...(await tx
+						.update(pathState)
+						.set({
+							brbSince: sql`now()`,
+							brbHighlightsSnapshot: snapshot,
+							brbHighlightsPlayed: 0,
+							brbHighlightsResultAt: null,
+						})
+						.where(
+							and(
+								eq(pathState.pathId, owner.pathId),
+								isNull(pathState.brbSince),
+							),
+						)
+						.returning({ pathId: pathState.pathId })),
+				);
+			}
+			return claimed;
+		});
 		for (const row of entered) void announceStreamEvent(row.pathId, "brb");
 	}
 	// Ids with no row at all (deleted path) belong to the hard-stop side too.
@@ -175,6 +271,11 @@ export type BrbTick =
 			message: string;
 			backgroundUrl: string | null;
 			source: BrbSource;
+			highlights: {
+				clips: { id: string; url: string; durationMs: number }[];
+				muted: boolean;
+				overlay: boolean;
+			} | null;
 	  };
 
 /**
@@ -198,6 +299,7 @@ export async function brbTick(
 			imageKey: appUser.brbImageKey,
 			providerEnabled: PROVIDER_ENABLED[provider],
 			brbSince: pathState.brbSince,
+			highlights: pathState.brbHighlightsSnapshot,
 		})
 		.from(relayPath)
 		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
@@ -247,6 +349,25 @@ export async function brbTick(
 				.presign(key, { expiresIn: BACKGROUND_URL_TTL_S, method: "GET" })
 				.catch(() => null)
 		: null;
+	const snapshot = row.highlights as HighlightSnapshot | null;
+	const highlightClips = snapshot?.clips.length
+		? (
+				await Promise.all(
+					snapshot.clips.map(async ({ id, key, durationMs }) => {
+						const url = await client
+							.presign(key, {
+								expiresIn: BACKGROUND_URL_TTL_S,
+								method: "GET",
+							})
+							.catch(() => null);
+						return url ? { id, url, durationMs } : null;
+					}),
+				)
+			).filter(
+				(clip): clip is { id: string; url: string; durationMs: number } =>
+					clip !== null,
+			)
+		: [];
 
 	return {
 		stop: false,
@@ -255,6 +376,14 @@ export async function brbTick(
 		// The relay needs the source, not just the URL: "snapshot" is what makes
 		// it prefer its own local grab over the round trip, and what blurs the card.
 		source: row.source as BrbSource,
+		highlights:
+			snapshot && highlightClips.length > 0
+				? {
+						clips: highlightClips,
+						muted: snapshot.muted,
+						overlay: snapshot.overlay,
+					}
+				: null,
 	};
 }
 
@@ -262,12 +391,16 @@ export async function getBrbSettings(
 	userId: string,
 	client: Pick<ObjectStore, "presign"> = snapshotReads,
 ) {
+	await cleanupDeletedBrbHighlightsForUser(userId).catch(() => undefined);
 	const [row] = await db
 		.select({
 			enabled: appUser.brbEnabled,
 			message: appUser.brbMessage,
 			source: appUser.brbSource,
 			imageKey: appUser.brbImageKey,
+			highlightsEnabled: appUser.brbHighlights,
+			highlightsMuted: appUser.brbHighlightsMuted,
+			highlightsOverlay: appUser.brbHighlightsOverlay,
 		})
 		.from(appUser)
 		.where(eq(appUser.id, userId))
@@ -281,6 +414,52 @@ export async function getBrbSettings(
 					})
 					.catch(() => null)
 			: null;
+	const clips = row?.highlightsEnabled
+		? await Promise.all(
+				(
+					await db
+						.select()
+						.from(brbHighlight)
+						.where(
+							and(
+								eq(brbHighlight.userId, userId),
+								isNull(brbHighlight.deletedAt),
+							),
+						)
+						.orderBy(asc(brbHighlight.position))
+				).map(async (clip) => ({
+					...clip,
+					url: await client
+						.presign(clip.storageKey, {
+							expiresIn: BACKGROUND_URL_TTL_S,
+							method: "GET",
+						})
+						.catch(() => null),
+				})),
+			)
+		: [];
+	const [lastResult] = await db
+		.select({
+			played: pathState.brbHighlightsPlayed,
+			at: pathState.brbHighlightsResultAt,
+		})
+		.from(pathState)
+		.innerJoin(relayPath, eq(relayPath.id, pathState.pathId))
+		.where(eq(relayPath.userId, userId))
+		.orderBy(sql`${pathState.brbHighlightsResultAt} desc nulls last`)
+		.limit(1);
+	const [activeHold] = await db
+		.select({ pathId: pathState.pathId })
+		.from(pathState)
+		.innerJoin(relayPath, eq(relayPath.id, pathState.pathId))
+		.where(
+			and(
+				eq(relayPath.userId, userId),
+				isNotNull(pathState.brbSince),
+				isNotNull(pathState.brbHighlightsSnapshot),
+			),
+		)
+		.limit(1);
 	return {
 		enabled: row?.enabled ?? false,
 		message: row?.message ?? "",
@@ -289,7 +468,41 @@ export async function getBrbSettings(
 		imageUrl,
 		defaultMessage: DEFAULT_BRB_MESSAGE,
 		maxImageBytes: MAX_BRB_IMAGE_BYTES,
+		active: Boolean(activeHold),
+		highlights: {
+			enabled: row?.highlightsEnabled ?? false,
+			muted: row?.highlightsMuted ?? false,
+			overlay: row?.highlightsOverlay ?? true,
+			clips,
+			maxClips: MAX_BRB_HIGHLIGHTS,
+			maxBytes: MAX_BRB_HIGHLIGHT_BYTES,
+			maxDurationMs: MAX_BRB_HIGHLIGHT_DURATION_MS,
+			lastResult: lastResult?.at
+				? { played: lastResult.played, at: lastResult.at }
+				: null,
+		},
 	};
+}
+
+export async function recordBrbHighlightPlayed(slug: string, ordinal: number) {
+	const [path] = await db
+		.select({ id: relayPath.id })
+		.from(relayPath)
+		.where(eq(relayPath.slug, slug))
+		.limit(1);
+	if (!path) return;
+	await db
+		.update(pathState)
+		.set({
+			brbHighlightsPlayed: sql`greatest(${pathState.brbHighlightsPlayed}, ${ordinal})`,
+		})
+		.where(
+			and(
+				eq(pathState.pathId, path.id),
+				sql`${pathState.brbSince} is not null`,
+				sql`${pathState.brbHighlightsSnapshot} is not null`,
+			),
+		);
 }
 
 export async function setBrbSettings(

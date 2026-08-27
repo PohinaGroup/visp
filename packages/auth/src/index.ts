@@ -1,5 +1,6 @@
 import { createDb } from "@VISP/db";
 import * as schema from "@VISP/db/schema/auth";
+import { appUser } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createObjectStore, type ObjectStore } from "@VISP/object-store";
 import { expo } from "@better-auth/expo";
@@ -12,6 +13,7 @@ import {
 	deviceAuthorization,
 	genericOAuth,
 } from "better-auth/plugins";
+import { eq, sql } from "drizzle-orm";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { adminAccess, adminRoles } from "./permissions";
 
@@ -61,6 +63,21 @@ export async function deleteBrbImagesForUser(
 	);
 }
 
+export async function deleteBrbHighlights(
+	keys: string[],
+	client: Pick<ObjectStore, "delete"> = snapshots,
+) {
+	await Promise.all(keys.map((key) => client.delete(key)));
+}
+
+export async function deleteBrbHighlightUploadsForUser(
+	userId: string,
+	client: Pick<ObjectStore, "delete" | "list"> = snapshots,
+) {
+	const keys = await client.list(`brb/${userId}/highlights/uploads/`);
+	await Promise.all(keys.map((key) => client.delete(key)));
+}
+
 export function createAuth() {
 	const db = createDb();
 
@@ -99,17 +116,45 @@ export function createAuth() {
 			deleteUser: {
 				enabled: true,
 				beforeDelete: async (user) => {
-					const paths = await db.query.relayPath.findMany({
-						columns: { id: true },
-						where: (path, { eq }) => eq(path.userId, user.id),
+					const { paths, highlights } = await db.transaction(async (tx) => {
+						await tx.execute(
+							sql`select pg_advisory_xact_lock(hashtext(${user.id}))`,
+						);
+						await tx
+							.update(appUser)
+							.set({ brbHighlightsDeleting: true })
+							.where(eq(appUser.id, user.id));
+						return {
+							paths: await tx.query.relayPath.findMany({
+								columns: { id: true },
+								where: (path, { eq }) => eq(path.userId, user.id),
+							}),
+							highlights: await tx.query.brbHighlight.findMany({
+								columns: { storageKey: true },
+								where: (clip, { eq }) => eq(clip.userId, user.id),
+							}),
+						};
 					});
 					try {
 						await deleteSnapshotsForPathIds(paths.map((path) => path.id));
 						await deleteBrbImagesForUser(user.id);
+						await deleteBrbHighlights(
+							highlights.map(({ storageKey }) => storageKey),
+						);
+						await deleteBrbHighlightUploadsForUser(user.id);
 					} catch (cause) {
+						await db.transaction(async (tx) => {
+							await tx.execute(
+								sql`select pg_advisory_xact_lock(hashtext(${user.id}))`,
+							);
+							await tx
+								.update(appUser)
+								.set({ brbHighlightsDeleting: false })
+								.where(eq(appUser.id, user.id));
+						});
 						throw new APIError("BAD_REQUEST", {
 							cause,
-							message: "Could not delete stored stream snapshots. Try again.",
+							message: "Could not delete stored stream media. Try again.",
 						});
 					}
 				},

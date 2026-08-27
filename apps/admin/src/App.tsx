@@ -322,6 +322,11 @@ const USER_FLAGS = [
 		label: "Better subtitles",
 		hint: "Hosted realtime captions, billed per minute of live audio.",
 	},
+	{
+		key: "brbHighlights",
+		label: "BRB highlights",
+		hint: "Internal beta for uploaded highlight playlists during Direct BRB.",
+	},
 ] as const;
 
 function UserDetailPanel({

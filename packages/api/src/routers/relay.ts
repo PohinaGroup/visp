@@ -55,6 +55,10 @@ import { listSnapshots } from "../snapshots";
 // Postgres or the cache bus only if a strict global request cap is needed.
 const relayMutations = fixedWindow(20, 60_000);
 
+export function resetRelayMutationLimitForTests() {
+	relayMutations.reset();
+}
+
 export const relayProcedure = protectedProcedure.use(
 	async ({ ctx, next, type }) => {
 		let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;

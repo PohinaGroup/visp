@@ -5,8 +5,10 @@ import {
 	relayPath,
 	relayStreamSession,
 } from "@VISP/db/schema/index";
+import type { ObjectStore } from "@VISP/object-store";
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
 import { handleSourceGone } from "./brb";
+import { cleanupDeletedBrbHighlightsForPath } from "./brb-highlights";
 import { announceStreamEvent } from "./chat/alerts";
 import { formatDuration } from "./chat/commands";
 import { CLEARED_LINK_STATS } from "./link-stats";
@@ -14,6 +16,7 @@ import { CLEARED_LINK_STATS } from "./link-stats";
 export async function applyPathHook(
 	event: "ready" | "not-ready" | "read" | "unread",
 	input: { path: string; sourceType?: string },
+	media?: Pick<ObjectStore, "delete">,
 ) {
 	// The state before this hook is what says whether anything changed, which is
 	// the difference between "went live" and "is still live".
@@ -52,7 +55,12 @@ export async function applyPathHook(
 						lastEventAt: now,
 						// The publisher is back, so the card comes down and the next
 						// drop starts its own BRB window rather than inheriting this one.
-						...(publishing ? { brbSince: null } : CLEARED_LINK_STATS),
+						...(publishing
+							? {
+									brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then ${now} else ${pathState.brbHighlightsResultAt} end`,
+									brbSince: null,
+								}
+							: CLEARED_LINK_STATS),
 					},
 				});
 			if (publishing) {
@@ -76,6 +84,11 @@ export async function applyPathHook(
 					);
 			}
 		});
+		if (publishing) {
+			await cleanupDeletedBrbHighlightsForPath(path.id, media).catch(
+				() => undefined,
+			);
+		}
 		// The source is gone. Forwarders either hold the broadcast open on the
 		// BRB card or get torn down so their slots stop counting.
 		if (!publishing) {

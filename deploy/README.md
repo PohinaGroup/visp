@@ -88,6 +88,10 @@ disconnecting either side behaves as expected. Only then install
 	and the card background in `/run/visp`, created by `RuntimeDirectory=visp`
 	in the MediaMTX unit; restarting MediaMTX ends every held card.
 
+	Deploy this relay script before enabling the per-user **BRB highlights**
+	flag. Roll back by disabling that flag: new holds use the still card, uploaded
+	clips remain stored, and an in-flight highlights hold finishes normally.
+
 	The matching per-relay cap is configured in the admin console. The
 	bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
 	Twitch + Kick on one source counts as two.
@@ -333,8 +337,9 @@ secrets only if that trust boundary changes.
 
 Use a private UpCloud Managed Object Storage bucket with its public HTTPS S3
 endpoint. The app credential needs GET, HEAD, PUT, and DELETE access only to the
-`snapshots/` prefix. Keep bucket versioning disabled so overwrites do not retain
-history.
+`snapshots/` and `brb/` object prefixes, plus bucket listing restricted to
+`brb/*/highlights/uploads/` so account deletion can remove abandoned uploads.
+Keep bucket versioning disabled so overwrites do not retain history.
 
 Configure this lifecycle rule through the UpCloud control panel or a compatible
 S3 client so stopped paths disappear from storage after one day:
@@ -351,6 +356,27 @@ S3 client so stopped paths disappear from storage after one day:
   ]
 }
 ```
+
+Add a one-day expiration rule for each account-scoped temporary prefix (replace
+`USER_ID` with the account id):
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "ExpireVispHighlightUploads",
+      "Status": "Enabled",
+      "Prefix": "brb/USER_ID/highlights/uploads/",
+      "Expiration": { "Days": 1 }
+    }
+  ]
+}
+```
+
+This is a safety net for presigned uploads abandoned before confirmation;
+confirmed clips are copied outside the uploads directory and are unaffected.
+The app deletes temporary uploads on every confirm outcome and when the account
+is deleted.
 
 If versioning was previously enabled, suspend it and add
 `"NoncurrentVersionExpiration": { "NoncurrentDays": 1 }` to the rule. Verify

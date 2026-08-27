@@ -26,6 +26,7 @@ const USER_FLAGS = [
 	"betterTts",
 	"betterAudioIsolation",
 	"betterSubtitles",
+	"brbHighlights",
 ] as const;
 
 const pageInput = z.object({
@@ -337,6 +338,7 @@ export const adminRouter = router({
 						directDualOutput: appUser.directDualOutput,
 						betterAudioIsolation: appUser.betterAudioIsolation,
 						betterSubtitles: appUser.betterSubtitles,
+						brbHighlights: appUser.brbHighlights,
 						obsStreaming: appUser.obsStreaming,
 						obsSceneCount: sql<number>`coalesce(array_length(${appUser.obsScenes}, 1), 0)`,
 						obsCurrentScene: appUser.obsCurrentScene,
@@ -531,8 +533,7 @@ export const adminRouter = router({
 				return result;
 			}),
 
-		// These flags gate spend at hosted providers, billed per character
-		// read aloud, per second of isolated mic, and per minute of captions.
+		// Per-user hosted-feature and internal-beta access flags.
 		setFlag: adminProcedure
 			.input(
 				z.object({
