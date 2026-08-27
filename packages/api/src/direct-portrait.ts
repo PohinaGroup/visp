@@ -220,7 +220,7 @@ export async function setDirectRole(
 			count(*) filter (where s.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL} or s.direct_twitch_reserved_until > now()) +
 			count(*) filter (where s.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL} or s.direct_kick_reserved_until > now()) +
 			count(*) filter (where s.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL} or s.direct_youtube_reserved_until > now()) +
-			(select count(*) from direct_destination d join path dp on dp.id = d.path_id where dp.relay_id = ${path.relayId} and (d.state in ${DIRECT_OCCUPIED_STATES_SQL} or d.reserved_until > now()))
+			(select count(*) from direct_destination d join path dp on dp.id = d.path_id where dp.relay_id = ${path.relayId} and dp.revoked_at is null and (d.state in ${DIRECT_OCCUPIED_STATES_SQL} or d.reserved_until > now()))
 		)::int as count
 		from path p join path_state s on s.path_id = p.id
 		where p.relay_id = ${path.relayId} and p.revoked_at is null
