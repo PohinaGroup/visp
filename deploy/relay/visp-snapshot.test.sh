@@ -47,6 +47,10 @@ case "$url" in
 		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
 		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
 		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
+	*/studio/relay-plan)
+		printf '%s\n' "$data" >>"$FAKE_STUDIO_PLAN_LOG"
+		test ! -f "$FAKE_STUDIO_PLAN_FAIL" || exit 22
+		cat "$FAKE_STUDIO_PLAN_REPLY" ;;
 	*/hooks/brb)
 		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
 		for provider in twitch kick youtube; do
@@ -161,6 +165,9 @@ export FAKE_DESTINATIONS_LOG="$work/destinations.log"
 export FAKE_PLAYED_LOG="$work/played.log"
 export FAKE_FFPROBE_LOG="$work/ffprobe.log"
 export FAKE_OUTPUT_LOG="$work/output.log"
+export FAKE_STUDIO_PLAN_LOG="$work/studio-plan.log"
+export FAKE_STUDIO_PLAN_REPLY="$work/studio-plan-reply"
+export FAKE_STUDIO_PLAN_FAIL="$work/studio-plan-fail"
 export FAKE_BRB_REPLY="$work/brb-reply"
 export FAKE_PID_DIR="$work/pids"
 export FAKE_LIVE_MARKER="$work/run/path-1.live"
@@ -171,7 +178,7 @@ export FAKE_IGNORE_TERM="$work/ignore-term"
 export FAKE_SERVER_VERSION=new
 export FAKE_BRB_DELAY_DIR="$work/brb-delay"
 export FAKE_CLIP_DELAY="$work/clip-delay"
-export HOOK_SECRET=test-secret RTSP_PORT=8554
+export HOOK_SECRET=test-secret STUDIO_MEDIA_PASSWORD=test-media-secret RTSP_PORT=8554
 export VISP_RUN_DIR="$work/run"
 export BRB_TICK_SECONDS=1
 # Only the presence of the file is checked before drawtext is added, so a stub
@@ -187,10 +194,22 @@ export BRB_FONT="$work/font.ttf"
 : >"$FAKE_PLAYED_LOG"
 : >"$FAKE_FFPROBE_LOG"
 : >"$FAKE_OUTPUT_LOG"
+: >"$FAKE_STUDIO_PLAN_LOG"
+printf 'passthrough\n' >"$FAKE_STUDIO_PLAN_REPLY"
 # "Be right back" over a solid card: no background URL, so no download either.
 printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+
+wait_for_count() {
+	local pattern="$1" expected="$2" deadline=$((SECONDS + 10)) count
+	while test "$SECONDS" -lt "$deadline"; do
+		count="$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c "$pattern" || true)"
+		test "$count" -eq "$expected" && return 0
+		sleep 0.2
+	done
+	return 1
+}
 
 live_children() {
 	local pid count=0
@@ -232,9 +251,28 @@ sleep 3
 
 forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
 test "$forwards" -eq 3 || fail "expected 3 forwarders, started $forwards"
+test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c '@127.0.0.1:8554/path-1')" -eq 3 ||
+	fail "startup did not use raw ingest before compositor health"
+grep -- '-frames:v' "$FAKE_FFMPEG_LOG" | grep -q 'rtsp://studio%3Apath-1:' ||
+	fail "snapshot reader did not URL-encode its scoped Studio identity"
 
-test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c -- '-vf crop=' || true)" -eq 1 ||
-	fail "expected exactly one portrait crop filter"
+printf 'program rtsp://127.0.0.1:8554/studio/path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
+wait_for_count '@127.0.0.1:8554/studio/path-1' 3 ||
+	fail "healthy compositor did not switch running forwarders to program"
+
+before_plan_failure="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")"
+touch "$FAKE_STUDIO_PLAN_FAIL"
+sleep 6
+test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq "$before_plan_failure" ||
+	fail "a transient Studio plan failure restarted running forwarders"
+rm -f "$FAKE_STUDIO_PLAN_FAIL"
+
+printf 'passthrough\n' >"$FAKE_STUDIO_PLAN_REPLY"
+wait_for_count '@127.0.0.1:8554/path-1' 6 ||
+	fail "stale compositor did not switch running forwarders to passthrough"
+
+test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c -- '-vf crop=' || true)" -eq 3 ||
+	fail "every portrait source switch must preserve its crop filter"
 grep -q -- '-vf crop=iw\*0.3164:ih\*1:iw\*0.3418:ih\*0,scale=1080:1920' "$FAKE_FFMPEG_LOG" ||
 	fail "portrait crop filter was not passed to FFmpeg"
 grep -q '^v2 ' "$FAKE_DESTINATIONS_LOG" ||
@@ -265,8 +303,8 @@ test "$(live_children)" -eq 3 ||
 grep -q '"provider":"twitch","state":"brb"' "$FAKE_STATE_LOG" ||
 	fail "twitch BRB was not reported"
 brb_forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
-test "$brb_forwards" -eq 6 ||
-	fail "expected 3 live + 3 BRB encodes, saw $brb_forwards"
+test "$brb_forwards" -eq 12 ||
+	fail "expected 9 switched live + 3 BRB encodes, saw $brb_forwards"
 grep -q 'anullsrc' "$FAKE_FFMPEG_LOG" || fail "the BRB card carries no audio"
 # textfile=, never text=: user text must not reach a filtergraph or a shell word.
 grep -q 'drawtext=textfile=' "$FAKE_FFMPEG_LOG" ||
@@ -300,6 +338,9 @@ fi
 # The publisher reconnects. The held forwarders must be named in "skip", or the
 # app resolves them again and mints a second broadcast against the same key.
 touch "$FAKE_LIVE_MARKER"
+# A compromised plan response must not turn Direct into an arbitrary RTSP
+# client. This URL starts with the old string allow-list but resolves elsewhere.
+printf 'program rtsp://127.0.0.1:8554@169.254.169.254/studio/path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
 start_script
 script_pid=$!
 sleep 3
@@ -311,8 +352,10 @@ for provider in twitch kick youtube; do
 		*) fail "$provider was not skipped on reconnect: $second" ;;
 	esac
 done
-test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 9 ||
+test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 15 ||
 	fail "reconnect did not resume the live encode in place"
+test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c '@127.0.0.1:8554/path-1')" -eq 9 ||
+	fail "an untrusted Studio plan escaped the local RTSP namespace"
 test "$(live_children)" -eq 3 ||
 	fail "reconnect left $(live_children) encoders against 3 stream keys"
 
@@ -342,6 +385,7 @@ for _ in {1..50}; do
 done
 test "$removal_children" -eq 3 ||
 	fail "removal fixture started $removal_children encoders instead of 3"
+: >"$FAKE_STOP_ACK_LOG"
 touch "$FAKE_PORTRAIT_REMOVED"
 sleep 3
 test "$(live_children)" -eq 3 ||
@@ -357,6 +401,10 @@ test "$removal_children" -eq 2 ||
 	fail "portrait removal left $removal_children live encoders instead of 2 landscapes"
 grep -q '"provider":"kick","state":"stopped","role":"portrait"' "$FAKE_STATE_LOG" ||
 	fail "portrait removal was not reported"
+for _ in {1..20}; do
+	test -s "$FAKE_STOP_ACK_LOG" && break
+	sleep 0.1
+done
 stop_ack_count="$(tail -n 1 "$FAKE_STOP_ACK_LOG")"
 test "$stop_ack_count" -eq 2 ||
 	fail "portrait stop was acknowledged with $stop_ack_count encoders still present"

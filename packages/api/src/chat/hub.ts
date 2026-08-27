@@ -9,6 +9,10 @@ import type {
 type Listener = (event: ChatLiveEvent) => void;
 type AudienceListener = (userId: string, count: number) => void;
 type ConnectorRefreshListener = (userId: string) => void;
+type PublishedListener = (
+	userId: string,
+	event: ChatLiveEvent,
+) => void | Promise<void>;
 const CHAT_CHANNEL = "visp_chat";
 const CHAT_REFRESH_CHANNEL = "visp_chat_refresh";
 const MAX_NOTIFY_BYTES = 8_000;
@@ -20,6 +24,7 @@ class ChatHub {
 	private readonly connectorRefreshListeners =
 		new Set<ConnectorRefreshListener>();
 	private readonly listeners = new Map<string, Set<Listener>>();
+	private readonly publishedListeners = new Set<PublishedListener>();
 	private readonly statuses = new Map<
 		string,
 		Map<ChatProvider, ChatProviderStatus>
@@ -78,6 +83,15 @@ class ChatHub {
 	}
 
 	publish(userId: string, event: ChatLiveEvent) {
+		for (const listener of this.publishedListeners) {
+			try {
+				void Promise.resolve(listener(userId, event)).catch((error) =>
+					console.error("Published chat listener failed", error),
+				);
+			} catch (error) {
+				console.error("Published chat listener failed", error);
+			}
+		}
 		this.publishLocal(userId, event);
 		if (!fanoutStarted) return;
 		const payload = JSON.stringify({
@@ -89,6 +103,11 @@ class ChatHub {
 		void publishNotification(CHAT_CHANNEL, payload).catch((error) => {
 			console.error("Chat fan-out publish failed", error);
 		});
+	}
+
+	onPublished(listener: PublishedListener) {
+		this.publishedListeners.add(listener);
+		return () => this.publishedListeners.delete(listener);
 	}
 
 	receiveRemote(payload: string) {

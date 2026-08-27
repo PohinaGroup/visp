@@ -172,7 +172,14 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 
 				const [created] = await tx
 					.insert(appUser)
-					.values({ id: userId, handle })
+					.values({
+						id: userId,
+						handle,
+						directProductionMode:
+							env.CLOUD_STUDIO_ENABLED && env.CLOUD_STUDIO_DEFAULT_ENABLED
+								? "cloud_studio"
+								: "obs",
+					})
 					.returning();
 				if (!created) {
 					throw new Error("Failed to create relay user");
@@ -369,7 +376,11 @@ export async function authenticateMedia(input: {
 	path: string;
 	user: string;
 }) {
-	const credential = await credentialForSlug(input.path);
+	const slug =
+		input.action === "read" && input.path.startsWith("studio/")
+			? input.path.slice("studio/".length)
+			: input.path;
+	const credential = await credentialForSlug(slug);
 	if (!credential) {
 		return false;
 	}
@@ -395,6 +406,48 @@ export async function authenticateMedia(input: {
 			.where(eq(relayPath.id, credential.pathId));
 	}
 	return true;
+}
+
+export function buildStudioPreviewUrls(
+	host: string,
+	slug: string,
+	handle: string,
+	readSecret: string,
+) {
+	const query = new URLSearchParams({ user: handle, pass: readSecret });
+	return {
+		camera: `https://${host}/${slug}/whep?${query}`,
+		program: `https://${host}/studio/${slug}/whep?${query}`,
+	};
+}
+
+export function selectStudioPreviewPath<
+	T extends { id: number; publishing: boolean | null },
+>(paths: T[]) {
+	return [...paths].sort(
+		(a, b) => Number(b.publishing) - Number(a.publishing) || a.id - b.id,
+	)[0];
+}
+
+export async function getStudioPreviewUrls(userId: string) {
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.id, userId),
+	});
+	if (!owner?.readSecretEncrypted) return null;
+	const path = selectStudioPreviewPath(await listPaths(userId));
+	if (!path) return null;
+	let readSecret: string;
+	try {
+		readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
+	} catch {
+		return null;
+	}
+	return buildStudioPreviewUrls(
+		path.relayHost,
+		path.slug,
+		owner.handle,
+		readSecret,
+	);
 }
 
 export function applyInvalidation(payload: CacheInvalidation) {

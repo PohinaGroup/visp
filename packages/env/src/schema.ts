@@ -25,6 +25,9 @@ export const serverEnvSchema = {
 	DATABASE_SSL_CA: z.string().min(1).optional(),
 	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
+	/** Rollout flag and independent ops kill switch for managed composition. */
+	CLOUD_STUDIO_ENABLED: z.stringbool().default(false),
+	CLOUD_STUDIO_DEFAULT_ENABLED: z.stringbool().default(false),
 	/**
 	 * Hosted text-to-speech, better audio isolation, and better captions.
 	 * Optional: without the key those routes answer 503 and the app falls back.
@@ -65,6 +68,8 @@ export const serverEnvSchema = {
 	S3_REGION: z.string().min(1),
 	S3_SECRET_ACCESS_KEY: z.string().min(1),
 	S3_UPLOAD_ENDPOINT: z.url().optional(),
+	STUDIO_MEDIA_USER: z.string().min(1),
+	STUDIO_MEDIA_PASSWORD: z.string().min(32),
 	TWITCH_CLIENT_ID: z.string().min(1),
 	TWITCH_CLIENT_SECRET: z.string().min(1),
 };

@@ -24,3 +24,15 @@ Twitch-chat käyttää EventSub-yhteyttä ja Kick-chat varmennettua webhookia.
 YouTube-chat luetaan käyttäjän aktiivisesta lähetyksestä alustan ilmoittamalla
 kyselyvälillä. Kaikki viestit välitetään selain- ja mobiilisovelluksille saman
 VISP-WebSocketin kautta.
+
+## Kaksi tuotantotilaa
+
+Kotistudiotilassa VISP ei ylläpidä OBS:ää: käyttäjän oma OBS vastaanottaa
+alkuperäisen syötteen ja vastaa sommittelusta. Cloud Studio on tästä erillinen
+Direct-tila. VISPin hallittu FFmpeg- ja Chromium-sommittelija hakee vain viimeksi
+tallennetun näkymäkaavion ja julkaisee ohjelmasyötteen Directille.
+
+Jos käyttöönottoasetus, hätäkatkaisu tai sommittelijan terveystarkistus estää
+Cloud Studion, Direct välittää kamerasyötteen ilman päällyksiä. Nykyiset tilit
+pysyvät OBS-tilassa, kunnes käyttäjä vaihtaa tilaa. Uusien tilien Cloud Studio
+-oletus otetaan käyttöön erillisellä vaiheistetulla asetuksella.
