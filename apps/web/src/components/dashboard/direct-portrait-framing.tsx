@@ -153,13 +153,24 @@ export function DirectPortraitFraming({
 								{t("Preview appears while this device is publishing")}
 							</span>
 						)}
-						<div
-							aria-label={t("Portrait crop preview")}
-							role="slider"
-							aria-valuenow={Math.round(draft.x * 100)}
-							aria-valuetext={`${Math.round(draft.x * 100)}%, ${Math.round(draft.y * 100)}%`}
-							tabIndex={0}
-							style={{
+					<div
+						aria-label={t("Portrait crop preview")}
+						role="group"
+						style={{
+							border: "2px solid #fff",
+							cursor: "move",
+							height: `${draft.h * 100}%`,
+							left: `${draft.x * 100}%`,
+							position: "absolute",
+							top: `${draft.y * 100}%`,
+							width: `${draft.w * 100}%`,
+						}}
+						onPointerDown={(event) => beginGesture(event, "move")}
+						onPointerMove={moveGesture}
+						onPointerUp={() => {
+							gesture.current = undefined;
+						}}
+					>
 								border: "2px solid #fff",
 								cursor: "move",
 								height: `${draft.h * 100}%`,
