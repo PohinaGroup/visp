@@ -2,6 +2,7 @@ import { db } from "@VISP/db";
 import {
 	appUser,
 	brbHighlight,
+	customDirectOutput,
 	pathState,
 	relayPath,
 } from "@VISP/db/schema/index";
@@ -171,6 +172,13 @@ export async function handleSourceGone(
 		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
 		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
 		.where(inArray(relayPath.id, pathIds));
+	const customStates = await db
+		.select({
+			pathId: customDirectOutput.pathId,
+			state: customDirectOutput.state,
+		})
+		.from(customDirectOutput)
+		.where(inArray(customDirectOutput.pathId, pathIds));
 
 	const { brbIds } = splitBrbEligible(
 		rows.map((row) => ({
@@ -181,6 +189,12 @@ export async function handleSourceGone(
 				{ enabled: row.twitch, state: row.twitchState },
 				{ enabled: row.kick, state: row.kickState },
 				{ enabled: row.youtube, state: row.youtubeState },
+				...customStates
+					.filter((output) => output.pathId === row.pathId)
+					.map((output) => ({
+						enabled: output.state !== "stopping",
+						state: output.state,
+					})),
 			],
 		})),
 	);
@@ -384,6 +398,65 @@ export async function brbTick(
 						overlay: snapshot.overlay,
 					}
 				: null,
+	};
+}
+
+export async function customBrbTick(
+	slug: string,
+	outputId: string,
+	client: Pick<ObjectStore, "presign"> = snapshotReads,
+	now = Date.now(),
+): Promise<BrbTick> {
+	const [row] = await db
+		.select({
+			pathId: relayPath.id,
+			revoked: relayPath.revokedAt,
+			enabled: appUser.brbEnabled,
+			message: appUser.brbMessage,
+			source: appUser.brbSource,
+			imageKey: appUser.brbImageKey,
+			brbSince: pathState.brbSince,
+			highlights: pathState.brbHighlightsSnapshot,
+			outputState: customDirectOutput.state,
+		})
+		.from(customDirectOutput)
+		.innerJoin(relayPath, eq(relayPath.id, customDirectOutput.pathId))
+		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+		.where(and(eq(customDirectOutput.id, outputId), eq(relayPath.slug, slug)))
+		.limit(1);
+	if (
+		!row ||
+		!brbHolds({
+			now,
+			enabled: row.enabled,
+			providerEnabled: row.outputState !== "stopping",
+			revoked: Boolean(row.revoked),
+			brbSince: row.brbSince,
+		})
+	) {
+		return { stop: true };
+	}
+	await db
+		.update(customDirectOutput)
+		.set({ state: "brb", reservedUntil: new Date(now + RESERVATION_MS) })
+		.where(eq(customDirectOutput.id, outputId));
+	const key = brbBackgroundKey({
+		source: row.source,
+		pathId: row.pathId,
+		imageKey: row.imageKey,
+	});
+	const backgroundUrl = key
+		? await client
+				.presign(key, { expiresIn: BACKGROUND_URL_TTL_S, method: "GET" })
+				.catch(() => null)
+		: null;
+	return {
+		stop: false,
+		message: row.message?.trim() || DEFAULT_BRB_MESSAGE,
+		backgroundUrl,
+		source: row.source as BrbSource,
+		highlights: null,
 	};
 }
 

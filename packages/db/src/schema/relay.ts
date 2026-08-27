@@ -320,6 +320,47 @@ export const relayPath = pgTable(
 	],
 );
 
+export const customDirectOutput = pgTable(
+	"custom_direct_output",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		destinationId: text("destination_id")
+			.notNull()
+			.references(() => customDirectDestination.id, { onDelete: "cascade" }),
+		pathId: bigint("path_id", { mode: "number" })
+			.notNull()
+			.references(() => relayPath.id, { onDelete: "cascade" }),
+		role: directRole("role").default("landscape").notNull(),
+		crop: jsonb("crop").$type<DirectCrop>(),
+		state: text("state"),
+		error: text("error"),
+		reservedRelayId: integer("reserved_relay_id").references(() => relay.id),
+		reservedUntil: timestamp("reserved_until", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		unique("custom_direct_output_user_destination_role_unique").on(
+			table.userId,
+			table.destinationId,
+			table.role,
+		),
+		index("custom_direct_output_path_idx").on(table.pathId),
+		index("custom_direct_output_reservation_idx").on(
+			table.reservedRelayId,
+			table.reservedUntil,
+		),
+		check(
+			"custom_direct_output_crop_role",
+			sql`(${table.role} = 'landscape' and ${table.crop} is null) or (${table.role} = 'portrait' and ${table.crop} is not null)`,
+		),
+	],
+);
+
 export const pathState = pgTable(
 	"path_state",
 	{
@@ -504,16 +545,40 @@ export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	paths: many(relayPath),
 	highlights: many(brbHighlight),
 	customDirectDestinations: many(customDirectDestination),
+	customDirectOutputs: many(customDirectOutput),
 	rttSamples: many(rttSample),
 	tiles: many(obsTile),
 }));
 
 export const customDirectDestinationRelations = relations(
 	customDirectDestination,
-	({ one }) => ({
+	({ one, many }) => ({
 		user: one(appUser, {
 			fields: [customDirectDestination.userId],
 			references: [appUser.id],
+		}),
+		outputs: many(customDirectOutput),
+	}),
+);
+
+export const customDirectOutputRelations = relations(
+	customDirectOutput,
+	({ one }) => ({
+		user: one(appUser, {
+			fields: [customDirectOutput.userId],
+			references: [appUser.id],
+		}),
+		destination: one(customDirectDestination, {
+			fields: [customDirectOutput.destinationId],
+			references: [customDirectDestination.id],
+		}),
+		path: one(relayPath, {
+			fields: [customDirectOutput.pathId],
+			references: [relayPath.id],
+		}),
+		relay: one(relay, {
+			fields: [customDirectOutput.reservedRelayId],
+			references: [relay.id],
 		}),
 	}),
 );
@@ -542,6 +607,7 @@ export const relayPathRelations = relations(relayPath, ({ one, many }) => ({
 	user: one(appUser, { fields: [relayPath.userId], references: [appUser.id] }),
 	state: one(pathState),
 	sessions: many(relayStreamSession),
+	customDirectOutputs: many(customDirectOutput),
 }));
 
 export const pathStateRelations = relations(pathState, ({ one }) => ({

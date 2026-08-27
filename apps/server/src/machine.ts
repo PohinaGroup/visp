@@ -1,5 +1,9 @@
 import { type AdvisoryLock, tryAdvisoryLock } from "@VISP/api/advisory-lock";
-import { brbTick, recordBrbHighlightPlayed } from "@VISP/api/brb";
+import {
+	brbTick,
+	customBrbTick,
+	recordBrbHighlightPlayed,
+} from "@VISP/api/brb";
 import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
@@ -7,7 +11,12 @@ import {
 	DirectError,
 	directDestinationActive,
 	resolveDirectDestinations,
+	resolveDirectDestinationsV3,
 } from "@VISP/api/direct";
+import {
+	applyCustomDirectState,
+	customDirectOutputActive,
+} from "@VISP/api/direct-custom";
 import {
 	authenticateObsControlToken,
 	pollObsControl,
@@ -33,9 +42,11 @@ import { timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 import {
+	directDestinationJsonResponse,
 	directDestinationResponse,
 	formatLegacyDirectDestinations,
 	formatV2DirectDestinations,
+	formatV3DirectDestinations,
 } from "./direct-hook-contract";
 
 // ponytail: per-instance limit allows N× traffic on N app instances; move to
@@ -269,6 +280,36 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		},
 	)
 	.post(
+		"/api/hooks/direct-destinations-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const { destinations } = await resolveDirectDestinationsV3(
+					body.path,
+					undefined,
+					body.skip,
+				);
+				return directDestinationJsonResponse(
+					await formatV3DirectDestinations(destinations),
+				);
+			} catch {
+				return status(503, "direct destinations unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				skip: t.Optional(
+					t.Array(t.String({ minLength: 1, maxLength: 128 }), {
+						maxItems: 32,
+					}),
+				),
+			}),
+		},
+	)
+	.post(
 		"/api/hooks/direct-destinations",
 		async ({ body, headers }) => {
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
@@ -371,6 +412,23 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		},
 	)
 	.post(
+		"/api/hooks/direct-active-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			return (await customDirectOutputActive(body.path, body.outputId))
+				? status(204)
+				: status(410, "stopped");
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				outputId: t.String({ minLength: 1, maxLength: 128 }),
+			}),
+		},
+	)
+	.post(
 		"/api/hooks/direct-active",
 		async ({ body, headers }) => {
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
@@ -386,6 +444,34 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
 				role: t.Union([t.Literal("landscape"), t.Literal("portrait")]),
 				filter: t.Optional(t.String({ maxLength: 512 })),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/brb-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const tick = await customBrbTick(body.path, body.outputId);
+				const message = tick.stop
+					? ""
+					: Buffer.from(tick.message, "utf8").toString("base64");
+				const line = tick.stop
+					? "stop\n"
+					: `brb ${message} ${tick.backgroundUrl ?? "-"} ${tick.source}\n`;
+				return new Response(line, {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			} catch {
+				return status(503, "brb unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				outputId: t.String({ minLength: 1, maxLength: 128 }),
 			}),
 		},
 	)
@@ -406,6 +492,28 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			body: t.Object({
 				path: t.String({ minLength: 1 }),
 				ordinal: t.Integer({ minimum: 1, maximum: 2_000_000_000 }),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-state-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				await applyCustomDirectState({ ...body, slug: body.path });
+				return status(204);
+			} catch {
+				return status(503, "state unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				outputId: t.String({ minLength: 1, maxLength: 128 }),
+				state: t.Union(DIRECT_STATES.map((name) => t.Literal(name))),
+				error: t.Optional(t.String({ maxLength: 2048 })),
 			}),
 		},
 	)

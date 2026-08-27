@@ -39,7 +39,12 @@ import {
 	directDestinationActive,
 	prepareDirect,
 	resolveDirectDestinations,
+	resolveDirectDestinationsV3,
 } from "@VISP/api/direct";
+import {
+	applyCustomDirectState,
+	customDirectOutputActive,
+} from "@VISP/api/direct-custom";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
@@ -76,6 +81,8 @@ import {
 	brbHighlight,
 	chatBotAlert,
 	chatConnection,
+	customDirectDestination,
+	customDirectOutput,
 	directDestination,
 	pathState,
 	relay,
@@ -3555,5 +3562,84 @@ integration("VISP Direct boundaries", () => {
 		expect(state?.brbSince).toBeNull();
 		expect(state?.directTwitchState).toBe("stopped");
 		expect(state?.directYoutubeBroadcastId).toBeNull();
+	});
+
+	test("forwards a custom landscape output without persisting its credential", async () => {
+		const data = await seedDirect();
+		const caller = await callerFor("user-a");
+		const secret = "CUSTOM_STREAM_SECRET";
+		const created = await caller.direct.custom.create({
+			name: "SRT backup",
+			url: `srt://8.8.8.8:9000?streamid=publish:${secret}`,
+		});
+		const assigned = await caller.direct.custom.assign({
+			destinationId: created.destination.id,
+			pathId: data.pathA.id,
+			enabled: true,
+		});
+		if (!assigned.outputId) throw new Error("custom output was not assigned");
+		const outputId = assigned.outputId;
+		expect((await caller.direct.list()).customOutputs).toEqual([
+			expect.objectContaining({
+				id: outputId,
+				name: "SRT backup",
+				protocol: "srt",
+				pathId: data.pathA.id,
+			}),
+		]);
+
+		const prepared = await prepareDirect("user-a", data.pathA.id);
+		expect(prepared.contributionMode).toBe("direct");
+		expect(prepared.customOutputIds).toEqual([outputId]);
+		const resolved = await resolveDirectDestinationsV3("alpha-1", directDeps());
+		expect(resolved.destinations).toEqual([
+			expect.objectContaining({
+				outputId,
+				kind: "custom",
+				protocol: "srt",
+				muxer: "mpegts",
+				url: `srt://8.8.8.8:9000?streamid=publish:${secret}`,
+			}),
+		]);
+		const [stored] = await db
+			.select({
+				encryptedUrl: customDirectDestination.encryptedUrl,
+				state: customDirectOutput.state,
+				error: customDirectOutput.error,
+			})
+			.from(customDirectDestination)
+			.innerJoin(
+				customDirectOutput,
+				eq(customDirectOutput.destinationId, customDirectDestination.id),
+			);
+		expect(stored?.encryptedUrl).not.toContain(secret);
+		expect(stored?.state).toBe("starting");
+		expect(stored?.error).toBeNull();
+
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId,
+			state: "retrying",
+			error: `failed srt://8.8.8.8:9000?streamid=${secret}`,
+		});
+		expect((await caller.direct.list()).customOutputs[0]?.error).toBe(
+			"failed [url]",
+		);
+		await db
+			.update(pathState)
+			.set({ publishing: true })
+			.where(eq(pathState.pathId, data.pathA.id));
+		await caller.direct.custom.assign({
+			destinationId: created.destination.id,
+			pathId: data.pathA.id,
+			enabled: false,
+		});
+		expect(await customDirectOutputActive("alpha-1", outputId)).toBe(false);
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId,
+			state: "stopped",
+		});
+		expect((await caller.direct.list()).customOutputs).toEqual([]);
 	});
 });

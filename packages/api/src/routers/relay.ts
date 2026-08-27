@@ -18,6 +18,7 @@ import {
 	DirectCustomError,
 	deleteCustomDirectDestination,
 	listCustomDirectDestinations,
+	setCustomDirectOutput,
 	updateCustomDirectDestination,
 } from "../direct-custom";
 import { protectedProcedure, router } from "../index";
@@ -125,6 +126,7 @@ function directError(error: unknown): never {
 			invalid: "BAD_REQUEST",
 			limit: "TOO_MANY_REQUESTS",
 			"not-found": "NOT_FOUND",
+			"path-live": "PRECONDITION_FAILED",
 		} as const;
 		throw new TRPCError({
 			code: code[error.code],
@@ -442,6 +444,21 @@ export const relayRoutes = {
 							input.destinationId,
 						);
 						return { destinationId: input.destinationId };
+					} catch (error) {
+						directError(error);
+					}
+				}),
+			assign: relayProcedure
+				.input(
+					z.object({
+						destinationId: z.uuid(),
+						pathId: z.number().int().positive(),
+						enabled: z.boolean(),
+					}),
+				)
+				.mutation(async ({ ctx, input }) => {
+					try {
+						return await setCustomDirectOutput(ctx.relayUser.id, input);
 					} catch (error) {
 						directError(error);
 					}

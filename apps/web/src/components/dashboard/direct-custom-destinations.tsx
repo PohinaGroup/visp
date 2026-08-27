@@ -3,6 +3,7 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -27,6 +28,7 @@ export function DirectCustomDestinations() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const list = useQuery(trpc.direct.custom.list.queryOptions());
+	const direct = useQuery(trpc.direct.list.queryOptions());
 	const [editor, setEditor] = useState<Editor | null>(null);
 	const refresh = async () => {
 		await queryClient.invalidateQueries();
@@ -59,6 +61,15 @@ export function DirectCustomDestinations() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const assign = useMutation(
+		trpc.direct.custom.assign.mutationOptions({
+			onSuccess: async () => {
+				await refresh();
+				toast.success(t("Direct output saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const saving = create.isPending || update.isPending;
 	const valid = Boolean(
 		editor?.draft.name.trim() &&
@@ -85,40 +96,76 @@ export function DirectCustomDestinations() {
 				<VStack gap={2}>
 					{list.data.destinations.map((destination) => (
 						<Card key={destination.id} padding={3} variant="muted">
-							<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
-								<VStack gap={1}>
-									<HStack gap={2} vAlign="center">
-										<Text type="label">{destination.name}</Text>
-										<Badge
-											label={destination.protocol.toUpperCase()}
-											variant="neutral"
+							<VStack gap={2}>
+								<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
+									<VStack gap={1}>
+										<HStack gap={2} vAlign="center">
+											<Text type="label">{destination.name}</Text>
+											<Badge
+												label={destination.protocol.toUpperCase()}
+												variant="neutral"
+											/>
+										</HStack>
+										<Text color="secondary" type="code">
+											{destination.endpointSummary}
+										</Text>
+									</VStack>
+									<HStack gap={2}>
+										<Button
+											label={t("Edit")}
+											variant="ghost"
+											onClick={() =>
+												setEditor({
+													destination,
+													draft: customDestinationDraft(destination),
+												})
+											}
+										/>
+										<Button
+											isDisabled={remove.isPending}
+											label={t("Delete")}
+											variant="ghost"
+											onClick={() =>
+												remove.mutate({ destinationId: destination.id })
+											}
 										/>
 									</HStack>
-									<Text color="secondary" type="code">
-										{destination.endpointSummary}
-									</Text>
-								</VStack>
-								<HStack gap={2}>
-									<Button
-										label={t("Edit")}
-										variant="ghost"
-										onClick={() =>
-											setEditor({
-												destination,
-												draft: customDestinationDraft(destination),
-											})
-										}
-									/>
-									<Button
-										isDisabled={remove.isPending}
-										label={t("Delete")}
-										variant="ghost"
-										onClick={() =>
-											remove.mutate({ destinationId: destination.id })
-										}
-									/>
 								</HStack>
-							</HStack>
+								{direct.data?.paths.map((path) => {
+									const output = direct.data.customOutputs.find(
+										(entry) => entry.destinationId === destination.id,
+									);
+									const enabled = output?.pathId === path.id;
+									return (
+										<VStack key={path.id} gap={1}>
+											<Switch
+												disabledMessage={t(
+													"Stop this device before changing its Direct outputs",
+												)}
+												isDisabled={
+													assign.isPending || (path.publishing && !enabled)
+												}
+												label={path.label}
+												labelSpacing="spread"
+												value={enabled}
+												onChange={(value) =>
+													assign.mutate({
+														destinationId: destination.id,
+														pathId: path.id,
+														enabled: value,
+													})
+												}
+											/>
+											{enabled && output?.state ? (
+												<Text color="secondary" type="supporting">
+													{t(output.state)}
+													{output.error ? `: ${output.error}` : ""}
+												</Text>
+											) : null}
+										</VStack>
+									);
+								})}
+							</VStack>
 						</Card>
 					))}
 				</VStack>

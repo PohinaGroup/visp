@@ -30,6 +30,13 @@ while [ $# -gt 0 ]; do
 	esac
 done
 case "$url" in
+	*/direct-destinations-v3)
+		printf 'v3 %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
+		test "${FAKE_SERVER_VERSION:-new}" = v3 || exit 22
+		cat <<'JSON'
+{"destinations":[{"outputId":"managed-twitch-landscape","kind":"managed","label":"twitch","role":"landscape","protocol":"rtmps","muxer":"flv","filter":null,"url":"rtmps://twitch.test/app/TWITCHKEY"},{"outputId":"160b40b3-4e27-4773-9941-1c93ec895906","kind":"custom","label":"SRT backup","role":"landscape","protocol":"srt","muxer":"mpegts","filter":null,"url":"srt://receiver.test:9000?streamid=CUSTOMKEY"}]}
+JSON
+		;;
 	*/direct-destinations-v2)
 		printf 'v2 %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
 		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
@@ -47,6 +54,10 @@ case "$url" in
 		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
 		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
 		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
+	*/direct-active-v3) printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG" ;;
+	*/hooks/brb-v3)
+		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
+		cat "$FAKE_BRB_REPLY" ;;
 	*/hooks/brb)
 		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
 		for provider in twitch kick youtube; do
@@ -76,6 +87,7 @@ case "$url" in
 				done
 				printf '%s\n' "$count" >>"$FAKE_STOP_ACK_LOG" ;;
 		esac ;;
+	*/direct-state-v3) printf '%s\n' "$data" >>"$FAKE_STATE_LOG" ;;
 	*/hooks/brb-played) printf '%s\n' "$data" >>"$FAKE_PLAYED_LOG" ;;
 	https://clips.test/*)
 		if test -f "$FAKE_CLIP_DELAY"; then rm -f "$FAKE_CLIP_DELAY"; sleep 5; fi
@@ -549,6 +561,29 @@ wait "$script_pid" 2>/dev/null || true
 sleep 2
 test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 3 ||
 	fail "a stop-first tick opened hold output"
+
+# V3 carries stable output ids and selects the container from the protocol.
+export FAKE_SERVER_VERSION=v3
+: >"$FAKE_FFMPEG_LOG"
+: >"$FAKE_STATE_LOG"
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+touch "$FAKE_LIVE_MARKER"
+start_script
+script_pid=$!
+wait_for_live_children 2 || fail "v3 did not start managed and custom outputs"
+test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)" -eq 1 ||
+	fail "v3 RTMPS output did not use FLV"
+test "$(grep -c -- '-f mpegts' "$FAKE_FFMPEG_LOG" || true)" -eq 1 ||
+	fail "v3 SRT output did not use MPEG-TS"
+grep -q '"outputId":"160b40b3-4e27-4773-9941-1c93ec895906","state":"starting"' "$FAKE_STATE_LOG" ||
+	fail "custom output state did not use its opaque id"
+if grep -q 'CUSTOMKEY' "$FAKE_STATE_LOG" "$FAKE_BRB_LOG"; then
+	fail "the custom destination credential reached a callback"
+fi
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
+wait_for_hold_cleanup || fail "v3 outputs did not stop cleanly"
 
 printf 'ok: BRB held the stream up, resumed in place, and let go on stop\n'
 exit 0
