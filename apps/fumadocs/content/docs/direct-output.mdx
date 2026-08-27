@@ -27,6 +27,18 @@ Each selected platform consumes a relay forwarding slot and a separate encode.
 Selecting several platforms increases relay CPU and outbound bandwidth, but it
 does not add another upload from your phone.
 
+## BRB hold
+
+When **Never drop again** is enabled, a lost ingest keeps each Direct output
+open. Accounts in the BRB highlights beta can upload up to five short H.264 MP4
+clips in the web dashboard. Enabled clips play in order and loop; the current
+still BRB card remains the fallback when the flag is off, no clips are enabled,
+or the relay cannot play them. The playlist and its audio/message preferences
+are captured when BRB starts, so edits apply on the next BRB.
+
+Returning to live or choosing **End broadcast** interrupts the hold. Highlight
+configuration is web-only; the native BRB controls are unchanged.
+
 ## Enable it
 
 1. During setup, choose Twitch, Kick, or YouTube and authorize streaming. Existing users

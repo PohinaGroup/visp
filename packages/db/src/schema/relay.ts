@@ -159,6 +159,10 @@ export const appUser = pgTable(
 		// Hosted realtime speech-to-text for burned-in captions. Bills per minute of
 		// live audio, so this gates spend, not capacity.
 		betterSubtitles: boolean("better_subtitles").default(false).notNull(),
+		brbHighlights: boolean("brb_highlights").default(false).notNull(),
+		brbHighlightsDeleting: boolean("brb_highlights_deleting")
+			.default(false)
+			.notNull(),
 		// "Never drop again". When the ingest drops, the relay holds the outgoing
 		// stream up on a BRB card instead of letting the platform end the broadcast.
 		// Off by default; `snapshot` needs no setup, so enabling it is one toggle.
@@ -166,6 +170,12 @@ export const appUser = pgTable(
 		brbMessage: text("brb_message"),
 		brbSource: text("brb_source").default("snapshot").notNull(),
 		brbImageKey: text("brb_image_key"),
+		brbHighlightsMuted: boolean("brb_highlights_muted")
+			.default(false)
+			.notNull(),
+		brbHighlightsOverlay: boolean("brb_highlights_overlay")
+			.default(true)
+			.notNull(),
 		onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
@@ -175,6 +185,50 @@ export const appUser = pgTable(
 		check(
 			"app_user_brb_source_known",
 			sql`${table.brbSource} in ('snapshot', 'image', 'color')`,
+		),
+	],
+);
+
+export const brbHighlight = pgTable(
+	"brb_highlight",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		storageKey: text("storage_key").notNull().unique(),
+		filename: text("filename").notNull(),
+		label: text("label").notNull(),
+		durationMs: integer("duration_ms").notNull(),
+		byteSize: integer("byte_size").notNull(),
+		contentType: text("content_type").notNull(),
+		codec: text("codec").notNull(),
+		width: integer("width").notNull(),
+		height: integer("height").notNull(),
+		checksum: text("checksum").notNull(),
+		position: integer("position").notNull(),
+		enabled: boolean("enabled").default(true).notNull(),
+		deletedAt: timestamp("deleted_at", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		uniqueIndex("brb_highlight_user_position_unique")
+			.on(table.userId, table.position)
+			.where(sql`${table.deletedAt} is null`),
+		index("brb_highlight_user_position_idx").on(table.userId, table.position),
+		check(
+			"brb_highlight_duration",
+			sql`${table.durationMs} between 1 and 30000`,
+		),
+		check("brb_highlight_size", sql`${table.byteSize} between 1 and 26214400`),
+		check(
+			"brb_highlight_dimensions",
+			sql`${table.width} > 0 and ${table.height} > 0`,
 		),
 	],
 );
@@ -273,6 +327,15 @@ export const pathState = pgTable(
 		// the BRB card. The single live flag for "never drop again": everything
 		// else about BRB derives from it.
 		brbSince: timestamp("brb_since", { withTimezone: true }),
+		brbHighlightsSnapshot: jsonb("brb_highlights_snapshot").$type<{
+			clips: { id: string; key: string; durationMs: number }[];
+			muted: boolean;
+			overlay: boolean;
+		} | null>(),
+		brbHighlightsPlayed: integer("brb_highlights_played").default(0).notNull(),
+		brbHighlightsResultAt: timestamp("brb_highlights_result_at", {
+			withTimezone: true,
+		}),
 	},
 	(table) => [
 		check(
@@ -405,8 +468,16 @@ export const obsTile = pgTable(
 export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	user: one(user, { fields: [appUser.id], references: [user.id] }),
 	paths: many(relayPath),
+	highlights: many(brbHighlight),
 	rttSamples: many(rttSample),
 	tiles: many(obsTile),
+}));
+
+export const brbHighlightRelations = relations(brbHighlight, ({ one }) => ({
+	user: one(appUser, {
+		fields: [brbHighlight.userId],
+		references: [appUser.id],
+	}),
 }));
 
 export const relayRelations = relations(relay, ({ many }) => ({

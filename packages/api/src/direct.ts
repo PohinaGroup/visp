@@ -10,6 +10,7 @@ import {
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { cleanupDeletedBrbHighlightsForPath } from "./brb-highlights";
 import { type DirectCrop, directCropError } from "./direct-crop";
 import { validateDirectDestination } from "./direct-destination";
 import {
@@ -81,7 +82,10 @@ export function sanitizeDirectError(value: string | null | undefined) {
 }
 
 type DirectDependencies = {
-	fetch: typeof fetch;
+	fetch: (
+		input: string | URL | Request,
+		init?: RequestInit,
+	) => Promise<Response>;
 	getAccessToken: (
 		providerId: AuthProvider,
 		userId: string,
@@ -94,7 +98,7 @@ function authProvider(provider: DirectProvider): AuthProvider {
 }
 
 const defaultDependencies: DirectDependencies = {
-	fetch: globalThis.fetch,
+	fetch: (...args) => globalThis.fetch(...args),
 	getAccessToken: (providerId, userId) =>
 		auth.api.getAccessToken({ body: { providerId, userId } }),
 };
@@ -578,7 +582,7 @@ export async function setDirectOutputs(
 	outputs: { twitch: boolean; kick: boolean; youtube: boolean },
 ) {
 	const clearing = !outputs.twitch && !outputs.kick && !outputs.youtube;
-	await db.transaction(async (tx) => {
+	const resetPathIds = await db.transaction(async (tx) => {
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
 		const [path] = await tx
 			.select({ id: relayPath.id, publishing: pathState.publishing })
@@ -646,7 +650,12 @@ export async function setDirectOutputs(
 					directYoutubeBroadcastId: null,
 					// Clearing Direct output ends any held BRB card, matching the
 					// mode switch in saveDirectPreferences.
-					...(clearing ? { brbSince: null } : {}),
+					...(clearing
+						? {
+								brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then now() else ${pathState.brbHighlightsResultAt} end`,
+								brbSince: null,
+							}
+						: {}),
 				})
 				.where(inArray(pathState.pathId, resetPathIds));
 		}
@@ -666,7 +675,13 @@ export async function setDirectOutputs(
 				directYoutube: outputs.youtube,
 			})
 			.where(eq(appUser.id, userId));
+		return resetPathIds;
 	});
+	await Promise.all(
+		resetPathIds.map((resetPathId) =>
+			cleanupDeletedBrbHighlightsForPath(resetPathId).catch(() => undefined),
+		),
+	);
 	return { pathId, ...outputs };
 }
 
@@ -675,7 +690,7 @@ export async function saveDirectPreferences(
 	userId: string,
 	outputs: { twitch: boolean; kick: boolean; youtube: boolean },
 ) {
-	await db.transaction(async (tx) => {
+	const resetPathIds = await db.transaction(async (tx) => {
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
 		const [current] = await tx
 			.select({
@@ -691,6 +706,7 @@ export async function saveDirectPreferences(
 			current.twitch !== outputs.twitch ||
 			current.kick !== outputs.kick ||
 			current.youtube !== outputs.youtube;
+		let resetPathIds: number[] = [];
 		if (changed) {
 			const paths = await tx
 				.select({
@@ -717,8 +733,8 @@ export async function saveDirectPreferences(
 				.update(relayPath)
 				.set({ directTwitch: false, directKick: false, directYoutube: false })
 				.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
-			const pathIds = paths.map((path) => path.id);
-			if (pathIds.length > 0) {
+			resetPathIds = paths.map((path) => path.id);
+			if (resetPathIds.length > 0) {
 				await tx
 					.update(pathState)
 					.set({
@@ -727,9 +743,10 @@ export async function saveDirectPreferences(
 						directYoutubeReservedUntil: null,
 						directYoutubeBroadcastId: null,
 						// Moving or clearing Direct output ends any held BRB card.
+						brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then now() else ${pathState.brbHighlightsResultAt} end`,
 						brbSince: null,
 					})
-					.where(inArray(pathState.pathId, pathIds));
+					.where(inArray(pathState.pathId, resetPathIds));
 			}
 		}
 		await tx
@@ -740,7 +757,13 @@ export async function saveDirectPreferences(
 				directYoutube: outputs.youtube,
 			})
 			.where(eq(appUser.id, userId));
+		return resetPathIds;
 	});
+	await Promise.all(
+		resetPathIds.map((pathId) =>
+			cleanupDeletedBrbHighlightsForPath(pathId).catch(() => undefined),
+		),
+	);
 }
 
 export const RESERVATION_MS = DIRECT_RESERVATION_MS;
@@ -1365,6 +1388,7 @@ export async function stopDirectForPaths(pathIds: number[]) {
 			directYoutubeReservedUntil: null,
 			directYoutubeBroadcastId: null,
 			// A hard stop is the end of BRB too, whatever got us here.
+			brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then now() else ${pathState.brbHighlightsResultAt} end`,
 			brbSince: null,
 		})
 		.where(inArray(pathState.pathId, pathIds));
@@ -1372,6 +1396,11 @@ export async function stopDirectForPaths(pathIds: number[]) {
 		.update(directDestination)
 		.set({ state: "stopped", reservedUntil: null })
 		.where(inArray(directDestination.pathId, pathIds));
+	await Promise.all(
+		pathIds.map((pathId) =>
+			cleanupDeletedBrbHighlightsForPath(pathId).catch(() => undefined),
+		),
+	);
 	await Promise.allSettled(
 		broadcasts.flatMap((entry) => {
 			const broadcastId = entry.broadcastId;

@@ -21,11 +21,11 @@ export PATH="$work/bin:$PATH"
 
 cat >"$work/bin/curl" <<'FAKE'
 #!/usr/bin/env bash
-url=""; data=""
+url=""; data=""; output=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--data) data="$2"; shift 2 ;;
-		-*) case "$1" in --header|--max-time|--upload-file|--request|--output) shift 2 ;; *) shift ;; esac ;;
+		-*) case "$1" in --output) output="$2"; shift 2 ;; --header|--max-time|--upload-file|--request) shift 2 ;; *) shift ;; esac ;;
 		*) url="$1"; shift ;;
 	esac
 done
@@ -49,6 +49,21 @@ case "$url" in
 		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
 	*/hooks/brb)
 		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
+		for provider in twitch kick youtube; do
+			case "$data" in *"\"provider\":\"$provider\""*)
+				delay="$FAKE_BRB_DELAY_DIR/$provider"
+				if test -f "$delay"; then rm -f "$delay"; sleep 3; fi
+				read -r verb message payload background source <"$FAKE_BRB_REPLY"
+				if test "$verb" = highlights; then
+					payload="$(printf '%s' "$payload" | base64 -d |
+						sed "1! s|$|?$provider|" |
+						base64)"
+					printf '%s %s %s %s %s\n' "$verb" "$message" "$payload" \
+						"$background" "$source"
+					exit 0
+				fi ;;
+			esac
+		done
 		cat "$FAKE_BRB_REPLY" ;;
 	*/direct-state)
 		printf '%s\n' "$data" >>"$FAKE_STATE_LOG"
@@ -61,6 +76,11 @@ case "$url" in
 				done
 				printf '%s\n' "$count" >>"$FAKE_STOP_ACK_LOG" ;;
 		esac ;;
+	*/hooks/brb-played) printf '%s\n' "$data" >>"$FAKE_PLAYED_LOG" ;;
+	https://clips.test/*)
+		if test -f "$FAKE_CLIP_DELAY"; then rm -f "$FAKE_CLIP_DELAY"; sleep 5; fi
+		printf '%s' "${url##*/}" >"$output" ;;
+	https://background.test/*) printf 'image' >"$output" ;;
 esac
 exit 0
 FAKE
@@ -79,10 +99,41 @@ case "$*" in
 		while test -f "$FAKE_LIVE_MARKER"; do sleep 0.2; done
 		rm -f "$FAKE_PID_DIR/$$"
 		exit 1 ;;
+	*highlights*.mp4*) printf 'ts' >"${*: -1}"; rm -f "$FAKE_PID_DIR/$$"; exit 0 ;;
+	*'-f concat'*)
+		list=""; progress=""; previous=""; micros=0
+		for argument in "$@"; do
+			test "$previous" != -i || case "$argument" in *playlist.txt) list="$argument" ;; esac
+			test "$previous" != -progress || progress="$argument"
+			previous="$argument"
+		done
+		trap 'rm -f "$FAKE_PID_DIR/$$"; exit 0' TERM INT
+		while true; do
+			while read -r _ clip; do
+				clip="${clip#\'}"; clip="${clip%\'}"
+				printf 'out_time_us=%s\nprogress=continue\n' "$micros" >>"$progress"
+				printf '%s %s %s\n' "$$" "${*: -1}" "$clip" >>"$FAKE_OUTPUT_LOG"
+				micros=$((micros + 500000))
+				sleep 0.3
+			done <"$list"
+		done ;;
 esac
 # exec, so SIGTERM reaches this pid the way it reaches a real FFmpeg. A bash
 # wrapper would sit on the signal until its foreground child returned.
 exec sleep 600
+FAKE
+
+cat >"$work/bin/ffprobe" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_FFPROBE_LOG"
+file="${*: -1}"
+grep -q bad "$file" 2>/dev/null && exit 1
+case "$*" in
+	*stream=codec_name,width,height*) printf 'h264\n1920\n1080\n' ;;
+	*stream=codec_type*) grep -q one "$file" && printf 'audio\n' ;;
+	*stream=codec_type*) : ;;
+	*format=duration*) printf '0.5\n' ;;
+esac
 FAKE
 
 cat >"$work/bin/timeout" <<'FAKE'
@@ -107,6 +158,9 @@ export FAKE_FFMPEG_LOG="$work/ffmpeg.log"
 export FAKE_STATE_LOG="$work/state.log"
 export FAKE_BRB_LOG="$work/brb.log"
 export FAKE_DESTINATIONS_LOG="$work/destinations.log"
+export FAKE_PLAYED_LOG="$work/played.log"
+export FAKE_FFPROBE_LOG="$work/ffprobe.log"
+export FAKE_OUTPUT_LOG="$work/output.log"
 export FAKE_BRB_REPLY="$work/brb-reply"
 export FAKE_PID_DIR="$work/pids"
 export FAKE_LIVE_MARKER="$work/run/path-1.live"
@@ -115,6 +169,8 @@ export FAKE_STOP_ACK_LOG="$work/stop-ack.log"
 export FAKE_PORTRAIT_REMOVED="$work/portrait-removed"
 export FAKE_IGNORE_TERM="$work/ignore-term"
 export FAKE_SERVER_VERSION=new
+export FAKE_BRB_DELAY_DIR="$work/brb-delay"
+export FAKE_CLIP_DELAY="$work/clip-delay"
 export HOOK_SECRET=test-secret RTSP_PORT=8554
 export VISP_RUN_DIR="$work/run"
 export BRB_TICK_SECONDS=1
@@ -128,6 +184,9 @@ export BRB_FONT="$work/font.ttf"
 : >"$FAKE_DESTINATIONS_LOG"
 : >"$FAKE_ACTIVE_LOG"
 : >"$FAKE_STOP_ACK_LOG"
+: >"$FAKE_PLAYED_LOG"
+: >"$FAKE_FFPROBE_LOG"
+: >"$FAKE_OUTPUT_LOG"
 # "Be right back" over a solid card: no background URL, so no download either.
 printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
 
@@ -139,6 +198,24 @@ live_children() {
 		kill -0 "$pid" 2>/dev/null && count=$((count + 1))
 	done
 	printf '%s' "$count"
+}
+
+wait_for_hold_cleanup() {
+	for _ in {1..40}; do
+		test "$(live_children)" -ne 0 ||
+			test -e "$VISP_RUN_DIR/path-1-highlights" || return 0
+		sleep 0.25
+	done
+	return 1
+}
+
+wait_for_live_children() {
+	local expected="$1"
+	for _ in {1..40}; do
+		test "$(live_children)" -ne "$expected" || return 0
+		sleep 0.25
+	done
+	return 1
 }
 
 start_script() {
@@ -184,7 +261,7 @@ sleep 4
 
 # The ingest is gone and the card is up: this is "never drop again" working.
 test "$(live_children)" -eq 3 ||
-	fail "the BRB card did not take over: $(live_children) of 3 encoders running"
+	fail "the BRB card did not take over: $(live_children) of 3 encoders running; brb=$(tr '\n' '|' <"$FAKE_BRB_LOG"); ffmpeg=$(tr '\n' '|' <"$FAKE_FFMPEG_LOG")"
 grep -q '"provider":"twitch","state":"brb"' "$FAKE_STATE_LOG" ||
 	fail "twitch BRB was not reported"
 brb_forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
@@ -311,6 +388,167 @@ kill -TERM "$script_pid" 2>/dev/null || true
 wait "$script_pid" 2>/dev/null || true
 rm -f "$FAKE_LIVE_MARKER"
 sleep 5
+
+# A later BRB snapshots a video playlist. It loops in order, mutes only when
+# requested, draws the message only when overlay is on, and reports each start.
+: >"$FAKE_FFMPEG_LOG"
+: >"$FAKE_PLAYED_LOG"
+: >"$FAKE_OUTPUT_LOG"
+playlist="$(printf '1 1\nbad 500 https://clips.test/bad\none 500 https://clips.test/one\ntwo 500 https://clips.test/two' | base64)"
+printf 'highlights QmUgcmlnaHQgYmFjaw== %s https://background.test/card image\n' \
+	"$playlist" >"$FAKE_BRB_REPLY"
+mkdir -p "$FAKE_BRB_DELAY_DIR"
+touch "$FAKE_BRB_DELAY_DIR/twitch" "$FAKE_BRB_DELAY_DIR/kick" \
+	"$FAKE_BRB_DELAY_DIR/youtube"
+start_script
+script_pid=$!
+wait_for_live_children 3 || fail "pre-tick test did not start live outputs"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+sleep 1
+test "$(live_children)" -eq 0 ||
+	fail "hold output started before the first eligibility tick"
+for _ in {1..40}; do
+	test "$(grep 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" | grep -c .)" -lt 3 ||
+		test "$(grep -- '-f concat' "$FAKE_FFMPEG_LOG" | grep -- '-f flv' | grep -c .)" -lt 3 || break
+	sleep 0.25
+done
+test "$(grep 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" | grep -c .)" -eq 3 ||
+	fail "the image fallback was not used while highlights prepared"
+highlight_outputs="$(grep -- '-f concat' "$FAKE_FFMPEG_LOG" | grep -- '-f flv' || true)"
+test "$(printf '%s\n' "$highlight_outputs" | grep -c .)" -eq 3 ||
+	fail "highlights did not keep one destination encoder: ffprobe=$(tr '\n' '|' <"$FAKE_FFPROBE_LOG") ffmpeg=$(tr '\n' '|' <"$FAKE_FFMPEG_LOG")"
+first_output="$(grep -n 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" | head -n 1 | cut -d: -f1 || true)"
+first_normalization="$(grep -n 'highlights.*\.mp4' "$FAKE_FFMPEG_LOG" | head -n 1 | cut -d: -f1)"
+test -n "$first_output" && test "$first_output" -lt "$first_normalization" ||
+	fail "the still hold did not start before highlight preparation"
+printf '%s\n' "$highlight_outputs" | grep -q -- '-stream_loop -1' ||
+	fail "highlight playlist does not loop continuously"
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+	complete=1
+	for key in TWITCHKEY KICKKEY YOUTUBEKEY; do
+		test "$(awk -v key="$key" '$2 ~ key' "$FAKE_OUTPUT_LOG" | head -n 3 | wc -l | tr -d ' ')" -eq 3 || complete=0
+	done
+	test "$complete" -eq 0 || break
+	sleep 0.25
+done
+for key in TWITCHKEY KICKKEY YOUTUBEKEY; do
+	output="$(awk -v key="$key" '$2 ~ key { print $1, $3 }' "$FAKE_OUTPUT_LOG")"
+	test "$(printf '%s\n' "$output" | awk '{ print $1 }' | sort -u | grep -c .)" -eq 1 ||
+		fail "$key reopened its output connection between clips"
+	sequence="$(printf '%s\n' "$output" | head -n 3 | awk '{ print $2 }' | sed 's|.*/||' | tr '\n' ' ')"
+	test "$sequence" = "0.ts 1.ts 0.ts " ||
+		fail "$key did not output continuously across the playlist boundary: $sequence"
+done
+if printf '%s\n' "$highlight_outputs" | grep -q -- '-an'; then
+	fail "muted highlights removed the required AAC output"
+fi
+normalizations="$(grep 'highlights.*\.mp4' "$FAKE_FFMPEG_LOG" | grep -v -- '-f flv' || true)"
+test "$(printf '%s\n' "$normalizations" | grep -c anullsrc)" -eq 2 ||
+	fail "clips were not normalized exactly once per path with silence"
+grep -q 'format=duration.*highlights.*1.mp4' "$FAKE_FFPROBE_LOG" ||
+	fail "a valid sub-second clip was not probed deterministically"
+grep -q 'highlights.*0.mp4' "$FAKE_FFPROBE_LOG" ||
+	fail "an invalid clip was not probed before playback"
+printf '%s\n' "$highlight_outputs" | grep -q 'drawtext=textfile=' ||
+	fail "highlight overlay was not rendered"
+for _ in 1 2 3 4 5 6 7 8; do
+	test "$(wc -l <"$FAKE_PLAYED_LOG" | tr -d ' ')" -ge 2 && break
+	sleep 0.25
+done
+test "$(wc -l <"$FAKE_PLAYED_LOG" | tr -d ' ')" -ge 2 ||
+	fail "highlight starts were not reported from FFmpeg progress"
+grep -q '"ordinal":1' "$FAKE_PLAYED_LOG" ||
+	fail "playback progress did not report the first real start: $(tr '\n' '|' <"$FAKE_PLAYED_LOG")"
+if grep -q '"token":' "$FAKE_PLAYED_LOG"; then
+	fail "legacy sleep-simulated playback tokens were reported"
+fi
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+wait_for_hold_cleanup || fail "highlight hold did not clean up"
+
+# Unmuted keeps source audio, fills missing audio with silence, and can omit the overlay.
+: >"$FAKE_FFMPEG_LOG"
+playlist="$(printf '0 0\none 500 https://clips.test/one\ntwo 500 https://clips.test/two' | base64)"
+printf 'highlights QmUgcmlnaHQgYmFjaw== %s - snapshot\n' "$playlist" >"$FAKE_BRB_REPLY"
+start_script
+script_pid=$!
+wait_for_live_children 3 || fail "unmuted test did not start live outputs"
+printf 'snapshot' >"$VISP_RUN_DIR/path-1.jpg"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+for _ in {1..40}; do
+	grep 'highlights.*0.mp4' "$FAKE_FFMPEG_LOG" | grep -q -- '-map 0:a:0' &&
+		grep 'highlights.*1.mp4' "$FAKE_FFMPEG_LOG" | grep -q anullsrc &&
+		grep 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" | grep -q 'boxblur=12:2' && break
+	sleep 0.25
+done
+grep 'highlights.*0.mp4' "$FAKE_FFMPEG_LOG" | grep -q -- '-map 0:a:0' ||
+	fail "unmuted source audio was not retained"
+grep 'highlights.*1.mp4' "$FAKE_FFMPEG_LOG" | grep -q anullsrc ||
+	fail "audio-less clip did not receive stereo silence"
+overlay_off_outputs="$(grep -- '-f concat' "$FAKE_FFMPEG_LOG" | grep -- '-f flv' || true)"
+if printf '%s\n' "$overlay_off_outputs" | grep -q drawtext; then
+	fail "overlay-off highlights still rendered the message"
+fi
+grep 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" | grep -q 'boxblur=12:2' ||
+	fail "the snapshot fallback was not retained while highlights prepared"
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+wait_for_hold_cleanup || fail "snapshot highlight hold did not clean up"
+
+# An all-invalid playlist retains the configured image fallback.
+: >"$FAKE_FFMPEG_LOG"
+playlist="$(printf '1 1\nbad 500 https://clips.test/bad' | base64)"
+printf 'highlights QmUgcmlnaHQgYmFjaw== %s https://background.test/card image\n' \
+	"$playlist" >"$FAKE_BRB_REPLY"
+start_script
+script_pid=$!
+wait_for_live_children 3 || fail "invalid-playlist test did not start live outputs"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+for _ in {1..40}; do
+	grep 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" >/dev/null &&
+		grep -q 'highlights.*0.mp4' "$FAKE_FFPROBE_LOG" && break
+	sleep 0.25
+done
+grep 'path-1-.*\.img.*-f flv' "$FAKE_FFMPEG_LOG" >/dev/null ||
+	fail "failed preparation did not retain the configured image fallback"
+if grep -- '-f concat' "$FAKE_FFMPEG_LOG" >/dev/null; then
+	fail "an all-invalid playlist replaced the configured fallback"
+fi
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+wait_for_hold_cleanup || fail "failed highlight hold did not clean up"
+
+# A slow preparation that loses its final user must not publish a cache later.
+: >"$FAKE_FFMPEG_LOG"
+printf 'highlights QmUgcmlnaHQgYmFjaw== %s https://background.test/card image\n' \
+	"$playlist" >"$FAKE_BRB_REPLY"
+touch "$FAKE_CLIP_DELAY"
+start_script
+script_pid=$!
+wait_for_live_children 3 || fail "slow-preparation test did not start live outputs"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+for _ in {1..40}; do
+	test -e "$FAKE_CLIP_DELAY" || break
+	sleep 0.25
+done
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+wait_for_hold_cleanup || fail "slow highlight hold did not clean up"
+sleep 6
+test ! -e "$VISP_RUN_DIR/path-1-highlights" ||
+	fail "the stopped preparation republished the shared highlight cache"
+
+# A stop-first tick must not reconnect the destination after ingest disappears.
+: >"$FAKE_FFMPEG_LOG"
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+start_script
+script_pid=$!
+wait_for_live_children 3 || fail "stop-first test did not start live outputs"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+sleep 2
+test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 3 ||
+	fail "a stop-first tick opened hold output"
 
 printf 'ok: BRB held the stream up, resumed in place, and let go on stop\n'
 exit 0

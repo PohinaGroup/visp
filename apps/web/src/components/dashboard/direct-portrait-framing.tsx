@@ -153,29 +153,15 @@ export function DirectPortraitFraming({
 								{t("Preview appears while this device is publishing")}
 							</span>
 						)}
-					<div
-						aria-label={t("Portrait crop preview")}
-						role="group"
-						style={{
-							border: "2px solid #fff",
-							cursor: "move",
-							height: `${draft.h * 100}%`,
-							left: `${draft.x * 100}%`,
-							position: "absolute",
-							top: `${draft.y * 100}%`,
-							width: `${draft.w * 100}%`,
-						}}
-						onPointerDown={(event) => beginGesture(event, "move")}
-						onPointerMove={moveGesture}
-						onPointerUp={() => {
-							gesture.current = undefined;
-						}}
-					>
+						<fieldset
+							aria-label={t("Portrait crop preview")}
+							style={{
 								border: "2px solid #fff",
 								cursor: "move",
 								height: `${draft.h * 100}%`,
 								left: `${draft.x * 100}%`,
 								position: "absolute",
+								padding: 0,
 								top: `${draft.y * 100}%`,
 								width: `${draft.w * 100}%`,
 							}}
@@ -204,7 +190,7 @@ export function DirectPortraitFraming({
 									gesture.current = undefined;
 								}}
 							/>
-						</div>
+						</fieldset>
 					</div>
 					<div
 						aria-label={t("Simulated portrait output")}

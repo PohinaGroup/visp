@@ -5,7 +5,8 @@ import { Elysia } from "elysia";
 
 const { machineRoutes } = await import("./machine");
 const { createApp, LOG_REDACTION_PATHS } = await import("./app");
-const { deleteSnapshotsForPathIds } = await import("@VISP/auth");
+const { deleteBrbHighlightUploadsForUser, deleteSnapshotsForPathIds } =
+	await import("@VISP/auth");
 const app = new Elysia().use(machineRoutes);
 
 function authRequest(overrides: Record<string, unknown> = {}) {
@@ -142,5 +143,23 @@ describe("machine endpoints", () => {
 				},
 			} as unknown as Parameters<typeof deleteSnapshotsForPathIds>[1]),
 		).rejects.toThrow("storage unavailable");
+	});
+
+	test("deletes every abandoned highlight upload for an account", async () => {
+		const deleted: string[] = [];
+		let listedPrefix = "";
+		await deleteBrbHighlightUploadsForUser("user-a", {
+			list: async (prefix) => {
+				listedPrefix = prefix;
+				return [`${prefix}first.mp4`, `${prefix}second.mp4`];
+			},
+			delete: async (key) => void deleted.push(key),
+		});
+
+		expect(listedPrefix).toBe("brb/user-a/highlights/uploads/");
+		expect(deleted).toEqual([
+			"brb/user-a/highlights/uploads/first.mp4",
+			"brb/user-a/highlights/uploads/second.mp4",
+		]);
 	});
 });

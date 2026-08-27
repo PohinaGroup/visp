@@ -16,6 +16,8 @@ export type PresignOptions = {
 
 export type ObjectStat = {
 	lastModified: Date;
+	byteSize: number;
+	contentType: string | null;
 };
 
 /**
@@ -40,7 +42,29 @@ export function createObjectStore(config: ObjectStoreConfig) {
 			.join("/")}`;
 	}
 
+	function decodeXml(value: string): string {
+		return value
+			.replaceAll("&quot;", '"')
+			.replaceAll("&apos;", "'")
+			.replaceAll("&lt;", "<")
+			.replaceAll("&gt;", ">")
+			.replaceAll("&amp;", "&");
+	}
+
 	return {
+		async copy(source: string, destination: string): Promise<void> {
+			const copySource = `/${config.bucket}/${source
+				.split("/")
+				.map((part) => encodeURIComponent(part))
+				.join("/")}`;
+			const response = await aws.fetch(objectUrl(destination), {
+				method: "PUT",
+				headers: { "x-amz-copy-source": copySource },
+				aws: { service: "s3", region: config.region },
+			});
+			if (!response.ok) throw new Error(`S3 copy failed: ${response.status}`);
+		},
+
 		async delete(key: string): Promise<void> {
 			const response = await aws.fetch(objectUrl(key), {
 				method: "DELETE",
@@ -49,6 +73,33 @@ export function createObjectStore(config: ObjectStoreConfig) {
 			if (!response.ok && response.status !== 404) {
 				throw new Error(`S3 delete failed: ${response.status}`);
 			}
+		},
+
+		async list(prefix: string): Promise<string[]> {
+			const keys: string[] = [];
+			let continuationToken: string | undefined;
+			do {
+				const url = new URL(base);
+				url.searchParams.set("list-type", "2");
+				url.searchParams.set("prefix", prefix);
+				if (continuationToken)
+					url.searchParams.set("continuation-token", continuationToken);
+				const response = await aws.fetch(url.toString(), {
+					aws: { service: "s3", region: config.region },
+				});
+				if (!response.ok) throw new Error(`S3 list failed: ${response.status}`);
+				const body = await response.text();
+				for (const match of body.matchAll(/<Key>([\s\S]*?)<\/Key>/g))
+					keys.push(decodeXml(match[1] ?? ""));
+				continuationToken = /<IsTruncated>true<\/IsTruncated>/.test(body)
+					? decodeXml(
+							body.match(
+								/<NextContinuationToken>([\s\S]*?)<\/NextContinuationToken>/,
+							)?.[1] ?? "",
+						)
+					: undefined;
+			} while (continuationToken);
+			return keys;
 		},
 
 		async stat(key: string): Promise<ObjectStat> {
@@ -64,6 +115,8 @@ export function createObjectStore(config: ObjectStoreConfig) {
 				lastModified: lastModifiedHeader
 					? new Date(lastModifiedHeader)
 					: new Date(0),
+				byteSize: Number(response.headers.get("content-length") ?? 0),
+				contentType: response.headers.get("content-type"),
 			};
 		},
 

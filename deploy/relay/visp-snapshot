@@ -147,10 +147,10 @@ cleanup_forward() {
 	trap - INT TERM EXIT
 	rm -f "$log"
 	rm -rf "$lock"
-	for child in ${desired_watcher:-} ${watcher:-} ${encoder_pid:-} ${brb_pid:-}; do
+	for child in ${desired_watcher:-} ${watcher:-} ${encoder_pid:-} ${brb_pid:-} ${analytics_pid:-}; do
 		kill "$child" 2>/dev/null || true
 	done
-	for child in ${desired_watcher:-} ${watcher:-} ${encoder_pid:-} ${brb_pid:-}; do
+	for child in ${desired_watcher:-} ${watcher:-} ${encoder_pid:-} ${brb_pid:-} ${analytics_pid:-}; do
 		wait "$child" 2>/dev/null || true
 	done
 }
@@ -195,7 +195,8 @@ forward() {
 	# Raised by the next runOnAvailable: the publisher is back.
 	resume=0
 	brb_pid=""
-	trap 'resume=1; test -n "$brb_pid" && kill "$brb_pid" 2>/dev/null' USR1
+	analytics_pid=""
+	trap 'resume=1; test -z "$brb_pid" || kill "$brb_pid" 2>/dev/null; test -z "$analytics_pid" || kill "$analytics_pid" 2>/dev/null' USR1
 	if test "$desired_state" = 1; then
 		(
 			while sleep 2; do
@@ -259,7 +260,7 @@ forward() {
 		if ! ingest_live; then
 			# The source is gone, not the destination. Hold the broadcast open
 			# until the publisher returns or the app says stop.
-			hold_brb "$provider" "$destination" "$log" || break
+			hold_brb "$provider" "$role" "$destination" "$log" || break
 			backoff=2
 			continue
 		fi
@@ -328,19 +329,205 @@ brb_card_ffmpeg() {
 		-vf "$filter"
 }
 
+prepare_highlights() {
+	local payload="$1" directory="$2" list_file="$3" analytics_file="$4"
+	local payload_file id expected_duration url raw clip duration has_audio count=0
+	local filter
+	payload_file="$directory/payload"
+	rm -rf "$directory"
+	mkdir -p "$directory" || return 1
+	printf '%s' "$payload" | base64 -d >"$payload_file" 2>/dev/null || return 1
+	read -r highlights_muted highlights_overlay <"$payload_file" || return 1
+	: >"$list_file"
+	: >"$analytics_file"
+	filter="scale=$brb_width:$brb_height:force_original_aspect_ratio=decrease"
+	filter="$filter,pad=$brb_width:$brb_height:(ow-iw)/2:(oh-ih)/2,fps=$video_fps,format=yuv420p"
+	while read -r id expected_duration url || test -n "${url:-}"; do
+		test -n "${id:-}" -a -n "${url:-}" || continue
+		raw="$directory/$count.mp4"
+		clip="$directory/$count.ts"
+		curl --fail --silent --show-error --max-time 30 --output "$raw" "$url" || continue
+		test -s "$raw" || continue
+		duration="$(ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$raw" 2>/dev/null)" || continue
+		awk -v duration="$duration" 'BEGIN { exit !(duration > 0 && duration <= 30) }' || continue
+		ffprobe -v error -select_streams v:0 -show_entries stream=codec_name,width,height \
+			-of default=nw=1:nk=1 "$raw" 2>/dev/null | grep -q '^h264$' || continue
+		has_audio=0
+		ffprobe -v error -select_streams a:0 -show_entries stream=codec_type \
+			-of default=nw=1:nk=1 "$raw" 2>/dev/null | grep -q '^audio$' && has_audio=1
+		if test "$highlights_muted" = 0 -a "$has_audio" = 1; then
+			ffmpeg -nostdin -hide_banner -loglevel error -i "$raw" \
+				-map 0:v:0 -map 0:a:0 -vf "$filter" \
+				-c:v "$video_encoder" -preset veryfast -pix_fmt yuv420p \
+				-c:a aac -ac 2 -ar 48000 -f mpegts -y "$clip" 2>>"$log" || continue
+		else
+			ffmpeg -nostdin -hide_banner -loglevel error -i "$raw" \
+				-f lavfi -i "anullsrc=channel_layout=stereo:sample_rate=48000" \
+				-map 0:v:0 -map 1:a:0 -shortest -vf "$filter" \
+				-c:v "$video_encoder" -preset veryfast -pix_fmt yuv420p \
+				-c:a aac -ac 2 -ar 48000 -f mpegts -y "$clip" 2>>"$log" || continue
+		fi
+		test -s "$clip" || continue
+		duration="$(ffprobe -v error -show_entries format=duration \
+			-of default=nw=1:nk=1 "$clip" 2>/dev/null)" || continue
+		awk -v duration="$duration" 'BEGIN { exit !(duration > 0) }' || continue
+		printf "file '%s'\n" "$clip" >>"$list_file"
+		printf '%s\n' "$duration" >>"$analytics_file"
+		count=$((count + 1))
+	done < <(tail -n +2 "$payload_file")
+	test "$count" -gt 0
+}
+
+highlight_request_id() {
+	# Presigned URLs differ across providers and ticks. Identity is the frozen
+	# playlist order/durations plus preferences, never the renewable transport.
+	printf '%s' "$1" | base64 -d 2>/dev/null |
+		awk 'NR == 1 { print; next } { print $1, $2 }' |
+		cksum | awk '{ print $1 ":" $2 }'
+}
+
+highlights_cache_ready() {
+	local payload="$1" directory="$2"
+	test -f "$directory/ready" || return 1
+	test "$(cat "$directory/request" 2>/dev/null)" = "$(highlight_request_id "$payload")"
+}
+
+highlights_cache_failed() {
+	local payload="$1" directory="$2"
+	test -f "$directory/failed" || return 1
+	test "$(cat "$directory/request" 2>/dev/null)" = "$(highlight_request_id "$payload")"
+}
+
+# Download and normalize once per path. Every provider starts a still card
+# immediately and observes this shared cache on its next tick.
+start_highlight_preparation() {
+	local payload="$1" directory="$2" users="$3" request lock worker holder temp generation
+	request="$(highlight_request_id "$payload")"
+	test "$(cat "$directory/request" 2>/dev/null)" != "$request" ||
+		{ test ! -f "$directory/ready" -a ! -f "$directory/failed"; } || return 0
+	lock="$directory.prepare"
+	if ! mkdir "$lock" 2>/dev/null; then
+		holder="$(cat "$lock/pid" 2>/dev/null)" || return 0
+		test -n "$holder" && kill -0 "$holder" 2>/dev/null && return 0
+		rm -rf "$lock"
+		mkdir "$lock" 2>/dev/null || return 0
+	fi
+	generation="$request:$$:$RANDOM"
+	printf '%s\n' "$generation" >"$lock/generation"
+	(
+		temp="$directory.work.$$"
+		trap "test \"\$(cat '$lock/generation' 2>/dev/null)\" != '$generation' || rm -rf '$lock'; rm -rf '$temp'" INT TERM EXIT
+		if prepare_highlights "$payload" "$temp" "$temp/playlist.txt" \
+			"$temp/analytics.txt"; then
+			touch "$temp/ready"
+		else
+			touch "$temp/failed"
+		fi
+		printf '%s\n' "$request" >"$temp/request"
+		test -n "$(ls -A "$users" 2>/dev/null)" || exit 0
+		test "$(cat "$lock/generation" 2>/dev/null)" = "$generation" || exit 0
+		rm -rf "$directory"
+		mv "$temp" "$directory"
+		temp=""
+	) >>"$directory.log" 2>&1 &
+	worker="$!"
+	printf '%s\n' "$worker" >"$lock/pid"
+}
+
+stop_highlight_preparation() {
+	local directory="$1" worker attempt
+	worker="$(cat "$directory.prepare/pid" 2>/dev/null)" || return 0
+	test -n "$worker" || return 0
+	pkill -TERM -P "$worker" 2>/dev/null || true
+	kill "$worker" 2>/dev/null || true
+	wait "$worker" 2>/dev/null || true
+	attempt=0
+	while test "$attempt" -lt 100; do
+		kill -0 "$worker" 2>/dev/null || return 0
+		sleep 0.05
+		attempt=$((attempt + 1))
+	done
+	return 1
+}
+
+highlight_ordinal() {
+	awk -v micros="$2" '
+		{ duration[++count] = $1; total += $1 }
+		END {
+			if (!count || total <= 0) exit 1
+			seconds = micros / 1000000
+			cycle = int(seconds / total)
+			within = seconds - cycle * total
+			ordinal = cycle * count + 1
+			elapsed = 0
+			for (i = 2; i <= count; i++) {
+				elapsed += duration[i - 1]
+				if (within + 0.000001 >= elapsed) ordinal = cycle * count + i
+			}
+			if (ordinal > 2000000000) ordinal = 2000000000
+			print ordinal
+		}' "$1"
+}
+
+report_highlight_progress() {
+	local ffmpeg_pid="$1" progress_file="$2" analytics_file="$3"
+	local micros ordinal last=0
+	while kill -0 "$ffmpeg_pid" 2>/dev/null; do
+		micros="$(awk -F= '$1 == "out_time_us" { value=$2 } END { print value }' \
+			"$progress_file" 2>/dev/null)"
+		if test -n "$micros"; then
+			ordinal="$(highlight_ordinal "$analytics_file" "$micros")" || ordinal=""
+			if test -n "$ordinal" && test "$ordinal" -gt "$last"; then
+				hook brb-played \
+					"{\"path\":\"$path\",\"ordinal\":$ordinal}" || true
+				last="$ordinal"
+			fi
+		fi
+		sleep 0.25 &
+		wait "$!"
+	done
+}
+
+brb_highlights_ffmpeg() {
+	local destination="$1" log="$2" list_file="$3" text_file="$4"
+	local overlay="$5" progress_file="$6" filter
+	filter="scale=$brb_width:$brb_height:force_original_aspect_ratio=decrease"
+	filter="$filter,pad=$brb_width:$brb_height:(ow-iw)/2:(oh-ih)/2"
+	if test "$overlay" = 1 && test -r "$brb_font"; then
+		filter="$filter,drawtext=textfile=$text_file:fontfile=$brb_font"
+		filter="$filter:fontcolor=white:fontsize=$((brb_height / 14))"
+		filter="$filter:box=1:boxcolor=black@0.5:boxborderw=24"
+		filter="$filter:x=(w-text_w)/2:y=(h-text_h)/2"
+	fi
+	encode_to exec "$destination" "$log" \
+		-stream_loop -1 -re -f concat -safe 0 -i "$list_file" -vf "$filter" \
+		-stats_period 0.25 -progress "$progress_file"
+}
+
 # Holds the destination open on the BRB card. Returns 0 when the publisher came
 # back and the caller should go straight to the live encode, 1 when this
 # forwarder is done.
 hold_brb() {
-	local provider="$1" destination="$2" log="$3"
-	local text_file image_file entered line verb card_started card_image
+	local provider="$1" role="$2" destination="$3" log="$4"
+	local text_file image_file entered line verb card_started card_image tick_wait
+	local highlights_dir highlights_list highlights_analytics highlights_failed highlights_muted highlights_overlay
+	local highlights_payload highlights_users highlights_user progress_file
 	text_file="$run_dir/$safe_path-$provider.txt"
 	image_file="$run_dir/$safe_path-$provider.img"
+	highlights_dir="$run_dir/$safe_path-highlights"
+	highlights_list="$highlights_dir/playlist.txt"
+	highlights_analytics="$highlights_dir/analytics.txt"
+	highlights_users="$run_dir/$safe_path-highlights-users"
+	highlights_user="$highlights_users/$provider.$$"
+	progress_file="$run_dir/$safe_path-$provider.progress"
+	mkdir -p "$highlights_users"
+	touch "$highlights_user"
 	entered="$SECONDS"
 	resume=0
 	brb_pid=""
 	card_started=0
 	card_image=""
+	highlights_failed=0
 
 	while true; do
 		line="$(brb_tick "$provider")" || line=""
@@ -351,32 +538,84 @@ hold_brb() {
 		test "$((SECONDS - entered))" -lt "$brb_max_seconds" || break
 
 		if test -n "$brb_pid" && ! kill -0 "$brb_pid" 2>/dev/null; then
-			# A card that dies this fast is a background FFmpeg cannot decode.
-			# Falling back here is why the app never has to validate an upload.
-			test -z "$card_image" ||
-				test "$((SECONDS - card_started))" -ge 3 ||
-				card_image="skip"
+			test -z "$analytics_pid" || kill "$analytics_pid" 2>/dev/null
+			analytics_pid=""
+			if test "$card_image" = highlights; then
+				highlights_failed=1
+			else
+				card_image=""
+			fi
 			brb_pid=""
 		fi
 		# An unreachable app leaves the current card running rather than
 		# dropping a stream over a blip; the ceiling above still bounds it.
-		if test -z "$brb_pid" && test "$verb" = brb; then
-			if test "$card_image" = skip; then
-				card_image=""
-			elif prepare_card "${2:-}" "${3:--}" "${4:-color}" "$text_file" \
-				"$image_file"; then
+		if test "$verb" = highlights; then
+			printf '%s' "${2:-}" | base64 -d >"$text_file" 2>/dev/null ||
+				printf 'Be right back' >"$text_file"
+			highlights_payload="${3:-}"
+			read -r highlights_muted highlights_overlay < <(
+				printf '%s' "$highlights_payload" | base64 -d 2>/dev/null | head -n 1
+			) || highlights_overlay=1
+
+			# Eligibility is known now. Start the configured still before any clip
+			# download, probe, or normalization, and retain it if preparation fails.
+			if test -z "$brb_pid"; then
+				if prepare_card "${2:-}" "${4:--}" "${5:-color}" \
+					"$text_file" "$image_file"; then
+					card_image="$image_file"
+				else
+					card_image=""
+				fi
+				brb_card_ffmpeg "$destination" "$log" "$card_image" \
+					"${5:-color}" "$text_file" &
+				brb_pid="$!"
+				card_started="$SECONDS"
+				card_image="fallback"
+				report_state "$provider" brb "" "$role"
+			fi
+
+			test "$highlights_failed" -eq 1 ||
+				start_highlight_preparation "$highlights_payload" "$highlights_dir" \
+					"$highlights_users"
+			highlights_cache_failed "$highlights_payload" "$highlights_dir" &&
+				highlights_failed=1
+			if test "$highlights_failed" -eq 0 &&
+				test "$card_image" != highlights &&
+				highlights_cache_ready "$highlights_payload" "$highlights_dir"; then
+				kill "$brb_pid" 2>/dev/null
+				wait "$brb_pid" 2>/dev/null
+				: >"$progress_file"
+				brb_highlights_ffmpeg "$destination" "$log" "$highlights_list" \
+					"$text_file" "$highlights_overlay" "$progress_file" &
+				brb_pid="$!"
+				report_highlight_progress "$brb_pid" "$progress_file" \
+					"$highlights_analytics" &
+				analytics_pid="$!"
+				card_started="$SECONDS"
+				card_image="highlights"
+			fi
+		elif test "$verb" = brb && test "$card_image" != brb; then
+			if prepare_card "${2:-}" "${3:--}" "${4:-color}" \
+				"$text_file" "$image_file"; then
 				card_image="$image_file"
 			else
 				card_image=""
 			fi
-			brb_card_ffmpeg "$destination" "$log" "$card_image" "${4:-color}" \
-				"$text_file" &
-			brb_pid="$!"
+			if test "${4:-color}" != color || test -z "$brb_pid"; then
+				test -z "$brb_pid" || kill "$brb_pid" 2>/dev/null
+				test -z "$brb_pid" || wait "$brb_pid" 2>/dev/null
+				brb_card_ffmpeg "$destination" "$log" "$card_image" \
+					"${4:-color}" "$text_file" &
+				brb_pid="$!"
+			fi
 			card_started="$SECONDS"
-			report_state "$provider" brb ""
+			card_image="brb"
+			report_state "$provider" brb "" "$role"
 		fi
 
-		sleep "$brb_tick_seconds" &
+		tick_wait="$brb_tick_seconds"
+		test "$verb" = highlights && tick_wait=1
+		sleep "$tick_wait" &
 		wait "$!"
 		test "$resume" -eq 0 || break
 	done
@@ -385,8 +624,19 @@ hold_brb() {
 		kill "$brb_pid" 2>/dev/null
 		wait "$brb_pid" 2>/dev/null
 	fi
+	if test -n "$analytics_pid"; then
+		kill "$analytics_pid" 2>/dev/null
+		wait "$analytics_pid" 2>/dev/null
+	fi
 	brb_pid=""
-	rm -f "$text_file" "$image_file"
+	analytics_pid=""
+	rm -f "$text_file" "$image_file" "$progress_file"
+	rm -f "$highlights_user"
+	if test -z "$(ls -A "$highlights_users" 2>/dev/null)"; then
+		stop_highlight_preparation "$highlights_dir" || true
+		rm -rf "$highlights_dir" "$highlights_dir.prepare" "$highlights_users"
+		rm -f "$highlights_dir.log"
+	fi
 	test "$resume" -eq 1
 }
 

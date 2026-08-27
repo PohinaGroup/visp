@@ -83,6 +83,11 @@ function PrivacyPage() {
 						once a minute and expired within about one day after updates stop.
 					</li>
 					<li>
+						<strong>BRB highlights</strong>: short video clips you deliberately
+						upload for playback while Direct holds your broadcast. VISP does not
+						create these clips from your live stream.
+					</li>
+					<li>
 						<strong>Chat connection metadata</strong> needed to connect chat
 						integrations (for example subscription IDs). Chat message content is
 						not retained by VISP as a content archive. If you enable hosted
@@ -199,6 +204,10 @@ function PrivacyPage() {
 						updates stop.
 					</li>
 					<li>
+						Uploaded BRB highlights: kept until you remove them or delete your
+						account.
+					</li>
+					<li>
 						Unsuccessful founding creator applications: deleted within 12 months
 						of the decision. Accepted partner data is retained for the
 						relationship and any longer accounting or legal period that applies.
@@ -219,7 +228,7 @@ function PrivacyPage() {
 				</ul>
 				<p>
 					Continuous stream recordings and chat content archives are not kept by
-					VISP.
+					VISP. This does not include BRB highlight files you choose to upload.
 				</p>
 			</section>
 
