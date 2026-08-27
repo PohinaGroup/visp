@@ -21,6 +21,8 @@ export const chatProvider = pgEnum("chat_provider", [
 	"youtube",
 ]);
 
+export const chatBotSenderModes = ["visp", "self"] as const;
+
 export const chatConnection = pgTable(
 	"chat_connection",
 	{
@@ -54,6 +56,9 @@ export const chatBot = pgTable(
 		enabled: boolean("enabled").default(false).notNull(),
 		commandsEnabled: boolean("commands_enabled").default(true).notNull(),
 		prefix: text("prefix").default("!").notNull(),
+		senderMode: text("sender_mode", { enum: chatBotSenderModes })
+			.default("visp")
+			.notNull(),
 		postTwitch: boolean("post_twitch").default(true).notNull(),
 		postKick: boolean("post_kick").default(true).notNull(),
 		postYoutube: boolean("post_youtube").default(true).notNull(),
@@ -77,6 +82,10 @@ export const chatBot = pgTable(
 		check(
 			"chat_bot_prefix_length",
 			sql`char_length(${table.prefix}) between 1 and 3`,
+		),
+		check(
+			"chat_bot_sender_mode",
+			sql`${table.senderMode} in ('visp', 'self')`,
 		),
 	],
 );

@@ -10,7 +10,9 @@ VISP's servers — the relay reports that your source appeared or vanished, and
 the app host posts the message — so it works with your computer off and keeps
 working while your phone is in your pocket.
 
-Messages are posted **as your own account**, not as a separate bot user.
+On Twitch, messages are posted by the **VISP bot** by default. Eligible accounts
+can instead choose **My Twitch account** in the dashboard. Kick and YouTube
+messages are always posted as your own linked account.
 
 ## What it can say
 
@@ -44,7 +46,8 @@ authorizing the bot never switches off chat reading, Direct, or title editing.
 
 | Platform | Permission | Usually already granted? |
 | --- | --- | --- |
-| Twitch | `user:write:chat` | No — one extra consent |
+| Twitch with VISP bot | `channel:bot` | No — one extra consent |
+| Twitch with your account | `user:write:chat` | No — one extra consent |
 | Kick | `chat:write` | No — one extra consent |
 | YouTube | `youtube.force-ssl` | Yes, if you use Direct or edit titles from VISP |
 

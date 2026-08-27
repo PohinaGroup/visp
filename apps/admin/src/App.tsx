@@ -308,6 +308,11 @@ const USER_FLAGS = [
 		hint: "Adds a separately framed portrait Direct destination and slot.",
 	},
 	{
+		key: "chatBotAccountSelection",
+		label: "Chat bot account selection",
+		hint: "Allows Twitch chat messages to use the streamer's own account.",
+	},
+	{
 		key: "betterTts",
 		label: "Better TTS",
 		hint: "Hosted speech, billed per character read out of chat.",

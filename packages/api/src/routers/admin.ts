@@ -23,6 +23,7 @@ const LIVE_AFTER_MS = 60_000;
 /** The per-user admission flags on app_user, all boolean and all admin-set. */
 const USER_FLAGS = [
 	"directDualOutput",
+	"chatBotAccountSelection",
 	"betterTts",
 	"betterAudioIsolation",
 	"betterSubtitles",
@@ -336,6 +337,7 @@ export const adminRouter = router({
 						onboardedAt: appUser.onboardedAt,
 						betterTts: appUser.betterTts,
 						directDualOutput: appUser.directDualOutput,
+						chatBotAccountSelection: appUser.chatBotAccountSelection,
 						betterAudioIsolation: appUser.betterAudioIsolation,
 						betterSubtitles: appUser.betterSubtitles,
 						brbHighlights: appUser.brbHighlights,

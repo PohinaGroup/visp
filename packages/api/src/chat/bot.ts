@@ -20,6 +20,12 @@ import {
 import type { ChatMessage, ChatProvider } from "./contract";
 import { chatHub } from "./hub";
 import { sendChatMessage } from "./send";
+import {
+	assertBotSenderModeAllowed,
+	type BotSenderMode,
+	canSelectBotSender,
+	resolveBotSenderMode,
+} from "./sender";
 
 /** A null column means "use this", so changing the wording needs no migration. */
 export const DEFAULT_ALERT_MESSAGES = {
@@ -38,6 +44,7 @@ export type BotSettings = {
 	enabled: boolean;
 	commandsEnabled: boolean;
 	prefix: string;
+	senderMode: BotSenderMode;
 	targets: Record<ChatProvider, boolean>;
 	alerts: Record<AlertEvent, boolean>;
 	messages: Record<AlertEvent, string | null>;
@@ -47,17 +54,22 @@ const DEFAULT_SETTINGS: BotSettings = {
 	enabled: false,
 	commandsEnabled: true,
 	prefix: "!",
+	senderMode: "visp",
 	targets: { twitch: true, kick: true, youtube: true },
 	alerts: { live: true, brb: true, back: true, offline: false },
 	messages: { live: null, brb: null, back: null, offline: null },
 };
 
-function toSettings(row: typeof chatBot.$inferSelect | undefined): BotSettings {
+function toSettings(
+	row: typeof chatBot.$inferSelect | undefined,
+	canSelectSender: boolean,
+): BotSettings {
 	if (!row) return DEFAULT_SETTINGS;
 	return {
 		enabled: row.enabled,
 		commandsEnabled: row.commandsEnabled,
 		prefix: row.prefix,
+		senderMode: resolveBotSenderMode(row.senderMode, canSelectSender),
 		targets: {
 			twitch: row.postTwitch,
 			kick: row.postKick,
@@ -78,14 +90,21 @@ function toSettings(row: typeof chatBot.$inferSelect | undefined): BotSettings {
 	};
 }
 
+export async function getBotSettingsAccess(userId: string) {
+	const [row, canSelectSender] = await Promise.all([
+		db.query.chatBot.findFirst({ where: eq(chatBot.userId, userId) }),
+		canSelectBotSender(userId),
+	]);
+	return { settings: toSettings(row, canSelectSender), canSelectSender };
+}
+
 export async function getBotSettings(userId: string): Promise<BotSettings> {
-	const row = await db.query.chatBot.findFirst({
-		where: eq(chatBot.userId, userId),
-	});
-	return toSettings(row);
+	return (await getBotSettingsAccess(userId)).settings;
 }
 
 export async function setBotSettings(userId: string, input: BotSettings) {
+	const canSelectSender = await canSelectBotSender(userId);
+	assertBotSenderModeAllowed(input.senderMode, canSelectSender);
 	const trim = (value: string | null) =>
 		value?.trim().slice(0, MAX_ALERT_MESSAGE_LENGTH) || null;
 	const values = {
@@ -93,6 +112,7 @@ export async function setBotSettings(userId: string, input: BotSettings) {
 		enabled: input.enabled,
 		commandsEnabled: input.commandsEnabled,
 		prefix: input.prefix,
+		senderMode: input.senderMode,
 		postTwitch: input.targets.twitch,
 		postKick: input.targets.kick,
 		postYoutube: input.targets.youtube,
@@ -110,7 +130,7 @@ export async function setBotSettings(userId: string, input: BotSettings) {
 		.values(values)
 		.onConflictDoUpdate({ target: chatBot.userId, set: values })
 		.returning();
-	return toSettings(row);
+	return toSettings(row, canSelectSender);
 }
 
 export async function listBotCommands(userId: string) {
