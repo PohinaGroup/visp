@@ -22,7 +22,12 @@ import {
 	issueChatOverlayToken,
 	revokeChatOverlayToken,
 } from "@VISP/api/chat/overlay-token";
-import { prepareDirect, resolveDirectDestinations } from "@VISP/api/direct";
+import {
+	applyDirectState,
+	directDestinationActive,
+	prepareDirect,
+	resolveDirectDestinations,
+} from "@VISP/api/direct";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
@@ -57,6 +62,7 @@ import {
 	session as authSession,
 	chatBotAlert,
 	chatConnection,
+	directDestination,
 	pathState,
 	relay,
 	relayPath,
@@ -1723,7 +1729,7 @@ integration("VISP Direct boundaries", () => {
 				id: "youtube-stream",
 				cdn: {
 					ingestionInfo: {
-						rtmpsIngestionAddress: "rtmps://youtube.test/live2",
+						rtmpsIngestionAddress: "rtmps://a.rtmp.youtube.com/live2",
 						streamName: "youtube_secret",
 					},
 				},
@@ -1735,7 +1741,7 @@ integration("VISP Direct boundaries", () => {
 						id: "youtube-stream",
 						cdn: {
 							ingestionInfo: {
-								rtmpsIngestionAddress: "rtmps://youtube.test/live2",
+								rtmpsIngestionAddress: "rtmps://a.rtmp.youtube.com/live2",
 								streamName: "youtube_secret",
 							},
 						},
@@ -1861,10 +1867,17 @@ integration("VISP Direct boundaries", () => {
 		);
 		expect(destinations).toEqual([
 			{
+				filter: null,
 				provider: "twitch",
+				role: "landscape",
 				url: "rtmps://ingest.global-contribute.live-video.net/app/live_a_secret",
 			},
-			{ provider: "kick", url: "rtmps://stream.kick.com/99/kick_secret" },
+			{
+				filter: null,
+				provider: "kick",
+				role: "landscape",
+				url: "rtmps://stream.kick.com/99/kick_secret",
+			},
 		]);
 
 		// The key is built in memory and never stored as its own value.
@@ -1875,6 +1888,378 @@ integration("VISP Direct boundaries", () => {
 		expect(JSON.stringify(state)).not.toContain("live_a_secret");
 		expect(JSON.stringify(state)).not.toContain("kick_secret");
 		expect(state?.directTwitchState).toBe("starting");
+	});
+
+	test("starts landscape passthrough and portrait crop as separate slots", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 2 });
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(),
+		);
+		expect(
+			destinations.map(({ provider, role, filter }) => ({
+				provider,
+				role,
+				filter,
+			})),
+		).toEqual([
+			{ provider: "twitch", role: "landscape", filter: null },
+			{
+				provider: "kick",
+				role: "portrait",
+				filter: "crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920",
+			},
+		]);
+	});
+
+	test("keeps old relay output compatible while v2 carries portrait geometry", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		const hook = (version = "") =>
+			app.handle(
+				new Request(
+					`http://localhost/api/hooks/direct-destinations${version}`,
+					{
+						method: "POST",
+						headers: {
+							"content-type": "application/json",
+							"x-hook-secret": process.env.HOOK_SECRET ?? "",
+						},
+						body: JSON.stringify({ path: "alpha-1", skip: [] }),
+					},
+				),
+			);
+
+		expect(await (await hook()).text()).toBe(
+			"twitch rtmps://ingest.global-contribute.live-video.net/app/live_a_secret\n",
+		);
+		expect(await (await hook("-v2")).text()).toBe(
+			"twitch landscape - rtmps://ingest.global-contribute.live-video.net/app/live_a_secret\n" +
+				"kick portrait crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920 rtmps://stream.kick.com/99/kick_secret\n",
+		);
+	});
+
+	test("soft-warns for portrait capacity and starts landscape with portrait failed", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 1 });
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		expect(
+			await caller.direct.setRole({
+				pathId: data.pathA.id,
+				provider: "kick",
+				role: "portrait",
+			}),
+		).toMatchObject({ overCapacity: true });
+
+		expect(await prepareDirect("user-a", data.pathA.id)).toMatchObject({
+			outputs: ["twitch"],
+			portraitOutputs: [],
+		});
+		const listed = await caller.direct.list();
+		expect(
+			listed.destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({
+			state: "failed",
+			error: "No free Direct slot for portrait. Landscape can still go live.",
+		});
+	});
+
+	test("invalid portrait crop is blocked at go-live without blocking landscape", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await db
+			.update(directDestination)
+			.set({ crop: { x: 0.8, y: 0, w: 0.3, h: 1, aspect: "9:16" } })
+			.where(eq(directDestination.userId, "user-a"));
+
+		expect(await prepareDirect("user-a", data.pathA.id)).toMatchObject({
+			outputs: ["twitch"],
+			portraitOutputs: [],
+		});
+		const listed = await caller.direct.list();
+		expect(
+			listed.destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({ state: "failed" });
+	});
+
+	test("lists legacy landscape defaults and portrait failures independently", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await db
+			.update(directDestination)
+			.set({ state: "failed", error: "portrait failed" })
+			.where(eq(directDestination.userId, "user-a"));
+		const listed = await caller.direct.list();
+
+		expect(listed.destinations).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					provider: "twitch",
+					role: "landscape",
+					crop: null,
+				}),
+				expect.objectContaining({
+					provider: "kick",
+					role: "portrait",
+					state: "failed",
+					error: "portrait failed",
+				}),
+			]),
+		);
+	});
+
+	test("does not reuse a removed portrait slot until the relay acknowledges stop", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 2 });
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		const owner = await callerFor("user-a");
+		const waiting = await callerFor("user-b");
+		await owner.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		await waiting.direct.setOutputs({
+			pathId: data.pathB.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "landscape",
+		});
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "kick",
+			role: "portrait",
+			state: "live",
+		});
+		expect(
+			(await owner.direct.list()).destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({ state: "stopping" });
+		expect(
+			await directDestinationActive({
+				slug: "alpha-1",
+				provider: "kick",
+				role: "portrait",
+				filter: "crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920",
+			}),
+		).toBe(false);
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "kick",
+			role: "portrait",
+			state: "stopping",
+			error: "rtmps://secret.example/live/key encoder did not exit",
+		});
+		expect(
+			(await owner.direct.list()).destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({ state: "stopping", error: "[url] encoder did not exit" });
+		await expect(prepareDirect("user-b", data.pathB.id)).rejects.toMatchObject({
+			code: "capacity",
+		});
+
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "kick",
+			role: "portrait",
+			state: "stopped",
+		});
+		expect(
+			(await owner.direct.list()).destinations.some(
+				(destination) => destination.role === "portrait",
+			),
+		).toBe(false);
+		expect(await prepareDirect("user-b", data.pathB.id)).toMatchObject({
+			outputs: ["twitch"],
+		});
+	});
+
+	test("immediately frees an unstarted portrait while landscape is live", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 2 });
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		const owner = await callerFor("user-a");
+		const waiting = await callerFor("user-b");
+		await owner.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await waiting.direct.setOutputs({
+			pathId: data.pathB.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await expect(prepareDirect("user-b", data.pathB.id)).rejects.toMatchObject({
+			code: "capacity",
+		});
+
+		await expect(
+			owner.direct.setRole({
+				pathId: data.pathA.id,
+				provider: "kick",
+				role: "landscape",
+			}),
+		).resolves.toMatchObject({ removalPending: false });
+		expect(
+			(await owner.direct.list()).destinations.some(
+				(destination) => destination.role === "portrait",
+			),
+		).toBe(false);
+		expect(await prepareDirect("user-b", data.pathB.id)).toMatchObject({
+			outputs: ["twitch"],
+		});
+	});
+
+	test("does not resurrect a stopped portrait during removal", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const owner = await callerFor("user-a");
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await db
+			.update(directDestination)
+			.set({ state: "stopped", reservedUntil: null })
+			.where(eq(directDestination.userId, "user-a"));
+
+		await expect(
+			owner.direct.setRole({
+				pathId: data.pathA.id,
+				provider: "kick",
+				role: "landscape",
+			}),
+		).resolves.toMatchObject({ removalPending: false });
+		expect(
+			(await owner.direct.list()).destinations.some(
+				(destination) => destination.role === "portrait",
+			),
+		).toBe(false);
 	});
 
 	test("creates one YouTube broadcast for repeated destination resolution", async () => {
@@ -1896,8 +2281,10 @@ integration("VISP Direct boundaries", () => {
 		expect(second.destinations).toEqual(first.destinations);
 		expect(youtubeBroadcastCreates).toBe(1);
 		expect(first.destinations[2]).toEqual({
+			filter: null,
 			provider: "youtube",
-			url: "rtmps://youtube.test/live2/youtube_secret",
+			role: "landscape",
+			url: "rtmps://a.rtmp.youtube.com/live2/youtube_secret",
 		});
 
 		const [state] = await db

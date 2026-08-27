@@ -1,0 +1,32 @@
+---
+title: Portrait Direct output
+description: Frame a separate 9:16 destination while a landscape Direct output stays live.
+icon: Smartphone
+---
+
+Portrait Direct output turns one landscape contribution into two independent
+platform outputs. The landscape destination keeps the original frame. The
+portrait destination uses a manual 9:16 crop and its own relay forwarder.
+
+## Add and frame portrait
+
+1. Authorize two Direct destinations and enable the landscape destination.
+2. Choose **Add portrait output** beside another destination.
+3. Move and resize the crop over the part of the landscape preview viewers
+   should see. The portrait preview shows the resulting 9:16 frame.
+4. Choose **Save framing**, then go live.
+
+The crop is saved to that portrait destination. **Edit framing** changes the
+next encode; a failed save keeps the editor open so you can retry. The controls
+also work from a keyboard or accessibility input.
+
+## Slots and failures
+
+Landscape and portrait consume one forwarder slot each. Configuration is
+allowed when the relay is full, with a warning. At Go Live, a full relay blocks
+portrait but allows landscape to proceed. A failure or retry on one destination
+does not stop the other.
+
+Removing portrait stops using its slot. Use a different provider for portrait:
+publishing two frames to the same account stream key would make the platform
+disconnect one of them.

@@ -6,6 +6,7 @@ import {
 	check,
 	index,
 	integer,
+	jsonb,
 	pgEnum,
 	pgTable,
 	real,
@@ -42,6 +43,16 @@ export const streamDestination = pgEnum("stream_destination", [
 ]);
 
 export const publishOrigin = pgEnum("publish_origin", ["native", "web"]);
+
+export const directRole = pgEnum("direct_role", ["landscape", "portrait"]);
+
+export type DirectCrop = {
+	x: number;
+	y: number;
+	w: number;
+	h: number;
+	aspect: string;
+};
 
 export const obsTileAction = pgEnum("obs_tile_action", [
 	"scene",
@@ -136,6 +147,7 @@ export const appUser = pgTable(
 		// VISP Direct admission control. The relay is one node and Direct always
 		// runs distribution encode there. Kept for one rollback window; unused.
 		directBeta: boolean("direct_beta").default(false).notNull(),
+		directDualOutput: boolean("direct_dual_output").default(false).notNull(),
 		// Hosted text-to-speech for reading chat aloud. Every utterance costs money
 		// per character, so this gates spend, not capacity.
 		betterTts: boolean("better_tts").default(false).notNull(),
@@ -266,6 +278,45 @@ export const pathState = pgTable(
 		check(
 			"path_state_reader_count_nonnegative",
 			sql`${table.readerCount} >= 0`,
+		),
+	],
+);
+
+/** Additive portrait rows; legacy provider booleans remain landscape output. */
+export const directDestination = pgTable(
+	"direct_destination",
+	{
+		id: bigserial("id", { mode: "number" }).primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		pathId: bigint("path_id", { mode: "number" })
+			.notNull()
+			.references(() => relayPath.id, { onDelete: "cascade" }),
+		provider: text("provider").notNull(),
+		role: directRole("role").default("landscape").notNull(),
+		crop: jsonb("crop").$type<DirectCrop>(),
+		state: text("state"),
+		error: text("error"),
+		reservedUntil: timestamp("reserved_until", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		unique("direct_destination_user_provider_role_unique").on(
+			table.userId,
+			table.provider,
+			table.role,
+		),
+		index("direct_destination_path_idx").on(table.pathId),
+		check(
+			"direct_destination_provider_known",
+			sql`${table.provider} in ('twitch', 'kick', 'youtube')`,
+		),
+		check(
+			"direct_destination_crop_role",
+			sql`(${table.role} = 'landscape' and ${table.crop} is null) or (${table.role} = 'portrait' and ${table.crop} is not null)`,
 		),
 	],
 );

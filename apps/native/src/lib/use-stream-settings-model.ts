@@ -181,7 +181,13 @@ export function useStreamSettingsModel({
 			brb: streamAccount.brb,
 			busy: Boolean(streamAccount.chatBusy),
 			directOutputs: streamAccount.directOutputs,
+			previewUrl:
+				streamAccount.directSnapshots.find(
+					(snapshot) => snapshot.pathId === publishPathId,
+				)?.url ?? null,
 			onApplyDirectSelection: streamAccount.applyDirectSelection,
+			onSaveDirectCrop: streamAccount.saveDirectCrop,
+			onSetDirectRole: streamAccount.setDirectRole,
 			onAuthorizeDirect: (provider) =>
 				streamAccount.linkProvider(
 					provider,

@@ -5,11 +5,33 @@ import "./test-env";
 const {
 	DirectError,
 	createYoutubeDestination,
+	portraitFilter,
+	validateDirectCrop,
 	kickIngestDestination,
 	sanitizeDirectError,
 	setDirectOutputs,
 	streamKeyDestination,
 } = await import("./direct");
+
+describe("portrait framing", () => {
+	test("validates normalized 9:16 framing for a 16:9 contribution", () => {
+		const crop = { x: 0.3418, y: 0, w: 0.3164, h: 1, aspect: "9:16" };
+		expect(validateDirectCrop(crop)).toEqual(crop);
+		expect(portraitFilter(crop)).toBe(
+			"crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920",
+		);
+	});
+
+	test("rejects out-of-bounds and wrong-aspect crops", () => {
+		for (const crop of [
+			{ x: 0.8, y: 0, w: 0.3, h: 1, aspect: "9:16" },
+			{ x: 0, y: 0, w: 0.5, h: 1, aspect: "9:16" },
+			{ x: 0, y: 0, w: 0, h: 1, aspect: "9:16" },
+		]) {
+			expect(() => validateDirectCrop(crop)).toThrow(DirectError);
+		}
+	});
+});
 
 const dependencies = (
 	respond: (url: string, init?: RequestInit) => Response,

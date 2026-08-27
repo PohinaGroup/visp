@@ -14,11 +14,16 @@ import { LinkIcon, ShieldIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
-import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { trackEvent } from "@/lib/analytics";
+import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import {
+	DEFAULT_PORTRAIT_CROP,
+	DirectPortraitFraming,
+	type PortraitCrop,
+} from "./direct-portrait-framing";
 import { providerLabel } from "./format";
 
 const STATE_TONE = {
@@ -28,16 +33,19 @@ const STATE_TONE = {
 	// The ingest dropped but the broadcast is still up on the BRB card. Not an
 	// error — the whole point is that nothing was lost.
 	brb: "warning",
+	stopping: "warning",
 	failed: "error",
 	stopped: "neutral",
 } as const;
 
 function ProviderState({
 	provider,
+	outputRole,
 	state,
 	error,
 }: {
 	provider: "twitch" | "kick" | "youtube";
+	outputRole?: "landscape" | "portrait";
 	state: keyof typeof STATE_TONE | null;
 	error: string | null;
 }) {
@@ -51,8 +59,11 @@ function ProviderState({
 				variant={STATE_TONE[state]}
 			/>
 			<Text type="supporting">
-				{providerLabel(provider)}:{" "}
-				{t(state === "brb" ? "showing BRB card" : state)}
+				{providerLabel(provider)}
+				{outputRole
+					? ` · ${t(outputRole === "portrait" ? "Portrait" : "Landscape")}`
+					: ""}
+				: {t(state === "brb" ? "showing BRB card" : state)}
 			</Text>
 			{error ? (
 				<Text color="secondary" type="supporting">
@@ -97,6 +108,12 @@ export function DirectCard() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const direct = useQuery(trpc.direct.list.queryOptions());
+	const snapshots = useQuery(trpc.obs.snapshots.queryOptions());
+	const [framing, setFraming] = useState<{
+		pathId: number;
+		provider: "twitch" | "kick" | "youtube";
+		crop: PortraitCrop;
+	} | null>(null);
 	const setOutputs = useMutation(
 		trpc.direct.setOutputs.mutationOptions({
 			onSuccess: async () => {
@@ -113,6 +130,34 @@ export function DirectCard() {
 				toast.success(t("YouTube title saved"));
 			},
 			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const setRole = useMutation(
+		trpc.direct.setRole.mutationOptions({
+			onSuccess: async (result) => {
+				await queryClient.invalidateQueries();
+				if (result.overCapacity) {
+					toast.warning(
+						t(
+							"Portrait uses an extra Direct slot. It will not start until a slot is free.",
+						),
+					);
+				}
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const saveCrop = useMutation(
+		trpc.direct.saveCrop.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				setFraming(null);
+				toast.success(t("Portrait framing saved"));
+			},
+			onError: () =>
+				toast.error(
+					t("Couldn’t save framing. Check your connection and retry."),
+				),
 		}),
 	);
 	const authorizedRef = useRef<Record<string, boolean>>({});
@@ -280,6 +325,93 @@ export function DirectCard() {
 											},
 										)}
 									</VStack>
+									{direct.data.directDualOutput ? (
+										<VStack gap={2}>
+											{direct.data.destinations
+												.filter(
+													(destination) =>
+														destination.pathId === path.id &&
+														destination.role === "portrait",
+												)
+												.map((destination) => (
+													<HStack
+														key={destination.id}
+														gap={2}
+														vAlign="center"
+														wrap="wrap"
+													>
+														<Badge label={t("Portrait")} variant="neutral" />
+														<Text type="supporting">
+															{providerLabel(destination.provider)}
+														</Text>
+														<ProviderState
+															error={destination.error}
+															provider={destination.provider}
+															outputRole="portrait"
+															state={destination.state}
+														/>
+														<Button
+															label={t("Edit framing")}
+															variant="ghost"
+															onClick={() =>
+																setFraming({
+																	pathId: path.id,
+																	provider: destination.provider,
+																	crop:
+																		destination.crop ?? DEFAULT_PORTRAIT_CROP,
+																})
+															}
+														/>
+														<Button
+															isDisabled={setRole.isPending}
+															label={t("Remove portrait")}
+															variant="ghost"
+															onClick={() =>
+																setRole.mutate({
+																	pathId: path.id,
+																	provider: destination.provider,
+																	role: "landscape",
+																})
+															}
+														/>
+													</HStack>
+												))}
+											{direct.data.providers
+												.filter(
+													(entry) =>
+														entry.canReadStreamKey &&
+														!path[entry.provider] &&
+														!direct.data.destinations.some(
+															(destination) =>
+																destination.provider === entry.provider &&
+																destination.role === "portrait",
+														),
+												)
+												.map((entry) => (
+													<Button
+														key={entry.provider}
+														isDisabled={setRole.isPending}
+														label={`${t("Add portrait output")} · ${providerLabel(entry.provider)}`}
+														variant="ghost"
+														onClick={() => {
+															void setRole
+																.mutateAsync({
+																	pathId: path.id,
+																	provider: entry.provider,
+																	role: "portrait",
+																})
+																.then(() =>
+																	setFraming({
+																		pathId: path.id,
+																		provider: entry.provider,
+																		crop: DEFAULT_PORTRAIT_CROP,
+																	}),
+																);
+														}}
+													/>
+												))}
+										</VStack>
+									) : null}
 									<ProviderState
 										error={path.error.twitch}
 										provider="twitch"
@@ -342,6 +474,26 @@ export function DirectCard() {
 					</>
 				) : null}
 			</VStack>
+			{framing ? (
+				<DirectPortraitFraming
+					crop={framing.crop}
+					isOpen
+					previewUrl={
+						snapshots.data?.find(
+							(snapshot) => snapshot.pathId === framing.pathId,
+						)?.url ?? null
+					}
+					saving={saveCrop.isPending}
+					onClose={() => setFraming(null)}
+					onSave={(crop) =>
+						saveCrop.mutateAsync({
+							pathId: framing.pathId,
+							provider: framing.provider,
+							crop,
+						})
+					}
+				/>
+			) : null}
 		</Card>
 	);
 }

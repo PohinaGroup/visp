@@ -102,7 +102,8 @@ function SignIn() {
 					</div>
 					<CardTitle className="text-xl">VISP Admin</CardTitle>
 					<CardDescription>
-						Sign in with the same Twitch, Kick, or Google account you use with VISP.
+						Sign in with the same Twitch, Kick, or Google account you use with
+						VISP.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-2">
@@ -301,6 +302,11 @@ function DetailItem({
 
 // Mirrors the hosted-feature flags admin.users.setFlag accepts.
 const USER_FLAGS = [
+	{
+		key: "directDualOutput",
+		label: "Portrait Direct output",
+		hint: "Adds a separately framed portrait Direct destination and slot.",
+	},
 	{
 		key: "betterTts",
 		label: "Better TTS",

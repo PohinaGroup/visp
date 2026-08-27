@@ -13,6 +13,7 @@ import {
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
+import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
 
 const PAGE_SIZE = 50;
@@ -21,6 +22,7 @@ const LIVE_AFTER_MS = 60_000;
 
 /** The per-user admission flags on app_user, all boolean and all admin-set. */
 const USER_FLAGS = [
+	"directDualOutput",
 	"betterTts",
 	"betterAudioIsolation",
 	"betterSubtitles",
@@ -124,9 +126,14 @@ export const adminRouter = router({
 					)`,
 					activeForwarders: sql<number>`(
 						select (
-							count(*) filter (where admin_state.direct_twitch_state in ('starting', 'live', 'retrying', 'brb')) +
-							count(*) filter (where admin_state.direct_kick_state in ('starting', 'live', 'retrying', 'brb')) +
-							count(*) filter (where admin_state.direct_youtube_state in ('starting', 'live', 'retrying', 'brb'))
+							count(*) filter (where admin_state.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
+							count(*) filter (where admin_state.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
+							count(*) filter (where admin_state.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
+							(select count(*) from direct_destination admin_portrait
+								join "path" admin_portrait_path on admin_portrait_path.id = admin_portrait.path_id
+								where admin_portrait_path.relay_id = ${relay.id}
+									and admin_portrait_path.revoked_at is null
+									and admin_portrait.state in ${DIRECT_OCCUPIED_STATES_SQL})
 						)::int
 						from "path" admin_direct_path
 						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
@@ -136,11 +143,17 @@ export const adminRouter = router({
 					reservedForwarders: sql<number>`(
 						select (
 							count(*) filter (where admin_state.direct_twitch_reserved_until > now()
-								and (admin_state.direct_twitch_state is null or admin_state.direct_twitch_state not in ('starting', 'live', 'retrying', 'brb'))) +
+								and (admin_state.direct_twitch_state is null or admin_state.direct_twitch_state not in ${DIRECT_OCCUPIED_STATES_SQL})) +
 							count(*) filter (where admin_state.direct_kick_reserved_until > now()
-								and (admin_state.direct_kick_state is null or admin_state.direct_kick_state not in ('starting', 'live', 'retrying', 'brb'))) +
+								and (admin_state.direct_kick_state is null or admin_state.direct_kick_state not in ${DIRECT_OCCUPIED_STATES_SQL})) +
 							count(*) filter (where admin_state.direct_youtube_reserved_until > now()
-								and (admin_state.direct_youtube_state is null or admin_state.direct_youtube_state not in ('starting', 'live', 'retrying', 'brb')))
+								and (admin_state.direct_youtube_state is null or admin_state.direct_youtube_state not in ${DIRECT_OCCUPIED_STATES_SQL})) +
+							(select count(*) from direct_destination admin_portrait
+								join "path" admin_portrait_path on admin_portrait_path.id = admin_portrait.path_id
+								where admin_portrait_path.relay_id = ${relay.id}
+									and admin_portrait_path.revoked_at is null
+									and admin_portrait.reserved_until > now()
+									and (admin_portrait.state is null or admin_portrait.state not in ${DIRECT_OCCUPIED_STATES_SQL}))
 						)::int
 						from "path" admin_direct_path
 						join "path_state" admin_state on admin_state.path_id = admin_direct_path.id
@@ -321,6 +334,7 @@ export const adminRouter = router({
 						advancedMode: appUser.advancedMode,
 						onboardedAt: appUser.onboardedAt,
 						betterTts: appUser.betterTts,
+						directDualOutput: appUser.directDualOutput,
 						betterAudioIsolation: appUser.betterAudioIsolation,
 						betterSubtitles: appUser.betterSubtitles,
 						obsStreaming: appUser.obsStreaming,

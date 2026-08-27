@@ -1,6 +1,13 @@
 import * as UI from "@expo/ui";
 import { useEffect, useState } from "react";
 import type { apiClient } from "../lib/backend";
+import { nativeDirectText } from "../lib/native-direct-i18n";
+import {
+	DEFAULT_PORTRAIT_CROP,
+	DirectPortraitFraming,
+	type PortraitCrop,
+	type PortraitFramingDraft,
+} from "./stream-settings-direct-framing";
 import {
 	DESTRUCTIVE,
 	DIRECT_PROVIDERS,
@@ -31,6 +38,17 @@ export type DirectSettings = {
 		enabled: boolean,
 	) => void;
 	onAuthorizeDirect: (provider: DirectProvider) => void;
+	onSaveDirectCrop: (
+		pathId: number,
+		provider: DirectProvider,
+		crop: PortraitCrop,
+	) => Promise<void>;
+	onSetDirectRole: (
+		pathId: number,
+		provider: DirectProvider,
+		role: "landscape" | "portrait",
+	) => Promise<void>;
+	previewUrl: string | null;
 	onEndBrb: () => void;
 	onUpdateBrb: (over: { enabled?: boolean; message?: string }) => void;
 	onUpdateYoutubeTitle: (title: string) => void;
@@ -168,6 +186,9 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 		outputs?.youtubeTitle ?? "Live from VISP",
 	);
 	const youtubeTitleInput = UI.useNativeState(youtubeTitle);
+	const [framing, setFraming] = useState<PortraitFramingDraft>();
+	const [savingCrop, setSavingCrop] = useState(false);
+	const [addingPortrait, setAddingPortrait] = useState<DirectProvider>();
 	useEffect(() => {
 		if (outputs?.youtubeTitle) {
 			setYoutubeTitle(outputs.youtubeTitle);
@@ -183,56 +204,164 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 	);
 
 	return (
-		<UI.FieldGroup.Section title="Stream to">
-			{outputs.providers.map((provider) => (
-				<ProviderRow
-					key={provider.provider}
-					label={providerLabel(provider.provider)}
-					status={
-						provider.canReadStreamKey
-							? "Authorized"
-							: provider.linked
-								? "Needs streaming permission"
-								: "Not linked"
-					}
-				>
-					<UI.Button
-						disabled={direct.busy}
-						label={provider.canReadStreamKey ? "Reauthorize" : "Authorize"}
-						onPress={() => direct.onAuthorizeDirect(provider.provider)}
-						variant="outlined"
+		<>
+			<UI.FieldGroup.Section title="Stream to">
+				{outputs.providers.map((provider) => (
+					<ProviderRow
+						key={provider.provider}
+						label={providerLabel(provider.provider)}
+						status={
+							provider.canReadStreamKey
+								? "Authorized"
+								: provider.linked
+									? "Needs streaming permission"
+									: "Not linked"
+						}
+					>
+						<UI.Button
+							disabled={direct.busy}
+							label={provider.canReadStreamKey ? "Reauthorize" : "Authorize"}
+							onPress={() => direct.onAuthorizeDirect(provider.provider)}
+							variant="outlined"
+						/>
+					</ProviderRow>
+				))}
+				{ownPath ? (
+					<UI.Column spacing={8}>
+						<UI.Text textStyle={SUBTLE_TEXT}>
+							{ownPath.publishing
+								? "Live · stop to change outputs"
+								: directStateSummary(ownPath)}
+						</UI.Text>
+						<DirectPathSwitches direct={direct} path={ownPath} />
+						{outputs.directDualOutput ? (
+							<UI.Column spacing={8}>
+								{outputs.destinations
+									.filter(
+										(destination) =>
+											destination.pathId === ownPath.id &&
+											destination.role === "portrait",
+									)
+									.map((destination) => (
+										<ProviderRow
+											key={destination.id}
+											label={`${providerLabel(destination.provider)} · ${nativeDirectText("Portrait")}`}
+											status={nativeDirectText(
+												destination.error ?? destination.state ?? "Configured",
+											)}
+										>
+											<UI.Button
+												label={nativeDirectText("Edit framing")}
+												variant="outlined"
+												onPress={() =>
+													setFraming({
+														pathId: ownPath.id,
+														provider: destination.provider,
+														crop: destination.crop ?? DEFAULT_PORTRAIT_CROP,
+													})
+												}
+											/>
+											<UI.Button
+												label={nativeDirectText("Remove")}
+												variant="outlined"
+												onPress={() =>
+													void direct.onSetDirectRole(
+														ownPath.id,
+														destination.provider,
+														"landscape",
+													)
+												}
+											/>
+										</ProviderRow>
+									))}
+								{outputs.providers
+									.filter(
+										(entry) =>
+											entry.canReadStreamKey &&
+											!ownPath[entry.provider] &&
+											!outputs.destinations.some(
+												(destination) =>
+													destination.provider === entry.provider &&
+													destination.role === "portrait",
+											),
+									)
+									.map((entry) => (
+										<UI.Button
+											disabled={addingPortrait === entry.provider}
+											key={entry.provider}
+											label={`${nativeDirectText("Add portrait")} · ${providerLabel(entry.provider)}`}
+											variant="outlined"
+											onPress={() => {
+												setAddingPortrait(entry.provider);
+												void direct
+													.onSetDirectRole(
+														ownPath.id,
+														entry.provider,
+														"portrait",
+													)
+													.then(() =>
+														setFraming({
+															pathId: ownPath.id,
+															provider: entry.provider,
+															crop: DEFAULT_PORTRAIT_CROP,
+														}),
+													)
+													.finally(() => setAddingPortrait(undefined));
+											}}
+										/>
+									))}
+							</UI.Column>
+						) : null}
+					</UI.Column>
+				) : null}
+				{ownPath?.youtube ? (
+					<>
+						<UI.TextInput
+							maxLength={100}
+							placeholder="YouTube broadcast title"
+							value={youtubeTitleInput}
+							onChangeText={setYoutubeTitle}
+						/>
+						<UI.Button
+							disabled={!youtubeTitle.trim()}
+							label="Save YouTube title"
+							onPress={() => direct.onUpdateYoutubeTitle(youtubeTitle.trim())}
+							variant="outlined"
+						/>
+					</>
+				) : null}
+				<UI.FieldGroup.SectionFooter>
+					<UI.Text textStyle={SUBTLE_TEXT}>{directWarning(outputs)}</UI.Text>
+				</UI.FieldGroup.SectionFooter>
+			</UI.FieldGroup.Section>
+			<UI.BottomSheet
+				isPresented={Boolean(framing)}
+				onDismiss={() => setFraming(undefined)}
+				snapPoints={["full"]}
+			>
+				{framing ? (
+					<DirectPortraitFraming
+						draft={framing}
+						previewUrl={direct.previewUrl}
+						saving={savingCrop}
+						onCancel={() => setFraming(undefined)}
+						onChange={setFraming}
+						onSave={async () => {
+							setSavingCrop(true);
+							try {
+								await direct.onSaveDirectCrop(
+									framing.pathId,
+									framing.provider,
+									framing.crop,
+								);
+								setFraming(undefined);
+							} finally {
+								setSavingCrop(false);
+							}
+						}}
 					/>
-				</ProviderRow>
-			))}
-			{ownPath ? (
-				<UI.Column spacing={8}>
-					<UI.Text textStyle={SUBTLE_TEXT}>
-						{ownPath.publishing
-							? "Live · stop to change outputs"
-							: directStateSummary(ownPath)}
-					</UI.Text>
-					<DirectPathSwitches direct={direct} path={ownPath} />
-				</UI.Column>
-			) : null}
-			{ownPath?.youtube ? (
-				<>
-					<UI.TextInput
-						maxLength={100}
-						placeholder="YouTube broadcast title"
-						value={youtubeTitleInput}
-						onChangeText={setYoutubeTitle}
-					/>
-					<UI.Button
-						disabled={!youtubeTitle.trim()}
-						label="Save YouTube title"
-						onPress={() => direct.onUpdateYoutubeTitle(youtubeTitle.trim())}
-						variant="outlined"
-					/>
-				</>
-			) : null}
-			<UI.FieldGroup.SectionFooter>
-				<UI.Text textStyle={SUBTLE_TEXT}>{directWarning(outputs)}</UI.Text>
-			</UI.FieldGroup.SectionFooter>
-		</UI.FieldGroup.Section>
+				) : null}
+			</UI.BottomSheet>
+		</>
 	);
 }

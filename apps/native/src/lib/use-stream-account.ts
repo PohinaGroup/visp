@@ -9,6 +9,7 @@ import {
 	loadChatPreferences,
 	saveChatPreferences,
 } from "./chat-preferences";
+import { nativeDirectText } from "./native-direct-i18n";
 import { IS_WEB } from "./platform";
 import {
 	deleteStreamUrl,
@@ -41,6 +42,9 @@ export function useStreamAccount({
 	>([]);
 	const [directOutputs, setDirectOutputs] =
 		useState<Awaited<ReturnType<typeof apiClient.direct.list.query>>>();
+	const [directSnapshots, setDirectSnapshots] = useState<
+		Awaited<ReturnType<typeof apiClient.obs.snapshots.query>>
+	>([]);
 	const [brb, setBrb] =
 		useState<Awaited<ReturnType<typeof apiClient.brb.get.query>>>();
 	const [linkedAccounts, setLinkedAccounts] =
@@ -77,6 +81,7 @@ export function useStreamAccount({
 			setLinkedAccounts(undefined);
 			setInstallationId(undefined);
 			setBrb(undefined);
+			setDirectSnapshots([]);
 			return;
 		}
 		loadChatPreferences(userId)
@@ -129,7 +134,12 @@ export function useStreamAccount({
 
 	const refreshDirectOutputs = useCallback(async () => {
 		if (!userId) return;
-		setDirectOutputs(await apiClient.direct.list.query());
+		const [outputs, snapshots] = await Promise.all([
+			apiClient.direct.list.query(),
+			apiClient.obs.snapshots.query(),
+		]);
+		setDirectOutputs(outputs);
+		setDirectSnapshots(snapshots);
 	}, [userId]);
 
 	const updateBrb = useCallback(
@@ -241,6 +251,58 @@ export function useStreamAccount({
 						? error.message
 						: "YouTube title could not be saved",
 				);
+			}
+		},
+		[refreshDirectOutputs, showToast],
+	);
+
+	const setDirectRole = useCallback(
+		async (
+			pathId: number,
+			provider: "twitch" | "kick" | "youtube",
+			role: "landscape" | "portrait",
+		) => {
+			try {
+				const result = await apiClient.direct.setRole.mutate({
+					pathId,
+					provider,
+					role,
+				});
+				await refreshDirectOutputs();
+				if (result.overCapacity) {
+					showToast(
+						nativeDirectText("Portrait will start when a Direct slot is free"),
+					);
+				}
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? nativeDirectText(error.message)
+						: nativeDirectText("Portrait output could not be saved"),
+				);
+				throw error;
+			}
+		},
+		[refreshDirectOutputs, showToast],
+	);
+
+	const saveDirectCrop = useCallback(
+		async (
+			pathId: number,
+			provider: "twitch" | "kick" | "youtube",
+			crop: { x: number; y: number; w: number; h: number; aspect: string },
+		) => {
+			try {
+				await apiClient.direct.saveCrop.mutate({ pathId, provider, crop });
+				await refreshDirectOutputs();
+				showToast(nativeDirectText("Portrait framing saved"));
+			} catch (error) {
+				showToast(
+					nativeDirectText(
+						"Could not save framing. Check your connection and retry.",
+					),
+				);
+				throw error;
 			}
 		},
 		[refreshDirectOutputs, showToast],
@@ -444,6 +506,7 @@ export function useStreamAccount({
 		chatConnections,
 		chatPreferences,
 		directOutputs,
+		directSnapshots,
 		endBrb,
 		installationId,
 		linkChannelProvider,
@@ -459,6 +522,8 @@ export function useStreamAccount({
 		refreshPublishDevices,
 		revealedDeviceUrls,
 		revealPublishDevice,
+		saveDirectCrop,
+		setDirectRole,
 		setStreamUrl,
 		streamUrl,
 		reauthorizeChatProvider,
