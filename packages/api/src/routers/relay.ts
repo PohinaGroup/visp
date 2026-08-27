@@ -13,6 +13,13 @@ import {
 	setDirectRole,
 	setYoutubeSettings,
 } from "../direct";
+import {
+	createCustomDirectDestination,
+	DirectCustomError,
+	deleteCustomDirectDestination,
+	listCustomDirectDestinations,
+	updateCustomDirectDestination,
+} from "../direct-custom";
 import { protectedProcedure, router } from "../index";
 import { linkStatsFromPath } from "../link-stats";
 import {
@@ -112,6 +119,19 @@ const DIRECT_ERROR_CODES = {
 } as const;
 
 function directError(error: unknown): never {
+	if (error instanceof DirectCustomError) {
+		const code = {
+			conflict: "CONFLICT",
+			invalid: "BAD_REQUEST",
+			limit: "TOO_MANY_REQUESTS",
+			"not-found": "NOT_FOUND",
+		} as const;
+		throw new TRPCError({
+			code: code[error.code],
+			message: error.message,
+			cause: error,
+		});
+	}
 	if (error instanceof DirectError) {
 		throw new TRPCError({
 			code: DIRECT_ERROR_CODES[error.code],
@@ -370,6 +390,63 @@ export const relayRoutes = {
 			}),
 	}),
 	direct: router({
+		custom: router({
+			list: relayProcedure.query(async ({ ctx }) => ({
+				destinations: await listCustomDirectDestinations(ctx.relayUser.id),
+			})),
+			create: relayProcedure
+				.input(
+					z.object({
+						name: z.string().trim().min(1).max(64),
+						url: z.string().min(1).max(4096),
+					}),
+				)
+				.mutation(async ({ ctx, input }) => {
+					try {
+						return {
+							destination: await createCustomDirectDestination(
+								ctx.relayUser.id,
+								input,
+							),
+						};
+					} catch (error) {
+						directError(error);
+					}
+				}),
+			update: relayProcedure
+				.input(
+					z.object({
+						destinationId: z.uuid(),
+						name: z.string().trim().min(1).max(64),
+						url: z.string().min(1).max(4096).optional(),
+					}),
+				)
+				.mutation(async ({ ctx, input }) => {
+					try {
+						return {
+							destination: await updateCustomDirectDestination(
+								ctx.relayUser.id,
+								input,
+							),
+						};
+					} catch (error) {
+						directError(error);
+					}
+				}),
+			delete: relayProcedure
+				.input(z.object({ destinationId: z.uuid() }))
+				.mutation(async ({ ctx, input }) => {
+					try {
+						await deleteCustomDirectDestination(
+							ctx.relayUser.id,
+							input.destinationId,
+						);
+						return { destinationId: input.destinationId };
+					} catch (error) {
+						directError(error);
+					}
+				}),
+		}),
 		list: relayProcedure.query(({ ctx }) =>
 			listDirectOutputs(ctx.relayUser.id),
 		),

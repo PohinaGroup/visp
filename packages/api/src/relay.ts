@@ -8,10 +8,11 @@ import {
 	rttSample,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
 import { DirectError, prepareDirect, saveDirectPreferences } from "./direct";
+import { decryptSecret, encryptSecret } from "./encrypted-secret";
 import { hashSecret, verifySecret } from "./password";
 import { uniqueViolation } from "./pg-errors";
 import { chooseRelay } from "./relays";
@@ -35,10 +36,6 @@ type NetworkProfile = "wired" | "wifi" | "cellular";
 type PublishOrigin = "native" | "web";
 
 const authCache = new Map<string, AuthCacheEntry>();
-const publishEncryptionKey = Buffer.from(
-	env.PUBLISH_URL_ENCRYPTION_KEY,
-	"base64",
-);
 
 function slugify(value: string) {
 	return (
@@ -66,44 +63,6 @@ function normalizeLabel(label: string) {
 
 function secret() {
 	return randomBytes(24).toString("hex");
-}
-
-function encryptSecret(plaintext: string, aad: string) {
-	const iv = randomBytes(12);
-	const cipher = createCipheriv("aes-256-gcm", publishEncryptionKey, iv);
-	cipher.setAAD(Buffer.from(aad, "utf8"));
-	const encrypted = Buffer.concat([
-		cipher.update(plaintext, "utf8"),
-		cipher.final(),
-	]);
-	return [
-		"v1",
-		iv.toString("base64url"),
-		cipher.getAuthTag().toString("base64url"),
-		encrypted.toString("base64url"),
-	].join(".");
-}
-
-function decryptSecret(value: string, aad: string) {
-	const [version, ivValue, tagValue, encryptedValue] = value.split(".");
-	if (version !== "v1" || !ivValue || !tagValue || !encryptedValue) {
-		throw new Error("Stored secret cannot be revealed");
-	}
-	try {
-		const decipher = createDecipheriv(
-			"aes-256-gcm",
-			publishEncryptionKey,
-			Buffer.from(ivValue, "base64url"),
-		);
-		decipher.setAAD(Buffer.from(aad, "utf8"));
-		decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
-		return Buffer.concat([
-			decipher.update(Buffer.from(encryptedValue, "base64url")),
-			decipher.final(),
-		]).toString("utf8");
-	} catch {
-		throw new Error("Stored secret cannot be revealed");
-	}
 }
 
 export function encryptPublishSecret(

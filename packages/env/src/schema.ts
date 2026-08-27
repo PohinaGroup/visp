@@ -37,6 +37,7 @@ export const serverEnvSchema = {
 	 * after measuring relay capacity and abuse pressure.
 	 */
 	MAX_PATHS_PER_USER: z.coerce.number().int().min(1).default(10),
+	MAX_CUSTOM_DESTINATIONS_PER_USER: z.coerce.number().int().min(1).default(10),
 	BETTER_AUTH_SECRET: z.string().min(32),
 	BETTER_AUTH_URL: z.url(),
 	CORS_ORIGIN: z.url(),

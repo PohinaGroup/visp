@@ -1,76 +1,83 @@
 {
-  "version": "7",
-  "dialect": "postgresql",
-  "entries": [
-    {
-      "idx": 0,
-      "version": "7",
-      "when": 1785339807611,
-      "tag": "0000_chunky_king_cobra",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1785418544163,
-      "tag": "0001_glorious_firebrand",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1785478951383,
-      "tag": "0002_goofy_mercury",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1785701969157,
-      "tag": "0003_round_scarecrow",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1786101174352,
-      "tag": "0004_wet_the_stranger",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1786178105778,
-      "tag": "0005_brief_unus",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1786560515574,
-      "tag": "0006_nostalgic_otto_octavius",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1786728785480,
-      "tag": "0007_omniscient_mephisto",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1787742984806,
-      "tag": "0008_youthful_arclight",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1787823706316,
-      "tag": "0009_brb_highlights",
-      "breakpoints": true
-    }
-  ]
+	"version": "7",
+	"dialect": "postgresql",
+	"entries": [
+		{
+			"idx": 0,
+			"version": "7",
+			"when": 1785339807611,
+			"tag": "0000_chunky_king_cobra",
+			"breakpoints": true
+		},
+		{
+			"idx": 1,
+			"version": "7",
+			"when": 1785418544163,
+			"tag": "0001_glorious_firebrand",
+			"breakpoints": true
+		},
+		{
+			"idx": 2,
+			"version": "7",
+			"when": 1785478951383,
+			"tag": "0002_goofy_mercury",
+			"breakpoints": true
+		},
+		{
+			"idx": 3,
+			"version": "7",
+			"when": 1785701969157,
+			"tag": "0003_round_scarecrow",
+			"breakpoints": true
+		},
+		{
+			"idx": 4,
+			"version": "7",
+			"when": 1786101174352,
+			"tag": "0004_wet_the_stranger",
+			"breakpoints": true
+		},
+		{
+			"idx": 5,
+			"version": "7",
+			"when": 1786178105778,
+			"tag": "0005_brief_unus",
+			"breakpoints": true
+		},
+		{
+			"idx": 6,
+			"version": "7",
+			"when": 1786560515574,
+			"tag": "0006_nostalgic_otto_octavius",
+			"breakpoints": true
+		},
+		{
+			"idx": 7,
+			"version": "7",
+			"when": 1786728785480,
+			"tag": "0007_omniscient_mephisto",
+			"breakpoints": true
+		},
+		{
+			"idx": 8,
+			"version": "7",
+			"when": 1787742984806,
+			"tag": "0008_youthful_arclight",
+			"breakpoints": true
+		},
+		{
+			"idx": 9,
+			"version": "7",
+			"when": 1787823706316,
+			"tag": "0009_brb_highlights",
+			"breakpoints": true
+		},
+		{
+			"idx": 10,
+			"version": "7",
+			"when": 1787834184597,
+			"tag": "0010_custom_direct_destinations",
+			"breakpoints": true
+		}
+	]
 }

@@ -233,6 +233,40 @@ export const brbHighlight = pgTable(
 	],
 );
 
+export const customDirectDestination = pgTable(
+	"custom_direct_destination",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		protocol: text("protocol").notNull(),
+		encryptedUrl: text("encrypted_url").notNull(),
+		endpointSummary: text("endpoint_summary").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		unique("custom_direct_destination_user_name_unique").on(
+			table.userId,
+			table.name,
+		),
+		check(
+			"custom_direct_destination_name_length",
+			sql`char_length(trim(${table.name})) between 1 and 64`,
+		),
+		check(
+			"custom_direct_destination_protocol_known",
+			sql`${table.protocol} in ('rtmp', 'rtmps', 'srt')`,
+		),
+	],
+);
+
 export const relayPath = pgTable(
 	"path",
 	{
@@ -469,9 +503,20 @@ export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	user: one(user, { fields: [appUser.id], references: [user.id] }),
 	paths: many(relayPath),
 	highlights: many(brbHighlight),
+	customDirectDestinations: many(customDirectDestination),
 	rttSamples: many(rttSample),
 	tiles: many(obsTile),
 }));
+
+export const customDirectDestinationRelations = relations(
+	customDirectDestination,
+	({ one }) => ({
+		user: one(appUser, {
+			fields: [customDirectDestination.userId],
+			references: [appUser.id],
+		}),
+	}),
+);
 
 export const brbHighlightRelations = relations(brbHighlight, ({ one }) => ({
 	user: one(appUser, {
