@@ -1,0 +1,25 @@
+[Unit]
+Description=VISP Cloud Studio compositor for %i
+After=network-online.target mediamtx.service
+Requires=mediamtx.service
+
+[Service]
+Type=simple
+User=visp-compositor
+Group=visp-compositor
+EnvironmentFile=/run/visp/compositor-%i.env
+ExecStartPre=/usr/local/libexec/visp-compositor-egress-check
+ExecStart=/usr/local/libexec/visp-compositor $APP_ORIGIN %i rtsp://127.0.0.1:8554/%i rtsp://127.0.0.1:8554/studio/%i
+Restart=on-failure
+RestartSec=2
+MemoryMax=2G
+CPUQuota=300%
+TasksMax=256
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

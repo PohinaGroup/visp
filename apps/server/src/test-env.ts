@@ -15,11 +15,16 @@ process.env.KICK_CLIENT_ID ??= "test-kick-client";
 process.env.KICK_CLIENT_SECRET ??= "test-kick-secret";
 process.env.MEDIAMTX_API_URL ??= "http://100.64.0.10:9997";
 process.env.NATIVE_WEB_ORIGIN ??= "http://127.0.0.1:8081";
+process.env.CLOUD_STUDIO_ENABLED ??= "false";
+process.env.CLOUD_STUDIO_DEFAULT_ENABLED ??= "false";
 process.env.OBS_REMOTE_WEB_ORIGIN ??= "http://localhost:8083";
 process.env.PUBLISH_URL_ENCRYPTION_KEY ??=
 	"dGVzdC1wdWJsaXNoLXVybC1rZXktMzItYnl0ZXMhISE=";
 process.env.RELAY_HOST ??= "relay.test";
 process.env.RELAY_PING_URL ??= "https://relay.test/ping";
+process.env.STUDIO_MEDIA_USER ??= "studio-compositor";
+process.env.STUDIO_MEDIA_PASSWORD ??=
+	"test-studio-media-password-at-least-32-chars";
 process.env.S3_ACCESS_KEY_ID ??= "test-access-key";
 process.env.S3_BUCKET ??= "test-snapshots";
 process.env.S3_ENDPOINT ??= "https://objects.test";

@@ -1,5 +1,6 @@
 import { type AdvisoryLock, tryAdvisoryLock } from "@VISP/api/advisory-lock";
 import { brbTick, recordBrbHighlightPlayed } from "@VISP/api/brb";
+import { chatHub } from "@VISP/api/chat/hub";
 import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
@@ -25,11 +26,18 @@ import {
 	reconcilePathState,
 } from "@VISP/api/relay";
 import { getSnapshotUploadUrl } from "@VISP/api/snapshots";
+import {
+	compositorDesiredState,
+	deliverStudioAlert,
+	deliverStudioProviderAlert,
+	reportBrowserFailure,
+	reportCompositorHealth,
+} from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import { session as authSession } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 import {
@@ -42,14 +50,42 @@ import {
 // Postgres or the cache bus only if a strict global request cap is needed.
 const deviceMutations = fixedWindow(20, 60_000);
 
-function matchesHookSecret(value: string | undefined) {
+chatHub.onPublished((userId, event) => {
+	if (event.type !== "alert") return;
+	void deliverStudioProviderAlert(userId, event.alert).catch((error) =>
+		console.error("Studio alert bridge failed", error),
+	);
+});
+
+function matchesSecret(value: string | undefined, secret: string) {
 	if (!value) {
 		return false;
 	}
 	const provided = Buffer.from(value);
-	const expected = Buffer.from(env.HOOK_SECRET);
+	const expected = Buffer.from(secret);
 	return (
 		provided.length === expected.length && timingSafeEqual(provided, expected)
+	);
+}
+
+function matchesHookSecret(value: string | undefined) {
+	return matchesSecret(value, env.HOOK_SECRET);
+}
+
+export function studioScopedCredential(
+	secret: string,
+	path: string,
+	purpose: "hook" | "media",
+) {
+	return createHmac("sha256", secret)
+		.update(`${purpose}:${path}`)
+		.digest("hex");
+}
+
+function matchesStudioToken(value: string | undefined, path: string) {
+	return matchesSecret(
+		value,
+		studioScopedCredential(env.HOOK_SECRET, path, "hook"),
 	);
 }
 
@@ -198,12 +234,28 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 	.post(
 		"/api/mediamtx/auth",
 		async ({ body }) => {
-			if (
-				body.action === "read" &&
+			const localRtsp =
 				body.protocol === "rtsp" &&
-				(body.ip === "127.0.0.1" || body.ip === "::1")
-			) {
-				return status(200, "ok");
+				(body.ip === "127.0.0.1" || body.ip === "::1");
+			if (localRtsp) {
+				const path = body.path.startsWith("studio/")
+					? body.path.slice("studio/".length)
+					: body.path;
+				const allowedAction =
+					body.action === "read" ||
+					(body.action === "publish" && body.path === `studio/${path}`);
+				if (
+					path &&
+					allowedAction &&
+					body.user === `studio:${path}` &&
+					matchesSecret(
+						body.password,
+						studioScopedCredential(env.STUDIO_MEDIA_PASSWORD, path, "media"),
+					)
+				) {
+					return status(200, "ok");
+				}
+				return status(401, "unauthorized");
 			}
 			if (!body.user || !body.password) {
 				return status(401, "credentials required");
@@ -211,7 +263,10 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (
 				body.protocol !== "srt" &&
 				body.protocol !== "rtmp" &&
-				!(body.protocol === "webrtc" && body.action === "publish")
+				!(
+					body.protocol === "webrtc" &&
+					(body.action === "publish" || body.action === "read")
+				)
 			) {
 				return status(403, "forbidden");
 			}
@@ -246,6 +301,114 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				id: t.Optional(t.String()),
 				query: t.Optional(t.String()),
 				userAgent: t.Optional(t.String()),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/studio/desired-state",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (
+					(await compositorDesiredState(body.path)) ??
+					status(404, "path not found")
+				);
+			} catch {
+				return status(503, "studio state unavailable");
+			}
+		},
+		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+	)
+	.post(
+		"/api/hooks/studio/relay-plan",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				const plan = await compositorDesiredState(body.path);
+				return new Response(
+					plan?.mode === "program"
+						? `program ${plan.inputUrl}\n`
+						: "passthrough\n",
+					{ headers: { "Content-Type": "text/plain; charset=utf-8" } },
+				);
+			} catch {
+				return new Response("passthrough\n", {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			}
+		},
+		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+	)
+	.post(
+		"/api/hooks/studio/health",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (await reportCompositorHealth(
+					body.path,
+					body.healthy,
+					body.programUrl,
+				))
+					? status(204)
+					: status(404, "path not found");
+			} catch {
+				return status(400, "invalid compositor health");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				healthy: t.Boolean(),
+				programUrl: t.Optional(t.String({ maxLength: 2048 })),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/studio/browser-failure",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (await reportBrowserFailure(body.path, body.layerId))
+					? status(204)
+					: status(404, "browser layer not found");
+			} catch {
+				return status(503, "browser failure unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				layerId: t.String({ format: "uuid" }),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/studio/alert",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (
+					(await deliverStudioAlert(body.path, body.event, body.label)) ??
+					status(404, "path not found")
+				);
+			} catch {
+				return status(503, "alert unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				event: t.Union([
+					t.Literal("follow"),
+					t.Literal("sub"),
+					t.Literal("donation"),
+				]),
+				label: t.Optional(t.String({ maxLength: 120 })),
 			}),
 		},
 	)

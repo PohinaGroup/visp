@@ -39,6 +39,20 @@ are captured when BRB starts, so edits apply on the next BRB.
 Returning to live or choosing **End broadcast** interrupts the hold. Highlight
 configuration is web-only; the native BRB controls are unchanged.
 
+## Choose where the program is made
+
+- **Cloud Studio** burns the last saved web Studio scene into Direct. It supports
+  up to three scenes, eight layers per scene, two public HTTPS browser sources,
+  and one VISP alert layer. Save is explicit: unsaved edits never reach a live
+  program. Native publishes with the last saved program and opens the web editor.
+- **I use OBS** keeps the existing workflow. VISP does not host OBS; your own OBS
+  owns scenes, overlays, plugins, recording, and the platform output.
+
+The program preview is normally under three seconds behind ingest. A saved live
+edit is normally applied in under two seconds. These are operating targets, not
+hard customer SLAs. If Studio is unhealthy or killed, Direct falls back to
+camera-only passthrough and retries; saved scenes remain intact.
+
 ## Enable it
 
 1. During setup, choose Twitch, Kick, or YouTube and authorize streaming. Existing users

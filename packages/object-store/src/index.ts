@@ -64,7 +64,49 @@ export function createObjectStore(config: ObjectStoreConfig) {
 			});
 			if (!response.ok) throw new Error(`S3 copy failed: ${response.status}`);
 		},
-
+		async write(
+			key: string,
+			bytes: Uint8Array,
+			contentType: string,
+		): Promise<void> {
+			const response = await aws.fetch(objectUrl(key), {
+				method: "PUT",
+				headers: { "Content-Type": contentType },
+				body: new Uint8Array(bytes).buffer,
+				aws: { service: "s3", region: config.region },
+			});
+			if (!response.ok) throw new Error(`S3 write failed: ${response.status}`);
+		},
+		async read(key: string, maxBytes: number): Promise<Uint8Array> {
+			const response = await aws.fetch(objectUrl(key), {
+				method: "GET",
+				aws: { service: "s3", region: config.region },
+			});
+			if (!response.ok) throw new Error(`S3 read failed: ${response.status}`);
+			const declared = Number(response.headers.get("content-length") ?? 0);
+			if (declared > maxBytes) throw new Error("Object exceeds maximum size");
+			const reader = response.body?.getReader();
+			if (!reader) return new Uint8Array();
+			const chunks: Uint8Array[] = [];
+			let size = 0;
+			while (true) {
+				const { done, value } = await reader.read();
+				if (done) break;
+				size += value.length;
+				if (size > maxBytes) {
+					await reader.cancel();
+					throw new Error("Object exceeds maximum size");
+				}
+				chunks.push(value);
+			}
+			const result = new Uint8Array(size);
+			let offset = 0;
+			for (const chunk of chunks) {
+				result.set(chunk, offset);
+				offset += chunk.length;
+			}
+			return result;
+		},
 		async delete(key: string): Promise<void> {
 			const response = await aws.fetch(objectUrl(key), {
 				method: "DELETE",

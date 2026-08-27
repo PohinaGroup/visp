@@ -6,8 +6,13 @@ process.env.BETTER_AUTH_SECRET ??= "test-secret-that-is-at-least-32-characters";
 process.env.BETTER_AUTH_URL ??= "http://127.0.0.1:3000";
 process.env.CORS_ORIGIN ??= "http://127.0.0.1:3001";
 process.env.NATIVE_WEB_ORIGIN ??= "http://127.0.0.1:8081";
+process.env.CLOUD_STUDIO_ENABLED ??= "false";
+process.env.CLOUD_STUDIO_DEFAULT_ENABLED ??= "false";
 process.env.OBS_REMOTE_WEB_ORIGIN ??= "http://localhost:8083";
 process.env.HOOK_SECRET ??= "test-hook-secret-that-is-at-least-32-characters";
+process.env.STUDIO_MEDIA_USER ??= "studio-compositor";
+process.env.STUDIO_MEDIA_PASSWORD ??=
+	"test-studio-media-password-at-least-32-chars";
 process.env.GOOGLE_CLIENT_ID ??= "test-google-client";
 process.env.GOOGLE_CLIENT_SECRET ??= "test-google-secret";
 process.env.KICK_CLIENT_ID ??= "test-kick-client";

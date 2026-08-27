@@ -67,6 +67,13 @@ import { chooseRelay, ensureDefaultRelay } from "@VISP/api/relays";
 import { appRouter } from "@VISP/api/routers/index";
 import { resetRelayMutationLimitForTests } from "@VISP/api/routers/relay";
 import { listSnapshots, snapshotKey } from "@VISP/api/snapshots";
+import {
+	compositorDesiredState,
+	deliverStudioAlert,
+	deliverStudioProviderAlert,
+	reportBrowserFailure,
+	reportCompositorHealth,
+} from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import {
@@ -83,7 +90,13 @@ import {
 	relayStreamSession,
 	user,
 } from "@VISP/db/schema/index";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import {
+	afterEach,
+	beforeEach,
+	test as bunTest,
+	describe,
+	expect,
+} from "bun:test";
 import { eq, ne, sql } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
@@ -91,6 +104,7 @@ import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
+const test = bunTest.serial;
 const originalFetch = globalThis.fetch;
 const app = new Elysia().use(machineRoutes);
 const highlightUploadId = "10000000-0000-4000-8000-000000000001";
@@ -1899,6 +1913,154 @@ integration("VISP Direct boundaries", () => {
 		expect((await caller.direct.list()).mode).toBe("obs");
 	});
 
+	test("persists an owner-scoped Studio graph and exposes last-saved compositor state", async () => {
+		await seedDirect();
+		const caller = await callerFor("user-a");
+		const other = await callerFor("user-b");
+		const sceneId = "11111111-1111-4111-8111-111111111111";
+		const textId = "22222222-2222-4222-8222-222222222222";
+		const browserId = "33333333-3333-4333-8333-333333333333";
+		const alertId = "44444444-4444-4444-8444-444444444444";
+		const graph = {
+			activeSceneId: sceneId,
+			scenes: [
+				{
+					id: sceneId,
+					name: "Main",
+					order: 0,
+					transition: "fade" as const,
+					layers: [
+						{
+							id: textId,
+							type: "text" as const,
+							name: "Title",
+							visible: true,
+							x: 20,
+							y: 20,
+							width: 600,
+							height: 100,
+							zIndex: 0,
+							text: "Saved title",
+						},
+						{
+							id: browserId,
+							type: "browser" as const,
+							name: "Widget",
+							visible: true,
+							x: 0,
+							y: 0,
+							width: 640,
+							height: 360,
+							zIndex: 1,
+							url: "https://widgets.example.test/live",
+						},
+						{
+							id: alertId,
+							type: "alert" as const,
+							name: "Followers",
+							visible: true,
+							x: 20,
+							y: 140,
+							width: 600,
+							height: 100,
+							zIndex: 2,
+							event: "follow" as const,
+						},
+					],
+				},
+			],
+		};
+
+		expect(await reportCompositorHealth("alpha-1", false)).toBe(true);
+		await expect(
+			reportCompositorHealth(
+				"alpha-1",
+				true,
+				"rtsp://127.0.0.1:8554/studio/beta-1",
+			),
+		).rejects.toThrow("local Studio RTSP path");
+		expect((await caller.studio.mode.get()).configured).toBe(false);
+		expect(
+			await reportCompositorHealth(
+				"alpha-1",
+				true,
+				"rtsp://127.0.0.1:8554/studio/alpha-1",
+			),
+		).toBe(true);
+		expect((await caller.studio.mode.get()).configured).toBe(false);
+		expect(await reportCompositorHealth("alpha-1", false)).toBe(true);
+		expect(await caller.studio.save(graph)).toEqual(graph);
+		expect((await caller.studio.get()).graph).toEqual(graph);
+		expect((await other.studio.get()).graph.scenes).toEqual([]);
+		await caller.studio.mode.set({ mode: "cloud_studio" });
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			mode: "passthrough",
+			requestedMode: "program",
+			version: 1,
+		});
+		expect(
+			await reportCompositorHealth(
+				"alpha-1",
+				true,
+				"rtsp://127.0.0.1:8554/studio/alpha-1",
+			),
+		).toBe(true);
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			mode: "program",
+			graph,
+		});
+
+		expect(await reportBrowserFailure("alpha-1", browserId)).toBe(true);
+		const disabled = await caller.studio.get();
+		expect(disabled.graph.scenes[0]?.layers[1]).toMatchObject({
+			visible: true,
+			runtimeDisabled: true,
+		});
+		await caller.studio.save(disabled.graph);
+		expect(
+			(await caller.studio.get()).graph.scenes[0]?.layers[1],
+		).toMatchObject({
+			runtimeDisabled: true,
+		});
+		const reenabled = structuredClone(disabled.graph);
+		const browser = reenabled.scenes[0]?.layers[1];
+		if (browser) browser.runtimeDisabled = false;
+		await caller.studio.save(reenabled);
+		expect(
+			(await caller.studio.get()).graph.scenes[0]?.layers[1],
+		).not.toHaveProperty("runtimeDisabled");
+		expect(
+			await deliverStudioProviderAlert("user-a", {
+				id: "follow-1",
+				provider: "twitch",
+				kind: "follow",
+				sentAt: new Date().toISOString(),
+				name: "Ada",
+			}),
+		).toBe(true);
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			alert: { event: "follow", label: "Ada followed" },
+		});
+		expect(
+			await deliverStudioProviderAlert("user-a", {
+				id: "sub-1",
+				provider: "youtube",
+				kind: "sub",
+				sentAt: new Date().toISOString(),
+				name: "Lin",
+			}),
+		).toBe(false);
+		expect(await deliverStudioAlert("alpha-1", "follow")).toEqual({
+			event: "follow",
+			fallback: null,
+		});
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			alert: { event: "follow", label: "Alert" },
+		});
+		await caller.studio.emptyWarning({ dismissed: true });
+		expect((await caller.studio.mode.get()).emptyWarningDismissed).toBe(true);
+	});
+
 	test("a path without a reservation receives no relay destination URLs", async () => {
 		const data = await seedDirect();
 		await db
@@ -2020,6 +2182,7 @@ integration("VISP Direct boundaries", () => {
 			role: "portrait",
 		});
 		await prepareDirect("user-a", data.pathA.id);
+		globalThis.fetch = providerFetch;
 		const hook = (version = "") =>
 			app.handle(
 				new Request(

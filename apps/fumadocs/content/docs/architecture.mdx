@@ -12,6 +12,7 @@ transcoding it; the app decides who may connect and tracks what is live.
 | Piece | Runs | Responsibility |
 | --- | --- | --- |
 | Relay hosts | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
+| Managed compositor | Bun worker, Chromium, FFmpeg | Pulls the last saved Cloud Studio graph and publishes a program feed for Direct |
 | App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch, Kick, and Google login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
@@ -113,7 +114,8 @@ metadata separately.
 
 ## Boundaries
 
-VISP does not bill users or host OBS. It assigns paths across multiple relays
+VISP does not bill users or host OBS. Home Studio remains a bring-your-own-OBS
+path; VISP never runs an OBS instance for the broadcaster. It assigns paths across multiple relays
 but does not move an existing path automatically. For the relay-to-OBS path the
 assigned relay forwards the H.264/AAC (or WebRTC H.264/Opus) feed exactly as
 published — no transcode, no provider stream key.
@@ -126,3 +128,10 @@ or creates a public YouTube broadcast and obtains its RTMPS ingest destination.
 The destination is passed to the forwarding process and never returned to a
 client app or stored as a separate database value. What OBS reads stays the
 contribution feed, not the platform encode.
+
+Cloud Studio is a separate Direct production mode. Its managed compositor pulls
+only the last explicitly saved scene graph and publishes the composited program
+to the local relay. If the rollout flag, kill switch, entitlement, or compositor
+health check is false, Direct selects the raw contribution feed instead. Existing
+accounts stay in OBS mode until they opt in; the cloud default for new accounts
+is independently rollout-gated.
