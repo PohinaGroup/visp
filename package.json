@@ -34,6 +34,9 @@
 		"dev:local:down": "docker compose down",
 		"build": "EXPO_PUBLIC_SERVER_URL=\"${EXPO_PUBLIC_SERVER_URL:-http://localhost:3000}\" turbo run build",
 		"test": "bun test",
+		"test:e2e": "playwright test -c e2e/playwright.config.ts",
+		"test:e2e:ui": "playwright test -c e2e/playwright.config.ts --ui",
+		"test:e2e:install": "playwright install chromium",
 		"test:integration": "sh scripts/test-integration.sh",
 		"check-types": "turbo run check-types",
 		"dev:web": "turbo run dev -F web",
@@ -58,6 +61,7 @@
 	"devDependencies": {
 		"@VISP/config": "workspace:*",
 		"@biomejs/biome": "^2.5.2",
+		"@playwright/test": "^1.58.2",
 		"@types/bun": "catalog:",
 		"portless": "^0.15.4",
 		"turbo": "^2.10.2",

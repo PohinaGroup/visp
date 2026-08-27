@@ -239,6 +239,9 @@ bun test
 # PostgreSQL-backed machine/auth/hook tests; manages compose.test.yml itself
 bun run test:integration
 
+# Browser smoke tests against the local stack (portal, docs, admin)
+bun run test:e2e
+
 # TypeScript across all workspaces
 bun run check-types
 
@@ -251,6 +254,37 @@ bun run check
 
 The integration suite binds PostgreSQL to `127.0.0.1:55432`, uses a tmpfs data
 directory, and runs `docker compose down --volumes` on exit.
+
+### Playwright smoke tests
+
+End-to-end smoke tests live in `e2e/`. They hit the Portless HTTPS URLs that
+`dev:local` serves and check that public portal, docs, and admin pages render.
+
+Install the Chromium browser once:
+
+```bash
+bun run test:e2e:install
+```
+
+Start the local stack, then run the suite in another terminal:
+
+```bash
+bun run dev:local
+bun run test:e2e
+```
+
+Use `bun run test:e2e:ui` for the Playwright inspector. Override targets when
+needed:
+
+```bash
+PLAYWRIGHT_PORTAL_URL=https://visp.localhost \
+PLAYWRIGHT_DOCS_URL=https://docs.visp.localhost \
+PLAYWRIGHT_ADMIN_URL=https://admin.visp.localhost \
+bun run test:e2e
+```
+
+Set `PLAYWRIGHT_SKIP_HEALTHCHECK=1` to skip the startup probe when you know the
+stack is already warm.
 
 ## Where changes belong
 

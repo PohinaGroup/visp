@@ -45,6 +45,10 @@ lerna-debug.log*
 # Testing
 coverage
 .nyc_output
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
 
 # Misc
 *.tgz
@@ -72,6 +76,10 @@ PIPELINE.md
 @jonijuntto*
 MARKETING.md
 prompt.md
+<<<<<<< Updated upstream
 
 # Riptide artifacts (cloud-synced)
 .humanlayer/tasks/
+=======
+.humanlayer/workspace.local.json
+>>>>>>> Stashed changes
