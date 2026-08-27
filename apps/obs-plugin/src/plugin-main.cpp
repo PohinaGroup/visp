@@ -81,6 +81,62 @@ struct created_device_response {
 	QString srt_url;
 };
 
+enum class control_connection_state {
+	inactive,
+	connecting,
+	connected,
+	reconnecting,
+	sign_in_required,
+};
+
+enum class ticket_request_outcome { accepted, retryable, sign_in_required };
+
+struct account_presentation {
+	QString identity;
+	QString connection_message;
+	bool can_sign_in;
+	bool can_retry;
+	bool can_disconnect;
+};
+
+static ticket_request_outcome classify_ticket_outcome(int status, bool transport_ok, bool valid_ticket)
+{
+	if (status == 401)
+		return ticket_request_outcome::sign_in_required;
+	if (transport_ok && status >= 200 && status < 300 && valid_ticket)
+		return ticket_request_outcome::accepted;
+	return ticket_request_outcome::retryable;
+}
+
+static account_presentation present_account(const QString &identity, bool has_credential,
+					    control_connection_state state)
+{
+	account_presentation result{
+		identity.isEmpty() ? (has_credential ? "Checking VISP account..." : "Not signed in") : identity,
+		{}, true, false, has_credential};
+	switch (state) {
+	case control_connection_state::inactive:
+		result.connection_message = has_credential ? "Live control is offline." : "Live control is inactive.";
+		result.can_retry = has_credential;
+		break;
+	case control_connection_state::connecting:
+		result.connection_message = "Connecting live control...";
+		break;
+	case control_connection_state::connected:
+		result.connection_message = "Live control connected.";
+		break;
+	case control_connection_state::reconnecting:
+		result.connection_message = "Live control is offline; reconnecting...";
+		result.can_retry = has_credential;
+		break;
+	case control_connection_state::sign_in_required:
+		result.connection_message = "Sign in again to restore live control.";
+		result.can_retry = has_credential;
+		break;
+	}
+	return result;
+}
+
 static bool positive_integer(const QJsonValue &value, qint64 *result)
 {
 	const double number = value.toDouble(-1);
@@ -444,6 +500,17 @@ static QByteArray make_control_request(bool streaming, bool recording, bool virt
 
 int main(void)
 {
+	CHECK(classify_ticket_outcome(401, false, false) == ticket_request_outcome::sign_in_required);
+	CHECK(classify_ticket_outcome(503, false, false) == ticket_request_outcome::retryable);
+	CHECK(classify_ticket_outcome(200, true, false) == ticket_request_outcome::retryable);
+	CHECK(classify_ticket_outcome(200, true, true) == ticket_request_outcome::accepted);
+	const account_presentation rejected =
+		present_account("Connected as streamer", true, control_connection_state::sign_in_required);
+	CHECK(rejected.identity == "Connected as streamer" && rejected.can_sign_in && rejected.can_retry &&
+	      rejected.can_disconnect && rejected.connection_message.contains("Sign in again"));
+	const account_presentation connected =
+		present_account("Connected as streamer", true, control_connection_state::connected);
+	CHECK(!connected.can_retry && connected.connection_message == "Live control connected.");
 	struct control_response response = {};
 	CHECK(parse_control_response("{\"commandVersion\":7,\"desiredStreaming\":true,\"desiredScene\":\"Main \\\"台\\\"\",\"pollAfterMs\":2000}",
 				     &response));
@@ -570,6 +637,7 @@ int main(void)
 #include <QDialogButtonBox>
 #include <QFileDialog>
 #include <QFormLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -600,6 +668,8 @@ struct plugin_config {
 	QString token;
 	qint64 output_path_id = 0;
 };
+
+static control_connection_state current_control_state = control_connection_state::inactive;
 
 static bool secure_url(const QString &value)
 {
@@ -848,7 +918,8 @@ static bool configure_obs_output(const QString &srt_url, QString *error)
 class SettingsDialog final : public QDialog {
 public:
 	SettingsDialog(const plugin_config &settings, QWidget *parent)
-		: QDialog(parent), output_path_id(settings.output_path_id), network(this), auth_timer(this)
+		: QDialog(parent), output_path_id(settings.output_path_id), network(this), auth_timer(this),
+		  health_timer(this)
 	{
 		setWindowTitle("VISP for OBS");
 		setMinimumWidth(640);
@@ -857,19 +928,29 @@ public:
 		token.setEchoMode(QLineEdit::PasswordEchoOnEdit);
 		token.setPlaceholderText("Legacy pairing token");
 		account_status.setWordWrap(true);
-		account_status.setText(settings.token.isEmpty() ? "Not connected" : "Checking VISP account…");
+		connection_status.setWordWrap(true);
+		account_identity = settings.token.isEmpty() ? QString() : QString("Checking VISP account...");
 
-		auto *sign_in = new QPushButton("Sign in with browser");
+		sign_in_button = new QPushButton("Sign in with browser");
+		retry_button = new QPushButton("Retry connection");
 		auto *refresh = new QPushButton("Refresh devices");
-		auto *disconnect_button = new QPushButton("Disconnect");
-		connect(sign_in, &QPushButton::clicked, this, [this]() { begin_sign_in(); });
+		disconnect_button = new QPushButton("Disconnect");
+		connect(sign_in_button, &QPushButton::clicked, this, [this]() { begin_sign_in(); });
+		connect(retry_button, &QPushButton::clicked, this, [this]() { retry_connection(); });
 		connect(refresh, &QPushButton::clicked, this, [this]() { load_devices(); });
 		connect(disconnect_button, &QPushButton::clicked, this, [this]() { disconnect_account(); });
 		auto *account_actions = new QHBoxLayout;
-		account_actions->addWidget(sign_in);
+		account_actions->addWidget(sign_in_button);
+		account_actions->addWidget(retry_button);
 		account_actions->addWidget(refresh);
 		account_actions->addWidget(disconnect_button);
 		account_actions->addStretch();
+		auto *account_layout = new QVBoxLayout;
+		account_layout->addWidget(&account_status);
+		account_layout->addWidget(&connection_status);
+		account_layout->addLayout(account_actions);
+		auto *account_group = new QGroupBox("Account");
+		account_group->setLayout(account_layout);
 
 		devices_layout = new QVBoxLayout(&devices_widget);
 		devices_layout->setContentsMargins(0, 0, 0, 0);
@@ -890,28 +971,38 @@ public:
 		form->addRow("Pairing token", &token);
 		auto *import_button = new QPushButton("Import config.ini");
 		connect(import_button, &QPushButton::clicked, this, [this]() { import_config(); });
+		auto *advanced_layout = new QVBoxLayout;
+		advanced_layout->addLayout(form);
+		advanced_layout->addWidget(import_button, 0, Qt::AlignLeft);
+		auto *advanced_widget = new QWidget;
+		advanced_widget->setLayout(advanced_layout);
+		advanced_widget->setVisible(false);
+		auto *advanced_toggle = new QPushButton("Advanced");
+		advanced_toggle->setCheckable(true);
+		connect(advanced_toggle, &QPushButton::toggled, advanced_widget, &QWidget::setVisible);
 
 		auto *buttons = new QDialogButtonBox(QDialogButtonBox::Save | QDialogButtonBox::Cancel);
 		connect(buttons, &QDialogButtonBox::accepted, this, [this]() { validate_and_accept(); });
 		connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
 		connect(&auth_timer, &QTimer::timeout, this, [this]() { poll_device_token(); });
+		connect(&health_timer, &QTimer::timeout, this, [this]() { refresh_account_presentation(); });
+		health_timer.start(250);
 
 		auto *layout = new QVBoxLayout(this);
 		auto *intro = new QLabel(
 			"Sign in to manage publishing devices, add relay feeds, and keep VISP remote control connected.");
 		intro->setWordWrap(true);
 		layout->addWidget(intro);
-		layout->addWidget(&account_status);
-		layout->addLayout(account_actions);
+		layout->addWidget(account_group);
 		layout->addWidget(new QLabel("Publishing devices"));
 		layout->addWidget(scroll);
 		layout->addWidget(new QLabel("Create a publishing device for this OBS installation"));
 		layout->addLayout(create_row);
 		layout->addSpacing(8);
-		layout->addWidget(new QLabel("Manual / self-hosted pairing"));
-		layout->addLayout(form);
-		layout->addWidget(import_button, 0, Qt::AlignLeft);
+		layout->addWidget(advanced_toggle);
+		layout->addWidget(advanced_widget);
 		layout->addWidget(buttons);
+		refresh_account_presentation();
 
 		if (!settings.token.isEmpty())
 			QTimer::singleShot(0, this, [this]() { load_devices(); });
@@ -924,6 +1015,35 @@ public:
 
 private:
 	using ReplyHandler = std::function<void(int, const QByteArray &)>;
+
+	void set_account_status(const QString &message)
+	{
+		account_identity = message;
+		refresh_account_presentation();
+	}
+
+	void refresh_account_presentation()
+	{
+		const account_presentation presentation =
+			present_account(account_identity, !token.text().trimmed().isEmpty(), current_control_state);
+		account_status.setText(presentation.identity);
+		connection_status.setText(presentation.connection_message);
+		sign_in_button->setText(current_control_state == control_connection_state::sign_in_required
+					? "Sign in again"
+					: "Sign in with browser");
+		sign_in_button->setEnabled(presentation.can_sign_in);
+		retry_button->setEnabled(presentation.can_retry);
+		disconnect_button->setEnabled(presentation.can_disconnect);
+	}
+
+	void retry_connection()
+	{
+		const plugin_config saved = load_config();
+		apply_config(saved);
+		set_account_status(saved.token.isEmpty() ? QString() : QString("Checking VISP account..."));
+		if (!saved.token.isEmpty())
+			load_devices();
+	}
 
 	void send(const QUrl &endpoint, bool post, const QJsonObject &body, const QString &bearer,
 		  ReplyHandler handler)
@@ -956,7 +1076,7 @@ private:
 	void render_devices(const devices_response &response)
 	{
 		clear_devices();
-		account_status.setText(QString("Connected as %1").arg(response.handle));
+		set_account_status(QString("Connected as %1").arg(response.handle));
 		if (response.devices.isEmpty()) {
 			devices_layout->addWidget(new QLabel("No publishing devices yet."));
 			return;
@@ -1008,11 +1128,11 @@ private:
 	{
 		const plugin_config value = settings();
 		if (value.token.isEmpty() || !secure_url(value.control_url)) {
-			account_status.setText("Sign in or enter a valid pairing token.");
+			set_account_status("Sign in or enter a valid pairing token.");
 			clear_devices();
 			return;
 		}
-		account_status.setText("Loading publishing devices…");
+		set_account_status("Loading publishing devices...");
 		send(endpoint_url(value.control_url, "/api/obs/devices"), false, {}, value.token,
 		     [this](int status, const QByteArray &body) {
 			     devices_response response;
@@ -1022,8 +1142,8 @@ private:
 				     return;
 			     }
 			     clear_devices();
-			     account_status.setText(status == 401 ? "Pairing rejected. Sign in again."
-							  : response_error(body, "Could not load publishing devices."));
+			     set_account_status(status == 401 ? "Pairing rejected. Sign in again."
+							 : response_error(body, "Could not load publishing devices."));
 		     });
 	}
 
@@ -1037,22 +1157,22 @@ private:
 		auth_timer.stop();
 		token.clear();
 		clear_devices();
-		account_status.setText("Starting browser sign-in…");
+		set_account_status("Starting browser sign-in...");
 		send(endpoint_url(control_url, "/api/auth/device/code"), true,
 		     {{"client_id", "visp-obs"}, {"scope", "obs"}}, {},
 		     [this](int status, const QByteArray &body) {
 			     device_code_response response;
 			     if (status < 200 || status >= 300 || !parse_device_code_response(body, &response)) {
-				     account_status.setText(response_error(body, "Could not start browser sign-in."));
+				     set_account_status(response_error(body, "Could not start browser sign-in."));
 				     return;
 			     }
 			     auth_device_code = response.device_code;
 			     auth_interval = response.interval;
 			     auth_expires_at = QDateTime::currentMSecsSinceEpoch() + qint64(response.expires_in) * 1000;
-			     account_status.setText(QString("Approve code %1 in your browser.").arg(response.user_code));
+			     set_account_status(QString("Approve code %1 in your browser.").arg(response.user_code));
 			     if (!QDesktopServices::openUrl(response.verification_url))
-				     account_status.setText(QString("Open %1 and approve code %2.")
-								    .arg(response.verification_url.toString(), response.user_code));
+				     set_account_status(QString("Open %1 and approve code %2.")
+							   .arg(response.verification_url.toString(), response.user_code));
 			     auth_timer.start(auth_interval * 1000);
 		     });
 	}
@@ -1061,7 +1181,7 @@ private:
 	{
 		if (device_poll_expired(QDateTime::currentMSecsSinceEpoch(), auth_expires_at)) {
 			auth_timer.stop();
-			account_status.setText("Browser sign-in expired. Try again.");
+			set_account_status("Browser sign-in expired. Try again.");
 			return;
 		}
 		auth_timer.stop();
@@ -1083,7 +1203,7 @@ private:
 				     auth_timer.start(auth_interval * 1000);
 				     break;
 			     case device_poll_state::terminal:
-				     account_status.setText(response_error(body, "Browser sign-in failed."));
+				     set_account_status(response_error(body, "Browser sign-in failed."));
 				     break;
 			     }
 		     });
@@ -1091,13 +1211,13 @@ private:
 
 	void exchange_session(const QString &access_token)
 	{
-		account_status.setText("Finishing VISP connection…");
+		set_account_status("Finishing VISP connection...");
 		send(endpoint_url(url.text().trimmed(), "/api/obs/connect"), true, {}, access_token,
 		     [this](int status, const QByteArray &body) {
 			     connection_response response;
 			     if (status < 200 || status >= 300 || !parse_connection_response(body, &response) ||
 				 !secure_url(response.control_url)) {
-				     account_status.setText(response_error(body, "Could not finish VISP connection."));
+				     set_account_status(response_error(body, "Could not finish VISP connection."));
 				     return;
 			     }
 			     url.setText(response.control_url);
@@ -1105,7 +1225,7 @@ private:
 			     output_path_id = 0;
 			     if (!persist_current_settings("VISP connected, but OBS could not save the credential."))
 				     return;
-			     account_status.setText(QString("Connected as %1").arg(response.handle));
+			     set_account_status(QString("Connected as %1").arg(response.handle));
 			     load_devices();
 		     });
 	}
@@ -1134,7 +1254,7 @@ private:
 		token.clear();
 		output_path_id = 0;
 		clear_devices();
-		account_status.setText("Not connected");
+		set_account_status({});
 		persist_current_settings("OBS could not save the disconnected state.");
 	}
 
@@ -1246,11 +1366,17 @@ private:
 	QLineEdit url;
 	QLineEdit token;
 	QLabel account_status;
+	QLabel connection_status;
+	QString account_identity;
+	QPushButton *sign_in_button = nullptr;
+	QPushButton *retry_button = nullptr;
+	QPushButton *disconnect_button = nullptr;
 	QWidget devices_widget;
 	QVBoxLayout *devices_layout = nullptr;
 	QLineEdit device_label;
 	QNetworkAccessManager network;
 	QTimer auth_timer;
+	QTimer health_timer;
 	QString auth_device_code;
 	int auth_interval = 5;
 	qint64 auth_expires_at = 0;
@@ -1309,6 +1435,7 @@ public:
 		  report_timer(this),
 		  stream_retry_timer(this)
 	{
+		current_control_state = control_connection_state::connecting;
 		reconnect_timer.setSingleShot(true);
 		socket_timeout.setSingleShot(true);
 		stream_retry_timer.setSingleShot(true);
@@ -1330,11 +1457,11 @@ public:
 		connect(&socket, &QSslSocket::readyRead, this, [this]() { read_socket(); });
 		connect(&socket, &QSslSocket::bytesWritten, this, [this](qint64) { flush_writes(); });
 		connect(&socket, &QSslSocket::disconnected, this, [this]() {
-			if (!stopping)
+			if (!stopping && !terminal)
 				reconnect("WebSocket disconnected");
 		});
 		connect(&socket, &QSslSocket::errorOccurred, this, [this](QAbstractSocket::SocketError) {
-			if (!stopping)
+			if (!stopping && !terminal)
 				reconnect("WebSocket connection failed");
 		});
 		socket.setReadBufferSize(128 * 1024);
@@ -1376,6 +1503,8 @@ public:
 private:
 	void fetch_ticket()
 	{
+		if (terminal)
+			return;
 		reconnect_scheduled = false;
 		const uint64_t generation = ++ticket_generation;
 		QNetworkRequest request(endpoint_url(control_url, "/api/obs/live-ticket"));
@@ -1393,17 +1522,20 @@ private:
 			ticket_reply = nullptr;
 			const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
 			const QByteArray body = reply->readAll();
-			const bool success = reply->error() == QNetworkReply::NoError && status >= 200 && status < 300;
+			const bool transport_ok = reply->error() == QNetworkReply::NoError;
 			reply->deleteLater();
-			if (status == 401) {
-				obs_log(LOG_ERROR, "VISP pairing credential was rejected");
-				reconnect("ticket request rejected");
-				return;
-			}
 			ticket_response ticket;
-			if (!success || !parse_ticket_response(body, &ticket)) {
+			const bool valid_ticket = parse_ticket_response(body, &ticket);
+			switch (classify_ticket_outcome(status, transport_ok, valid_ticket)) {
+			case ticket_request_outcome::sign_in_required:
+				obs_log(LOG_ERROR, "VISP pairing credential was rejected");
+				require_sign_in();
+				return;
+			case ticket_request_outcome::retryable:
 				reconnect("could not obtain a valid WebSocket ticket");
 				return;
+			case ticket_request_outcome::accepted:
+				break;
 			}
 			live_url = live_websocket_url(control_url, ticket.ticket);
 			if (!live_url.isValid()) {
@@ -1465,6 +1597,7 @@ private:
 			handshake_complete = true;
 			socket_timeout.stop();
 			reconnect_attempt = 0;
+			current_control_state = control_connection_state::connected;
 			report_timer.start();
 			obs_log(LOG_INFO, "VISP WebSocket connected");
 			report_state();
@@ -1660,8 +1793,9 @@ private:
 
 	void reconnect(const char *reason)
 	{
-		if (stopping || reconnect_scheduled)
+		if (stopping || terminal || reconnect_scheduled)
 			return;
+		current_control_state = control_connection_state::reconnecting;
 		reconnect_scheduled = true;
 		handshake_complete = false;
 		awaiting_pong = false;
@@ -1680,6 +1814,29 @@ private:
 		const int delay = base + QRandomGenerator::global()->bounded(251);
 		obs_log(LOG_WARNING, "%s; reconnecting in %d ms", reason, delay);
 		reconnect_timer.start(delay);
+	}
+
+	void require_sign_in()
+	{
+		terminal = true;
+		current_control_state = control_connection_state::sign_in_required;
+		reconnect_scheduled = false;
+		handshake_complete = false;
+		awaiting_pong = false;
+		ticket_generation++;
+		reconnect_timer.stop();
+		socket_timeout.stop();
+		report_timer.stop();
+		stream_retry_timer.stop();
+		if (ticket_reply) {
+			disconnect(ticket_reply, nullptr, this, nullptr);
+			ticket_reply->abort();
+			ticket_reply->deleteLater();
+			ticket_reply = nullptr;
+		}
+		socket.abort();
+		read_buffer.clear();
+		write_buffer.clear();
 	}
 
 	QString control_url;
@@ -1706,6 +1863,7 @@ private:
 	bool stream_start_inflight = false;
 	bool awaiting_pong = false;
 	bool reconnect_scheduled = false;
+	bool terminal = false;
 	bool stopping = false;
 };
 
@@ -1715,6 +1873,7 @@ static void apply_config(const plugin_config &settings)
 {
 	delete control;
 	control = NULL;
+	current_control_state = control_connection_state::inactive;
 	if (!settings.token.isEmpty() && secure_url(settings.control_url))
 		control = new VispControl(settings);
 }
@@ -1768,6 +1927,7 @@ void obs_module_unload(void)
 	obs_frontend_remove_event_callback(frontend_event, NULL);
 	delete control;
 	control = NULL;
+	current_control_state = control_connection_state::inactive;
 	obs_log(LOG_INFO, "plugin unloaded");
 }
 

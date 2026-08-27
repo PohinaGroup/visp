@@ -14,11 +14,18 @@ development); OBS does not expose a public control port.
 3. Back in OBS, add any existing device to the selected scene, or create an
    `OBS` publishing device to replace the current profile's stream destination.
 
-Dashboard-generated tokens and imported `config.ini` files remain supported
-for self-hosted and older installations.
+Dashboard-generated tokens, custom control URLs, and imported `config.ini`
+files remain available under **Advanced** for self-hosted and older
+installations.
 
-The dashboard should show **Connected** once the outbound WebSocket connects;
-OBS does not need to restart.
+The Account section shows the signed-in VISP identity separately from live
+control health. It reports **Live control connected** once the outbound
+WebSocket connects; OBS does not need to restart.
+
+If VISP rejects a saved machine credential, automatic retries stop and the
+dialog shows **Sign in again**. The saved URL, token, and output device ID are
+left intact. Use **Retry connection** for one fresh attempt with the saved
+configuration, or sign in with the browser to replace the credential.
 
 Connecting or rotating the token disconnects every older plugin configuration.
 The browser session is discarded after pairing; OBS stores only the limited
