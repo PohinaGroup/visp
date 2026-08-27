@@ -5,6 +5,7 @@ import {
 	DIRECT_PROVIDERS,
 	DIRECT_STATES,
 	DirectError,
+	directDestinationActive,
 	resolveDirectDestinations,
 } from "@VISP/api/direct";
 import {
@@ -31,6 +32,11 @@ import { env } from "@VISP/env/server";
 import { timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
+import {
+	directDestinationResponse,
+	formatLegacyDirectDestinations,
+	formatV2DirectDestinations,
+} from "./direct-hook-contract";
 
 // ponytail: per-instance limit allows N× traffic on N app instances; move to
 // Postgres or the cache bus only if a strict global request cap is needed.
@@ -269,19 +275,16 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				return status(401, "unauthorized");
 			}
 			try {
-				// Destination URLs carry stream keys: returned to the relay only,
-				// never to a client app, never logged. Plain "provider url" lines
-				// so the bash forwarder splits fields instead of parsing JSON.
+				// This two-field endpoint is a deployed relay contract. Keep it exact
+				// during rolling upgrades; portrait-aware relays use the v2 endpoint.
 				const { destinations } = await resolveDirectDestinations(
 					body.path,
 					undefined,
 					body.skip,
+					["landscape"],
 				);
-				return new Response(
-					destinations
-						.map((entry) => `${entry.provider} ${entry.url}\n`)
-						.join(""),
-					{ headers: { "Content-Type": "text/plain; charset=utf-8" } },
+				return directDestinationResponse(
+					formatLegacyDirectDestinations(destinations),
 				);
 			} catch {
 				return status(503, "direct destinations unavailable");
@@ -291,6 +294,34 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			body: t.Object({
 				path: t.String({ minLength: 1 }),
 				// Providers the relay is still forwarding for, held over a drop.
+				skip: t.Optional(
+					t.Array(t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name)))),
+				),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-destinations-v2",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const { destinations } = await resolveDirectDestinations(
+					body.path,
+					undefined,
+					body.skip,
+				);
+				return directDestinationResponse(
+					formatV2DirectDestinations(destinations),
+				);
+			} catch {
+				return status(503, "direct destinations unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
 				skip: t.Optional(
 					t.Array(t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name)))),
 				),
@@ -328,6 +359,25 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		},
 	)
 	.post(
+		"/api/hooks/direct-active",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			return (await directDestinationActive({ ...body, slug: body.path }))
+				? status(204)
+				: status(410, "stopped");
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+				role: t.Union([t.Literal("landscape"), t.Literal("portrait")]),
+				filter: t.Optional(t.String({ maxLength: 512 })),
+			}),
+		},
+	)
+	.post(
 		"/api/hooks/direct-state",
 		async ({ body, headers }) => {
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
@@ -344,6 +394,9 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			body: t.Object({
 				path: t.String({ minLength: 1 }),
 				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+				role: t.Optional(
+					t.Union([t.Literal("landscape"), t.Literal("portrait")]),
+				),
 				state: t.Union(DIRECT_STATES.map((name) => t.Literal(name))),
 				error: t.Optional(t.String({ maxLength: 2048 })),
 			}),

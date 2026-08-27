@@ -30,6 +30,31 @@ const finnishUi: Record<string, string> = {
 	"Primary operational mode": "Ensisijainen toimintatila",
 	"Primary mode": "Ensisijainen tila",
 	"Direct to Platform": "Suoraan alustalle",
+	"Add portrait output": "Lisää pystylähtö",
+	"Edit framing": "Muokkaa rajausta",
+	Portrait: "Pysty",
+	Landscape: "Vaaka",
+	"Remove portrait": "Poista pystylähtö",
+	"Frame portrait output": "Rajaa pystylähtö",
+	"Landscape contribution preview": "Vaakasuuntaisen syötteen esikatselu",
+	"Portrait crop preview": "Pystyrajauksen esikatselu",
+	"Resize portrait crop": "Muuta pystyrajauksen kokoa",
+	"Preview appears while this device is publishing":
+		"Esikatselu näkyy, kun tämä laite julkaisee",
+	"Adjust the crop so it stays within the frame and matches 9:16.":
+		"Säädä rajaus kuvan sisään ja 9:16-kuvasuhteeseen.",
+	"Simulated portrait output": "Pystylähdön esikatselu",
+	"Horizontal crop position": "Rajauksen vaakasijainti",
+	"Vertical crop position": "Rajauksen pystysijainti",
+	"Crop size": "Rajauksen koko",
+	Cancel: "Peruuta",
+	"Save framing": "Tallenna rajaus",
+	"Portrait framing saved": "Pystyrajaus tallennettu",
+	stopping: "pysäytetään",
+	"Portrait uses an extra Direct slot. It will not start until a slot is free.":
+		"Pystylähtö käyttää erillisen Direct-paikan. Se ei käynnisty ennen kuin paikka vapautuu.",
+	"Couldn’t save framing. Check your connection and retry.":
+		"Rajauksen tallennus epäonnistui. Tarkista yhteys ja yritä uudelleen.",
 	"Route to Home Studio": "Reititä kotistudioon",
 	"Primary mode saved": "Ensisijainen tila tallennettu",
 	"Choose one primary publishing path. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.":

@@ -30,17 +30,37 @@ while [ $# -gt 0 ]; do
 	esac
 done
 case "$url" in
-	*/direct-destinations)
+	*/direct-destinations-v2)
+		printf 'v2 %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
+		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
 		printf '%s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
 		# A provider the relay still holds is never resolved again.
-		case "$data" in *'"twitch"'*) exit 0 ;; esac
-		printf 'twitch rtmps://twitch.test/app/TWITCHKEY\n'
-		printf 'kick rtmps://kick.test/app/KICKKEY\n'
-		printf 'youtube rtmps://youtube.test/app/YOUTUBEKEY\n' ;;
+		case "$data" in *'"twitch"'*) ;; *) printf 'twitch landscape - rtmps://twitch.test/app/TWITCHKEY\n' ;; esac
+		case "$data" in *'"kick"'*) ;; *) test -f "$FAKE_PORTRAIT_REMOVED" || printf 'kick portrait crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920 rtmps://kick.test/app/KICKKEY\n' ;; esac
+		case "$data" in *'"youtube"'*) ;; *) printf 'youtube landscape - rtmps://youtube.test/app/YOUTUBEKEY\n' ;; esac ;;
+	*/direct-destinations)
+		printf 'legacy %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
+		case "$data" in *'"twitch"'*) ;; *) printf 'twitch rtmps://twitch.test/app/TWITCHKEY\n' ;; esac
+		case "$data" in *'"kick"'*) ;; *) printf 'kick rtmps://kick.test/app/KICKKEY\n' ;; esac
+		case "$data" in *'"youtube"'*) ;; *) printf 'youtube rtmps://youtube.test/app/YOUTUBEKEY\n' ;; esac ;;
+	*/direct-active)
+		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
+		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
+		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
 	*/hooks/brb)
 		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
 		cat "$FAKE_BRB_REPLY" ;;
-	*/direct-state) printf '%s\n' "$data" >>"$FAKE_STATE_LOG" ;;
+	*/direct-state)
+		printf '%s\n' "$data" >>"$FAKE_STATE_LOG"
+		case "$data" in
+			*'"provider":"kick","state":"stopped","role":"portrait"'*)
+				count=0
+				for pid_file in "$FAKE_PID_DIR"/*; do
+					test -e "$pid_file" || continue
+					kill -0 "${pid_file##*/}" 2>/dev/null && count=$((count + 1))
+				done
+				printf '%s\n' "$count" >>"$FAKE_STOP_ACK_LOG" ;;
+		esac ;;
 esac
 exit 0
 FAKE
@@ -55,6 +75,7 @@ case "$*" in *-frames:v*) exit 1 ;; esac
 touch "$FAKE_PID_DIR/$$"
 case "$*" in
 	*rtsp://*)
+		trap 'test -f "$FAKE_IGNORE_TERM" || { rm -f "$FAKE_PID_DIR/$$"; exit 0; }' TERM
 		while test -f "$FAKE_LIVE_MARKER"; do sleep 0.2; done
 		rm -f "$FAKE_PID_DIR/$$"
 		exit 1 ;;
@@ -89,6 +110,11 @@ export FAKE_DESTINATIONS_LOG="$work/destinations.log"
 export FAKE_BRB_REPLY="$work/brb-reply"
 export FAKE_PID_DIR="$work/pids"
 export FAKE_LIVE_MARKER="$work/run/path-1.live"
+export FAKE_ACTIVE_LOG="$work/active.log"
+export FAKE_STOP_ACK_LOG="$work/stop-ack.log"
+export FAKE_PORTRAIT_REMOVED="$work/portrait-removed"
+export FAKE_IGNORE_TERM="$work/ignore-term"
+export FAKE_SERVER_VERSION=new
 export HOOK_SECRET=test-secret RTSP_PORT=8554
 export VISP_RUN_DIR="$work/run"
 export BRB_TICK_SECONDS=1
@@ -100,6 +126,8 @@ export BRB_FONT="$work/font.ttf"
 : >"$FAKE_STATE_LOG"
 : >"$FAKE_BRB_LOG"
 : >"$FAKE_DESTINATIONS_LOG"
+: >"$FAKE_ACTIVE_LOG"
+: >"$FAKE_STOP_ACK_LOG"
 # "Be right back" over a solid card: no background URL, so no download either.
 printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
 
@@ -120,12 +148,21 @@ start_script() {
 		bash "$root/visp-snapshot" http://app.test path-1 srt &
 }
 
+touch "$FAKE_LIVE_MARKER"
 start_script
 script_pid=$!
 sleep 3
 
 forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
 test "$forwards" -eq 3 || fail "expected 3 forwarders, started $forwards"
+
+test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c -- '-vf crop=' || true)" -eq 1 ||
+	fail "expected exactly one portrait crop filter"
+grep -q -- '-vf crop=iw\*0.3164:ih\*1:iw\*0.3418:ih\*0,scale=1080:1920' "$FAKE_FFMPEG_LOG" ||
+	fail "portrait crop filter was not passed to FFmpeg"
+grep -q '^v2 ' "$FAKE_DESTINATIONS_LOG" ||
+	fail "the relay did not negotiate the versioned destination contract"
+
 
 grep -q '"provider":"twitch","state":"starting"' "$FAKE_STATE_LOG" ||
 	fail "twitch start was not reported"
@@ -142,6 +179,7 @@ test "$(live_children)" -eq 3 ||
 # started under job control precisely so this does not reach them.
 kill -TERM "$script_pid" 2>/dev/null || true
 wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
 sleep 4
 
 # The ingest is gone and the card is up: this is "never drop again" working.
@@ -184,6 +222,7 @@ fi
 
 # The publisher reconnects. The held forwarders must be named in "skip", or the
 # app resolves them again and mints a second broadcast against the same key.
+touch "$FAKE_LIVE_MARKER"
 start_script
 script_pid=$!
 sleep 3
@@ -204,6 +243,7 @@ test "$(live_children)" -eq 3 ||
 printf 'stop\n' >"$FAKE_BRB_REPLY"
 kill -TERM "$script_pid" 2>/dev/null || true
 wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
 sleep 5
 
 test "$(live_children)" -eq 0 ||
@@ -212,6 +252,65 @@ grep -q '"provider":"twitch","state":"stopped"' "$FAKE_STATE_LOG" ||
 	fail "the stop was not reported"
 test -z "$(ls -A "$VISP_RUN_DIR" | grep '\.lock$' || true)" ||
 	fail "a forwarder lock outlived its forwarder"
+
+# A configured removal stops only portrait and frees its encoder slot.
+touch "$FAKE_IGNORE_TERM"
+touch "$FAKE_LIVE_MARKER"
+start_script
+script_pid=$!
+for _ in {1..50}; do
+	removal_children="$(live_children)"
+	test "$removal_children" -ne 3 || break
+	sleep 0.1
+done
+test "$removal_children" -eq 3 ||
+	fail "removal fixture started $removal_children encoders instead of 3"
+touch "$FAKE_PORTRAIT_REMOVED"
+sleep 3
+test "$(live_children)" -eq 3 ||
+	fail "TERM-ignoring portrait exited before the force-stop timeout"
+test "$(grep -c '"'"'"provider":"kick","state":"stopped","role":"portrait"'"'"' "$FAKE_STATE_LOG" || true)" -eq 0 ||
+	fail "portrait stop was acknowledged while its TERM-ignoring encoder lived"
+for _ in {1..70}; do
+	removal_children="$(live_children)"
+	test "$removal_children" -ne 2 || break
+	sleep 0.1
+done
+test "$removal_children" -eq 2 ||
+	fail "portrait removal left $removal_children live encoders instead of 2 landscapes"
+grep -q '"provider":"kick","state":"stopped","role":"portrait"' "$FAKE_STATE_LOG" ||
+	fail "portrait removal was not reported"
+stop_ack_count="$(tail -n 1 "$FAKE_STOP_ACK_LOG")"
+test "$stop_ack_count" -eq 2 ||
+	fail "portrait stop was acknowledged with $stop_ack_count encoders still present"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
+rm -f "$FAKE_IGNORE_TERM"
+sleep 5
+
+# A new relay rolling out before the app must consume the old two-field
+# landscape contract and must not require the new desired-state hook.
+rm -f "$FAKE_PORTRAIT_REMOVED"
+printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
+export FAKE_SERVER_VERSION=old
+before_forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
+before_active="$(wc -l <"$FAKE_ACTIVE_LOG" | tr -d ' ')"
+touch "$FAKE_LIVE_MARKER"
+start_script
+script_pid=$!
+sleep 3
+after_forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
+test "$((after_forwards - before_forwards))" -eq 3 ||
+	fail "new relay did not consume the old server's landscape destinations"
+sleep 3
+test "$(wc -l <"$FAKE_ACTIVE_LOG" | tr -d ' ')" -eq "$before_active" ||
+	fail "legacy fallback polled a hook that does not exist on the old server"
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
+sleep 5
 
 printf 'ok: BRB held the stream up, resumed in place, and let go on stop\n'
 exit 0

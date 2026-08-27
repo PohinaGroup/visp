@@ -41,6 +41,19 @@ Outputs are saved as the account default. The newest device takes ownership at
 Go Live when the previous owner is offline. A running device is never
 interrupted automatically.
 
+## Landscape and portrait together
+
+Accounts with portrait Direct output enabled can add a separate **Portrait**
+destination from the dashboard or phone settings. Choose **Add portrait
+output**, position the 9:16 crop over the landscape contribution, and save.
+The landscape destination remains a passthrough distribution encode while the
+portrait destination applies the saved crop and scales it to 1080×1920.
+
+Portrait uses its own forwarder slot. You can save framing while the relay is
+full, but the portrait destination will not start until a slot is free;
+landscape may still go live. Each side reports status independently. See the
+[portrait Direct output guide](/docs/portrait-direct-output) for the full flow.
+
 ## Your stream key
 
 You are never asked to paste a stream key. At stream start VISP fetches a

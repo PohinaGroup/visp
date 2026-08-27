@@ -68,7 +68,7 @@ safe_reason() {
 
 report_state() {
 	hook direct-state \
-		"{\"path\":\"$path\",\"provider\":\"$1\",\"state\":\"$2\",\"error\":\"$(safe_reason "${3:-}")\"}" \
+		"{\"path\":\"$path\",\"provider\":\"$1\",\"state\":\"$2\",\"role\":\"${4:-landscape}\",\"error\":\"$(safe_reason "${3:-}")\"}" \
 		|| true
 }
 
@@ -124,8 +124,9 @@ ingest_live() {
 # double-publish against the same stream key.
 encode_to() {
 	local mode="$1" destination="$2" log="$3"
+	local -a command
 	shift 3
-	${mode:+exec} ffmpeg -nostdin -hide_banner -loglevel error \
+	command=(ffmpeg -nostdin -hide_banner -loglevel error \
 		"$@" \
 		-c:v "$video_encoder" -preset veryfast -profile:v main \
 		-pix_fmt yuv420p -r "$video_fps" \
@@ -133,7 +134,25 @@ encode_to() {
 		-bufsize "$((video_bitrate_kbps * 2))k" \
 		-g "$((video_fps * 2))" -keyint_min "$((video_fps * 2))" \
 		-c:a aac -ac 2 -b:a 128k -ar 48000 \
-		-f flv "$destination" 2>"$log"
+		-f flv "$destination")
+	if test -n "$mode"; then
+		exec "${command[@]}" 2>"$log"
+	else
+		"${command[@]}" 2>"$log"
+	fi
+}
+
+cleanup_forward() {
+	local child
+	trap - INT TERM EXIT
+	rm -f "$log"
+	rm -rf "$lock"
+	for child in ${desired_watcher:-} ${watcher:-} ${encoder_pid:-} ${brb_pid:-}; do
+		kill "$child" 2>/dev/null || true
+	done
+	for child in ${desired_watcher:-} ${watcher:-} ${encoder_pid:-} ${brb_pid:-}; do
+		wait "$child" 2>/dev/null || true
+	done
 }
 
 # Asks the app whether this forwarder should still be holding, and with what.
@@ -154,11 +173,10 @@ brb_tick() {
 # reconnect, well inside every platform's grace window, so the broadcast, the
 # hosts and the VOD survive what used to end the stream.
 forward() {
-	local provider="$1" destination="$2"
-	local backoff started reason watcher
-	# log and lock are deliberately not local: the EXIT trap below runs after
-	# this function has returned, when its locals are already gone, and it is
-	# the only thing that releases the lock on a clean stop.
+	local provider="$1" role="$2" filter="$3" destination="$4" desired_state="$5"
+	local backoff started reason
+	# log and lock are deliberately not local: the signal handler and final
+	# cleanup share them after the current encode attempt has returned.
 	# Each forwarder is its own subshell, so these cannot collide.
 	# Job control was only ever needed to give this subshell a group of its own.
 	# Leaving it on would put every FFmpeg in a group of its own too, and the
@@ -169,25 +187,74 @@ forward() {
 	backoff=2
 
 	# Its own group, so it reaps its own FFmpeg and nothing else.
-	trap 'trap - INT TERM EXIT; rm -f "$log"; rm -rf "$lock"; kill 0 2>/dev/null; exit 0' \
-		INT TERM EXIT
+	watcher=""
+	desired_watcher=""
+	encoder_pid=""
+	trap 'cleanup_forward; exit 0' INT TERM
+	trap cleanup_forward EXIT
 	# Raised by the next runOnAvailable: the publisher is back.
 	resume=0
 	brb_pid=""
 	trap 'resume=1; test -n "$brb_pid" && kill "$brb_pid" 2>/dev/null' USR1
+	if test "$desired_state" = 1; then
+		(
+			while sleep 2; do
+				curl --fail --silent --max-time 2 --request POST \
+					--header "Content-Type: application/json" \
+					--header "X-Hook-Secret: $HOOK_SECRET" \
+					--data "{\"path\":\"$path\",\"provider\":\"$provider\",\"role\":\"$role\",\"filter\":\"$filter\"}" \
+					"$app_url/api/hooks/direct-active" >/dev/null && continue
+				touch "$lock/stop"
+				encoder_pid="$(cat "$lock/encoder-pid" 2>/dev/null)" || break
+				kill -TERM "$encoder_pid" 2>/dev/null
+				for _ in {1..50}; do
+					kill -0 "$encoder_pid" 2>/dev/null || break
+					sleep 0.1
+				done
+				if kill -0 "$encoder_pid" 2>/dev/null &&
+					! kill -KILL "$encoder_pid" 2>/dev/null; then
+					report_state "$provider" stopping "encoder did not exit" "$role"
+				fi
+				break
+			done
+		) &
+		desired_watcher="$!"
+	fi
 
-	report_state "$provider" starting ""
+	report_state "$provider" starting "" "$role"
 
 	while true; do
 		started="$SECONDS"
 		# Promote to live only once the destination has held for a while;
 		# a rejected stream key fails well inside this window.
-		( sleep 10; report_state "$provider" live "" ) &
+		( sleep 10; report_state "$provider" live "" "$role" ) &
 		watcher="$!"
-		encode_to "" "$destination" "$log" \
-			-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path"
+		if test "$role" = portrait; then
+			encode_to exec "$destination" "$log" \
+				-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" \
+				-vf "$filter" &
+		else
+			encode_to exec "$destination" "$log" \
+				-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" &
+		fi
+		encoder_pid="$!"
+		printf '%s\n' "$encoder_pid" >"$lock/encoder-pid"
+		wait "$encoder_pid" 2>/dev/null
 		kill "$watcher" 2>/dev/null
+		wait "$watcher" 2>/dev/null
+		watcher=""
+		if kill -0 "$encoder_pid" 2>/dev/null; then
+			report_state "$provider" stopping "encoder did not exit" "$role"
+			encoder_pid=""
+			exit 1
+		fi
+		encoder_pid=""
 		reason="$(tail -n 1 "$log" 2>/dev/null)"
+		if test -f "$lock/stop"; then
+			wait "$desired_watcher" 2>/dev/null
+			desired_watcher=""
+			break
+		fi
 
 		if ! ingest_live; then
 			# The source is gone, not the destination. Hold the broadcast open
@@ -200,17 +267,15 @@ forward() {
 		# A running retry loop still owns its encoder slot. Provider consent
 		# failures are reported before a forwarder is started.
 		test "$((SECONDS - started))" -lt 60 || backoff=2
-		report_state "$provider" retrying "$reason"
+		report_state "$provider" retrying "$reason" "$role"
 		sleep "$backoff" &
 		wait "$!"
 		backoff="$((backoff * 2))"
 		test "$backoff" -le 60 || backoff=60
 	done
 
-	report_state "$provider" stopped ""
-	# Only ever run as a background job, and bash skips the EXIT trap when a
-	# function is the entire job — it exits straight out of the last command.
-	# Without this the lock outlives the forwarder and blocks the next one.
+	report_state "$provider" stopped "" "$role"
+	cleanup_forward
 	exit 0
 }
 
@@ -327,43 +392,55 @@ hold_brb() {
 
 hook ready "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" || true
 
-# Providers a forwarder is already holding over a drop. They must not be
-# resolved again: doing so would mint a second YouTube broadcast while the first
-# is still live, and hand out a destination nobody consumes.
-skip=""
-for provider in twitch kick youtube; do
-	holder="$(lock_holder "$provider")" || continue
-	test -n "$holder" || continue
-	test -z "$skip" && skip="\"$provider\"" || skip="$skip,\"$provider\""
-	# The publisher is back; drop the card and return to the live encode.
-	kill -USR1 "$holder" 2>/dev/null || true
-done
-unset provider holder
+start_destinations() {
+	local skip="" provider holder destinations role filter destination contract
+	for provider in twitch kick youtube; do
+		holder="$(lock_holder "$provider")" || continue
+		test -n "$holder" || continue
+		test -z "$skip" && skip="\"$provider\"" || skip="$skip,\"$provider\""
+		# The publisher is back; drop the card and return to the live encode.
+		kill -USR1 "$holder" 2>/dev/null || true
+	done
+	if destinations="$(
+		curl --fail --silent --show-error --max-time 5 --request POST \
+			--header "Content-Type: application/json" \
+			--header "X-Hook-Secret: $HOOK_SECRET" \
+			--data "{\"path\":\"$path\",\"skip\":[$skip]}" \
+			"$app_url/api/hooks/direct-destinations-v2"
+	)"; then
+		contract=2
+	else
+		contract=1
+		destinations="$(
+			curl --fail --silent --show-error --max-time 5 --request POST \
+				--header "Content-Type: application/json" \
+				--header "X-Hook-Secret: $HOOK_SECRET" \
+				--data "{\"path\":\"$path\",\"skip\":[$skip]}" \
+				"$app_url/api/hooks/direct-destinations"
+		)" || destinations=""
+	fi
+	if test "$contract" = 2; then
+		while read -r provider role filter destination; do
+			test -n "${provider:-}" -a -n "${destination:-}" || continue
+			acquire_lock "$provider" || continue
+			set -m
+			forward "$provider" "$role" "$filter" "$destination" 1 &
+			printf '%s\n' "$!" >"$(lock_dir "$provider")/pid"
+			set +m
+		done <<<"$destinations"
+	else
+		while read -r provider destination; do
+			test -n "${provider:-}" -a -n "${destination:-}" || continue
+			acquire_lock "$provider" || continue
+			set -m
+			forward "$provider" landscape - "$destination" 0 &
+			printf '%s\n' "$!" >"$(lock_dir "$provider")/pid"
+			set +m
+		done <<<"$destinations"
+	fi
+}
 
-# The app verifies the reservation and provider consent, then returns only the
-# destinations it approved, as
-# "provider url" lines. Empty output — including when the app is unavailable —
-# means no Direct output starts and the relay-to-OBS path is unaffected.
-destinations="$(
-	curl --fail --silent --show-error --max-time 5 --request POST \
-		--header "Content-Type: application/json" \
-		--header "X-Hook-Secret: $HOOK_SECRET" \
-		--data "{\"path\":\"$path\",\"skip\":[$skip]}" \
-		"$app_url/api/hooks/direct-destinations"
-)" || destinations=""
-
-while read -r provider destination; do
-	test -n "${provider:-}" -a -n "${destination:-}" || continue
-	acquire_lock "$provider" || continue
-	# Job control only around the spawn: the forwarder gets a process group of
-	# its own so it outlives this script, and the snapshot loop below does not.
-	set -m
-	forward "$provider" "$destination" &
-	printf '%s\n' "$!" >"$(lock_dir "$provider")/pid"
-	set +m
-done <<<"$destinations"
-unset destinations provider destination
-
+start_destinations
 while true; do
 	# ponytail: 640 wide is a thumbnail budget, and it is also the BRB card's
 	# background — raise it here if anyone wants a crisp card, the cost is

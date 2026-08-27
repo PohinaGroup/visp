@@ -7,8 +7,10 @@ import {
 	listDirectOutputs,
 	prepareDirect,
 	reportFirstLiveActivation,
+	saveDirectCrop,
 	saveDirectPreferences,
 	setDirectOutputs,
+	setDirectRole,
 	setYoutubeSettings,
 } from "../direct";
 import { protectedProcedure, router } from "../index";
@@ -92,6 +94,9 @@ export const relayProcedure = protectedProcedure.use(
 );
 
 const pathIdInput = z.object({ pathId: z.number().int().positive() });
+const directDestinationInput = pathIdInput.extend({
+	provider: z.enum(DIRECT_PROVIDERS),
+});
 
 const DIRECT_ERROR_CODES = {
 	"not-found": "NOT_FOUND",
@@ -393,6 +398,48 @@ export const relayRoutes = {
 						kick: input.kick,
 						youtube: input.youtube,
 					});
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		setRole: relayProcedure
+			.input(
+				directDestinationInput.extend({
+					role: z.enum(["landscape", "portrait"]),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setDirectRole(
+						ctx.relayUser.id,
+						input.pathId,
+						input.provider,
+						input.role,
+					);
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		saveCrop: relayProcedure
+			.input(
+				directDestinationInput.extend({
+					crop: z.object({
+						x: z.number(),
+						y: z.number(),
+						w: z.number(),
+						h: z.number(),
+						aspect: z.string().regex(/^\d+:\d+$/),
+					}),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await saveDirectCrop(
+						ctx.relayUser.id,
+						input.pathId,
+						input.provider,
+						input.crop,
+					);
 				} catch (error) {
 					directError(error);
 				}

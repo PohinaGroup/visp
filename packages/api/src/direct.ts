@@ -3,40 +3,51 @@ import { db } from "@VISP/db";
 import {
 	account,
 	appUser,
+	directDestination,
 	pathState,
 	relay,
 	relayPath,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
-import { hasStreamKeyScope, parseScopes } from "./scopes";
+import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { type DirectCrop, directCropError } from "./direct-crop";
+import { validateDirectDestination } from "./direct-destination";
+import {
+	DIRECT_PROVIDERS,
+	DIRECT_RESERVATION_MS,
+	DirectError,
+	type DirectProvider,
+	type DirectRole,
+	type DirectState,
+} from "./direct-model";
+import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
+import {
+	applyPortraitState,
+	listPortraitDestinations,
+	listRelayPortraitDestinations,
+	portraitDestinationActive,
+	portraitFilterValue,
+} from "./direct-portrait";
 import { trackRybbitEvent } from "./rybbit";
+import { hasStreamKeyScope, parseScopes } from "./scopes";
 
-export const DIRECT_PROVIDERS = ["twitch", "kick", "youtube"] as const;
-export type DirectProvider = (typeof DIRECT_PROVIDERS)[number];
+export type { DirectCrop } from "./direct-crop";
+export {
+	DIRECT_PROVIDERS,
+	DIRECT_STATES,
+	DirectError,
+	type DirectProvider,
+	type DirectRole,
+	type DirectState,
+} from "./direct-model";
+export { saveDirectCrop, setDirectRole } from "./direct-portrait";
+
 type AuthProvider = "twitch" | "kick" | "google";
-
-/**
- * Reported by the relay; `stopped` is also what a not-ready path settles to.
- * `brb` means the source is gone but the forwarder is still up, holding the
- * platform broadcast open on the user's be-right-back card.
- */
-export const DIRECT_STATES = [
-	"starting",
-	"live",
-	"retrying",
-	"brb",
-	"failed",
-	"stopped",
-] as const;
-export type DirectState = (typeof DIRECT_STATES)[number];
 
 /**
  * States that occupy a slot against DIRECT_MAX_FORWARDERS. A BRB forwarder
  * still runs a full x264 encode, so it counts exactly like a live one.
  */
-const ACTIVE_STATES = sql`('starting', 'live', 'retrying', 'brb')`;
-
 const KICK_API = "https://api.kick.com/public/v1";
 const YOUTUBE_API = "https://www.googleapis.com/youtube/v3";
 const YOUTUBE_AUTH_PROVIDER = "google" as const;
@@ -46,19 +57,14 @@ const YOUTUBE_AUTH_PROVIDER = "google" as const;
 // availability only if a stream ever needs pinning to one region.
 const TWITCH_INGEST = "rtmps://ingest.global-contribute.live-video.net/app";
 
-export class DirectError extends Error {
-	constructor(
-		readonly code:
-			| "not-found"
-			| "invalid"
-			| "path-live"
-			| "provider-taken"
-			| "consent-required"
-			| "capacity",
-		message: string,
-	) {
-		super(message);
-	}
+export function validateDirectCrop(crop: DirectCrop): DirectCrop {
+	const error = directCropError(crop);
+	if (error) throw new DirectError("invalid", error);
+	return crop;
+}
+
+export function portraitFilter(crop: DirectCrop) {
+	return portraitFilterValue(crop);
 }
 
 /**
@@ -381,13 +387,14 @@ export function kickIngestDestination(streamUrl: string, streamKey: string) {
 }
 
 export async function listDirectOutputs(userId: string) {
-	const [owners, accounts, paths] = await Promise.all([
+	const [owners, accounts, paths, portraits] = await Promise.all([
 		db
 			.select({
 				twitch: appUser.directTwitch,
 				kick: appUser.directKick,
 				youtube: appUser.directYoutube,
 				youtubeTitle: appUser.directYoutubeTitle,
+				directDualOutput: appUser.directDualOutput,
 			})
 			.from(appUser)
 			.where(eq(appUser.id, userId))
@@ -420,6 +427,7 @@ export async function listDirectOutputs(userId: string) {
 			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
 			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)))
 			.orderBy(relayPath.seq),
+		listPortraitDestinations(userId),
 	]);
 
 	const desired = {
@@ -428,6 +436,7 @@ export async function listDirectOutputs(userId: string) {
 		youtube: owners[0]?.youtube ?? false,
 	};
 	return {
+		directDualOutput: owners[0]?.directDualOutput ?? false,
 		mode:
 			owners[0]?.twitch === null &&
 			owners[0]?.kick === null &&
@@ -457,6 +466,40 @@ export async function listDirectOutputs(userId: string) {
 				grantedScopes: parseScopes(linked?.scope),
 			};
 		}),
+		destinations: [
+			...paths.flatMap((path) =>
+				DIRECT_PROVIDERS.flatMap((provider) =>
+					path[provider]
+						? [
+								{
+									id: `legacy-${path.id}-${provider}`,
+									pathId: path.id,
+									provider,
+									role: "landscape" as const,
+									crop: null,
+									state:
+										((provider === "twitch"
+											? path.twitchState
+											: provider === "kick"
+												? path.kickState
+												: path.youtubeState) as DirectState | null) ?? null,
+									error:
+										provider === "twitch"
+											? path.twitchError
+											: provider === "kick"
+												? path.kickError
+												: path.youtubeError,
+								},
+							]
+						: [],
+				),
+			),
+			...portraits.map((destination) => ({
+				...destination,
+				provider: destination.provider as DirectProvider,
+				state: (destination.state as DirectState | null) ?? null,
+			})),
+		],
 		paths: paths.map((path) => ({
 			id: path.id,
 			label: path.label,
@@ -476,6 +519,35 @@ export async function listDirectOutputs(userId: string) {
 			},
 		})),
 	};
+}
+
+/** Relay-side desired-state check used to remove or reframe one forwarder. */
+export async function directDestinationActive(input: {
+	slug: string;
+	provider: DirectProvider;
+	role: DirectRole;
+	filter?: string | null;
+}) {
+	const [path] = await db
+		.select({
+			id: relayPath.id,
+			twitch: relayPath.directTwitch,
+			kick: relayPath.directKick,
+			youtube: relayPath.directYoutube,
+			dualOutput: appUser.directDualOutput,
+		})
+		.from(relayPath)
+		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+		.where(and(eq(relayPath.slug, input.slug), isNull(relayPath.revokedAt)))
+		.limit(1);
+	if (!path) return false;
+	if (input.role === "landscape") return path[input.provider];
+	if (!path.dualOutput) return false;
+	return portraitDestinationActive({
+		pathId: path.id,
+		provider: input.provider,
+		filter: input.filter,
+	});
 }
 
 export async function setYoutubeSettings(userId: string, title: string) {
@@ -671,7 +743,7 @@ export async function saveDirectPreferences(
 	});
 }
 
-export const RESERVATION_MS = 60_000;
+export const RESERVATION_MS = DIRECT_RESERVATION_MS;
 
 /** Atomically transfers Direct ownership and reserves this relay's encoders. */
 export async function prepareDirect(userId: string, pathId: number) {
@@ -682,6 +754,7 @@ export async function prepareDirect(userId: string, pathId: number) {
 				id: relayPath.id,
 				relayId: relayPath.relayId,
 				maxForwarders: relay.maxForwarders,
+				dualOutput: appUser.directDualOutput,
 				twitch: appUser.directTwitch,
 				kick: appUser.directKick,
 				youtube: appUser.directYoutube,
@@ -704,7 +777,27 @@ export async function prepareDirect(userId: string, pathId: number) {
 		const outputs = DIRECT_PROVIDERS.filter(
 			(provider) => path[provider] === true,
 		);
-		if (outputs.length === 0) {
+		const portraits = path.dualOutput
+			? await tx
+					.select({
+						id: directDestination.id,
+						provider: directDestination.provider,
+						crop: directDestination.crop,
+					})
+					.from(directDestination)
+					.where(
+						and(
+							eq(directDestination.userId, userId),
+							eq(directDestination.pathId, pathId),
+							eq(directDestination.role, "portrait"),
+							or(
+								isNull(directDestination.state),
+								ne(directDestination.state, "stopping"),
+							),
+						),
+					)
+			: [];
+		if (outputs.length === 0 && portraits.length === 0) {
 			return {
 				pathId,
 				outputs,
@@ -721,7 +814,12 @@ export async function prepareDirect(userId: string, pathId: number) {
 					eq(account.userId, userId),
 					inArray(
 						account.providerId,
-						outputs.map((provider) => authProvider(provider)),
+						[
+							...new Set([
+								...outputs,
+								...portraits.map((entry) => entry.provider as DirectProvider),
+							]),
+						].map((provider) => authProvider(provider)),
 					),
 				),
 			);
@@ -766,15 +864,15 @@ export async function prepareDirect(userId: string, pathId: number) {
 		const active = await tx.execute(sql<{ count: number }>`
 			select (
 				count(*) filter (where p.direct_twitch and (
-					s.direct_twitch_state in ('starting', 'live', 'retrying') or
+					s.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL} or
 					s.direct_twitch_reserved_until > now()
 				)) +
 				count(*) filter (where p.direct_kick and (
-					s.direct_kick_state in ('starting', 'live', 'retrying') or
+					s.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL} or
 					s.direct_kick_reserved_until > now()
 				)) +
 				count(*) filter (where p.direct_youtube and (
-					s.direct_youtube_state in ('starting', 'live', 'retrying') or
+					s.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL} or
 					s.direct_youtube_reserved_until > now()
 				))
 			)::int as count
@@ -786,7 +884,17 @@ export async function prepareDirect(userId: string, pathId: number) {
 				and p.user_id <> ${userId}
 		`);
 		const used = Number(active.rows[0]?.count ?? 0);
-		if (used + outputs.length > path.maxForwarders) {
+		const portraitActive = await tx.execute(sql<{ count: number }>`
+			select count(*)::int as count
+			from direct_destination d
+			join path p on p.id = d.path_id
+			where p.relay_id = ${path.relayId}
+				and p.revoked_at is null
+				and p.id <> ${pathId}
+				and (d.state in ${DIRECT_OCCUPIED_STATES_SQL} or d.reserved_until > now())
+		`);
+		const totalUsed = used + Number(portraitActive.rows[0]?.count ?? 0);
+		if (totalUsed + outputs.length > path.maxForwarders) {
 			console.warn("direct capacity refusal", {
 				pathId,
 				relayId: path.relayId,
@@ -825,6 +933,50 @@ export async function prepareDirect(userId: string, pathId: number) {
 			.where(eq(relayPath.id, pathId));
 
 		const expiresAt = new Date(Date.now() + RESERVATION_MS);
+		let portraitSlots = Math.max(
+			0,
+			path.maxForwarders - totalUsed - outputs.length,
+		);
+		const portraitOutputs: DirectProvider[] = [];
+		for (const portrait of portraits) {
+			const provider = portrait.provider as DirectProvider;
+			const linked = accounts.find(
+				(entry) => entry.provider === authProvider(provider),
+			);
+			let error: string | null = null;
+			try {
+				if (!portrait.crop)
+					throw new DirectError("invalid", "Portrait framing is required");
+				validateDirectCrop(portrait.crop);
+				if (!linked || !hasStreamKeyScope(provider, linked.scope)) {
+					throw new DirectError(
+						"consent-required",
+						`Authorize ${provider} streaming first`,
+					);
+				}
+				if (portraitSlots === 0) {
+					throw new DirectError(
+						"capacity",
+						"No free Direct slot for portrait. Landscape can still go live.",
+					);
+				}
+				portraitSlots -= 1;
+				portraitOutputs.push(provider);
+			} catch (reason) {
+				error =
+					reason instanceof DirectError
+						? reason.message
+						: "Could not start portrait";
+			}
+			await tx
+				.update(directDestination)
+				.set({
+					reservedUntil: error ? null : expiresAt,
+					state: error ? "failed" : null,
+					error,
+				})
+				.where(eq(directDestination.id, portrait.id));
+		}
 		await tx
 			.insert(pathState)
 			.values({
@@ -854,6 +1006,7 @@ export async function prepareDirect(userId: string, pathId: number) {
 		return {
 			pathId,
 			outputs,
+			portraitOutputs,
 			contributionMode: "direct" as const,
 			reservationExpiresAt: expiresAt.toISOString(),
 		};
@@ -862,15 +1015,19 @@ export async function prepareDirect(userId: string, pathId: number) {
 
 /** A revoked path owns no provider, which frees the owner's slot. */
 export async function clearDirectOutputs(pathId: number) {
-	await db
-		.update(relayPath)
-		.set({ directTwitch: false, directKick: false, directYoutube: false })
-		.where(eq(relayPath.id, pathId));
+	await Promise.all([
+		db
+			.update(relayPath)
+			.set({ directTwitch: false, directKick: false, directYoutube: false })
+			.where(eq(relayPath.id, pathId)),
+		db.delete(directDestination).where(eq(directDestination.pathId, pathId)),
+	]);
 }
 
 export async function applyDirectState(input: {
 	slug: string;
 	provider: DirectProvider;
+	role?: DirectRole;
 	state: DirectState;
 	error?: string | null;
 }) {
@@ -880,6 +1037,9 @@ export async function applyDirectState(input: {
 		.where(eq(relayPath.slug, input.slug))
 		.limit(1);
 	if (!path) return false;
+	if (input.role === "portrait") {
+		return applyPortraitState(path.id, input, sanitizeDirectError);
+	}
 
 	const [existing] = await db
 		.select({
@@ -950,7 +1110,12 @@ export async function reportFirstLiveActivation(
 	return { tracked: true as const };
 }
 
-export type DirectDestination = { provider: DirectProvider; url: string };
+export type DirectDestination = {
+	provider: DirectProvider;
+	role: DirectRole;
+	filter: string | null;
+	url: string;
+};
 
 async function youtubeDirectDestination(
 	pathId: number,
@@ -1043,6 +1208,7 @@ export async function resolveDirectDestinations(
 	// Resolving them again would mint a second YouTube broadcast while the
 	// first one is still live, and hand out a destination nobody consumes.
 	skip: readonly DirectProvider[] = [],
+	roles: readonly DirectRole[] = ["landscape", "portrait"],
 ): Promise<{ destinations: DirectDestination[] }> {
 	const [path] = await db
 		.select({
@@ -1065,7 +1231,34 @@ export async function resolveDirectDestinations(
 				(provider) => path[provider] && !skip.includes(provider),
 			)
 		: [];
-	if (!path || enabled.length === 0) return { destinations: [] };
+	if (!path) return { destinations: [] };
+	const portraits = await listRelayPortraitDestinations(path.id);
+	const requested = [
+		...enabled.map((provider) => ({
+			provider,
+			role: "landscape" as const,
+			crop: null,
+			reservedUntil:
+				provider === "twitch"
+					? path.twitchReservedUntil
+					: provider === "kick"
+						? path.kickReservedUntil
+						: path.youtubeReservedUntil,
+		})),
+		...portraits.flatMap((entry) =>
+			skip.includes(entry.provider as DirectProvider)
+				? []
+				: [
+						{
+							provider: entry.provider as DirectProvider,
+							role: "portrait" as const,
+							crop: entry.crop,
+							reservedUntil: entry.reservedUntil,
+						},
+					],
+		),
+	].filter((entry) => roles.includes(entry.role));
+	if (requested.length === 0) return { destinations: [] };
 
 	const accounts = await db
 		.select({ provider: account.providerId, accountId: account.accountId })
@@ -1075,23 +1268,19 @@ export async function resolveDirectDestinations(
 				eq(account.userId, path.userId),
 				inArray(
 					account.providerId,
-					enabled.map((provider) => authProvider(provider)),
+					requested.map((entry) => authProvider(entry.provider)),
 				),
 			),
 		);
 
 	const destinations: DirectDestination[] = [];
-	for (const provider of enabled) {
-		const reservedUntil =
-			provider === "twitch"
-				? path.twitchReservedUntil
-				: provider === "kick"
-					? path.kickReservedUntil
-					: path.youtubeReservedUntil;
+	for (const entry of requested) {
+		const { provider, reservedUntil } = entry;
 		if (!reservedUntil || reservedUntil.getTime() <= Date.now()) {
 			await applyDirectState({
 				slug,
 				provider,
+				role: entry.role,
 				state: "failed",
 				error: "Direct reservation expired, reconnect the publisher",
 			});
@@ -1104,13 +1293,14 @@ export async function resolveDirectDestinations(
 			await applyDirectState({
 				slug,
 				provider,
+				role: entry.role,
 				state: "failed",
 				error: `Link ${provider === "twitch" ? "Twitch" : provider === "kick" ? "Kick" : "YouTube"} first`,
 			});
 			continue;
 		}
 		try {
-			const url =
+			const destination =
 				provider === "youtube"
 					? await youtubeDirectDestination(path.id, path.userId, dependencies)
 					: await streamKeyDestination(
@@ -1119,10 +1309,20 @@ export async function resolveDirectDestinations(
 							linked.accountId,
 							dependencies,
 						);
-			destinations.push({ provider, url });
+			const url = validateDirectDestination(provider, destination);
+			destinations.push({
+				provider,
+				role: entry.role,
+				filter:
+					entry.role === "portrait" && entry.crop
+						? portraitFilter(entry.crop)
+						: null,
+				url,
+			});
 			await applyDirectState({
 				slug,
 				provider,
+				role: entry.role,
 				state: "starting",
 				error: null,
 			});
@@ -1131,6 +1331,7 @@ export async function resolveDirectDestinations(
 			await applyDirectState({
 				slug,
 				provider,
+				role: entry.role,
 				state: "failed",
 				error:
 					error instanceof DirectError
@@ -1156,9 +1357,9 @@ export async function stopDirectForPaths(pathIds: number[]) {
 	await db
 		.update(pathState)
 		.set({
-			directTwitchState: sql`case when ${pathState.directTwitchState} in ${ACTIVE_STATES} then 'stopped' else ${pathState.directTwitchState} end`,
-			directKickState: sql`case when ${pathState.directKickState} in ${ACTIVE_STATES} then 'stopped' else ${pathState.directKickState} end`,
-			directYoutubeState: sql`case when ${pathState.directYoutubeState} in ${ACTIVE_STATES} then 'stopped' else ${pathState.directYoutubeState} end`,
+			directTwitchState: sql`case when ${pathState.directTwitchState} in ${DIRECT_OCCUPIED_STATES_SQL} then 'stopped' else ${pathState.directTwitchState} end`,
+			directKickState: sql`case when ${pathState.directKickState} in ${DIRECT_OCCUPIED_STATES_SQL} then 'stopped' else ${pathState.directKickState} end`,
+			directYoutubeState: sql`case when ${pathState.directYoutubeState} in ${DIRECT_OCCUPIED_STATES_SQL} then 'stopped' else ${pathState.directYoutubeState} end`,
 			directTwitchReservedUntil: null,
 			directKickReservedUntil: null,
 			directYoutubeReservedUntil: null,
@@ -1167,6 +1368,10 @@ export async function stopDirectForPaths(pathIds: number[]) {
 			brbSince: null,
 		})
 		.where(inArray(pathState.pathId, pathIds));
+	await db
+		.update(directDestination)
+		.set({ state: "stopped", reservedUntil: null })
+		.where(inArray(directDestination.pathId, pathIds));
 	await Promise.allSettled(
 		broadcasts.flatMap((entry) => {
 			const broadcastId = entry.broadcastId;
