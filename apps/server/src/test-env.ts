@@ -32,4 +32,5 @@ process.env.S3_REGION ??= "test-region";
 process.env.S3_SECRET_ACCESS_KEY ??= "test-secret-key";
 process.env.TWITCH_CLIENT_ID ??= "test-twitch-client";
 process.env.TWITCH_CLIENT_SECRET ??= "test-twitch-secret";
+process.env.VISP_CHAT_BOT_USER_ID ??= "test-visp-chat-bot-user";
 process.env.NODE_ENV ??= "test";

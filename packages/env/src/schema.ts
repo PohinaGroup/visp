@@ -72,6 +72,7 @@ export const serverEnvSchema = {
 	STUDIO_MEDIA_PASSWORD: z.string().min(32),
 	TWITCH_CLIENT_ID: z.string().min(1),
 	TWITCH_CLIENT_SECRET: z.string().min(1),
+	VISP_CHAT_BOT_USER_ID: z.string().min(1),
 };
 
 export const webEnvSchema = {

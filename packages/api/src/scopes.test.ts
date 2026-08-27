@@ -5,6 +5,7 @@ import {
 	hasChatScope,
 	hasScope,
 	hasStreamKeyScope,
+	hasTwitchBotChannelScope,
 	linkScopes,
 	PROVIDER_SCOPES,
 	parseScopes,
@@ -111,5 +112,14 @@ describe("hasStreamKeyScope", () => {
 				"openid https://www.googleapis.com/auth/youtube.force-ssl",
 			),
 		).toBe(true);
+	});
+});
+
+describe("Twitch bot scopes", () => {
+	test("separates the broadcaster bot grant from sender write consent", () => {
+		expect(hasTwitchBotChannelScope("channel:bot")).toBe(true);
+		expect(hasTwitchBotChannelScope("user:write:chat")).toBe(false);
+		expect(PROVIDER_SCOPES.twitch.chatWrite).toEqual(["user:write:chat"]);
+		expect(PROVIDER_SCOPES.twitch.botChannel).toEqual(["channel:bot"]);
 	});
 });
