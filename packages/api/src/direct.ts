@@ -17,6 +17,7 @@ import { type DirectCrop, directCropError } from "./direct-crop";
 import {
 	applyCustomDirectState,
 	customDestinationAad,
+	listCustomDirectDestinations,
 	listCustomDirectOutputs,
 } from "./direct-custom";
 import {
@@ -407,51 +408,57 @@ export function kickIngestDestination(streamUrl: string, streamKey: string) {
 }
 
 export async function listDirectOutputs(userId: string) {
-	const [owners, accounts, paths, portraits, customOutputs] = await Promise.all(
-		[
-			db
-				.select({
-					twitch: appUser.directTwitch,
-					kick: appUser.directKick,
-					youtube: appUser.directYoutube,
-					youtubeTitle: appUser.directYoutubeTitle,
-					directDualOutput: appUser.directDualOutput,
-				})
-				.from(appUser)
-				.where(eq(appUser.id, userId))
-				.limit(1),
-			db
-				.select({ provider: account.providerId, scope: account.scope })
-				.from(account)
-				.where(
-					and(
-						eq(account.userId, userId),
-						inArray(account.providerId, ["twitch", "kick", "google"]),
-					),
+	const [
+		owners,
+		accounts,
+		paths,
+		portraits,
+		customDestinations,
+		customOutputs,
+	] = await Promise.all([
+		db
+			.select({
+				twitch: appUser.directTwitch,
+				kick: appUser.directKick,
+				youtube: appUser.directYoutube,
+				youtubeTitle: appUser.directYoutubeTitle,
+				directDualOutput: appUser.directDualOutput,
+			})
+			.from(appUser)
+			.where(eq(appUser.id, userId))
+			.limit(1),
+		db
+			.select({ provider: account.providerId, scope: account.scope })
+			.from(account)
+			.where(
+				and(
+					eq(account.userId, userId),
+					inArray(account.providerId, ["twitch", "kick", "google"]),
 				),
-			db
-				.select({
-					id: relayPath.id,
-					label: relayPath.label,
-					twitch: relayPath.directTwitch,
-					kick: relayPath.directKick,
-					youtube: relayPath.directYoutube,
-					publishing: pathState.publishing,
-					twitchState: pathState.directTwitchState,
-					twitchError: pathState.directTwitchError,
-					kickState: pathState.directKickState,
-					kickError: pathState.directKickError,
-					youtubeState: pathState.directYoutubeState,
-					youtubeError: pathState.directYoutubeError,
-				})
-				.from(relayPath)
-				.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
-				.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)))
-				.orderBy(relayPath.seq),
-			listPortraitDestinations(userId),
-			listCustomDirectOutputs(userId),
-		],
-	);
+			),
+		db
+			.select({
+				id: relayPath.id,
+				label: relayPath.label,
+				twitch: relayPath.directTwitch,
+				kick: relayPath.directKick,
+				youtube: relayPath.directYoutube,
+				publishing: pathState.publishing,
+				twitchState: pathState.directTwitchState,
+				twitchError: pathState.directTwitchError,
+				kickState: pathState.directKickState,
+				kickError: pathState.directKickError,
+				youtubeState: pathState.directYoutubeState,
+				youtubeError: pathState.directYoutubeError,
+			})
+			.from(relayPath)
+			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)))
+			.orderBy(relayPath.seq),
+		listPortraitDestinations(userId),
+		listCustomDirectDestinations(userId),
+		listCustomDirectOutputs(userId),
+	]);
 
 	const desired = {
 		twitch: owners[0]?.twitch ?? false,
@@ -526,11 +533,18 @@ export async function listDirectOutputs(userId: string) {
 				state: (destination.state as DirectState | null) ?? null,
 			})),
 		],
+		customDestinations,
 		customOutputs: customOutputs.map((output) => ({
 			...output,
 			protocol: output.protocol as "rtmp" | "rtmps" | "srt",
 			role: output.role as DirectRole,
 			state: (output.state as DirectState | null) ?? null,
+			outputRef: {
+				kind: "custom" as const,
+				outputId: output.id,
+				destinationId: output.destinationId,
+				role: output.role as DirectRole,
+			},
 		})),
 		paths: paths.map((path) => ({
 			id: path.id,
@@ -849,7 +863,11 @@ export async function prepareDirect(userId: string, pathId: number) {
 					)
 			: [];
 		const customOutputs = await tx
-			.select({ id: customDirectOutput.id })
+			.select({
+				id: customDirectOutput.id,
+				role: customDirectOutput.role,
+				crop: customDirectOutput.crop,
+			})
 			.from(customDirectOutput)
 			.innerJoin(
 				customDirectDestination,
@@ -859,13 +877,18 @@ export async function prepareDirect(userId: string, pathId: number) {
 				and(
 					eq(customDirectOutput.userId, userId),
 					eq(customDirectOutput.pathId, pathId),
-					eq(customDirectOutput.role, "landscape"),
 					or(
 						isNull(customDirectOutput.state),
 						ne(customDirectOutput.state, "stopping"),
 					),
 				),
 			);
+		const customLandscapes = customOutputs.filter(
+			(output) => output.role === "landscape",
+		);
+		const customPortraits = path.dualOutput
+			? customOutputs.filter((output) => output.role === "portrait")
+			: [];
 		if (
 			outputs.length === 0 &&
 			portraits.length === 0 &&
@@ -980,7 +1003,7 @@ export async function prepareDirect(userId: string, pathId: number) {
 			Number(portraitActive.rows[0]?.count ?? 0) +
 			Number(customActive.rows[0]?.count ?? 0);
 		if (
-			totalUsed + outputs.length + customOutputs.length >
+			totalUsed + outputs.length + customLandscapes.length >
 			path.maxForwarders
 		) {
 			console.warn("direct capacity refusal", {
@@ -1021,7 +1044,7 @@ export async function prepareDirect(userId: string, pathId: number) {
 			.where(eq(relayPath.id, pathId));
 
 		const expiresAt = new Date(Date.now() + RESERVATION_MS);
-		if (customOutputs.length > 0) {
+		if (customLandscapes.length > 0) {
 			await tx
 				.update(customDirectOutput)
 				.set({
@@ -1033,13 +1056,13 @@ export async function prepareDirect(userId: string, pathId: number) {
 				.where(
 					inArray(
 						customDirectOutput.id,
-						customOutputs.map(({ id }) => id),
+						customLandscapes.map(({ id }) => id),
 					),
 				);
 		}
 		let portraitSlots = Math.max(
 			0,
-			path.maxForwarders - totalUsed - outputs.length - customOutputs.length,
+			path.maxForwarders - totalUsed - outputs.length - customLandscapes.length,
 		);
 		const portraitOutputs: DirectProvider[] = [];
 		for (const portrait of portraits) {
@@ -1081,6 +1104,38 @@ export async function prepareDirect(userId: string, pathId: number) {
 				})
 				.where(eq(directDestination.id, portrait.id));
 		}
+		const customPortraitOutputIds: string[] = [];
+		for (const portrait of customPortraits) {
+			let error: string | null = null;
+			try {
+				if (!portrait.crop) {
+					throw new DirectError("invalid", "Portrait framing is required");
+				}
+				validateDirectCrop(portrait.crop);
+				if (portraitSlots === 0) {
+					throw new DirectError(
+						"capacity",
+						"No free Direct slot for portrait. Landscape can still go live.",
+					);
+				}
+				portraitSlots -= 1;
+				customPortraitOutputIds.push(portrait.id);
+			} catch (reason) {
+				error =
+					reason instanceof DirectError
+						? reason.message
+						: "Could not start portrait";
+			}
+			await tx
+				.update(customDirectOutput)
+				.set({
+					reservedRelayId: error ? null : path.relayId,
+					reservedUntil: error ? null : expiresAt,
+					state: error ? "failed" : null,
+					error,
+				})
+				.where(eq(customDirectOutput.id, portrait.id));
+		}
 		await tx
 			.insert(pathState)
 			.values({
@@ -1110,7 +1165,10 @@ export async function prepareDirect(userId: string, pathId: number) {
 		return {
 			pathId,
 			outputs,
-			customOutputIds: customOutputs.map(({ id }) => id),
+			customOutputIds: [
+				...customLandscapes.map(({ id }) => id),
+				...customPortraitOutputIds,
+			],
 			portraitOutputs,
 			contributionMode: "direct" as const,
 			reservationExpiresAt: expiresAt.toISOString(),
@@ -1494,6 +1552,8 @@ export async function resolveDirectDestinationsV3(
 			name: customDirectDestination.name,
 			protocol: customDirectDestination.protocol,
 			encryptedUrl: customDirectDestination.encryptedUrl,
+			role: customDirectOutput.role,
+			crop: customDirectOutput.crop,
 			reservedRelayId: customDirectOutput.reservedRelayId,
 			reservedUntil: customDirectOutput.reservedUntil,
 		})
@@ -1505,7 +1565,6 @@ export async function resolveDirectDestinationsV3(
 		.where(
 			and(
 				eq(customDirectOutput.pathId, path.id),
-				eq(customDirectOutput.role, "landscape"),
 				or(
 					isNull(customDirectOutput.state),
 					ne(customDirectOutput.state, "stopping"),
@@ -1542,10 +1601,13 @@ export async function resolveDirectDestinationsV3(
 				outputId: output.id,
 				kind: "custom",
 				label: output.name,
-				role: "landscape",
+				role: output.role as DirectRole,
 				protocol: validated.protocol,
 				muxer: validated.protocol === "srt" ? "mpegts" : "flv",
-				filter: null,
+				filter:
+					output.role === "portrait" && output.crop
+						? portraitFilter(output.crop)
+						: null,
 				url,
 			});
 			await applyCustomDirectState({

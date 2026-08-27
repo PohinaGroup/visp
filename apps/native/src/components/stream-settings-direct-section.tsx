@@ -1,6 +1,11 @@
 import * as UI from "@expo/ui";
 import { useEffect, useState } from "react";
 import type { apiClient } from "../lib/backend";
+import {
+	customOutputChangesDisabled,
+	customOutputStatus,
+	customOutputsForPath,
+} from "../lib/custom-direct-output";
 import { nativeDirectText } from "../lib/native-direct-i18n";
 import {
 	DEFAULT_PORTRAIT_CROP,
@@ -38,6 +43,21 @@ export type DirectSettings = {
 		enabled: boolean,
 	) => void;
 	onAuthorizeDirect: (provider: DirectProvider) => void;
+	onApplyCustomSelection: (
+		pathId: number,
+		destinationId: string,
+		enabled: boolean,
+	) => void;
+	onSaveCustomCrop: (
+		pathId: number,
+		outputId: string,
+		crop: PortraitCrop,
+	) => Promise<void>;
+	onSetCustomRole: (
+		pathId: number,
+		outputId: string,
+		role: "landscape" | "portrait",
+	) => Promise<{ outputId: string }>;
 	onSaveDirectCrop: (
 		pathId: number,
 		provider: DirectProvider,
@@ -189,6 +209,7 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 	const [framing, setFraming] = useState<PortraitFramingDraft>();
 	const [savingCrop, setSavingCrop] = useState(false);
 	const [addingPortrait, setAddingPortrait] = useState<DirectProvider>();
+	const [addingCustomPortrait, setAddingCustomPortrait] = useState<string>();
 	useEffect(() => {
 		if (outputs?.youtubeTitle) {
 			setYoutubeTitle(outputs.youtubeTitle);
@@ -234,6 +255,97 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 								: directStateSummary(ownPath)}
 						</UI.Text>
 						<DirectPathSwitches direct={direct} path={ownPath} />
+						{outputs.customDestinations.map((destination) => {
+							const { landscape, portrait } = customOutputsForPath(
+								outputs.customOutputs,
+								destination.id,
+								ownPath.id,
+							);
+							const disabled = customOutputChangesDisabled(
+								ownPath.publishing,
+								direct.busy,
+							);
+							return (
+								<ProviderRow
+									key={destination.id}
+									label={destination.name}
+									status={`${destination.protocol.toUpperCase()} · ${destination.endpointSummary}${landscape ? ` · ${nativeDirectText(customOutputStatus(landscape))}` : ""}`}
+									actions={
+										outputs.directDualOutput && landscape ? (
+											portrait ? (
+												<>
+													<UI.Button
+														disabled={disabled}
+														label={nativeDirectText("Edit framing")}
+														variant="outlined"
+														onPress={() =>
+															setFraming({
+																pathId: ownPath.id,
+																outputId: portrait.id,
+																crop: portrait.crop ?? DEFAULT_PORTRAIT_CROP,
+															})
+														}
+													/>
+													<UI.Button
+														disabled={direct.busy}
+														label={nativeDirectText("Remove")}
+														variant="outlined"
+														onPress={() =>
+															void direct.onSetCustomRole(
+																ownPath.id,
+																portrait.id,
+																"landscape",
+															)
+														}
+													/>
+												</>
+											) : (
+												<UI.Button
+													disabled={
+														disabled || addingCustomPortrait === landscape.id
+													}
+													label={nativeDirectText("Add portrait")}
+													variant="outlined"
+													onPress={() => {
+														setAddingCustomPortrait(landscape.id);
+														void direct
+															.onSetCustomRole(
+																ownPath.id,
+																landscape.id,
+																"portrait",
+															)
+															.then(({ outputId }) =>
+																setFraming({
+																	pathId: ownPath.id,
+																	outputId,
+																	crop: DEFAULT_PORTRAIT_CROP,
+																}),
+															)
+															.finally(() =>
+																setAddingCustomPortrait(undefined),
+															);
+													}}
+												/>
+											)
+										) : undefined
+									}
+								>
+									<UI.Switch
+										disabled={
+											direct.busy || (ownPath.publishing && !landscape)
+										}
+										value={Boolean(landscape)}
+										onValueChange={(enabled) =>
+											direct.onApplyCustomSelection(
+												ownPath.id,
+												destination.id,
+												enabled,
+											)
+										}
+									/>
+								</ProviderRow>
+							);
+						})}
 						{outputs.directDualOutput ? (
 							<UI.Column spacing={8}>
 								{outputs.destinations
@@ -349,11 +461,19 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 						onSave={async () => {
 							setSavingCrop(true);
 							try {
-								await direct.onSaveDirectCrop(
-									framing.pathId,
-									framing.provider,
-									framing.crop,
-								);
+								if (framing.outputId) {
+									await direct.onSaveCustomCrop(
+										framing.pathId,
+										framing.outputId,
+										framing.crop,
+									);
+								} else if (framing.provider) {
+									await direct.onSaveDirectCrop(
+										framing.pathId,
+										framing.provider,
+										framing.crop,
+									);
+								}
 								setFraming(undefined);
 							} finally {
 								setSavingCrop(false);

@@ -22,7 +22,8 @@ export const DEFAULT_PORTRAIT_CROP: PortraitCrop = {
 
 export type PortraitFramingDraft = {
 	pathId: number;
-	provider: DirectProvider;
+	provider?: DirectProvider;
+	outputId?: string;
 	crop: PortraitCrop;
 };
 

@@ -186,8 +186,11 @@ export function useStreamSettingsModel({
 					(snapshot) => snapshot.pathId === publishPathId,
 				)?.url ?? null,
 			onApplyDirectSelection: streamAccount.applyDirectSelection,
+			onApplyCustomSelection: streamAccount.applyCustomDirectSelection,
 			onSaveDirectCrop: streamAccount.saveDirectCrop,
+			onSaveCustomCrop: streamAccount.saveCustomDirectCrop,
 			onSetDirectRole: streamAccount.setDirectRole,
+			onSetCustomRole: streamAccount.setCustomDirectRole,
 			onAuthorizeDirect: (provider) =>
 				streamAccount.linkProvider(
 					provider,

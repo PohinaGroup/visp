@@ -1,19 +1,29 @@
 import { db } from "@VISP/db";
 import {
+	appUser,
 	customDirectDestination,
 	customDirectOutput,
+	type DirectCrop,
 	pathState,
+	relay,
 	relayPath,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { randomUUID } from "node:crypto";
 import { and, asc, count, eq, isNull, ne, sql } from "drizzle-orm";
+import { directCropError } from "./direct-crop";
 import {
 	type HostResolver,
 	resolveHost,
 	validateCustomDestinationForStorage,
 } from "./direct-custom-destination";
-import type { DirectState } from "./direct-model";
+import {
+	DIRECT_RESERVATION_MS,
+	DIRECT_RUNNING_STATES,
+	type DirectState,
+} from "./direct-model";
+import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
+import { DEFAULT_PORTRAIT_CROP, portraitFilterValue } from "./direct-portrait";
 import { encryptSecret } from "./encrypted-secret";
 import { uniqueViolation } from "./pg-errors";
 
@@ -237,6 +247,7 @@ export async function listCustomDirectOutputs(userId: string) {
 			endpointSummary: customDirectDestination.endpointSummary,
 			pathId: customDirectOutput.pathId,
 			role: customDirectOutput.role,
+			crop: customDirectOutput.crop,
 			state: customDirectOutput.state,
 			error: customDirectOutput.error,
 		})
@@ -247,6 +258,210 @@ export async function listCustomDirectOutputs(userId: string) {
 		)
 		.where(eq(customDirectOutput.userId, userId))
 		.orderBy(asc(customDirectOutput.createdAt));
+}
+
+export async function setCustomDirectRole(
+	userId: string,
+	input: { outputId: string; pathId: number; role: "landscape" | "portrait" },
+) {
+	return db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+		const [source] = await tx
+			.select({
+				id: customDirectOutput.id,
+				destinationId: customDirectOutput.destinationId,
+				pathId: customDirectOutput.pathId,
+				role: customDirectOutput.role,
+				state: customDirectOutput.state,
+				publishing: pathState.publishing,
+			})
+			.from(customDirectOutput)
+			.leftJoin(pathState, eq(pathState.pathId, customDirectOutput.pathId))
+			.where(
+				and(
+					eq(customDirectOutput.id, input.outputId),
+					eq(customDirectOutput.userId, userId),
+				),
+			)
+			.limit(1);
+		const [path] = await tx
+			.select({
+				id: relayPath.id,
+				relayId: relayPath.relayId,
+				publishing: pathState.publishing,
+				dualOutput: appUser.directDualOutput,
+				maxForwarders: relay.maxForwarders,
+			})
+			.from(relayPath)
+			.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+			.innerJoin(relay, eq(relay.id, relayPath.relayId))
+			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+			.where(
+				and(
+					eq(relayPath.id, input.pathId),
+					eq(relayPath.userId, userId),
+					isNull(relayPath.revokedAt),
+				),
+			)
+			.limit(1);
+		if (!source || !path) {
+			throw new DirectCustomError("not-found", "Custom output not found");
+		}
+
+		if (input.role === "landscape") {
+			if (source.role !== "portrait") {
+				return {
+					outputId: source.id,
+					role: source.role,
+					overCapacity: false,
+					removalPending: false,
+				};
+			}
+			if (source.pathId !== input.pathId) {
+				throw new DirectCustomError(
+					"conflict",
+					"Destination belongs to another device",
+				);
+			}
+			if (source.state === "stopping") {
+				return {
+					outputId: source.id,
+					role: input.role,
+					overCapacity: false,
+					removalPending: true,
+				};
+			}
+			if (
+				source.publishing &&
+				source.state &&
+				(DIRECT_RUNNING_STATES as readonly string[]).includes(source.state)
+			) {
+				await tx
+					.update(customDirectOutput)
+					.set({ state: "stopping", error: null })
+					.where(eq(customDirectOutput.id, source.id));
+				return {
+					outputId: source.id,
+					role: input.role,
+					overCapacity: false,
+					removalPending: true,
+				};
+			}
+			await tx
+				.delete(customDirectOutput)
+				.where(eq(customDirectOutput.id, source.id));
+			return {
+				outputId: source.id,
+				role: input.role,
+				overCapacity: false,
+				removalPending: false,
+			};
+		}
+
+		if (!path.dualOutput) {
+			throw new DirectCustomError(
+				"not-found",
+				"Portrait output is unavailable",
+			);
+		}
+		if (path.publishing || source.publishing) {
+			throw new DirectCustomError(
+				"path-live",
+				"Stop the publishing device before changing its Direct outputs",
+			);
+		}
+		const [existing] = await tx
+			.select({ id: customDirectOutput.id })
+			.from(customDirectOutput)
+			.where(
+				and(
+					eq(customDirectOutput.userId, userId),
+					eq(customDirectOutput.destinationId, source.destinationId),
+					eq(customDirectOutput.role, "portrait"),
+				),
+			)
+			.limit(1);
+		const outputId = existing?.id ?? randomUUID();
+		const reservation = {
+			pathId: input.pathId,
+			crop: DEFAULT_PORTRAIT_CROP,
+			state: null,
+			error: null,
+			reservedRelayId: path.relayId,
+			reservedUntil: new Date(Date.now() + DIRECT_RESERVATION_MS),
+		};
+		if (existing) {
+			await tx
+				.update(customDirectOutput)
+				.set(reservation)
+				.where(eq(customDirectOutput.id, outputId));
+		} else {
+			await tx.insert(customDirectOutput).values({
+				id: outputId,
+				userId,
+				destinationId: source.destinationId,
+				role: "portrait",
+				...reservation,
+			});
+		}
+		const capacity = await tx.execute(sql<{ count: number }>`
+			select (
+				count(*) filter (where s.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL} or s.direct_twitch_reserved_until > now()) +
+				count(*) filter (where s.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL} or s.direct_kick_reserved_until > now()) +
+				count(*) filter (where s.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL} or s.direct_youtube_reserved_until > now()) +
+				(select count(*) from direct_destination d join path dp on dp.id = d.path_id where dp.relay_id = ${path.relayId} and dp.revoked_at is null and (d.state in ${DIRECT_OCCUPIED_STATES_SQL} or d.reserved_until > now())) +
+				(select count(*) from custom_direct_output o join path op on op.id = o.path_id where op.relay_id = ${path.relayId} and op.revoked_at is null and (o.state in ${DIRECT_OCCUPIED_STATES_SQL} or o.reserved_until > now()))
+			)::int as count
+			from path p join path_state s on s.path_id = p.id
+			where p.relay_id = ${path.relayId} and p.revoked_at is null
+		`);
+		return {
+			outputId,
+			role: input.role,
+			overCapacity: Number(capacity.rows[0]?.count ?? 0) > path.maxForwarders,
+			removalPending: false,
+		};
+	});
+}
+
+export async function saveCustomDirectCrop(
+	userId: string,
+	input: { outputId: string; pathId: number; crop: DirectCrop },
+) {
+	const error = directCropError(input.crop);
+	if (error) throw new DirectCustomError("invalid", error);
+	const [output] = await db
+		.select({ publishing: pathState.publishing })
+		.from(customDirectOutput)
+		.leftJoin(pathState, eq(pathState.pathId, customDirectOutput.pathId))
+		.where(
+			and(
+				eq(customDirectOutput.id, input.outputId),
+				eq(customDirectOutput.userId, userId),
+				eq(customDirectOutput.pathId, input.pathId),
+				eq(customDirectOutput.role, "portrait"),
+			),
+		)
+		.limit(1);
+	if (!output)
+		throw new DirectCustomError("not-found", "Portrait destination not found");
+	if (output.publishing) {
+		throw new DirectCustomError(
+			"path-live",
+			"Stop the publishing device before changing portrait framing",
+		);
+	}
+	const [saved] = await db
+		.update(customDirectOutput)
+		.set({
+			crop: input.crop,
+			state: null,
+			error: null,
+			reservedUntil: new Date(Date.now() + DIRECT_RESERVATION_MS),
+		})
+		.where(eq(customDirectOutput.id, input.outputId))
+		.returning({ id: customDirectOutput.id, crop: customDirectOutput.crop });
+	return saved;
 }
 
 export async function setCustomDirectOutput(
@@ -370,9 +585,17 @@ export async function setCustomDirectOutput(
 	});
 }
 
-export async function customDirectOutputActive(slug: string, outputId: string) {
+export async function customDirectOutputActive(
+	slug: string,
+	outputId: string,
+	filter?: string | null,
+) {
 	const [row] = await db
-		.select({ state: customDirectOutput.state })
+		.select({
+			state: customDirectOutput.state,
+			role: customDirectOutput.role,
+			crop: customDirectOutput.crop,
+		})
 		.from(customDirectOutput)
 		.innerJoin(relayPath, eq(relayPath.id, customDirectOutput.pathId))
 		.where(
@@ -383,7 +606,12 @@ export async function customDirectOutputActive(slug: string, outputId: string) {
 			),
 		)
 		.limit(1);
-	return Boolean(row && row.state !== "stopping");
+	return Boolean(
+		row &&
+			row.state !== "stopping" &&
+			(row.role !== "portrait" ||
+				(row.crop && portraitFilterValue(row.crop) === filter)),
+	);
 }
 
 export async function applyCustomDirectState(input: {

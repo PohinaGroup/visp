@@ -15,8 +15,17 @@ import {
 	customDestinationDraft,
 	customDestinationUpdateInput,
 } from "@/lib/custom-direct-destinations";
+import {
+	customOutputStatus,
+	customOutputsForPath,
+} from "@/lib/custom-direct-output";
 import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import {
+	DEFAULT_PORTRAIT_CROP,
+	DirectPortraitFraming,
+	type PortraitCrop,
+} from "./direct-portrait-framing";
 
 type Editor = {
 	destination?: CustomDestinationMetadata;
@@ -29,7 +38,13 @@ export function DirectCustomDestinations() {
 	const queryClient = useQueryClient();
 	const list = useQuery(trpc.direct.custom.list.queryOptions());
 	const direct = useQuery(trpc.direct.list.queryOptions());
+	const snapshots = useQuery(trpc.obs.snapshots.queryOptions());
 	const [editor, setEditor] = useState<Editor | null>(null);
+	const [framing, setFraming] = useState<{
+		outputId: string;
+		pathId: number;
+		crop: PortraitCrop;
+	} | null>(null);
 	const refresh = async () => {
 		await queryClient.invalidateQueries();
 		setEditor(null);
@@ -66,6 +81,22 @@ export function DirectCustomDestinations() {
 			onSuccess: async () => {
 				await refresh();
 				toast.success(t("Direct output saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const setRole = useMutation(
+		trpc.direct.setCustomRole.mutationOptions({
+			onSuccess: () => queryClient.invalidateQueries(),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const saveCrop = useMutation(
+		trpc.direct.saveCustomCrop.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				setFraming(null);
+				toast.success(t("Portrait framing saved"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -112,6 +143,13 @@ export function DirectCustomDestinations() {
 									</VStack>
 									<HStack gap={2}>
 										<Button
+											isDisabled={direct.data?.customOutputs.some(
+												(output) =>
+													output.destinationId === destination.id &&
+													direct.data?.paths.find(
+														(path) => path.id === output.pathId,
+													)?.publishing,
+											)}
 											label={t("Edit")}
 											variant="ghost"
 											onClick={() =>
@@ -132,10 +170,12 @@ export function DirectCustomDestinations() {
 									</HStack>
 								</HStack>
 								{direct.data?.paths.map((path) => {
-									const output = direct.data.customOutputs.find(
-										(entry) => entry.destinationId === destination.id,
+									const { landscape, portrait } = customOutputsForPath(
+										direct.data.customOutputs,
+										destination.id,
+										path.id,
 									);
-									const enabled = output?.pathId === path.id;
+									const enabled = Boolean(landscape);
 									return (
 										<VStack key={path.id} gap={1}>
 											<Switch
@@ -156,11 +196,65 @@ export function DirectCustomDestinations() {
 													})
 												}
 											/>
-											{enabled && output?.state ? (
+											{enabled && landscape?.state ? (
 												<Text color="secondary" type="supporting">
-													{t(output.state)}
-													{output.error ? `: ${output.error}` : ""}
+													{t(customOutputStatus(landscape))}
 												</Text>
+											) : null}
+											{direct.data.directDualOutput && landscape ? (
+												portrait ? (
+													<HStack gap={2} vAlign="center" wrap="wrap">
+														<Badge label={t("Portrait")} variant="neutral" />
+														<Text type="supporting">
+															{t(customOutputStatus(portrait))}
+														</Text>
+														<Button
+															isDisabled={path.publishing}
+															label={t("Edit framing")}
+															variant="ghost"
+															onClick={() =>
+																setFraming({
+																	outputId: portrait.id,
+																	pathId: path.id,
+																	crop: portrait.crop ?? DEFAULT_PORTRAIT_CROP,
+																})
+															}
+														/>
+														<Button
+															isDisabled={setRole.isPending}
+															label={t("Remove portrait")}
+															variant="ghost"
+															onClick={() =>
+																setRole.mutate({
+																	outputId: portrait.id,
+																	pathId: path.id,
+																	role: "landscape",
+																})
+															}
+														/>
+													</HStack>
+												) : (
+													<Button
+														isDisabled={path.publishing || setRole.isPending}
+														label={t("Add portrait output")}
+														variant="ghost"
+														onClick={() => {
+															void setRole
+																.mutateAsync({
+																	outputId: landscape.id,
+																	pathId: path.id,
+																	role: "portrait",
+																})
+																.then((result) =>
+																	setFraming({
+																		outputId: result.outputId,
+																		pathId: path.id,
+																		crop: DEFAULT_PORTRAIT_CROP,
+																	}),
+																);
+														}}
+													/>
+												)
 											) : null}
 										</VStack>
 									);
@@ -249,6 +343,26 @@ export function DirectCustomDestinations() {
 						</HStack>
 					</VStack>
 				</Dialog>
+			) : null}
+			{framing ? (
+				<DirectPortraitFraming
+					crop={framing.crop}
+					isOpen
+					previewUrl={
+						snapshots.data?.find(
+							(snapshot) => snapshot.pathId === framing.pathId,
+						)?.url ?? null
+					}
+					saving={saveCrop.isPending}
+					onClose={() => setFraming(null)}
+					onSave={(crop) =>
+						saveCrop.mutateAsync({
+							outputId: framing.outputId,
+							pathId: framing.pathId,
+							crop,
+						})
+					}
+				/>
 			) : null}
 		</VStack>
 	);

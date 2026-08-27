@@ -25,6 +25,10 @@ const FINNISH: Record<string, string> = {
 	"Portrait will start when a Direct slot is free":
 		"Pystylähtö käynnistyy, kun Direct-paikka vapautuu",
 	"Portrait output could not be saved": "Pystylähtöä ei voitu tallentaa",
+	"Custom output could not be saved": "Mukautettua lähtöä ei voitu tallentaa",
+	"Custom output not found": "Mukautettua lähtöä ei löytynyt",
+	"Stop the publishing device before changing portrait framing":
+		"Pysäytä julkaisulaite ennen pystyrajauksen muuttamista",
 	"Portrait output is unavailable": "Pystylähtö ei ole käytettävissä",
 	"Portrait destination not found": "Pystylähtöä ei löytynyt",
 	"Portrait framing saved": "Pystyrajaus tallennettu",

@@ -417,7 +417,11 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
 				return status(401, "unauthorized");
 			}
-			return (await customDirectOutputActive(body.path, body.outputId))
+			return (await customDirectOutputActive(
+				body.path,
+				body.outputId,
+				body.filter,
+			))
 				? status(204)
 				: status(410, "stopped");
 		},
@@ -425,6 +429,7 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			body: t.Object({
 				path: t.String({ minLength: 1 }),
 				outputId: t.String({ minLength: 1, maxLength: 128 }),
+				filter: t.Optional(t.Nullable(t.String({ maxLength: 512 }))),
 			}),
 		},
 	)

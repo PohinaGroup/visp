@@ -3642,4 +3642,94 @@ integration("VISP Direct boundaries", () => {
 		});
 		expect((await caller.direct.list()).customOutputs).toEqual([]);
 	});
+
+	test("isolates custom portrait framing, capacity, and stopping", async () => {
+		const data = await seedDirect();
+		const caller = await callerFor("user-a");
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const created = await caller.direct.custom.create({
+			name: "Portrait receiver",
+			url: "rtmp://8.8.8.8/app/CUSTOM_PORTRAIT_SECRET",
+		});
+		const landscape = await caller.direct.custom.assign({
+			destinationId: created.destination.id,
+			pathId: data.pathA.id,
+			enabled: true,
+		});
+		if (!landscape.outputId)
+			throw new Error("custom landscape was not assigned");
+		const portrait = await caller.direct.setCustomRole({
+			outputId: landscape.outputId,
+			pathId: data.pathA.id,
+			role: "portrait",
+		});
+		const crop = { x: 0.36, y: 0.1, w: 0.2848, h: 0.9, aspect: "9:16" };
+		await caller.direct.saveCustomCrop({
+			outputId: portrait.outputId,
+			pathId: data.pathA.id,
+			crop,
+		});
+
+		await db.update(relay).set({ maxForwarders: 1 });
+		const partial = await prepareDirect("user-a", data.pathA.id);
+		expect(partial.customOutputIds).toEqual([landscape.outputId]);
+		expect(
+			(await caller.direct.list()).customOutputs.find(
+				(output) => output.id === portrait.outputId,
+			),
+		).toMatchObject({
+			crop,
+			state: "failed",
+			error: "No free Direct slot for portrait. Landscape can still go live.",
+		});
+
+		await db.update(relay).set({ maxForwarders: 2 });
+		const prepared = await prepareDirect("user-a", data.pathA.id);
+		expect(prepared.customOutputIds).toEqual([
+			landscape.outputId,
+			portrait.outputId,
+		]);
+		const resolved = await resolveDirectDestinationsV3("alpha-1", directDeps());
+		expect(
+			resolved.destinations.find(
+				(output) => output.outputId === portrait.outputId,
+			),
+		).toMatchObject({
+			role: "portrait",
+			protocol: "rtmp",
+			muxer: "flv",
+			filter: "crop=iw*0.2848:ih*0.9:iw*0.36:ih*0.1,scale=1080:1920",
+		});
+
+		await db
+			.update(pathState)
+			.set({ publishing: true })
+			.where(eq(pathState.pathId, data.pathA.id));
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId: portrait.outputId,
+			state: "live",
+		});
+		expect(
+			await caller.direct.setCustomRole({
+				outputId: portrait.outputId,
+				pathId: data.pathA.id,
+				role: "landscape",
+			}),
+		).toMatchObject({ removalPending: true });
+		expect(await customDirectOutputActive("alpha-1", portrait.outputId)).toBe(
+			false,
+		);
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId: portrait.outputId,
+			state: "stopped",
+		});
+		expect(
+			(await caller.direct.list()).customOutputs.map((output) => output.id),
+		).toEqual([landscape.outputId]);
+	});
 });

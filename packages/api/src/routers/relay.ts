@@ -18,7 +18,9 @@ import {
 	DirectCustomError,
 	deleteCustomDirectDestination,
 	listCustomDirectDestinations,
+	saveCustomDirectCrop,
 	setCustomDirectOutput,
+	setCustomDirectRole,
 	updateCustomDirectDestination,
 } from "../direct-custom";
 import { protectedProcedure, router } from "../index";
@@ -518,6 +520,20 @@ export const relayRoutes = {
 					directError(error);
 				}
 			}),
+		setCustomRole: relayProcedure
+			.input(
+				pathIdInput.extend({
+					outputId: z.uuid(),
+					role: z.enum(["landscape", "portrait"]),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setCustomDirectRole(ctx.relayUser.id, input);
+				} catch (error) {
+					directError(error);
+				}
+			}),
 		saveCrop: relayProcedure
 			.input(
 				directDestinationInput.extend({
@@ -538,6 +554,26 @@ export const relayRoutes = {
 						input.provider,
 						input.crop,
 					);
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		saveCustomCrop: relayProcedure
+			.input(
+				pathIdInput.extend({
+					outputId: z.uuid(),
+					crop: z.object({
+						x: z.number(),
+						y: z.number(),
+						w: z.number(),
+						h: z.number(),
+						aspect: z.string().regex(/^\d+:\d+$/),
+					}),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await saveCustomDirectCrop(ctx.relayUser.id, input);
 				} catch (error) {
 					directError(error);
 				}

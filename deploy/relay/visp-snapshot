@@ -215,7 +215,7 @@ forward() {
 			while sleep 2; do
 				if test "$kind" = custom; then
 					active_endpoint=direct-active-v3
-					active_payload="{\"path\":\"$path\",\"outputId\":\"$output_id\"}"
+					active_payload="{\"path\":\"$path\",\"outputId\":\"$output_id\",\"filter\":\"$filter\"}"
 				else
 					active_endpoint=direct-active
 					active_payload="{\"path\":\"$path\",\"provider\":\"$provider\",\"role\":\"$role\",\"filter\":\"$filter\"}"
