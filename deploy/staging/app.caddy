@@ -1,0 +1,91 @@
+# Staging vhosts. Imported from the main Caddyfile's
+# `import /etc/caddy/staging/*.caddy` line, so this file only exists where a
+# staging deployment was provisioned. Domains are literal on purpose: the
+# caddy.env drop-in on the app box carries production values, and a shared
+# variable name would leak between the two environments.
+
+staging.visp-stream.com {
+	route {
+		# Hooks arrive from the staging relay on this same box (loopback) or
+		# from the box's own public address; the hook secret is checked by the
+		# app regardless.
+		@machine {
+			path /api/mediamtx/auth /api/hooks/*
+			remote_ip 127.0.0.1 87.58.145.161
+		}
+		handle @machine {
+			reverse_proxy 127.0.0.1:3100
+		}
+
+		@blocked_machine path /api/mediamtx/auth /api/hooks/*
+		handle @blocked_machine {
+			respond 403
+		}
+
+		handle /api/auth/* {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /trpc/* {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /api/chat/* {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /api/seppo {
+			reverse_proxy 127.0.0.1:3100 {
+				header_up X-Real-IP {remote_host}
+			}
+		}
+		handle /api/obs/* {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /api/tts {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /api/audio-isolation {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /api/webhooks/kick {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle {
+			reverse_proxy 127.0.0.1:3101
+		}
+	}
+}
+
+admin.staging.visp-stream.com {
+	root * /opt/visp-staging/apps/admin/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
+stream.staging.visp-stream.com {
+	root * /opt/visp-staging/apps/native/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
+remote.staging.visp-stream.com {
+	root * /opt/visp-staging/apps/obs-remote/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
+docs.staging.visp-stream.com {
+	root * /opt/visp-staging/apps/fumadocs/.output/public
+	encode zstd gzip
+
+	handle /api/* {
+		header Content-Type application/json
+		file_server
+	}
+
+	handle {
+		try_files {path} {path}/index.html /_shell.html
+		file_server
+	}
+}

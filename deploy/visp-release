@@ -85,6 +85,10 @@ done
 	# shellcheck disable=SC1090
 	source "$caddy_env"
 	set +a
+	# The tracked Caddyfile imports /etc/caddy/staging/*.caddy; Caddy fails on
+	# an unmatched glob, so guarantee the placeholder exists before validating.
+	install -d -m 0755 /etc/caddy/staging
+	test -e /etc/caddy/staging/.empty.caddy || : > /etc/caddy/staging/.empty.caddy
 	caddy validate --config "$repo/deploy/app/Caddyfile" --adapter caddyfile
 )
 install -m 0644 "$repo/deploy/app/Caddyfile" /etc/caddy/Caddyfile

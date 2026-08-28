@@ -1,0 +1,21 @@
+[Unit]
+Description=MediaMTX relay (staging)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/visp-staging/relay.env
+ExecStart=/usr/local/bin/mediamtx /etc/mediamtx/mediamtx-staging.yml
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=0
+LimitNOFILE=1048576
+# Separate runtime directory from the production relay unit so forwarder
+# locks, publisher markers, and snapshot files never collide. visp-snapshot
+# picks it up through VISP_RUN_DIR in the environment file.
+RuntimeDirectory=visp-staging
+KillMode=mixed
+
+[Install]
+WantedBy=multi-user.target

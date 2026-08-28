@@ -21,8 +21,11 @@ import { adminAccess, adminRoles } from "./permissions";
  * Audience for Apple identity tokens. A public identifier rather than a secret,
  * so it stays here next to the other provider wiring instead of in the env
  * schema; keep it equal to `ios.bundleIdentifier` in apps/native/app.json.
+ * The staging deployment overrides it with the (TEST) bundle identifier via
+ * APPLE_BUNDLE_IDENTIFIER in /etc/visp-staging/app.env.
  */
-const APPLE_BUNDLE_IDENTIFIER = "com.pohinagroup.visp";
+const APPLE_BUNDLE_IDENTIFIER =
+	process.env.APPLE_BUNDLE_IDENTIFIER ?? "com.pohinagroup.visp";
 
 export const adminUserIds = env.ADMIN_USER_IDS.split(",")
 	.map((id) => id.trim())

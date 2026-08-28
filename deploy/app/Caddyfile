@@ -80,3 +80,9 @@
 		file_server
 	}
 }
+
+# Staging vhosts live in /etc/caddy/staging/*.caddy so production releases can
+# replace this file without touching them. The directory must exist with at
+# least one .caddy file (Caddy errors on an unmatched import glob);
+# deploy/visp-release creates the placeholder automatically.
+import /etc/caddy/staging/*.caddy

@@ -11,6 +11,18 @@
 		"preview": {
 			"distribution": "internal"
 		},
+		"staging": {
+			"distribution": "internal",
+			"android": {
+				"buildType": "apk"
+			},
+			"env": {
+				"VISP_ENV": "staging",
+				"EXPO_PUBLIC_VISP_ENV": "staging",
+				"EXPO_PUBLIC_SERVER_URL": "https://staging.visp-stream.com",
+				"EXPO_PUBLIC_RELAY_WEBRTC_URL": "https://relay-staging.visp-stream.com"
+			}
+		},
 		"production": {
 			"autoIncrement": true,
 			"environment": "production"
