@@ -7,15 +7,15 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		125FE8BEB0BA4F919F23EA33 /* SRTHaishinKit in Frameworks */ = {isa = PBXBuildFile; productRef = 1AF3907539394C03BA437498 /* SRTHaishinKit */; };
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
+		3C045C1ADEF2E47D7F89B816 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 107B739F9E649027559B0B24 /* PrivacyInfo.xcprivacy */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
-		40FD6DE33DC34B98942ECF35 /* SRTHaishinKit in Frameworks */ = {isa = PBXBuildFile; productRef = 3CEA407EC29743C9AD55C346 /* SRTHaishinKit */; };
-		4E640BC0E8A9AEC04B5E6D80 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3C802419528DD2EA1D4843F5 /* PrivacyInfo.xcprivacy */; };
-		78C6990667A94E608A1A348D /* HaishinKit in Frameworks */ = {isa = PBXBuildFile; productRef = 49EB60EB9F0340F9A123D356 /* HaishinKit */; };
-		A0B38B42E87663B7D9AD3E65 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14C7FFA7054A9F059B61FABF /* ExpoModulesProvider.swift */; };
+		5561E846DAAA0CE814EADD82 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 107B739F9E649027559B0B24 /* PrivacyInfo.xcprivacy */; };
+		5690FAA663C6FAD167CC34FD /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = B52F02022C06D0BE1C794150 /* ExpoModulesProvider.swift */; };
+		73A691A669604AC78B7750F6 /* HaishinKit in Frameworks */ = {isa = PBXBuildFile; productRef = 157AE2BAB33442D793A6636A /* HaishinKit */; };
+		785C037BF62B64C9763A7A54 /* libPods-VISP.a in Frameworks */ = {isa = PBXBuildFile; fileRef = FFA216662EC2779C8DA0A97F /* libPods-VISP.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
-		C1281EA367CF512509F70CC5 /* libPods-VISP.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 66F0482D7D5CFC7887E07662 /* libPods-VISP.a */; };
-		E24CBC62A734E345CF11129F /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 3C802419528DD2EA1D4843F5 /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 		XX5A2234C029C2A570374BXX /* VISP Watch.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = XX4EF88365EDF7CD982161XX /* VISP Watch.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		XX6A44985675A04437B8C4XX /* SwiftUI.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */; };
@@ -47,19 +47,19 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		107B739F9E649027559B0B24 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = VISP/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		13B07F961A680F5B00A75B9A /* VISP.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = VISP.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = VISP/Images.xcassets; sourceTree = "<group>"; };
 		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; name = Info.plist; path = VISP/Info.plist; sourceTree = "<group>"; };
-		14C7FFA7054A9F059B61FABF /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-VISP/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		3C802419528DD2EA1D4843F5 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = VISP/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		66F0482D7D5CFC7887E07662 /* libPods-VISP.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VISP.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		796022ED33738A39AF04C905 /* Pods-VISP.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VISP.debug.xcconfig"; path = "Target Support Files/Pods-VISP/Pods-VISP.debug.xcconfig"; sourceTree = "<group>"; };
+		2C3F5A5A5CF9EFB3BFC3B5F4 /* Pods-VISP.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VISP.debug.xcconfig"; path = "Target Support Files/Pods-VISP/Pods-VISP.debug.xcconfig"; sourceTree = "<group>"; };
+		6EF818C7FB616348B1C5890A /* Pods-VISP.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VISP.release.xcconfig"; path = "Target Support Files/Pods-VISP/Pods-VISP.release.xcconfig"; sourceTree = "<group>"; };
 		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = VISP/SplashScreen.storyboard; sourceTree = "<group>"; };
+		B52F02022C06D0BE1C794150 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-VISP/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
-		DB231181B8CC2EB774772BBB /* Pods-VISP.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-VISP.release.xcconfig"; path = "Target Support Files/Pods-VISP/Pods-VISP.release.xcconfig"; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
 		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = VISP/AppDelegate.swift; sourceTree = "<group>"; };
 		F11748442D0722820044C1D9 /* VISP-Bridging-Header.h */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = 0; lastKnownFileType = sourcecode.c.h; name = "VISP-Bridging-Header.h"; path = "VISP/VISP-Bridging-Header.h"; sourceTree = "<group>"; };
+		FFA216662EC2779C8DA0A97F /* libPods-VISP.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-VISP.a"; sourceTree = BUILT_PRODUCTS_DIR; };
 		XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = SwiftUI.framework; path = System/Library/Frameworks/SwiftUI.framework; sourceTree = SDKROOT; };
 		XX4EF88365EDF7CD982161XX /* VISP Watch.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; fileEncoding = 4; includeInIndex = 0; path = "VISP Watch.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		XX8ACBDF17A27E5D829A2CXX /* WatchConnectivity.framework */ = {isa = PBXFileReference; fileEncoding = 4; includeInIndex = undefined; lastKnownFileType = wrapper.framework; name = WatchConnectivity.framework; path = System/Library/Frameworks/WatchConnectivity.framework; sourceTree = SDKROOT; };
@@ -89,7 +89,7 @@
 			path = watch;
 			sourceTree = "<group>";
 		};
-		16032E5D71A049FCB359D1B2 = {
+		B572C644C2FB4E7F954C0C92 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
 			};
@@ -99,7 +99,7 @@
 			path = ../modules/visp-srt/ios;
 			sourceTree = SOURCE_ROOT;
 		};
-		9F5B6AA61783472C9F2C31D1 = {
+		000213F263B845EA89A64280 = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			explicitFileTypes = {
 			};
@@ -116,9 +116,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				78C6990667A94E608A1A348D /* HaishinKit in Frameworks */,
-				40FD6DE33DC34B98942ECF35 /* SRTHaishinKit in Frameworks */,
-				C1281EA367CF512509F70CC5 /* libPods-VISP.a in Frameworks */,
+				73A691A669604AC78B7750F6 /* HaishinKit in Frameworks */,
+				125FE8BEB0BA4F919F23EA33 /* SRTHaishinKit in Frameworks */,
+				785C037BF62B64C9763A7A54 /* libPods-VISP.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -134,6 +134,16 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		02F1FDF6F33243FC4D3B7A53 /* Pods */ = {
+			isa = PBXGroup;
+			children = (
+				2C3F5A5A5CF9EFB3BFC3B5F4 /* Pods-VISP.debug.xcconfig */,
+				6EF818C7FB616348B1C5890A /* Pods-VISP.release.xcconfig */,
+			);
+			name = Pods;
+			path = Pods;
+			sourceTree = "<group>";
+		};
 		13B07FAE1A68108700A75B9A /* VISP */ = {
 			isa = PBXGroup;
 			children = (
@@ -143,17 +153,9 @@
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
-				3C802419528DD2EA1D4843F5 /* PrivacyInfo.xcprivacy */,
+				107B739F9E649027559B0B24 /* PrivacyInfo.xcprivacy */,
 			);
 			name = VISP;
-			sourceTree = "<group>";
-		};
-		17E0E4B710F58736EC12998B /* ExpoModulesProviders */ = {
-			isa = PBXGroup;
-			children = (
-				A046587C9D31077F57635BA1 /* VISP */,
-			);
-			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		2D16E6871FA4F8E400B85C8A /* Frameworks */ = {
@@ -162,9 +164,17 @@
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
 				XX4DFF38D47332D6BF0183XX /* SwiftUI.framework */,
 				XX8ACBDF17A27E5D829A2CXX /* WatchConnectivity.framework */,
-				66F0482D7D5CFC7887E07662 /* libPods-VISP.a */,
+				FFA216662EC2779C8DA0A97F /* libPods-VISP.a */,
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		780C026BA3F815190D1E0703 /* VISP */ = {
+			isa = PBXGroup;
+			children = (
+				B52F02022C06D0BE1C794150 /* ExpoModulesProvider.swift */,
+			);
+			name = VISP;
 			sourceTree = "<group>";
 		};
 		832341AE1AAA6A7D00B99B32 /* Libraries */ = {
@@ -182,10 +192,10 @@
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
-				F00A683D965AE5E22941DF75 /* Pods */,
-				17E0E4B710F58736EC12998B /* ExpoModulesProviders */,
-				16032E5D71A049FCB359D1B2 /* modules/visp-srt/ios */,
-				9F5B6AA61783472C9F2C31D1 /* modules/visp-srt/android */,
+				02F1FDF6F33243FC4D3B7A53 /* Pods */,
+				ACC99A101AE6C116F7E7B210 /* ExpoModulesProviders */,
+				B572C644C2FB4E7F954C0C92 /* modules/visp-srt/ios */,
+				000213F263B845EA89A64280 /* modules/visp-srt/android */,
 			);
 			indentWidth = 2;
 			sourceTree = "<group>";
@@ -201,12 +211,12 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		A046587C9D31077F57635BA1 /* VISP */ = {
+		ACC99A101AE6C116F7E7B210 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				14C7FFA7054A9F059B61FABF /* ExpoModulesProvider.swift */,
+				780C026BA3F815190D1E0703 /* VISP */,
 			);
-			name = VISP;
+			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
 		BB2F792B24A3F905000567C9 /* Supporting */ = {
@@ -216,16 +226,6 @@
 			);
 			name = Supporting;
 			path = VISP/Supporting;
-			sourceTree = "<group>";
-		};
-		F00A683D965AE5E22941DF75 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-				796022ED33738A39AF04C905 /* Pods-VISP.debug.xcconfig */,
-				DB231181B8CC2EB774772BBB /* Pods-VISP.release.xcconfig */,
-			);
-			name = Pods;
-			path = Pods;
 			sourceTree = "<group>";
 		};
 		XX3E41C1850246162C0061XX /* expo:targets */ = {
@@ -245,15 +245,15 @@
 			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "VISP" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
-				D62A793610B76456F904BB72 /* [Expo] Configure project */,
+				280A42113D4575C2B122B374 /* [Expo] Configure project */,
 				13B07F871A680F5B00A75B9A /* Sources */,
 				13B07F8C1A680F5B00A75B9A /* Frameworks */,
 				13B07F8E1A680F5B00A75B9A /* Resources */,
 				00DD1BFF1BD5951E006B06BC /* Bundle React Native code and images */,
 				800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */,
-				0F1C130BE65641FFAE546C09 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
+				F372259D833B4029A3D21164 /* [Expo Dev Launcher] Strip Local Network Keys for Release */,
 				XX81D5C67C94C2E1F9007EXX /* Embed Watch Content */,
-				5337490A446C316829B65F6E /* [CP] Embed Pods Frameworks */,
+				254C9F2EDEF38F60E896007D /* [CP] Embed Pods Frameworks */,
 			);
 			buildRules = (
 			);
@@ -262,15 +262,15 @@
 			);
 			name = VISP;
 			packageProductDependencies = (
-				49EB60EB9F0340F9A123D356 /* HaishinKit */,
-				3CEA407EC29743C9AD55C346 /* SRTHaishinKit */,
+				157AE2BAB33442D793A6636A /* HaishinKit */,
+				1AF3907539394C03BA437498 /* SRTHaishinKit */,
 			);
 			productName = VISP;
 			productReference = 13B07F961A680F5B00A75B9A /* VISP.app */;
 			productType = "com.apple.product-type.application";
 			fileSystemSynchronizedGroups = (
-				16032E5D71A049FCB359D1B2 /* modules/visp-srt/ios */,
-				9F5B6AA61783472C9F2C31D1 /* modules/visp-srt/android */,
+				B572C644C2FB4E7F954C0C92 /* modules/visp-srt/ios */,
+				000213F263B845EA89A64280 /* modules/visp-srt/android */,
 			);
 		};
 		XXB01E35914E64853F539FXX /* VISP Watch */ = {
@@ -321,7 +321,7 @@
 			);
 			mainGroup = 83CBB9F61A601CBA00E9B192;
 			packageReferences = (
-				B698C8A68BE74BBCB17905CC /* XCLocalSwiftPackageReference "haishinkit" */,
+				0CF9C3D3DE414E22868AADCA /* XCLocalSwiftPackageReference "haishinkit" */,
 			);
 			productRefGroup = 83CBBA001A601CBA00E9B192 /* Products */;
 			projectDirPath = "";
@@ -341,7 +341,7 @@
 				BB2F792D24A3F905000567C9 /* Expo.plist in Resources */,
 				13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */,
 				3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */,
-				4E640BC0E8A9AEC04B5E6D80 /* PrivacyInfo.xcprivacy in Resources */,
+				5561E846DAAA0CE814EADD82 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -349,7 +349,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				E24CBC62A734E345CF11129F /* PrivacyInfo.xcprivacy in Resources */,
+				3C045C1ADEF2E47D7F89B816 /* PrivacyInfo.xcprivacy in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -399,25 +399,7 @@
 			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
 			showEnvVarsInLog = 0;
 		};
-		0F1C130BE65641FFAE546C09 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputFileListPaths = (
-			);
-			inputPaths = (
-			);
-			name = "[Expo Dev Launcher] Strip Local Network Keys for Release";
-			outputFileListPaths = (
-			);
-			outputPaths = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "# Strip dev-launcher-specific local network permission keys from non-Debug builds\n# This only removes _expo._tcp Bonjour services and the dev-launcher usage description.\n# Other Bonjour services and custom descriptions are preserved for production use.\n\nif [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  PLIST_PATH=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n  if [ -f \"$PLIST_PATH\" ]; then\n    # Check if NSBonjourServices exists\n    if /usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" >/dev/null 2>&1; then\n      # Get the count of services\n      COUNT=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n\n      # Remove _expo._tcp\n      for ((i=COUNT-1; i>=0; i--)); do\n        SERVICE=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n        if echo \"$SERVICE\" | grep -q \"_expo._tcp\"; then\n          /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || true\n        fi\n      done\n\n      # If the array is now empty, remove it entirely\n      REMAINING=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n      if [ \"$REMAINING\" -eq \"0\" ]; then\n        /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null || true\n      fi\n    fi\n\n    # Only delete the description if it matches the dev-launcher default text\n    DESC=$(/usr/libexec/PlistBuddy -c \"Print :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n    if echo \"$DESC\" | grep -q \"Expo Dev Launcher\"; then\n      /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || true\n    fi\n  fi\nfi\n";
-		};
-		5337490A446C316829B65F6E /* [CP] Embed Pods Frameworks */ = {
+		254C9F2EDEF38F60E896007D /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -460,6 +442,30 @@
 			shellPath = /bin/sh;
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VISP/Pods-VISP-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
+		};
+		280A42113D4575C2B122B374 /* [Expo] Configure project */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/.xcode.env",
+				"$(SRCROOT)/.xcode.env.local",
+				"$(SRCROOT)/VISP/VISP.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-VISP/expo-configure-project.sh",
+			);
+			name = "[Expo] Configure project";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/Pods/Target Support Files/Pods-VISP/ExpoModulesProvider.swift",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-VISP/expo-configure-project.sh\"\n";
 		};
 		800E24972A6A228C8D4807E9 /* [CP] Copy Pods Resources */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -511,29 +517,23 @@
 			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-VISP/Pods-VISP-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
-		D62A793610B76456F904BB72 /* [Expo] Configure project */ = {
+		F372259D833B4029A3D21164 /* [Expo Dev Launcher] Strip Local Network Keys for Release */ = {
 			isa = PBXShellScriptBuildPhase;
-			alwaysOutOfDate = 1;
 			buildActionMask = 2147483647;
 			files = (
 			);
 			inputFileListPaths = (
 			);
 			inputPaths = (
-				"$(SRCROOT)/.xcode.env",
-				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/VISP/VISP.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-VISP/expo-configure-project.sh",
 			);
-			name = "[Expo] Configure project";
+			name = "[Expo Dev Launcher] Strip Local Network Keys for Release";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-VISP/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-VISP/expo-configure-project.sh\"\n";
+			shellScript = "# Strip dev-launcher-specific local network permission keys from non-Debug builds\n# This only removes _expo._tcp Bonjour services and the dev-launcher usage description.\n# Other Bonjour services and custom descriptions are preserved for production use.\n\nif [ \"$CONFIGURATION\" != \"Debug\" ]; then\n  PLIST_PATH=\"${TARGET_BUILD_DIR}/${INFOPLIST_PATH}\"\n  if [ -f \"$PLIST_PATH\" ]; then\n    # Check if NSBonjourServices exists\n    if /usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" >/dev/null 2>&1; then\n      # Get the count of services\n      COUNT=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n\n      # Remove _expo._tcp\n      for ((i=COUNT-1; i>=0; i--)); do\n        SERVICE=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n        if echo \"$SERVICE\" | grep -q \"_expo._tcp\"; then\n          /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices:$i\" \"$PLIST_PATH\" 2>/dev/null || true\n        fi\n      done\n\n      # If the array is now empty, remove it entirely\n      REMAINING=$(/usr/libexec/PlistBuddy -c \"Print :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null | grep \"^    \" | wc -l | tr -d ' ')\n      if [ \"$REMAINING\" -eq \"0\" ]; then\n        /usr/libexec/PlistBuddy -c \"Delete :NSBonjourServices\" \"$PLIST_PATH\" 2>/dev/null || true\n      fi\n    fi\n\n    # Only delete the description if it matches the dev-launcher default text\n    DESC=$(/usr/libexec/PlistBuddy -c \"Print :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || echo \"\")\n    if echo \"$DESC\" | grep -q \"Expo Dev Launcher\"; then\n      /usr/libexec/PlistBuddy -c \"Delete :NSLocalNetworkUsageDescription\" \"$PLIST_PATH\" 2>/dev/null || true\n    fi\n  fi\nfi\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -543,7 +543,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */,
-				A0B38B42E87663B7D9AD3E65 /* ExpoModulesProvider.swift in Sources */,
+				5690FAA663C6FAD167CC34FD /* ExpoModulesProvider.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -567,7 +567,7 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 796022ED33738A39AF04C905 /* Pods-VISP.debug.xcconfig */;
+			baseConfigurationReference = 2C3F5A5A5CF9EFB3BFC3B5F4 /* Pods-VISP.debug.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -607,7 +607,7 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = DB231181B8CC2EB774772BBB /* Pods-VISP.release.xcconfig */;
+			baseConfigurationReference = 6EF818C7FB616348B1C5890A /* Pods-VISP.release.xcconfig */;
 			buildSettings = {
 				ALWAYS_EMBED_SWIFT_STANDARD_LIBRARIES = YES;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
@@ -894,22 +894,22 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		B698C8A68BE74BBCB17905CC /* XCLocalSwiftPackageReference "haishinkit" */ = {
+		0CF9C3D3DE414E22868AADCA /* XCLocalSwiftPackageReference "haishinkit" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = "../modules/visp-srt/vendor/haishinkit";
 		};
 /* End XCLocalSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
-		3CEA407EC29743C9AD55C346 /* SRTHaishinKit */ = {
+		157AE2BAB33442D793A6636A /* HaishinKit */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = B698C8A68BE74BBCB17905CC /* XCLocalSwiftPackageReference "haishinkit" */;
-			productName = SRTHaishinKit;
-		};
-		49EB60EB9F0340F9A123D356 /* HaishinKit */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = B698C8A68BE74BBCB17905CC /* XCLocalSwiftPackageReference "haishinkit" */;
+			package = 0CF9C3D3DE414E22868AADCA /* XCLocalSwiftPackageReference "haishinkit" */;
 			productName = HaishinKit;
+		};
+		1AF3907539394C03BA437498 /* SRTHaishinKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 0CF9C3D3DE414E22868AADCA /* XCLocalSwiftPackageReference "haishinkit" */;
+			productName = SRTHaishinKit;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

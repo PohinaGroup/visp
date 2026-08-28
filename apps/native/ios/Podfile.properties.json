@@ -1,7 +1,7 @@
 {
-	"expo.jsEngine": "hermes",
-	"EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
-	"ios.deploymentTarget": "16.4",
-	"expo.inlineModules.watchedDirectories": "[\"modules/visp-srt/ios\",\"modules/visp-srt/android\"]",
-	"expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"VISP\",\"targets\":[]}"
+  "expo.jsEngine": "hermes",
+  "EX_DEV_CLIENT_NETWORK_INSPECTOR": "true",
+  "ios.deploymentTarget": "16.4",
+  "expo.inlineModules.watchedDirectories": "[\"modules/visp-srt/ios\",\"modules/visp-srt/android\"]",
+  "expo.inlineModules.xcodeProjectTargets": "{\"mainTarget\":\"VISP\",\"targets\":[]}"
 }
