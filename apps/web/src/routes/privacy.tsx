@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Legal"
 			title="Privacy Policy"
 			description="This policy explains how VISP processes personal data when you use the website, dashboard, mobile apps, and related streaming relay services."
-			updated="26 July 2026"
+			updated="14 August 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Controller</h2>
@@ -43,11 +43,13 @@ function PrivacyPage() {
 					VISP is a self-hosted SRT/RTMP relay and control plane for remote live
 					streaming. You are never asked to paste a broadcast/stream key. If you
 					turn on VISP Direct for a device, VISP retrieves that platform's
-					stream key from Twitch or Kick using permission you grant in their
-					OAuth screen, uses it only to run the forwarding process while that
-					device is live, and does not store it as a separate value or return it
-					to any client app. VISP relays live media and provides account,
-					dashboard, and device features around that relay.
+					stream destination from Twitch, Kick, or YouTube using permission you
+					grant in their OAuth screen, uses it only to run the forwarding
+					process while that device is live, and does not store a stream key as
+					a separate value or return it to any client app. YouTube Direct
+					creates a public broadcast with automatic start and stop. VISP relays
+					live media and provides account, dashboard, and device features around
+					that relay.
 				</p>
 			</section>
 
@@ -55,8 +57,9 @@ function PrivacyPage() {
 				<h2>3. Data we process</h2>
 				<ul>
 					<li>
-						<strong>Account data</strong> from Twitch or Kick sign-in: name,
-						email address, profile image, and linked provider account
+						<strong>Account data</strong> from Twitch, Kick, Google, or Apple
+						(iOS) sign-in: name, email address (including Apple private relay
+						addresses when chosen), profile image, and linked provider account
 						identifiers.
 					</li>
 					<li>
@@ -80,9 +83,37 @@ function PrivacyPage() {
 						once a minute and expired within about one day after updates stop.
 					</li>
 					<li>
+						<strong>BRB highlights</strong>: short video clips you deliberately
+						upload for playback while Direct holds your broadcast. VISP does not
+						create these clips from your live stream.
+					</li>
+					<li>
 						<strong>Chat connection metadata</strong> needed to connect chat
 						integrations (for example subscription IDs). Chat message content is
-						not retained by VISP as a content archive.
+						not retained by VISP as a content archive. If you enable hosted
+						text-to-speech, the text selected for speech is sent to the hosted
+						speech provider to create the requested audio.
+					</li>
+					<li>
+						<strong>Optional speech-processing data</strong>: if your account
+						has hosted captions or hosted audio isolation enabled and you turn
+						the feature on, live microphone audio is sent to ElevenLabs to
+						produce caption text or isolated audio. The normal on-device speech
+						and audio options do not send microphone audio to ElevenLabs.
+					</li>
+					<li>
+						<strong>Assistant conversations</strong>: messages sent to Seppo
+						and, when you use it on the dashboard, a sanitized service-status
+						summary. These are sent through the configured AI gateway to the
+						selected model provider to generate a reply. Secrets and snapshot
+						contents are not included in that summary.
+					</li>
+					<li>
+						<strong>Founding creator application data</strong>: your name, email
+						address, YouTube channel and relevant-content URLs, description of
+						your audience and setup, and disclosure acknowledgement when you
+						apply to the creator program. Applications are also forwarded to our
+						internal team chat so we can review and reply to them.
 					</li>
 					<li>
 						<strong>Security and service logs</strong> for reliability, abuse
@@ -101,7 +132,12 @@ function PrivacyPage() {
 					<li>
 						<strong>Providing the service</strong> (contract / steps prior to
 						contract): account creation, authentication, relay configuration,
-						dashboard, and related features.
+						dashboard, optional speech processing and assistant features.
+					</li>
+					<li>
+						<strong>Founding creator applications</strong> (steps prior to
+						contract / contract): reviewing applications, responding to
+						applicants, and administering accepted creator relationships.
 					</li>
 					<li>
 						<strong>Security and integrity</strong> (legitimate interests):
@@ -129,12 +165,16 @@ function PrivacyPage() {
 				<p>
 					We use infrastructure and subprocessors necessary to run VISP (for
 					example hosting, database, object storage for snapshots, and OAuth
-					identity providers Twitch and Kick). When analytics is configured, it
-					runs on our own self-hosted Rybbit instance, so analytics data is not
-					shared with a third-party analytics provider. Stream destinations you
-					choose (OBS, platforms) receive the media you publish; VISP does not
-					take ownership of your stream keys, and retrieves them only for the
-					duration of a VISP Direct session you have enabled.
+					identity providers Twitch, Kick, and Google). Optional hosted speech
+					features use ElevenLabs. Seppo uses the configured AI gateway and
+					model provider (currently Google Gemini). Those providers process only
+					the content needed to provide the feature you invoke. When analytics
+					is configured, it runs on our own self-hosted Rybbit instance, so
+					analytics data is not shared with a third-party analytics provider.
+					Stream destinations you choose (OBS, platforms) receive the media you
+					publish; VISP does not take ownership of your stream keys, and
+					retrieves them only for the duration of a VISP Direct session you have
+					enabled.
 				</p>
 			</section>
 
@@ -164,16 +204,31 @@ function PrivacyPage() {
 						updates stop.
 					</li>
 					<li>
+						Uploaded BRB highlights: kept until you remove them or delete your
+						account.
+					</li>
+					<li>
+						Unsuccessful founding creator applications: deleted within 12 months
+						of the decision. Accepted partner data is retained for the
+						relationship and any longer accounting or legal period that applies.
+					</li>
+					<li>
 						Encrypted backups: up to 30 days before overwrite after deletion.
 					</li>
 					<li>
 						Security and service logs: up to 90 days, unless law requires
 						longer.
 					</li>
+					<li>
+						Optional speech and assistant inputs: VISP does not retain them as a
+						content archive; the external provider's processing and retention
+						are also governed by its applicable service terms and
+						data-processing arrangements.
+					</li>
 				</ul>
 				<p>
 					Continuous stream recordings and chat content archives are not kept by
-					VISP.
+					VISP. This does not include BRB highlight files you choose to upload.
 				</p>
 			</section>
 

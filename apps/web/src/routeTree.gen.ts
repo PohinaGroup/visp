@@ -13,12 +13,14 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RequestDeleteRouteImport } from './routes/request-delete'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as OverlayRouteImport } from './routes/overlay'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as CookiesRouteImport } from './routes/cookies'
 import { Route as ContactRouteImport } from './routes/contact'
+import { Route as AffiliateRouteImport } from './routes/affiliate'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FiIndexRouteImport } from './routes/fi/index'
@@ -27,7 +29,9 @@ import { Route as FiTermsRouteImport } from './routes/fi/terms'
 import { Route as FiPrivacyRouteImport } from './routes/fi/privacy'
 import { Route as FiCookiesRouteImport } from './routes/fi/cookies'
 import { Route as FiContactRouteImport } from './routes/fi/contact'
+import { Route as FiAffiliateRouteImport } from './routes/fi/affiliate'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AuthStudioRouteImport } from './routes/_auth/studio'
 import { Route as AuthSetupRouteImport } from './routes/_auth/setup'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
 import { Route as FiBlogIndexRouteImport } from './routes/fi/blog/index'
@@ -51,6 +55,11 @@ const RequestDeleteRoute = RequestDeleteRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OverlayRoute = OverlayRouteImport.update({
+  id: '/overlay',
+  path: '/overlay',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -81,6 +90,11 @@ const CookiesRoute = CookiesRouteImport.update({
 const ContactRoute = ContactRouteImport.update({
   id: '/contact',
   path: '/contact',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AffiliateRoute = AffiliateRouteImport.update({
+  id: '/affiliate',
+  path: '/affiliate',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -122,10 +136,20 @@ const FiContactRoute = FiContactRouteImport.update({
   path: '/fi/contact',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FiAffiliateRoute = FiAffiliateRouteImport.update({
+  id: '/fi/affiliate',
+  path: '/fi/affiliate',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const BlogSlugRoute = BlogSlugRouteImport.update({
   id: '/blog/$slug',
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthStudioRoute = AuthStudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => AuthRouteRoute,
 } as any)
 const AuthSetupRoute = AuthSetupRouteImport.update({
   id: '/setup',
@@ -150,19 +174,23 @@ const FiBlogSlugRoute = FiBlogSlugRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/affiliate': typeof AffiliateRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/overlay': typeof OverlayRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
+  '/studio': typeof AuthStudioRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
   '/fi/privacy': typeof FiPrivacyRoute
@@ -174,19 +202,23 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/affiliate': typeof AffiliateRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/overlay': typeof OverlayRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
+  '/studio': typeof AuthStudioRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
   '/fi/privacy': typeof FiPrivacyRoute
@@ -200,19 +232,23 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/affiliate': typeof AffiliateRoute
   '/contact': typeof ContactRoute
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
+  '/overlay': typeof OverlayRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/setup': typeof AuthSetupRoute
+  '/_auth/studio': typeof AuthStudioRoute
   '/blog/$slug': typeof BlogSlugRoute
+  '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
   '/fi/privacy': typeof FiPrivacyRoute
@@ -226,19 +262,23 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/affiliate'
     | '/contact'
     | '/cookies'
     | '/device'
     | '/download'
     | '/llms.txt'
     | '/login'
+    | '/overlay'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
     | '/terms'
     | '/dashboard'
     | '/setup'
+    | '/studio'
     | '/blog/$slug'
+    | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
     | '/fi/privacy'
@@ -250,19 +290,23 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/affiliate'
     | '/contact'
     | '/cookies'
     | '/device'
     | '/download'
     | '/llms.txt'
     | '/login'
+    | '/overlay'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
     | '/terms'
     | '/dashboard'
     | '/setup'
+    | '/studio'
     | '/blog/$slug'
+    | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
     | '/fi/privacy'
@@ -275,19 +319,23 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/_auth'
+    | '/affiliate'
     | '/contact'
     | '/cookies'
     | '/device'
     | '/download'
     | '/llms.txt'
     | '/login'
+    | '/overlay'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
     | '/terms'
     | '/_auth/dashboard'
     | '/_auth/setup'
+    | '/_auth/studio'
     | '/blog/$slug'
+    | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
     | '/fi/privacy'
@@ -301,17 +349,20 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
+  AffiliateRoute: typeof AffiliateRoute
   ContactRoute: typeof ContactRoute
   CookiesRoute: typeof CookiesRoute
   DeviceRoute: typeof DeviceRoute
   DownloadRoute: typeof DownloadRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
+  OverlayRoute: typeof OverlayRoute
   PrivacyRoute: typeof PrivacyRoute
   RequestDeleteRoute: typeof RequestDeleteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   BlogSlugRoute: typeof BlogSlugRoute
+  FiAffiliateRoute: typeof FiAffiliateRoute
   FiContactRoute: typeof FiContactRoute
   FiCookiesRoute: typeof FiCookiesRoute
   FiPrivacyRoute: typeof FiPrivacyRoute
@@ -350,6 +401,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/overlay': {
+      id: '/overlay'
+      path: '/overlay'
+      fullPath: '/overlay'
+      preLoaderRoute: typeof OverlayRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -392,6 +450,13 @@ declare module '@tanstack/react-router' {
       path: '/contact'
       fullPath: '/contact'
       preLoaderRoute: typeof ContactRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/affiliate': {
+      id: '/affiliate'
+      path: '/affiliate'
+      fullPath: '/affiliate'
+      preLoaderRoute: typeof AffiliateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_auth': {
@@ -450,12 +515,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof FiContactRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/fi/affiliate': {
+      id: '/fi/affiliate'
+      path: '/fi/affiliate'
+      fullPath: '/fi/affiliate'
+      preLoaderRoute: typeof FiAffiliateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/blog/$slug': {
       id: '/blog/$slug'
       path: '/blog/$slug'
       fullPath: '/blog/$slug'
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_auth/studio': {
+      id: '/_auth/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof AuthStudioRouteImport
+      parentRoute: typeof AuthRouteRoute
     }
     '/_auth/setup': {
       id: '/_auth/setup'
@@ -491,11 +570,13 @@ declare module '@tanstack/react-router' {
 interface AuthRouteRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
   AuthSetupRoute: typeof AuthSetupRoute
+  AuthStudioRoute: typeof AuthStudioRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
   AuthSetupRoute: AuthSetupRoute,
+  AuthStudioRoute: AuthStudioRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
@@ -505,17 +586,20 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRouteRoute: AuthRouteRouteWithChildren,
+  AffiliateRoute: AffiliateRoute,
   ContactRoute: ContactRoute,
   CookiesRoute: CookiesRoute,
   DeviceRoute: DeviceRoute,
   DownloadRoute: DownloadRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
+  OverlayRoute: OverlayRoute,
   PrivacyRoute: PrivacyRoute,
   RequestDeleteRoute: RequestDeleteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   BlogSlugRoute: BlogSlugRoute,
+  FiAffiliateRoute: FiAffiliateRoute,
   FiContactRoute: FiContactRoute,
   FiCookiesRoute: FiCookiesRoute,
   FiPrivacyRoute: FiPrivacyRoute,

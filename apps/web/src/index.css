@@ -5,10 +5,6 @@
 @import "@fontsource/barlow-condensed/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource/space-grotesk/400.css";
-@import "@fontsource/space-grotesk/500.css";
-@import "@fontsource/space-grotesk/600.css";
-@import "@fontsource/space-grotesk/700.css";
 
 @import "@VISP/ui/globals.css";
 
@@ -191,7 +187,6 @@ html[data-theme="dark"][data-astryx-theme="neutral"] {
 	--font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
 	--font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
 	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
-	--font-grotesk: "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
 
 	/* Signal-state colors: tally = live, caution = unknown, signal = ok */
 	--color-tally: oklch(0.63 0.21 27);
@@ -258,6 +253,27 @@ html[data-theme="dark"][data-astryx-theme="neutral"] {
 	from {
 		opacity: 0;
 		transform: translateY(8px);
+	}
+}
+
+/*
+ * OBS browser source. The page only composites over the scene when the
+ * background is genuinely transparent, so this overrides whatever the base
+ * layer paints. The fade mirrors FADE_WINDOW_MS in the native chat model:
+ * opaque for 8s, then a linear ramp over the last 4s of the 12s window.
+ */
+html[data-overlay],
+html[data-overlay] body {
+	background: transparent;
+}
+
+@keyframes visp-chat-fade {
+	0%,
+	66.67% {
+		opacity: 1;
+	}
+	100% {
+		opacity: 0;
 	}
 }
 

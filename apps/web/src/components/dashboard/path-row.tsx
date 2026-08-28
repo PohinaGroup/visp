@@ -112,7 +112,7 @@ export function PathRow({
 		}),
 	);
 
-	const publishUrl = async (protocol: "srt" | "rtmp") =>
+	const publishUrl = async (protocol: "srt" | "rtmp" | "srtla") =>
 		(await reveal.mutateAsync({ pathId: path.id })).urls[protocol];
 	const readUrl = async (protocol: "srt" | "rtmp") => {
 		const url = (await revealRead.mutateAsync()).urls.read.find(
@@ -150,9 +150,11 @@ export function PathRow({
 								docsLabel="See how to add this to your video source"
 								getRtmp={() => publishUrl("rtmp")}
 								getSrt={() => publishUrl("srt")}
+								getSrtla={() => publishUrl("srtla")}
 								label={t("Sending URL")}
 								rtmp={path.maskedUrls.publish.rtmp}
 								srt={path.maskedUrls.publish.srt}
+								srtla={path.maskedUrls.publish.srtla}
 							/>
 						) : null}
 						{path.maskedUrls.read ? (

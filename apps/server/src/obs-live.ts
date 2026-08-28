@@ -10,6 +10,7 @@ import {
 	obsLiveTickets,
 } from "@VISP/api/obs-live";
 import { Elysia, status, t } from "elysia";
+import { nodeAdapter } from "./node-adapter";
 
 const connections = new Map<
 	string,
@@ -24,7 +25,10 @@ function send(ws: { send(data: string): unknown }, data: unknown) {
 	}
 }
 
-export const obsLiveRoutes = new Elysia({ name: "obs-live-routes" })
+export const obsLiveRoutes = new Elysia({
+	adapter: nodeAdapter,
+	name: "obs-live-routes",
+})
 	.post("/api/obs/live-ticket", async ({ headers }) => {
 		try {
 			const owner = await authenticateObsControlToken(headers.authorization);
@@ -39,6 +43,8 @@ export const obsLiveRoutes = new Elysia({ name: "obs-live-routes" })
 		}
 	})
 	.ws("/api/obs/live", {
+		// The Node adapter only runs its built-in JSON decoder when a parser is set.
+		parse: () => undefined,
 		query: t.Object({ ticket: t.String({ minLength: 20, maxLength: 128 }) }),
 		body: t.Object({
 			appliedVersion: t.Integer({ minimum: 0 }),

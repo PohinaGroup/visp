@@ -1,16 +1,17 @@
 # VISP
 
-VISP is a self-hosted SRT/RTMP relay and control plane for remote live
-streaming. Broadcasters sign in with Twitch or Kick, create independently
-revocable publishing devices, send one H.264/AAC feed to MediaMTX, and read it
-from OBS. The native app can publish directly from a phone, while the dedicated
-OBS Remote app controls the paired OBS plugin in real time.
+VISP is a self-hosted SRT/SRTLA/RTMP relay and control plane for remote live
+streaming. Broadcasters sign in with Twitch, Kick, or Google, create independently
+revocable publishing devices, and send one H.264/AAC feed to MediaMTX. Direct
+then distribution-encodes that feed to Twitch, Kick, or YouTube — one FFmpeg
+forwarder per destination, against a per-relay encoder cap. OBS can optionally
+read the original contribution feed for monitoring, recording, and scenes.
 
 ## Architecture
 
 | Component | Responsibility |
 | --- | --- |
-| Relay host | MediaMTX ingest/read, Caddy RTT probe, stream snapshots, Tailscale-only Control API |
+| Relay host | MediaMTX ingest/read, `srtla_rec` SRTLA ingest (UDP 5000), `visp-bond` SRT-group gateway (UDP 8891), Direct FFmpeg forwarders and BRB card, Caddy RTT probe, stream snapshots, Tailscale-only Control API |
 | App host | PostgreSQL, Elysia/tRPC API, Better Auth, portal, admin console, provider integrations |
 | Native app | iOS/Android camera publishing, chat, stream metadata, OBS controls |
 | OBS Remote | Dedicated iOS/Android/web scene and stream control surface |
@@ -19,7 +20,11 @@ OBS Remote app controls the paired OBS plugin in real time.
 Publish URLs are encrypted for authenticated re-reveal and also stored as
 Argon2id hashes for relay authentication. Read credentials are one-time rotation
 results. The app is required when a new media connection is authenticated, but
-an established stream survives an app outage.
+an established stream survives an app outage. Direct never returns a platform
+stream key to a publishing device; keys are resolved server-side while output
+runs. The chat bot also runs on the app host — the relay reports source state
+through hooks and the app host posts the messages, so alerts work with the
+broadcaster's computer off.
 
 ## Quick start
 
@@ -34,7 +39,7 @@ bun run dev:local
 The launcher creates missing env files, generates local secrets, validates all
 values, starts PostgreSQL 18, MinIO, MediaMTX, and Caddy through Compose, applies
 migrations, and starts the API, portal, admin console, OBS Remote web app, and
-docs. Missing Twitch or Kick credentials are reported without preventing
+docs. Missing Twitch, Kick, or Google credentials are reported without preventing
 unrelated local work.
 
 Open the portal at <https://visp.localhost>, the API at
@@ -58,7 +63,7 @@ apps/obs-remote   Dedicated Expo OBS control surface
 apps/obs-plugin   OBS Studio remote-control plugin
 apps/fumadocs     Broadcaster and operator documentation site
 packages/api      Relay, chat, snapshots, OBS, and tRPC domain logic
-packages/auth     Better Auth and Twitch/Kick OAuth configuration
+packages/auth     Better Auth and Twitch/Kick/Google OAuth configuration
 packages/db       Drizzle schema and forward migrations
 packages/env      Validated server and browser environments
 packages/ui       Shared UI components
@@ -72,7 +77,12 @@ bun test
 bun run test:integration
 bun run check-types
 bun run build
+bun run test:e2e
 ```
+
+Browser smoke tests require the local stack (`bun run dev:local`) and a one-time
+Playwright browser install (`bun run test:e2e:install`). See
+[DEVELOPMENT.md](DEVELOPMENT.md) for details.
 
 The integration suite starts a disposable PostgreSQL container on port 55432
 and removes it when the run finishes. OBS plugin builds and tests are documented
@@ -91,12 +101,12 @@ VISP does not host OBS or bill users. It assigns paths across capacity-managed
 MediaMTX relays. One publisher owns a path at a time; the first connection
 remains active and later publishers are rejected.
 
-The relay-to-OBS path never transcodes and never touches a provider stream key.
-VISP Direct — opt-in, per device, limited beta — does both: it distribution-
-encodes on the relay and retrieves the Twitch or Kick stream key with your
-OAuth consent. Keys are held only for as long as the forwarding process runs,
-are never returned to client apps, and are never stored as separate database
-values.
+Direct is the default Twitch/Kick/YouTube output. It distribution-encodes on the relay
+and resolves the provider destination with OAuth consent. Keys are held only
+while the forwarding process runs, are never returned to client apps, and are
+never stored as separate database values. YouTube broadcasts are public,
+created automatically, and use auto-start/auto-stop. The optional relay-to-OBS path never
+transcodes and OBS reads the contribution feed, not the platform encode.
 
 ## License
 

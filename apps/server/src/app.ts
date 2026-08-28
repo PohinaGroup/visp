@@ -11,12 +11,20 @@ import {
 	createAuthMiddleware,
 } from "evlog/better-auth";
 import { evlog } from "evlog/elysia";
+import { audioIsolationRoutes } from "./audio-isolation";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
+import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
+import { subtitlesRoutes } from "./subtitles";
+import { ttsRoutes } from "./tts";
 
 initLogger({ env: { service: "VISP-server" } });
+
+// Production runs under Node (`node dist/index.mjs`). Bun's native adapter is
+// unavailable there, and Bun itself segfaults on Postgres TLS, so always use
+// the Node adapter (srvx/crossws) for listen + WebSocket.
 
 export const LOG_REDACTION_PATHS = [
 	"**.password",
@@ -30,7 +38,18 @@ export const LOG_REDACTION_PATHS = [
 	"**.x-hook-secret",
 	// VISP Direct destination URLs embed the platform stream key.
 	"**.destinations",
+	"**.url",
+	"**.encryptedUrl",
 	"**.stream_key",
+	// Presigned BRB card URLs are bearer credentials for the object store.
+	"**.backgroundUrl",
+	"**.imageUrl",
+	// Public affiliate applications contain contact details and creator notes.
+	"**.applicantName",
+	"**.email",
+	"**.youtubeChannelUrl",
+	"**.relevantVideoUrl",
+	"**.audienceAndSetup",
 ];
 
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
@@ -46,7 +65,7 @@ const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 });
 
 export function createApp() {
-	return new Elysia()
+	return new Elysia({ adapter: nodeAdapter })
 		.use(
 			evlog({
 				redact: { paths: LOG_REDACTION_PATHS },
@@ -73,6 +92,18 @@ export function createApp() {
 		.use(machineRoutes)
 		.use(obsLiveRoutes)
 		.use(seppoRoutes)
+		.use(ttsRoutes)
+		.use(audioIsolationRoutes)
+		.use(subtitlesRoutes)
+		.get("/api/auth/google-local-callback", ({ request }) => {
+			const incoming = new URL(request.url);
+			const callback = new URL(
+				"/api/auth/callback/google",
+				env.BETTER_AUTH_URL,
+			);
+			callback.search = incoming.search;
+			return Response.redirect(callback.toString(), 302);
+		})
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {
 				return auth.handler(request);

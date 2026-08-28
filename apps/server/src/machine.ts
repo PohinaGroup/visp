@@ -1,10 +1,23 @@
 import { type AdvisoryLock, tryAdvisoryLock } from "@VISP/api/advisory-lock";
 import {
+	brbTick,
+	customBrbTick,
+	recordBrbHighlightPlayed,
+} from "@VISP/api/brb";
+import { chatHub } from "@VISP/api/chat/hub";
+import {
 	applyDirectState,
 	DIRECT_PROVIDERS,
 	DIRECT_STATES,
+	DirectError,
+	directDestinationActive,
 	resolveDirectDestinations,
+	resolveDirectDestinationsV3,
 } from "@VISP/api/direct";
+import {
+	applyCustomDirectState,
+	customDirectOutputActive,
+} from "@VISP/api/direct-custom";
 import {
 	authenticateObsControlToken,
 	pollObsControl,
@@ -22,26 +35,68 @@ import {
 	reconcilePathState,
 } from "@VISP/api/relay";
 import { getSnapshotUploadUrl } from "@VISP/api/snapshots";
+import {
+	compositorDesiredState,
+	deliverStudioAlert,
+	deliverStudioProviderAlert,
+	reportBrowserFailure,
+	reportCompositorHealth,
+} from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import { session as authSession } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
+import {
+	directDestinationJsonResponse,
+	directDestinationResponse,
+	formatLegacyDirectDestinations,
+	formatV2DirectDestinations,
+	formatV3DirectDestinations,
+} from "./direct-hook-contract";
 
 // ponytail: per-instance limit allows N× traffic on N app instances; move to
 // Postgres or the cache bus only if a strict global request cap is needed.
 const deviceMutations = fixedWindow(20, 60_000);
 
-function matchesHookSecret(value: string | undefined) {
+chatHub.onPublished((userId, event) => {
+	if (event.type !== "alert") return;
+	void deliverStudioProviderAlert(userId, event.alert).catch((error) =>
+		console.error("Studio alert bridge failed", error),
+	);
+});
+
+function matchesSecret(value: string | undefined, secret: string) {
 	if (!value) {
 		return false;
 	}
 	const provided = Buffer.from(value);
-	const expected = Buffer.from(env.HOOK_SECRET);
+	const expected = Buffer.from(secret);
 	return (
 		provided.length === expected.length && timingSafeEqual(provided, expected)
+	);
+}
+
+function matchesHookSecret(value: string | undefined) {
+	return matchesSecret(value, env.HOOK_SECRET);
+}
+
+export function studioScopedCredential(
+	secret: string,
+	path: string,
+	purpose: "hook" | "media",
+) {
+	return createHmac("sha256", secret)
+		.update(`${purpose}:${path}`)
+		.digest("hex");
+}
+
+function matchesStudioToken(value: string | undefined, path: string) {
+	return matchesSecret(
+		value,
+		studioScopedCredential(env.HOOK_SECRET, path, "hook"),
 	);
 }
 
@@ -190,12 +245,28 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 	.post(
 		"/api/mediamtx/auth",
 		async ({ body }) => {
-			if (
-				body.action === "read" &&
+			const localRtsp =
 				body.protocol === "rtsp" &&
-				(body.ip === "127.0.0.1" || body.ip === "::1")
-			) {
-				return status(200, "ok");
+				(body.ip === "127.0.0.1" || body.ip === "::1");
+			if (localRtsp) {
+				const path = body.path.startsWith("studio/")
+					? body.path.slice("studio/".length)
+					: body.path;
+				const allowedAction =
+					body.action === "read" ||
+					(body.action === "publish" && body.path === `studio/${path}`);
+				if (
+					path &&
+					allowedAction &&
+					body.user === `studio:${path}` &&
+					matchesSecret(
+						body.password,
+						studioScopedCredential(env.STUDIO_MEDIA_PASSWORD, path, "media"),
+					)
+				) {
+					return status(200, "ok");
+				}
+				return status(401, "unauthorized");
 			}
 			if (!body.user || !body.password) {
 				return status(401, "credentials required");
@@ -203,7 +274,10 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (
 				body.protocol !== "srt" &&
 				body.protocol !== "rtmp" &&
-				!(body.protocol === "webrtc" && body.action === "publish")
+				!(
+					body.protocol === "webrtc" &&
+					(body.action === "publish" || body.action === "read")
+				)
 			) {
 				return status(403, "forbidden");
 			}
@@ -219,7 +293,10 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 					user: body.user,
 				});
 				return allowed ? status(200, "ok") : status(401, "unauthorized");
-			} catch {
+			} catch (error) {
+				if (error instanceof DirectError) {
+					return status(409, error.message);
+				}
 				return status(503, "authentication unavailable");
 			}
 		},
@@ -235,6 +312,114 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				id: t.Optional(t.String()),
 				query: t.Optional(t.String()),
 				userAgent: t.Optional(t.String()),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/studio/desired-state",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (
+					(await compositorDesiredState(body.path)) ??
+					status(404, "path not found")
+				);
+			} catch {
+				return status(503, "studio state unavailable");
+			}
+		},
+		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+	)
+	.post(
+		"/api/hooks/studio/relay-plan",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				const plan = await compositorDesiredState(body.path);
+				return new Response(
+					plan?.mode === "program"
+						? `program ${plan.inputUrl}\n`
+						: "passthrough\n",
+					{ headers: { "Content-Type": "text/plain; charset=utf-8" } },
+				);
+			} catch {
+				return new Response("passthrough\n", {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			}
+		},
+		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+	)
+	.post(
+		"/api/hooks/studio/health",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (await reportCompositorHealth(
+					body.path,
+					body.healthy,
+					body.programUrl,
+				))
+					? status(204)
+					: status(404, "path not found");
+			} catch {
+				return status(400, "invalid compositor health");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				healthy: t.Boolean(),
+				programUrl: t.Optional(t.String({ maxLength: 2048 })),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/studio/browser-failure",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (await reportBrowserFailure(body.path, body.layerId))
+					? status(204)
+					: status(404, "browser layer not found");
+			} catch {
+				return status(503, "browser failure unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				layerId: t.String({ format: "uuid" }),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/studio/alert",
+		async ({ body, headers }) => {
+			if (!matchesStudioToken(headers["x-studio-token"], body.path))
+				return status(401, "unauthorized");
+			try {
+				return (
+					(await deliverStudioAlert(body.path, body.event, body.label)) ??
+					status(404, "path not found")
+				);
+			} catch {
+				return status(503, "alert unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				event: t.Union([
+					t.Literal("follow"),
+					t.Literal("sub"),
+					t.Literal("donation"),
+				]),
+				label: t.Optional(t.String({ maxLength: 120 })),
 			}),
 		},
 	)
@@ -258,27 +443,247 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		},
 	)
 	.post(
+		"/api/hooks/direct-destinations-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const { destinations } = await resolveDirectDestinationsV3(
+					body.path,
+					undefined,
+					body.skip,
+				);
+				return directDestinationJsonResponse(
+					await formatV3DirectDestinations(destinations),
+				);
+			} catch {
+				return status(503, "direct destinations unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				skip: t.Optional(
+					t.Array(t.String({ minLength: 1, maxLength: 128 }), {
+						maxItems: 32,
+					}),
+				),
+			}),
+		},
+	)
+	.post(
 		"/api/hooks/direct-destinations",
 		async ({ body, headers }) => {
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
 				return status(401, "unauthorized");
 			}
 			try {
-				// Destination URLs carry stream keys: returned to the relay only,
-				// never to a client app, never logged. Plain "provider url" lines
-				// so the bash forwarder splits fields instead of parsing JSON.
-				const { destinations } = await resolveDirectDestinations(body.path);
-				return new Response(
-					destinations
-						.map((entry) => `${entry.provider} ${entry.url}\n`)
-						.join(""),
-					{ headers: { "Content-Type": "text/plain; charset=utf-8" } },
+				// This two-field endpoint is a deployed relay contract. Keep it exact
+				// during rolling upgrades; portrait-aware relays use the v2 endpoint.
+				const { destinations } = await resolveDirectDestinations(
+					body.path,
+					undefined,
+					body.skip,
+					["landscape"],
+				);
+				return directDestinationResponse(
+					formatLegacyDirectDestinations(destinations),
 				);
 			} catch {
 				return status(503, "direct destinations unavailable");
 			}
 		},
-		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				// Providers the relay is still forwarding for, held over a drop.
+				skip: t.Optional(
+					t.Array(t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name)))),
+				),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-destinations-v2",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const { destinations } = await resolveDirectDestinations(
+					body.path,
+					undefined,
+					body.skip,
+				);
+				return directDestinationResponse(
+					formatV2DirectDestinations(destinations),
+				);
+			} catch {
+				return status(503, "direct destinations unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				skip: t.Optional(
+					t.Array(t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name)))),
+				),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/brb",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const tick = await brbTick(body.path, body.provider);
+				// One line, same plain-text contract as direct-destinations. The
+				// message is base64 so it survives the field split and never
+				// reaches a shell word on the relay.
+				const message = tick.stop
+					? ""
+					: Buffer.from(tick.message, "utf8").toString("base64");
+				const line = tick.stop
+					? "stop\n"
+					: tick.highlights
+						? `highlights ${message} ${Buffer.from(
+								`${tick.highlights.muted ? 1 : 0} ${tick.highlights.overlay ? 1 : 0}\n${tick.highlights.clips
+									.map(
+										({ id, durationMs, url }) => `${id} ${durationMs} ${url}`,
+									)
+									.join("\n")}`,
+								"utf8",
+							).toString(
+								"base64",
+							)} ${tick.backgroundUrl ?? "-"} ${tick.source}\n`
+						: `brb ${message} ${tick.backgroundUrl ?? "-"} ${tick.source}\n`;
+				return new Response(line, {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			} catch {
+				return status(503, "brb unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-active-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			return (await customDirectOutputActive(
+				body.path,
+				body.outputId,
+				body.filter,
+			))
+				? status(204)
+				: status(410, "stopped");
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				outputId: t.String({ minLength: 1, maxLength: 128 }),
+				filter: t.Optional(t.Nullable(t.String({ maxLength: 512 }))),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-active",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			return (await directDestinationActive({ ...body, slug: body.path }))
+				? status(204)
+				: status(410, "stopped");
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+				role: t.Union([t.Literal("landscape"), t.Literal("portrait")]),
+				filter: t.Optional(t.String({ maxLength: 512 })),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/brb-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const tick = await customBrbTick(body.path, body.outputId);
+				const message = tick.stop
+					? ""
+					: Buffer.from(tick.message, "utf8").toString("base64");
+				const line = tick.stop
+					? "stop\n"
+					: `brb ${message} ${tick.backgroundUrl ?? "-"} ${tick.source}\n`;
+				return new Response(line, {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			} catch {
+				return status(503, "brb unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				outputId: t.String({ minLength: 1, maxLength: 128 }),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/brb-played",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				await recordBrbHighlightPlayed(body.path, body.ordinal);
+				return status(204);
+			} catch {
+				return status(503, "BRB analytics unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				ordinal: t.Integer({ minimum: 1, maximum: 2_000_000_000 }),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/direct-state-v3",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				await applyCustomDirectState({ ...body, slug: body.path });
+				return status(204);
+			} catch {
+				return status(503, "state unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				outputId: t.String({ minLength: 1, maxLength: 128 }),
+				state: t.Union(DIRECT_STATES.map((name) => t.Literal(name))),
+				error: t.Optional(t.String({ maxLength: 2048 })),
+			}),
+		},
 	)
 	.post(
 		"/api/hooks/direct-state",
@@ -297,6 +702,9 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			body: t.Object({
 				path: t.String({ minLength: 1 }),
 				provider: t.Union(DIRECT_PROVIDERS.map((name) => t.Literal(name))),
+				role: t.Optional(
+					t.Union([t.Literal("landscape"), t.Literal("portrait")]),
+				),
 				state: t.Union(DIRECT_STATES.map((name) => t.Literal(name))),
 				error: t.Optional(t.String({ maxLength: 2048 })),
 			}),

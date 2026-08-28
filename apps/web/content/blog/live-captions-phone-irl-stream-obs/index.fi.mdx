@@ -1,0 +1,295 @@
+---
+title: "Live-tekstityksen lisääminen puhelimen IRL-kuvaan OBS:ssä"
+description: "Lisää englannin- tai suomenkielinen live-tekstitys puhelimen IRL-kuvaan, tarkista se OBS:ssä ja huomioi tarkkuus, yksityisyys sekä rajat."
+publishedAt: 2026-08-02
+coverAlt: "IRL-kuvaaja puhuu puhelinkameralle, ja tyhjät tekstityskortit seuraavat videosignaalia kotistudion tuotantoruudulle"
+---
+
+Helpoin tapa lisätä live-tekstitys puhelimen IRL-kuvaan on **avata VISP-
+sovelluksen asetukset, valita Audio → Subtitles -kohdasta Suomi tai English,
+käynnistää puhelimen lähetys ja tarkistaa sanat OBS:n puhelinlähteestä.** VISP
+muuttaa mikrofonin puheen tekstiksi puhelimessa ja sommittelee tekstin
+lähtevään kamerakuvaan ennen kuin OBS vastaanottaa sen.
+
+Viimeinen yksityiskohta on olennainen: tekstitys **poltetaan kuvaan**. Se näkyy
+kaikille, jotka näkevät kyseisen kameralähteen, myös Twitchin tai Kickin
+katsojille ja tallenteessa. Katsoja ei voi poistaa sitä näkyvistä. Tässä
+oppaassa käydään läpi, milloin ratkaisu toimii, miten se testataan ja milloin
+valinnainen OBS- tai palvelukohtainen tekstitys on parempi vaihtoehto.
+
+![Puhe muuttuu tekstitykseksi puhelimessa ennen kuin kamerasyöte kulkee välityspalvelun kautta OBS:ään ja lopulliseen Twitch- tai Kick-lähetykseen](./caption-signal-flow.svg)
+
+## Kuvaan poltettu vai valinnainen tekstitys?
+
+Tekstityksellä, live-tekstityksellä ja suljetulla tekstityksellä tarkoitetaan
+usein samaa näkyvää tekstiä. Toimitustapa kuitenkin ratkaisee, mitä katsoja
+voi hallita.
+
+| Tavoite | Paras lähtökohta | Tärkein kompromissi |
+| --- | --- | --- |
+| Lisää puhelimen etäkameran puheteksti ilman erillistä OBS-lähdettä | VISPin kuvaan poltettu tekstitys | Kulkee osana kuvaa, mutta katsoja ei voi piilottaa sitä |
+| Anna Twitch-katsojan ottaa tekstitys käyttöön tai pois | Työkalu, joka lähettää tuetun tekstitysraidan lopullisen lähetyksen mukana | Parempi hallinta katsojalle, mutta ratkaisu kuuluu lopulliselle enkooderille ja vaatii oman testinsä |
+| Tekstitä koko ohjelma, myös studiomikrofonit ja videot | OBS:n puolella toimiva tekstitys | Kattaa muutakin kuin puhelimen, mutta tuo tuotantoon uuden osan |
+| Säilytä puhdas tallenne myöhempää editointia varten | Tallenna ilman poltettua tekstiä ja tekstitä jälkikäteen | Paras muokattavuus, mutta katsoja ei saa live-tekstiä |
+
+Twitchin virallinen soitinrajapinta erottaa tekstitysraidan kuvasta:
+tekstityksen voi ottaa käyttöön vain, jos videosisältöön sisältyy
+tekstitysdataa. Asia kuvataan Twitchin
+[Video & Clips -soitinviitteessä](https://dev.twitch.tv/docs/embed/video-and-clips/).
+VISPin puhelintekstitys toimii toisin. Teksti muuttuu kameralähteen pikseleiksi,
+joten Twitchin tai Kickin soittimen ei tarvitse ymmärtää erillistä
+tekstitysmuotoa.
+
+Kuvaan poltettu teksti on hyödyllinen, kun etäkameran halutaan pysyvän
+itsenäisenä lähteenä. Se näkyy myös OBS-tallenteessa, kuva kuvassa -kohtauksessa
+ja valmiista ohjelmasta tehdyissä klipeissä. Hinta on pysyvä sommittelu: jos
+sanat peittävät kasvot, tuotteen, kartan tai OBS:n grafiikan, tuottaja ei voi
+palauttaa peittyneitä pikseleitä myöhemmin.
+
+## Mitä tarvitset?
+
+- VISPin natiivisovelluksen tuetussa iPhonessa tai Android-puhelimessa
+- toimivan puhelimesta OBS:ään tulevan lähteen, jonka käyttöönotto kuvataan
+  oppaassa [Puhelimen käyttäminen OBS:n etäkamerana](/fi/blog/use-phone-as-remote-camera-obs)
+- valitun mikrofonin ja puheentunnistusluvan
+- englannin- tai suomenkielistä puhetta nykyisiä kielivalintoja varten
+- kuulokkeet OBS-pisteelle, jotta tuottaja voi arvioida ääntä ja tekstiä
+  yhdessä
+- yksityisen koetallenteen samalla ympäristöllä, mikrofonilla ja liikkeellä
+  kuin varsinaisessa lähetyksessä
+
+Puhelin lähettää edelleen yhden H.264/AAC-syötteen kotistudioon. OBS hallitsee
+kohtauksia, tallennusta ja lopullista Twitch- tai Kick-kohdetta. Tekstityksen
+käyttöönotto ei siirrä palvelun lähetysavainta puhelimeen.
+
+## 1. Valitse puheen kieli ennen lähetystä
+
+Avaa VISP-sovelluksen asetusten **Audio**-osio. Valitse **Subtitles**-kohdasta
+**Suomi**, **English** tai **Off**. Valitse puhuttu kieli, ei käyttöliittymän
+kieltä eikä kieltä, jolle haluaisit tekstin käännettävän.
+
+Nykyinen toiminto litteroi, mutta ei käännä. English-valinta ei muuta suomea
+englanniksi, eikä Suomi-valinta käännä englantia. Monikielinen keskustelu,
+käyttäjänimet, paikannimet, lyhenteet ja erikoissanasto voivat tunnistua
+epävarmasti. Valitse hallitseva puhekieli ja testaa lähetykselle tärkeät nimet
+etukäteen.
+
+Ensimmäisellä käyttökerralla käyttöjärjestelmä voi pyytää luvan
+puheentunnistukseen. Apple kertoo, että iPhonen `SFSpeechRecognizer` vaatii
+käyttäjän luvan ja että saatavuus riippuu kielestä ja palvelusta. Apple myös
+huomauttaa, että osa kielistä voi vaatia verkkoyhteyden. Lopullinen laitetuki
+selviää sen
+[`supportsOnDeviceRecognition`-viitteestä](https://developer.apple.com/documentation/speech/sfspeechrecognizer/supportsondevicerecognition).
+VISP pyytää iOS:ää pitämään tunnistuksen laitteessa, kun valittu tunnistin
+tukee sitä.
+
+Android käyttää puhelimeen määritettyä puheentunnistuspalvelua. Androidin
+virallinen
+[`SpeechRecognizer`-viite](https://developer.android.com/reference/android/speech/SpeechRecognizer.html)
+varoittaa, että toteutus voi lähettää ääntä etäpalvelimille eikä rajapinta ole
+taattu jatkuva offline-tunnistin. Älä siis oleta tarkkuuden,
+yksityisyysominaisuuksien, akun kulutuksen tai offline-toiminnan olevan samat
+kaikissa Android-laitteissa. Koko lähetyksen mittainen laitetesti kertoo
+enemmän kuin yksi virke hyvän Wi-Fi-yhteyden vieressä.
+
+## 2. Käynnistä puhelinlähetys ja pidä VISP aktiivisena
+
+VISP käynnistää tekstityksen tunnistuksen vain aktiivisen lähetysistunnon
+aikana. Käytä tätä järjestystä:
+
+1. Valitse tekstityskieli lähetyksen ollessa pysäytetty.
+2. Tarkista haluttu mikrofoni kohdasta **Audio → Microphone**.
+3. Käynnistä puhelimen lähetys.
+4. Sano yksi lyhyt tavallinen virke todelliselta työskentelyetäisyydeltä.
+5. Anna osittaisen tekstin asettua ennen lopullisen rivin arviointia.
+6. Pysäytä lähetys ja varmista, että tekstitys poistuu.
+
+Pidä VISP etualalla silloin, kun tekstityksen pitää toimia. Nykyinen sovellus
+keskeyttää puhetoiminnot, kun se ei ole aktiivinen. Tämä koskee myös iPhonea,
+jonka kameran lähetys voi jatkua kuva kuvassa -tilassa. Karttoihin, viesteihin
+tai toiseen sovellukseen vaihtaminen voi siis jättää videon päälle ilman
+päivittyvää tekstitysriviä.
+
+Suunnittele kenttätyö tämän rajan mukaan. Käytä karttoihin tai yksityisiin
+viesteihin toista laitetta tai anna kotituottajan hoitaa tieto, joka muutoin
+vaatisi VISPistä poistumista. Jos kuvaajan on vaihdettava sovellusta, kerro siitä
+tuottajalle. Älä oleta viimeisen näkyvän tekstin olevan enää ajantasainen.
+
+## 3. Tarkista tekstitys OBS:ssä, ei vain puhelimessa
+
+Tunnistus tapahtuu puhelimessa, ja teksti piirretään samaan
+videosommitelmaan, jonka puhelin enkoodaa. VISP-välityspalvelu toimittaa tämän
+syötteen OBS:n Media Source -lähteelle. OBS ei saa erillistä tekstilähdettä,
+tekstitystiedostoa tai tekstityksen hallintakanavaa.
+
+Ensimmäinen tarkistus on siksi helppo: jos teksti ei näy OBS:n
+puhelinlähteessä, se ei ilmesty itsestään Twitchiin tai Kickiin. Varmista
+OBS-esikatselusta ja paikallisesta tallenteesta kaikki seuraavat asiat:
+
+- tekstitys näkyy oikeassa puhelinlähteessä;
+- sanat erottuvat sekä vaaleasta että tummasta taustasta;
+- rivi ei peitä kasvoja, turvallisuustietoa tai OBS:n grafiikkaa;
+- puheääni saapuu OBS:ään samaan aikaan sitä vastaavan tekstin kanssa;
+- rajatut kohtaukset ja kuva kuvassa -sommittelut eivät leikkaa tekstitystä;
+- teksti vaihtuu fraasien välillä ymmärrettävästi ja poistuu, kun tekstitys tai
+  lähetys pysäytetään.
+
+OBS:n virallinen [SRT-opas](https://obsproject.com/kb/srt-protocol-streaming-guide)
+kuvaa SRT:n vastaanoton Media Source -lähteessä. VISPissä generoitu lähde tai
+OBS-lisäosa antaa todennetun osoitteen. Tekstitys on jo puretun videon sisällä.
+Älä lisää samoja sanoja toiseen kertaan OBS:ssä, ellei suunnitelma
+tarkoituksella vaadi kahta tekstitystasoa.
+
+Jos ääni on mykkä, kahdentunut tai myöhässä jo ennen tekstitystä, korjaa
+äänipolku ensin oppaalla
+[Puhelinkameran äänen korjaaminen OBS:ssä](/fi/blog/fix-phone-audio-obs).
+Puheentunnistus ei korjaa huonoa mikrofonisignaalia.
+
+## 4. Valitse tavallinen tai palvelussa toimiva tunnistus
+
+Tavallinen tekstitys käyttää puhelimen puhepalvelua. Se on pienin mahdollinen
+kokoonpano ja paras ensimmäinen testi. Tulos riippuu laitteesta, asennetusta
+kielituesta, käyttöjärjestelmän palvelusta, verkkotilasta, puhujasta ja
+ääniympäristöstä.
+
+Joillakin tunnuksilla voi näkyä myös **Better subtitles**. Se on valinnainen ja
+tunnuskohtaisesti rajattu toiminto. Älä rakenna tuotantoa sen varaan, ellei
+kytkin oikeasti näy puhelimessa. Käytössä VISP muuntaa mikrofonin äänen pieneen
+16 kHz:n yksikanavaiseen virtaan, hakee VISP-palvelimelta kertakäyttöisen
+avaimen ja lähettää äänen ElevenLabs Scribe v2 Realtime -palveluun osittaisia
+ja valmiita tekstikatkelmia varten. ElevenLabs kuvaa virallisessa
+[asiakaspuolen suoratoisto-oppaassaan](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/client-side-streaming),
+että reaaliaikainen litterointi käyttää WebSocket-yhteyttä ja kertakäyttöistä
+avainta, jotta palvelun varsinaista API-avainta ei tarvitse paljastaa
+puhelimelle.
+
+Palvelussa tehtävä tunnistus lisää yhden verkkoriippuvuuden ja käyttää
+lähetyskaistaa. Se myös lähettää puheäänen kolmannen osapuolen käsiteltäväksi.
+Kyse on siten yksityisyys- ja suostumuspäätöksestä, ei pelkästä
+laatukytkimestä. Tarkista ajantasaiset palveluehdot ja tapahtumapaikan säännöt
+ennen käyttöä vieraiden tai sivullisten lähellä. Jos palvelutunnistus lakkaa
+toimimasta, älä oleta ruudun tekstin pysyvän oikeana. Seuraa OBS-lähdettä ja
+valmistaudu poistamaan tekstitys käytöstä.
+
+Älä valitse tilaa ominaisuuden nimen perusteella. Tallenna sama kahden minuutin
+teksti aidossa paikassa molemmilla saatavilla olevilla vaihtoehdoilla. Vertaa
+nimiä, taustamelua, viivettä, puuttuvia fraaseja ja verkkokäyttäytymistä.
+
+## 5. Tee mikrofonin puheesta helpommin ymmärrettävää
+
+Tekstityksen laatu alkaa puheen laadusta. Tunnistin ei voi luotettavasti
+palauttaa hiljaista ääntä liikenteen, tuulen, musiikin tai päällekkäin puhuvien
+ihmisten alta.
+
+Vie mikrofoni lähelle puhujaa ja suojaa se tuulelta. Älä suuntaa puhelimen
+mikrofonia kohti kovaa äänentoistoa. Pyydä yhtä ihmistä puhumaan kerrallaan,
+kun tekstityksen tarkkuus on tärkeää. Käytä lyhyitä virkkeitä ja jätä
+luontevia taukoja, jotta osittainen teksti ehtii asettua.
+
+VISP tarjoaa tuetuissa iPhoneissa myös äänen eristystä. Testaa se erikseen:
+melun vähentäminen voi auttaa puhetta, mutta kaikki käsittely voi muuttaa
+äänenväriä tai lisätä viivettä. Älä ota uutta mikrofonia, eristystilaa ja
+tekstitystä käyttöön yhtä aikaa viisi minuuttia ennen lähetystä. Muuta yksi
+asia, tee OBS-tallenne ja sekä kuuntele että lue tulos.
+
+Tekstitys ei korvaa puhdasta ääntä. Osa katsojista seuraa ääntä, osa tekstiä ja
+osa molempia. Säilytä molemmat polut sen sijaan, että mykistäisit ymmärrettävän
+mikrofonin yhden oikein tunnistetun testivirkkeen perusteella.
+
+## Näin tekstitys kulkee puhelimesta OBS:ään
+
+Koko polku on tarkoituksella lyhyt:
+
+1. Valittu puhelinmikrofoni syöttää äänen live-kameraistuntoon.
+2. VISP lähettää puheen valitulle laite- tai palvelutunnistimelle.
+3. Osittainen ja valmis teksti päivittävät puhelimen tekstitysoverlayta.
+4. Puhelin sommittelee overlayn kameraruutuihin.
+5. Puhelin enkoodaa yhden H.264/AAC-syötteen ja julkaisee sen SRT:llä.
+6. VISP-välityspalvelu todentaa ja välittää syötteen OBS:ään.
+7. OBS sijoittaa valmiiksi tekstitetyn lähteen lopulliseen Twitch- tai
+   Kick-kohtaukseen.
+
+Tässä puhelimesta OBS:ään kulkevassa polussa VISP **ei transkoodaa syötettä
+eikä bondaa verkkoyhteyksiä**. Valinnainen kahden yhteyden redundanssi lähettää
+samat SRT-paketit Wi-Fi- ja mobiiliyhteydellä. Se ei yhdistä yhteyksien
+kapasiteettia. Tekstitys tai palvelutunnistus ei myöskään luo kaistaa
+ruuhkautuneelle reitille.
+
+Koska teksti sommitellaan ennen välityspalvelua, saman puhelinlähteen
+uudelleenyhdistäminen säilyttää tekstitystavan ilman OBS:n tekstityslisäosaa.
+Samasta syystä OBS ei voi poistaa tai muotoilla tekstiä jälkikäteen.
+
+## Tee tekstityksen ennakkotesti
+
+Käytä yhtä lyhyttä harjoitusta, joka saa epäonnistua turvallisesti:
+
+1. Valitse Suomi tai English ja hyväksy puheentunnistuslupa.
+2. Valitse oikea mikrofoni, kamera, resoluutio ja kuvataajuus.
+3. Käynnistä yksityinen puhelinlähetys suunnitellussa paikassa.
+4. Lue tavallista puhetta, nimiä, numeroita ja yksi vaikea ilmaus.
+5. Kävele vaalean ja tumman taustan ohi tuottajan seuratessa OBS:ää.
+6. Tallenna lähdettä ja koko ohjelmaa vähintään kaksi minuuttia.
+7. Vaihda jokaiseen kohtaukseen, joka rajaa tai pienentää puhelinsyötettä.
+8. Siirrä VISP hetkeksi taustalle ja varmista, että tuottaja huomaa
+   tekstityksen pysähtyvän.
+9. Katkaise verkkoyhteys hetkeksi ja tarkista, että OBS:n
+   [varakohtaus](/fi/blog/keep-stream-live-bad-mobile-network) suojaa edelleen
+   julkista lähetystä.
+10. Pysäytä, katso tallenne ja valitse tekstitys käyttöön tai pois näytön
+    perusteella.
+
+Jos väärä teksti voi aiheuttaa turvallisuus-, terveys-, oikeudellisen tai
+mainehaitan, älä pidä automaattista tekstitystä auktoriteettina. Tuottaja voi
+leikata toiseen kuvaan, poistaa tekstityksen tai käyttää ihmisen tarkistamaa
+työnkulkua kriittisille lausumille.
+
+## Vianmääritys
+
+### Subtitles on käytössä, mutta tekstiä ei näy
+
+Varmista, että puhelin todella julkaisee ja VISP on etualalla. Tarkista
+puheentunnistuslupa järjestelmäasetuksista ja valitun kielen saatavuus. Pysäytä
+ja käynnistä lähetys uudelleen. Testaa tavallista puhetta hiljaisessa paikassa
+ennen kuin epäilet verkkoyhteyttä.
+
+### Tekstitys näkyy puhelimessa mutta ei OBS:ssä
+
+Varmista, että OBS näyttää nykyistä VISP-laitetta eikä vanhaa tai kahdentunutta
+Media Source -lähdettä. Päivitä lähde tai lisää se uudelleen VISPin OBS-
+lisäosalla ja tee paikallinen tallenne. Kohtauksen rajaus voi myös piilottaa
+puhelinkuvan alaosan.
+
+### Sanat ovat vääriä tai tulevat myöhässä
+
+Vie mikrofoni lähemmäs, vähennä tuulta ja päällekkäisiä puhujia sekä tarkista
+kielivalinta. Pidä fraasien välissä tauko. Jos **Better subtitles** on
+saatavilla, vertaa sitä tavalliseen tunnistukseen samassa paikassa sen sijaan,
+että olettaisit sen aina voittavan.
+
+### Viimeinen tekstitys jäätyy kuvaajan vaihtaessa sovellusta
+
+Palaa VISPiin. Nykyinen tekstityksen tunnistus seuraa sovelluksen aktiivista
+tilaa. Kuva kuvassa voi säilyttää tuetun iPhonen videokuvauksen, mutta se ei
+lupaa tekstityksen päivittymistä taustalla.
+
+### Katsojat haluavat piilottaa tekstin
+
+VISPin kuvaan poltettua tekstitystä ei voi piilottaa katsojan puolella. Poista
+se käytöstä ja käytä OBS- tai palveluratkaisua, joka lähettää erillisen tuetun
+tekstitysraidan lopullisen lähetyksen mukana.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISPin puhelin- ja selainsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISPin media-arkkitehtuuri](https://docs.visp-stream.com/fi/docs/architecture)
+- [VISPin OBS- ja varakohtausasetukset](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [Apple SFSpeechRecognizer](https://developer.apple.com/documentation/speech/sfspeechrecognizer)
+- [Android SpeechRecognizer](https://developer.android.com/reference/android/speech/SpeechRecognizer.html)
+- [ElevenLabsin reaaliaikainen asiakaspuolen litterointi](https://elevenlabs.io/docs/eleven-api/guides/how-to/speech-to-text/realtime/client-side-streaming)
+- [OBS:n SRT Protocol Streaming Guide](https://obsproject.com/kb/srt-protocol-streaming-guide)
+- [Twitch Video & Clips -soittimen tekstitys](https://dev.twitch.tv/docs/embed/video-and-clips/)
+
+Jos kuvaan poltettu suomen- tai englanninkielinen teksti sopii tuotantoosi,
+[kokeile VISPiä](https://visp-stream.com): lisää yksi puhelin yksityiseen
+OBS-kohtaukseen, ota tekstitys käyttöön ja arvioi aito tallenne ennen kuin
+viet tekstitetyn lähteen julkiseen lähetykseen.

@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Chat bot alerts branching off the VISP signal chain</title>
+  <desc id="desc">A phone sends video to the VISP relay, which forwards it to Twitch, Kick, and YouTube. When the phone's signal drops, the relay holds the broadcast on a BRB card and posts a chat alert into the same platform chats, then posts again when the signal returns.</desc>
+  <rect width="1600" height="900" fill="#0b1017"/>
+  <g font-family="'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace">
+
+    <text x="96" y="96" fill="#8b97a6" font-size="24" letter-spacing="6">VISP — CHAT BOT ALERTS</text>
+    <rect x="96" y="122" width="1408" height="2" fill="#22303f"/>
+
+    <!-- media chain -->
+    <text x="96" y="212" fill="#8b97a6" font-size="20" letter-spacing="4">MEDIA</text>
+
+    <rect x="96" y="240" width="300" height="120" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="128" y="292" fill="#e8edf2" font-size="30">Phone</text>
+    <text x="128" y="328" fill="#8b97a6" font-size="20">camera + SRT uplink</text>
+
+    <line x1="396" y1="300" x2="636" y2="300" stroke="#3d5468" stroke-width="3"/>
+    <polygon points="636,300 620,292 620,308" fill="#3d5468"/>
+
+    <rect x="636" y="240" width="300" height="120" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="668" y="292" fill="#e8edf2" font-size="30">VISP relay</text>
+    <text x="668" y="328" fill="#8b97a6" font-size="20">encode + forward</text>
+
+    <line x1="936" y1="300" x2="1176" y2="300" stroke="#3d5468" stroke-width="3"/>
+    <polygon points="1176,300 1160,292 1160,308" fill="#3d5468"/>
+
+    <rect x="1176" y="240" width="328" height="120" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="1208" y="292" fill="#e8edf2" font-size="30">Twitch · Kick · YouTube</text>
+    <text x="1208" y="328" fill="#8b97a6" font-size="20">viewers</text>
+
+    <!-- the drop -->
+    <line x1="246" y1="360" x2="246" y2="470" stroke="#c8443c" stroke-width="3" stroke-dasharray="10 10"/>
+    <text x="96" y="512" fill="#c8443c" font-size="24">signal lost in the underpass</text>
+
+    <!-- relay state -->
+    <line x1="786" y1="360" x2="786" y2="470" stroke="#3d5468" stroke-width="3"/>
+    <polygon points="786,470 778,454 794,454" fill="#3d5468"/>
+
+    <rect x="576" y="470" width="420" height="140" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="608" y="522" fill="#e8edf2" font-size="28">Relay knows first</text>
+    <text x="608" y="560" fill="#8b97a6" font-size="20">publisher gone · broadcast held</text>
+    <text x="608" y="590" fill="#8b97a6" font-size="20">on the BRB card · publisher back</text>
+
+    <!-- alerts out -->
+    <line x1="996" y1="540" x2="1236" y2="540" stroke="#c8443c" stroke-width="3"/>
+    <polygon points="1236,540 1220,532 1220,548" fill="#c8443c"/>
+    <text x="1010" y="518" fill="#8b97a6" font-size="18" letter-spacing="3">ALERT</text>
+
+    <rect x="1236" y="470" width="268" height="140" rx="8" fill="#111a24" stroke="#c8443c" stroke-width="2"/>
+    <text x="1268" y="522" fill="#e8edf2" font-size="28">Chat</text>
+    <text x="1268" y="560" fill="#8b97a6" font-size="20">same platforms,</text>
+    <text x="1268" y="590" fill="#8b97a6" font-size="20">your own account</text>
+
+    <!-- timeline -->
+    <rect x="96" y="700" width="1408" height="2" fill="#22303f"/>
+    <circle cx="256" cy="701" r="9" fill="#0b1017" stroke="#e8edf2" stroke-width="3"/>
+    <text x="216" y="756" fill="#8b97a6" font-size="20">Now live.</text>
+    <circle cx="656" cy="701" r="9" fill="#c8443c"/>
+    <text x="556" y="756" fill="#8b97a6" font-size="20">Signal dropped —</text>
+    <text x="556" y="784" fill="#8b97a6" font-size="20">back shortly.</text>
+    <circle cx="1056" cy="701" r="9" fill="#0b1017" stroke="#e8edf2" stroke-width="3"/>
+    <text x="956" y="756" fill="#8b97a6" font-size="20">Back after 45s.</text>
+    <circle cx="1416" cy="701" r="9" fill="#0b1017" stroke="#e8edf2" stroke-width="3"/>
+    <text x="1256" y="756" fill="#8b97a6" font-size="20">Stream ended after 2h.</text>
+
+    <text x="96" y="848" fill="#5d6b7a" font-size="20">One message per transition, on the platform that asked.</text>
+  </g>
+</svg>

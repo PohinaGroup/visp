@@ -8,11 +8,15 @@ import {
 	rttSample,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { randomBytes } from "node:crypto";
 import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
+import { DirectError, prepareDirect, saveDirectPreferences } from "./direct";
+import { decryptSecret, encryptSecret } from "./encrypted-secret";
+import { hashSecret, verifySecret } from "./password";
 import { uniqueViolation } from "./pg-errors";
 import { chooseRelay } from "./relays";
+import { hasStreamKeyScope } from "./scopes";
 
 export { applyPathHook, reconcilePathState } from "./path-hooks";
 
@@ -32,10 +36,6 @@ type NetworkProfile = "wired" | "wifi" | "cellular";
 type PublishOrigin = "native" | "web";
 
 const authCache = new Map<string, AuthCacheEntry>();
-const publishEncryptionKey = Buffer.from(
-	env.PUBLISH_URL_ENCRYPTION_KEY,
-	"base64",
-);
 
 function slugify(value: string) {
 	return (
@@ -63,44 +63,6 @@ function normalizeLabel(label: string) {
 
 function secret() {
 	return randomBytes(24).toString("hex");
-}
-
-function encryptSecret(plaintext: string, aad: string) {
-	const iv = randomBytes(12);
-	const cipher = createCipheriv("aes-256-gcm", publishEncryptionKey, iv);
-	cipher.setAAD(Buffer.from(aad, "utf8"));
-	const encrypted = Buffer.concat([
-		cipher.update(plaintext, "utf8"),
-		cipher.final(),
-	]);
-	return [
-		"v1",
-		iv.toString("base64url"),
-		cipher.getAuthTag().toString("base64url"),
-		encrypted.toString("base64url"),
-	].join(".");
-}
-
-function decryptSecret(value: string, aad: string) {
-	const [version, ivValue, tagValue, encryptedValue] = value.split(".");
-	if (version !== "v1" || !ivValue || !tagValue || !encryptedValue) {
-		throw new Error("Stored secret cannot be revealed");
-	}
-	try {
-		const decipher = createDecipheriv(
-			"aes-256-gcm",
-			publishEncryptionKey,
-			Buffer.from(ivValue, "base64url"),
-		);
-		decipher.setAAD(Buffer.from(aad, "utf8"));
-		decipher.setAuthTag(Buffer.from(tagValue, "base64url"));
-		return Buffer.concat([
-			decipher.update(Buffer.from(encryptedValue, "base64url")),
-			decipher.final(),
-		]).toString("utf8");
-	} catch {
-		throw new Error("Stored secret cannot be revealed");
-	}
 }
 
 export function encryptPublishSecret(
@@ -139,7 +101,7 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 	const streamingAccount = await db.query.account.findFirst({
 		where: and(
 			eq(account.userId, userId),
-			inArray(account.providerId, ["twitch", "kick"]),
+			inArray(account.providerId, ["twitch", "kick", "google"]),
 		),
 	});
 	if (!streamingAccount) {
@@ -169,7 +131,14 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 
 				const [created] = await tx
 					.insert(appUser)
-					.values({ id: userId, handle })
+					.values({
+						id: userId,
+						handle,
+						directProductionMode:
+							env.CLOUD_STUDIO_ENABLED && env.CLOUD_STUDIO_DEFAULT_ENABLED
+								? "cloud_studio"
+								: "obs",
+					})
 					.returning();
 				if (!created) {
 					throw new Error("Failed to create relay user");
@@ -208,6 +177,7 @@ export async function listPaths(userId: string) {
 			publishRevealable: sql<boolean>`${relayPath.publishSecretEncrypted} is not null`,
 			directTwitch: relayPath.directTwitch,
 			directKick: relayPath.directKick,
+			directYoutube: relayPath.directYoutube,
 			publishing: pathState.publishing,
 			readerCount: pathState.readerCount,
 			sourceType: pathState.sourceType,
@@ -305,6 +275,7 @@ export async function revokePath(userId: string, pathId: number) {
 			nativeInstallationId: null,
 			directTwitch: false,
 			directKick: false,
+			directYoutube: false,
 		})
 		.where(
 			and(
@@ -364,24 +335,78 @@ export async function authenticateMedia(input: {
 	path: string;
 	user: string;
 }) {
-	const credential = await credentialForSlug(input.path);
-	if (!credential || input.user !== credential.handle) {
+	const slug =
+		input.action === "read" && input.path.startsWith("studio/")
+			? input.path.slice("studio/".length)
+			: input.path;
+	const credential = await credentialForSlug(slug);
+	if (!credential) {
+		return false;
+	}
+	if (input.user !== credential.handle) {
 		return false;
 	}
 	const hash =
 		input.action === "publish"
 			? credential.publishSecretHash
 			: credential.readSecretHash;
-	const authenticated = hash
-		? await Bun.password.verify(input.password, hash)
-		: false;
-	if (authenticated && input.action === "publish") {
+	if (!hash) {
+		return false;
+	}
+	const authenticated = await verifySecret(input.password, hash);
+	if (!authenticated) {
+		return false;
+	}
+	if (input.action === "publish") {
+		await prepareDirect(credential.userId, credential.pathId);
 		await db
 			.update(relayPath)
 			.set({ publishLastConnectedAt: new Date() })
 			.where(eq(relayPath.id, credential.pathId));
 	}
-	return authenticated;
+	return true;
+}
+
+export function buildStudioPreviewUrls(
+	host: string,
+	slug: string,
+	handle: string,
+	readSecret: string,
+) {
+	const query = new URLSearchParams({ user: handle, pass: readSecret });
+	return {
+		camera: `https://${host}/${slug}/whep?${query}`,
+		program: `https://${host}/studio/${slug}/whep?${query}`,
+	};
+}
+
+export function selectStudioPreviewPath<
+	T extends { id: number; publishing: boolean | null },
+>(paths: T[]) {
+	return [...paths].sort(
+		(a, b) => Number(b.publishing) - Number(a.publishing) || a.id - b.id,
+	)[0];
+}
+
+export async function getStudioPreviewUrls(userId: string) {
+	const owner = await db.query.appUser.findFirst({
+		where: eq(appUser.id, userId),
+	});
+	if (!owner?.readSecretEncrypted) return null;
+	const path = selectStudioPreviewPath(await listPaths(userId));
+	if (!path) return null;
+	let readSecret: string;
+	try {
+		readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
+	} catch {
+		return null;
+	}
+	return buildStudioPreviewUrls(
+		path.relayHost,
+		path.slug,
+		owner.handle,
+		readSecret,
+	);
 }
 
 export function applyInvalidation(payload: CacheInvalidation) {
@@ -412,11 +437,12 @@ function buildSrtUrl(
 	plaintext: string,
 	latencyMicros?: number,
 	port = 8890,
+	scheme: "srt" | "srtla" = "srt",
 ) {
 	const latency = latencyMicros ? `&latency=${latencyMicros}` : "";
 	// ponytail: every relay uses the shared MediaMTX ports; add DB columns only
 	// if a relay ever differs.
-	return `srt://${host}:${port}?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
+	return `${scheme}://${host}:${port}?streamid=${action}:${slug}:${handle}:${plaintext}&pkt_size=1316${latency}`;
 }
 
 function buildRtmpUrl(
@@ -444,6 +470,18 @@ function buildPublishUrls(
 			value,
 			undefined,
 			8891,
+		),
+		// srtla_rec forwards the SRT session on to MediaMTX untouched, so the
+		// stream ID below still carries the credentials the auth hook checks.
+		srtla: buildSrtUrl(
+			path.relayHost,
+			"publish",
+			path.slug,
+			handle,
+			value,
+			undefined,
+			5000,
+			"srtla",
 		),
 		rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, value),
 	};
@@ -544,9 +582,7 @@ async function storePublishSecret(input: {
 }) {
 	const path = await ownedPath(input.userId, input.pathId);
 	if (!path) return null;
-	const secretHash =
-		input.secretHash ??
-		(await Bun.password.hash(input.plaintext, { algorithm: "argon2id" }));
+	const secretHash = input.secretHash ?? (await hashSecret(input.plaintext));
 	const [updated] = await db
 		.update(relayPath)
 		.set({
@@ -591,11 +627,16 @@ async function storePublishSecret(input: {
 export async function revealPublishPath(userId: string, pathId: number) {
 	const path = await ownedPath(userId, pathId);
 	if (!path?.publishSecretEncrypted) return null;
-	const plaintext = decryptPublishSecret(
-		path.publishSecretEncrypted,
-		userId,
-		path.id,
-	);
+	let plaintext: string;
+	try {
+		plaintext = decryptPublishSecret(
+			path.publishSecretEncrypted,
+			userId,
+			path.id,
+		);
+	} catch {
+		return null;
+	}
 	return {
 		path: publicPublishPath(path),
 		urls: buildPublishUrls(path, path.handle, plaintext),
@@ -715,7 +756,7 @@ export async function claimNativePublishDevice(input: {
 			!path.publishSecretHash &&
 			path.handle === legacy.handle &&
 			path.legacyHash &&
-			(await Bun.password.verify(legacy.plaintext, path.legacyHash))
+			(await verifySecret(legacy.plaintext, path.legacyHash))
 		) {
 			return storePublishSecret({
 				installationId: input.installationId,
@@ -726,6 +767,7 @@ export async function claimNativePublishDevice(input: {
 				userId: input.userId,
 			});
 		}
+		return null;
 	}
 	if (input.legacyUrl) return null;
 
@@ -893,9 +935,7 @@ export async function rotateReadSecret(userId: string) {
 	}
 
 	const readSecret = secret();
-	const readSecretHash = await Bun.password.hash(readSecret, {
-		algorithm: "argon2id",
-	});
+	const readSecretHash = await hashSecret(readSecret);
 
 	await db
 		.update(appUser)
@@ -920,11 +960,12 @@ export async function revealReadUrls(userId: string) {
 }
 
 export type SetupUseCase =
+	| "direct"
 	| "phone_to_obs"
 	| "remote_guest"
 	| "multi_cam"
 	| "other";
-export type StreamDestination = "twitch" | "kick" | "other";
+export type StreamDestination = "twitch" | "kick" | "youtube" | "other";
 export type StreamingSoftware = "obs" | "visp" | "larix" | "moblin" | "other";
 export type OnboardingRedoMode = "additive" | "wipe";
 
@@ -940,6 +981,9 @@ export async function completeOnboarding(
 		useCase: SetupUseCase;
 		destination: StreamDestination;
 		advancedMode: boolean;
+		direct: { twitch: boolean; kick: boolean; youtube: boolean };
+		youtubeTitle?: string;
+		prepareObs: boolean;
 		createDevice?: boolean;
 		redoMode?: OnboardingRedoMode;
 	},
@@ -948,9 +992,28 @@ export async function completeOnboarding(
 		where: eq(appUser.id, userId),
 	});
 	if (!owner) throw new Error("Relay user not found");
+	for (const provider of ["twitch", "kick", "youtube"] as const) {
+		if (!input.direct[provider]) continue;
+		const providerId = provider === "youtube" ? "google" : provider;
+		const linked = await db.query.account.findFirst({
+			where: and(
+				eq(account.userId, userId),
+				eq(account.providerId, providerId),
+			),
+		});
+		if (!linked || !hasStreamKeyScope(provider, linked.scope)) {
+			throw new DirectError(
+				"consent-required",
+				`Authorize ${provider === "twitch" ? "Twitch" : provider === "kick" ? "Kick" : "YouTube"} streaming first`,
+			);
+		}
+	}
 
 	if (owner.onboardedAt && !input.redoMode) {
 		throw new Error("Choose wipe or keep existing devices to redo setup");
+	}
+	if (input.redoMode !== "wipe") {
+		await saveDirectPreferences(userId, input.direct);
 	}
 
 	const createDevice = input.createDevice ?? true;
@@ -960,6 +1023,7 @@ export async function completeOnboarding(
 		for (const path of active) {
 			await revokePath(userId, path.id);
 		}
+		await saveDirectPreferences(userId, input.direct);
 	}
 
 	let paths = await listPaths(userId);
@@ -986,10 +1050,20 @@ export async function completeOnboarding(
 			setupUseCase: input.useCase,
 			streamDestination: input.destination,
 			advancedMode: input.advancedMode,
+			...(input.youtubeTitle
+				? { directYoutubeTitle: input.youtubeTitle.trim() }
+				: {}),
 			onboardedAt: new Date(),
 		})
 		.where(eq(appUser.id, userId));
-	const read = await rotateReadSecret(userId);
+	const read = input.prepareObs
+		? await rotateReadSecret(userId)
+		: {
+				handle: owner.handle,
+				revealed: { read: "" },
+				urls: { read: [] },
+				sceneCollection: null,
+			};
 	return {
 		...read,
 		urls: { ...read.urls, publish: device ? [device.urls] : [] },

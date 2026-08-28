@@ -1,31 +1,43 @@
 ---
 title: Get started
-description: Sign in, import OBS scenes, go live from a phone or browser, and control OBS remotely.
+description: Sign in, authorize Direct, go live from a phone or browser, and optionally add OBS.
 icon: Rocket
 ---
 
 
 ## 1. Sign in
 
-Open [visp-stream.com](https://visp-stream.com), press **Try VISP free**, then sign in with Twitch or Kick. VISP uses that login
+Open [visp-stream.com](https://visp-stream.com), press **Try VISP free**, then sign in with Twitch, Kick, or Google. VISP uses that login
 only to identify your account.
 
-![Sign in to VISP with Twitch or Kick](./images/web-login.png)
+## 2. Authorize Direct
 
-## 2. Finish setup and download the OBS scene file
+Choose Twitch, Kick, or YouTube, select your phone or browser source, and
+authorize VISP to resolve the destination when output starts. Twitch and Kick
+keys are never shown to the publisher or stored as separate values. YouTube
+Direct creates a new public broadcast and uses its ingest destination.
 
-Follow the instructions provided in the setup. If you have some questions, feel free to ask those from SEPPO, our AI assistant.
+The dashboard opens with Direct output first. Existing OBS-first users keep
+their current behavior until they explicitly switch.
 
-The dashboard opens in **Simple** mode, where each video source has a copyable
-OBS URL and publish URL. Switch to **Advanced** for RTMP fallbacks, OBS read
-credential management, and the latency probe. You can reveal the read URLs and
-download the scene collection again later. Use **Rotate read** only when you
-intend to invalidate every existing OBS Media Source.
+## 3. Publish from a phone or browser
 
-## 3. Pair the OBS plugin
+Install the native app or open the browser publisher, sign in with the same
+account, allow camera and microphone access, and press **Go Live**. VISP checks
+provider authorization and relay encoder capacity before capture starts.
 
-Device setup, one-click Media Sources, and remote control use the VISP plugin
-for OBS Studio 31.
+## 4. Verify Direct
+
+Wait until every selected Direct output reports **Live**. A contribution
+feed connected to the relay is not enough. You may skip this test, but the
+setup remains marked unverified.
+
+## 5. Optionally add OBS
+
+After the Direct test succeeds, choose **Add this feed to OBS**. Install and
+pair the OBS Studio 31 plugin for one-click Media Sources, or copy the provided
+SRT read URL into an OBS Media Source manually. OBS receives the contribution
+feed, not the distribution encode delivered to viewers.
 
 1. Download the package for your OS from the project's
    [GitHub Releases](https://github.com/PohinaGroup/visp/releases), install it,
@@ -34,27 +46,19 @@ for OBS Studio 31.
    browser**.
 3. Sign in to VISP, approve the displayed code, and return to OBS.
 
-The dashboard should show **Connected** within a few seconds. The OBS dialog can
-now add any device feed to the selected scene or create a VISP publishing
-device for this OBS profile.
-
 ![OBS Tools → VISP Remote Control dialog](./images/obs-plugin-tools.png)
 
-## 4. Publish from a phone or browser
+## Publisher details
 
 ### Phone app
 
-Install the iOS (TestFlight) or Android (Play internal) build from the
-[download page](https://visp-stream.com/download). Sign in with the same Twitch
-or Kick account. The app creates a publishing device for that phone
+Install the iOS (App Store) or Android (Google Play) build from the
+[download page](https://visp-stream.com/download). Sign in with the same Twitch,
+Kick, or Google account. The app creates a publishing device for that phone
 automatically.
 
 Pick the camera and microphone in settings, confirm **READY**, then tap
 **Go Live**.
-
-![Camera settings: camera, resolution, and frame rate](./images/app-settings.png)
-
-![Phone app ready to go live](./images/app-ready.png)
 
 ### Browser app
 
@@ -62,14 +66,17 @@ Prefer a quick test without installing? Open
 [stream.visp-stream.com](https://stream.visp-stream.com) in current Chrome,
 Edge, or Safari, sign in, and publish over WebRTC.
 
-## 6. Confirm first picture
+### Confirm the optional OBS picture
 
 With the phone or browser live, select the imported device scene in OBS. The
 Media Source should show your camera feed. If the preview is black, wait a few
 seconds for SRT/WebRTC to connect, then check that the matching video source is
 live in the dashboard.
 
-## 7. Control OBS from your phone
+The OBS chat overlay Browser Source stays blank until a chat message arrives;
+append `&debug=1` to its URL to show connection status.
+
+### Control optional OBS from your phone
 
 When the plugin is paired, the phone app can switch scenes and start or stop
 the home OBS stream. Open the OBS control UI, pick a scene (for example
@@ -79,8 +86,6 @@ seconds.
 You can also open
 [remote.visp-stream.com](https://remote.visp-stream.com) in a browser for the
 dedicated OBS Remote control surface.
-
-![Phone OBS program scene picker](./images/app-obs-control.png)
 
 A short signal drop does not end the destination broadcast by itself. Keep OBS
 on a fallback scene while the phone reconnects — see

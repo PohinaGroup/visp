@@ -4,6 +4,7 @@ import { absoluteSiteUrl } from "@/lib/blog";
 import { listBlogPosts } from "@/lib/blog.server";
 
 const publicPaths = [
+	"/affiliate",
 	"/blog",
 	"/contact",
 	"/cookies",
@@ -14,6 +15,7 @@ const publicPaths = [
 ] as const;
 
 const localizedPaths = [
+	"/affiliate",
 	"/blog",
 	"/contact",
 	"/cookies",

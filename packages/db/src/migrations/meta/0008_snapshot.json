@@ -1,9 +1,96 @@
 {
-  "id": "ab04699a-10e4-4979-90e2-c95b79a3146d",
-  "prevId": "d31bd463-1be4-4835-8685-ffb85d846b6d",
+  "id": "69e95425-a7d4-4659-8f5c-8685cb3d795f",
+  "prevId": "3417258c-0221-47ac-8f2b-f9d878aedb69",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
+    "public.affiliate_application": {
+      "name": "affiliate_application",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "applicant_name": {
+          "name": "applicant_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "youtube_channel_url": {
+          "name": "youtube_channel_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "relevant_video_url": {
+          "name": "relevant_video_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "audience_and_setup": {
+          "name": "audience_and_setup",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "disclosure_accepted": {
+          "name": "disclosure_accepted",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "affiliate_application_name_length": {
+          "name": "affiliate_application_name_length",
+          "value": "char_length(trim(\"affiliate_application\".\"applicant_name\")) between 1 and 120"
+        },
+        "affiliate_application_email_length": {
+          "name": "affiliate_application_email_length",
+          "value": "char_length(\"affiliate_application\".\"email\") between 3 and 320"
+        },
+        "affiliate_application_channel_url_length": {
+          "name": "affiliate_application_channel_url_length",
+          "value": "char_length(\"affiliate_application\".\"youtube_channel_url\") between 1 and 2048"
+        },
+        "affiliate_application_video_url_length": {
+          "name": "affiliate_application_video_url_length",
+          "value": "char_length(\"affiliate_application\".\"relevant_video_url\") between 1 and 2048"
+        },
+        "affiliate_application_audience_length": {
+          "name": "affiliate_application_audience_length",
+          "value": "char_length(trim(\"affiliate_application\".\"audience_and_setup\")) between 1 and 4000"
+        },
+        "affiliate_application_disclosure_accepted": {
+          "name": "affiliate_application_disclosure_accepted",
+          "value": "\"affiliate_application\".\"disclosure_accepted\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.account": {
       "name": "account",
       "schema": "",
@@ -524,6 +611,312 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.chat_bot": {
+      "name": "chat_bot",
+      "schema": "",
+      "columns": {
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "commands_enabled": {
+          "name": "commands_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "prefix": {
+          "name": "prefix",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'!'"
+        },
+        "post_twitch": {
+          "name": "post_twitch",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "post_kick": {
+          "name": "post_kick",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "post_youtube": {
+          "name": "post_youtube",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "alert_live": {
+          "name": "alert_live",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "alert_brb": {
+          "name": "alert_brb",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "alert_back": {
+          "name": "alert_back",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "alert_offline": {
+          "name": "alert_offline",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "live_message": {
+          "name": "live_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "brb_message": {
+          "name": "brb_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "back_message": {
+          "name": "back_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "offline_message": {
+          "name": "offline_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chat_bot_user_id_app_user_id_fk": {
+          "name": "chat_bot_user_id_app_user_id_fk",
+          "tableFrom": "chat_bot",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "chat_bot_prefix_length": {
+          "name": "chat_bot_prefix_length",
+          "value": "char_length(\"chat_bot\".\"prefix\") between 1 and 3"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.chat_bot_alert": {
+      "name": "chat_bot_alert",
+      "schema": "",
+      "columns": {
+        "path_id": {
+          "name": "path_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event": {
+          "name": "event",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chat_bot_alert_path_id_path_id_fk": {
+          "name": "chat_bot_alert_path_id_path_id_fk",
+          "tableFrom": "chat_bot_alert",
+          "tableTo": "path",
+          "columnsFrom": [
+            "path_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "chat_bot_alert_path_id_event_pk": {
+          "name": "chat_bot_alert_path_id_event_pk",
+          "columns": [
+            "path_id",
+            "event"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "chat_bot_alert_event": {
+          "name": "chat_bot_alert_event",
+          "value": "\"chat_bot_alert\".\"event\" in ('live', 'brb', 'back', 'offline')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.chat_bot_command": {
+      "name": "chat_bot_command",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "response": {
+          "name": "response",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "mod_only": {
+          "name": "mod_only",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "cooldown_seconds": {
+          "name": "cooldown_seconds",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 10
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "chat_bot_command_user_id_app_user_id_fk": {
+          "name": "chat_bot_command_user_id_app_user_id_fk",
+          "tableFrom": "chat_bot_command",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "chat_bot_command_user_name_unique": {
+          "name": "chat_bot_command_user_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "chat_bot_command_name": {
+          "name": "chat_bot_command_name",
+          "value": "\"chat_bot_command\".\"name\" ~ '^[a-z0-9_-]{1,24}$'"
+        },
+        "chat_bot_command_response_length": {
+          "name": "chat_bot_command_response_length",
+          "value": "char_length(\"chat_bot_command\".\"response\") between 1 and 200"
+        },
+        "chat_bot_command_cooldown_range": {
+          "name": "chat_bot_command_cooldown_range",
+          "value": "\"chat_bot_command\".\"cooldown_seconds\" between 0 and 3600"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.chat_connection": {
       "name": "chat_connection",
       "schema": "",
@@ -678,6 +1071,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "chat_overlay_token_id": {
+          "name": "chat_overlay_token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "chat_overlay_token_hash": {
+          "name": "chat_overlay_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "obs_desired_streaming": {
           "name": "obs_desired_streaming",
           "type": "boolean",
@@ -725,9 +1130,157 @@
           "notNull": true,
           "default": 0
         },
+        "obs_desired_recording": {
+          "name": "obs_desired_recording",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_recording": {
+          "name": "obs_recording",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_desired_virtual_cam": {
+          "name": "obs_desired_virtual_cam",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_virtual_cam": {
+          "name": "obs_virtual_cam",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_desired_replay_buffer": {
+          "name": "obs_desired_replay_buffer",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_replay_buffer": {
+          "name": "obs_replay_buffer",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_desired_record_paused": {
+          "name": "obs_desired_record_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_record_paused": {
+          "name": "obs_record_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "obs_last_seen_at": {
           "name": "obs_last_seen_at",
           "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch": {
+          "name": "direct_twitch",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_kick": {
+          "name": "direct_kick",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_youtube": {
+          "name": "direct_youtube",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_youtube_title": {
+          "name": "direct_youtube_title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Live from VISP'"
+        },
+        "direct_youtube_stream_id": {
+          "name": "direct_youtube_stream_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_beta": {
+          "name": "direct_beta",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "direct_dual_output": {
+          "name": "direct_dual_output",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "better_tts": {
+          "name": "better_tts",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "better_audio_isolation": {
+          "name": "better_audio_isolation",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "better_subtitles": {
+          "name": "better_subtitles",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "brb_enabled": {
+          "name": "brb_enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "brb_message": {
+          "name": "brb_message",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "brb_source": {
+          "name": "brb_source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'snapshot'"
+        },
+        "brb_image_key": {
+          "name": "brb_image_key",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -776,10 +1329,268 @@
           "columns": [
             "obs_control_token_id"
           ]
+        },
+        "app_user_chat_overlay_token_id_unique": {
+          "name": "app_user_chat_overlay_token_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "chat_overlay_token_id"
+          ]
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "app_user_brb_source_known": {
+          "name": "app_user_brb_source_known",
+          "value": "\"app_user\".\"brb_source\" in ('snapshot', 'image', 'color')"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.direct_destination": {
+      "name": "direct_destination",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "path_id": {
+          "name": "path_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "provider": {
+          "name": "provider",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "direct_role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'landscape'"
+        },
+        "crop": {
+          "name": "crop",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "state": {
+          "name": "state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error": {
+          "name": "error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "reserved_until": {
+          "name": "reserved_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "direct_destination_path_idx": {
+          "name": "direct_destination_path_idx",
+          "columns": [
+            {
+              "expression": "path_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "direct_destination_user_id_app_user_id_fk": {
+          "name": "direct_destination_user_id_app_user_id_fk",
+          "tableFrom": "direct_destination",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "direct_destination_path_id_path_id_fk": {
+          "name": "direct_destination_path_id_path_id_fk",
+          "tableFrom": "direct_destination",
+          "tableTo": "path",
+          "columnsFrom": [
+            "path_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "direct_destination_user_provider_role_unique": {
+          "name": "direct_destination_user_provider_role_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "provider",
+            "role"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "direct_destination_provider_known": {
+          "name": "direct_destination_provider_known",
+          "value": "\"direct_destination\".\"provider\" in ('twitch', 'kick', 'youtube')"
+        },
+        "direct_destination_crop_role": {
+          "name": "direct_destination_crop_role",
+          "value": "(\"direct_destination\".\"role\" = 'landscape' and \"direct_destination\".\"crop\" is null) or (\"direct_destination\".\"role\" = 'portrait' and \"direct_destination\".\"crop\" is not null)"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.obs_tile": {
+      "name": "obs_tile",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "obs_tile_action",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scene_name": {
+          "name": "scene_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "obs_tile_user_position_idx": {
+          "name": "obs_tile_user_position_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "obs_tile_user_id_app_user_id_fk": {
+          "name": "obs_tile_user_id_app_user_id_fk",
+          "tableFrom": "obs_tile",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "obs_tile_label_length": {
+          "name": "obs_tile_label_length",
+          "value": "char_length(trim(\"obs_tile\".\"label\")) between 1 and 64"
+        },
+        "obs_tile_scene_requires_name": {
+          "name": "obs_tile_scene_requires_name",
+          "value": "\"obs_tile\".\"action\" <> 'scene' or \"obs_tile\".\"scene_name\" is not null"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.path_state": {
@@ -843,8 +1654,86 @@
           "primaryKey": false,
           "notNull": false
         },
+        "link_count": {
+          "name": "link_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_degraded": {
+          "name": "link_degraded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
         "link_stats_at": {
           "name": "link_stats_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch_state": {
+          "name": "direct_twitch_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch_error": {
+          "name": "direct_twitch_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_kick_state": {
+          "name": "direct_kick_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_kick_error": {
+          "name": "direct_kick_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch_reserved_until": {
+          "name": "direct_twitch_reserved_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_kick_reserved_until": {
+          "name": "direct_kick_reserved_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_youtube_state": {
+          "name": "direct_youtube_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_youtube_error": {
+          "name": "direct_youtube_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_youtube_reserved_until": {
+          "name": "direct_youtube_reserved_until",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_youtube_broadcast_id": {
+          "name": "direct_youtube_broadcast_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "brb_since": {
+          "name": "brb_since",
           "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": false
@@ -877,6 +1766,103 @@
       },
       "isRLSEnabled": false
     },
+    "public.relay": {
+      "name": "relay",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "host": {
+          "name": "host",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "api_url": {
+          "name": "api_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ping_url": {
+          "name": "ping_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capacity_paths": {
+          "name": "capacity_paths",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_forwarders": {
+          "name": "max_forwarders",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_ip": {
+          "name": "public_ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "drained_at": {
+          "name": "drained_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "relay_name_unique": {
+          "name": "relay_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "relay_capacity_paths_positive": {
+          "name": "relay_capacity_paths_positive",
+          "value": "\"relay\".\"capacity_paths\" > 0"
+        },
+        "relay_max_forwarders_nonnegative": {
+          "name": "relay_max_forwarders_nonnegative",
+          "value": "\"relay\".\"max_forwarders\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.path": {
       "name": "path",
       "schema": "",
@@ -885,6 +1871,12 @@
           "name": "id",
           "type": "bigserial",
           "primaryKey": true,
+          "notNull": true
+        },
+        "relay_id": {
+          "name": "relay_id",
+          "type": "integer",
+          "primaryKey": false,
           "notNull": true
         },
         "user_id": {
@@ -942,6 +1934,27 @@
           "primaryKey": false,
           "notNull": false
         },
+        "direct_twitch": {
+          "name": "direct_twitch",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "direct_kick": {
+          "name": "direct_kick",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "direct_youtube": {
+          "name": "direct_youtube",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -956,8 +1969,70 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "path_direct_twitch_owner": {
+          "name": "path_direct_twitch_owner",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"path\".\"direct_twitch\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "path_direct_kick_owner": {
+          "name": "path_direct_kick_owner",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"path\".\"direct_kick\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "path_direct_youtube_owner": {
+          "name": "path_direct_youtube_owner",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"path\".\"direct_youtube\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
+        "path_relay_id_relay_id_fk": {
+          "name": "path_relay_id_relay_id_fk",
+          "tableFrom": "path",
+          "tableTo": "relay",
+          "columnsFrom": [
+            "relay_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "path_user_id_app_user_id_fk": {
           "name": "path_user_id_app_user_id_fk",
           "tableFrom": "path",
@@ -1122,6 +2197,12 @@
           "primaryKey": true,
           "notNull": true
         },
+        "relay_id": {
+          "name": "relay_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "user_id": {
           "name": "user_id",
           "type": "text",
@@ -1172,6 +2253,19 @@
         }
       },
       "foreignKeys": {
+        "rtt_sample_relay_id_relay_id_fk": {
+          "name": "rtt_sample_relay_id_relay_id_fk",
+          "tableFrom": "rtt_sample",
+          "tableTo": "relay",
+          "columnsFrom": [
+            "relay_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "rtt_sample_user_id_app_user_id_fk": {
           "name": "rtt_sample_user_id_app_user_id_fk",
           "tableFrom": "rtt_sample",
@@ -1208,7 +2302,28 @@
       "schema": "public",
       "values": [
         "twitch",
-        "kick"
+        "kick",
+        "youtube"
+      ]
+    },
+    "public.direct_role": {
+      "name": "direct_role",
+      "schema": "public",
+      "values": [
+        "landscape",
+        "portrait"
+      ]
+    },
+    "public.obs_tile_action": {
+      "name": "obs_tile_action",
+      "schema": "public",
+      "values": [
+        "scene",
+        "stream",
+        "recording",
+        "virtualcam",
+        "replaybuffer",
+        "recordpause"
       ]
     },
     "public.publish_origin": {
@@ -1223,6 +2338,7 @@
       "name": "setup_use_case",
       "schema": "public",
       "values": [
+        "direct",
         "phone_to_obs",
         "remote_guest",
         "multi_cam",
@@ -1235,6 +2351,7 @@
       "values": [
         "twitch",
         "kick",
+        "youtube",
         "other"
       ]
     },

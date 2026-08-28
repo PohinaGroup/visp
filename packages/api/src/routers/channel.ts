@@ -1,11 +1,28 @@
 import { z } from "zod";
+import { listLinkedAccounts } from "../channel/linked-accounts";
 import {
+	getViewerCounts,
 	searchStreamCategories,
 	updateStreamInfo,
 } from "../channel/stream-info";
 import { protectedProcedure, router } from "../index";
 
 export const channelRouter = router({
+	linkedAccounts: protectedProcedure.query(({ ctx }) =>
+		listLinkedAccounts(ctx.session.user.id),
+	),
+	viewerCounts: protectedProcedure
+		.input(
+			z.object({
+				providers: z
+					.array(z.enum(["twitch", "kick", "youtube"]))
+					.min(1)
+					.max(3),
+			}),
+		)
+		.query(({ ctx, input }) =>
+			getViewerCounts(ctx.session.user.id, [...new Set(input.providers)]),
+		),
 	searchCategories: protectedProcedure
 		.input(z.object({ query: z.string().trim().min(2).max(100) }))
 		.query(({ ctx, input }) =>

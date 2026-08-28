@@ -24,7 +24,7 @@ function TermsPage() {
 			eyebrow="Lakiasiat"
 			title="Käyttöehdot"
 			description="Nämä ehdot koskevat VISPin verkkosivuston, hallintapaneelin, sovellusten ja suoratoiston relay-palvelujen käyttöä."
-			updated="19. heinäkuuta 2026"
+			updated="6. elokuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Palveluntarjoaja</h2>
@@ -47,11 +47,12 @@ function TermsPage() {
 			<section className="flex flex-col gap-3">
 				<h2>3. Käyttökelpoisuus ja tilit</h2>
 				<p>
-					Sinun on voitava tehdä sitova sopimus ja noudatettava Twitchin, Kickin
-					sekä muiden lähetykseesi sovellettavien palvelujen sääntöjä. Vastaat
-					VISP-tililläsi tapahtuvasta toiminnasta sekä tunnusten ja laitteiden
-					turvallisuudesta. Kirjautuminen käyttää Twitchin ja/tai Kickin
-					OAuthia.
+					Sinun on voitava tehdä sitova sopimus ja noudatettava Twitchin,
+					Kickin, YouTuben sekä muiden lähetykseesi sovellettavien palvelujen
+					sääntöjä. Vastaat VISP-tililläsi tapahtuvasta toiminnasta sekä
+					tunnusten ja laitteiden turvallisuudesta. Kirjautuminen käyttää
+					Twitchin, Kickin ja/tai Googlen OAuthia sekä iOS-sovelluksessa Sign in
+					with Applea.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">
@@ -86,11 +87,16 @@ function TermsPage() {
 			<section className="flex flex-col gap-3">
 				<h2>5. Lähetysavaimet ja media</h2>
 				<p>
-					Lähetysavaimia ei ole tarkoitettu ladattavaksi VISPiin. Suora media
-					välitetään määrittämälläsi tavalla. VISP voi tallentaa lyhytikäisiä
-					yksityisiä hallintapaneelin tilannekuvia{" "}
-					<Link to="/fi/privacy">tietosuojaselosteessa</Link> kuvatulla tavalla.
-					Palvelu ei tarjoa jatkuvien tallenteiden säilytystä.
+					Lähetysavaimia ei ole tarkoitettu ladattavaksi VISPiin. Kun otat
+					Directin käyttöön, valtuutat VISPin hakemaan valitsemasi alustan
+					lähetyskohteen Twitchin, Kickin tai Googlen OAuth-luvalla ja
+					käyttämään sitä vain syötteen välittämiseen valitsemaasi kohteeseen.
+					YouTube Direct luo aina julkisen lähetyksen, joka käynnistyy ja
+					pysähtyy automaattisesti. Suora media välitetään määrittämälläsi
+					tavalla. VISP voi tallentaa lyhytikäisiä yksityisiä hallintapaneelin
+					tilannekuvia <Link to="/fi/privacy">tietosuojaselosteessa</Link>{" "}
+					kuvatulla tavalla. Palvelu ei tarjoa jatkuvien tallenteiden
+					säilytystä.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">

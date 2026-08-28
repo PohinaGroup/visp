@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+set -eu
+
+# Production workers fail closed unless the host-installed nftables boundary is
+# active. The checked table is shipped beside this script.
+nft list table inet visp_compositor >/dev/null 2>&1 || {
+	echo "VISP compositor egress firewall is not active" >&2
+	exit 1
+}

@@ -1,0 +1,11 @@
+table inet visp_compositor {
+	chain output {
+		type filter hook output priority filter; policy accept;
+		meta skuid "visp-compositor" ip daddr 127.0.0.0/8 accept
+		meta skuid "visp-compositor" ip6 daddr ::1 accept
+		meta skuid "visp-compositor" udp dport 53 accept
+		meta skuid "visp-compositor" tcp dport 53 accept
+		meta skuid "visp-compositor" ip daddr { 0.0.0.0/8, 10.0.0.0/8, 100.64.0.0/10, 169.254.0.0/16, 172.16.0.0/12, 192.0.0.0/24, 192.168.0.0/16, 198.18.0.0/15, 224.0.0.0/4, 240.0.0.0/4 } reject
+		meta skuid "visp-compositor" ip6 daddr { ::/128, fc00::/7, fe80::/10, ff00::/8 } reject
+	}
+}

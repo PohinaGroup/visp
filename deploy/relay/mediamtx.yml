@@ -18,7 +18,7 @@ rtspAddress: 127.0.0.1:8554
 hls: false
 webrtc: true
 webrtcAddress: 127.0.0.1:8889
-webrtcAllowOrigins: ["https://stream.visp-stream.com"]
+webrtcAllowOrigins: ["https://visp-stream.com", "https://stream.visp-stream.com"]
 webrtcTrustedProxies: ["127.0.0.1/32", "::1/128"]
 webrtcLocalUDPAddress: ":8189"
 webrtcLocalTCPAddress: ":8189"
@@ -35,11 +35,11 @@ paths:
   all_others:
     source: publisher
     overridePublisher: false
-    runOnReady: >-
+    runOnAvailable: >-
       /usr/local/libexec/visp-snapshot
       "$APP_ORIGIN" "$MTX_PATH" "$MTX_SOURCE_TYPE"
-    runOnReadyRestart: yes
-    runOnNotReady: >-
+    runOnAvailableRestart: yes
+    runOnUnavailable: >-
       curl --fail --silent --show-error --max-time 2 --request POST
       --header "Content-Type: application/json"
       --header "X-Hook-Secret: $HOOK_SECRET"

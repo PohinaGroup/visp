@@ -11,6 +11,14 @@ Restart=always
 RestartSec=2
 StartLimitIntervalSec=0
 LimitNOFILE=1048576
+# /run/visp holds the forwarder locks, the publisher marker and the snapshot
+# that backs the BRB card. systemd creates it and clears it on stop, which is
+# what makes a leaked lock survive nothing worse than a service restart.
+RuntimeDirectory=visp
+# BRB forwarders outlive the path they were started for, so they must not be
+# killed when MediaMTX restarts a runOnAvailable script. They are still in this
+# unit's cgroup: restarting MediaMTX itself does end every held card.
+KillMode=mixed
 
 [Install]
 WantedBy=multi-user.target

@@ -4,14 +4,12 @@ description: Publish from a phone or browser, follow chat, and control OBS remot
 icon: Smartphone
 ---
 
-The VISP app turns a phone into a full camera for the home studio. It publishes
-the selected camera and microphone over SRT to your relay path; OBS at home
-reads that path and runs the show.
+The VISP app publishes the selected camera and microphone over SRT to your
+relay path. Direct sends that feed to Twitch, Kick, or YouTube. OBS can optionally read
+the original contribution feed for monitoring, recording, and scenes.
 
-For the first-run path — sign in, import OBS scenes, go live, and pair remote
-control — follow [Get started](/docs/get-started).
-
-![Phone app ready to go live](./images/app-ready.png)
+For the first-run path — sign in, authorize Direct, go live, and optionally add
+OBS — follow [Get started](/docs/get-started).
 
 ## Platforms
 
@@ -21,26 +19,21 @@ control — follow [Get started](/docs/get-started).
 | Android app | Android 7+ | SRT (H.264/AAC) |
 | Browser app | Current Chrome, Edge, or Safari at `stream.visp-stream.com` | WebRTC (H.264/Opus) |
 
-The iOS build ships through the `VISP Internal` TestFlight group and Android
-through Play internal testing. Client links live on
+The iOS build ships through the
+[App Store](https://apps.apple.com/fi/app/visp-easy-streaming/id6791948092) and
+Android through Google Play. Client links live on
 [visp-stream.com/download](https://visp-stream.com/download). The browser app
 is a static site served by the app host; it publishes over WHIP through the
 relay's WebRTC port.
 
-![Browser publisher](./images/browser-publish.png)
-
 ## Sign in and go live
 
-1. Sign in with Twitch or Kick. The app creates a publishing device for this
+1. Sign in with Twitch, Kick, or Google. The app creates a publishing device for this
    phone automatically and stores its publish URL in the platform's secure
    storage — you never copy credentials by hand.
 2. Open settings to pick the camera, resolution, and frame rate, then go live.
    The stream appears in OBS as the corresponding relay path's Media Source.
 3. Stopping releases the publisher and the media devices.
-
-![Camera settings sheet](./images/app-settings.png)
-
-![Live over SRT](./images/app-live.png)
 
 Each phone is its own publishing device: revoking or rotating one phone in the
 portal never disconnects the others. Use two signed-in phones to feed two
@@ -69,23 +62,34 @@ exactly as before.
 
 ## While live
 
-- **Floating chat** overlays Twitch and Kick messages on the capture screen.
+- **Floating chat** overlays Twitch, Kick, and YouTube messages on the capture screen.
   Kick messages arrive through the server's webhook subscription, so they work
   without keeping a Kick tab open anywhere.
+- **OBS chat overlay** stays blank until a chat message arrives; append `&debug=1`
+  to its Browser Source URL to show connection status.
+- **Viewer counts** show the current audience for each selected Direct output.
+  A dash means the provider did not expose a current count.
 - **Stream info sheet** edits the title and metadata on the provider without
-  leaving the app.
+  leaving the app. Twitch and Kick support title/category editing; YouTube's
+  default Direct title is configured separately.
+- **Picture in Picture** can keep supported iPhone capture visible while you use
+  another app. Background behavior still depends on the device and OS.
+- **Subtitles** can burn English or Finnish speech into the camera picture.
+  On-device recognition is the default; hosted recognition appears only for
+  accounts where it is enabled.
+- **Audio isolation** is available on supported iPhones, with an optional hosted
+  mode where enabled. Test it before relying on it live.
 - **OBS control** starts and stops the home OBS stream and switches scenes
   through the paired [OBS plugin](/docs/obs-remote-control). The control
   reflects whether OBS is currently connected.
-
-![OBS program scene picker on the phone](./images/app-obs-control.png)
 
 ## Apple Watch companion
 
 The iPhone app forwards a live snapshot to the paired Apple Watch (watchOS 10+)
 over WatchConnectivity: stream state and uptime, resolution and frame rate,
 audio level tier, reconnect attempts, recent chat with provider status, and the
-OBS connection with its scene list. Scene switching works from the wrist —
+viewer counts for the selected Direct outputs, plus the OBS connection with its
+scene list. Scene switching works from the wrist —
 tapping a scene sends the command through the phone to the same OBS control
 channel.
 

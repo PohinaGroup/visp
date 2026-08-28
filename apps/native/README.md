@@ -7,7 +7,21 @@ phone; Expo Go does not include the native SRT module.
 Start with the repository's [development guide](../../DEVELOPMENT.md) for the
 API, database, provider callbacks, and shared environment setup.
 
-Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch or Kick sign-in, the app creates and securely stores its publish URL automatically.
+Copy `.env.example` to `.env.local` and set `EXPO_PUBLIC_SERVER_URL` to the API origin reachable by the device. After Twitch, Kick, Google, or Apple sign-in, the app creates and securely stores its publish URL automatically.
+
+Sign in with Apple is iOS-only and required by App Store guideline 4.8, since
+every other option is a third-party login. It uses the native sheet rather than
+a browser redirect, so it needs the **Sign In with Apple** capability enabled on
+the App ID; see the OAuth section of the [development guide](../../DEVELOPMENT.md).
+
+The iOS `voip` background mode is required for live Picture-in-Picture
+(`AVPictureInPictureVideoCallViewController`). Keep it alongside `audio`; do
+not remove it during App Review cleanups.
+
+Privacy Policy and Terms open from the sign-in screen, destination editor, and
+Account settings (`https://visp-stream.com/privacy` and `/terms`). Use those
+same URLs in App Store Connect and Play Console. For Play account deletion,
+also register `https://visp-stream.com/request-delete`.
 
 Expo SDK 57 sets the deployment target to iOS 16.4, so this app cannot retain the original iOS 15 target without downgrading Expo. The upstream libsrt 1.5.4 x86_64 simulator slice is incomplete; arm64 iPhones and Apple-silicon simulators are supported.
 
@@ -15,13 +29,29 @@ Expo SDK 57 sets the deployment target to iOS 16.4, so this app cannot retain th
 bun run --cwd apps/native ios
 ```
 
-The generated `ios/` project is committed because it contains the HaishinKit Swift Package Manager dependency and inline Swift sources. If the iOS project is regenerated with Expo Prebuild, re-run `scripts/sync-haishinkit.rb` with the `xcodeproj` gem from CocoaPods before installing pods.
+The generated `ios/` project is committed because it contains the vendored
+HaishinKit local Swift package, inline Swift sources, and Apple Watch targets.
+Regenerate it only when native configuration changes (plugins, `app.json`, or
+inline modules):
+
+```sh
+cd apps/native
+bunx expo prebuild --platform ios --clean
+cd ios && pod install
+```
+
+Prebuild runs the `with-root-encoder.cjs` config plugin automatically. That
+plugin wires the local HaishinKit package at
+`modules/visp-srt/vendor/haishinkit`, links `HaishinKit` and `SRTHaishinKit`,
+and excludes the incomplete x86_64 simulator slice. Commit the resulting `ios/`
+changes; do not run `scripts/sync-haishinkit.rb` — it is a legacy script from
+the older remote-SPM setup.
 
 The Apple Watch companion lives in `targets/watch/` and is wired back into the
-generated Xcode project by `@bacons/apple-targets` on every
-`expo prebuild --clean`. It receives chat and stream-health snapshots from the
-running iPhone app through WatchConnectivity and requires watchOS 10 or newer.
-After prebuild, reopen the workspace and select the `VISP Watch` scheme.
+generated Xcode project by `@bacons/apple-targets` on every prebuild. It
+receives chat and stream-health snapshots from the running iPhone app through
+WatchConnectivity and requires watchOS 10 or newer. After prebuild, reopen the
+workspace and select the `VISP Watch` scheme.
 
 Android 7 or newer is supported through Expo Prebuild and the pinned RootEncoder dependency. Use a physical device with USB debugging enabled; Expo Go does not include the native SRT module.
 
@@ -41,11 +71,12 @@ bun run --cwd apps/native check-types
 ## Release distribution
 
 The production application identifier is `com.pohinagroup.visp` on both
-platforms. A stable `vX.Y.Z` GitHub Release runs
-`.eas/workflows/release.yml` on EAS's SDK 57 image, builds both production
-binaries, submits Android to Play internal testing, and distributes iOS to the
-`VISP Internal` TestFlight group. The GitHub workflow waits for EAS completion;
-it does not publish an OTA update.
+platforms. The EAS workflow at `.eas/workflows/release.yml` can build both
+production binaries, submit Android to Google Play production, and distribute
+iOS to the `VISP Internal` TestFlight group. The stable GitHub Release workflow
+does not currently invoke it; mobile releases are started separately until the
+commented EAS job in `.github/workflows/release.yml` is enabled. It does not
+publish an OTA update.
 
 Before the first release, link this directory to the correct EAS project with
 `eas init`, connect the GitHub repository in Expo, and configure production

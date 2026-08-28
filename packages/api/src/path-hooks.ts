@@ -5,17 +5,29 @@ import {
 	relayPath,
 	relayStreamSession,
 } from "@VISP/db/schema/index";
+import type { ObjectStore } from "@VISP/object-store";
 import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
-import { stopDirectForPaths } from "./direct";
+import { handleSourceGone } from "./brb";
+import { cleanupDeletedBrbHighlightsForPath } from "./brb-highlights";
+import { announceStreamEvent } from "./chat/alerts";
+import { formatDuration } from "./chat/commands";
 import { CLEARED_LINK_STATS } from "./link-stats";
 
 export async function applyPathHook(
 	event: "ready" | "not-ready" | "read" | "unread",
 	input: { path: string; sourceType?: string },
+	media?: Pick<ObjectStore, "delete">,
 ) {
+	// The state before this hook is what says whether anything changed, which is
+	// the difference between "went live" and "is still live".
 	const [path] = await db
-		.select({ id: relayPath.id })
+		.select({
+			id: relayPath.id,
+			publishing: pathState.publishing,
+			brbSince: pathState.brbSince,
+		})
 		.from(relayPath)
+		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
 		.where(and(eq(relayPath.slug, input.path), isNull(relayPath.revokedAt)))
 		.limit(1);
 	if (!path) {
@@ -41,7 +53,14 @@ export async function applyPathHook(
 						publishing,
 						sourceType: publishing ? input.sourceType : null,
 						lastEventAt: now,
-						...(publishing ? {} : CLEARED_LINK_STATS),
+						// The publisher is back, so the card comes down and the next
+						// drop starts its own BRB window rather than inheriting this one.
+						...(publishing
+							? {
+									brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then ${now} else ${pathState.brbHighlightsResultAt} end`,
+									brbSince: null,
+								}
+							: CLEARED_LINK_STATS),
 					},
 				});
 			if (publishing) {
@@ -65,9 +84,24 @@ export async function applyPathHook(
 					);
 			}
 		});
-		// The source is gone, so no forwarder can still be running against it.
-		// Leaving them counted would hold slots against the concurrency cap.
-		if (!publishing) await stopDirectForPaths([path.id]);
+		if (publishing) {
+			await cleanupDeletedBrbHighlightsForPath(path.id, media).catch(
+				() => undefined,
+			);
+		}
+		// The source is gone. Forwarders either hold the broadcast open on the
+		// BRB card or get torn down so their slots stop counting.
+		if (!publishing) {
+			await handleSourceGone([path.id], path.publishing ? [path.id] : []);
+		} else if (path.brbSince) {
+			// The card comes down inside the transaction above, so the outage
+			// length has to travel with the call rather than be read back.
+			void announceStreamEvent(path.id, "back", {
+				downtime: formatDuration(now.getTime() - path.brbSince.getTime()),
+			});
+		} else if (!path.publishing) {
+			void announceStreamEvent(path.id, "live");
+		}
 		return true;
 	}
 
@@ -115,6 +149,7 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 		.select({
 			id: relayPath.id,
 			publishing: pathState.publishing,
+			brbSince: pathState.brbSince,
 			slug: relayPath.slug,
 		})
 		.from(relayPath)
@@ -138,6 +173,11 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 	const stoppedIds = paths
 		.filter((path) => !live.get(path.slug)?.ready)
 		.map((path) => path.id);
+
+	// Paths whose publishing flag actually flips on this poll. Without it, a
+	// device that has been off for an hour re-announces on every tick.
+	const becameLive = publishing.filter((path) => !path.publishing);
+	let justStopped: number[] = [];
 
 	await db.transaction(async (tx) => {
 		if (present.length > 0) {
@@ -167,25 +207,29 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 						linkRttMs: sql`case when excluded.publishing then ${pathState.linkRttMs} else null end`,
 						linkPacketLossPct: sql`case when excluded.publishing then ${pathState.linkPacketLossPct} else null end`,
 						linkStatsAt: sql`case when excluded.publishing then ${pathState.linkStatsAt} else null end`,
+						brbSince: sql`case when excluded.publishing then null else ${pathState.brbSince} end`,
 					},
 				});
 		}
 
 		if (stoppedIds.length > 0) {
-			await tx
-				.update(pathState)
-				.set({
-					publishing: false,
-					readerCount: 0,
-					sourceType: null,
-					...CLEARED_LINK_STATS,
-				})
-				.where(
-					and(
-						eq(pathState.publishing, true),
-						inArray(pathState.pathId, stoppedIds),
-					),
-				);
+			justStopped = (
+				await tx
+					.update(pathState)
+					.set({
+						publishing: false,
+						readerCount: 0,
+						sourceType: null,
+						...CLEARED_LINK_STATS,
+					})
+					.where(
+						and(
+							eq(pathState.publishing, true),
+							inArray(pathState.pathId, stoppedIds),
+						),
+					)
+					.returning({ pathId: pathState.pathId })
+			).map((row) => row.pathId);
 		}
 
 		if (publishingIds.length > 0) {
@@ -216,8 +260,18 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 			);
 	});
 
-	// A missed not-ready hook must free Direct capacity too.
-	await stopDirectForPaths(stoppedIds);
+	// A missed not-ready hook must free Direct capacity too — through the same
+	// helper, or this poll would tear down a BRB card the hook just raised.
+	await handleSourceGone(stoppedIds, justStopped);
+	for (const path of becameLive) {
+		if (path.brbSince) {
+			void announceStreamEvent(path.id, "back", {
+				downtime: formatDuration(now.getTime() - path.brbSince.getTime()),
+			});
+		} else {
+			void announceStreamEvent(path.id, "live");
+		}
+	}
 }
 
 export async function reconcilePathState(apiUrl?: string) {

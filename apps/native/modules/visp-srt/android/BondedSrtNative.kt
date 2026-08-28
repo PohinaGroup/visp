@@ -5,6 +5,7 @@ import android.net.ConnectivityManager
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
+import android.os.ParcelFileDescriptor
 import java.net.Inet4Address
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -16,6 +17,8 @@ internal object BondedSrtNative {
   }
 
   private var cellularCallback: ConnectivityManager.NetworkCallback? = null
+
+  private data class Source(val address: String, val network: Network, val transport: String)
 
   data class Stats(
     val bitrateKbps: Int,
@@ -43,7 +46,7 @@ internal object BondedSrtNative {
       callback,
     )
     latch.await(4, TimeUnit.SECONDS)
-    val sources = mutableListOf<Pair<String, String>>()
+    val sources = mutableListOf<Source>()
     manager.allNetworks.forEach { network ->
       val capabilities = manager.getNetworkCapabilities(network) ?: return@forEach
       val transport =
@@ -58,15 +61,31 @@ internal object BondedSrtNative {
         ?.address
         ?.hostAddress
         ?.let { address ->
-          if (sources.none { it.second == transport }) sources.add(address to transport)
+          if (sources.none { it.transport == transport }) {
+            sources.add(Source(address, network, transport))
+          }
         }
     }
     try {
-      check(nativeProbe()) { "libsrt bonding is unavailable" }
       check(sources.isNotEmpty()) { "No Wi-Fi or cellular source address is available" }
+      if (mode == "srtla") {
+        val fds = nativeSrtlaPrepare(sources.size)
+        check(fds.size == sources.size) { "Could not create SRTLA sockets" }
+        fds.forEachIndexed { index, fd ->
+          ParcelFileDescriptor.fromFd(fd).use {
+            sources[index].network.bindSocket(it.fileDescriptor)
+          }
+        }
+        return nativeSrtlaStart(
+          sources.map { it.address }.toTypedArray(),
+          sources.map { it.transport }.toTypedArray(),
+          url,
+        ).also { check(it > 0) { "Could not start SRTLA" } }
+      }
+      check(nativeProbe()) { "libsrt bonding is unavailable" }
       return nativeStart(
-        sources.map { it.first }.toTypedArray(),
-        sources.map { it.second }.toTypedArray(),
+        sources.map { it.address }.toTypedArray(),
+        sources.map { it.transport }.toTypedArray(),
         url,
         mode,
       ).also { check(it > 0) { "Could not start bonded SRT" } }
@@ -78,13 +97,14 @@ internal object BondedSrtNative {
 
   fun stop(context: Context) {
     nativeStop()
+    nativeSrtlaStop()
     val manager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
     cellularCallback?.let { runCatching { manager.unregisterNetworkCallback(it) } }
     cellularCallback = null
   }
 
   fun stats(): Stats? {
-    val value = nativeStats() ?: return null
+    val value = nativeSrtlaStats() ?: nativeStats() ?: return null
     val json = JSONObject(value)
     val linksJson = json.getJSONArray("links")
     val links = buildList {
@@ -111,6 +131,14 @@ internal object BondedSrtNative {
   }
 
   private external fun nativeProbe(): Boolean
+  private external fun nativeSrtlaPrepare(linkCount: Int): IntArray
+  private external fun nativeSrtlaStart(
+    sourceIps: Array<String>,
+    transports: Array<String>,
+    url: String,
+  ): Int
+  private external fun nativeSrtlaStats(): String?
+  private external fun nativeSrtlaStop()
   private external fun nativeStart(
     sourceIps: Array<String>,
     transports: Array<String>,

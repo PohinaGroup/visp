@@ -65,12 +65,12 @@ export function ObsControlCard() {
 	const streaming = Boolean(status?.streaming);
 
 	return (
-		<Card>
+		<Card id="obs-control">
 			<VStack gap={4}>
 				<VStack gap={1}>
 					<HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
 						<HStack gap={1.5} vAlign="center">
-							<Heading level={2}>{t("OBS")}</Heading>
+							<Heading level={2}>{t("Route to Home Studio")}</Heading>
 							<DocsHelpLink
 								href={docs.obsRemoteControl}
 								label={t("See how to pair the OBS plugin")}

@@ -5,7 +5,7 @@ import { env } from "@VISP/env/server";
 import { and, eq } from "drizzle-orm";
 import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
 import { chatHub } from "./hub";
-import { normalizeTwitchMessage } from "./normalize";
+import { normalizeTwitchAlert, normalizeTwitchMessage } from "./normalize";
 import { loadTwitchBadges } from "./twitch-badges";
 
 const EVENTSUB_URL =
@@ -14,6 +14,7 @@ const RETRY_DELAYS = [1_000, 2_000, 5_000, 10_000, 20_000];
 
 type EventSubEnvelope = {
 	metadata?: {
+		message_id?: string;
 		message_timestamp?: string;
 		message_type?: string;
 		subscription_type?: string;
@@ -25,6 +26,7 @@ type EventSubEnvelope = {
 			keepalive_timeout_seconds?: number | null;
 			reconnect_url?: string | null;
 		};
+		subscription?: { status?: string };
 	};
 };
 
@@ -42,28 +44,73 @@ export async function createTwitchChatSubscription(
 	},
 ) {
 	const token = await dependencies.getAccessToken(input.userId);
-	const response = await dependencies.fetch(
-		"https://api.twitch.tv/helix/eventsub/subscriptions",
+	const subscriptions = [
 		{
-			method: "POST",
-			headers: {
-				Authorization: `Bearer ${token.accessToken}`,
-				"Client-Id": env.TWITCH_CLIENT_ID,
-				"Content-Type": "application/json",
+			type: "channel.chat.message",
+			version: "1",
+			condition: {
+				broadcaster_user_id: input.broadcasterId,
+				user_id: input.broadcasterId,
 			},
-			body: JSON.stringify({
-				type: "channel.chat.message",
-				version: "1",
-				condition: {
-					broadcaster_user_id: input.broadcasterId,
-					user_id: input.broadcasterId,
-				},
-				transport: { method: "websocket", session_id: input.sessionId },
-			}),
+			required: true,
 		},
-	);
-	if (!response.ok)
-		throw new Error(`Twitch subscription failed (${response.status})`);
+		{
+			type: "channel.raid",
+			version: "1",
+			condition: { to_broadcaster_user_id: input.broadcasterId },
+			required: false,
+		},
+		{
+			type: "channel.follow",
+			version: "2",
+			condition: {
+				broadcaster_user_id: input.broadcasterId,
+				moderator_user_id: input.broadcasterId,
+			},
+			required: false,
+		},
+		...[
+			"channel.subscribe",
+			"channel.subscription.message",
+			"channel.subscription.gift",
+			"channel.cheer",
+		].map((type) => ({
+			type,
+			version: "1",
+			condition: { broadcaster_user_id: input.broadcasterId },
+			required: false,
+		})),
+	];
+	for (const subscription of subscriptions) {
+		const response = await dependencies.fetch(
+			"https://api.twitch.tv/helix/eventsub/subscriptions",
+			{
+				method: "POST",
+				headers: {
+					Authorization: `Bearer ${token.accessToken}`,
+					"Client-Id": env.TWITCH_CLIENT_ID,
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					type: subscription.type,
+					version: subscription.version,
+					condition: subscription.condition,
+					transport: { method: "websocket", session_id: input.sessionId },
+				}),
+			},
+		);
+		if (response.ok) continue;
+		const payload = (await response.json().catch(() => null)) as {
+			message?: unknown;
+		} | null;
+		const error = new Error(
+			typeof payload?.message === "string"
+				? payload.message
+				: `Twitch ${subscription.type} subscription failed (${response.status})`,
+		);
+		if (subscription.required) throw error;
+		console.error(`Twitch ${subscription.type} alert unavailable`, error);
+	}
 }
 
 class TwitchConnector {
@@ -125,8 +172,15 @@ class TwitchConnector {
 				if (subscribe) {
 					try {
 						await this.subscribe(sessionId);
-					} catch {
-						chatHub.status(this.userId, "twitch", "error");
+					} catch (error) {
+						chatHub.status(
+							this.userId,
+							"twitch",
+							"error",
+							error instanceof Error
+								? error.message
+								: "Twitch chat could not be started",
+						);
 						this.socket?.close();
 						return;
 					}
@@ -140,20 +194,30 @@ class TwitchConnector {
 				break;
 			}
 			case "notification": {
-				if (message.metadata.subscription_type !== "channel.chat.message")
-					return;
-				const normalized = normalizeTwitchMessage(
-					{
-						...message.payload?.event,
-						sent_at: message.metadata.message_timestamp,
-					},
-					(setId, versionId) => this.badges.get(`${setId}/${versionId}`),
-				);
-				if (normalized)
+				const type = message.metadata.subscription_type;
+				if (!type) return;
+				if (type === "channel.chat.message") {
+					const normalized = normalizeTwitchMessage(
+						{
+							...message.payload?.event,
+							sent_at: message.metadata.message_timestamp,
+						},
+						(setId, versionId) => this.badges.get(`${setId}/${versionId}`),
+					);
+					if (!normalized) return;
 					chatHub.publish(this.userId, {
 						type: "message",
 						message: normalized,
 					});
+					return;
+				}
+				const alert = normalizeTwitchAlert(
+					type,
+					message.payload?.event,
+					message.metadata.message_id,
+					message.metadata.message_timestamp,
+				);
+				if (alert) chatHub.publish(this.userId, { type: "alert", alert });
 				break;
 			}
 			case "session_reconnect": {
@@ -165,9 +229,24 @@ class TwitchConnector {
 				}
 				break;
 			}
-			case "revocation":
-				chatHub.status(this.userId, "twitch", "error");
+			case "revocation": {
+				const reason = message.payload?.subscription?.status;
+				if (message.metadata.subscription_type !== "channel.chat.message") {
+					console.error(
+						`Twitch ${message.metadata.subscription_type ?? "alert"} revoked${reason ? `: ${reason}` : ""}`,
+					);
+					return;
+				}
+				chatHub.status(
+					this.userId,
+					"twitch",
+					"error",
+					reason
+						? `Twitch chat revoked: ${reason.replaceAll("_", " ")}`
+						: "Twitch revoked the chat subscription",
+				);
 				break;
+			}
 		}
 	}
 
@@ -206,10 +285,20 @@ class TwitchConnectorManager {
 	constructor() {
 		chatHub.onAudienceChanged(
 			(userId, count) =>
-				void this.audienceChanged(userId, count).catch(() =>
-					chatHub.status(userId, "twitch", "error"),
+				void this.audienceChanged(userId, count).catch((error) =>
+					chatHub.status(
+						userId,
+						"twitch",
+						"error",
+						error instanceof Error
+							? error.message
+							: "Twitch chat could not be started",
+					),
 				),
 		);
+		chatHub.onConnectorRefresh((userId) => {
+			void this.refresh(userId);
+		});
 	}
 
 	private async audienceChanged(userId: string, count: number) {
@@ -225,8 +314,15 @@ class TwitchConnectorManager {
 		await this.stop(userId);
 		await this.pending.get(userId)?.catch(() => undefined);
 		await this.stop(userId);
-		await this.ensureStarted(userId).catch(() =>
-			chatHub.status(userId, "twitch", "error"),
+		await this.ensureStarted(userId).catch((error) =>
+			chatHub.status(
+				userId,
+				"twitch",
+				"error",
+				error instanceof Error
+					? error.message
+					: "Twitch chat could not be started",
+			),
 		);
 	}
 
@@ -265,7 +361,7 @@ class TwitchConnectorManager {
 			enabled &&
 			!this.connectors.has(userId)
 		) {
-			const lock = await tryAdvisoryLock(`chat:${userId}`, () => {
+			const lock = await tryAdvisoryLock(`chat:twitch:${userId}`, () => {
 				void this.lockLost(userId);
 			});
 			if (!lock) {

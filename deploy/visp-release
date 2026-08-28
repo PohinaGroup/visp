@@ -27,6 +27,7 @@ for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
 	"$obs_remote_web_env" "$caddy_env"; do
 	[[ -e $path ]] || fail "missing prerequisite: $path"
 done
+command -v node >/dev/null 2>&1 || fail "node is required to run visp-server"
 
 run_with_env() (
 	local env_file=$1
@@ -64,6 +65,7 @@ run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" buil
 "$bun" run --cwd "$repo/apps/fumadocs" build
 
 for output in \
+	apps/server/dist/index.mjs \
 	apps/admin/dist/index.html \
 	apps/native/dist/index.html \
 	apps/obs-remote/dist/index.html \
@@ -96,9 +98,19 @@ systemctl restart visp-server visp-web
 systemctl reload caddy
 systemctl is-active --quiet visp-server visp-web caddy
 
-curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
-	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null
-curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
-	--fail --silent --show-error http://127.0.0.1:3001/ >/dev/null
+if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
+	echo "visp-release: visp-server did not become ready on :3000" >&2
+	systemctl --no-pager --full status visp-server >&2 || true
+	journalctl -u visp-server -n 80 --no-pager >&2 || true
+	exit 1
+fi
+if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3001/ >/dev/null; then
+	echo "visp-release: visp-web did not become ready on :3001" >&2
+	systemctl --no-pager --full status visp-web >&2 || true
+	journalctl -u visp-web -n 80 --no-pager >&2 || true
+	exit 1
+fi
 
 echo "VISP $tag ($expected_sha) deployed"

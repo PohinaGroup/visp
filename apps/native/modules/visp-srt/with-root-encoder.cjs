@@ -16,6 +16,7 @@ const block = `
 project(":expo") {
   afterEvaluate {
     dependencies.add("implementation", "${dependency}")
+    dependencies.add("implementation", "com.squareup.okhttp3:okhttp:4.12.0")
     def vispSrtModuleDir = rootProject.file("../modules/visp-srt")
     android {
       sourceSets.main.jniLibs.srcDirs += file("$vispSrtModuleDir/vendor/android/jniLibs")
@@ -25,7 +26,7 @@ project(":expo") {
         }
         externalNativeBuild {
           cmake {
-            arguments "-DVISP_SRT_VENDOR_DIR=$vispSrtModuleDir/vendor"
+            arguments "-DVISP_SRT_VENDOR_DIR=$vispSrtModuleDir/vendor", "-DANDROID_SUPPORT_FLEXIBLE_PAGE_SIZES=ON"
           }
         }
       }

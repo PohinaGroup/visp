@@ -5,9 +5,9 @@ description: VISPin palvelimet, asiakasohjelmat, mediatodennus, tilannekuvat ja 
 
 # Arkkitehtuuri
 
-VISP erottaa hallintatason ja median siirron. Web-portaali ja API hallitsevat käyttäjiä, laitteita ja lyhytikäistä tilaa. Mediarelay vastaanottaa kameran syötteen ja tarjoaa sen OBS:lle laitekohtaisilla tunnuksilla.
+VISP erottaa hallintatason ja median siirron. Web-portaali ja API hallitsevat käyttäjiä, laitteita ja lyhytikäistä tilaa. Mediarelay vastaanottaa kameran syötteen ja Direct lähettää sen oletuksena Twitchiin, Kickiin tai YouTubeen. OBS voi lukea alkuperäisen syötteen valinnaisesti.
 
-Jokaisella julkaisevalla laitteella on oma peruutettava polku. OBS käyttää erillisiä vain lukuun tarkoitettuja tunnuksia. Twitchin, Kickin tai muun kohteen lähetysavain pysyy OBS-koneella eikä kulje VISPin kautta.
+Jokaisella julkaisevalla laitteella on oma peruutettava polku. OBS käyttää erillisiä vain lukuun tarkoitettuja tunnuksia. Direct hakee Twitchin tai Kickin lähetysavaimen OAuth-luvalla tai luo julkisen YouTube-lähetyksen vain välitysprosessin käyttöön; kohdetta ei palauteta asiakassovellukselle eikä tallenneta omana tietona.
 
 Tilapäiset yhteyskatkot näkyvät tapahtumina, joista palvelu muodostaa viimeisimmän tilannekuvan. Asiakasohjelmat sovittavat tilan uudelleen yhteyden palautuessa. Erillinen OBS Remote käyttää samaa VISP-tiliä kuin muut asiakkaat. Se ja OBS-lisäosa avaavat omat lyhytikäisillä kertakäyttölipuilla todennetut ulospäin suuntautuvat WebSocket-yhteytensä. Etäohjaus ei avaa OBS:ään tulevaa porttia eikä muuta median käyttöoikeuksia.
 
@@ -19,3 +19,20 @@ kiintiö rajoittaa väärinkäyttöä.
 
 OBS-tila ja -komennot käyttävät sovellusinstanssien välillä tietokantakyselyä,
 joten niiden välitys voi olla paikallista WebSocket-päivitystä hitaampaa.
+
+Twitch-chat käyttää EventSub-yhteyttä ja Kick-chat varmennettua webhookia.
+YouTube-chat luetaan käyttäjän aktiivisesta lähetyksestä alustan ilmoittamalla
+kyselyvälillä. Kaikki viestit välitetään selain- ja mobiilisovelluksille saman
+VISP-WebSocketin kautta.
+
+## Kaksi tuotantotilaa
+
+Kotistudiotilassa VISP ei ylläpidä OBS:ää: käyttäjän oma OBS vastaanottaa
+alkuperäisen syötteen ja vastaa sommittelusta. Cloud Studio on tästä erillinen
+Direct-tila. VISPin hallittu FFmpeg- ja Chromium-sommittelija hakee vain viimeksi
+tallennetun näkymäkaavion ja julkaisee ohjelmasyötteen Directille.
+
+Jos käyttöönottoasetus, hätäkatkaisu tai sommittelijan terveystarkistus estää
+Cloud Studion, Direct välittää kamerasyötteen ilman päällyksiä. Nykyiset tilit
+pysyvät OBS-tilassa, kunnes käyttäjä vaihtaa tilaa. Uusien tilien Cloud Studio
+-oletus otetaan käyttöön erillisellä vaiheistetulla asetuksella.

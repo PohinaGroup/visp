@@ -1,4 +1,4 @@
-*
-!.gitignore
-!haishinkit/
-!haishinkit/**
+# Built by modules/visp-srt/scripts/build-libsrt.sh — do not commit.
+ios/
+android/
+include/

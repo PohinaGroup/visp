@@ -21,6 +21,7 @@ import { CookieBanner } from "../components/cookie-banner";
 import Header from "../components/header";
 import appCss from "../index.css?url";
 import { useLocale } from "../lib/i18n";
+import { legalEntity } from "../lib/legal";
 
 export interface RouterAppContext {
 	trpc: TRPCOptionsProxy<AppRouter>;
@@ -75,7 +76,35 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 				href: "/favicon.png",
 			},
 		],
-		scripts: rybbitHeadScripts(),
+		scripts: [
+			...rybbitHeadScripts(),
+			{
+				type: "application/ld+json",
+				children: JSON.stringify({
+					"@context": "https://schema.org",
+					"@graph": [
+						{
+							"@type": "WebSite",
+							"@id": `${legalEntity.siteUrl}/#website`,
+							name: legalEntity.productName,
+							url: `${legalEntity.siteUrl}/`,
+							inLanguage: ["en", "fi"],
+							publisher: {
+								"@id": `${legalEntity.siteUrl}/#organization`,
+							},
+						},
+						{
+							"@type": "Organization",
+							"@id": `${legalEntity.siteUrl}/#organization`,
+							name: legalEntity.companyName,
+							url: `${legalEntity.siteUrl}/`,
+							logo: `${legalEntity.siteUrl}/visp-logo.png`,
+							sameAs: [legalEntity.sourceUrl],
+						},
+					],
+				}),
+			},
+		],
 	}),
 
 	component: RootDocument,
@@ -88,6 +117,25 @@ function RootDocument() {
 	const isLocalizedLanding = useLocation({
 		select: (l) => l.pathname === "/fi" || l.pathname === "/fi/",
 	});
+	// The OBS browser source composites over the scene: no chrome, no theme
+	// wrapper, and nothing that paints a background. Banners, toasts, and
+	// devtools buttons would all go out on stream.
+	const isOverlay = useLocation({ select: (l) => l.pathname === "/overlay" });
+
+	if (isOverlay) {
+		return (
+			<html lang={locale} data-overlay="">
+				<head>
+					<HeadContent />
+				</head>
+				<body>
+					<Outlet />
+					<Scripts />
+				</body>
+			</html>
+		);
+	}
+
 	return (
 		<html lang={locale} className="dark">
 			<head>

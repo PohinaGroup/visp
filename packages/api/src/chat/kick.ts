@@ -5,7 +5,7 @@ import { createVerify, type KeyLike } from "node:crypto";
 import { and, eq } from "drizzle-orm";
 import { tryAdvisoryLock } from "../advisory-lock";
 import { chatHub } from "./hub";
-import { normalizeKickMessage } from "./normalize";
+import { normalizeKickAlert, normalizeKickMessage } from "./normalize";
 
 const KICK_API = "https://api.kick.com/public/v1";
 const MAX_CLOCK_SKEW_MS = 5 * 60_000;
@@ -25,6 +25,15 @@ type KickSubscription = {
 	event?: string;
 	id: string;
 };
+
+const KICK_EVENTS = [
+	"chat.message.sent",
+	"channel.followed",
+	"channel.subscription.new",
+	"channel.subscription.renewal",
+	"channel.subscription.gifts",
+] as const;
+type KickEvent = (typeof KICK_EVENTS)[number];
 
 let appToken: KickToken | undefined;
 const replayIds = new Map<string, number>();
@@ -68,7 +77,10 @@ async function kickRequest(path: string, init?: RequestInit) {
 	});
 }
 
-export async function createKickSubscription(broadcasterId: string) {
+export async function createKickSubscription(
+	broadcasterId: string,
+	events: readonly KickEvent[] = KICK_EVENTS,
+) {
 	const numericBroadcasterId = Number(broadcasterId);
 	if (
 		!Number.isSafeInteger(numericBroadcasterId) ||
@@ -80,20 +92,42 @@ export async function createKickSubscription(broadcasterId: string) {
 		method: "POST",
 		body: JSON.stringify({
 			broadcaster_user_id: numericBroadcasterId,
-			events: [{ name: "chat.message.sent", version: 1 }],
+			events: events.map((name) => ({ name, version: 1 })),
 			method: "webhook",
 		}),
 	});
 	if (!response.ok)
 		throw new Error(`Kick subscription failed (${response.status})`);
 	const payload = (await response.json()) as {
-		data?: Array<{ error?: string; subscription_id?: string }>;
+		data?: Array<{
+			error?: string;
+			name?: string;
+			subscription_id?: string;
+		}>;
 	};
-	const result = payload.data?.[0];
-	if (!result?.subscription_id || result.error) {
-		throw new Error(result?.error || "Kick subscription response was invalid");
+	const created = new Map<KickEvent, string>();
+	let chatError: Error | undefined;
+	for (const name of events) {
+		const result = payload.data?.find((entry) => entry.name === name);
+		if (result?.subscription_id && !result.error) {
+			created.set(name, result.subscription_id);
+			continue;
+		}
+		const error = new Error(
+			result?.error || `Kick ${name} subscription response was invalid`,
+		);
+		if (name === "chat.message.sent") chatError = error;
+		else console.error(`Kick ${name} alert unavailable`, error);
 	}
-	return result.subscription_id;
+	if (chatError) {
+		await Promise.all(
+			[...created.values()].map((id) =>
+				deleteKickSubscription(id).catch(() => undefined),
+			),
+		);
+		throw chatError;
+	}
+	return created;
 }
 
 export async function deleteKickSubscription(subscriptionId: string) {
@@ -112,6 +146,20 @@ async function listKickSubscriptions() {
 		throw new Error(`Kick subscriptions list failed (${response.status})`);
 	const payload = (await response.json()) as { data?: KickSubscription[] };
 	return payload.data ?? [];
+}
+
+export async function deleteKickSubscriptionsForBroadcaster(
+	broadcasterId: string,
+) {
+	const subscriptions = await listKickSubscriptions();
+	await Promise.all(
+		subscriptions
+			.filter(
+				(subscription) =>
+					String(subscription.broadcaster_user_id) === broadcasterId,
+			)
+			.map((subscription) => deleteKickSubscription(subscription.id)),
+	);
 }
 
 async function reconcileKickSubscriptionsOwned() {
@@ -135,16 +183,26 @@ async function reconcileKickSubscriptionsOwned() {
 	const failures: Error[] = [];
 	for (const connection of enabled) {
 		try {
-			const existing = active.find(
+			const subscriptions = active.filter(
 				(subscription) =>
-					subscription.id === connection.subscriptionId ||
-					(subscription.event === "chat.message.sent" &&
-						String(subscription.broadcaster_user_id) ===
-							connection.broadcasterId),
+					String(subscription.broadcaster_user_id) === connection.broadcasterId,
 			);
+			const existing = new Map(
+				subscriptions.flatMap((subscription) =>
+					KICK_EVENTS.includes(subscription.event as KickEvent)
+						? [[subscription.event as KickEvent, subscription.id] as const]
+						: [],
+				),
+			);
+			const missing = KICK_EVENTS.filter((event) => !existing.has(event));
+			const created =
+				missing.length > 0
+					? await createKickSubscription(connection.broadcasterId, missing)
+					: new Map<KickEvent, string>();
 			const subscriptionId =
-				existing?.id ??
-				(await createKickSubscription(connection.broadcasterId));
+				existing.get("chat.message.sent") ?? created.get("chat.message.sent");
+			if (!subscriptionId)
+				throw new Error("Kick chat subscription could not be reconciled");
 			if (subscriptionId !== connection.subscriptionId) {
 				await db
 					.update(chatConnection)
@@ -226,7 +284,10 @@ export async function handleKickWebhook(
 	rawBody: string,
 	headers: KickWebhookHeaders,
 ) {
-	if (headers.type !== "chat.message.sent" || headers.version !== "1")
+	if (
+		!KICK_EVENTS.includes(headers.type as KickEvent) ||
+		headers.version !== "1"
+	)
 		return "ignored" as const;
 	const verified = verifyKickWebhook(rawBody, headers);
 	if (!verified.ok) return verified.reason;
@@ -236,10 +297,20 @@ export async function handleKickWebhook(
 	} catch {
 		return "payload" as const;
 	}
-	return handleVerifiedKickPayload(payload);
+	return handleVerifiedKickPayload(
+		payload,
+		headers.type as KickEvent,
+		headers.messageId,
+		headers.timestamp,
+	);
 }
 
-export async function handleVerifiedKickPayload(payload: unknown) {
+export async function handleVerifiedKickPayload(
+	payload: unknown,
+	type: KickEvent = "chat.message.sent",
+	messageId?: string,
+	timestamp?: string,
+) {
 	if (!payload || typeof payload !== "object") return "payload" as const;
 	const event = payload as { broadcaster?: { user_id?: unknown } };
 	const broadcasterId = event.broadcaster?.user_id;
@@ -263,8 +334,14 @@ export async function handleVerifiedKickPayload(payload: unknown) {
 		)
 		.limit(1);
 	if (!connection) return "disabled" as const;
-	const message = normalizeKickMessage(payload);
-	if (!message) return "payload" as const;
-	chatHub.publish(connection.userId, { type: "message", message });
+	if (type === "chat.message.sent") {
+		const message = normalizeKickMessage(payload);
+		if (!message) return "payload" as const;
+		chatHub.publish(connection.userId, { type: "message", message });
+	} else {
+		const alert = normalizeKickAlert(type, payload, messageId, timestamp);
+		if (!alert) return "payload" as const;
+		chatHub.publish(connection.userId, { type: "alert", alert });
+	}
 	return "accepted" as const;
 }

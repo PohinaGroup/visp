@@ -1,9 +1,23 @@
 import "./test-env";
 
 import {
+	brbHighlightKey,
+	brbHighlightUploadKey,
+	brbTick,
+	confirmBrbHighlightUpload,
+	deleteBrbHighlight,
+	getBrbHighlightUploadUrl,
+	MAX_BRB_HIGHLIGHT_BYTES,
+	reorderBrbHighlights,
+	setBrbHighlightPrefs,
+	stopBrb,
+	updateBrbHighlight,
+} from "@VISP/api/brb";
+import {
 	publishInvalidation,
 	subscribeInvalidations,
 } from "@VISP/api/cache-bus";
+import { setBotSettings } from "@VISP/api/chat/bot";
 import {
 	disableChatConnection,
 	enableChatConnection,
@@ -15,13 +29,29 @@ import {
 	handleVerifiedKickPayload,
 	reconcileKickSubscriptions,
 } from "@VISP/api/chat/kick";
-import { resolveDirectDestinations } from "@VISP/api/direct";
+import {
+	authenticateChatOverlayToken,
+	issueChatOverlayToken,
+	revokeChatOverlayToken,
+} from "@VISP/api/chat/overlay-token";
+import {
+	applyDirectState,
+	directDestinationActive,
+	prepareDirect,
+	resolveDirectDestinations,
+	resolveDirectDestinationsV3,
+} from "@VISP/api/direct";
+import {
+	applyCustomDirectState,
+	customDirectOutputActive,
+} from "@VISP/api/direct-custom";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
 	setObsScene,
 	setObsStreaming,
 } from "@VISP/api/obs-control";
+import { hashSecret } from "@VISP/api/password";
 import {
 	applyPathHook,
 	authenticateMedia,
@@ -38,31 +68,103 @@ import {
 	rotatePublishPath,
 	rotateReadSecret,
 } from "@VISP/api/relay";
-import { chooseRelay } from "@VISP/api/relays";
+import { chooseRelay, ensureDefaultRelay } from "@VISP/api/relays";
 import { appRouter } from "@VISP/api/routers/index";
+import { resetRelayMutationLimitForTests } from "@VISP/api/routers/relay";
 import { listSnapshots, snapshotKey } from "@VISP/api/snapshots";
+import {
+	compositorDesiredState,
+	deliverStudioAlert,
+	deliverStudioProviderAlert,
+	reportBrowserFailure,
+	reportCompositorHealth,
+} from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import {
 	account,
 	appUser,
 	session as authSession,
+	brbHighlight,
+	chatBotAlert,
 	chatConnection,
+	customDirectDestination,
+	customDirectOutput,
+	directDestination,
 	pathState,
 	relay,
 	relayPath,
 	relayStreamSession,
 	user,
 } from "@VISP/db/schema/index";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
-import { eq, ne } from "drizzle-orm";
+import {
+	afterEach,
+	beforeEach,
+	test as bunTest,
+	describe,
+	expect,
+} from "bun:test";
+import { eq, ne, sql } from "drizzle-orm";
 import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
+import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
+const test = bunTest.serial;
 const originalFetch = globalThis.fetch;
 const app = new Elysia().use(machineRoutes);
+const highlightUploadId = "10000000-0000-4000-8000-000000000001";
+
+function validHighlightMp4() {
+	const box = (type: string, ...parts: Uint8Array[]) => {
+		const size = 8 + parts.reduce((total, part) => total + part.length, 0);
+		const bytes = new Uint8Array(size);
+		new DataView(bytes.buffer).setUint32(0, size);
+		bytes.set(new TextEncoder().encode(type), 4);
+		let offset = 8;
+		for (const part of parts) {
+			bytes.set(part, offset);
+			offset += part.length;
+		}
+		return bytes;
+	};
+	const concat = (...parts: Uint8Array[]) => {
+		const bytes = new Uint8Array(
+			parts.reduce((total, part) => total + part.length, 0),
+		);
+		let offset = 0;
+		for (const part of parts) {
+			bytes.set(part, offset);
+			offset += part.length;
+		}
+		return bytes;
+	};
+	const mvhd = new Uint8Array(24);
+	new DataView(mvhd.buffer).setUint32(12, 1000);
+	new DataView(mvhd.buffer).setUint32(16, 750);
+	const tkhd = new Uint8Array(84);
+	new DataView(tkhd.buffer).setUint32(76, 1280 << 16);
+	new DataView(tkhd.buffer).setUint32(80, 720 << 16);
+	const entry = box(
+		"avc1",
+		new Uint8Array(78),
+		box("avcC", new Uint8Array([1, 100, 0, 40, 255, 225, 0])),
+	);
+	const stsd = concat(new Uint8Array(4), new Uint8Array([0, 0, 0, 1]), entry);
+	return concat(
+		box("ftyp", new TextEncoder().encode("isom")),
+		box(
+			"moov",
+			box("mvhd", mvhd),
+			box(
+				"trak",
+				box("tkhd", tkhd),
+				box("mdia", box("minf", box("stbl", box("stsd", stsd)))),
+			),
+		),
+	);
+}
 
 async function seed() {
 	const publishA = "publish-a";
@@ -77,18 +179,14 @@ async function seed() {
 		{
 			id: "user-a",
 			handle: "alpha",
-			publishSecretHash: await Bun.password.hash(publishA, {
-				algorithm: "argon2id",
-			}),
-			readSecretHash: await Bun.password.hash(readA, { algorithm: "argon2id" }),
+			publishSecretHash: await hashSecret(publishA),
+			readSecretHash: await hashSecret(readA),
 		},
 		{
 			id: "user-b",
 			handle: "beta",
-			publishSecretHash: await Bun.password.hash(publishB, {
-				algorithm: "argon2id",
-			}),
-			readSecretHash: await Bun.password.hash(readB, { algorithm: "argon2id" }),
+			publishSecretHash: await hashSecret(publishB),
+			readSecretHash: await hashSecret(readB),
 		},
 	]);
 	const defaultRelay = await db.query.relay.findFirst({
@@ -118,6 +216,28 @@ async function seed() {
 	return { pathA, pathB, publishA, readA, publishB, readB };
 }
 
+/**
+ * Alerts are fire-and-forget by design — a chat outage must not fail a path
+ * hook — so the tests wait for them rather than assuming they land inline.
+ */
+async function alertsFor(pathId: number, expected: number) {
+	let rows = await db.query.chatBotAlert.findMany({
+		where: eq(chatBotAlert.pathId, pathId),
+	});
+	for (let attempt = 0; attempt < 40 && rows.length < expected; attempt += 1) {
+		await Bun.sleep(25);
+		rows = await db.query.chatBotAlert.findMany({
+			where: eq(chatBotAlert.pathId, pathId),
+		});
+	}
+	return rows.map((row) => row.event).sort();
+}
+
+/** Give a claim that should never happen time to happen before ruling it out. */
+function settleAlerts() {
+	return Bun.sleep(150);
+}
+
 function machineAuth(input: {
 	action: "publish" | "read";
 	password: string;
@@ -137,7 +257,9 @@ function machineAuth(input: {
 integration("relay PostgreSQL integration", () => {
 	beforeEach(async () => {
 		clearAuthCacheForTests();
+		resetRelayMutationLimitForTests();
 		await db.delete(user);
+		await ensureDefaultRelay();
 	});
 
 	afterEach(() => {
@@ -351,6 +473,8 @@ integration("relay PostgreSQL integration", () => {
 			useCase: "phone_to_obs",
 			destination: "twitch",
 			advancedMode: false,
+			direct: { twitch: false, kick: false, youtube: false },
+			prepareObs: false,
 			createDevice: false,
 		});
 		expect(onboarding.urls.publish).toEqual([]);
@@ -397,6 +521,8 @@ integration("relay PostgreSQL integration", () => {
 				useCase: "phone_to_obs",
 				destination: "twitch",
 				advancedMode: false,
+				direct: { twitch: false, kick: false, youtube: false },
+				prepareObs: false,
 				createDevice: false,
 				redoMode: "wipe",
 			});
@@ -478,6 +604,121 @@ integration("relay PostgreSQL integration", () => {
 				where: eq(relayStreamSession.pathId, data.pathA.id),
 			}),
 		).toHaveLength(0);
+	});
+
+	test("announces each stream transition once, however often it is reported", async () => {
+		const data = await seed();
+		await setBotSettings("user-a", {
+			enabled: true,
+			commandsEnabled: true,
+			prefix: "!",
+			senderMode: "visp",
+			targets: { twitch: true, kick: true, youtube: true },
+			alerts: { live: true, brb: true, back: true, offline: true },
+			messages: { live: null, brb: null, back: null, offline: null },
+		});
+		// The ready hook fires again on every publisher keepalive, and the
+		// reconciler re-reports the same state every ten seconds.
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		expect(await alertsFor(data.pathA.id, 1)).toEqual(["live"]);
+
+		// BRB is off for this account, so a lost source is the end of the stream.
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		expect(await alertsFor(data.pathA.id, 2)).toEqual(["live", "offline"]);
+
+		globalThis.fetch = (async () =>
+			new Response(JSON.stringify({ items: [] }), {
+				status: 200,
+			})) as unknown as typeof fetch;
+		await reconcilePathState("http://relay.test:9997");
+		await settleAlerts();
+		expect(await alertsFor(data.pathA.id, 2)).toEqual(["live", "offline"]);
+
+		// A stream that never announces cannot be told about.
+		await setBotSettings("user-b", {
+			enabled: false,
+			commandsEnabled: true,
+			prefix: "!",
+			senderMode: "visp",
+			targets: { twitch: true, kick: true, youtube: true },
+			alerts: { live: true, brb: true, back: true, offline: true },
+			messages: { live: null, brb: null, back: null, offline: null },
+		});
+		await applyPathHook("ready", {
+			path: data.pathB.slug,
+			sourceType: "srtConn",
+		});
+		await settleAlerts();
+		expect(
+			await db.query.chatBotAlert.findMany({
+				where: eq(chatBotAlert.pathId, data.pathB.id),
+			}),
+		).toHaveLength(0);
+	});
+
+	test("holds the stream on a BRB card and says so exactly once", async () => {
+		const data = await seed();
+		await db
+			.update(appUser)
+			.set({ brbEnabled: true })
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true })
+			.where(eq(relayPath.id, data.pathA.id));
+		await setBotSettings("user-a", {
+			enabled: true,
+			commandsEnabled: true,
+			prefix: "!",
+			senderMode: "visp",
+			targets: { twitch: true, kick: true, youtube: true },
+			alerts: { live: true, brb: true, back: true, offline: true },
+			messages: { live: null, brb: null, back: null, offline: null },
+		});
+		await applyPathHook("ready", {
+			path: data.pathA.slug,
+			sourceType: "srtConn",
+		});
+		await db
+			.update(pathState)
+			.set({ directTwitchState: "live" })
+			.where(eq(pathState.pathId, data.pathA.id));
+
+		await applyPathHook("not-ready", { path: data.pathA.slug });
+		const held = await db.query.pathState.findFirst({
+			where: eq(pathState.pathId, data.pathA.id),
+		});
+		expect(held?.brbSince).toBeInstanceOf(Date);
+
+		// The reconciler re-reports the same missing source every tick; the card
+		// keeps its original drop time and chat is not told twice.
+		globalThis.fetch = (async () =>
+			new Response(JSON.stringify({ items: [] }), {
+				status: 200,
+			})) as unknown as typeof fetch;
+		await reconcilePathState("http://relay.test:9997");
+		const stillHeld = await db.query.pathState.findFirst({
+			where: eq(pathState.pathId, data.pathA.id),
+		});
+		expect(stillHeld?.brbSince?.getTime()).toBe(held?.brbSince?.getTime());
+		await settleAlerts();
+		expect(
+			(
+				await db.query.chatBotAlert.findMany({
+					where: eq(chatBotAlert.pathId, data.pathA.id),
+				})
+			)
+				.map((row) => row.event)
+				.sort(),
+		).toEqual(["brb", "live"]);
 	});
 
 	test("protects admin data and lets a break-glass admin ban users", async () => {
@@ -741,12 +982,29 @@ integration("relay PostgreSQL integration", () => {
 	test("authenticates and pushes commands over the OBS WebSocket", async () => {
 		await seed();
 		const pairing = await rotateObsControlToken("user-a");
-		const liveApp = new Elysia().use(obsLiveRoutes).listen({
-			hostname: "127.0.0.1",
-			port: 0,
-		});
+		const liveApp = new Elysia({ adapter: nodeAdapter }).use(obsLiveRoutes);
+		const liveServer = await new Promise<NonNullable<typeof liveApp.server>>(
+			(resolve, reject) => {
+				try {
+					liveApp.listen(
+						{
+							hostname: "127.0.0.1",
+							port: 0,
+						},
+						(server) => resolve(server),
+					);
+				} catch (error) {
+					reject(error);
+				}
+			},
+		);
 		try {
-			const port = liveApp.server?.port;
+			const address = (
+				liveServer as unknown as {
+					raw?: { bun?: { server?: { address?: { port?: number } } } };
+				}
+			).raw?.bun?.server?.address;
+			const port = address?.port;
 			if (!port) throw new Error("OBS live test server did not start");
 			const ticketResponse = await fetch(
 				`http://127.0.0.1:${port}/api/obs/live-ticket`,
@@ -798,7 +1056,7 @@ integration("relay PostgreSQL integration", () => {
 			});
 			socket.close();
 		} finally {
-			await liveApp.stop(true);
+			liveServer.stop(true);
 		}
 	});
 
@@ -1211,10 +1469,11 @@ integration("relay PostgreSQL integration", () => {
 		expect(response.status).toBe(429);
 	});
 
-	test("provisions relay users from Twitch-only, Kick-only, and linked accounts", async () => {
+	test("provisions relay users from Twitch, Kick, Google, and linked accounts", async () => {
 		await db.insert(user).values([
 			{ id: "twitch-only", name: "Twitch Only", email: "twitch@example.test" },
 			{ id: "kick-only", name: "Kick Only", email: "kick@example.test" },
+			{ id: "google-only", name: "Google Only", email: "google@example.test" },
 			{ id: "linked", name: "Linked", email: "linked@example.test" },
 		]);
 		await db.insert(account).values([
@@ -1229,6 +1488,12 @@ integration("relay PostgreSQL integration", () => {
 				accountId: "kick-1",
 				providerId: "kick",
 				userId: "kick-only",
+			},
+			{
+				id: "account-google",
+				accountId: "google-1",
+				providerId: "google",
+				userId: "google-only",
 			},
 			{
 				id: "account-linked-twitch",
@@ -1247,9 +1512,11 @@ integration("relay PostgreSQL integration", () => {
 		const provisioned = await Promise.all([
 			ensureRelayUser("twitch-only", "Twitch Only"),
 			ensureRelayUser("kick-only", "Kick Only"),
+			ensureRelayUser("google-only", "Google Only"),
 			ensureRelayUser("linked", "Linked"),
 		]);
 		expect(provisioned.map(({ id }) => id).sort()).toEqual([
+			"google-only",
 			"kick-only",
 			"linked",
 			"twitch-only",
@@ -1260,6 +1527,33 @@ integration("relay PostgreSQL integration", () => {
 			});
 			expect(paths).toHaveLength(1);
 		}
+	});
+
+	test("scopes the chat overlay token to its owner and drops it on revoke", async () => {
+		await seed();
+		const { token } = await issueChatOverlayToken("user-a");
+		expect(await authenticateChatOverlayToken(token)).toBe("user-a");
+
+		const [id, secret] = token.split(".");
+		expect(
+			await authenticateChatOverlayToken(`${id}.${"0".repeat(64)}`),
+		).toBeNull();
+		expect(
+			await authenticateChatOverlayToken(`${"0".repeat(24)}.${secret}`),
+		).toBeNull();
+
+		// Reissuing invalidates the URL already pasted into OBS.
+		const reissued = await issueChatOverlayToken("user-a");
+		expect(await authenticateChatOverlayToken(token)).toBeNull();
+		expect(await authenticateChatOverlayToken(reissued.token)).toBe("user-a");
+
+		// The OBS control pairing is a separate credential and survives.
+		const pairing = await rotateObsControlToken("user-a");
+		expect(await authenticateChatOverlayToken(reissued.token)).toBe("user-a");
+		expect(await revokeChatOverlayToken("user-a")).toBe(true);
+		expect(await authenticateChatOverlayToken(reissued.token)).toBeNull();
+		expect((await getObsControlStatus("user-a")).configured).toBeTrue();
+		expect(pairing.token).not.toBe(reissued.token);
 	});
 
 	test("enables and disables Twitch and Kick chat without persisting messages", async () => {
@@ -1290,9 +1584,18 @@ integration("relay PostgreSQL integration", () => {
 				return Response.json({ access_token: "app-token", expires_in: 3600 });
 			}
 			if (url.endsWith("/events/subscriptions") && init?.method === "POST") {
+				const body = JSON.parse(String(init.body)) as {
+					events: Array<{ name: string }>;
+				};
 				return Response.json({
-					data: [{ subscription_id: "kick-subscription" }],
+					data: body.events.map(({ name }, index) => ({
+						name,
+						subscription_id: `kick-subscription-${index}`,
+					})),
 				});
+			}
+			if (url.endsWith("/events/subscriptions") && !init?.method) {
+				return Response.json({ data: [] });
 			}
 			if (url.includes("/events/subscriptions?") && init?.method === "DELETE") {
 				return new Response(null, { status: 204 });
@@ -1309,6 +1612,7 @@ integration("relay PostgreSQL integration", () => {
 				enabled: true,
 				grantedScopes: ["user:read:chat"],
 				needsConsent: false,
+				needsAlertConsent: true,
 				canManageChannel: false,
 				canReadStreamKey: false,
 			},
@@ -1318,6 +1622,17 @@ integration("relay PostgreSQL integration", () => {
 				enabled: true,
 				grantedScopes: ["user:read"],
 				needsConsent: false,
+				needsAlertConsent: false,
+				canManageChannel: false,
+				canReadStreamKey: false,
+			},
+			{
+				provider: "youtube",
+				linked: false,
+				enabled: false,
+				grantedScopes: [],
+				needsConsent: false,
+				needsAlertConsent: false,
 				canManageChannel: false,
 				canReadStreamKey: false,
 			},
@@ -1355,7 +1670,18 @@ integration("relay PostgreSQL integration", () => {
 				return Response.json({ data: [] });
 			}
 			if (url.endsWith("/events/subscriptions") && init?.method === "POST") {
-				return Response.json({ data: [{ subscription_id: "reconciled-sub" }] });
+				const body = JSON.parse(String(init.body)) as {
+					events: Array<{ name: string }>;
+				};
+				return Response.json({
+					data: body.events.map(({ name }, index) => ({
+						name,
+						subscription_id:
+							name === "chat.message.sent"
+								? "reconciled-sub"
+								: `reconciled-alert-${index}`,
+					})),
+				});
 			}
 			return new Response(null, { status: 500 });
 		}) as typeof fetch;
@@ -1384,6 +1710,22 @@ integration("relay PostgreSQL integration", () => {
 					event.type === "message" && event.message.id === "kick-message",
 			),
 		).toBe(true);
+		expect(
+			await handleVerifiedKickPayload(
+				{
+					broadcaster: { user_id: 67890 },
+					follower: { username: "Follower" },
+				},
+				"channel.followed",
+				"kick-follow",
+				"2026-07-17T10:00:00.000Z",
+			),
+		).toBe("accepted");
+		expect(
+			events.some(
+				(event) => event.type === "alert" && event.alert.id === "kick-follow",
+			),
+		).toBe(true);
 
 		await db
 			.delete(chatConnection)
@@ -1396,7 +1738,9 @@ integration("relay PostgreSQL integration", () => {
 integration("VISP Direct boundaries", () => {
 	beforeEach(async () => {
 		clearAuthCacheForTests();
+		resetRelayMutationLimitForTests();
 		await db.delete(user);
+		await ensureDefaultRelay();
 	});
 
 	afterEach(() => {
@@ -1425,6 +1769,7 @@ integration("VISP Direct boundaries", () => {
 		await db.insert(account).values([
 			{
 				id: "direct-twitch-a",
+				accessToken: "provider-token",
 				accountId: "tw-a",
 				providerId: "twitch",
 				scope: "user:read:email openid channel:read:stream_key",
@@ -1432,9 +1777,17 @@ integration("VISP Direct boundaries", () => {
 			},
 			{
 				id: "direct-kick-a",
+				accessToken: "provider-token",
 				accountId: "42",
 				providerId: "kick",
 				scope: "user:read channel:write streamkey:read channel:read",
+				userId: "user-a",
+			},
+			{
+				id: "direct-google-a",
+				accountId: "google-a",
+				providerId: "google",
+				scope: "openid https://www.googleapis.com/auth/youtube.force-ssl",
 				userId: "user-a",
 			},
 			{
@@ -1448,7 +1801,13 @@ integration("VISP Direct boundaries", () => {
 		return data;
 	}
 
-	const providerFetch = (async (input: Parameters<typeof fetch>[0]) => {
+	let youtubeBroadcastCreates = 0;
+	// Completing a broadcast cannot be undone, so BRB must never trigger one.
+	let youtubeBroadcastCompletes = 0;
+	const providerFetch = (async (
+		input: Parameters<typeof fetch>[0],
+		init?: RequestInit,
+	) => {
 		const url = String(input);
 		if (url.includes("/streams/key"))
 			return Response.json({ data: [{ stream_key: "live_a_secret" }] });
@@ -1458,6 +1817,51 @@ integration("VISP Direct boundaries", () => {
 					{ stream: { url: "rtmps://stream.kick.com/99", key: "kick_secret" } },
 				],
 			});
+		if (url.includes("/liveStreams?part=snippet"))
+			return Response.json({
+				id: "youtube-stream",
+				cdn: {
+					ingestionInfo: {
+						rtmpsIngestionAddress: "rtmps://a.rtmp.youtube.com/live2",
+						streamName: "youtube_secret",
+					},
+				},
+			});
+		if (url.includes("/liveStreams?part=cdn"))
+			return Response.json({
+				items: [
+					{
+						id: "youtube-stream",
+						cdn: {
+							ingestionInfo: {
+								rtmpsIngestionAddress: "rtmps://a.rtmp.youtube.com/live2",
+								streamName: "youtube_secret",
+							},
+						},
+					},
+				],
+			});
+		if (url.includes("/liveBroadcasts?part=status"))
+			return Response.json({
+				items: [
+					{
+						id: "youtube-broadcast",
+						contentDetails: { boundStreamId: "youtube-stream" },
+						status: { lifeCycleStatus: "ready" },
+					},
+				],
+			});
+		if (url.includes("/liveBroadcasts?part=")) {
+			if (init?.method === "POST") youtubeBroadcastCreates += 1;
+			return Response.json({ id: "youtube-broadcast" });
+		}
+		if (url.includes("/liveBroadcasts/bind"))
+			return Response.json({ id: "youtube-broadcast" });
+		if (url.includes("/liveBroadcasts/transition")) {
+			if (url.includes("broadcastStatus=complete"))
+				youtubeBroadcastCompletes += 1;
+			return Response.json({ id: "youtube-broadcast" });
+		}
 		return new Response(null, { status: 404 });
 	}) as typeof fetch;
 
@@ -1467,29 +1871,208 @@ integration("VISP Direct boundaries", () => {
 		maxForwarders,
 	});
 
-	test("a user without the beta flag cannot configure direct outputs", async () => {
+	test("Direct is open and an existing user starts unconfigured", async () => {
 		const data = await seedDirect();
 		const caller = await callerFor("user-a");
-
-		await expect(
-			caller.direct.setOutputs({
-				pathId: data.pathA.id,
-				twitch: true,
-				kick: false,
-			}),
-		).rejects.toMatchObject({ code: "FORBIDDEN" });
-
-		expect((await caller.direct.list()).betaEnabled).toBe(false);
+		expect((await caller.direct.list()).mode).toBe("unconfigured");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		expect((await caller.direct.list()).mode).toBe("direct");
 		const [path] = await db
 			.select()
 			.from(relayPath)
 			.where(eq(relayPath.id, data.pathA.id));
-		expect(path?.directTwitch).toBe(false);
+		expect(path?.directTwitch).toBe(true);
 	});
 
-	test("a user without the beta flag receives no relay destination URLs", async () => {
+	test("new onboarding stores Direct intent without assigning a device", async () => {
+		await seedDirect();
+		const caller = await callerFor("user-a");
+		const result = await caller.onboarding.complete({
+			software: "visp",
+			useCase: "direct",
+			destination: "twitch",
+			advancedMode: false,
+			direct: { twitch: true, kick: false, youtube: false },
+			prepareObs: false,
+			createDevice: false,
+		});
+		expect(result.urls.read).toEqual([]);
+		expect(result.sceneCollection).toBeNull();
+		expect((await caller.direct.list()).desired).toEqual({
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		expect((await caller.direct.list()).ownerPathId.twitch).toBeNull();
+	});
+
+	test("explicit OBS-only mode persists", async () => {
 		const data = await seedDirect();
-		// Flags set directly, so only canUseDirect stands between them and the relay.
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: false,
+			kick: false,
+			youtube: false,
+		});
+		expect((await caller.direct.list()).mode).toBe("obs");
+	});
+
+	test("persists an owner-scoped Studio graph and exposes last-saved compositor state", async () => {
+		await seedDirect();
+		const caller = await callerFor("user-a");
+		const other = await callerFor("user-b");
+		const sceneId = "11111111-1111-4111-8111-111111111111";
+		const textId = "22222222-2222-4222-8222-222222222222";
+		const browserId = "33333333-3333-4333-8333-333333333333";
+		const alertId = "44444444-4444-4444-8444-444444444444";
+		const graph = {
+			activeSceneId: sceneId,
+			scenes: [
+				{
+					id: sceneId,
+					name: "Main",
+					order: 0,
+					transition: "fade" as const,
+					layers: [
+						{
+							id: textId,
+							type: "text" as const,
+							name: "Title",
+							visible: true,
+							x: 20,
+							y: 20,
+							width: 600,
+							height: 100,
+							zIndex: 0,
+							text: "Saved title",
+						},
+						{
+							id: browserId,
+							type: "browser" as const,
+							name: "Widget",
+							visible: true,
+							x: 0,
+							y: 0,
+							width: 640,
+							height: 360,
+							zIndex: 1,
+							url: "https://widgets.example.test/live",
+						},
+						{
+							id: alertId,
+							type: "alert" as const,
+							name: "Followers",
+							visible: true,
+							x: 20,
+							y: 140,
+							width: 600,
+							height: 100,
+							zIndex: 2,
+							event: "follow" as const,
+						},
+					],
+				},
+			],
+		};
+
+		expect(await reportCompositorHealth("alpha-1", false)).toBe(true);
+		await expect(
+			reportCompositorHealth(
+				"alpha-1",
+				true,
+				"rtsp://127.0.0.1:8554/studio/beta-1",
+			),
+		).rejects.toThrow("local Studio RTSP path");
+		expect((await caller.studio.mode.get()).configured).toBe(false);
+		expect(
+			await reportCompositorHealth(
+				"alpha-1",
+				true,
+				"rtsp://127.0.0.1:8554/studio/alpha-1",
+			),
+		).toBe(true);
+		expect((await caller.studio.mode.get()).configured).toBe(false);
+		expect(await reportCompositorHealth("alpha-1", false)).toBe(true);
+		expect(await caller.studio.save(graph)).toEqual(graph);
+		expect((await caller.studio.get()).graph).toEqual(graph);
+		expect((await other.studio.get()).graph.scenes).toEqual([]);
+		await caller.studio.mode.set({ mode: "cloud_studio" });
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			mode: "passthrough",
+			requestedMode: "program",
+			version: 1,
+		});
+		expect(
+			await reportCompositorHealth(
+				"alpha-1",
+				true,
+				"rtsp://127.0.0.1:8554/studio/alpha-1",
+			),
+		).toBe(true);
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			mode: "program",
+			graph,
+		});
+
+		expect(await reportBrowserFailure("alpha-1", browserId)).toBe(true);
+		const disabled = await caller.studio.get();
+		expect(disabled.graph.scenes[0]?.layers[1]).toMatchObject({
+			visible: true,
+			runtimeDisabled: true,
+		});
+		await caller.studio.save(disabled.graph);
+		expect(
+			(await caller.studio.get()).graph.scenes[0]?.layers[1],
+		).toMatchObject({
+			runtimeDisabled: true,
+		});
+		const reenabled = structuredClone(disabled.graph);
+		const browser = reenabled.scenes[0]?.layers[1];
+		if (browser) browser.runtimeDisabled = false;
+		await caller.studio.save(reenabled);
+		expect(
+			(await caller.studio.get()).graph.scenes[0]?.layers[1],
+		).not.toHaveProperty("runtimeDisabled");
+		expect(
+			await deliverStudioProviderAlert("user-a", {
+				id: "follow-1",
+				provider: "twitch",
+				kind: "follow",
+				sentAt: new Date().toISOString(),
+				name: "Ada",
+			}),
+		).toBe(true);
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			alert: { event: "follow", label: "Ada followed" },
+		});
+		expect(
+			await deliverStudioProviderAlert("user-a", {
+				id: "sub-1",
+				provider: "youtube",
+				kind: "sub",
+				sentAt: new Date().toISOString(),
+				name: "Lin",
+			}),
+		).toBe(false);
+		expect(await deliverStudioAlert("alpha-1", "follow")).toEqual({
+			event: "follow",
+			fallback: null,
+		});
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			alert: { event: "follow", label: "Alert" },
+		});
+		await caller.studio.emptyWarning({ dismissed: true });
+		expect((await caller.studio.mode.get()).emptyWarningDismissed).toBe(true);
+	});
+
+	test("a path without a reservation receives no relay destination URLs", async () => {
+		const data = await seedDirect();
 		await db
 			.update(relayPath)
 			.set({ directTwitch: true, directKick: true })
@@ -1503,21 +2086,21 @@ integration("VISP Direct boundaries", () => {
 			.from(pathState)
 			.where(eq(pathState.pathId, data.pathA.id));
 		expect(state?.directTwitchState).toBe("failed");
-		expect(state?.directTwitchError).toBe("VISP Direct is in limited beta");
+		expect(state?.directTwitchError).toBe(
+			"Direct reservation expired, reconnect the publisher",
+		);
 	});
 
-	test("returns destination URLs only for a beta user, and never a bare key", async () => {
+	test("returns reserved destination URLs and never a bare key", async () => {
 		const data = await seedDirect();
-		await db
-			.update(appUser)
-			.set({ directBeta: true })
-			.where(eq(appUser.id, "user-a"));
 		const caller = await callerFor("user-a");
 		await caller.direct.setOutputs({
 			pathId: data.pathA.id,
 			twitch: true,
 			kick: true,
+			youtube: false,
 		});
+		await prepareDirect("user-a", data.pathA.id);
 
 		const { destinations } = await resolveDirectDestinations(
 			"alpha-1",
@@ -1525,10 +2108,17 @@ integration("VISP Direct boundaries", () => {
 		);
 		expect(destinations).toEqual([
 			{
+				filter: null,
 				provider: "twitch",
+				role: "landscape",
 				url: "rtmps://ingest.global-contribute.live-video.net/app/live_a_secret",
 			},
-			{ provider: "kick", url: "rtmps://stream.kick.com/99/kick_secret" },
+			{
+				filter: null,
+				provider: "kick",
+				role: "landscape",
+				url: "rtmps://stream.kick.com/99/kick_secret",
+			},
 		]);
 
 		// The key is built in memory and never stored as its own value.
@@ -1541,9 +2131,416 @@ integration("VISP Direct boundaries", () => {
 		expect(state?.directTwitchState).toBe("starting");
 	});
 
+	test("starts landscape passthrough and portrait crop as separate slots", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 2 });
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(),
+		);
+		expect(
+			destinations.map(({ provider, role, filter }) => ({
+				provider,
+				role,
+				filter,
+			})),
+		).toEqual([
+			{ provider: "twitch", role: "landscape", filter: null },
+			{
+				provider: "kick",
+				role: "portrait",
+				filter: "crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920",
+			},
+		]);
+	});
+
+	test("keeps old relay output compatible while v2 carries portrait geometry", async () => {
+		const data = await seedDirect();
+		globalThis.fetch = providerFetch;
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		globalThis.fetch = providerFetch;
+		const hook = (version = "") =>
+			app.handle(
+				new Request(
+					`http://localhost/api/hooks/direct-destinations${version}`,
+					{
+						method: "POST",
+						headers: {
+							"content-type": "application/json",
+							"x-hook-secret": process.env.HOOK_SECRET ?? "",
+						},
+						body: JSON.stringify({ path: "alpha-1", skip: [] }),
+					},
+				),
+			);
+
+		expect(await (await hook()).text()).toBe(
+			"twitch rtmps://ingest.global-contribute.live-video.net/app/live_a_secret\n",
+		);
+		expect(await (await hook("-v2")).text()).toBe(
+			"twitch landscape - rtmps://ingest.global-contribute.live-video.net/app/live_a_secret\n" +
+				"kick portrait crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920 rtmps://stream.kick.com/99/kick_secret\n",
+		);
+	});
+
+	test("soft-warns for portrait capacity and starts landscape with portrait failed", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 1 });
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		expect(
+			await caller.direct.setRole({
+				pathId: data.pathA.id,
+				provider: "kick",
+				role: "portrait",
+			}),
+		).toMatchObject({ overCapacity: true });
+
+		expect(await prepareDirect("user-a", data.pathA.id)).toMatchObject({
+			outputs: ["twitch"],
+			portraitOutputs: [],
+		});
+		const listed = await caller.direct.list();
+		expect(
+			listed.destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({
+			state: "failed",
+			error: "No free Direct slot for portrait. Landscape can still go live.",
+		});
+	});
+
+	test("invalid portrait crop is blocked at go-live without blocking landscape", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await db
+			.update(directDestination)
+			.set({ crop: { x: 0.8, y: 0, w: 0.3, h: 1, aspect: "9:16" } })
+			.where(eq(directDestination.userId, "user-a"));
+
+		expect(await prepareDirect("user-a", data.pathA.id)).toMatchObject({
+			outputs: ["twitch"],
+			portraitOutputs: [],
+		});
+		const listed = await caller.direct.list();
+		expect(
+			listed.destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({ state: "failed" });
+	});
+
+	test("lists legacy landscape defaults and portrait failures independently", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await caller.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await db
+			.update(directDestination)
+			.set({ state: "failed", error: "portrait failed" })
+			.where(eq(directDestination.userId, "user-a"));
+		const listed = await caller.direct.list();
+
+		expect(listed.destinations).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					provider: "twitch",
+					role: "landscape",
+					crop: null,
+				}),
+				expect.objectContaining({
+					provider: "kick",
+					role: "portrait",
+					state: "failed",
+					error: "portrait failed",
+				}),
+			]),
+		);
+	});
+
+	test("does not reuse a removed portrait slot until the relay acknowledges stop", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 2 });
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		const owner = await callerFor("user-a");
+		const waiting = await callerFor("user-b");
+		await owner.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		await waiting.direct.setOutputs({
+			pathId: data.pathB.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "landscape",
+		});
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "kick",
+			role: "portrait",
+			state: "live",
+		});
+		expect(
+			(await owner.direct.list()).destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({ state: "stopping" });
+		expect(
+			await directDestinationActive({
+				slug: "alpha-1",
+				provider: "kick",
+				role: "portrait",
+				filter: "crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920",
+			}),
+		).toBe(false);
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "kick",
+			role: "portrait",
+			state: "stopping",
+			error: "rtmps://secret.example/live/key encoder did not exit",
+		});
+		expect(
+			(await owner.direct.list()).destinations.find(
+				(destination) => destination.role === "portrait",
+			),
+		).toMatchObject({ state: "stopping", error: "[url] encoder did not exit" });
+		await expect(prepareDirect("user-b", data.pathB.id)).rejects.toMatchObject({
+			code: "capacity",
+		});
+
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "kick",
+			role: "portrait",
+			state: "stopped",
+		});
+		expect(
+			(await owner.direct.list()).destinations.some(
+				(destination) => destination.role === "portrait",
+			),
+		).toBe(false);
+		expect(await prepareDirect("user-b", data.pathB.id)).toMatchObject({
+			outputs: ["twitch"],
+		});
+	});
+
+	test("immediately frees an unstarted portrait while landscape is live", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.update(relay).set({ maxForwarders: 2 });
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		const owner = await callerFor("user-a");
+		const waiting = await callerFor("user-b");
+		await owner.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await waiting.direct.setOutputs({
+			pathId: data.pathB.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await expect(prepareDirect("user-b", data.pathB.id)).rejects.toMatchObject({
+			code: "capacity",
+		});
+
+		await expect(
+			owner.direct.setRole({
+				pathId: data.pathA.id,
+				provider: "kick",
+				role: "landscape",
+			}),
+		).resolves.toMatchObject({ removalPending: false });
+		expect(
+			(await owner.direct.list()).destinations.some(
+				(destination) => destination.role === "portrait",
+			),
+		).toBe(false);
+		expect(await prepareDirect("user-b", data.pathB.id)).toMatchObject({
+			outputs: ["twitch"],
+		});
+	});
+
+	test("does not resurrect a stopped portrait during removal", async () => {
+		const data = await seedDirect();
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const owner = await callerFor("user-a");
+		await owner.direct.setRole({
+			pathId: data.pathA.id,
+			provider: "kick",
+			role: "portrait",
+		});
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await db
+			.update(directDestination)
+			.set({ state: "stopped", reservedUntil: null })
+			.where(eq(directDestination.userId, "user-a"));
+
+		await expect(
+			owner.direct.setRole({
+				pathId: data.pathA.id,
+				provider: "kick",
+				role: "landscape",
+			}),
+		).resolves.toMatchObject({ removalPending: false });
+		expect(
+			(await owner.direct.list()).destinations.some(
+				(destination) => destination.role === "portrait",
+			),
+		).toBe(false);
+	});
+
+	test("creates one YouTube broadcast for repeated destination resolution", async () => {
+		youtubeBroadcastCreates = 0;
+		const data = await seedDirect();
+		await db.update(relay).set({ maxForwarders: 3 });
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: true,
+			youtube: true,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+
+		const first = await resolveDirectDestinations("alpha-1", directDeps());
+		const second = await resolveDirectDestinations("alpha-1", directDeps());
+		expect(first.destinations).toHaveLength(3);
+		expect(second.destinations).toEqual(first.destinations);
+		expect(youtubeBroadcastCreates).toBe(1);
+		expect(first.destinations[2]).toEqual({
+			filter: null,
+			provider: "youtube",
+			role: "landscape",
+			url: "rtmps://a.rtmp.youtube.com/live2/youtube_secret",
+		});
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(state?.directYoutubeBroadcastId).toBe("youtube-broadcast");
+		expect(state?.directYoutubeState).toBe("starting");
+		expect(JSON.stringify(state)).not.toContain("youtube_secret");
+	});
+
 	test("a user can configure only their own paths", async () => {
 		const data = await seedDirect();
-		await db.update(appUser).set({ directBeta: true });
 		const caller = await callerFor("user-a");
 
 		await expect(
@@ -1551,16 +2548,13 @@ integration("VISP Direct boundaries", () => {
 				pathId: data.pathB.id,
 				twitch: true,
 				kick: false,
+				youtube: false,
 			}),
 		).rejects.toMatchObject({ code: "NOT_FOUND" });
 	});
 
-	test("one path owns Twitch and independently one owns Kick", async () => {
+	test("the latest offline device takes the desired Direct outputs", async () => {
 		await seedDirect();
-		await db
-			.update(appUser)
-			.set({ directBeta: true })
-			.where(eq(appUser.id, "user-a"));
 		const second = await createPath("user-a", "phone two");
 		const caller = await callerFor("user-a");
 		const first = (await caller.direct.list()).paths[0];
@@ -1569,30 +2563,38 @@ integration("VISP Direct boundaries", () => {
 		await caller.direct.setOutputs({
 			pathId: first.id,
 			twitch: true,
-			kick: false,
-		});
-		// Twitch on one device and Kick on another is permitted.
-		await caller.direct.setOutputs({
-			pathId: second.id,
-			twitch: false,
 			kick: true,
+			youtube: false,
 		});
-		// A second owner for the same provider is not.
-		await expect(
-			caller.direct.setOutputs({
-				pathId: second.id,
-				twitch: true,
-				kick: true,
-			}),
-		).rejects.toMatchObject({ code: "CONFLICT" });
+		await prepareDirect("user-a", second.id);
+		const listed = await caller.direct.list();
+		expect(listed.ownerPathId).toEqual({
+			twitch: second.id,
+			kick: second.id,
+			youtube: null,
+		});
+	});
+
+	test("the latest device cannot steal a live Direct output", async () => {
+		const data = await seedDirect();
+		const second = await createPath("user-a", "phone two");
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+
+		await expect(prepareDirect("user-a", second.id)).rejects.toMatchObject({
+			code: "provider-taken",
+		});
 	});
 
 	test("outputs cannot change while the device is publishing", async () => {
 		const data = await seedDirect();
-		await db
-			.update(appUser)
-			.set({ directBeta: true })
-			.where(eq(appUser.id, "user-a"));
 		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
 		const caller = await callerFor("user-a");
 
@@ -1601,21 +2603,19 @@ integration("VISP Direct boundaries", () => {
 				pathId: data.pathA.id,
 				twitch: true,
 				kick: false,
+				youtube: false,
 			}),
 		).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 	});
 
 	test("a revoked path owns no provider", async () => {
 		const data = await seedDirect();
-		await db
-			.update(appUser)
-			.set({ directBeta: true })
-			.where(eq(appUser.id, "user-a"));
 		const caller = await callerFor("user-a");
 		await caller.direct.setOutputs({
 			pathId: data.pathA.id,
 			twitch: true,
 			kick: true,
+			youtube: false,
 		});
 
 		await revokePath("user-a", data.pathA.id);
@@ -1633,11 +2633,20 @@ integration("VISP Direct boundaries", () => {
 
 	test("a missing provider scope returns reauthorize without exposing tokens", async () => {
 		const data = await seedDirect();
-		await db.update(appUser).set({ directBeta: true });
 		await db
 			.update(relayPath)
 			.set({ directTwitch: true })
 			.where(eq(relayPath.id, data.pathB.id));
+		await db
+			.insert(pathState)
+			.values({
+				pathId: data.pathB.id,
+				directTwitchReservedUntil: new Date(Date.now() + 60_000),
+			})
+			.onConflictDoUpdate({
+				target: pathState.pathId,
+				set: { directTwitchReservedUntil: new Date(Date.now() + 60_000) },
+			});
 
 		const { destinations } = await resolveDirectDestinations("beta-1", {
 			...directDeps(),
@@ -1660,47 +2669,111 @@ integration("VISP Direct boundaries", () => {
 		expect(state?.directTwitchError).not.toContain("token");
 	});
 
-	test("the cap refuses the extra forwarder instead of oversubscribing", async () => {
+	test("a provider failure frees only its reservation", async () => {
 		const data = await seedDirect();
-		await db
-			.update(appUser)
-			.set({ directBeta: true })
-			.where(eq(appUser.id, "user-a"));
 		const caller = await callerFor("user-a");
 		await caller.direct.setOutputs({
 			pathId: data.pathA.id,
 			twitch: true,
 			kick: true,
+			youtube: false,
 		});
-
-		// Twitch + Kick is two forwarders against a cap of one.
-		const { destinations } = await resolveDirectDestinations(
-			"alpha-1",
-			directDeps(1),
-		);
-		expect(destinations).toHaveLength(1);
-		expect(destinations[0]?.provider).toBe("twitch");
+		await prepareDirect("user-a", data.pathA.id);
+		await resolveDirectDestinations("alpha-1", {
+			...directDeps(),
+			fetch: (async (input) =>
+				String(input).includes("/streams/key")
+					? new Response(null, { status: 401 })
+					: providerFetch(input)) as typeof fetch,
+		});
 
 		const [state] = await db
 			.select()
 			.from(pathState)
 			.where(eq(pathState.pathId, data.pathA.id));
-		expect(state?.directKickState).toBe("failed");
-		expect(state?.directKickError).toBe(
-			"Direct is at capacity, try again shortly",
-		);
+		expect(state?.directTwitchState).toBe("failed");
+		expect(state?.directTwitchReservedUntil).toBeNull();
+		expect(state?.directKickState).toBe("starting");
+		expect(state?.directKickReservedUntil).not.toBeNull();
+	});
+
+	test("preflight refuses both outputs when the relay has one slot", async () => {
+		const data = await seedDirect();
+		await db.update(relay).set({ maxForwarders: 1 });
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: true,
+			youtube: false,
+		});
+
+		await expect(prepareDirect("user-a", data.pathA.id)).rejects.toMatchObject({
+			code: "capacity",
+		});
+	});
+
+	test("simultaneous users cannot reserve beyond relay capacity", async () => {
+		const data = await seedDirect();
+		await db.update(relay).set({ maxForwarders: 1 });
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
+			.update(appUser)
+			.set({ directTwitch: true, directKick: false })
+			.where(eq(appUser.id, "user-b"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+
+		await expect(prepareDirect("user-b", data.pathB.id)).rejects.toMatchObject({
+			code: "capacity",
+		});
+	});
+
+	test("an expired reservation releases relay capacity", async () => {
+		const data = await seedDirect();
+		await db.update(relay).set({ maxForwarders: 1 });
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
+			.update(appUser)
+			.set({ directTwitch: true, directKick: false })
+			.where(eq(appUser.id, "user-b"));
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await db
+			.update(pathState)
+			.set({ directTwitchReservedUntil: sql`now() - interval '1 second'` })
+			.where(eq(pathState.pathId, data.pathA.id));
+
+		expect((await prepareDirect("user-b", data.pathB.id)).outputs).toEqual([
+			"twitch",
+		]);
 	});
 
 	test("a stopped source frees the slots it held", async () => {
 		const data = await seedDirect();
 		await db
 			.update(appUser)
-			.set({ directBeta: true })
-			.where(eq(appUser.id, "user-a"));
-		await db
-			.update(relayPath)
 			.set({ directTwitch: true, directKick: true })
-			.where(eq(relayPath.id, data.pathA.id));
+			.where(eq(appUser.id, "user-a"));
+		await prepareDirect("user-a", data.pathA.id);
 		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
 		await resolveDirectDestinations("alpha-1", directDeps());
 
@@ -1712,5 +2785,1117 @@ integration("VISP Direct boundaries", () => {
 			.where(eq(pathState.pathId, data.pathA.id));
 		expect(state?.directTwitchState).toBe("stopped");
 		expect(state?.directKickState).toBe("stopped");
+	});
+
+	// "Never drop again": the ingest going away must not end the broadcast.
+	async function seedLiveBrb() {
+		const data = await seedDirect();
+		await db.update(relay).set({ maxForwarders: 3 });
+		await db
+			.update(appUser)
+			.set({
+				directTwitch: true,
+				directYoutube: true,
+				brbEnabled: true,
+				brbMessage: "  Back in five  ",
+			})
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true, directYoutube: true })
+			.where(eq(relayPath.id, data.pathA.id));
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		return data;
+	}
+
+	const stateFor = async (pathId: number) =>
+		(await db.select().from(pathState).where(eq(pathState.pathId, pathId)))[0];
+
+	test("a dropped ingest holds the broadcast instead of ending it", async () => {
+		youtubeBroadcastCompletes = 0;
+		globalThis.fetch = providerFetch;
+		const data = await seedLiveBrb();
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.publishing).toBe(false);
+		expect(state?.brbSince).not.toBeNull();
+		// Not "stopped": the forwarders are still up, holding the card.
+		expect(state?.directTwitchState).toBe("starting");
+		// Completing this is irreversible, which is the whole risk of the feature.
+		expect(state?.directYoutubeBroadcastId).toBe("youtube-broadcast");
+		expect(youtubeBroadcastCompletes).toBe(0);
+	});
+
+	test("a repeated source-gone signal cannot tear down a raised card", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const first = await stateFor(data.pathA.id);
+
+		// The 10s reconciler keeps seeing the same missing path and routes
+		// through the same helper, so a second signal must change nothing.
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const second = await stateFor(data.pathA.id);
+		expect(second?.brbSince?.getTime()).toBe(first?.brbSince?.getTime());
+		expect(second?.directYoutubeBroadcastId).toBe("youtube-broadcast");
+	});
+
+	test("a tick keeps the encoder slot reserved and reports the card", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		await db
+			.update(pathState)
+			.set({ directTwitchReservedUntil: new Date(Date.now() - 1) })
+			.where(eq(pathState.pathId, data.pathA.id));
+
+		const tick = await brbTick("alpha-1", "twitch", {
+			presign: async () => "https://objects.test/signed",
+		});
+
+		expect(tick).toEqual({
+			stop: false,
+			message: "Back in five",
+			backgroundUrl: "https://objects.test/signed",
+			source: "snapshot",
+			highlights: null,
+		});
+		const state = await stateFor(data.pathA.id);
+		expect(state?.directTwitchState).toBe("brb");
+		// A held forwarder still burns a slot; letting the reservation lapse
+		// would hand its capacity to someone else while it is still encoding.
+		expect(state?.directTwitchReservedUntil?.getTime()).toBeGreaterThan(
+			Date.now(),
+		);
+	});
+
+	test("a drop snapshots enabled highlights and their preferences", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({
+				brbHighlights: true,
+				brbHighlightsMuted: true,
+				brbHighlightsOverlay: false,
+			})
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(brbHighlight).values({
+			id: "clip-a",
+			userId: "user-a",
+			storageKey: "brb/user-a/highlights/clip-a.mp4",
+			filename: "clip.mp4",
+			label: "Clip",
+			durationMs: 10_000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1920,
+			height: 1080,
+			checksum: "a".repeat(64),
+			position: 0,
+		});
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		expect((await stateFor(data.pathA.id))?.brbHighlightsResultAt).toBeNull();
+		const tick = await brbTick("alpha-1", "twitch", {
+			presign: async (key) => `https://objects.test/${key}`,
+		});
+
+		expect(tick).toMatchObject({
+			stop: false,
+			highlights: {
+				clips: [
+					{
+						id: "clip-a",
+						durationMs: 10_000,
+						url: "https://objects.test/brb/user-a/highlights/clip-a.mp4",
+					},
+				],
+				muted: true,
+				overlay: false,
+			},
+		});
+		await db
+			.update(brbHighlight)
+			.set({ enabled: false })
+			.where(eq(brbHighlight.id, "clip-a"));
+		const frozen = await brbTick("alpha-1", "twitch", {
+			presign: async () => "kept",
+		});
+		expect(frozen.stop ? null : frozen.highlights).toEqual({
+			clips: [{ id: "clip-a", durationMs: 10_000, url: "kept" }],
+			muted: true,
+			overlay: false,
+		});
+
+		const headers = {
+			"content-type": "application/json",
+			"x-hook-secret": process.env.HOOK_SECRET ?? "",
+		};
+		const response = await app.handle(
+			new Request("http://localhost/api/hooks/brb", {
+				method: "POST",
+				headers,
+				body: JSON.stringify({ path: "alpha-1", provider: "twitch" }),
+			}),
+		);
+		const fields = (await response.text()).trim().split(" ");
+		expect(fields[0]).toBe("highlights");
+		expect(Buffer.from(fields[2] ?? "", "base64").toString()).toContain(
+			"1 0\n",
+		);
+		const played = (ordinal: number) =>
+			app.handle(
+				new Request("http://localhost/api/hooks/brb-played", {
+					method: "POST",
+					headers,
+					body: JSON.stringify({ path: "alpha-1", ordinal }),
+				}),
+			);
+		await played(1);
+		await played(1);
+		await played(3);
+		await played(2);
+		expect((await stateFor(data.pathA.id))?.brbHighlightsPlayed).toBe(3);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		expect(
+			(await stateFor(data.pathA.id))?.brbHighlightsResultAt,
+		).toBeInstanceOf(Date);
+	});
+
+	test("a failed hold snapshot rolls back its claim and retries with a fresh snapshot", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(brbHighlight).values({
+			id: "fresh",
+			userId: "user-a",
+			storageKey: "brb/user-a/highlights/fresh.mp4",
+			filename: "fresh.mp4",
+			label: "Fresh",
+			durationMs: 1000,
+			byteSize: 100,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "f".repeat(64),
+			position: 0,
+		});
+		await db
+			.update(pathState)
+			.set({
+				brbHighlightsSnapshot: {
+					clips: [{ id: "stale", key: "stale.mp4", durationMs: 500 }],
+					muted: true,
+					overlay: false,
+				},
+			})
+			.where(eq(pathState.pathId, data.pathA.id));
+		await db.execute(
+			sql.raw(`
+				create function test_fail_brb_snapshot() returns trigger language plpgsql as $$
+				begin
+					raise exception 'snapshot failed';
+				end $$;
+				create trigger test_fail_brb_snapshot
+				before update of brb_highlights_snapshot on path_state
+				for each row when (new.brb_since is not null)
+				execute function test_fail_brb_snapshot();
+			`),
+		);
+		try {
+			let failure: unknown;
+			try {
+				await applyPathHook("not-ready", { path: "alpha-1" });
+			} catch (error) {
+				failure = error;
+			}
+			expect((failure as { cause?: Error }).cause?.message).toContain(
+				"snapshot failed",
+			);
+			const failed = await stateFor(data.pathA.id);
+			expect(failed?.brbSince).toBeNull();
+			expect(failed?.brbHighlightsSnapshot?.clips[0]?.id).toBe("stale");
+		} finally {
+			await db.execute(
+				sql.raw("drop trigger test_fail_brb_snapshot on path_state"),
+			);
+			await db.execute(sql.raw("drop function test_fail_brb_snapshot()"));
+		}
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const retried = await stateFor(data.pathA.id);
+		expect(retried?.brbSince).toBeInstanceOf(Date);
+		expect(retried?.brbHighlightsSnapshot?.clips.map(({ id }) => id)).toEqual([
+			"fresh",
+		]);
+	});
+
+	test("a flag-off hold clears the previous hold snapshot", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(pathState)
+			.set({
+				brbHighlightsSnapshot: {
+					clips: [{ id: "old", key: "old.mp4", durationMs: 500 }],
+					muted: false,
+					overlay: true,
+				},
+			})
+			.where(eq(pathState.pathId, data.pathA.id));
+		await db
+			.update(appUser)
+			.set({ brbHighlights: false })
+			.where(eq(appUser.id, "user-a"));
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeInstanceOf(Date);
+		expect(state?.brbHighlightsSnapshot).toBeNull();
+	});
+
+	test("empty, disabled, and flag-off libraries keep the still fallback", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const empty = await brbTick("alpha-1", "twitch", {
+			presign: async () => "unused",
+		});
+		expect(empty.stop ? undefined : empty.highlights).toBeNull();
+		await applyPathHook("ready", { path: "alpha-1" });
+		await db.insert(brbHighlight).values({
+			id: "disabled",
+			userId: "user-a",
+			storageKey: "brb/user-a/highlights/disabled.mp4",
+			filename: "disabled.mp4",
+			label: "Disabled",
+			durationMs: 1000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "d".repeat(64),
+			position: 0,
+			enabled: false,
+		});
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const disabled = await brbTick("alpha-1", "twitch", {
+			presign: async () => "unused",
+		});
+		expect(disabled.stop ? undefined : disabled.highlights).toBeNull();
+		await applyPathHook("ready", { path: "alpha-1" });
+		await db
+			.update(brbHighlight)
+			.set({ enabled: true })
+			.where(eq(brbHighlight.id, "disabled"));
+		await db
+			.update(appUser)
+			.set({ brbHighlights: false })
+			.where(eq(appUser.id, "user-a"));
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const flagOff = await brbTick("alpha-1", "twitch", {
+			presign: async () => "unused",
+		});
+		expect(flagOff.stop ? undefined : flagOff.highlights).toBeNull();
+		expect((await stateFor(data.pathA.id))?.brbHighlightsSnapshot).toBeNull();
+	});
+
+	test("highlight preference patches do not overwrite a concurrent toggle", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+
+		await Promise.all([
+			setBrbHighlightPrefs("user-a", { muted: true }),
+			setBrbHighlightPrefs("user-a", { overlay: false }),
+		]);
+
+		const row = await db.query.appUser.findFirst({
+			where: eq(appUser.id, "user-a"),
+		});
+		expect(row).toMatchObject({
+			brbHighlightsMuted: true,
+			brbHighlightsOverlay: false,
+		});
+	});
+
+	test("highlight CRUD stays account-scoped and enforces the five-clip limit", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-b"));
+		const clips = Array.from({ length: 5 }, (_, position) => ({
+			id: `clip-${position}`,
+			userId: "user-a",
+			storageKey: `brb/user-a/highlights/clip-${position}.mp4`,
+			filename: `clip-${position}.mp4`,
+			label: `Clip ${position}`,
+			durationMs: 10_000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1920,
+			height: 1080,
+			checksum: String(position).repeat(64),
+			position,
+		}));
+		await db.insert(brbHighlight).values(clips);
+		await expect(
+			getBrbHighlightUploadUrl("user-a", { presign: async () => "unused" }),
+		).rejects.toThrow("full");
+
+		expect(
+			await updateBrbHighlight("user-a", "clip-0", {
+				label: "Opening",
+				enabled: false,
+			}),
+		).toMatchObject({ label: "Opening", enabled: false });
+		await reorderBrbHighlights("user-a", clips.map(({ id }) => id).reverse());
+		expect(
+			(
+				await db.query.brbHighlight.findMany({
+					where: eq(brbHighlight.userId, "user-a"),
+					orderBy: (clip, { asc }) => asc(clip.position),
+				})
+			).map(({ id }) => id),
+		).toEqual(clips.map(({ id }) => id).reverse());
+		const deleted: string[] = [];
+		await expect(
+			deleteBrbHighlight("user-a", "clip-0", {
+				delete: async () => {
+					throw new Error("storage unavailable");
+				},
+			}),
+		).rejects.toThrow("storage unavailable");
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, "clip-0"),
+			}),
+		).toBeDefined();
+		expect(
+			await deleteBrbHighlight("user-a", "clip-0", {
+				delete: async (key) => void deleted.push(key),
+			}),
+		).toBe(true);
+		expect(deleted).toEqual(["brb/user-a/highlights/clip-0.mp4"]);
+		expect(
+			await updateBrbHighlight("user-b", "clip-1", { enabled: false }),
+		).toBeNull();
+	});
+
+	test("upload URLs target a temporary key, never the immutable relay key", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		let key = "";
+
+		const target = await getBrbHighlightUploadUrl("user-a", {
+			presign: async (value) => {
+				key = value;
+				return "https://object.test/upload";
+			},
+		});
+
+		expect(key).toBe(
+			brbHighlightUploadKey("user-a", target.id, target.uploadId),
+		);
+		expect(key).not.toBe(brbHighlightKey("user-a", target.id));
+	});
+
+	test("confirm reads and persists actual MP4 metadata instead of the browser claim", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const deleted: string[] = [];
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		const clip = await confirmBrbHighlightUpload(
+			"user-a",
+			{
+				id: "00000000-0000-4000-8000-000000000001",
+				uploadId: highlightUploadId,
+				filename: "real.mp4",
+				label: "Real",
+			},
+			{
+				stat: async () => ({
+					lastModified: new Date(),
+					byteSize: bytes.length,
+					contentType: "video/mp4",
+				}),
+				presign: async () => "https://object.test/real.mp4",
+				copy: async () => undefined,
+				delete: async (key) => void deleted.push(key),
+			},
+		);
+		expect(clip).toMatchObject({
+			durationMs: 750,
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			byteSize: bytes.length,
+			contentType: "video/mp4",
+		});
+		expect(clip?.checksum).toMatch(/^[a-f\d]{64}$/);
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+		]);
+		const retry = await confirmBrbHighlightUpload(
+			"user-a",
+			{
+				id: clip?.id ?? "",
+				uploadId: highlightUploadId,
+				filename: "retry.mp4",
+			},
+			{
+				stat: async () => {
+					throw new Error("retry cannot reach object storage");
+				},
+				presign: async () => "unused",
+				copy: async () => undefined,
+				delete: async (key) => void deleted.push(key),
+			},
+		);
+		expect(retry?.id).toBe(clip?.id);
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+		]);
+	});
+
+	test("a stale upload can neither overwrite nor recreate confirmed media", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const id = "00000000-0000-4000-8000-000000000010";
+		const temporary = brbHighlightUploadKey("user-a", id, highlightUploadId);
+		const final = brbHighlightKey("user-a", id);
+		const objects = new Map<string, Uint8Array>([[temporary, bytes]]);
+		let reading = temporary;
+		globalThis.fetch = Object.assign(
+			async () => new Response(objects.get(reading)),
+			{ preconnect: originalFetch.preconnect },
+		);
+		const client = {
+			stat: async (key: string) => ({
+				lastModified: new Date(),
+				byteSize: objects.get(key)?.length ?? 0,
+				contentType: "video/mp4",
+			}),
+			presign: async (key: string) => {
+				reading = key;
+				return `https://object.test/${key}`;
+			},
+			copy: async (source: string, destination: string) => {
+				const value = objects.get(source);
+				if (!value) throw new Error("missing source");
+				objects.set(destination, value.slice());
+			},
+			delete: async (key: string) => void objects.delete(key),
+		};
+
+		await confirmBrbHighlightUpload(
+			"user-a",
+			{ id, uploadId: highlightUploadId },
+			client,
+		);
+		expect(objects.get(final)).toEqual(bytes);
+		objects.set(temporary, new Uint8Array([1, 2, 3]));
+		expect(objects.get(final)).toEqual(bytes);
+
+		await deleteBrbHighlight("user-a", id, client);
+		objects.set(temporary, bytes);
+		await expect(
+			confirmBrbHighlightUpload(
+				"user-a",
+				{ id, uploadId: highlightUploadId },
+				client,
+			),
+		).rejects.toThrow("expired");
+		expect(objects.has(final)).toBe(false);
+	});
+
+	test("confirm rejects an upload changed while it is promoted", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const changed = new Uint8Array([1, 2, 3]);
+		const id = "00000000-0000-4000-8000-000000000011";
+		const temporary = brbHighlightUploadKey("user-a", id, highlightUploadId);
+		const final = brbHighlightKey("user-a", id);
+		const objects = new Map<string, Uint8Array>([[temporary, bytes]]);
+		let reading = temporary;
+		globalThis.fetch = Object.assign(
+			async () => new Response(objects.get(reading)),
+			{ preconnect: originalFetch.preconnect },
+		);
+		const client = {
+			stat: async (key: string) => ({
+				lastModified: new Date(),
+				byteSize: objects.get(key)?.length ?? 0,
+				contentType: "video/mp4",
+			}),
+			presign: async (key: string) => {
+				reading = key;
+				return `https://object.test/${key}`;
+			},
+			copy: async (_source: string, destination: string) => {
+				objects.set(destination, changed);
+			},
+			delete: async (key: string) => void objects.delete(key),
+		};
+
+		await expect(
+			confirmBrbHighlightUpload(
+				"user-a",
+				{ id, uploadId: highlightUploadId },
+				client,
+			),
+		).rejects.toThrow();
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, id),
+			}),
+		).toBeUndefined();
+		expect(objects.has(final)).toBe(false);
+	});
+
+	test("deleting a frozen clip defers its blob until the hold ends", async () => {
+		await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const key = "brb/user-a/highlights/active.mp4";
+		await db.insert(brbHighlight).values({
+			id: "active",
+			userId: "user-a",
+			storageKey: key,
+			filename: "active.mp4",
+			label: "Active",
+			durationMs: 1000,
+			byteSize: 100,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "a".repeat(64),
+			position: 0,
+		});
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		const deleted: string[] = [];
+		const client = {
+			delete: async (value: string) => void deleted.push(value),
+		};
+
+		expect(await deleteBrbHighlight("user-a", "active", client)).toBe(true);
+		expect(deleted).toEqual([]);
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, "active"),
+			}),
+		).toMatchObject({ deletedAt: expect.any(Date), enabled: false });
+		const tick = await brbTick("alpha-1", "twitch", {
+			presign: async () => "https://object.test/active.mp4",
+		});
+		expect(tick.stop ? null : tick.highlights?.clips[0]?.id).toBe("active");
+
+		await applyPathHook(
+			"ready",
+			{ path: "alpha-1", sourceType: "srtConn" },
+			client,
+		);
+		expect(deleted).toEqual([key]);
+	});
+
+	test("confirm allocates after the highest position when a middle clip was deleted", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		await db.insert(brbHighlight).values(
+			[0, 1, 2].map((position) => ({
+				id: `existing-${position}`,
+				userId: "user-a",
+				storageKey: `brb/user-a/highlights/existing-${position}.mp4`,
+				filename: `existing-${position}.mp4`,
+				label: `Existing ${position}`,
+				durationMs: 1000,
+				byteSize: 100,
+				contentType: "video/mp4",
+				codec: "avc1",
+				width: 1280,
+				height: 720,
+				checksum: String(position).repeat(64),
+				position,
+			})),
+		);
+		await deleteBrbHighlight("user-a", "existing-1", {
+			delete: async () => undefined,
+		});
+		const bytes = validHighlightMp4();
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		const clip = await confirmBrbHighlightUpload(
+			"user-a",
+			{
+				id: "00000000-0000-4000-8000-000000000003",
+				uploadId: highlightUploadId,
+			},
+			{
+				stat: async () => ({
+					lastModified: new Date(),
+					byteSize: bytes.length,
+					contentType: "video/mp4",
+				}),
+				presign: async () => "https://object.test/position.mp4",
+				copy: async () => undefined,
+				delete: async () => undefined,
+			},
+		);
+		expect(clip?.position).toBe(3);
+		expect(
+			(
+				await db.query.brbHighlight.findMany({
+					where: eq(brbHighlight.userId, "user-a"),
+				})
+			).map(({ position }) => position),
+		).toEqual(expect.arrayContaining([0, 2, 3]));
+	});
+
+	test("confirm performs object I/O before locking and rechecks deletion before insert", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const bytes = validHighlightMp4();
+		const deleted: string[] = [];
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		await expect(
+			confirmBrbHighlightUpload(
+				"user-a",
+				{
+					id: "00000000-0000-4000-8000-000000000002",
+					uploadId: highlightUploadId,
+				},
+				{
+					stat: async () => {
+						await db
+							.update(appUser)
+							.set({ brbHighlightsDeleting: true })
+							.where(eq(appUser.id, "user-a"));
+						return {
+							lastModified: new Date(),
+							byteSize: bytes.length,
+							contentType: "video/mp4",
+						};
+					},
+					presign: async () => "https://object.test/race.mp4",
+					copy: async () => undefined,
+					delete: async (key) => void deleted.push(key),
+				},
+			),
+		).rejects.toThrow("not enabled");
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000002",
+				highlightUploadId,
+			),
+			brbHighlightKey("user-a", "00000000-0000-4000-8000-000000000002"),
+		]);
+		expect(
+			await db.query.brbHighlight.findFirst({
+				where: eq(brbHighlight.id, "00000000-0000-4000-8000-000000000002"),
+			}),
+		).toBeUndefined();
+	});
+
+	test("confirm rejects oversize, flag-revoked, and deleting-account uploads and cleans up", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true })
+			.where(eq(appUser.id, "user-a"));
+		const deleted: string[] = [];
+		let presigned = false;
+		const bytes = validHighlightMp4();
+		let byteSize = MAX_BRB_HIGHLIGHT_BYTES + 1;
+		globalThis.fetch = Object.assign(async () => new Response(bytes), {
+			preconnect: originalFetch.preconnect,
+		});
+		const client = {
+			stat: async () => ({
+				lastModified: new Date(),
+				byteSize,
+				contentType: "video/mp4",
+			}),
+			presign: async () => {
+				presigned = true;
+				return "unused";
+			},
+			copy: async () => undefined,
+			delete: async (key: string) => void deleted.push(key),
+		};
+		const metadata = {
+			id: "00000000-0000-4000-8000-000000000001",
+			uploadId: highlightUploadId,
+			filename: "clip.mp4",
+			label: "Clip",
+			durationMs: 1000,
+			byteSize: 1024,
+			contentType: "video/mp4",
+			codec: "avc1",
+			width: 1280,
+			height: 720,
+			checksum: "a".repeat(64),
+		};
+		await expect(
+			confirmBrbHighlightUpload("user-a", metadata, client),
+		).rejects.toThrow("25 MB");
+		expect(presigned).toBe(false);
+		expect(deleted).toEqual([
+			brbHighlightUploadKey(
+				"user-a",
+				"00000000-0000-4000-8000-000000000001",
+				highlightUploadId,
+			),
+			brbHighlightKey("user-a", "00000000-0000-4000-8000-000000000001"),
+		]);
+		await db
+			.update(appUser)
+			.set({ brbHighlights: false })
+			.where(eq(appUser.id, "user-a"));
+		byteSize = bytes.length;
+		await expect(
+			confirmBrbHighlightUpload("user-a", metadata, client),
+		).rejects.toThrow("not enabled");
+		expect(deleted).toHaveLength(4);
+		await db
+			.update(appUser)
+			.set({ brbHighlights: true, brbHighlightsDeleting: true })
+			.where(eq(appUser.id, "user-a"));
+		await expect(
+			confirmBrbHighlightUpload("user-a", metadata, client),
+		).rejects.toThrow("not enabled");
+		expect(presigned).toBe(true);
+		expect(deleted).toHaveLength(6);
+	});
+
+	test("the dashboard stop ends the card on the next tick", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		expect(await stopBrb("user-a", data.pathA.id)).toBe(true);
+
+		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
+		expect((await stateFor(data.pathA.id))?.brbSince).toBeNull();
+	});
+
+	// The phone stops its own encoder first, so its stop can arrive before
+	// MediaMTX has even noticed the ingest is gone. Clearing the marker alone
+	// would then be undone by the not-ready hook landing behind it.
+	test("ending from the publisher survives a later not-ready hook", async () => {
+		const data = await seedLiveBrb();
+
+		expect(await stopBrb("user-a", data.pathA.id)).toBe(true);
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeNull();
+		expect(state?.directTwitchState).toBe("stopped");
+		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
+	});
+
+	test("another user cannot stop this stream", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		expect(await stopBrb("user-b", data.pathA.id)).toBe(false);
+		expect((await stateFor(data.pathA.id))?.brbSince).not.toBeNull();
+	});
+
+	test("the publisher coming back clears the card", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+
+		// A stale marker would put the next drop straight past the ceiling.
+		expect((await stateFor(data.pathA.id))?.brbSince).toBeNull();
+		expect(await brbTick("alpha-1", "twitch")).toEqual({ stop: true });
+	});
+
+	test("ready records a hold that becomes active after its initial path read", async () => {
+		const data = await seedLiveBrb();
+		let ready: Promise<boolean> | undefined;
+		await db.transaction(async (tx) => {
+			await tx.execute(
+				sql`select 1 from ${pathState} where ${pathState.pathId} = ${data.pathA.id} for update`,
+			);
+			ready = applyPathHook("ready", {
+				path: "alpha-1",
+				sourceType: "srtConn",
+			});
+			await Bun.sleep(50);
+			await tx
+				.update(pathState)
+				.set({ brbSince: new Date() })
+				.where(eq(pathState.pathId, data.pathA.id));
+		});
+		expect(await ready).toBe(true);
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeNull();
+		expect(state?.brbHighlightsResultAt).toBeInstanceOf(Date);
+	});
+
+	test("a reconnect does not resolve a provider the relay still holds", async () => {
+		const data = await seedLiveBrb();
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await prepareDirect("user-a", data.pathA.id);
+		// Only what the reconnect itself resolves counts here.
+		youtubeBroadcastCreates = 0;
+
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(),
+			["youtube"],
+		);
+
+		expect(destinations.map((entry) => entry.provider)).toEqual(["twitch"]);
+		// Resolving it again would mint a second broadcast against a live one.
+		expect(youtubeBroadcastCreates).toBe(0);
+	});
+
+	test("without BRB a dropped ingest still tears the forwarders down", async () => {
+		const data = await seedLiveBrb();
+		await db
+			.update(appUser)
+			.set({ brbEnabled: false })
+			.where(eq(appUser.id, "user-a"));
+
+		await applyPathHook("not-ready", { path: "alpha-1" });
+
+		const state = await stateFor(data.pathA.id);
+		expect(state?.brbSince).toBeNull();
+		expect(state?.directTwitchState).toBe("stopped");
+		expect(state?.directYoutubeBroadcastId).toBeNull();
+	});
+
+	test("forwards a custom landscape output without persisting its credential", async () => {
+		const data = await seedDirect();
+		const caller = await callerFor("user-a");
+		const secret = "CUSTOM_STREAM_SECRET";
+		const created = await caller.direct.custom.create({
+			name: "SRT backup",
+			url: `srt://8.8.8.8:9000?streamid=publish:${secret}`,
+		});
+		const assigned = await caller.direct.custom.assign({
+			destinationId: created.destination.id,
+			pathId: data.pathA.id,
+			enabled: true,
+		});
+		if (!assigned.outputId) throw new Error("custom output was not assigned");
+		const outputId = assigned.outputId;
+		expect((await caller.direct.list()).customOutputs).toEqual([
+			expect.objectContaining({
+				id: outputId,
+				name: "SRT backup",
+				protocol: "srt",
+				pathId: data.pathA.id,
+			}),
+		]);
+
+		const prepared = await prepareDirect("user-a", data.pathA.id);
+		expect(prepared.contributionMode).toBe("direct");
+		expect(prepared.customOutputIds).toEqual([outputId]);
+		const resolved = await resolveDirectDestinationsV3("alpha-1", directDeps());
+		expect(resolved.destinations).toEqual([
+			expect.objectContaining({
+				outputId,
+				kind: "custom",
+				protocol: "srt",
+				muxer: "mpegts",
+				url: `srt://8.8.8.8:9000?streamid=publish:${secret}`,
+			}),
+		]);
+		const [stored] = await db
+			.select({
+				encryptedUrl: customDirectDestination.encryptedUrl,
+				state: customDirectOutput.state,
+				error: customDirectOutput.error,
+			})
+			.from(customDirectDestination)
+			.innerJoin(
+				customDirectOutput,
+				eq(customDirectOutput.destinationId, customDirectDestination.id),
+			);
+		expect(stored?.encryptedUrl).not.toContain(secret);
+		expect(stored?.state).toBe("starting");
+		expect(stored?.error).toBeNull();
+
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId,
+			state: "retrying",
+			error: `failed srt://8.8.8.8:9000?streamid=${secret}`,
+		});
+		expect((await caller.direct.list()).customOutputs[0]?.error).toBe(
+			"failed [url]",
+		);
+		await db
+			.update(pathState)
+			.set({ publishing: true })
+			.where(eq(pathState.pathId, data.pathA.id));
+		await caller.direct.custom.assign({
+			destinationId: created.destination.id,
+			pathId: data.pathA.id,
+			enabled: false,
+		});
+		expect(await customDirectOutputActive("alpha-1", outputId)).toBe(false);
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId,
+			state: "stopped",
+		});
+		expect((await caller.direct.list()).customOutputs).toEqual([]);
+	});
+
+	test("isolates custom portrait framing, capacity, and stopping", async () => {
+		const data = await seedDirect();
+		const caller = await callerFor("user-a");
+		await db
+			.update(appUser)
+			.set({ directDualOutput: true })
+			.where(eq(appUser.id, "user-a"));
+		const created = await caller.direct.custom.create({
+			name: "Portrait receiver",
+			url: "rtmp://8.8.8.8/app/CUSTOM_PORTRAIT_SECRET",
+		});
+		const landscape = await caller.direct.custom.assign({
+			destinationId: created.destination.id,
+			pathId: data.pathA.id,
+			enabled: true,
+		});
+		if (!landscape.outputId)
+			throw new Error("custom landscape was not assigned");
+		const portrait = await caller.direct.setCustomRole({
+			outputId: landscape.outputId,
+			pathId: data.pathA.id,
+			role: "portrait",
+		});
+		const crop = { x: 0.36, y: 0.1, w: 0.2848, h: 0.9, aspect: "9:16" };
+		await caller.direct.saveCustomCrop({
+			outputId: portrait.outputId,
+			pathId: data.pathA.id,
+			crop,
+		});
+
+		await db.update(relay).set({ maxForwarders: 1 });
+		const partial = await prepareDirect("user-a", data.pathA.id);
+		expect(partial.customOutputIds).toEqual([landscape.outputId]);
+		expect(
+			(await caller.direct.list()).customOutputs.find(
+				(output) => output.id === portrait.outputId,
+			),
+		).toMatchObject({
+			crop,
+			state: "failed",
+			error: "No free Direct slot for portrait. Landscape can still go live.",
+		});
+
+		await db.update(relay).set({ maxForwarders: 2 });
+		const prepared = await prepareDirect("user-a", data.pathA.id);
+		expect(prepared.customOutputIds).toEqual([
+			landscape.outputId,
+			portrait.outputId,
+		]);
+		const resolved = await resolveDirectDestinationsV3("alpha-1", directDeps());
+		expect(
+			resolved.destinations.find(
+				(output) => output.outputId === portrait.outputId,
+			),
+		).toMatchObject({
+			role: "portrait",
+			protocol: "rtmp",
+			muxer: "flv",
+			filter: "crop=iw*0.2848:ih*0.9:iw*0.36:ih*0.1,scale=1080:1920",
+		});
+
+		await db
+			.update(pathState)
+			.set({ publishing: true })
+			.where(eq(pathState.pathId, data.pathA.id));
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId: portrait.outputId,
+			state: "live",
+		});
+		expect(
+			await caller.direct.setCustomRole({
+				outputId: portrait.outputId,
+				pathId: data.pathA.id,
+				role: "landscape",
+			}),
+		).toMatchObject({ removalPending: true });
+		expect(await customDirectOutputActive("alpha-1", portrait.outputId)).toBe(
+			false,
+		);
+		await applyCustomDirectState({
+			slug: "alpha-1",
+			outputId: portrait.outputId,
+			state: "stopped",
+		});
+		expect(
+			(await caller.direct.list()).customOutputs.map((output) => output.id),
+		).toEqual([landscape.outputId]);
 	});
 });

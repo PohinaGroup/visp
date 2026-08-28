@@ -2,8 +2,12 @@ export function formatUtc(value: string) {
 	return `${value.replace("T", " ").slice(0, 16)} UTC`;
 }
 
-export function providerLabel(provider: "twitch" | "kick") {
-	return provider === "twitch" ? "Twitch" : "Kick";
+export function providerLabel(provider: "twitch" | "kick" | "youtube") {
+	return provider === "twitch"
+		? "Twitch"
+		: provider === "kick"
+			? "Kick"
+			: "YouTube";
 }
 
 export function publishOriginLabel(

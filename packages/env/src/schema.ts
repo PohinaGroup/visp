@@ -8,25 +8,46 @@ const encryptionKey = z.string().refine((value) => {
 export const serverEnvSchema = {
 	ADMIN_ORIGIN: z.url(),
 	ADMIN_USER_IDS: z.string().default(""),
+	/**
+	 * Discord or Slack incoming webhook for founding creator applications.
+	 * Optional: without it applications are only written to the database, where
+	 * nobody is notified about them.
+	 */
+	APPLICATION_WEBHOOK_URL: z.url().optional(),
 	AI_GATEWAY_API_KEY: z.string().min(1),
 	DATABASE_URL: z.string().min(1),
 	/**
 	 * Optional PEM path for managed Postgres CA verification.
-	 * Prefer installing the CA into the system trust store instead: Bun 1.3.x
-	 * can segfault when ssl.ca is set alongside Bun.S3Client.
+	 * Prefer installing the CA into the system trust store instead. The API
+	 * process ignores this value and never passes ssl.ca (Bun 1.3.x OpenSSL
+	 * can segfault when a custom CA PEM is combined with other TLS clients).
 	 */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
 	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
+	/** Rollout flag and independent ops kill switch for managed composition. */
+	CLOUD_STUDIO_ENABLED: z.stringbool().default(false),
+	CLOUD_STUDIO_DEFAULT_ENABLED: z.stringbool().default(false),
+	/**
+	 * Hosted text-to-speech, better audio isolation, and better captions.
+	 * Optional: without the key those routes answer 503 and the app falls back.
+	 */
+	ELEVENLABS_API_KEY: z.string().min(1).optional(),
+	/** A multilingual ElevenLabs voice; one voice covers Finnish and English. */
+	ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
 	/**
 	 * Active publishing paths allowed per user. A calibration knob: raise only
 	 * after measuring relay capacity and abuse pressure.
 	 */
 	MAX_PATHS_PER_USER: z.coerce.number().int().min(1).default(10),
+	MAX_CUSTOM_DESTINATIONS_PER_USER: z.coerce.number().int().min(1).default(10),
+	MAX_CUSTOM_OUTPUTS_PER_PATH: z.coerce.number().int().min(1).default(6),
 	BETTER_AUTH_SECRET: z.string().min(32),
 	BETTER_AUTH_URL: z.url(),
 	CORS_ORIGIN: z.url(),
 	HOOK_SECRET: z.string().min(32),
+	GOOGLE_CLIENT_ID: z.string().min(1),
+	GOOGLE_CLIENT_SECRET: z.string().min(1),
 	KICK_CLIENT_ID: z.string().min(1),
 	KICK_CLIENT_SECRET: z.string().min(1),
 	/** Bootstrap value for the database-backed default relay. */
@@ -49,8 +70,11 @@ export const serverEnvSchema = {
 	S3_REGION: z.string().min(1),
 	S3_SECRET_ACCESS_KEY: z.string().min(1),
 	S3_UPLOAD_ENDPOINT: z.url().optional(),
+	STUDIO_MEDIA_USER: z.string().min(1),
+	STUDIO_MEDIA_PASSWORD: z.string().min(32),
 	TWITCH_CLIENT_ID: z.string().min(1),
 	TWITCH_CLIENT_SECRET: z.string().min(1),
+	VISP_CHAT_BOT_USER_ID: z.string().min(1),
 };
 
 export const webEnvSchema = {

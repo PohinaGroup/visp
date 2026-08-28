@@ -1,26 +1,26 @@
 ---
 title: "What Is VISP Direct, and Would You Benefit From It?"
-description: "Learn how VISP Direct sends one phone feed to Twitch, Kick, or both without OBS, who benefits, and where the limited beta does not fit."
+description: "Learn how VISP Direct sends one phone feed to Twitch, Kick, YouTube, or any combination without OBS, who benefits, and when OBS remains useful."
 publishedAt: 2026-07-28
+updatedAt: 2026-08-03
 coverAlt: "A phone sends one cyan stream through a secure relay to two destination screens while a home production monitor remains optional"
 ---
 
-**VISP Direct** sends one publishing device to Twitch, Kick, or both without
+**VISP Direct** sends one publishing device to Twitch, Kick, YouTube, or any
+combination without
 putting OBS in the distribution path. Your phone still captures, compresses,
 and uploads one feed to VISP. The relay then decodes that contribution and
 creates a separate H.264 and stereo AAC distribution encode for every selected
 platform.
 
 That makes Direct useful when the phone is the whole production, especially
-for a Twitch-and-Kick simulcast. It is not a better version of every VISP
+for a multi-platform simulcast. It is not a better version of every VISP
 workflow. If your show depends on OBS scenes, alerts, local microphones,
 recording, color correction, or a fallback scene, the normal
 phone-to-VISP-to-OBS route remains the better fit.
 
-VISP Direct is also a **limited beta**. Access is enabled per account because
-each destination consumes a full encode on the current single relay node.
-
-![A phone contributes one feed to VISP, where Direct creates independent Twitch and Kick outputs; the ordinary OBS read path remains available](./visp-direct-flow.svg)
+Direct checks relay encoder capacity before Go Live because each destination
+consumes one full distribution encode.
 
 ## What changes when you turn on VISP Direct?
 
@@ -29,16 +29,17 @@ The ordinary VISP workflow treats the phone as a remote camera:
 1. The phone encodes camera and microphone as H.264 and AAC.
 2. It publishes one authenticated SRT feed to the VISP relay.
 3. OBS reads that feed without VISP transcoding it.
-4. OBS mixes the show, encodes the finished program, and sends it to Twitch or
-   Kick.
+4. OBS mixes the show, encodes the finished program, and sends it to its chosen
+   destinations.
 
 Direct keeps the first two steps and changes the distribution side. The relay
 reads the contribution locally, creates a platform-ready encode, and publishes
-it with the stream key that VISP retrieves after you authorize that provider.
+it using credentials or a broadcast destination VISP obtains after you
+authorize that provider.
 OBS is no longer required to make the public stream happen.
 
-If you select **Both**, the phone still sends only one contribution. The relay
-runs two independent forwarding processes: one for Twitch and one for Kick.
+If you select multiple outputs, the phone still sends only one contribution.
+The relay runs one independent forwarding process per selected destination.
 One destination can retry without stopping the other.
 
 The distinction matters. Direct is not stream copying, and it is not a switch
@@ -53,12 +54,12 @@ produce different audio layouts.
 | --- | --- | --- |
 | Where is the finished program built? | On the phone; the relay only prepares distribution encodes | In OBS, from the phone feed plus every other source |
 | Does the phone make one upload? | Yes, including when Direct targets both platforms | Yes |
-| Who encodes for Twitch or Kick? | The VISP relay, once per destination | OBS |
+| Who encodes for the destination? | The VISP relay, once per destination | OBS |
 | Can OBS still monitor or record the feed? | Yes, but it reads the original contribution | Yes; OBS also owns the public output |
 | Are OBS scenes, alerts, graphics, and local audio included? | Only if they were already composed into the phone feed | Yes |
 | Can one platform fail without stopping the other? | Yes; destinations run independently | Depends on the OBS or multistream setup |
-| Does VISP bond mobile connections? | No | No |
-| Is Direct generally available? | No, it is a limited beta | The normal relay workflow is the standard VISP path |
+| Does VISP use multiple mobile connections? | The native app can duplicate packets over Wi-Fi and cellular; it does not aggregate capacity | The same native publishing option is available |
+| Is Direct generally available? | Yes, for Twitch, Kick, and YouTube | OBS remains available as an optional read path |
 
 OBS can continue reading a Direct-enabled device for confidence monitoring or
 recording. What it sees is the phone's contribution, not the distribution
@@ -90,10 +91,9 @@ operational chain can be attractive for an intentionally simple stream.
 Choose Direct when all of these are true:
 
 - one phone or encoder already contains the complete picture and audio;
-- Twitch, Kick, or both should receive that same program;
+- Twitch, Kick, YouTube, or a combination should receive that same program;
 - you do not need OBS to add production elements;
 - you accept that the relay performs the destination encodes;
-- your account has limited-beta access; and
 - you have tested the actual field network, temperature, audio, and reconnect
   behavior.
 
@@ -141,6 +141,8 @@ and requires the `channel:read:stream_key` user scope. Kick exposes the
 authenticated channel through its
 [public Channels API](https://api.kick.com/swagger/index.html) after the
 required channel and stream-key permissions are granted.
+For YouTube, VISP creates or selects a public live broadcast and binds an RTMPS
+stream after the Google account grants YouTube access.
 
 At stream start, VISP retrieves the key, constructs the destination URL in
 memory, and passes it to the relay forwarding process. The key is not returned
@@ -148,7 +150,7 @@ to the web or phone app and is not stored as a separate database value. When
 the forwarding process ends, that in-memory destination is discarded.
 
 This is an important boundary: the ordinary relay-to-OBS path still never
-touches a Twitch or Kick stream key. Direct is an explicit, per-device option
+touches destination credentials. Direct is an explicit, per-device option
 with additional consent.
 
 Provider permissions can still be revoked at the provider. If that happens,
@@ -157,24 +159,22 @@ other destination can continue.
 
 ## Practical limits to understand before choosing Direct
 
-**It is a limited beta.** A Direct destination consumes one of the relay's
-concurrent forwarding slots. Twitch plus Kick consumes two. If the relay is at
-capacity, the Direct output is refused while the ordinary relay-to-OBS path
-continues working.
+**Capacity is reserved before publishing.** A Direct destination consumes one
+relay forwarding slot; selecting all three providers consumes three. If the relay is full,
+Go Live is blocked instead of silently starting without a platform output.
 
-**One device owns each provider.** You may send one phone to Twitch and a
-different device to Kick, or one device to both. You cannot configure two of
-your devices to publish to Twitch at the same time. The database constraint,
-not only the interface, enforces this ownership.
+**One device owns each provider.** The newest device takes the account's
+selected outputs when the previous owner is offline. A running owner is never
+interrupted automatically.
 
 **Outputs change only while the device is offline.** Stop publishing before
-switching between Off, Twitch, Kick, and Both. This avoids changing
+changing the selected provider checkboxes. This avoids changing
 destinations under a live contribution.
 
-**Direct does not bond networks.** SRT can recover packets within its latency
-window, but VISP does not combine cellular and Wi-Fi into one resilient
-connection. If the mobile uplink disappears, Direct has no media to forward.
-Creators who need bonding should add an appropriate network layer; the
+**Native publishing can use two links.** The native app can duplicate packets
+over Wi-Fi and cellular so either copy may arrive, but it does not aggregate
+their bandwidth. If both uplinks disappear, Direct has no media to forward.
+Creators who need capacity aggregation should add an appropriate network layer; the
 [VISP and Speedify guide](/blog/bond-cellular-wifi-visp-speedify) explains one
 option without pretending it is built into VISP.
 
@@ -182,9 +182,9 @@ option without pretending it is built into VISP.
 encoder, and mobile radio remain active. Direct moves the destination encodes
 to the relay; it does not turn live video capture into a low-power task.
 
-**The two platform encodes use relay resources.** Streaming to both doubles
-the relay's Direct CPU work and outbound media bandwidth. It does not double
-the phone upload.
+**Every platform encode uses relay resources.** Selecting more destinations
+increases Direct CPU work and outbound media bandwidth once per destination. It
+does not increase the phone upload.
 
 ## Platform rules still apply
 
@@ -206,13 +206,13 @@ VISP.
 
 ## How to try VISP Direct
 
-If your account has beta access:
+To use Direct:
 
-1. Create or sign in to VISP with Twitch or Kick.
+1. Create or sign in to VISP with Twitch, Kick, or Google.
 2. Add the phone as its own publishing device.
 3. Open **Direct output** in the dashboard.
-4. Authorize Twitch, Kick, or both for streaming.
-5. While the device is offline, choose **Twitch**, **Kick**, or **Both**.
+4. Authorize the Twitch, Kick, and/or YouTube outputs you need.
+5. While the device is offline, select the destination checkboxes.
 6. Start the phone contribution and watch each destination's state.
 7. Verify the public channel from a second muted device.
 8. Stop once, reconnect, and confirm the behavior before relying on it at an
@@ -223,7 +223,7 @@ Use the
 for the current controls, states, failure messages, and credential details.
 
 The short decision is this: choose Direct for a complete single-device program
-that should reach Twitch or Kick without OBS. Keep OBS when the studio is part
+that should reach Twitch, Kick, and/or YouTube without OBS. Keep OBS when the studio is part
 of the show. If the Direct case matches your production, [try VISP](https://visp-stream.com),
 create a test device, and validate one private rehearsal before your next live
 session.

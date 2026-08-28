@@ -1,7 +1,8 @@
 ---
 title: "How to Bond Cellular and Wi-Fi for a VISP Phone Stream with Speedify"
-description: "VISP does not bond connections. See how Speedify combines Wi-Fi and cellular beneath a VISP phone stream, where it helps, and where SRT limits still apply."
+description: "Compare VISP Native's dual-link packet duplication with Speedify's Wi-Fi and cellular bonding, and learn when each approach helps."
 publishedAt: 2026-07-25
+updatedAt: 2026-08-03
 coverAlt: "A field phone's Wi-Fi and cellular links are bonded by Speedify into one tunnel that feeds a single SRT stream through the VISP relay into a home OBS studio"
 ---
 
@@ -12,25 +13,24 @@ usual.** Speedify combines the phone's Wi-Fi and cellular links into one steady
 tunnel underneath your encoder, VISP authenticates and relays the single feed,
 and OBS keeps control of the finished Twitch or Kick broadcast.
 
-This matters because of one honest limitation: **VISP does not bond network
-connections, and it does not transcode video.** VISP is a self-hosted SRT/RTMP
+This matters because the tools solve different problems: **VISP Native can
+duplicate packets over Wi-Fi and cellular, while Speedify can aggregate link
+capacity.** VISP is a self-hosted SRT/RTMP
 relay and control plane. It gives each publishing device revocable access and
 brings its feed into OBS, but it carries whatever single stream the encoder
 sends. If your problem is a shaky uplink rather than the studio workflow,
 bonding belongs to a layer below VISP — and Speedify is one way to add it.
 
-![A field phone bonds its Wi-Fi and cellular links through Speedify into one SRT feed, which VISP relays into OBS and out to Twitch or Kick](./speedify-visp-obs-flow.svg)
-
-## Why VISP does not bond, and what that means for you
+## Native duplication versus Speedify bonding
 
 The [VISP relay](https://docs.visp-stream.com/docs/architecture) sits between
 publishing devices and OBS. A phone connects outward to VISP, OBS connects
 outward to VISP, and the home network never needs an inbound port. That design
 keeps the Twitch or Kick stream key in OBS and lets each device be revoked on
 its own. What it deliberately does **not** do is aggregate two internet
-connections into one resilient link. Point a single SRT stream at a VISP video
-source and you get exactly one authenticated path — no more resilient than the
-connection carrying it.
+connections into a larger-capacity link. VISP Native instead sends duplicate
+packets over Wi-Fi and cellular so either copy can arrive. That improves failover
+without adding both links' bandwidth; third-party encoders still publish one path.
 
 There are three common ways to add real bonding, and they live at different
 layers:
@@ -78,7 +78,7 @@ Linux, so it can run on the same phone that publishes to VISP.
 
 ## What you need
 
-- A VISP account signed in with Twitch or Kick
+- A VISP account signed in with Twitch, Kick, or Google
 - Your usual VISP publisher on the phone: the native app, or an encoder like
   [Larix Broadcaster](/blog/larix-broadcaster-obs-srt) or Moblin
 - Speedify installed on that same field device, with at least two working
@@ -190,8 +190,8 @@ you need bonding that does not depend on a consumer VPN service.
 
 ## What this setup does not do
 
-VISP relays the authenticated feed; it does not bond connections and it does not
-transcode. Speedify does the bonding, but it cannot invent bandwidth: if both
+VISP's relay-to-OBS path does not transcode. Native dual-link mode duplicates
+packets, while Speedify can aggregate connections; neither can invent bandwidth. If both
 links are saturated or dead in the same spot, no bonding mode will keep the
 stream alive, and that is when the OBS fallback scene earns its place. Only one
 publisher can own a VISP device path at a time, so give every phone its own

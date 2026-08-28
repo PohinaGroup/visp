@@ -40,27 +40,27 @@ describe("Twitch chat subscription", () => {
 			dependencies,
 		);
 
-		expect(authorizations).toEqual(["Bearer token-1", "Bearer token-2"]);
-		expect(bodies).toEqual([
-			{
-				type: "channel.chat.message",
-				version: "1",
-				condition: {
-					broadcaster_user_id: "broadcaster",
-					user_id: "broadcaster",
-				},
-				transport: { method: "websocket", session_id: "session-1" },
-			},
-			{
-				type: "channel.chat.message",
-				version: "1",
-				condition: {
-					broadcaster_user_id: "broadcaster",
-					user_id: "broadcaster",
-				},
-				transport: { method: "websocket", session_id: "session-2" },
-			},
+		expect(authorizations).toEqual([
+			...Array(7).fill("Bearer token-1"),
+			...Array(7).fill("Bearer token-2"),
 		]);
+		expect(bodies.map((body) => (body as { type: string }).type)).toEqual(
+			Array(2)
+				.fill([
+					"channel.chat.message",
+					"channel.raid",
+					"channel.follow",
+					"channel.subscribe",
+					"channel.subscription.message",
+					"channel.subscription.gift",
+					"channel.cheer",
+				])
+				.flat(),
+		);
+		expect(bodies[1]).toMatchObject({
+			condition: { to_broadcaster_user_id: "broadcaster" },
+			transport: { method: "websocket", session_id: "session-1" },
+		});
 	});
 
 	test("surfaces Twitch API failures to the connector", async () => {
@@ -74,9 +74,40 @@ describe("Twitch chat subscription", () => {
 				{
 					getAccessToken: async () => ({ accessToken: "token" }),
 					fetch: (async () =>
-						new Response(null, { status: 503 })) as unknown as typeof fetch,
+						Response.json(
+							{ message: "Missing scope: user:read:chat" },
+							{ status: 403 },
+						)) as unknown as typeof fetch,
 				},
 			),
-		).rejects.toThrow("Twitch subscription failed (503)");
+		).rejects.toThrow("Missing scope: user:read:chat");
+	});
+
+	test("keeps chat connected when an optional alert subscription fails", async () => {
+		const original = console.error;
+		console.error = () => undefined;
+		try {
+			let request = 0;
+			await expect(
+				createTwitchChatSubscription(
+					{
+						broadcasterId: "broadcaster",
+						sessionId: "session",
+						userId: "visp-user",
+					},
+					{
+						getAccessToken: async () => ({ accessToken: "token" }),
+						fetch: (async () => {
+							request += 1;
+							return request === 2
+								? Response.json({ message: "Unavailable" }, { status: 403 })
+								: new Response(null, { status: 204 });
+						}) as unknown as typeof fetch,
+					},
+				),
+			).resolves.toBeUndefined();
+		} finally {
+			console.error = original;
+		}
 	});
 });

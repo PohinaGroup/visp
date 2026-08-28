@@ -1,0 +1,20 @@
+{
+  "disabled": false,
+  "pathTemplate": "~/.humanlayer/workspaces/{{ TASKSLUG }}/{{ REPOBASENAME }}",
+  "branchTemplate": "{{ TASKSLUG }}",
+  "sourceRef": "origin/main",
+  "setupCommand": "bun install",
+  "copyGlobs": [
+    "apps/*/.env",
+    "apps/*/.env.local",
+    ".claude/settings.local.json",
+    ".humanlayer/workspace.local.json"
+  ],
+  "repos": [
+    {
+      "localPath": ".",
+      "description": "VISP monorepo",
+      "primary": true
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Live video source signal flow</title>
+  <desc id="desc">Phone, camera, and computer sources enter an OBS production, which creates one finished output for viewers.</desc>
+  <rect width="1600" height="900" rx="48" fill="#071426"/>
+  <g fill="#102a46" stroke-width="8">
+    <rect x="80" y="110" width="220" height="180" rx="38" stroke="#22d3ee"/>
+    <rect x="80" y="360" width="220" height="180" rx="28" stroke="#34d399"/>
+    <rect x="80" y="610" width="220" height="180" rx="26" stroke="#f59e0b"/>
+    <rect x="690" y="230" width="400" height="440" rx="34" stroke="#e2e8f0"/>
+    <circle cx="1420" cy="450" r="130" stroke="#a78bfa"/>
+  </g>
+  <g fill="none" stroke-linecap="round" stroke-width="18">
+    <path d="M300 200 C520 200 520 330 690 330" stroke="#22d3ee"/>
+    <path d="M300 450 H690" stroke="#34d399"/>
+    <path d="M300 700 C520 700 520 570 690 570" stroke="#f59e0b"/>
+    <path d="M1090 450 H1290" stroke="#a78bfa"/>
+  </g>
+  <g fill="#334e68"><rect x="750" y="290" width="130" height="120" rx="12"/><rect x="900" y="290" width="130" height="120" rx="12"/><rect x="750" y="440" width="280" height="150" rx="12"/></g>
+  <g fill="#a78bfa"><circle cx="1380" cy="420" r="25"/><circle cx="1460" cy="420" r="25"/><circle cx="1420" cy="500" r="25"/></g>
+</svg>

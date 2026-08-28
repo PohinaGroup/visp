@@ -1,4 +1,9 @@
-import type { ChatBadge, ChatFragment, ChatMessage } from "./contract";
+import type {
+	ChatAlert,
+	ChatBadge,
+	ChatFragment,
+	ChatMessage,
+} from "./contract";
 
 const MAX_BADGES = 4;
 const MAX_FRAGMENTS = 32;
@@ -38,6 +43,21 @@ function date(value: unknown) {
 	return Number.isNaN(parsed.getTime())
 		? new Date().toISOString()
 		: parsed.toISOString();
+}
+
+function number(value: unknown) {
+	const parsed = typeof value === "number" ? value : Number(value);
+	return Number.isFinite(parsed) && parsed >= 0 ? parsed : undefined;
+}
+
+function finishAlert(alert: ChatAlert): ChatAlert | null {
+	if (!alert.id || !alert.name) return null;
+	return {
+		...alert,
+		name: alert.name.slice(0, MAX_NAME_LENGTH),
+		tier: alert.tier?.slice(0, 64),
+		message: alert.message?.slice(0, MAX_MESSAGE_LENGTH),
+	};
 }
 
 function senderColor(value: unknown, seedId: string) {
@@ -187,6 +207,83 @@ export function normalizeTwitchMessage(
 	});
 }
 
+export function normalizeTwitchAlert(
+	type: string,
+	payload: unknown,
+	messageId: unknown,
+	timestamp?: unknown,
+): ChatAlert | null {
+	if (!payload || typeof payload !== "object") return null;
+	const event = payload as Record<string, unknown>;
+	const base = {
+		id: identifier(messageId),
+		provider: "twitch" as const,
+		sentAt: date(timestamp),
+	};
+	switch (type) {
+		case "channel.raid":
+			return finishAlert({
+				...base,
+				kind: "raid",
+				name: string(
+					event.from_broadcaster_user_name ?? event.from_broadcaster_user_login,
+					MAX_NAME_LENGTH,
+				),
+				amount: number(event.viewers),
+			});
+		case "channel.follow":
+			return finishAlert({
+				...base,
+				kind: "follow",
+				name: string(event.user_name ?? event.user_login, MAX_NAME_LENGTH),
+				sentAt: date(event.followed_at ?? timestamp),
+			});
+		case "channel.subscribe":
+			if (event.is_gift === true) return null;
+			return finishAlert({
+				...base,
+				kind: "sub",
+				name: string(event.user_name ?? event.user_login, MAX_NAME_LENGTH),
+				tier: string(event.tier, 64),
+			});
+		case "channel.subscription.message": {
+			const message = (event.message ?? {}) as Record<string, unknown>;
+			return finishAlert({
+				...base,
+				kind: "sub",
+				name: string(event.user_name ?? event.user_login, MAX_NAME_LENGTH),
+				amount: number(event.cumulative_months),
+				tier: string(event.tier, 64),
+				message: string(message.text, MAX_MESSAGE_LENGTH) || undefined,
+			});
+		}
+		case "channel.subscription.gift":
+			return finishAlert({
+				...base,
+				kind: "gift",
+				name:
+					event.is_anonymous === true
+						? "Anonymous"
+						: string(event.user_name ?? event.user_login, MAX_NAME_LENGTH),
+				amount: number(event.total),
+				tier: string(event.tier, 64),
+			});
+		case "channel.cheer":
+			return finishAlert({
+				...base,
+				kind: "cheer",
+				name:
+					event.is_anonymous === true
+						? "Anonymous"
+						: string(event.user_name ?? event.user_login, MAX_NAME_LENGTH),
+				amount: number(event.bits),
+				message: string(event.message, MAX_MESSAGE_LENGTH) || undefined,
+			});
+		default:
+			return null;
+	}
+}
+
 type KickPosition = { e?: unknown; s?: unknown };
 type KickEmote = { emote_id?: unknown; positions?: KickPosition[] };
 
@@ -266,4 +363,176 @@ export function normalizeKickMessage(payload: unknown): ChatMessage | null {
 		},
 		fragments,
 	});
+}
+
+export function normalizeKickAlert(
+	type: string,
+	payload: unknown,
+	messageId: unknown,
+	timestamp?: unknown,
+): ChatAlert | null {
+	if (!payload || typeof payload !== "object") return null;
+	const event = payload as Record<string, unknown>;
+	const person = (value: unknown) =>
+		(value && typeof value === "object" ? value : {}) as Record<
+			string,
+			unknown
+		>;
+	const base = {
+		id: identifier(messageId),
+		provider: "kick" as const,
+		sentAt: date(event.created_at ?? timestamp),
+	};
+	switch (type) {
+		case "channel.followed":
+			return finishAlert({
+				...base,
+				kind: "follow",
+				name: string(person(event.follower).username, MAX_NAME_LENGTH),
+			});
+		case "channel.subscription.new":
+		case "channel.subscription.renewal":
+			return finishAlert({
+				...base,
+				kind: "sub",
+				name: string(person(event.subscriber).username, MAX_NAME_LENGTH),
+				amount: number(event.duration),
+			});
+		case "channel.subscription.gifts": {
+			const gifter = person(event.gifter);
+			return finishAlert({
+				...base,
+				kind: "gift",
+				name:
+					gifter.is_anonymous === true
+						? "Anonymous"
+						: string(gifter.username, MAX_NAME_LENGTH),
+				amount: Array.isArray(event.giftees) ? event.giftees.length : undefined,
+			});
+		}
+		default:
+			return null;
+	}
+}
+
+export function normalizeYoutubeMessage(payload: unknown): ChatMessage | null {
+	if (!payload || typeof payload !== "object") return null;
+	const message = payload as Record<string, unknown>;
+	const snippet = (message.snippet ?? {}) as Record<string, unknown>;
+	const author = (message.authorDetails ?? {}) as Record<string, unknown>;
+	if (
+		snippet.hasDisplayContent !== true ||
+		snippet.type === "tombstone" ||
+		snippet.type === "chatEndedEvent"
+	) {
+		return null;
+	}
+	const senderId = identifier(author.channelId, 128);
+	const badges: ChatBadge[] = [
+		...(author.isChatOwner === true
+			? [{ type: "broadcaster", label: "Broadcaster" }]
+			: []),
+		...(author.isChatModerator === true
+			? [{ type: "moderator", label: "Moderator" }]
+			: []),
+		...(author.isChatSponsor === true
+			? [{ type: "subscriber", label: "Member" }]
+			: []),
+		...(author.isVerified === true
+			? [{ type: "verified", label: "Verified" }]
+			: []),
+	];
+	return finish({
+		id: identifier(message.id),
+		provider: "youtube",
+		sentAt: date(snippet.publishedAt),
+		sender: {
+			id: senderId,
+			name: string(author.displayName, MAX_NAME_LENGTH),
+			color: senderColor(undefined, senderId),
+			badges,
+		},
+		fragments: [
+			{
+				type: "text",
+				text: string(snippet.displayMessage, MAX_MESSAGE_LENGTH),
+			},
+		],
+	});
+}
+
+export function normalizeYoutubeAlert(payload: unknown): ChatAlert | null {
+	if (!payload || typeof payload !== "object") return null;
+	const message = payload as Record<string, unknown>;
+	const snippet = (message.snippet ?? {}) as Record<string, unknown>;
+	const author = (message.authorDetails ?? {}) as Record<string, unknown>;
+	const base = {
+		id: identifier(message.id),
+		provider: "youtube" as const,
+		sentAt: date(snippet.publishedAt),
+		name: string(author.displayName, MAX_NAME_LENGTH),
+	};
+	switch (snippet.type) {
+		case "newSponsorEvent": {
+			const details = (snippet.newSponsorDetails ?? {}) as Record<
+				string,
+				unknown
+			>;
+			return finishAlert({
+				...base,
+				kind: "sub",
+				tier: string(details.memberLevelName, 64),
+			});
+		}
+		case "memberMilestoneChatEvent": {
+			const details = (snippet.memberMilestoneChatDetails ?? {}) as Record<
+				string,
+				unknown
+			>;
+			return finishAlert({
+				...base,
+				kind: "sub",
+				amount: number(details.memberMonth),
+				tier: string(details.memberLevelName, 64),
+				message: string(details.userComment, MAX_MESSAGE_LENGTH) || undefined,
+			});
+		}
+		case "membershipGiftingEvent": {
+			const details = (snippet.membershipGiftingDetails ?? {}) as Record<
+				string,
+				unknown
+			>;
+			return finishAlert({
+				...base,
+				kind: "gift",
+				amount: number(details.giftMembershipsCount),
+				tier: string(details.giftMembershipsLevelName, 64),
+			});
+		}
+		case "superChatEvent": {
+			const details = (snippet.superChatDetails ?? {}) as Record<
+				string,
+				unknown
+			>;
+			return finishAlert({
+				...base,
+				kind: "cheer",
+				amount: string(details.amountDisplayString, 64),
+				message: string(details.userComment, MAX_MESSAGE_LENGTH) || undefined,
+			});
+		}
+		case "superStickerEvent": {
+			const details = (snippet.superStickerDetails ?? {}) as Record<
+				string,
+				unknown
+			>;
+			return finishAlert({
+				...base,
+				kind: "cheer",
+				amount: string(details.amountDisplayString, 64),
+			});
+		}
+		default:
+			return null;
+	}
 }

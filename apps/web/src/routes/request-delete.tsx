@@ -41,13 +41,15 @@ function RequestDelete() {
 	const fi = useLocale() === "fi";
 	const { data: session, isPending: sessionPending } = authClient.useSession();
 	const [pending, setPending] = useState(false);
-	const [signingProvider, setSigningProvider] = useState<"twitch" | "kick">();
+	const [signingProvider, setSigningProvider] = useState<
+		"twitch" | "kick" | "google"
+	>();
 
-	const signIn = async (provider: "twitch" | "kick") => {
+	const signIn = async (provider: "twitch" | "kick" | "google") => {
 		setPending(true);
 		setSigningProvider(provider);
 		const result =
-			provider === "twitch"
+			provider !== "kick"
 				? await authClient.signIn.social({
 						provider,
 						callbackURL: authRedirectURL(
@@ -130,8 +132,8 @@ function RequestDelete() {
 					<ol className="flex list-decimal flex-col gap-3 pl-5 text-sm">
 						<li>
 							{fi
-								? "Kirjaudu VISPiin yhdistetyllä Twitch- tai Kick-tilillä."
-								: "Sign in with a Twitch or Kick account connected to VISP."}
+								? "Kirjaudu VISPiin yhdistetyllä Twitch-, Kick- tai Google-tilillä. Pelkällä Apple-tilillä kirjaudu sähköpostilla alla."
+								: "Sign in with a Twitch, Kick, or Google account connected to VISP. Apple-only accounts: use the email path below."}
 						</li>
 						<li>
 							{fi
@@ -188,6 +190,19 @@ function RequestDelete() {
 										? "Kirjaudu Kickillä"
 										: "Sign in with Kick"}
 							</Button>
+							<Button
+								disabled={pending}
+								onClick={() => void signIn("google")}
+								variant="outline"
+							>
+								{signingProvider === "google"
+									? fi
+										? "Avataan Googlea..."
+										: "Opening Google..."
+									: fi
+										? "Kirjaudu Googlella"
+										: "Sign in with Google"}
+							</Button>
 						</>
 					)}
 					<Link
@@ -212,8 +227,8 @@ function RequestDelete() {
 					<ul className="flex list-disc flex-col gap-2 pl-5 text-sm">
 						<li>
 							{fi
-								? "VISP-profiilisi: nimi, sähköpostiosoite, profiilikuva sekä yhdistetyt Twitch- tai Kick-tilit ja tunnisteet"
-								: "Your VISP profile, including name, email address, profile image, and linked Twitch or Kick accounts and tokens"}
+								? "VISP-profiilisi: nimi, sähköpostiosoite, profiilikuva sekä yhdistetyt Twitch-, Kick-, Google- tai Apple-tilit ja tunnisteet"
+								: "Your VISP profile, including name, email address, profile image, and linked Twitch, Kick, Google, or Apple accounts and tokens"}
 						</li>
 						<li>
 							{fi
@@ -277,8 +292,8 @@ function RequestDelete() {
 					{legalEntity.email}
 				</a>{" "}
 				{fi
-					? `(${legalEntity.companyName}). Liitä viestiin Twitch- tai Kick-käyttäjänimesi ja käytä aihetta ”VISP account deletion”. Katso myös `
-					: `(${legalEntity.companyName}) with your Twitch or Kick username and the subject “VISP account deletion.” See also `}
+					? `(${legalEntity.companyName}). Liitä viestiin Twitch-, Kick-, Google- tai Apple-tilisi tunniste ja käytä aihetta ”VISP account deletion”. Katso myös `
+					: `(${legalEntity.companyName}) with your Twitch, Kick, Google, or Apple account identifier and the subject “VISP account deletion.” See also `}
 				<Link
 					className="text-foreground underline underline-offset-4"
 					to={fi ? "/fi/contact" : "/contact"}

@@ -25,7 +25,7 @@ function PrivacyPage() {
 			eyebrow="Lakiasiat"
 			title="Tietosuojaseloste"
 			description="Tässä selosteessa kuvataan, miten VISP käsittelee henkilötietoja käyttäessäsi verkkosivustoa, hallintapaneelia, mobiilisovelluksia ja suoratoiston relay-palveluja."
-			updated="26. heinäkuuta 2026"
+			updated="6. elokuuta 2026"
 		>
 			<section className="flex flex-col gap-3">
 				<h2>1. Rekisterinpitäjä</h2>
@@ -40,18 +40,22 @@ function PrivacyPage() {
 				<h2>2. Mikä VISP on</h2>
 				<p>
 					VISP on itse ylläpidettävä SRT/RTMP-relay ja etäsuoratoiston
-					ohjauspalvelu. Lähetysavaimesi pysyvät sinulla eikä niitä lähetetä
-					VISPille. VISP välittää suoraa mediaa ja tarjoaa siihen liittyvät
-					tili-, hallintapaneeli- ja laitetoiminnot.
+					ohjauspalvelu. Sinua ei pyydetä liittämään lähetysavainta. Kun otat
+					Directin käyttöön, VISP hakee valitsemasi Twitch-, Kick- tai
+					YouTube-kohteen OAuth-luvalla vain välitysprosessin käyttöön. Avainta
+					ei tallenneta erillisenä arvona eikä palauteta asiakassovellukselle.
+					YouTube Direct luo julkisen lähetyksen, joka käynnistyy ja pysähtyy
+					automaattisesti.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">
 				<h2>3. Käsittelemämme tiedot</h2>
 				<ul>
 					<li>
-						<strong>Tilitiedot</strong> Twitch- tai Kick-kirjautumisesta: nimi,
-						sähköpostiosoite, profiilikuva ja yhdistetyn palvelutilin
-						tunnisteet.
+						<strong>Tilitiedot</strong> Twitch-, Kick-, Google- tai
+						Apple-kirjautumisesta (iOS): nimi, sähköpostiosoite (mukaan lukien
+						Applen yksityinen välityssähköposti, jos valitset sen), profiilikuva
+						ja yhdistetyn palvelutilin tunnisteet.
 					</li>
 					<li>
 						<strong>Todennustiedot</strong>: turvallisesti tallennetut
@@ -77,7 +81,30 @@ function PrivacyPage() {
 					</li>
 					<li>
 						<strong>Chat-yhteyden metatiedot</strong>, kuten tilaustunnisteet.
-						VISP ei säilytä chat-viestien sisältöä sisältöarkistona.
+						VISP ei säilytä chat-viestien sisältöä sisältöarkistona. Jos otat
+						pilvipohjaisen tekstistä puheeksi -toiminnon käyttöön, puheeksi
+						valittu teksti lähetetään puhepalvelulle äänitiedoston luomiseksi.
+					</li>
+					<li>
+						<strong>Valinnainen puheenkäsittely</strong>: kun tililläsi on
+						pilvitekstitys tai parempi ääneneristys käytössä ja kytket toiminnon
+						päälle, mikrofonin suora ääni lähetetään ElevenLabsille tekstin tai
+						eristetyn äänen tuottamista varten. Laitteessa toimivat tavalliset
+						vaihtoehdot eivät lähetä mikrofonin ääntä ElevenLabsille.
+					</li>
+					<li>
+						<strong>Avustajakeskustelut</strong>: Sepolle lähettämäsi viestit ja
+						hallintapaneelissa myös salaisuuksista ja kuvista puhdistettu
+						tilayhteenveto lähetetään määritetyn tekoäly-yhdyskäytävän kautta
+						mallipalvelulle vastauksen tuottamiseksi.
+					</li>
+					<li>
+						<strong>Perustajaohjelman hakemustiedot</strong>: nimesi,
+						sähköpostiosoitteesi, YouTube-kanavan ja esimerkkisisällön
+						osoitteet, kuvaus yleisöstäsi ja kalustostasi sekä
+						ilmoitusvelvollisuuden hyväksyntä, kun haet sisällöntuottajien
+						ohjelmaan. Hakemukset välitetään myös sisäiseen tiimichattiimme
+						käsittelyä ja vastaamista varten.
 					</li>
 					<li>
 						<strong>Turvallisuus- ja palvelulokit</strong> luotettavuutta,
@@ -95,7 +122,12 @@ function PrivacyPage() {
 					<li>
 						<strong>Palvelun tarjoaminen</strong> (sopimus / sopimusta edeltävät
 						toimet): tilin luominen, tunnistaminen, relay-määritykset ja
-						hallintapaneeli.
+						hallintapaneeli, valinnainen puheenkäsittely ja avustajatoiminnot.
+					</li>
+					<li>
+						<strong>Perustajaohjelman hakemukset</strong> (sopimusta edeltävät
+						toimet / sopimus): hakemusten käsittely, hakijoille vastaaminen ja
+						hyväksyttyjen kumppanuuksien hoitaminen.
 					</li>
 					<li>
 						<strong>Turvallisuus ja eheys</strong> (oikeutettu etu): istuntojen
@@ -122,11 +154,16 @@ function PrivacyPage() {
 				<p>
 					Käytämme VISPin toimintaan tarvittavia infrastruktuuripalveluja ja
 					alikäsittelijöitä, kuten hostingia, tietokantaa, tilannekuvien
-					objektitallennusta sekä Twitchiä ja Kickiä OAuth-tunnistukseen. Kun
-					analytiikka on käytössä, se toimii omalla itse ylläpitämällämme
-					Rybbit-palvelimella, joten analytiikkatietoja ei jaeta ulkopuoliselle
+					objektitallennusta sekä Twitchiä, Kickiä ja Googlea
+					OAuth-tunnistukseen. Valinnaiset puhetoiminnot käyttävät ElevenLabsia.
+					Seppo käyttää määritettyä tekoäly-yhdyskäytävää ja mallipalvelua
+					(tällä hetkellä Google Geminiä). Palvelut käsittelevät vain käyttäjän
+					käynnistämän toiminnon tarvitsemat tiedot. Kun analytiikka on
+					käytössä, se toimii omalla itse ylläpitämällämme Rybbit-palvelimella,
+					joten analytiikkatietoja ei jaeta ulkopuoliselle
 					analytiikkapalvelulle. Valitsemasi suoratoistokohteet saavat
-					julkaisemasi median; VISP ei ota lähetysavaimiasi haltuunsa.
+					julkaisemasi median; VISP hakee Directin lähetysavaimen vain
+					valtuuttamasi lähdön käynnistämistä varten.
 				</p>
 			</section>
 			<section className="flex flex-col gap-3">
@@ -153,12 +190,23 @@ function PrivacyPage() {
 						vuorokauden kuluessa päivitysten päätyttyä.
 					</li>
 					<li>
+						Hylätyt perustajaohjelman hakemukset poistetaan 12 kuukauden
+						kuluessa päätöksestä. Hyväksyttyjen kumppanien tiedot säilytetään
+						suhteen ajan ja sen jälkeen kirjanpito- tai lakisääteisen ajan.
+					</li>
+					<li>
 						Salatut varmuuskopiot ylikirjoitetaan enintään 30 päivän kuluessa
 						poistosta.
 					</li>
 					<li>
 						Turvallisuus- ja palvelulokeja säilytetään enintään 90 päivää, ellei
 						laki vaadi pidempää aikaa.
+					</li>
+					<li>
+						Valinnaisten puhetoimintojen ja avustajan syötteitä ei säilytetä
+						VISPissä sisältöarkistona. Ulkoisen palvelun käsittelyyn ja
+						säilytykseen sovelletaan myös sen palveluehtoja ja
+						tietojenkäsittelyjärjestelyjä.
 					</li>
 				</ul>
 				<p>

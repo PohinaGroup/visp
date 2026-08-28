@@ -14,7 +14,7 @@ on a fallback scene while a remote feed reconnects.
 If you publish with Larix, Moblin, or another SRT/RTMP encoder instead of the
 VISP app:
 
-1. Sign in to the portal with Twitch or Kick.
+1. Sign in to the portal with Twitch, Kick, or Google.
 2. Open **Video sources** and choose **Add device**.
 3. Choose **Copy** next to **Add this to video source** and paste the URL into
    the sending encoder.
@@ -30,6 +30,30 @@ adaptive bitrate in Larix on cellular connections.
 
 Only one publisher can own a path. The first device remains connected; a second
 device cannot pre-connect for a seamless handoff.
+
+## Bond two connections with SRTLA
+
+Every relay accepts SRTLA on UDP 5000, so a BELABOX box, Moblin, or any other
+SRTLA sender can spread one stream across Wi-Fi and mobile data at once. Unlike
+sending the same feed twice, SRTLA sends each packet once and moves traffic to
+whichever link is coping best, so two connections give you more headroom rather
+than a doubled data bill.
+
+Switch the dashboard to **Advanced**, open your device, and choose **Bonding two
+connections with BELABOX or Moblin? Show the SRTLA URL**. The link carries the
+same credentials as the SRT one — only the scheme and port differ:
+
+```
+srtla://relay.example.com:5000?streamid=publish:SLUG:HANDLE:SECRET&pkt_size=1316
+```
+
+In Moblin, paste it as the stream URL and enable the connections you want under
+**Settings → Streams → your stream → SRT(LA)**. On BELABOX, set the receiver
+server to your relay host and the port to 5000, and keep the same stream ID.
+
+Set the SRT latency as if the weakest link were carrying the stream alone — the
+cellular row of the table below. If UDP 5000 is blocked on the network you are
+on, the plain SRT URL on 8890 still works, without bonding.
 
 ## Tune SRT latency
 

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">IRL streaming setup budget ladder</title>
+  <desc id="desc">A phone and free relay form the base, followed by optional power, audio, stabilization, and bonding upgrades.</desc>
+  <rect width="1600" height="900" rx="48" fill="#07111f"/>
+  <text x="800" y="105" fill="#fff" font-family="system-ui" font-size="58" font-weight="700" text-anchor="middle">Buy only the limit you measured</text>
+  <g font-family="system-ui" font-size="34" font-weight="650" text-anchor="middle">
+    <rect x="170" y="650" width="1260" height="120" rx="28" fill="#22d3ee"/><text x="800" y="725" fill="#06202a">Phone + VISP · €0</text>
+    <rect x="285" y="510" width="1030" height="110" rx="26" fill="#38bdf8"/><text x="800" y="580" fill="#071827">Power · €25–60</text>
+    <rect x="400" y="380" width="800" height="100" rx="24" fill="#818cf8"/><text x="800" y="445" fill="#fff">Audio or grip · when needed</text>
+    <rect x="515" y="260" width="570" height="90" rx="22" fill="#c084fc"/><text x="800" y="320" fill="#fff">Bonding · difficult routes</text>
+  </g>
+</svg>

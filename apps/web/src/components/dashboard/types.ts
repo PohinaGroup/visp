@@ -11,7 +11,6 @@ export type ObsPairing = Outputs["obs"]["pair"];
 export type SnapshotView = Outputs["obs"]["snapshots"][number];
 export type ChatConnection = Outputs["chat"]["connections"]["list"][number];
 export type DirectOutputs = Outputs["direct"]["list"];
-export type DirectSelection = "off" | "twitch" | "kick" | "both";
 
 export type NetworkProfile = "wired" | "wifi" | "cellular";
 export type DashboardMode = "simple" | "advanced";

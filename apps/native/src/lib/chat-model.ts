@@ -1,4 +1,5 @@
-import type { ChatMessage } from "@VISP/api/chat/contract";
+import type { ChatAlert, ChatMessage } from "@VISP/api/chat/contract";
+import { isSpokenLocale, type SpokenLocale } from "./spoken-language";
 
 export type ChatDisplayMode = "hidden" | "floating" | "embedded";
 export type ChatCorner =
@@ -7,13 +8,23 @@ export type ChatCorner =
 	| "bottom-left"
 	| "bottom-right";
 export type FloatingPosition = { x: number; y: number };
+/** Voice language for reading chat aloud, not a UI language. */
+export type SpeechLanguage = "off" | SpokenLocale;
+export type SpokenLanguage = SpokenLocale;
 export type ChatPreferences = {
 	mode: ChatDisplayMode;
 	corner: ChatCorner;
+	alerts: boolean;
 	disappearingMessages: boolean;
+	speechLanguage: SpeechLanguage;
+	betterVoice: boolean;
 	floating: { portrait: FloatingPosition; landscape: FloatingPosition };
 };
 export type VisibleChatMessage = ChatMessage & {
+	opacity: number;
+	receivedAt: number;
+};
+export type VisibleChatAlert = ChatAlert & {
 	opacity: number;
 	receivedAt: number;
 };
@@ -21,7 +32,10 @@ export type VisibleChatMessage = ChatMessage & {
 export const DEFAULT_CHAT_PREFERENCES: ChatPreferences = {
 	mode: "hidden",
 	corner: "bottom-left",
+	alerts: true,
 	disappearingMessages: false,
+	speechLanguage: "off",
+	betterVoice: false,
 	floating: {
 		portrait: { x: 16, y: 120 },
 		landscape: { x: 24, y: 60 },
@@ -35,6 +49,11 @@ const corners = new Set<ChatCorner>([
 	"bottom-left",
 	"bottom-right",
 ]);
+function parseSpeechLanguage(value: unknown): SpeechLanguage {
+	if (value === "off") return "off";
+	if (typeof value === "string" && isSpokenLocale(value)) return value;
+	return DEFAULT_CHAT_PREFERENCES.speechLanguage;
+}
 
 function position(value: unknown, fallback: FloatingPosition) {
 	if (!value || typeof value !== "object") return fallback;
@@ -60,7 +79,10 @@ export function parseChatPreferences(value: string | null): ChatPreferences {
 			corner: corners.has(parsed.corner as ChatCorner)
 				? (parsed.corner as ChatCorner)
 				: DEFAULT_CHAT_PREFERENCES.corner,
+			alerts: parsed.alerts !== false,
 			disappearingMessages: parsed.disappearingMessages === true,
+			speechLanguage: parseSpeechLanguage(parsed.speechLanguage),
+			betterVoice: parsed.betterVoice === true,
 			floating: {
 				portrait: position(
 					parsed.floating?.portrait,
@@ -77,6 +99,52 @@ export function parseChatPreferences(value: string | null): ChatPreferences {
 	}
 }
 
+const SPEECH_ATTRIBUTION: Record<SpokenLanguage, string> = {
+	"en-US": "says",
+	"fi-FI": "terveisin",
+};
+const SPEECH_LINK: Record<SpokenLanguage, string> = {
+	"en-US": "link",
+	"fi-FI": "linkki",
+};
+// Time and money, not safety: the server already caps messages at 500
+// characters. 200 is roughly ten seconds of speech, which keeps a flood queue
+// drainable and bounds the per-message ElevenLabs spend.
+const MAX_SPOKEN_BODY = 200;
+const MAX_SPOKEN_NAME = 24;
+
+/**
+ * What a chat message sounds like, message first and sender last. Empty when
+ * there is nothing worth speaking, so an emote train stays silent instead of
+ * reading out a bare attribution.
+ */
+export function speechUtterance(
+	message: ChatMessage,
+	language: SpokenLanguage,
+): string {
+	const body = message.fragments
+		.filter((fragment) => fragment.type === "text")
+		.map((fragment) => fragment.text)
+		// Twitch splits text around emotes without keeping their spacing.
+		.join(" ")
+		.replace(/\b(?:https?:\/\/|www\.)\S+/gi, SPEECH_LINK[language])
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, MAX_SPOKEN_BODY)
+		.trim();
+	if (!body) return "";
+	const name = message.sender.name
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, MAX_SPOKEN_NAME)
+		.trim();
+	if (!name) return body;
+	return `${body} ${SPEECH_ATTRIBUTION[language]} ${name}`;
+}
+
+/** How long a message stays on screen with disappearing messages enabled. */
+export const FADE_WINDOW_MS = 12_000;
+
 export function visibleChatMessages(
 	messages: Array<ChatMessage & { receivedAt: number }>,
 	disappearingMessages: boolean,
@@ -84,7 +152,8 @@ export function visibleChatMessages(
 ): VisibleChatMessage[] {
 	return messages
 		.filter(
-			(message) => !disappearingMessages || now - message.receivedAt < 12_000,
+			(message) =>
+				!disappearingMessages || now - message.receivedAt < FADE_WINDOW_MS,
 		)
 		.slice(-3)
 		.map((message) => ({
@@ -92,8 +161,24 @@ export function visibleChatMessages(
 			opacity: disappearingMessages
 				? Math.min(
 						1,
-						Math.max(0, (12_000 - (now - message.receivedAt)) / 4_000),
+						Math.max(0, (FADE_WINDOW_MS - (now - message.receivedAt)) / 4_000),
 					)
 				: 1,
+		}));
+}
+
+export function visibleAlerts(
+	alerts: Array<ChatAlert & { receivedAt: number }>,
+	now = Date.now(),
+): VisibleChatAlert[] {
+	return alerts
+		.filter((alert) => now - alert.receivedAt < FADE_WINDOW_MS)
+		.slice(-3)
+		.map((alert) => ({
+			...alert,
+			opacity: Math.min(
+				1,
+				Math.max(0, (FADE_WINDOW_MS - (now - alert.receivedAt)) / 4_000),
+			),
 		}));
 }

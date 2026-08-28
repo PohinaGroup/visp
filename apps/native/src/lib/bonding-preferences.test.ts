@@ -5,6 +5,7 @@ const { parseBondingMode } = await import("./bonding-preferences");
 
 describe("parseBondingMode", () => {
 	test("accepts supported modes and defaults unknown values to off", () => {
+		expect(parseBondingMode("srtla")).toBe("srtla");
 		expect(parseBondingMode("broadcast")).toBe("broadcast");
 		expect(parseBondingMode("backup")).toBe("backup");
 		expect(parseBondingMode("balancing")).toBe("off");

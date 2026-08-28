@@ -1,12 +1,15 @@
 import { db } from "@VISP/db";
 import { pathState, relayPath } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
+import { createObjectStore, type ObjectStore } from "@VISP/object-store";
 import { and, eq, gte, isNull } from "drizzle-orm";
 
 const PATH_ONLINE_FOR_MS = 60_000;
 const SNAPSHOT_FRESH_FOR_MS = 120_000;
 
-const snapshots = new Bun.S3Client({
+// Exported so BRB shares these clients: same bucket, same credentials, and one
+// pair of connections instead of four.
+export const snapshotReads = createObjectStore({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
 	bucket: env.S3_BUCKET,
 	endpoint: env.S3_ENDPOINT,
@@ -14,7 +17,7 @@ const snapshots = new Bun.S3Client({
 	secretAccessKey: env.S3_SECRET_ACCESS_KEY,
 });
 
-const snapshotUploads = new Bun.S3Client({
+export const snapshotUploads = createObjectStore({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
 	bucket: env.S3_BUCKET,
 	endpoint: env.S3_UPLOAD_ENDPOINT ?? env.S3_ENDPOINT,
@@ -22,7 +25,7 @@ const snapshotUploads = new Bun.S3Client({
 	secretAccessKey: env.S3_SECRET_ACCESS_KEY,
 });
 
-type SnapshotReader = Pick<Bun.S3Client, "presign" | "stat">;
+type SnapshotReader = Pick<ObjectStore, "presign" | "stat">;
 
 export function snapshotKey(pathId: number) {
 	return `snapshots/${pathId}.jpg`;
@@ -30,7 +33,7 @@ export function snapshotKey(pathId: number) {
 
 export async function getSnapshotUploadUrl(
 	path: string,
-	client: Pick<Bun.S3Client, "presign"> = snapshotUploads,
+	client: Pick<ObjectStore, "presign"> = snapshotUploads,
 ) {
 	const [livePath] = await db
 		.select({ id: relayPath.id })
@@ -55,9 +58,13 @@ export async function getSnapshotUploadUrl(
 
 export async function listSnapshots(
 	userId: string,
-	client: SnapshotReader = snapshots,
+	client: SnapshotReader = snapshotReads,
+	// The BRB card previews the last frame while the user is offline — that is
+	// exactly when they configure it — so the live filter has to be optional.
+	options: { liveOnly?: boolean } = {},
 ) {
 	const now = Date.now();
+	const liveOnly = options.liveOnly ?? true;
 	const livePaths = await db
 		.select({ id: relayPath.id, label: relayPath.label })
 		.from(relayPath)
@@ -66,8 +73,12 @@ export async function listSnapshots(
 			and(
 				eq(relayPath.userId, userId),
 				isNull(relayPath.revokedAt),
-				eq(pathState.publishing, true),
-				gte(pathState.lastEventAt, new Date(now - PATH_ONLINE_FOR_MS)),
+				...(liveOnly
+					? [
+							eq(pathState.publishing, true),
+							gte(pathState.lastEventAt, new Date(now - PATH_ONLINE_FOR_MS)),
+						]
+					: []),
 			),
 		)
 		.orderBy(relayPath.seq);
@@ -83,9 +94,12 @@ export async function listSnapshots(
 					pathId: path.id,
 					label: path.label,
 					capturedAt: stat.lastModified.toISOString(),
-					url: fresh
-						? client.presign(key, { expiresIn: 120, method: "GET" })
-						: null,
+					// A stale frame is still the right BRB preview; only the live
+					// monitor wants to hide one nobody is producing any more.
+					url:
+						fresh || !liveOnly
+							? await client.presign(key, { expiresIn: 120, method: "GET" })
+							: null,
 				};
 			} catch {
 				return {

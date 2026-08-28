@@ -1,0 +1,19 @@
+{
+	"name": "@VISP/object-store",
+	"type": "module",
+	"exports": {
+		".": {
+			"default": "./src/index.ts"
+		}
+	},
+	"scripts": {
+		"check-types": "tsc --noEmit"
+	},
+	"dependencies": {
+		"aws4fetch": "^1.0.20"
+	},
+	"devDependencies": {
+		"@VISP/config": "workspace:*",
+		"typescript": "catalog:"
+	}
+}

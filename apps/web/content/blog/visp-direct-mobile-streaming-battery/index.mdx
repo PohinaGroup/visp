@@ -1,7 +1,8 @@
 ---
 title: "How VISP Direct Saves Mobile Phone Battery When Streaming"
-description: "See when VISP Direct can reduce phone workload during Twitch and Kick simulcasting, what remains on-device, and how to test real battery savings."
+description: "See when VISP Direct can reduce phone workload during multi-platform simulcasting, what remains on-device, and how to test real battery savings."
 publishedAt: 2026-07-28
+updatedAt: 2026-08-03
 coverAlt: "A cool phone with a healthy battery sends one cyan upload to a relay that performs two glowing destination encodes"
 ---
 
@@ -20,8 +21,6 @@ The honest claim is therefore specific: Direct can avoid additional on-phone
 destination work when the alternative would make the phone produce and send
 more than one live output. It moves the duplicated distribution work to the
 relay; it does not make mobile streaming free.
-
-![The phone keeps one camera encode and one upload while VISP performs separate Twitch and Kick distribution encodes on the relay](./battery-workload.svg)
 
 ## What uses battery in a mobile livestream?
 
@@ -152,9 +151,8 @@ The preview and chat can stay on. A bright screen is useful outdoors but costs
 energy. Floating chat stays private on the phone, while Embedded chat becomes
 part of the captured program. Neither mode turns off the streaming workload.
 
-Finally, Direct does not bond cellular and Wi-Fi. It cannot move traffic
-between several connections to reduce one modem's load or survive a carrier
-dead zone. The
+Finally, VISP Native can duplicate packets over cellular and Wi-Fi for failover,
+but it does not aggregate the links' capacity or reduce the total radio work. The
 [cellular-and-Wi-Fi bonding guide](/blog/bond-cellular-wifi-visp-speedify)
 covers an optional network layer, with the additional warning that bonding
 software itself also consumes device resources.
@@ -265,6 +263,6 @@ actual result belongs to your phone and route.
 Follow the
 [VISP Direct setup documentation](https://docs.visp-stream.com/docs/direct-output),
 select Twitch and Kick while the device is offline, and run the controlled
-test above. If your account has limited-beta access and the result is better,
+test above. If the result is better,
 [try VISP](https://visp-stream.com) for one full rehearsal before relying on
 the saving during a long mobile stream.

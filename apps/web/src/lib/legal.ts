@@ -11,10 +11,11 @@ export const legalEntity = {
 	siteUrl: "https://visp-stream.com",
 	releasesUrl: "https://github.com/PohinaGroup/visp/releases",
 	docsUrl: "https://docs.visp-stream.com",
+	xUrl: "https://x.com/VISPstreaming",
 	browserAppUrl: "https://stream.visp-stream.com",
-	iosTestFlightUrl: "https://testflight.apple.com/join/Fc3VttNn",
-	androidPlayTestingUrl:
-		"https://play.google.com/apps/testing/com.pohinagroup.visp",
+	iosAppStoreUrl: "https://apps.apple.com/fi/app/visp-easy-streaming/id6791948092",
+	androidPlayStoreUrl:
+		"https://play.google.com/store/apps/details?id=com.pohinagroup.visp",
 	supervisoryAuthority: {
 		name: "Office of the Data Protection Ombudsman",
 		url: "https://tietosuoja.fi/en",

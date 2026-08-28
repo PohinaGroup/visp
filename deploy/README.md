@@ -10,17 +10,17 @@ address before enabling a service.
 
 ## 1. Prove the relay with static credentials
 
-Install MediaMTX **v1.19.2**. For Linux amd64, the pinned archive SHA-256 is:
+Install MediaMTX **v1.19.3**. For Linux amd64, the pinned archive SHA-256 is:
 
 ```text
-f9c601cc303ceca8fad2883917b022882672c5bc56311e92dbceb16e5f20c60c  mediamtx_v1.19.2_linux_amd64.tar.gz
+a7ba21268fccda3ebc43fdad76b87fddb85ce77e725b5cb637bca724b5394fbe  mediamtx_v1.19.3_linux_amd64.tar.gz
 ```
 
-Download both the archive and `checksums.sha256` from the official v1.19.2
+Download both the archive and `checksums.sha256` from the official v1.19.3
 release, then run:
 
 ```bash
-grep 'mediamtx_v1.19.2_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
+grep 'mediamtx_v1.19.3_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
 sudo install -m 0755 mediamtx /usr/local/bin/mediamtx
 ```
 
@@ -31,7 +31,7 @@ disconnecting either side behaves as expected. Only then install
 
 ## 2. Relay box
 
-1. Install Tailscale, Caddy, `curl`, `ffmpeg`, CMake, a C compiler, mbedTLS
+1. Install Tailscale, Caddy, `curl`, `jq`, `ffmpeg`, CMake, a C compiler, mbedTLS
    development headers, and the pinned MediaMTX binary.
 2. Install the snapshot hook and final config:
 
@@ -51,25 +51,68 @@ disconnecting either side behaves as expected. Only then install
    APP_ORIGIN=https://app.example.com
    MTX_AUTHHTTPADDRESS=https://app.example.com/api/mediamtx/auth
    MTX_APIADDRESS=100.64.0.10:9997
+   MTX_WEBRTCALLOWORIGINS=https://visp-stream.com,https://stream.visp-stream.com
    ```
 
    Replace the example origin and Tailscale address. Set
-   `MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
+	`MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
+	Keep `MTX_WEBRTCALLOWORIGINS` aligned with the deployed portal and native-web
+	origins so authenticated WHEP previews can signal directly to the relay.
    MediaMTX maps the `MTX_*` variables to the matching YAML settings.
 
-   VISP Direct adds optional distribution-encode knobs to the same file.
+	VISP Direct is the default Twitch/Kick output and uses distribution-encode
+	knobs from the same file.
    Defaults are `libx264` at 6000 kbps and 30 fps; set them from a measured
    CPU-per-forwarder number on this box, not from a guess:
 
    ```text
-   DIRECT_VIDEO_ENCODER=libx264
-   DIRECT_VIDEO_BITRATE_KBPS=6000
-   DIRECT_VIDEO_FPS=30
+	   DIRECT_VIDEO_ENCODER=libx264
+	   DIRECT_VIDEO_BITRATE_KBPS=6000
+	   DIRECT_VIDEO_FPS=30
+	   ```
+
+	   Leave `STUDIO_COMPOSITOR_UNIT` unset while Cloud Studio is disabled.
+	   Install the worker and hardened systemd template from
+	   [`compositor/README.md`](compositor/README.md) before setting it. The relay
+	   hook starts the unprivileged worker with an ingest and stops it when that
+	   ingest ends; Direct falls back to camera passthrough when its heartbeat is
+	   older than five seconds.
+	   Once `CLOUD_STUDIO_ENABLED=true` on the app, add this to the relay file:
+
+	   ```text
+	   STUDIO_COMPOSITOR_UNIT=visp-compositor@
+	   ```
+
+	When a customer enables "never drop again", a dropped ingest keeps its
+	forwarders running against the same destination and swaps the live encode
+	for their BRB card. The defaults below need no changes; the font must exist
+	or the card renders without its message:
+
+   ```text
+   BRB_WIDTH=1920
+   BRB_HEIGHT=1080
+   BRB_FONT=/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf
+   BRB_TICK_SECONDS=15
+   BRB_MAX_SECONDS=21600
    ```
 
-   The matching per-relay cap is configured in the admin console. The
-   bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
-   Twitch + Kick on one source counts as two.
+	`BRB_MAX_SECONDS` is a stuck-process ceiling, not a product limit: the app
+	answers every tick and owns the stop decision. A held card occupies an
+	encoder slot exactly like a live forwarder, so size the cap below with the
+	worst case in mind. The forwarders keep their locks, the publisher marker
+	and the card background in `/run/visp`, created by `RuntimeDirectory=visp`
+	in the MediaMTX unit; restarting MediaMTX ends every held card.
+
+	Deploy this relay script before enabling the per-user **BRB highlights**
+	flag. Roll back by disabling that flag: new holds use the still card, uploaded
+	clips remain stored, and an in-flight highlights hold finishes normally.
+
+	The matching per-relay cap is configured in the admin console. The
+	bootstrap-only `DIRECT_MAX_FORWARDERS` value initializes the default relay.
+	Twitch + Kick on one source counts as two.
+	Set this cap from a real simultaneous-encode test. Direct admission reserves
+	one slot per destination before the publisher is accepted; a full relay
+	rejects the new publish instead of starting without a platform output.
 
    The bonded SRT gateway accepts these optional limits from the same file:
 
@@ -135,12 +178,29 @@ disconnecting either side behaves as expected. Only then install
    `relay/Caddyfile`; install `systemd/caddy-relay.conf` as the packaged unit's
    `caddy.service.d/visp.conf` drop-in and set `RELAY_DOMAIN` and `APP_DOMAIN` in
    `/etc/visp/caddy.env`.
-5. Permit public UDP 8890, UDP 8891, TCP 1935, TCP 443, and both UDP and TCP
+5. Build the SRTLA receiver, which accepts BELABOX, Moblin, and other SRTLA
+   senders on UDP 5000 and forwards the reassembled SRT session to MediaMTX:
+
+   ```bash
+   git clone https://github.com/BELABOX/srtla.git /tmp/srtla
+   git -C /tmp/srtla checkout 37862da3d0c13b46956efd3f88877053293d97d6
+   make -C /tmp/srtla srtla_rec
+   sudo install -m 0755 /tmp/srtla/srtla_rec /usr/local/bin/srtla_rec
+   ```
+
+   Install and enable `systemd/srtla-rec.service`. It needs no libsrt: the
+   receiver only shuffles UDP datagrams, and the SRT handshake — stream ID
+   included — passes through to MediaMTX untouched, so HTTP authentication is
+   unchanged here too. Like `visp-bond`, it publishes as `127.0.0.1`; read the
+   real client address from its group log. `srtla_rec` is AGPL-3.0 and stays a
+   separate binary; keep it out of any VISP build.
+6. Permit public UDP 5000, UDP 8890, UDP 8891, TCP 1935, TCP 443, and both UDP
+   and TCP
    8189. Permit
    TCP 9997 and SSH only on the Tailscale interface. Mirror the same rules in
    the UpCloud firewall. Port 8189 carries WebRTC media; TCP is the fallback
    when UDP is blocked.
-6. In Tailscale ACLs, allow only the app box to reach relay TCP 9997.
+7. In Tailscale ACLs, allow only the app box to reach relay TCP 9997.
 
 The Control API deliberately excludes only the `api` action from HTTP auth. It
 is still protected by its Tailscale bind, ACL, and host firewall. Metrics and
@@ -148,16 +208,21 @@ pprof stay disabled.
 
 ## 3. App box
 
-1. Install PostgreSQL, Bun, Tailscale, and Caddy; clone `PohinaGroup/visp` as
-   `root` into `/opt/visp`. The API and portal services run as `root`.
+1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, and Caddy; clone `PohinaGroup/visp` as
+   `root` into `/opt/visp`. The API runs under Node (`dist/index.mjs`); the portal
+   and release tooling use Bun. Both services run as `root`.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`, including the
-   Twitch and Kick application credentials and snapshot bucket settings. Use
+   Twitch, Kick, and Google application credentials and snapshot bucket settings. Use
    the relay's Tailscale address for `MEDIAMTX_API_URL`, generate
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
    the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`
    and `ADMIN_USER_IDS` to the comma-separated Better Auth user IDs that need
    break-glass access, set the per-user `MAX_PATHS_PER_USER` cap, and run
-   `bun run db:migrate`.
+	   `bun run db:migrate`.
+	   Keep `CLOUD_STUDIO_ENABLED=false` for the initial deploy. Enable it only
+	   after compositor acceptance; `CLOUD_STUDIO_DEFAULT_ENABLED` separately
+	   opts newly created Direct users into Cloud Studio. Existing users remain
+	   in OBS mode.
 3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
    values available to Vite. Put the native web app's public build values in the
    root-owned, mode `0600` file `/etc/visp/native-web.env`:
@@ -206,6 +271,63 @@ pprof stay disabled.
    Configure root key authentication over Tailscale and the GitHub production
    environment described in [`UPDATE.md`](UPDATE.md).
 
+### Google OAuth and YouTube Direct
+
+Create one **Web application** OAuth client in the production Google Cloud
+project:
+
+1. Enable **YouTube Data API v3** under **APIs & Services → Library**.
+2. Configure **Google Auth Platform → Branding**, choose the production
+   **Audience**, and add `openid`, `email`, `profile`, and
+   `https://www.googleapis.com/auth/youtube.force-ssl` under **Data Access**.
+   An external public app must complete Google's verification for the YouTube
+   scope. Keep named accounts under **Test users** until verification is done.
+3. Under **Clients**, create a **Web application** client. For a deployment
+   whose `APP_DOMAIN` is `visp-stream.com`, enter:
+
+   ```text
+   Authorized JavaScript origin:
+   https://visp-stream.com
+
+   Authorized redirect URI:
+   https://visp-stream.com/api/auth/callback/google
+   ```
+
+   For another deployment replace `visp-stream.com` with the exact
+   `APP_DOMAIN`. Origins never include a path or trailing callback. Better Auth
+   handles OAuth server-side; the origin does not receive Google tokens.
+4. Store the generated credentials only in `/etc/visp/app.env`:
+
+   ```text
+   GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+   GOOGLE_CLIENT_SECRET=...
+   ```
+
+   The web, native, OBS Remote, and admin clients all return through this one
+   server callback. Do not create mobile OAuth clients and do not put the
+   secret in Vite or Expo environment files.
+5. Deploy, load `/etc/visp/app.env` into the shell, and run the token migration
+   from `/opt/visp` before restarting `visp-server`:
+
+   ```bash
+   set -a
+   . /etc/visp/app.env
+   set +a
+   bun apps/server/scripts/encrypt-oauth-tokens.ts --dry-run
+   bun apps/server/scripts/encrypt-oauth-tokens.ts
+   systemctl restart visp-server
+   ```
+
+   Better Auth encrypts all newly written access and refresh tokens; this one-time command
+   encrypts older provider rows. Keep `BETTER_AUTH_SECRET` backed up because it
+   is the encryption key.
+
+VISP requests offline access and explicit consent. YouTube Direct creates a
+public broadcast for each publishing session, binds it to a reusable managed
+stream, and enables automatic start and stop. One enabled destination consumes
+one relay forwarder slot; Twitch, Kick, and YouTube together require three free
+slots in that relay's configured `maxForwarders`.
+
 Do not put the MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
 them only from the relays' direct public IPs, and the hook endpoints additionally
 require the shared secret. The public Kick webhook is a separate route protected
@@ -234,8 +356,9 @@ secrets only if that trust boundary changes.
 
 Use a private UpCloud Managed Object Storage bucket with its public HTTPS S3
 endpoint. The app credential needs GET, HEAD, PUT, and DELETE access only to the
-`snapshots/` prefix. Keep bucket versioning disabled so overwrites do not retain
-history.
+`snapshots/` and `brb/` object prefixes, plus bucket listing restricted to
+`brb/*/highlights/uploads/` so account deletion can remove abandoned uploads.
+Keep bucket versioning disabled so overwrites do not retain history.
 
 Configure this lifecycle rule through the UpCloud control panel or a compatible
 S3 client so stopped paths disappear from storage after one day:
@@ -252,6 +375,27 @@ S3 client so stopped paths disappear from storage after one day:
   ]
 }
 ```
+
+Add a one-day expiration rule for each account-scoped temporary prefix (replace
+`USER_ID` with the account id):
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "ExpireVispHighlightUploads",
+      "Status": "Enabled",
+      "Prefix": "brb/USER_ID/highlights/uploads/",
+      "Expiration": { "Days": 1 }
+    }
+  ]
+}
+```
+
+This is a safety net for presigned uploads abandoned before confirmation;
+confirmed clips are copied outside the uploads directory and are unaffected.
+The app deletes temporary uploads on every confirm outcome and when the account
+is deleted.
 
 If versioning was previously enabled, suspend it and add
 `"NoncurrentVersionExpiration": { "NoncurrentDays": 1 }` to the rule. Verify

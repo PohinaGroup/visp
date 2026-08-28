@@ -1,12 +1,52 @@
 import { describe, expect, test } from "bun:test";
 
 import {
+	hasAlertScope,
+	hasChatScope,
 	hasScope,
 	hasStreamKeyScope,
+	hasTwitchBotChannelScope,
 	linkScopes,
 	PROVIDER_SCOPES,
 	parseScopes,
 } from "./scopes";
+
+describe("hasAlertScope", () => {
+	test("requires every Twitch alert scope and no extra consent elsewhere", () => {
+		expect(
+			hasAlertScope(
+				"twitch",
+				"moderator:read:followers channel:read:subscriptions bits:read",
+			),
+		).toBe(true);
+		expect(
+			hasAlertScope(
+				"twitch",
+				"moderator:read:followers channel:read:subscriptions",
+			),
+		).toBe(false);
+		expect(hasAlertScope("kick", "")).toBe(true);
+		expect(hasAlertScope("youtube", "")).toBe(true);
+	});
+});
+
+describe("hasChatScope", () => {
+	test("accepts YouTube readonly or existing Direct consent", () => {
+		expect(
+			hasChatScope(
+				"youtube",
+				"openid https://www.googleapis.com/auth/youtube.readonly",
+			),
+		).toBe(true);
+		expect(
+			hasChatScope(
+				"youtube",
+				"openid https://www.googleapis.com/auth/youtube.force-ssl",
+			),
+		).toBe(true);
+		expect(hasChatScope("youtube", "openid email")).toBe(false);
+	});
+});
 
 describe("parseScopes", () => {
 	test("splits space and comma separated scope strings", () => {
@@ -66,5 +106,20 @@ describe("hasStreamKeyScope", () => {
 		expect(hasStreamKeyScope("kick", "streamkey:read channel:read")).toBe(true);
 		expect(hasStreamKeyScope("kick", "streamkey:read")).toBe(false);
 		expect(hasStreamKeyScope("twitch", "channel:read:stream_key")).toBe(true);
+		expect(
+			hasStreamKeyScope(
+				"youtube",
+				"openid https://www.googleapis.com/auth/youtube.force-ssl",
+			),
+		).toBe(true);
+	});
+});
+
+describe("Twitch bot scopes", () => {
+	test("separates the broadcaster bot grant from sender write consent", () => {
+		expect(hasTwitchBotChannelScope("channel:bot")).toBe(true);
+		expect(hasTwitchBotChannelScope("user:write:chat")).toBe(false);
+		expect(PROVIDER_SCOPES.twitch.chatWrite).toEqual(["user:write:chat"]);
+		expect(PROVIDER_SCOPES.twitch.botChannel).toEqual(["channel:bot"]);
 	});
 });

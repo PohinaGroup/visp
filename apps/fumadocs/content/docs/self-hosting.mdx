@@ -28,7 +28,7 @@ secrets out of Git. Put production env files under `/etc/visp/` with mode
 - [Bun](https://bun.sh/) 1.3.14+ and PostgreSQL 18 on the app host (matching
   the local Compose target)
 - `ffmpeg` and `curl` on the relay host
-- Twitch and Kick developer applications for OAuth (and Kick chat webhooks)
+- Twitch and Kick developer applications plus a Google OAuth web client with YouTube Data API v3 enabled
 - A private S3-compatible bucket for live-path JPEG snapshots
 - DNS for your app, admin, relay, browser-publisher, and docs hostnames
 
@@ -37,17 +37,17 @@ units expect that path.
 
 ## 1. Prove the relay with static credentials
 
-Install MediaMTX **v1.19.2**. For Linux amd64, the pinned archive SHA-256 is:
+Install MediaMTX **v1.19.3**. For Linux amd64, the pinned archive SHA-256 is:
 
 ```text
-f9c601cc303ceca8fad2883917b022882672c5bc56311e92dbceb16e5f20c60c  mediamtx_v1.19.2_linux_amd64.tar.gz
+a7ba21268fccda3ebc43fdad76b87fddb85ce77e725b5cb637bca724b5394fbe  mediamtx_v1.19.3_linux_amd64.tar.gz
 ```
 
-Download the archive and `checksums.sha256` from the official v1.19.2 release,
+Download the archive and `checksums.sha256` from the official v1.19.3 release,
 then:
 
 ```bash
-grep 'mediamtx_v1.19.2_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
+grep 'mediamtx_v1.19.3_linux_amd64.tar.gz' checksums.sha256 | sha256sum --check
 sudo install -m 0755 mediamtx /usr/local/bin/mediamtx
 ```
 
@@ -99,11 +99,12 @@ remain disabled.
 
 ## 3. App host
 
-1. Install PostgreSQL, Bun, Tailscale, and Caddy. Clone the repository as
-   `root` into `/opt/visp`.
+1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, and Caddy. Clone the repository as
+   `root` into `/opt/visp`. The API service runs under Node; Bun is still used for
+   builds, migrations, and the portal.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`:
 
-   - Set Twitch and Kick credentials and the snapshot bucket settings.
+   - Set Twitch, Kick, and Google credentials and the snapshot bucket settings.
    - Point `MEDIAMTX_API_URL` at the relay's Tailscale Control API
      (`http://100.x.x.x:9997`).
    - Generate `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32` and
@@ -164,10 +165,24 @@ remain disabled.
    Twitch: https://APP_DOMAIN/api/auth/callback/twitch
    Kick OAuth: https://APP_DOMAIN/api/auth/oauth2/callback/kick
    Kick webhook: https://APP_DOMAIN/api/webhooks/kick
+   Google: https://APP_DOMAIN/api/auth/callback/google
    ```
 
-   The Kick app needs the `user:read` scope. Chat delivery uses the server's
-   app token and `chat.message.sent` webhook subscriptions.
+   The Google client type is **Web application**. Add `https://APP_DOMAIN` as
+   an authorized JavaScript origin, enable YouTube Data API v3, and add
+   `https://www.googleapis.com/auth/youtube.force-ssl` to the consent screen.
+   A public external app needs Google verification for this scope. Store the
+   credentials only as `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in
+   `/etc/visp/app.env`; every VISP client uses the same server callback.
+
+	The Kick app needs the `user:read` scope. Chat delivery uses the server's
+	app token and `chat.message.sent` webhook subscriptions.
+
+	Set `AI_GATEWAY_API_KEY` if Seppo is enabled. Optional hosted speech features
+	use `ELEVENLABS_API_KEY`; `ELEVENLABS_VOICE_ID` additionally enables hosted
+	chat text-to-speech. Leave both ElevenLabs values unset to keep captions,
+	audio isolation, and speech on-device. Disclose and contract for these
+	external processors before enabling them for users.
 6. Expose only public **TCP 443**. Allow SSH only over Tailscale. Create DNS
    for the app, admin, browser-publisher, OBS Remote, and docs hostnames before
    Caddy obtains certificates.

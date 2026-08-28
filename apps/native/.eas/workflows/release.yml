@@ -24,7 +24,7 @@ jobs:
       profile: production
 
   submit_android:
-    name: Submit Android to internal testing
+    name: Submit Android to Google Play production
     needs: [build_android]
     type: submit
     environment: production

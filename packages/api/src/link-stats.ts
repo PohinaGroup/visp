@@ -64,10 +64,25 @@ export function linkStatsFromPath(path: {
 	};
 }
 
+export function formatMbps(kbps: number): string {
+	return (kbps / 1000).toFixed(1);
+}
+
+export type LinkHealth = "good" | "soft" | "congested";
+
+/** Health tier behind the live bitrate readout, from the shared ABR thresholds. */
+export function linkHealth(packetLossPct: number, rttMs: number): LinkHealth {
+	if (isLinkCongested(packetLossPct, rttMs)) return "congested";
+	if (packetLossPct >= LINK_SOFT_LOSS_PCT || rttMs >= LINK_SOFT_RTT_MS) {
+		return "soft";
+	}
+	return "good";
+}
+
 export function formatLinkStats(
 	stats: Pick<LinkMetrics, "bitrateKbps" | "packetLossPct" | "rttMs">,
 ): string {
-	const mbps = (stats.bitrateKbps / 1000).toFixed(1);
+	const mbps = formatMbps(stats.bitrateKbps);
 	const loss =
 		stats.packetLossPct < 10
 			? stats.packetLossPct.toFixed(1)
@@ -105,6 +120,26 @@ export function formatBondedLinks(
 		.join(" · ");
 }
 
+/** Per-link bitrate only — the HUD shows rtt and loss once, for the bond as a whole. */
+export function formatBondedBitrates(
+	links:
+		| Array<
+				Pick<LinkMetrics, "bitrateKbps"> & {
+					state: string;
+					transport: "wifi" | "cellular";
+				}
+		  >
+		| undefined,
+): string {
+	if (!links?.length) return "";
+	return links
+		.map(
+			(link) =>
+				`${link.transport === "wifi" ? "Wi-Fi" : "Cellular"} ${link.state === "connected" ? `${formatMbps(link.bitrateKbps)} Mb/s` : link.state}`,
+		)
+		.join(" · ");
+}
+
 /** Columns cleared when a path stops publishing. */
 export const CLEARED_LINK_STATS = {
 	linkBitrateKbps: null,
@@ -128,10 +163,10 @@ export function videoBitrateCeilingKbps(
 	const short = Math.min(width, height);
 	const long = Math.max(width, height);
 	if (long >= 1920 && short >= 1080) {
-		if (mode === "direct") return fps >= 50 ? 3500 : 2500;
+		if (mode === "direct") return fps >= 50 ? 8000 : 6000;
 		return fps >= 50 ? 8000 : 6000;
 	}
-	return mode === "direct" ? 1500 : 3500;
+	return mode === "direct" ? 4000 : 4500;
 }
 
 /** Lowest ABR target (kbps) for a given ceiling. */

@@ -45,6 +45,10 @@ lerna-debug.log*
 # Testing
 coverage
 .nyc_output
+playwright-report/
+test-results/
+blob-report/
+playwright/.cache/
 
 # Misc
 *.tgz
@@ -71,3 +75,7 @@ PIPELINE.md
 /.expo/
 @jonijuntto*
 MARKETING.md
+prompt.md
+# Riptide artifacts (cloud-synced)
+.humanlayer/tasks/
+.humanlayer/workspace.local.json

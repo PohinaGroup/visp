@@ -6,6 +6,7 @@ import type { VispSrtViewProps, VispSrtViewRef } from "./VispSrt.types";
 
 const NativeView = requireNativeView<VispSrtViewProps>(
 	"VispSrt",
+	"VispSrtView",
 ) as ComponentType<VispSrtViewProps & RefAttributes<VispSrtViewRef>>;
 
 export default forwardRef<VispSrtViewRef, VispSrtViewProps>(

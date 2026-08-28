@@ -1,11 +1,23 @@
-import { Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { Link, useLocation } from "@tanstack/react-router";
 import { localeSearch, useLocale } from "@/lib/i18n";
+import { useTRPC } from "@/utils/trpc";
 import { MeterMark } from "./meter-mark";
 import UserMenu from "./user-menu";
 
 export default function Header() {
 	const locale = useLocale();
 	const fi = locale === "fi";
+	const pathname = useLocation({ select: (location) => location.pathname });
+	const authenticated =
+		pathname === "/dashboard" ||
+		pathname === "/studio" ||
+		pathname === "/setup";
+	const trpc = useTRPC();
+	const studio = useQuery({
+		...trpc.studio.mode.get.queryOptions(),
+		enabled: authenticated,
+	});
 	return (
 		<header className="border-b">
 			<div className="flex flex-row items-center justify-between px-4 py-3">
@@ -23,6 +35,15 @@ export default function Header() {
 					>
 						{fi ? "Hallintapaneeli" : "Dashboard"}
 					</Link>
+					{studio.data?.available ? (
+						<Link
+							to="/studio"
+							search={localeSearch(locale)}
+							className="text-muted-foreground hover:text-foreground"
+						>
+							Cloud Studio
+						</Link>
+					) : null}
 					<Link
 						to={fi ? "/fi/blog" : "/blog"}
 						className="text-muted-foreground hover:text-foreground"

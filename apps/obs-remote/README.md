@@ -1,7 +1,7 @@
 # VISP OBS Remote
 
 Dedicated iOS, Android, and web control surface for the VISP OBS plugin. It uses
-the same Twitch or Kick VISP account as the dashboard and Native app.
+the same Twitch, Kick, or Google VISP account as the dashboard and Native app.
 
 ## Development
 

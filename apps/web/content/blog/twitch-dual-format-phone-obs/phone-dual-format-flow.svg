@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">One phone contribution becomes two Twitch formats in OBS</title>
+  <desc id="desc">A landscape phone sends one cyan path through a relay to a home production monitor. Only after the monitor, the path divides into a horizontal viewer frame and a vertical viewer frame.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#102a3d"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="10" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#35d8ff"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" rx="48" fill="url(#bg)"/>
+  <circle cx="280" cy="450" r="190" fill="#f3a65c" opacity=".12"/>
+  <circle cx="1260" cy="450" r="260" fill="#35d8ff" opacity=".07"/>
+
+  <g fill="none" stroke="#d7edf7" stroke-width="16">
+    <rect x="165" y="305" width="250" height="140" rx="24"/>
+    <circle cx="220" cy="375" r="18" fill="#d7edf7" stroke="none"/>
+    <path d="M250 505h80M290 445v60"/>
+  </g>
+
+  <g fill="none" stroke="#35d8ff" stroke-width="14" filter="url(#glow)">
+    <path d="M415 375H690" marker-end="url(#arrow)"/>
+  </g>
+
+  <g>
+    <path d="M745 280l105 60v120l-105 60-105-60V340z" fill="#13394d" stroke="#35d8ff" stroke-width="10"/>
+    <path d="M640 340l105 60 105-60M745 400v120" fill="none" stroke="#35d8ff" stroke-width="7" opacity=".7"/>
+  </g>
+
+  <g fill="none" stroke="#35d8ff" stroke-width="14" filter="url(#glow)">
+    <path d="M850 400H1035" marker-end="url(#arrow)"/>
+  </g>
+
+  <g fill="none" stroke="#d7edf7" stroke-width="16">
+    <rect x="1038" y="270" width="310" height="210" rx="18"/>
+    <path d="M1135 535h116M1193 480v55"/>
+  </g>
+  <g stroke="#66e0a3" stroke-width="12" fill="none" filter="url(#glow)">
+    <path d="M1348 340h82c45 0 55-90 95-90" marker-end="url(#arrow)"/>
+    <path d="M1348 410h82c45 0 55 125 95 125" marker-end="url(#arrow)"/>
+  </g>
+
+  <g fill="#0b1927" stroke="#66e0a3" stroke-width="11">
+    <rect x="1285" y="120" width="245" height="138" rx="18"/>
+    <rect x="1408" y="498" width="122" height="218" rx="18"/>
+  </g>
+  <g fill="#66e0a3">
+    <circle cx="1365" cy="190" r="25" opacity=".45"/>
+    <circle cx="1469" cy="580" r="25" opacity=".45"/>
+  </g>
+
+  <g fill="#d7edf7" opacity=".8">
+    <circle cx="175" cy="700" r="9"/><circle cx="205" cy="700" r="9"/><circle cx="235" cy="700" r="9"/>
+    <circle cx="265" cy="700" r="9"/><circle cx="295" cy="700" r="9"/><circle cx="325" cy="700" r="9"/>
+  </g>
+</svg>

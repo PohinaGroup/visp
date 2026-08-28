@@ -19,16 +19,34 @@ export const Route = createFileRoute("/download")({
 	validateSearch: z.object({
 		lang: z.literal("fi").optional(),
 	}),
-	head: () => ({
-		meta: [
-			{ title: "Download & beta access — VISP" },
-			{
-				name: "description",
-				content:
-					"Join the VISP hosted beta and get the phone apps, browser publisher, and OBS plugin.",
-			},
-		],
-	}),
+	head: () => {
+		const title = "Download & beta access — VISP";
+		const description =
+			"Use VISP Direct from the phone app or browser. Add the OBS plugin when you want a home studio.";
+		const canonical = `${legalEntity.siteUrl}/download`;
+		const image = `${legalEntity.siteUrl}/og-card.png`;
+		// The Finnish variant is ?lang=fi on this same path, so there is no
+		// alternate URL to declare — canonical only.
+		return {
+			meta: [
+				{ title },
+				{ name: "description", content: description },
+				{ property: "og:type", content: "website" },
+				{ property: "og:site_name", content: "VISP" },
+				{ property: "og:title", content: title },
+				{ property: "og:description", content: description },
+				{ property: "og:url", content: canonical },
+				{ property: "og:image", content: image },
+				{ property: "og:image:width", content: "1200" },
+				{ property: "og:image:height", content: "630" },
+				{ name: "twitter:card", content: "summary_large_image" },
+				{ name: "twitter:title", content: title },
+				{ name: "twitter:description", content: description },
+				{ name: "twitter:image", content: image },
+			],
+			links: [{ rel: "canonical", href: canonical }],
+		};
+	},
 	loader: () => getObsPluginRelease(),
 	component: DownloadPage,
 });
@@ -66,12 +84,12 @@ function DownloadPage() {
 					{fi ? "Aloita" : "Get started"}
 				</p>
 				<h1 className="font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{fi ? "Lataus ja beta" : "Download & beta"}
+					{fi ? "Aloita striimaus" : "Start streaming"}
 				</h1>
 				<p className="max-w-prose text-muted-foreground">
 					{fi
-						? "Hostattu beta on nopein tapa kokeilla VISPiä. Kirjaudu sisään, valitse striimausohjelma ja lähetä puhelimen tai selaimen kamera kotona olevaan OBS-setuppiin."
-						: "The hosted beta is the fastest way to try VISP. Sign in, pick a client, and send a phone or browser camera into your home OBS setup. Self-hosting is available for operators who want to run their own relay."}
+						? "Kirjaudu sisään, valitse Twitch, Kick tai YouTube ja lähetä puhelimesta tai selaimesta VISP Directillä. OBS on saatavilla valinnaisena lähteenä."
+						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS is optional — add the same feed as a Media Source when you want scenes, overlays, or local recording. Self-hosting is available for operators who want to run their own relay."}
 				</p>
 			</header>
 
@@ -83,18 +101,18 @@ function DownloadPage() {
 					<ol className="list-decimal space-y-2 pl-5">
 						<li>
 							{fi
-								? "Kirjaudu Twitchillä tai Kickillä luodaksesi VISP-tilin."
-								: "Sign in with Twitch or Kick to create your VISP account."}
+								? "Kirjaudu Twitchillä, Kickillä tai Googlella luodaksesi VISP-tilin. iPhonella voit myös käyttää Sign in with Applea."
+								: "Sign in with Twitch, Kick, or Google to create your VISP account. On iPhone you can also use Sign in with Apple."}
 						</li>
 						<li>
 							{fi
-								? "Vastaa lyhyisiin käyttöönottokysymyksii"
+								? "Vastaa lyhyisiin käyttöönottokysymyksiin."
 								: "Answer the short setup questions."}
 						</li>
 						<li>
 							{fi
-								? "Striimaa tuetulla softalla, ja näät feedin OBS:ssä."
-								: "Publish from a supported client below, then watch the feed in OBS."}
+								? "Julkaise tuetulla sovelluksella Directiin tai lisää sama syöte OBS:ään."
+								: "Publish to Direct with a supported client, or add the same feed to OBS."}
 						</li>
 					</ol>
 					<div className="flex flex-wrap gap-2">
@@ -179,23 +197,23 @@ function DownloadPage() {
 							<CardTitle>{fi ? "iOS-sovellus" : "iOS app"}</CardTitle>
 							<CardDescription>
 								{fi
-									? "Astetta helpompi tapa striimata iOS-puhelimelta. iOS 16.4+ TestFlightin avoimessa testauksessa."
-									: "A bit easier way to stream from mobile. iOS 16.4+ via TestFlight open testing."}
+									? "Astetta helpompi tapa striimata iOS-puhelimelta. iOS 16.4+ App Storessa."
+									: "A bit easier way to stream from mobile. iOS 16.4+ on the App Store."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
 								{fi
-									? "Asenna TestFlight-sovellus ja liity VISP-betaan."
-									: "Install the TestFlight app, then join the VISP beta."}
+									? "Asenna VISP App Storesta."
+									: "Install VISP from the App Store."}
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
-								href={legalEntity.iosTestFlightUrl}
+								href={legalEntity.iosAppStoreUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
-								{fi ? "Liity TestFlightissa" : "Join on TestFlight"}
+								{fi ? "Lataa App Storesta" : "Download on the App Store"}
 							</a>
 						</CardContent>
 					</Card>
@@ -205,23 +223,23 @@ function DownloadPage() {
 							<CardTitle>{fi ? "Android-sovellus" : "Android app"}</CardTitle>
 							<CardDescription>
 								{fi
-									? "Astetta helpompi tapa striimata Android-puhelimelta. Android 7+ Playn avoimessa testauksessa. SRT-julkaisu fyysiseltä laitteelta."
-									: "A bit easier way to stream from mobile. Android 7+ via Play open testing. SRT publish from a physical device."}
+									? "Astetta helpompi tapa striimata Android-puhelimelta. Android 7+ Google Playssa. SRT-julkaisu fyysiseltä laitteelta."
+									: "A bit easier way to stream from mobile. Android 7+ on Google Play. SRT publish from a physical device."}
 							</CardDescription>
 						</CardHeader>
 						<CardContent className="flex flex-col gap-3 text-muted-foreground text-sm">
 							<p>
 								{fi
-									? "Liity avoimeen testausohjelmaan millä tahansa Google-tilillä ja asenna VISP Google Playsta."
-									: "Join the open testing program with any Google account, then install VISP from Google Play."}
+									? "Asenna VISP Google Playsta millä tahansa Google-tilillä."
+									: "Install VISP from Google Play with any Google account."}
 							</p>
 							<a
 								className={buttonVariants({ variant: "outline" })}
-								href={legalEntity.androidPlayTestingUrl}
+								href={legalEntity.androidPlayStoreUrl}
 								rel="noreferrer"
 								target="_blank"
 							>
-								{fi ? "Liity Google Playssa" : "Join on Google Play"}
+								{fi ? "Asenna Google Playsta" : "Get it on Google Play"}
 							</a>
 						</CardContent>
 					</Card>

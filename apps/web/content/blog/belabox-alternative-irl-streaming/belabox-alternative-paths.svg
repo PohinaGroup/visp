@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">BELABOX alternative decision paths</title>
+  <desc id="desc">Three field contribution paths use a phone, an SRTLA encoder, or dedicated hardware before reaching a relay and home studio.</desc>
+  <rect width="1600" height="900" rx="48" fill="#071426"/>
+  <g fill="none" stroke-linecap="round" stroke-width="18">
+    <path d="M300 210 C610 210 650 450 900 450" stroke="#22d3ee"/>
+    <path d="M300 450 H900" stroke="#a78bfa"/>
+    <path d="M300 690 C610 690 650 450 900 450" stroke="#f59e0b"/>
+    <path d="M1020 450 H1330" stroke="#34d399"/>
+  </g>
+  <g fill="#0f2741" stroke-width="8">
+    <rect x="110" y="120" width="190" height="180" rx="38" stroke="#22d3ee"/>
+    <rect x="110" y="350" width="190" height="200" rx="28" stroke="#a78bfa"/>
+    <rect x="110" y="610" width="190" height="160" rx="24" stroke="#f59e0b"/>
+    <circle cx="950" cy="450" r="100" stroke="#e2e8f0"/>
+    <rect x="1330" y="320" width="190" height="260" rx="24" stroke="#34d399"/>
+  </g>
+  <circle cx="205" cy="260" r="12" fill="#22d3ee"/>
+  <g stroke="#a78bfa" stroke-width="10"><path d="M155 410 V365"/><path d="M205 410 V335"/><path d="M255 410 V365"/></g>
+  <g fill="#f59e0b"><circle cx="160" cy="690" r="13"/><circle cx="205" cy="690" r="13"/><circle cx="250" cy="690" r="13"/></g>
+  <g stroke="#34d399" stroke-width="10" fill="none"><rect x="1370" y="370" width="110" height="76" rx="8"/><path d="M1380 520 H1470"/></g>
+</svg>

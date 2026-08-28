@@ -1,30 +1,31 @@
 ---
 title: VISP
-description: Your phone is the camera. Your OBS setup stays the studio.
+description: Stream a phone or browser directly to Twitch, Kick, or YouTube, with OBS optional.
 icon: Radio
 ---
 
-VISP turns phones into remote cameras for the OBS production you already
-built. Sign in with Twitch or Kick, import a ready-made scene collection, go
-live from a phone or browser, and keep scenes, alerts, and graphics running at
-home.
+VISP sends phone and browser cameras through an authenticated relay directly to
+Twitch, Kick, or YouTube. OBS can optionally read the original contribution feed for
+monitoring, recording, scenes, alerts, and graphics.
 
-The relay-to-OBS workflow never asks for your Twitch or Kick stream key. VISP
-Direct, an opt-in limited beta that streams to a platform without OBS, fetches
-that key with your OAuth consent and holds it only while forwarding runs. The
-hosted beta is free.
+Direct resolves the selected destination with OAuth consent only while forwarding
+runs. Twitch and Kick keys are held in memory; YouTube uses a newly created public
+broadcast and its ingest destination. Relay encoder capacity is reserved before Go Live.
+The optional relay-to-OBS workflow never uses the provider stream key.
 The dashboard starts in **Simple** mode with labeled copyable URLs; switch to
 **Advanced** for RTMP fallbacks, read credentials, and latency tuning. If you
 get stuck during setup or on the dashboard, ask **Seppo** for help.
 
 ## Start here
 
-- **[Get started](/docs/get-started)** — the end-to-end streamer path: sign in,
-  import OBS scenes, publish from phone or browser, and control OBS remotely.
+- **[Get started](/docs/get-started)** — authorize Direct, publish from a phone
+  or browser, and optionally add OBS.
 - [Phone and browser app](/docs/phone-app) — platforms, chat, stream info, and
   the Apple Watch companion.
 - [Add a video source](/docs/video-source) — paste a device sending URL into
   OBS, Larix, Moblin, or another encoder.
+- [Chat bot](/docs/chat-bot) — live, BRB, and back alerts in chat, plus
+  commands like `!bitrate`.
 - [OBS remote control](/docs/obs-remote-control) — install and pair the plugin
   for start, stop, and scene switching.
 - [Encoders and fallback](/docs/broadcaster-setup) — Larix/Moblin, SRT latency
@@ -43,6 +44,7 @@ get stuck during setup or on the dashboard, ask **Seppo** for help.
 
 ## What VISP does not do
 
-VISP does not transcode, bond networks, host OBS, or manage your destination
-stream key. MediaMTX accepts one publisher per path: the first wins until it
-disconnects.
+The ordinary relay-to-OBS path does not transcode. VISP Native can duplicate SRT
+packets over Wi-Fi and cellular for resilience, but it does not combine their
+bandwidth. VISP does not host OBS. MediaMTX accepts one publisher per path: the
+first wins until it disconnects.

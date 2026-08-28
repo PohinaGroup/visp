@@ -2,6 +2,7 @@
 title: "How to Use Moblin as a Remote Camera in OBS Over SRT"
 description: "Send Moblin's iPhone camera into OBS over SRT through VISP, tune adaptive bitrate and latency, and learn where SRTLA bonding fits and where it does not."
 publishedAt: 2026-07-23
+updatedAt: 2026-08-03
 coverAlt: "An iPhone running the Moblin encoder sends one SRT camera feed through a relay into a home OBS studio"
 ---
 
@@ -37,7 +38,8 @@ stream" before handing it to a normal SRT application. In other words, bonding
 only works if the far end is an SRTLA receiver.
 
 VISP is **not** an SRTLA receiver. It is a self-hosted SRT/RTMP relay and
-control plane, and it does not bond network connections. So when you point
+control plane, and third-party Moblin publishing does not use VISP Native's
+dual-link packet duplication. So when you point
 Moblin at a VISP video source, you use Moblin's **plain SRT** output over a
 single link — not SRTLA. If you genuinely need to bond cellular and Wi-Fi into
 one resilient uplink, that belongs to Moblin's SRTLA path with a BELABOX-style
@@ -50,7 +52,7 @@ studio, which is the more common need.
 
 - Moblin installed on the field iPhone (App Store, free)
 - OBS Studio on the production computer
-- A VISP account signed in with Twitch or Kick
+- A VISP account signed in with Twitch, Kick, or Google
 - Enough sustained upload capacity for Moblin and download capacity for OBS
 - Headphones for checking audio without creating a return-path echo
 - A local OBS fallback scene for a field interruption

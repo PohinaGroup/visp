@@ -1,6 +1,6 @@
 {
-  "id": "0a4e4df8-3c61-492c-8839-9e759f9a26ac",
-  "prevId": "52e7fd7e-0a73-46b9-82a6-282680f64f8b",
+  "id": "71a324bd-6215-4d67-8b34-e00c2dffa1c0",
+  "prevId": "76192480-5bfd-4aa8-af7b-79d5cd399671",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -126,6 +126,139 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.device_code": {
+      "name": "device_code",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "device_code": {
+          "name": "device_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_code": {
+          "name": "user_code",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "last_polled_at": {
+          "name": "last_polled_at",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "polling_interval": {
+          "name": "polling_interval",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "client_id": {
+          "name": "client_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "scope": {
+          "name": "scope",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "device_code_user_id_idx": {
+          "name": "device_code_user_id_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "device_code_expires_at_idx": {
+          "name": "device_code_expires_at_idx",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "device_code_user_id_user_id_fk": {
+          "name": "device_code_user_id_user_id_fk",
+          "tableFrom": "device_code",
+          "tableTo": "user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "device_code_device_code_unique": {
+          "name": "device_code_device_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "device_code"
+          ]
+        },
+        "device_code_user_code_unique": {
+          "name": "device_code_user_code_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_code"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.session": {
       "name": "session",
       "schema": "",
@@ -169,6 +302,12 @@
         },
         "user_agent": {
           "name": "user_agent",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "impersonated_by": {
+          "name": "impersonated_by",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -258,6 +397,32 @@
         "image": {
           "name": "image",
           "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'user'"
+        },
+        "banned": {
+          "name": "banned",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "ban_reason": {
+          "name": "ban_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "ban_expires": {
+          "name": "ban_expires",
+          "type": "timestamp",
           "primaryKey": false,
           "notNull": false
         },
@@ -455,6 +620,12 @@
           "primaryKey": false,
           "notNull": false
         },
+        "read_secret_encrypted": {
+          "name": "read_secret_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "secrets_rotated_at": {
           "name": "secrets_rotated_at",
           "type": "timestamp with time zone",
@@ -473,6 +644,176 @@
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
+        },
+        "setup_use_case": {
+          "name": "setup_use_case",
+          "type": "setup_use_case",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "stream_destination": {
+          "name": "stream_destination",
+          "type": "stream_destination",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "advanced_mode": {
+          "name": "advanced_mode",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_control_token_id": {
+          "name": "obs_control_token_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "obs_control_token_hash": {
+          "name": "obs_control_token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "obs_desired_streaming": {
+          "name": "obs_desired_streaming",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_streaming": {
+          "name": "obs_streaming",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_scenes": {
+          "name": "obs_scenes",
+          "type": "text[]",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "ARRAY[]::text[]"
+        },
+        "obs_current_scene": {
+          "name": "obs_current_scene",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "obs_desired_scene": {
+          "name": "obs_desired_scene",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "obs_command_version": {
+          "name": "obs_command_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "obs_applied_version": {
+          "name": "obs_applied_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "obs_desired_recording": {
+          "name": "obs_desired_recording",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_recording": {
+          "name": "obs_recording",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_desired_virtual_cam": {
+          "name": "obs_desired_virtual_cam",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_virtual_cam": {
+          "name": "obs_virtual_cam",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_desired_replay_buffer": {
+          "name": "obs_desired_replay_buffer",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_replay_buffer": {
+          "name": "obs_replay_buffer",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_desired_record_paused": {
+          "name": "obs_desired_record_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_record_paused": {
+          "name": "obs_record_paused",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "obs_last_seen_at": {
+          "name": "obs_last_seen_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_beta": {
+          "name": "direct_beta",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "better_tts": {
+          "name": "better_tts",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "better_audio_isolation": {
+          "name": "better_audio_isolation",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "better_subtitles": {
+          "name": "better_subtitles",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         },
         "onboarded_at": {
           "name": "onboarded_at",
@@ -512,10 +853,125 @@
           "columns": [
             "handle"
           ]
+        },
+        "app_user_obs_control_token_id_unique": {
+          "name": "app_user_obs_control_token_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "obs_control_token_id"
+          ]
         }
       },
       "policies": {},
       "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.obs_tile": {
+      "name": "obs_tile",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "color": {
+          "name": "color",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "action": {
+          "name": "action",
+          "type": "obs_tile_action",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scene_name": {
+          "name": "scene_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "obs_tile_user_position_idx": {
+          "name": "obs_tile_user_position_idx",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "obs_tile_user_id_app_user_id_fk": {
+          "name": "obs_tile_user_id_app_user_id_fk",
+          "tableFrom": "obs_tile",
+          "tableTo": "app_user",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "obs_tile_label_length": {
+          "name": "obs_tile_label_length",
+          "value": "char_length(trim(\"obs_tile\".\"label\")) between 1 and 64"
+        },
+        "obs_tile_scene_requires_name": {
+          "name": "obs_tile_scene_requires_name",
+          "value": "\"obs_tile\".\"action\" <> 'scene' or \"obs_tile\".\"scene_name\" is not null"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.path_state": {
@@ -554,6 +1010,72 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "link_bitrate_kbps": {
+          "name": "link_bitrate_kbps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_target_bitrate_kbps": {
+          "name": "link_target_bitrate_kbps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_rtt_ms": {
+          "name": "link_rtt_ms",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_packet_loss_pct": {
+          "name": "link_packet_loss_pct",
+          "type": "real",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_count": {
+          "name": "link_count",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_degraded": {
+          "name": "link_degraded",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "link_stats_at": {
+          "name": "link_stats_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch_state": {
+          "name": "direct_twitch_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch_error": {
+          "name": "direct_twitch_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_kick_state": {
+          "name": "direct_kick_state",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_kick_error": {
+          "name": "direct_kick_error",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -583,6 +1105,103 @@
       },
       "isRLSEnabled": false
     },
+    "public.relay": {
+      "name": "relay",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "serial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "host": {
+          "name": "host",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "api_url": {
+          "name": "api_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "ping_url": {
+          "name": "ping_url",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "region": {
+          "name": "region",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "capacity_paths": {
+          "name": "capacity_paths",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "max_forwarders": {
+          "name": "max_forwarders",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "public_ip": {
+          "name": "public_ip",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": true
+        },
+        "drained_at": {
+          "name": "drained_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "relay_name_unique": {
+          "name": "relay_name_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "relay_capacity_paths_positive": {
+          "name": "relay_capacity_paths_positive",
+          "value": "\"relay\".\"capacity_paths\" > 0"
+        },
+        "relay_max_forwarders_nonnegative": {
+          "name": "relay_max_forwarders_nonnegative",
+          "value": "\"relay\".\"max_forwarders\" >= 0"
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.path": {
       "name": "path",
       "schema": "",
@@ -591,6 +1210,12 @@
           "name": "id",
           "type": "bigserial",
           "primaryKey": true,
+          "notNull": true
+        },
+        "relay_id": {
+          "name": "relay_id",
+          "type": "integer",
+          "primaryKey": false,
           "notNull": true
         },
         "user_id": {
@@ -617,6 +1242,51 @@
           "primaryKey": false,
           "notNull": true
         },
+        "publish_secret_hash": {
+          "name": "publish_secret_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publish_secret_encrypted": {
+          "name": "publish_secret_encrypted",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publish_origin": {
+          "name": "publish_origin",
+          "type": "publish_origin",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "native_installation_id": {
+          "name": "native_installation_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "publish_last_connected_at": {
+          "name": "publish_last_connected_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "direct_twitch": {
+          "name": "direct_twitch",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "direct_kick": {
+          "name": "direct_kick",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp with time zone",
@@ -631,8 +1301,54 @@
           "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "path_direct_twitch_owner": {
+          "name": "path_direct_twitch_owner",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"path\".\"direct_twitch\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "path_direct_kick_owner": {
+          "name": "path_direct_kick_owner",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"path\".\"direct_kick\"",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
+        "path_relay_id_relay_id_fk": {
+          "name": "path_relay_id_relay_id_fk",
+          "tableFrom": "path",
+          "tableTo": "relay",
+          "columnsFrom": [
+            "relay_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "path_user_id_app_user_id_fk": {
           "name": "path_user_id_app_user_id_fk",
           "tableFrom": "path",
@@ -663,6 +1379,14 @@
             "user_id",
             "seq"
           ]
+        },
+        "path_user_native_installation_unique": {
+          "name": "path_user_native_installation_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id",
+            "native_installation_id"
+          ]
         }
       },
       "policies": {},
@@ -678,6 +1402,107 @@
       },
       "isRLSEnabled": false
     },
+    "public.relay_stream_session": {
+      "name": "relay_stream_session",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigserial",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "path_id": {
+          "name": "path_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ended_at": {
+          "name": "ended_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "source_type": {
+          "name": "source_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "relay_stream_session_path_started_idx": {
+          "name": "relay_stream_session_path_started_idx",
+          "columns": [
+            {
+              "expression": "path_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "started_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "relay_stream_session_one_open_per_path": {
+          "name": "relay_stream_session_one_open_per_path",
+          "columns": [
+            {
+              "expression": "path_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": true,
+          "where": "\"relay_stream_session\".\"ended_at\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "relay_stream_session_path_id_path_id_fk": {
+          "name": "relay_stream_session_path_id_path_id_fk",
+          "tableFrom": "relay_stream_session",
+          "tableTo": "path",
+          "columnsFrom": [
+            "path_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "relay_stream_session_valid_range": {
+          "name": "relay_stream_session_valid_range",
+          "value": "\"relay_stream_session\".\"ended_at\" is null or \"relay_stream_session\".\"ended_at\" >= \"relay_stream_session\".\"started_at\""
+        }
+      },
+      "isRLSEnabled": false
+    },
     "public.rtt_sample": {
       "name": "rtt_sample",
       "schema": "",
@@ -687,6 +1512,12 @@
           "type": "bigserial",
           "primaryKey": true,
           "notNull": true
+        },
+        "relay_id": {
+          "name": "relay_id",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
         },
         "user_id": {
           "name": "user_id",
@@ -738,6 +1569,19 @@
         }
       },
       "foreignKeys": {
+        "rtt_sample_relay_id_relay_id_fk": {
+          "name": "rtt_sample_relay_id_relay_id_fk",
+          "tableFrom": "rtt_sample",
+          "tableTo": "relay",
+          "columnsFrom": [
+            "relay_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
         "rtt_sample_user_id_app_user_id_fk": {
           "name": "rtt_sample_user_id_app_user_id_fk",
           "tableFrom": "rtt_sample",
@@ -775,6 +1619,45 @@
       "values": [
         "twitch",
         "kick"
+      ]
+    },
+    "public.obs_tile_action": {
+      "name": "obs_tile_action",
+      "schema": "public",
+      "values": [
+        "scene",
+        "stream",
+        "recording",
+        "virtualcam",
+        "replaybuffer",
+        "recordpause"
+      ]
+    },
+    "public.publish_origin": {
+      "name": "publish_origin",
+      "schema": "public",
+      "values": [
+        "native",
+        "web"
+      ]
+    },
+    "public.setup_use_case": {
+      "name": "setup_use_case",
+      "schema": "public",
+      "values": [
+        "phone_to_obs",
+        "remote_guest",
+        "multi_cam",
+        "other"
+      ]
+    },
+    "public.stream_destination": {
+      "name": "stream_destination",
+      "schema": "public",
+      "values": [
+        "twitch",
+        "kick",
+        "other"
       ]
     },
     "public.streaming_software": {

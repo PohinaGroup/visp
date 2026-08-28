@@ -1,5 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Fragment } from "react";
+import { toast } from "sonner";
 
 import { EYEBROW } from "@/components/page-header";
 import { useT } from "@/lib/i18n";
@@ -53,19 +54,49 @@ function ChainNode({
 export function ChainStrip() {
 	const t = useT();
 	const trpc = useTRPC();
-	const secrets = useQuery(trpc.secrets.status.queryOptions());
-	const obs = useQuery(
-		trpc.obs.status.queryOptions(undefined, { refetchInterval: 3000 }),
+	const queryClient = useQueryClient();
+	const direct = useQuery(
+		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3000 }),
 	);
 	const paths = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
+	);
+	const stopBrb = useMutation(
+		trpc.brb.stop.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("Ending the stream"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+
+	// The ingest is gone but the broadcast is still up on the BRB card. This is
+	// the only place that state is visible, so it carries the way out of it.
+	const holding = direct.data?.paths.find((path) =>
+		(["twitch", "kick", "youtube"] as const).some(
+			(provider) => path.state[provider] === "brb",
+		),
 	);
 
 	const total = paths.data?.length ?? 0;
 	const live =
 		paths.data?.filter((path) => path.publishing && !path.stale).length ?? 0;
-	const readConfigured = secrets.data?.readConfigured ?? false;
-	const obsStatus = obs.data;
+	const desired = direct.data?.desired;
+	const configured = Boolean(
+		desired?.twitch || desired?.kick || desired?.youtube,
+	);
+	const liveOutputs =
+		direct.data?.paths.flatMap((path) =>
+			(["twitch", "kick", "youtube"] as const).filter(
+				(provider) => path[provider] && path.state[provider] === "live",
+			),
+		) ?? [];
+	const destinations = [
+		desired?.twitch ? "Twitch" : null,
+		desired?.kick ? "Kick" : null,
+		desired?.youtube ? "YouTube" : null,
+	].filter(Boolean);
 
 	const nodes: {
 		href: string;
@@ -80,35 +111,62 @@ export function ChainStrip() {
 			value: total === 0 ? t("No devices") : `${live}/${total} ${t("live")}`,
 		},
 		{
-			href: "#obs-read",
+			href: "#devices",
 			label: t("Relay"),
-			state: readConfigured ? "ok" : "warn",
-			value: readConfigured ? t("Keys set") : t("Setup needed"),
-		},
-		{
-			href: "#obs-control",
-			label: "OBS",
-			state: obsStatus?.connected ? "ok" : "idle",
-			value: obsStatus?.connected ? t("Connected") : t("Not connected"),
-		},
-		{
-			href: "#obs-control",
-			label: t("Output"),
-			state: obsStatus?.streaming ? "live" : "idle",
-			value: obsStatus?.configured
-				? obsStatus.streaming
-					? t("On air")
-					: t("Off air")
-				: t("Not paired"),
+			state: live > 0 ? "ok" : "idle",
+			value: live > 0 ? t("Receiving") : t("Ready"),
 		},
 	];
+	if (direct.data?.mode === "obs") {
+		nodes.push(
+			{
+				href: "#obs-control",
+				label: t("Primary mode"),
+				state: "ok",
+				value: t("Route to Home Studio"),
+			},
+			{
+				href: "#obs-control",
+				label: t("Output"),
+				state: "idle",
+				value: "OBS",
+			},
+		);
+	} else {
+		nodes.push(
+			{
+				href: holding ? "#dashboard-brb" : "#dashboard-direct",
+				label: t("Direct to Platform"),
+				state: holding
+					? "warn"
+					: liveOutputs.length > 0
+						? "live"
+						: configured
+							? "ok"
+							: "warn",
+				value: holding
+					? t("BRB card")
+					: liveOutputs.length > 0
+						? `${liveOutputs.length} ${t("live")}`
+						: configured
+							? t("Ready")
+							: t("Choose output"),
+			},
+			{
+				href: "#dashboard-direct",
+				label: t("Output"),
+				state: liveOutputs.length > 0 ? "live" : configured ? "idle" : "warn",
+				value: destinations.join(" + ") || t("Choose output"),
+			},
+		);
+	}
 
 	return (
 		<nav
 			aria-label={t("Signal path")}
-			className="w-full overflow-x-auto rounded-[var(--radius)] border border-border"
+			className="w-full rounded-[var(--radius)] border border-border"
 		>
-			<ol className="flex min-w-max items-center p-2">
+			<ol className="flex min-w-max items-center overflow-x-auto p-2">
 				{nodes.map((node, i) => (
 					<Fragment key={node.href + node.label}>
 						{i > 0 ? (
@@ -125,6 +183,21 @@ export function ChainStrip() {
 					</Fragment>
 				))}
 			</ol>
+			{holding ? (
+				<p className="flex flex-wrap items-center gap-x-3 gap-y-2 border-border border-t px-3 py-2 text-sm">
+					<span className="text-foreground">
+						{t("Your ingest dropped. Viewers see your BRB card.")}
+					</span>
+					<button
+						type="button"
+						className="rounded-[var(--radius)] border border-border px-2 py-1 font-medium text-xs hover:bg-card focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-60"
+						disabled={stopBrb.isPending}
+						onClick={() => stopBrb.mutate({ pathId: holding.id })}
+					>
+						{t("End stream")}
+					</button>
+				</p>
+			) : null}
 		</nav>
 	);
 }

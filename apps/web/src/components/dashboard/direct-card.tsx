@@ -5,51 +5,48 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
-import {
-	SegmentedControl,
-	SegmentedControlItem,
-} from "@astryxdesign/core/SegmentedControl";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { LinkIcon, ShieldIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
+import { trackEvent } from "@/lib/analytics";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import { DirectCustomDestinations } from "./direct-custom-destinations";
+import {
+	DEFAULT_PORTRAIT_CROP,
+	DirectPortraitFraming,
+	type PortraitCrop,
+} from "./direct-portrait-framing";
 import { providerLabel } from "./format";
-import type { DirectOutputs, DirectSelection } from "./types";
-
-function selectionOf(path: DirectOutputs["paths"][number]): DirectSelection {
-	if (path.twitch && path.kick) return "both";
-	if (path.twitch) return "twitch";
-	if (path.kick) return "kick";
-	return "off";
-}
-
-function outputsOf(selection: DirectSelection) {
-	return {
-		twitch: selection === "twitch" || selection === "both",
-		kick: selection === "kick" || selection === "both",
-	};
-}
 
 const STATE_TONE = {
 	live: "success",
 	starting: "warning",
 	retrying: "warning",
+	// The ingest dropped but the broadcast is still up on the BRB card. Not an
+	// error — the whole point is that nothing was lost.
+	brb: "warning",
+	stopping: "warning",
 	failed: "error",
 	stopped: "neutral",
 } as const;
 
 function ProviderState({
 	provider,
+	outputRole,
 	state,
 	error,
 }: {
-	provider: "twitch" | "kick";
+	provider: "twitch" | "kick" | "youtube";
+	outputRole?: "landscape" | "portrait";
 	state: keyof typeof STATE_TONE | null;
 	error: string | null;
 }) {
@@ -63,7 +60,11 @@ function ProviderState({
 				variant={STATE_TONE[state]}
 			/>
 			<Text type="supporting">
-				{providerLabel(provider)}: {t(state)}
+				{providerLabel(provider)}
+				{outputRole
+					? ` · ${t(outputRole === "portrait" ? "Portrait" : "Landscape")}`
+					: ""}
+				: {t(state === "brb" ? "showing BRB card" : state)}
 			</Text>
 			{error ? (
 				<Text color="secondary" type="supporting">
@@ -74,12 +75,46 @@ function ProviderState({
 	);
 }
 
+function YoutubeTitle({
+	title,
+	onSave,
+	saving,
+}: {
+	title: string;
+	onSave: (title: string) => void;
+	saving: boolean;
+}) {
+	const t = useT();
+	const [draft, setDraft] = useState(title);
+	return (
+		<HStack gap={2} vAlign="end" wrap="wrap">
+			<TextInput
+				label={t("Default YouTube broadcast title")}
+				value={draft}
+				onChange={(value) => setDraft(value)}
+			/>
+			<Button
+				isDisabled={!draft.trim() || draft.trim() === title}
+				isLoading={saving}
+				label={t("Save title")}
+				onClick={() => onSave(draft)}
+			/>
+		</HStack>
+	);
+}
+
 export function DirectCard() {
 	const t = useT();
 	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const direct = useQuery(trpc.direct.list.queryOptions());
+	const snapshots = useQuery(trpc.obs.snapshots.queryOptions());
+	const [framing, setFraming] = useState<{
+		pathId: number;
+		provider: "twitch" | "kick" | "youtube";
+		crop: PortraitCrop;
+	} | null>(null);
 	const setOutputs = useMutation(
 		trpc.direct.setOutputs.mutationOptions({
 			onSuccess: async () => {
@@ -89,10 +124,66 @@ export function DirectCard() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const setYoutubeSettings = useMutation(
+		trpc.direct.setYoutubeSettings.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("YouTube title saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const setRole = useMutation(
+		trpc.direct.setRole.mutationOptions({
+			onSuccess: async (result) => {
+				await queryClient.invalidateQueries();
+				if (result.overCapacity) {
+					toast.warning(
+						t(
+							"Portrait uses an extra Direct slot. It will not start until a slot is free.",
+						),
+					);
+				}
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const saveCrop = useMutation(
+		trpc.direct.saveCrop.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				setFraming(null);
+				toast.success(t("Portrait framing saved"));
+			},
+			onError: () =>
+				toast.error(
+					t("Couldn’t save framing. Check your connection and retry."),
+				),
+		}),
+	);
+	const authorizedRef = useRef<Record<string, boolean>>({});
+	const authorizedInitialized = useRef(false);
+
+	useEffect(() => {
+		if (!direct.data) return;
+		for (const provider of direct.data.providers) {
+			const key = provider.provider;
+			const wasAuthorized = authorizedRef.current[key];
+			if (!authorizedInitialized.current) {
+				authorizedRef.current[key] = provider.canReadStreamKey;
+				continue;
+			}
+			if (provider.canReadStreamKey && wasAuthorized === false) {
+				trackEvent("direct_authorized", { provider: key });
+			}
+			authorizedRef.current[key] = provider.canReadStreamKey;
+		}
+		authorizedInitialized.current = true;
+	}, [direct.data]);
 
 	// Re-request the union of granted scopes: asking only for the stream key
 	// would drop this provider's chat and title/category consent.
-	const authorize = async (provider: "twitch" | "kick") => {
+	const authorize = async (provider: "twitch" | "kick" | "youtube") => {
 		const granted =
 			direct.data?.providers.find((entry) => entry.provider === provider)
 				?.grantedScopes ?? [];
@@ -103,8 +194,12 @@ export function DirectCard() {
 		);
 		const callbackURL = authRedirectURL(`/dashboard${fi ? "?lang=fi" : ""}`);
 		const result =
-			provider === "twitch"
-				? await authClient.linkSocial({ provider, callbackURL, scopes })
+			provider !== "kick"
+				? await authClient.linkSocial({
+						provider: provider === "youtube" ? "google" : provider,
+						callbackURL,
+						scopes,
+					})
 				: await authClient.oauth2.link({
 						providerId: provider,
 						callbackURL,
@@ -124,7 +219,7 @@ export function DirectCard() {
 			<VStack gap={4}>
 				<VStack gap={1}>
 					<HStack gap={1.5} vAlign="center">
-						<Heading level={2}>{t("Direct output")}</Heading>
+						<Heading level={2}>{t("Direct to Platform")}</Heading>
 						<DocsHelpLink
 							href={docs.directOutput}
 							label={t("See how Direct output works")}
@@ -132,22 +227,22 @@ export function DirectCard() {
 					</HStack>
 					<Text color="secondary" type="supporting">
 						{t(
-							"Send a publishing device straight to Twitch or Kick, without OBS. The relay encodes for the platform.",
+							"Send a publishing device straight to Twitch, Kick, or YouTube without OBS. The relay encodes for each platform.",
 						)}
 					</Text>
 				</VStack>
 
-				{direct.data && !direct.data.betaEnabled ? (
+				{direct.data?.mode === "unconfigured" ? (
 					<Banner
 						description={t(
-							"Direct runs the platform encode on a single relay node, so access is handed out a few accounts at a time.",
+							"Your existing OBS workflow is unchanged. Authorize a destination and select it below when you are ready to switch to Direct.",
 						)}
 						status="info"
-						title={t("VISP Direct is in limited beta")}
+						title={t("Switch to Direct when you are ready")}
 					/>
 				) : null}
 
-				{direct.data?.betaEnabled ? (
+				{direct.data ? (
 					<>
 						{direct.data.providers.map((provider) => (
 							<Card key={provider.provider} padding={3} variant="muted">
@@ -182,6 +277,8 @@ export function DirectCard() {
 							</Card>
 						))}
 
+						<DirectCustomDestinations />
+
 						{direct.data.paths.map((path) => (
 							<Card key={path.id} padding={3} variant="muted">
 								<VStack gap={2}>
@@ -191,30 +288,142 @@ export function DirectCard() {
 											<Badge label={t("Publishing")} variant="success" />
 										) : null}
 									</HStack>
-									<SegmentedControl
-										isDisabled={path.publishing || setOutputs.isPending}
-										disabledMessage={t(
-											"Stop this device before changing its Direct outputs",
+									<VStack gap={2}>
+										{(["twitch", "kick", "youtube"] as const).map(
+											(provider) => {
+												const lastOutput =
+													path[provider] &&
+													Number(path.twitch) +
+														Number(path.kick) +
+														Number(path.youtube) ===
+														1;
+												return (
+													<Switch
+														key={provider}
+														disabledMessage={t(
+															lastOutput
+																? "Choose Route to Home Studio above to turn off Direct output"
+																: "Stop this device before changing its Direct outputs",
+														)}
+														isDisabled={
+															lastOutput ||
+															path.publishing ||
+															setOutputs.isPending
+														}
+														label={providerLabel(provider)}
+														labelSpacing="spread"
+														value={path[provider]}
+														onChange={(value) =>
+															setOutputs.mutate({
+																pathId: path.id,
+																twitch:
+																	provider === "twitch" ? value : path.twitch,
+																kick: provider === "kick" ? value : path.kick,
+																youtube:
+																	provider === "youtube" ? value : path.youtube,
+															})
+														}
+													/>
+												);
+											},
 										)}
-										label={t("Direct output for this device")}
-										layout="fill"
-										value={selectionOf(path)}
-										onChange={(value) =>
-											setOutputs.mutate({
-												pathId: path.id,
-												...outputsOf(value as DirectSelection),
-											})
-										}
-									>
-										<SegmentedControlItem label={t("Off")} value="off" />
-										<SegmentedControlItem label="Twitch" value="twitch" />
-										<SegmentedControlItem label="Kick" value="kick" />
-										<SegmentedControlItem label={t("Both")} value="both" />
-									</SegmentedControl>
+									</VStack>
+									{direct.data.directDualOutput ? (
+										<VStack gap={2}>
+											{direct.data.destinations
+												.filter(
+													(destination) =>
+														destination.pathId === path.id &&
+														destination.role === "portrait",
+												)
+												.map((destination) => (
+													<HStack
+														key={destination.id}
+														gap={2}
+														vAlign="center"
+														wrap="wrap"
+													>
+														<Badge label={t("Portrait")} variant="neutral" />
+														<Text type="supporting">
+															{providerLabel(destination.provider)}
+														</Text>
+														<ProviderState
+															error={destination.error}
+															provider={destination.provider}
+															outputRole="portrait"
+															state={destination.state}
+														/>
+														<Button
+															label={t("Edit framing")}
+															variant="ghost"
+															onClick={() =>
+																setFraming({
+																	pathId: path.id,
+																	provider: destination.provider,
+																	crop:
+																		destination.crop ?? DEFAULT_PORTRAIT_CROP,
+																})
+															}
+														/>
+														<Button
+															isDisabled={setRole.isPending}
+															label={t("Remove portrait")}
+															variant="ghost"
+															onClick={() =>
+																setRole.mutate({
+																	pathId: path.id,
+																	provider: destination.provider,
+																	role: "landscape",
+																})
+															}
+														/>
+													</HStack>
+												))}
+											{direct.data.providers
+												.filter(
+													(entry) =>
+														entry.canReadStreamKey &&
+														!path[entry.provider] &&
+														!direct.data.destinations.some(
+															(destination) =>
+																destination.provider === entry.provider &&
+																destination.role === "portrait",
+														),
+												)
+												.map((entry) => (
+													<Button
+														key={entry.provider}
+														isDisabled={setRole.isPending}
+														label={`${t("Add portrait output")} · ${providerLabel(entry.provider)}`}
+														variant="ghost"
+														onClick={() => {
+															void setRole
+																.mutateAsync({
+																	pathId: path.id,
+																	provider: entry.provider,
+																	role: "portrait",
+																})
+																.then(() =>
+																	setFraming({
+																		pathId: path.id,
+																		provider: entry.provider,
+																		crop: DEFAULT_PORTRAIT_CROP,
+																	}),
+																);
+														}}
+													/>
+												))}
+										</VStack>
+									) : null}
 									<ProviderState
 										error={path.error.twitch}
 										provider="twitch"
 										state={path.state.twitch}
+									/>
+									<ProviderState
+										error={path.error.youtube}
+										provider="youtube"
+										state={path.state.youtube}
 									/>
 									<ProviderState
 										error={path.error.kick}
@@ -224,6 +433,19 @@ export function DirectCard() {
 								</VStack>
 							</Card>
 						))}
+
+						<YoutubeTitle
+							saving={setYoutubeSettings.isPending}
+							title={direct.data.youtubeTitle}
+							onSave={(title) => setYoutubeSettings.mutate({ title })}
+						/>
+						<Banner
+							description={t(
+								"VISP creates a new public YouTube broadcast when this device starts publishing.",
+							)}
+							status="warning"
+							title={t("YouTube broadcasts are public")}
+						/>
 
 						<Banner
 							description={t(
@@ -255,6 +477,26 @@ export function DirectCard() {
 					</>
 				) : null}
 			</VStack>
+			{framing ? (
+				<DirectPortraitFraming
+					crop={framing.crop}
+					isOpen
+					previewUrl={
+						snapshots.data?.find(
+							(snapshot) => snapshot.pathId === framing.pathId,
+						)?.url ?? null
+					}
+					saving={saveCrop.isPending}
+					onClose={() => setFraming(null)}
+					onSave={(crop) =>
+						saveCrop.mutateAsync({
+							pathId: framing.pathId,
+							provider: framing.provider,
+							crop,
+						})
+					}
+				/>
+			) : null}
 		</Card>
 	);
 }

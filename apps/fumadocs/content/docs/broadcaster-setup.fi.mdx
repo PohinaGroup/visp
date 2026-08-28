@@ -9,4 +9,24 @@ Larix Broadcaster, Moblin ja muut mukautettua SRT- tai RTMP-palvelinta tukevat s
 
 Käytä aluksi 720p- tai 1080p-kuvaa, 30 kuvaa sekunnissa ja verkkoon nähden varovaista bittinopeutta. SRT-viiveen on oltava riittävä mobiiliverkon vaihtelulle; kasvata sitä, jos kuvassa näkyy toistuvia häiriöitä.
 
+## Kahden yhteyden niputus SRTLA:lla
+
+Jokainen välityspalvelin ottaa vastaan SRTLA:a UDP-portissa 5000, joten BELABOX,
+Moblin tai muu SRTLA-lähetin voi jakaa saman lähetyksen wifin ja mobiiliverkon
+kesken. SRTLA lähettää jokaisen paketin vain kerran ja siirtää liikennettä sille
+yhteydelle, joka juuri nyt kantaa parhaiten — kahdesta yhteydestä saa siis
+lisää pelivaraa eikä kaksinkertaista datalaskua.
+
+Vaihda hallintapaneeli **Advanced**-tilaan, avaa laitteesi ja valitse SRTLA-osoite.
+Siinä on samat tunnukset kuin SRT-osoitteessa; vain skeema ja portti eroavat:
+
+```
+srtla://relay.example.com:5000?streamid=publish:SLUG:HANDLE:SECRET&pkt_size=1316
+```
+
+Liitä osoite Moblinissa lähetyksen osoitteeksi ja valitse käytettävät yhteydet
+kohdasta **Settings → Streams → lähetyksesi → SRT(LA)**. Aseta SRT-viive kuin
+heikompi yhteys kantaisi lähetyksen yksin. Jos UDP 5000 on estetty verkossa,
+tavallinen SRT-osoite portissa 8890 toimii edelleen ilman niputusta.
+
 Tee OBS:ään **Fallback**-kohtaus, joka ei riipu kentällä olevasta kamerasta. Testaa ennen lähetystä, että kohtaus vaihtuu käyttöön ja kamera palautuu verkkokatkon jälkeen.

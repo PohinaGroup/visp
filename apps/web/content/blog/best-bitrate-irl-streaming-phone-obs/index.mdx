@@ -2,6 +2,7 @@
 title: "Best Bitrate for IRL Streaming: 720p or 1080p From Phone to OBS?"
 description: "Choose the best mobile IRL streaming bitrate for 720p or 1080p, budget phone and home bandwidth separately, and test the real route before live."
 publishedAt: 2026-07-26
+updatedAt: 2026-08-03
 coverAlt: "An unbranded phone camera sends one cyan contribution feed from a city location into a dark home production studio"
 ---
 
@@ -189,9 +190,10 @@ documents H.264, CBR, a two-second keyframe interval, and up to 8,000 kbps. Do
 not copy a platform maximum into the phone encoder by reflex; the field link
 still decides what it can sustain.
 
-## VISP does not transcode or bond the connection
+## The relay does not transcode or aggregate connections
 
-VISP **does not transcode video and does not bond network connections.** The
+The relay **does not transcode video or aggregate network capacity.** VISP
+Native can duplicate packets over Wi-Fi and cellular, but the
 codec, resolution, frame rate, and bitrate produced by the phone are the feed
 OBS receives. The relay cannot turn a 1080p feed into a lower-rate 720p feed
 when mobile upload degrades, and it cannot combine cellular and Wi-Fi into one

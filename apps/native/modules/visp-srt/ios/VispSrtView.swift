@@ -6,16 +6,6 @@ import SRTHaishinKit
 import UIKit
 import VideoToolbox
 
-private enum StreamState: String {
-  case idle
-  case preparing
-  case connecting
-  case live
-  case reconnecting
-  case stopping
-  case error
-}
-
 private enum VispSrtFailure: LocalizedError {
   case audioInputUnavailable
   case cameraUnavailable
@@ -56,7 +46,7 @@ private struct CameraCapability {
   let zoomLevels: [Double]
 }
 
-private struct VideoConfiguration {
+private struct VideoConfiguration: Equatable {
   let frameRate: Int
   let height: Int
   let position: AVCaptureDevice.Position
@@ -106,6 +96,58 @@ private final class AudioLevelTap: MediaMixerOutput, @unchecked Sendable {
   }
 }
 
+// Downscaled stills for the Watch viewfinder, fed by the mixer's video output.
+// Buffers arrive on a single delivery task, so the throttle state needs no
+// locking. WatchConnectivity is a message channel, not a stream: 1 fps of tiny
+// JPEGs is the ceiling, and the reachability gate keeps this free when the
+// Watch app is not in the foreground.
+private final class PreviewFrameTap: MediaMixerOutput, @unchecked Sendable {
+  let videoTrackId: UInt8? = UInt8.max
+  let audioTrackId: UInt8? = nil
+
+  private static let context = CIContext(options: [.useSoftwareRenderer: false])
+  private static let targetWidth = 160.0
+
+  private let onFrame: @Sendable (Data) -> Void
+  private var lastSent: ContinuousClock.Instant?
+
+  init(onFrame: @escaping @Sendable (Data) -> Void) {
+    self.onFrame = onFrame
+  }
+
+  func mixer(_ mixer: MediaMixer, didOutput sampleBuffer: CMSampleBuffer) {
+    guard
+      PreviewFramePolicy.shouldSendFrame(
+        now: ContinuousClock.now,
+        lastSent: lastSent,
+        reachable: WatchBridge.shared.isWatchReachable,
+        inFlight: WatchBridge.shared.isFrameInFlight
+      ),
+      let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer)
+    else {
+      return
+    }
+    let image = CIImage(cvPixelBuffer: pixelBuffer)
+    let scale = min(1, Self.targetWidth / image.extent.width)
+    let scaled = image.transformed(by: CGAffineTransform(scaleX: scale, y: scale))
+    guard
+      let jpeg = Self.context.jpegRepresentation(
+        of: scaled,
+        colorSpace: CGColorSpaceCreateDeviceRGB(),
+        options: [kCGImageDestinationLossyCompressionQuality as CIImageRepresentationOption: 0.4]
+      )
+    else {
+      return
+    }
+    lastSent = ContinuousClock.now
+    onFrame(jpeg)
+  }
+
+  func selectTrack(_ id: UInt8?, mediaType: CMFormatDescription.MediaType) async {}
+
+  func mixer(_ mixer: MediaMixer, didOutput buffer: AVAudioPCMBuffer, when: AVAudioTime) {}
+}
+
 @MainActor
 final class VispSrtView: ExpoView {
   let onStateChange = EventDispatcher()
@@ -114,16 +156,18 @@ final class VispSrtView: ExpoView {
 
   private let preview = MTHKView(frame: .zero)
   private var audioInputID: String?
+  private var backgroundCameraAccessEnabled = false
+  private var backgroundStopErrorPending = false
   private var connection: SRTConnection?
   private var connectionCancellable: AnyCancellable?
   private var configuration: VideoConfiguration?
+  private lazy var cameraCapabilityCache = discoverCameraCapabilities()
   private var currentState: StreamState = .idle
   private var desiredURL: URL?
   private var intentionalStop = true
   private var imageStabilizationEnabled = true
   private var lastPktSndLossTotal: Int32 = 0
   private var lastPktSentTotal: Int64 = 0
-  private var lastBondedTotals: [Int32: (sent: Int64, lost: Int32)] = [:]
   private var lastLinkDegraded: Bool?
   private var lockedOrientation: AVCaptureVideoOrientation?
   private var lastAppliedOrientation: AVCaptureVideoOrientation?
@@ -132,6 +176,8 @@ final class VispSrtView: ExpoView {
   private var chatCorner = "bottom-left"
   private var chatGeneration = 0
   @ScreenActor private var chatScreenObject: ImageScreenObject?
+  private var captionsBitmap: CGImage?
+  @ScreenActor private var captionsScreenObject: ImageScreenObject?
   private static let chatImageCache = NSCache<NSURL, UIImage>()
   private var retryPolicy = RetryPolicy()
   private var retryTask: Task<Void, Never>?
@@ -141,6 +187,23 @@ final class VispSrtView: ExpoView {
   private var videoBitrateCeiling = 3_500_000
   private var bondingMode = "off"
   private var videoDevice: AVCaptureDevice?
+  private let audioIsolation = AudioIsolationProcessor()
+  private let liveCaptions = LiveCaptionsController()
+  private var audioInputTask: Task<Void, Never>?
+  private var audioIsolationMode: AudioIsolationMode = .off
+  private var voiceProcessingEngine: AVAudioEngine?
+  private lazy var pictureInPicture: PictureInPictureCoordinator = {
+    let coordinator = PictureInPictureCoordinator()
+    coordinator.onFailure = { [weak self] in
+      guard UIApplication.shared.applicationState == .background else {
+        return
+      }
+      Task { @MainActor in
+        await self?.stopForBackgroundVideoUnavailable()
+      }
+    }
+    return coordinator
+  }()
 
   required init(appContext: AppContext? = nil) {
     super.init(appContext: appContext)
@@ -148,6 +211,7 @@ final class VispSrtView: ExpoView {
     backgroundColor = .black
     preview.videoGravity = .resizeAspectFill
     addSubview(preview)
+    liveCaptions.attach(view: self)
 
     UIDevice.current.beginGeneratingDeviceOrientationNotifications()
     NotificationCenter.default.addObserver(
@@ -158,8 +222,8 @@ final class VispSrtView: ExpoView {
     )
     NotificationCenter.default.addObserver(
       self,
-      selector: #selector(willResignActive),
-      name: UIApplication.willResignActiveNotification,
+      selector: #selector(didEnterBackground),
+      name: UIApplication.didEnterBackgroundNotification,
       object: nil
     )
   }
@@ -180,7 +244,7 @@ final class VispSrtView: ExpoView {
 
   override func didMoveToWindow() {
     super.didMoveToWindow()
-    guard window == nil else {
+    guard window == nil, currentState.shouldSuspendWhenDetached else {
       return
     }
     Task { @MainActor [weak self] in
@@ -215,12 +279,7 @@ final class VispSrtView: ExpoView {
 
     do {
       let audioSession = AVAudioSession.sharedInstance()
-      try audioSession.setCategory(
-        .playAndRecord,
-        mode: .videoRecording,
-        options: [.defaultToSpeaker, .allowBluetoothHFP]
-      )
-      try audioSession.setActive(true)
+      try configureAudioSession(audioSession)
       let audioInput = audioInputID.flatMap { selectedID in
         audioSession.availableInputs?.first(where: { $0.uid == selectedID })
       }
@@ -229,9 +288,22 @@ final class VispSrtView: ExpoView {
       }
       try audioSession.setPreferredInput(audioInput)
 
-      let mixer = MediaMixer()
+      let mixer = MediaMixer(multiTrackAudioMixingEnabled: true)
       await mixer.setVideoMixerSettings(.init(mode: .offscreen))
       await mixer.setSessionPreset(.inputPriority)
+      nonisolated(unsafe) var backgroundCameraAccessEnabled = false
+      nonisolated(unsafe) var captureSession: AVCaptureSession?
+      await mixer.configuration { session in
+        if session.isMultitaskingCameraAccessSupported {
+          session.isMultitaskingCameraAccessEnabled = true
+        }
+        backgroundCameraAccessEnabled = session.isMultitaskingCameraAccessEnabled
+        captureSession = session
+      }
+      self.backgroundCameraAccessEnabled = backgroundCameraAccessEnabled
+      if backgroundCameraAccessEnabled, let captureSession {
+        pictureInPicture.observeCaptureSession(captureSession)
+      }
       try await attachVideo(camera, to: mixer, configuration: configuration)
       try await mixer.attachAudio(microphone)
       try await mixer.setFrameRate(Double(configuration.frameRate))
@@ -244,15 +316,131 @@ final class VispSrtView: ExpoView {
           self?.onAudioLevel(["level": level])
         }
       })
+      await mixer.addOutput(PreviewFrameTap { jpeg in
+        WatchBridge.shared.sendFrame(jpeg)
+      })
       await mixer.startRunning()
       self.mixer = mixer
+      startAudioIsolationInputLoop(for: mixer)
+      preview.resetPreviewTiming()
       await applyChatBitmap()
-      emit(.idle)
+      await applyCaptionsBitmap()
+      if backgroundStopErrorPending {
+        backgroundStopErrorPending = false
+        emit(
+          .error,
+          code: "background-video-unavailable",
+          message: "The stream stopped because Picture in Picture could not continue."
+        )
+      } else {
+        emit(.idle)
+      }
       return requestedPermissions
     } catch {
       emit(.error, code: "capture-failed", message: VispSrtFailure.cameraUnavailable.localizedDescription)
       throw VispSrtFailure.cameraUnavailable
     }
+  }
+
+  func setAudioIsolation(
+    mode: String,
+    serverURL: String?,
+    authCookie: String?
+  ) async {
+    let nextMode = AudioIsolationMode(rawValue: mode) ?? .off
+    let becameNative = nextMode == .native && audioIsolationMode != .native
+    audioIsolationMode = nextMode
+    applyNativeVoiceProcessing(enabled: nextMode == .native, promptMicModes: becameNative)
+    if mixer != nil {
+      preview.resetPreviewTiming()
+      try? configureAudioSession(AVAudioSession.sharedInstance())
+    }
+
+    let better = nextMode == .better
+    let endpoint = better
+      ? serverURL.flatMap { raw in
+        URL(string: raw.hasSuffix("/") ? "\(raw)api/audio-isolation" : "\(raw)/api/audio-isolation")
+      }
+      : nil
+    await audioIsolation.configure(
+      mixer: mixer,
+      enabled: better,
+      endpoint: endpoint,
+      authCookie: better ? authCookie : nil
+    )
+  }
+
+  private func configureAudioSession(_ audioSession: AVAudioSession) throws {
+    // videoChat engages the system voice-processing pipeline (noise reduction /
+    // AEC) used by Mic Modes; videoRecording is the quieter default for streams.
+    let mode: AVAudioSession.Mode =
+      audioIsolationMode == .native ? .videoChat : .videoRecording
+    try audioSession.setCategory(
+      .playAndRecord,
+      mode: mode,
+      options: [.defaultToSpeaker, .allowBluetoothHFP, .allowBluetoothA2DP, .allowAirPlay]
+    )
+    try audioSession.setActive(true)
+  }
+
+  private func applyNativeVoiceProcessing(enabled: Bool, promptMicModes: Bool = false) {
+    if enabled {
+      if voiceProcessingEngine == nil {
+        let engine = AVAudioEngine()
+        do {
+          try engine.inputNode.setVoiceProcessingEnabled(true)
+          voiceProcessingEngine = engine
+        } catch {
+          voiceProcessingEngine = nil
+        }
+      }
+      if promptMicModes,
+         #available(iOS 15.0, *),
+         AVCaptureDevice.activeMicrophoneMode != .voiceIsolation {
+        AVCaptureDevice.showSystemUserInterface(.microphoneModes)
+      }
+    } else {
+      if let engine = voiceProcessingEngine {
+        try? engine.inputNode.setVoiceProcessingEnabled(false)
+      }
+      voiceProcessingEngine = nil
+    }
+  }
+
+  private func startAudioIsolationInputLoop(for mixer: MediaMixer) {
+    audioInputTask?.cancel()
+    audioInputTask = Task {
+      for await (track, buffer, when) in await mixer.audioInputStream {
+        if Task.isCancelled {
+          return
+        }
+        audioIsolation.handleInput(track: track, buffer: buffer, when: when)
+        liveCaptions.handleInput(track: track, buffer: buffer, when: when)
+      }
+    }
+  }
+
+  private func stopAudioIsolationInputLoop() {
+    audioInputTask?.cancel()
+    audioInputTask = nil
+    applyNativeVoiceProcessing(enabled: false)
+    Task {
+      await liveCaptions.stop()
+      await audioIsolation.configure(
+        mixer: nil,
+        enabled: false,
+        endpoint: nil,
+        authCookie: nil
+      )
+    }
+  }
+
+  func startLiveCaptions(language: String, better: Bool, wsUrl: String?) async -> Bool {
+    await liveCaptions.start(language: language, better: better, wsUrl: wsUrl)
+  }
+
+  func stopLiveCaptions() async {
+    await liveCaptions.stop()
   }
 
   func capabilities() throws -> [String: Any] {
@@ -327,6 +515,58 @@ final class VispSrtView: ExpoView {
     await applyChatBitmap()
   }
 
+  func updateCaptionsOverlay(_ text: String) async {
+    let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+    captionsBitmap = trimmed.isEmpty ? nil : renderCaptionsOverlay(trimmed)?.cgImage
+    await applyCaptionsBitmap()
+  }
+
+  func clearCaptionsOverlay() async {
+    captionsBitmap = nil
+    await applyCaptionsBitmap()
+  }
+
+  private func renderCaptionsOverlay(_ text: String) -> UIImage? {
+    let maxWidth: CGFloat = 960
+    let horizontalPadding: CGFloat = 28
+    let verticalPadding: CGFloat = 16
+    let attributes: [NSAttributedString.Key: Any] = [
+      .font: UIFont.systemFont(ofSize: 36, weight: .semibold),
+      .foregroundColor: UIColor.white,
+    ]
+    let clipped = String(text.prefix(180)) as NSString
+    let textSize = clipped.boundingRect(
+      with: CGSize(width: maxWidth - horizontalPadding * 2, height: 160),
+      options: [.usesLineFragmentOrigin, .usesFontLeading],
+      attributes: attributes,
+      context: nil
+    ).integral.size
+    let size = CGSize(
+      width: min(maxWidth, textSize.width + horizontalPadding * 2),
+      height: textSize.height + verticalPadding * 2
+    )
+    guard size.width > 0, size.height > 0 else { return nil }
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    let renderer = UIGraphicsImageRenderer(size: size, format: format)
+    return renderer.image { context in
+      context.cgContext.clear(CGRect(origin: .zero, size: size))
+      UIColor.black.withAlphaComponent(0.72).setFill()
+      UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 16).fill()
+      clipped.draw(
+        with: CGRect(
+          x: horizontalPadding,
+          y: verticalPadding,
+          width: size.width - horizontalPadding * 2,
+          height: textSize.height
+        ),
+        options: [.usesLineFragmentOrigin, .usesFontLeading],
+        attributes: attributes,
+        context: nil
+      )
+    }
+  }
+
   private func loadChatImage(_ value: String) async -> UIImage? {
     guard
       let url = URL(string: value),
@@ -364,22 +604,60 @@ final class VispSrtView: ExpoView {
     guard !messages.isEmpty else {
       return nil
     }
-    let width: CGFloat = 620
-    let rowHeight: CGFloat = 82
+    let width: CGFloat = 310
     let padding: CGFloat = 12
-    let size = CGSize(width: width, height: rowHeight * CGFloat(messages.count) + padding * 2)
+    let horizontalPadding: CGFloat = 14
+    let rowGap: CGFloat = 6
+    let bodyAttributes: [NSAttributedString.Key: Any] = [
+      .font: UIFont.systemFont(ofSize: 17),
+      .foregroundColor: UIColor.white,
+    ]
+    let paragraphStyle = NSMutableParagraphStyle()
+    paragraphStyle.lineBreakMode = .byWordWrapping
+    let rows = messages.map { message in
+      let body = NSMutableAttributedString()
+      for fragment in (message["fragments"] as? [[String: Any]] ?? []).prefix(32) {
+        let text = String((fragment["text"] as? String ?? "").prefix(180))
+        if fragment["type"] as? String == "emote", let url = fragment["url"] as? String,
+           let image = images[url] {
+          let attachment = NSTextAttachment(image: image)
+          attachment.bounds = CGRect(x: 0, y: -3, width: 30, height: 30)
+          body.append(NSAttributedString(attachment: attachment))
+          body.append(NSAttributedString(string: "\u{2009}", attributes: bodyAttributes))
+        } else {
+          body.append(NSAttributedString(string: text, attributes: bodyAttributes))
+        }
+      }
+      body.addAttribute(.paragraphStyle, value: paragraphStyle, range: NSRange(location: 0, length: body.length))
+      let bodyHeight = max(
+        28,
+        ceil(
+          body.boundingRect(
+            with: CGSize(width: width - horizontalPadding * 2, height: .greatestFiniteMagnitude),
+            options: [.usesLineFragmentOrigin, .usesFontLeading],
+            context: nil
+          ).height
+        )
+      )
+      return (message: message, body: body, height: bodyHeight + 48)
+    }
+    let rowsHeight = rows.reduce(CGFloat.zero) { $0 + $1.height }
+    let size = CGSize(
+      width: width,
+      height: padding * 2 + rowsHeight + rowGap * CGFloat(max(0, rows.count - 1))
+    )
     // Scale 1 keeps the bitmap in video-canvas pixels; the device scale would triple it.
     let format = UIGraphicsImageRendererFormat()
     format.scale = 1
     let renderer = UIGraphicsImageRenderer(size: size, format: format)
     return renderer.image { context in
       context.cgContext.clear(CGRect(origin: .zero, size: size))
-      for (index, message) in messages.enumerated() {
+      var y = padding
+      for (message, body, rowHeight) in rows {
         let opacity = max(0, min(1, (message["opacity"] as? NSNumber)?.doubleValue ?? 1))
         context.cgContext.saveGState()
         context.cgContext.setAlpha(opacity)
-        let y = padding + CGFloat(index) * rowHeight
-        let row = CGRect(x: 0, y: y, width: width, height: rowHeight - 6)
+        let row = CGRect(x: 0, y: y, width: width, height: rowHeight)
         UIColor.black.withAlphaComponent(0.68).setFill()
         UIBezierPath(roundedRect: row, cornerRadius: 14).fill()
 
@@ -388,10 +666,13 @@ final class VispSrtView: ExpoView {
         let senderColor = UIColor(chatHex: sender?["color"] as? String) ?? .white
         var senderX: CGFloat = 14
         let provider = message["provider"] as? String
+        let providerInitial = provider == "twitch" ? "T" : provider == "youtube" ? "Y" : "K"
+        let providerBackground = provider == "twitch" ? "#9146FF" : provider == "youtube" ? "#FF0000" : "#53FC18"
+        let providerForeground = provider == "kick" ? "#071005" : "#FFFFFF"
         drawChatChip(
-          provider == "twitch" ? "T" : "K",
-          background: UIColor(chatHex: provider == "twitch" ? "#9146FF" : "#53FC18")!,
-          foreground: UIColor(chatHex: provider == "twitch" ? "#FFFFFF" : "#071005")!,
+          providerInitial,
+          background: UIColor(chatHex: providerBackground)!,
+          foreground: UIColor(chatHex: providerForeground)!,
           in: CGRect(x: senderX, y: y + 8, width: 20, height: 20)
         )
         senderX += 24
@@ -416,33 +697,19 @@ final class VispSrtView: ExpoView {
           context: nil
         )
 
-        var x: CGFloat = 14
         let contentY = y + 38
-        for fragment in (message["fragments"] as? [[String: Any]] ?? []).prefix(32) {
-          let text = String((fragment["text"] as? String ?? "").prefix(180))
-          if fragment["type"] as? String == "emote", let url = fragment["url"] as? String,
-             let image = images[url] {
-            if x + 30 > width - 14 { break }
-            image.draw(in: CGRect(x: x, y: contentY - 3, width: 30, height: 30))
-            x += 34
-          } else {
-            let attributes: [NSAttributedString.Key: Any] = [
-              .font: UIFont.systemFont(ofSize: 17),
-              .foregroundColor: UIColor.white,
-            ]
-            let available = max(0, width - 14 - x)
-            guard available > 0 else { break }
-            let clipped = text as NSString
-            clipped.draw(
-              with: CGRect(x: x, y: contentY, width: available, height: 28),
-              options: [.truncatesLastVisibleLine, .usesLineFragmentOrigin],
-              attributes: attributes,
-              context: nil
-            )
-            x += min(available, clipped.size(withAttributes: attributes).width)
-          }
-        }
+        body.draw(
+          with: CGRect(
+            x: horizontalPadding,
+            y: contentY,
+            width: width - horizontalPadding * 2,
+            height: rowHeight - 48
+          ),
+          options: [.usesLineFragmentOrigin, .usesFontLeading],
+          context: nil
+        )
         context.cgContext.restoreGState()
+        y += rowHeight + rowGap
       }
     }
   }
@@ -478,6 +745,32 @@ final class VispSrtView: ExpoView {
     default: hex = "#53606E"
     }
     return UIColor(chatHex: hex)!
+  }
+
+  private func applyCaptionsBitmap() async {
+    guard let mixer else {
+      return
+    }
+    let bitmap = captionsBitmap
+    let screen = await mixer.screen
+    await Task { @ScreenActor [weak self] in
+      guard let self else { return }
+      let object: ImageScreenObject
+      if let current = self.captionsScreenObject {
+        object = current
+      } else {
+        object = ImageScreenObject()
+        try? screen.addChild(object)
+        self.captionsScreenObject = object
+      }
+      object.cgImage = bitmap
+      object.size = bitmap.map { CGSize(width: CGFloat($0.width), height: CGFloat($0.height)) } ?? .zero
+      object.isVisible = bitmap != nil
+      object.layoutMargin = .init(top: 64, left: 64, bottom: 72, right: 64)
+      object.horizontalAlignment = .center
+      object.verticalAlignment = .bottom
+      object.invalidateLayout()
+    }.value
   }
 
   private func applyChatBitmap() async {
@@ -533,17 +826,53 @@ final class VispSrtView: ExpoView {
       emit(.error, code: "configuration-unavailable", message: VispSrtFailure.configurationUnavailable.localizedDescription)
       throw VispSrtFailure.configurationUnavailable
     }
-    if configuration?.position != position {
-      selectedZoom = defaultZoom(camera.zoomLevels)
-    }
-    configuration = VideoConfiguration(
+    let nextConfiguration = VideoConfiguration(
       frameRate: frameRate,
       height: height,
       position: position,
       width: width
     )
-    videoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
-    self.bondingMode = ["broadcast", "backup"].contains(bondingMode) ? bondingMode : "off"
+    let nextVideoBitrateCeiling = max(500, maxVideoBitrateKbps) * 1_000
+    let nextBondingMode = ["srtla", "broadcast", "backup"].contains(bondingMode)
+      ? bondingMode : "off"
+    if mixer != nil,
+       configuration == nextConfiguration,
+       videoBitrateCeiling == nextVideoBitrateCeiling {
+      self.bondingMode = nextBondingMode
+      return
+    }
+    let previousZoom = selectedZoom
+    if configuration?.position != position {
+      selectedZoom = defaultZoom(camera.zoomLevels)
+    }
+    if let mixer {
+      let previousConfiguration = configuration
+      guard let device = captureDevice(position: position) else {
+        throw VispSrtFailure.cameraUnavailable
+      }
+      do {
+        preview.resetPreviewTiming()
+        try await attachVideo(device, to: mixer, configuration: nextConfiguration)
+        try await mixer.setFrameRate(Double(frameRate))
+        configuration = nextConfiguration
+        videoBitrateCeiling = nextVideoBitrateCeiling
+        self.bondingMode = nextBondingMode
+        return
+      } catch {
+        selectedZoom = previousZoom
+        if
+          let previousConfiguration,
+          let previousCamera = captureDevice(position: previousConfiguration.position)
+        {
+          try? await attachVideo(previousCamera, to: mixer, configuration: previousConfiguration)
+          try? await mixer.setFrameRate(Double(previousConfiguration.frameRate))
+        }
+        throw VispSrtFailure.configurationUnavailable
+      }
+    }
+    configuration = nextConfiguration
+    videoBitrateCeiling = nextVideoBitrateCeiling
+    self.bondingMode = nextBondingMode
     await suspend()
     try await prepare()
   }
@@ -565,7 +894,6 @@ final class VispSrtView: ExpoView {
 
   func switchCamera(_ cameraID: String) async throws {
     guard
-      currentState != .idle,
       currentState != .stopping,
       currentState != .error,
       let mixer,
@@ -587,6 +915,7 @@ final class VispSrtView: ExpoView {
     }
     let previousZoom = selectedZoom
     do {
+      preview.resetPreviewTiming()
       selectedZoom = defaultZoom(capability.zoomLevels)
       let next = VideoConfiguration(
         frameRate: current.frameRate,
@@ -655,7 +984,7 @@ final class VispSrtView: ExpoView {
     var url = try validatedURL(value)
     if bondingMode != "off",
        var components = URLComponents(url: url, resolvingAgainstBaseURL: false) {
-      components.port = 8891
+      components.port = bondingMode == "srtla" ? 5000 : 8891
       if let bondedURL = components.url {
         url = bondedURL
       }
@@ -666,12 +995,16 @@ final class VispSrtView: ExpoView {
     }
 
     intentionalStop = false
+    backgroundStopErrorPending = false
     desiredURL = url
     retryPolicy.reset()
     lockedOrientation = currentOrientation()
     if let mixer, let lockedOrientation {
       lastAppliedOrientation = lockedOrientation
       await mixer.setVideoOrientation(lockedOrientation)
+    }
+    if backgroundCameraAccessEnabled, let mixer {
+      _ = await pictureInPicture.activate(sourceView: preview, mixer: mixer)
     }
 
     emit(.connecting)
@@ -688,6 +1021,7 @@ final class VispSrtView: ExpoView {
     retryTask?.cancel()
     retryTask = nil
     stopStatsLoop()
+    await pictureInPicture.deactivate(mixer: mixer)
 
     if currentState != .idle {
       emit(.stopping)
@@ -727,7 +1061,7 @@ final class VispSrtView: ExpoView {
         VideoCodecSettings(
           videoSize: size,
           bitRate: videoBitrateCeiling,
-          profileLevel: kVTProfileLevel_H264_Baseline_AutoLevel as String,
+          profileLevel: kVTProfileLevel_H264_Main_AutoLevel as String,
           maxKeyFrameIntervalDuration: 2,
           allowFrameReordering: false,
           isHardwareAcceleratedEnabled: true,
@@ -821,16 +1155,31 @@ final class VispSrtView: ExpoView {
   }
 
   private func suspend() async {
+    stopAudioIsolationInputLoop()
     await stop()
     if let mixer {
       await mixer.stopRunning()
     }
     await Task { @ScreenActor [weak self] in
       self?.chatScreenObject = nil
+      self?.captionsScreenObject = nil
     }.value
     mixer = nil
     videoDevice = nil
     try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+  }
+
+  private func stopForBackgroundVideoUnavailable() async {
+    guard currentState.backgroundAction(pictureInPictureActiveOrStarting: false) == .stopStreaming else {
+      return
+    }
+    backgroundStopErrorPending = true
+    await suspend()
+    emit(
+      .error,
+      code: "background-video-unavailable",
+      message: "The stream stopped because Picture in Picture could not continue."
+    )
   }
 
   private func attachVideo(
@@ -877,6 +1226,10 @@ final class VispSrtView: ExpoView {
   }
 
   private func cameraCapabilities() -> [CameraCapability] {
+    cameraCapabilityCache
+  }
+
+  private func discoverCameraCapabilities() -> [CameraCapability] {
     [AVCaptureDevice.Position.back, .front].compactMap { position in
       guard let device = captureDevice(position: position) else {
         return nil
@@ -1024,8 +1377,8 @@ final class VispSrtView: ExpoView {
     guard let camera = cameras.first(where: { $0.position == .back }) ?? cameras.first else {
       throw VispSrtFailure.cameraUnavailable
     }
-    let format = camera.formats.first(where: { $0.width == 1280 && $0.height == 720 }) ??
-      camera.formats.first(where: { $0.width == 1920 && $0.height == 1080 }) ?? camera.formats[0]
+    let format = camera.formats.first(where: { $0.width == 1920 && $0.height == 1080 }) ??
+      camera.formats.first(where: { $0.width == 1280 && $0.height == 720 }) ?? camera.formats[0]
     return VideoConfiguration(
       frameRate: format.frameRates.contains(30) ? 30 : format.frameRates.last!,
       height: format.height,
@@ -1118,7 +1471,6 @@ final class VispSrtView: ExpoView {
     stopStatsLoop()
     lastPktSndLossTotal = 0
     lastPktSentTotal = 0
-    lastBondedTotals = [:]
     lastLinkDegraded = nil
     statsTask = Task { @MainActor [weak self] in
       while let self, !Task.isCancelled {
@@ -1155,23 +1507,13 @@ final class VispSrtView: ExpoView {
     let rttMs = max(0, Int(performance.msRTT.rounded()))
     let bonded = await connection.bondedLinkPerformance
     let links: [[String: Any]] = bonded.map { link in
-      let previous = lastBondedTotals[link.id] ?? (0, 0)
-      let linkSent = max(0, link.performance.pktSentTotal - previous.sent)
-      let linkLost = max(0, Int64(link.performance.pktSndLossTotal) - Int64(previous.lost))
-      lastBondedTotals[link.id] = (
-        link.performance.pktSentTotal,
-        link.performance.pktSndLossTotal
-      )
-      let loss = linkSent + linkLost > 0
-        ? 100.0 * Double(linkLost) / Double(linkSent + linkLost)
-        : 0
       return [
         "id": String(link.id),
         "transport": link.token == 1 ? "cellular" : "wifi",
         "state": link.state,
-        "rttMs": max(0, Int(link.performance.msRTT.rounded())),
-        "packetLossPct": min(100, max(0, loss)),
-        "bitrateKbps": max(0, Int((link.performance.mbpsSendRate * 1_000).rounded())),
+        "rttMs": link.rttMs,
+        "packetLossPct": link.packetLossPct,
+        "bitrateKbps": link.bitrateKbps,
       ]
     }
     if bondingMode != "off" {
@@ -1198,9 +1540,29 @@ final class VispSrtView: ExpoView {
     applyVideoOrientationIfNeeded()
   }
 
-  @objc private func willResignActive() {
+  @objc private func didEnterBackground() {
     Task { @MainActor [weak self] in
-      await self?.suspend()
+      guard let self else {
+        return
+      }
+      var pictureInPictureActive = pictureInPicture.isActiveOrStarting
+      if !pictureInPictureActive,
+         currentState.backgroundAction(pictureInPictureActiveOrStarting: false) == .stopStreaming {
+        pictureInPictureActive = await pictureInPicture.waitForAutomaticStart()
+      }
+      guard UIApplication.shared.applicationState == .background else {
+        return
+      }
+      switch currentState.backgroundAction(
+        pictureInPictureActiveOrStarting: pictureInPictureActive
+      ) {
+      case .keepStreaming:
+        return
+      case .stopStreaming:
+        await stopForBackgroundVideoUnavailable()
+      case .suspend:
+        await suspend()
+      }
     }
   }
 

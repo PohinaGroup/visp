@@ -7,6 +7,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@VISP/ui/components/card";
+import { Checkbox } from "@VISP/ui/components/checkbox";
 import { Input } from "@VISP/ui/components/input";
 import {
 	NativeSelect,
@@ -74,13 +75,13 @@ function Loading() {
 }
 
 function SignIn() {
-	const [pending, setPending] = useState<"twitch" | "kick">();
+	const [pending, setPending] = useState<"twitch" | "kick" | "google">();
 
-	const signIn = async (provider: "twitch" | "kick") => {
+	const signIn = async (provider: "twitch" | "kick" | "google") => {
 		setPending(provider);
 		const callbackURL = window.location.origin;
 		const result =
-			provider === "twitch"
+			provider !== "kick"
 				? await authClient.signIn.social({ provider, callbackURL })
 				: await authClient.signIn.oauth2({
 						providerId: provider,
@@ -101,7 +102,8 @@ function SignIn() {
 					</div>
 					<CardTitle className="text-xl">VISP Admin</CardTitle>
 					<CardDescription>
-						Sign in with the same Twitch or Kick account you use with VISP.
+						Sign in with the same Twitch, Kick, or Google account you use with
+						VISP.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-2">
@@ -111,6 +113,14 @@ function SignIn() {
 						onClick={() => signIn("twitch")}
 					>
 						{pending === "twitch" ? "Opening Twitch…" : "Continue with Twitch"}
+					</Button>
+					<Button
+						className="w-full"
+						disabled={Boolean(pending)}
+						variant="outline"
+						onClick={() => signIn("google")}
+					>
+						{pending === "google" ? "Opening Google…" : "Continue with Google"}
 					</Button>
 					<Button
 						className="w-full"
@@ -289,6 +299,40 @@ function DetailItem({
 		</div>
 	);
 }
+
+// Mirrors the hosted-feature flags admin.users.setFlag accepts.
+const USER_FLAGS = [
+	{
+		key: "directDualOutput",
+		label: "Portrait Direct output",
+		hint: "Adds a separately framed portrait Direct destination and slot.",
+	},
+	{
+		key: "chatBotAccountSelection",
+		label: "Chat bot account selection",
+		hint: "Allows Twitch chat messages to use the streamer's own account.",
+	},
+	{
+		key: "betterTts",
+		label: "Better TTS",
+		hint: "Hosted speech, billed per character read out of chat.",
+	},
+	{
+		key: "betterAudioIsolation",
+		label: "Better audio isolation",
+		hint: "Hosted mic isolation, billed per second of live audio.",
+	},
+	{
+		key: "betterSubtitles",
+		label: "Better subtitles",
+		hint: "Hosted realtime captions, billed per minute of live audio.",
+	},
+	{
+		key: "brbHighlights",
+		label: "BRB highlights",
+		hint: "Internal beta for uploaded highlight playlists during Direct BRB.",
+	},
+] as const;
 
 function UserDetailPanel({
 	detail,
@@ -623,6 +667,44 @@ function UserDetailPanel({
 						</Button>
 					</div>
 
+					<div className="grid gap-3 border-border/60 border-t pt-4">
+						<div>
+							<p className="font-medium">Feature access</p>
+							<p className="text-muted-foreground text-xs">
+								Each toggle saves on its own and is recorded separately.
+							</p>
+						</div>
+						{USER_FLAGS.map(({ key, label, hint }) => (
+							<label
+								className="flex items-start gap-3"
+								htmlFor={`flag-${key}`}
+								key={key}
+							>
+								<Checkbox
+									checked={identity[key] ?? false}
+									disabled={pending === key}
+									id={`flag-${key}`}
+									onCheckedChange={(enabled) =>
+										void run(
+											key,
+											() =>
+												trpc.admin.users.setFlag.mutate({
+													userId: identity.id,
+													flag: key,
+													enabled,
+												}),
+											`${label} ${enabled ? "enabled" : "disabled"}`,
+										)
+									}
+								/>
+								<span className="grid gap-0.5 leading-tight">
+									<span className="font-medium text-sm">{label}</span>
+									<span className="text-muted-foreground text-xs">{hint}</span>
+								</span>
+							</label>
+						))}
+					</div>
+
 					{identity.banned ? (
 						<div className="flex items-center justify-between gap-3 border border-destructive/30 bg-destructive/5 p-3">
 							<div>
@@ -854,6 +936,10 @@ function RelayAdmin() {
 												}
 											}}
 										/>
+										<p className="text-muted-foreground text-xs">
+											{relay.activeForwarders} active ·{" "}
+											{relay.reservedForwarders} reserved
+										</p>
 									</td>
 									<td>
 										{relay.drainedAt ? (

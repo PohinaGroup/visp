@@ -1,3 +1,10 @@
+/** Owner id when the destination was saved without signing in. */
+export const MANUAL_STREAM_OWNER = "manual";
+
+export function streamOwnerId(userId?: string): string {
+	return userId ?? MANUAL_STREAM_OWNER;
+}
+
 export function validateStreamUrl(input: string): string {
 	const value = input.trim();
 	let url: URL;

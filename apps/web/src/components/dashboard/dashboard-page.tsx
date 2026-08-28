@@ -1,3 +1,5 @@
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
 import { Center } from "@astryxdesign/core/Center";
 import { CollapsibleGroup } from "@astryxdesign/core/Collapsible";
 import { Grid } from "@astryxdesign/core/Grid";
@@ -6,14 +8,17 @@ import {
 	SegmentedControl,
 	SegmentedControlItem,
 } from "@astryxdesign/core/SegmentedControl";
-import { Text } from "@astryxdesign/core/Text";
-import { useQuery } from "@tanstack/react-query";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import { BrbCard } from "./brb-card";
 import { ChainStrip } from "./chain-strip";
+import { ChatBotCard } from "./chat-bot-card";
 import { ConnectionsCard } from "./connections-card";
 import { CredentialsCard } from "./credentials-card";
 import { DirectCard } from "./direct-card";
@@ -37,7 +42,19 @@ export function DashboardPage() {
 	const fi = locale === "fi";
 	const trpc = useTRPC();
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
+	const directQuery = useQuery(trpc.direct.list.queryOptions());
+	const studioQuery = useQuery(trpc.studio.get.queryOptions());
+	const setOperationalMode = useMutation(
+		trpc.direct.setMode.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("Primary mode saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const advancedMode = statusQuery.data?.advancedMode ?? false;
 	const {
 		open: seppoOpen,
@@ -49,6 +66,30 @@ export function DashboardPage() {
 	} = useDashboardSeppo(advancedMode);
 
 	const mode: DashboardMode = advancedMode ? "advanced" : "simple";
+	const operationalMode = directQuery.data?.mode;
+	const chooseOperationalMode = (value: string) => {
+		if (value === "direct") {
+			navigate({
+				to: "/setup",
+				search: {
+					lang: locale === "fi" ? "fi" : undefined,
+					redo: true,
+					redoMode: "additive",
+				},
+			});
+			return;
+		}
+		if (
+			operationalMode !== "direct" ||
+			window.confirm(
+				t(
+					"Switch to Route to Home Studio? This turns off every Direct platform output.",
+				),
+			)
+		) {
+			setOperationalMode.mutate({ mode: "obs" });
+		}
+	};
 
 	return (
 		<>
@@ -69,11 +110,60 @@ export function DashboardPage() {
 						}
 						eyebrow={t("Live signal path")}
 						subtitle={t(
-							"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.",
+							"Choose one primary publishing path. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.",
 						)}
 						title={t("Dashboard")}
 					/>
-					<ChainStrip />
+					<Card>
+						<VStack gap={2}>
+							<Heading level={2}>{t("Primary operational mode")}</Heading>
+							<Text color="secondary" type="supporting">
+								{t(
+									"Select where the final stream is produced. These modes are separate and cannot run as one output path.",
+								)}
+							</Text>
+							<SegmentedControl
+								isDisabled={!operationalMode || setOperationalMode.isPending}
+								label={t("Primary operational mode")}
+								layout="fill"
+								value={
+									operationalMode === "unconfigured"
+										? ""
+										: (operationalMode ?? "")
+								}
+								onChange={chooseOperationalMode}
+							>
+								<SegmentedControlItem
+									label={t("Direct to Platform")}
+									value="direct"
+								/>
+								<SegmentedControlItem
+									label={t("Route to Home Studio")}
+									value="obs"
+								/>
+							</SegmentedControl>
+						</VStack>
+					</Card>
+					{studioQuery.data?.settings.available ? (
+						<Card>
+							<VStack gap={2}>
+								<Heading level={2}>{t("Cloud Studio")}</Heading>
+								<Text color="secondary" type="supporting">
+									{t(
+										"Build the saved program that Direct sends to your platforms.",
+									)}
+								</Text>
+								<Button
+									href={`/studio${locale === "fi" ? "?lang=fi" : ""}`}
+									label={t("Open Studio")}
+									variant="primary"
+								/>
+							</VStack>
+						</Card>
+					) : null}
+					{operationalMode && operationalMode !== "unconfigured" ? (
+						<ChainStrip />
+					) : null}
 					<Grid columns={{ minWidth: 440, repeat: "fit" }} gap={4}>
 						<PublishingDevicesCard
 							onRedoSetup={() =>
@@ -87,9 +177,15 @@ export function DashboardPage() {
 							}
 						/>
 						<VStack gap={4}>
-							<ObsControlCard />
-							<DirectCard />
+							{operationalMode === "direct" ? (
+								<>
+									<DirectCard />
+									<BrbCard />
+								</>
+							) : null}
+							{operationalMode === "obs" ? <ObsControlCard /> : null}
 							<ConnectionsCard />
+							<ChatBotCard />
 							{advancedMode ? (
 								<VStack gap={2}>
 									<Text color="secondary" type="supporting">
@@ -104,7 +200,7 @@ export function DashboardPage() {
 											setAdvancedSections(next.filter(isAdvancedSectionId));
 										}}
 									>
-										<CredentialsCard />
+										{operationalMode === "obs" ? <CredentialsCard /> : null}
 										<GuidanceCard />
 										<SetupCard />
 									</CollapsibleGroup>

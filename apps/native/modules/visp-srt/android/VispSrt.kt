@@ -10,16 +10,29 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.RectF
 import android.graphics.SurfaceTexture
+import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
 import android.media.AudioDeviceInfo
+import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaCodecList
 import android.media.MediaFormat
+import android.media.MediaPlayer
 import android.net.Uri
+import android.os.Bundle
 import android.os.Build
 import android.os.SystemClock
+import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
+import android.text.Layout
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.StaticLayout
+import android.text.TextPaint
+import android.text.style.DynamicDrawableSpan
+import android.text.style.ImageSpan
 import android.util.Size
 import android.util.LruCache
 import android.view.SurfaceView
@@ -47,8 +60,11 @@ import expo.modules.kotlin.viewevent.EventDispatcher
 import expo.modules.kotlin.views.ExpoView
 import java.lang.ref.WeakReference
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.Locale
+import java.util.UUID
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
@@ -57,9 +73,11 @@ import kotlin.math.round
 /**
  * Peak mic amplitude on the encoder audio thread (0-100), without Pedro's AmplitudeEffect
  * worker that crashes on stop via uncaught InterruptedException from queue.take().
+ * Optionally forwards PCM to live captions (Scribe / on-device).
  */
 private class PeakAmplitudeEffect(
   private val onAmplitude: (Float) -> Unit,
+  private val onPcm: ((ByteArray) -> Unit)? = null,
 ) : CustomAudioEffect() {
   @Volatile private var running = true
 
@@ -75,6 +93,7 @@ private class PeakAmplitudeEffect(
       i += 2
     }
     onAmplitude((peak / Short.MAX_VALUE.toFloat()) * 100f)
+    onPcm?.invoke(pcmBuffer)
     return pcmBuffer
   }
 
@@ -92,6 +111,40 @@ class VispSrt : Module() {
 
   override fun definition() = ModuleDefinition {
     Name("VispSrt")
+
+    AsyncFunction("audioOutputs") {
+      val context = appContext.reactContext ?: throw DeviceUnavailableException()
+      audioOutputs(context).map { device ->
+        mapOf("id" to device.id.toString(), "name" to device.productName.toString())
+      }
+    }
+
+    AsyncFunction("playAudioFile") {
+        uri: String,
+        outputDeviceId: String,
+        promise: Promise,
+      ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("audio-unavailable", "Audio playback is unavailable", null)
+        return@AsyncFunction
+      }
+      playAudioFile(context, uri, outputDeviceId, promise)
+    }
+
+    AsyncFunction("speakToDevice") {
+        text: String,
+        language: String,
+        outputDeviceId: String,
+        promise: Promise,
+      ->
+      val context = appContext.reactContext
+      if (context == null) {
+        promise.reject("audio-unavailable", "Text to speech is unavailable", null)
+        return@AsyncFunction
+      }
+      synthesizeToDevice(context, text, language, outputDeviceId, promise)
+    }
 
     View(VispSrtView::class) {
       Events("onStateChange", "onAudioLevel", "onStats")
@@ -183,6 +236,36 @@ class VispSrt : Module() {
         view.clearChatOverlay(promise)
       }
 
+      AsyncFunction("updateCaptionsOverlay") {
+          view: VispSrtView,
+          text: String,
+          promise: Promise,
+        ->
+        remember(view)
+        view.updateCaptionsOverlay(text, promise)
+      }
+
+      AsyncFunction("clearCaptionsOverlay") { view: VispSrtView, promise: Promise ->
+        remember(view)
+        view.clearCaptionsOverlay(promise)
+      }
+
+      AsyncFunction("startLiveCaptions") {
+          view: VispSrtView,
+          language: String,
+          better: Boolean,
+          wsUrl: String?,
+          promise: Promise,
+        ->
+        remember(view)
+        view.startLiveCaptions(language, better, wsUrl, promise)
+      }
+
+      AsyncFunction("stopLiveCaptions") { view: VispSrtView, promise: Promise ->
+        remember(view)
+        view.stopLiveCaptions(promise)
+      }
+
       AsyncFunction("start") { view: VispSrtView, url: String, promise: Promise ->
         remember(view)
         view.start(url, promise)
@@ -216,6 +299,139 @@ class VispSrt : Module() {
 
   private fun remember(view: VispSrtView) {
     currentView = WeakReference(view)
+  }
+
+  private fun audioOutputs(context: Context): List<AudioDeviceInfo> {
+    val manager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+    return manager.getDevices(AudioManager.GET_DEVICES_OUTPUTS)
+      .filter { it.type in OUTPUT_DEVICE_TYPES }
+  }
+
+  private fun playAudioFile(
+    context: Context,
+    uri: String,
+    outputDeviceId: String,
+    promise: Promise,
+    onFinished: (() -> Unit)? = null,
+  ) {
+    val device = audioOutputs(context).firstOrNull { it.id.toString() == outputDeviceId }
+    if (device == null || Build.VERSION.SDK_INT < 28) {
+      onFinished?.invoke()
+      promise.reject("audio-output-unavailable", "The selected audio output is unavailable", null)
+      return
+    }
+    val player = MediaPlayer()
+    var settled = false
+    fun finish(error: Throwable? = null) {
+      if (settled) return
+      settled = true
+      player.release()
+      onFinished?.invoke()
+      if (error == null) promise.resolve()
+      else promise.reject("audio-playback-failed", "Audio playback failed", error)
+    }
+    try {
+      player.setAudioAttributes(
+        AudioAttributes.Builder()
+          .setUsage(AudioAttributes.USAGE_MEDIA)
+          .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+          .build(),
+      )
+      player.setDataSource(context, Uri.parse(uri))
+      if (!player.setPreferredDevice(device)) {
+        finish(IllegalStateException("The selected audio output could not be routed"))
+        return
+      }
+      player.setOnCompletionListener { finish() }
+      player.setOnErrorListener { _, what, extra ->
+        finish(IllegalStateException("MediaPlayer error $what/$extra"))
+        true
+      }
+      player.setOnPreparedListener { it.start() }
+      player.prepareAsync()
+    } catch (error: Throwable) {
+      finish(error)
+    }
+  }
+
+  private fun synthesizeToDevice(
+    context: Context,
+    text: String,
+    language: String,
+    outputDeviceId: String,
+    promise: Promise,
+  ) {
+    val file = File.createTempFile("visp-tts-", ".wav", context.cacheDir)
+    val utteranceId = UUID.randomUUID().toString()
+    lateinit var tts: TextToSpeech
+    var settled = false
+    fun fail(message: String, error: Throwable? = null) {
+      if (settled) return
+      settled = true
+      tts.shutdown()
+      file.delete()
+      promise.reject("tts-failed", message, error)
+    }
+    tts = TextToSpeech(context) { status ->
+      if (status != TextToSpeech.SUCCESS) {
+        fail("Text to speech could not be initialized")
+        return@TextToSpeech
+      }
+      val languageStatus = tts.setLanguage(Locale.forLanguageTag(language))
+      if (
+        languageStatus == TextToSpeech.LANG_MISSING_DATA ||
+        languageStatus == TextToSpeech.LANG_NOT_SUPPORTED
+      ) {
+        fail("The selected language is unavailable")
+        return@TextToSpeech
+      }
+      tts.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+        override fun onStart(id: String?) = Unit
+
+        override fun onDone(id: String?) {
+          if (id != utteranceId || settled) return
+          settled = true
+          tts.shutdown()
+          playAudioFile(
+            context,
+            Uri.fromFile(file).toString(),
+            outputDeviceId,
+            promise,
+          ) { file.delete() }
+        }
+
+        @Deprecated("Deprecated in Java")
+        override fun onError(id: String?) {
+          if (id == utteranceId) fail("Text to speech synthesis failed")
+        }
+
+        override fun onError(id: String?, errorCode: Int) {
+          if (id == utteranceId) fail("Text to speech synthesis failed")
+        }
+      })
+      if (
+        tts.synthesizeToFile(text, Bundle(), file, utteranceId) !=
+          TextToSpeech.SUCCESS
+      ) {
+        fail("Text to speech synthesis could not be queued")
+      }
+    }
+  }
+
+  companion object {
+    private val OUTPUT_DEVICE_TYPES = setOf(
+      AudioDeviceInfo.TYPE_BUILTIN_SPEAKER,
+      AudioDeviceInfo.TYPE_BUILTIN_EARPIECE,
+      AudioDeviceInfo.TYPE_WIRED_HEADSET,
+      AudioDeviceInfo.TYPE_WIRED_HEADPHONES,
+      AudioDeviceInfo.TYPE_USB_DEVICE,
+      AudioDeviceInfo.TYPE_USB_ACCESSORY,
+      AudioDeviceInfo.TYPE_USB_HEADSET,
+      AudioDeviceInfo.TYPE_BLUETOOTH_A2DP,
+      AudioDeviceInfo.TYPE_BLE_HEADSET,
+      AudioDeviceInfo.TYPE_BLE_SPEAKER,
+      AudioDeviceInfo.TYPE_HEARING_AID,
+    )
   }
 }
 
@@ -287,9 +503,14 @@ class VispSrtView(context: Context, appContext: AppContext) :
   }
   private var chatBitmap: Bitmap? = null
   private var chatCorner = "bottom-left"
-  private var chatFilter: ImageObjectFilterRender? = null
+  private var captionsBitmap: Bitmap? = null
+  private var overlayFilter: ImageObjectFilterRender? = null
   private var amplitudeEffect: PeakAmplitudeEffect? = null
   private var lastAudioLevelAt = 0L
+  private val liveCaptions =
+    LiveCaptionsController(context) { text ->
+      applyCaptionsText(text)
+    }
 
   fun prepare(promise: Promise) {
     if (stream != null) {
@@ -356,7 +577,10 @@ class VispSrtView(context: Context, appContext: AppContext) :
                 BondedSrtNative.stop(context)
                 promise.resolve()
               } else {
-                current.startStream("udp://127.0.0.1:$port")
+                current.startStream(
+                  if (bondingMode == "srtla") localSrtUrl(url, port)
+                  else "udp://127.0.0.1:$port",
+                )
                 promise.resolve()
               }
             }
@@ -447,7 +671,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
           if (generation == chatGeneration.get()) {
             chatBitmap = bitmap
             chatCorner = corner.takeIf(::validChatCorner) ?: "bottom-left"
-            applyChatOverlay()
+            applyOverlays()
           }
           promise.resolve()
         }
@@ -460,7 +684,48 @@ class VispSrtView(context: Context, appContext: AppContext) :
   fun clearChatOverlay(promise: Promise) {
     chatGeneration.incrementAndGet()
     chatBitmap = null
-    applyChatOverlay()
+    applyOverlays()
+    promise.resolve()
+  }
+
+  fun updateCaptionsOverlay(text: String, promise: Promise) {
+    chatExecutor.execute {
+      try {
+        applyCaptionsText(text)
+        post { promise.resolve() }
+      } catch (_: Throwable) {
+        post { promise.resolve() }
+      }
+    }
+  }
+
+  fun clearCaptionsOverlay(promise: Promise) {
+    captionsBitmap = null
+    applyOverlays()
+    promise.resolve()
+  }
+
+  private fun applyCaptionsText(text: String) {
+    val trimmed = text.trim()
+    val bitmap = if (trimmed.isEmpty()) null else renderCaptionsOverlay(trimmed)
+    post {
+      captionsBitmap = bitmap
+      applyOverlays()
+    }
+  }
+
+  fun startLiveCaptions(
+    language: String,
+    better: Boolean,
+    wsUrl: String?,
+    promise: Promise,
+  ) {
+    liveCaptions.start(language, better, wsUrl)
+    promise.resolve(true)
+  }
+
+  fun stopLiveCaptions(promise: Promise) {
+    liveCaptions.stop()
     promise.resolve()
   }
 
@@ -485,13 +750,25 @@ class VispSrtView(context: Context, appContext: AppContext) :
           val format = camera.formats.firstOrNull { it.width == width && it.height == height }
             ?: throw IllegalArgumentException()
           if (fps !in format.fps) throw IllegalArgumentException()
+          val nextConfiguration = VideoConfiguration(cameraId, width, height, fps)
+          val nextVideoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
+          val nextBondingMode =
+            bondingMode.takeIf { it == "srtla" || it == "broadcast" || it == "backup" } ?: "off"
+          if (
+            stream != null &&
+            configuration == nextConfiguration &&
+            videoBitrateCeilingBps == nextVideoBitrateCeilingBps
+          ) {
+            this.bondingMode = nextBondingMode
+            promise.resolve()
+            return@withPermissions
+          }
           if (configuration?.cameraId != cameraId) selectedZoom = defaultZoom(camera.zoomLevels)
-          configuration = VideoConfiguration(cameraId, width, height, fps)
-          videoBitrateCeilingBps = maxOf(500, maxVideoBitrateKbps) * 1_000
+          configuration = nextConfiguration
+          videoBitrateCeilingBps = nextVideoBitrateCeilingBps
           targetBitrateBps = videoBitrateCeilingBps
-          this.bondingMode = bondingMode.takeIf { it == "broadcast" || it == "backup" } ?: "off"
-          cleanup()
-          configure(isPortrait())
+          this.bondingMode = nextBondingMode
+          configure(isPortrait(), clearPreview = false)
           promise.resolve()
         } catch (error: Throwable) {
           fail("configuration-unavailable", CONFIGURATION_UNAVAILABLE, promise, error)
@@ -515,8 +792,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
             val id = inputId.toIntOrNull() ?: throw IllegalArgumentException()
             audioInputs().firstOrNull { it.id == id }?.id ?: throw IllegalArgumentException()
           }
-          cleanup()
-          configure(isPortrait())
+          configure(isPortrait(), clearPreview = false)
           promise.resolve()
         } catch (error: Throwable) {
           fail("audio-input-unavailable", AUDIO_INPUT_UNAVAILABLE, promise, error)
@@ -532,7 +808,6 @@ class VispSrtView(context: Context, appContext: AppContext) :
     if (
       current == null ||
       currentStream == null ||
-      state == StreamState.IDLE ||
       state == StreamState.STOPPING ||
       state == StreamState.ERROR
     ) {
@@ -656,6 +931,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     intentionalStop = true
     retryAttempt = 0
     stopStatsLoop()
+    liveCaptions.stop()
     amplitudeEffect?.stop()
     amplitudeEffect = null
     stream?.let { current ->
@@ -664,7 +940,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
     if (bondingMode != "off") BondedSrtNative.stop(context)
     stream = null
-    chatFilter = null
+    overlayFilter = null
     preparedPortrait = null
     keepScreenOn = false
     state = StreamState.IDLE
@@ -765,7 +1041,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
   override fun onAuthSuccess() = Unit
 
-  private fun configure(portrait: Boolean): StreamBase {
+  private fun configure(portrait: Boolean, clearPreview: Boolean = true): StreamBase {
     if (
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA) ||
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
@@ -775,11 +1051,11 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
     intentionalStop = true
     stream?.let { current ->
-      if (current.isOnPreview) current.stopPreview(true)
+      if (current.isOnPreview) current.stopPreview(clearPreview)
       current.release()
     }
     stream = null
-    chatFilter = null
+    overlayFilter = null
     preparedPortrait = null
 
     emit(StreamState.PREPARING)
@@ -797,13 +1073,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
     amplitudeEffect?.stop()
     // Peak amplitude 0-100 per PCM buffer on the audio thread (no interruptible worker).
     val effect =
-      PeakAmplitudeEffect { amplitude ->
-        val now = SystemClock.uptimeMillis()
-        if (now - lastAudioLevelAt >= 150) {
-          lastAudioLevelAt = now
-          onAudioLevel(mapOf("level" to amplitude / 100f))
-        }
-      }
+      PeakAmplitudeEffect(
+        onAmplitude = { amplitude ->
+          val now = SystemClock.uptimeMillis()
+          if (now - lastAudioLevelAt >= 150) {
+            lastAudioLevelAt = now
+            onAudioLevel(mapOf("level" to amplitude / 100f))
+          }
+        },
+        onPcm = { buffer -> liveCaptions.onPcm(buffer) },
+      )
     microphoneSource.setAudioEffect(effect)
     effect.start()
     amplitudeEffect = effect
@@ -860,38 +1139,89 @@ class VispSrtView(context: Context, appContext: AppContext) :
     next.startPreview(preview, true)
     cameraSource.setZoom(selectedZoom)
     applyImageStabilization(cameraSource, imageStabilizationEnabled)
-    applyChatOverlay()
+    applyOverlays()
     emit(StreamState.IDLE)
     return next
   }
 
-  private fun applyChatOverlay() {
+  private fun applyOverlays() {
     val current = stream ?: return
-    val bitmap = chatBitmap
-    if (bitmap == null) {
-      if (chatFilter != null) current.getGlInterface().setFilter(NoFilterRender())
-      chatFilter = null
+    val chat = chatBitmap
+    val captions = captionsBitmap
+    if (chat == null && captions == null) {
+      if (overlayFilter != null) current.getGlInterface().setFilter(NoFilterRender())
+      overlayFilter = null
       return
     }
-    val filter = chatFilter ?: ImageObjectFilterRender().also {
-      chatFilter = it
-      current.getGlInterface().setFilter(it)
-    }
-    filter.setImage(bitmap)
     val portrait = preparedPortrait == true
     val selected = configuration ?: return
-    filter.setDefaultScale(
-      if (portrait) selected.height else selected.width,
-      if (portrait) selected.width else selected.height,
-    )
-    filter.setPosition(
-      when (chatCorner) {
-        "top-left" -> TranslateTo.TOP_LEFT
-        "top-right" -> TranslateTo.TOP_RIGHT
-        "bottom-right" -> TranslateTo.BOTTOM_RIGHT
-        else -> TranslateTo.BOTTOM_LEFT
-      },
-    )
+    val frameWidth = if (portrait) selected.height else selected.width
+    val frameHeight = if (portrait) selected.width else selected.height
+    val composite = Bitmap.createBitmap(frameWidth, frameHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(composite)
+    if (chat != null) {
+      val margin = (minOf(frameWidth, frameHeight) * 0.04f).toInt().coerceAtLeast(24)
+      val left = if (chatCorner.endsWith("right")) frameWidth - chat.width - margin else margin
+      val top = if (chatCorner.startsWith("top")) margin else frameHeight - chat.height - margin
+      canvas.drawBitmap(chat, left.toFloat(), top.toFloat(), null)
+    }
+    if (captions != null) {
+      val margin = (minOf(frameWidth, frameHeight) * 0.05f).toInt().coerceAtLeast(28)
+      val left = ((frameWidth - captions.width) / 2).coerceAtLeast(margin)
+      val top = frameHeight - captions.height - margin
+      canvas.drawBitmap(captions, left.toFloat(), top.toFloat(), null)
+    }
+    val filter = overlayFilter ?: ImageObjectFilterRender().also {
+      overlayFilter = it
+      current.getGlInterface().setFilter(it)
+    }
+    filter.setImage(composite)
+    filter.setDefaultScale(frameWidth, frameHeight)
+    filter.setPosition(TranslateTo.CENTER)
+  }
+
+  private fun renderCaptionsOverlay(text: String): Bitmap? {
+    val maxWidth = 960
+    val horizontalPadding = 28f
+    val verticalPadding = 16f
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.WHITE
+      textSize = 36f
+      typeface = android.graphics.Typeface.create(
+        android.graphics.Typeface.DEFAULT,
+        android.graphics.Typeface.BOLD,
+      )
+    }
+    val clipped = text.take(180)
+    val available = maxWidth - horizontalPadding * 2
+    val lines = mutableListOf<String>()
+    var remaining = clipped
+    while (remaining.isNotEmpty() && lines.size < 3) {
+      var end = remaining.length
+      while (end > 0 && paint.measureText(remaining.substring(0, end)) > available) {
+        end -= 1
+      }
+      if (end <= 0) break
+      val breakAt = remaining.lastIndexOf(' ', end - 1).takeIf { it > 0 } ?: end
+      lines += remaining.substring(0, breakAt).trim()
+      remaining = remaining.substring(breakAt).trimStart()
+    }
+    if (lines.isEmpty()) return null
+    val lineHeight = paint.fontSpacing
+    val textWidth = lines.maxOf { paint.measureText(it) }
+    val width = (textWidth + horizontalPadding * 2).toInt().coerceAtMost(maxWidth)
+    val height = (lineHeight * lines.size + verticalPadding * 2).toInt()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(184, 0, 0, 0) }
+    canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), 16f, 16f, background)
+    var y = verticalPadding - paint.ascent()
+    for (line in lines) {
+      val x = (width - paint.measureText(line)) / 2f
+      canvas.drawText(line, x, y, paint)
+      y += lineHeight
+    }
+    return bitmap
   }
 
   private fun loadChatImage(value: String): Bitmap? {
@@ -929,34 +1259,71 @@ class VispSrtView(context: Context, appContext: AppContext) :
     images: Map<String, Bitmap>,
   ): Bitmap? {
     if (messages.isEmpty()) return null
-    val width = 620
-    val rowHeight = 82
+    val width = 310
     val padding = 12
-    val bitmap = Bitmap.createBitmap(width, rowHeight * messages.size + padding * 2, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
+    val horizontalPadding = 14
+    val rowGap = 6
     val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(174, 0, 0, 0) }
     val senderPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
       color = Color.WHITE
       textSize = 18f
       typeface = android.graphics.Typeface.DEFAULT_BOLD
     }
-    val textPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 17f }
-    messages.forEachIndexed { index, message ->
+    val textPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.WHITE; textSize = 17f }
+    val rows = messages.map { message ->
+      val body = SpannableStringBuilder()
+      fragments(message).take(32).forEach { fragment ->
+        val text = (fragment["text"] as? String ?: "").take(180)
+        val image = (fragment["url"] as? String)?.let(images::get)
+        if (fragment["type"] == "emote" && image != null) {
+          val start = body.length
+          body.append('\uFFFC')
+          val drawable = BitmapDrawable(resources, image).apply { setBounds(0, 0, 30, 30) }
+          body.setSpan(
+            ImageSpan(drawable, DynamicDrawableSpan.ALIGN_BOTTOM),
+            start,
+            body.length,
+            Spanned.SPAN_EXCLUSIVE_EXCLUSIVE,
+          )
+          body.append('\u2009')
+        } else {
+          body.append(text)
+        }
+      }
+      val bodyLayout = StaticLayout.Builder.obtain(
+        body,
+        0,
+        body.length,
+        textPaint,
+        width - horizontalPadding * 2,
+      )
+        .setAlignment(Layout.Alignment.ALIGN_NORMAL)
+        .setIncludePad(false)
+        .build()
+      Triple(message, bodyLayout, maxOf(28, bodyLayout.height) + 48)
+    }
+    val bitmapHeight = padding * 2 + rows.sumOf { it.third } + rowGap * (rows.size - 1)
+    val bitmap = Bitmap.createBitmap(width, bitmapHeight, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    var y = padding
+    rows.forEach { (message, bodyLayout, rowHeight) ->
       val opacity = ((message["opacity"] as? Number)?.toFloat() ?: 1f).coerceIn(0f, 1f)
       val layer = canvas.saveLayerAlpha(0f, 0f, bitmap.width.toFloat(), bitmap.height.toFloat(), (opacity * 255).toInt())
-      val y = padding + index * rowHeight
-      canvas.drawRoundRect(RectF(0f, y.toFloat(), width.toFloat(), (y + rowHeight - 6).toFloat()), 14f, 14f, background)
+      canvas.drawRoundRect(RectF(0f, y.toFloat(), width.toFloat(), (y + rowHeight).toFloat()), 14f, 14f, background)
       val sender = message["sender"] as? Map<*, *>
       senderPaint.color = parseChatColor(sender?.get("color") as? String)
       var senderX = 14f
-      val twitch = message["provider"] == "twitch"
+      val provider = message["provider"] as? String
+      val providerInitial = if (provider == "twitch") "T" else if (provider == "youtube") "Y" else "K"
+      val providerBackground = if (provider == "twitch") "#9146FF" else if (provider == "youtube") "#FF0000" else "#53FC18"
+      val providerForeground = if (provider == "kick") "#071005" else "#FFFFFF"
       drawChatChip(
         canvas,
-        if (twitch) "T" else "K",
+        providerInitial,
         senderX,
         (y + 8).toFloat(),
-        Color.parseColor(if (twitch) "#9146FF" else "#53FC18"),
-        Color.parseColor(if (twitch) "#FFFFFF" else "#071005"),
+        Color.parseColor(providerBackground),
+        Color.parseColor(providerForeground),
       )
       senderX += 24
       badges(message).take(4).forEach { badge ->
@@ -984,24 +1351,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
       val senderName = (sender?.get("name") as? String ?: "viewer").take(64)
       val senderCount = senderPaint.breakText(senderName, true, width - 14f - senderX, null)
       canvas.drawText(senderName.take(senderCount), senderX, (y + 25).toFloat(), senderPaint)
-      var x = 14f
-      val baseline = (y + 63).toFloat()
-      fragments(message).take(32).forEach { fragment ->
-        val text = (fragment["text"] as? String ?: "").take(180)
-        val image = (fragment["url"] as? String)?.let(images::get)
-        if (fragment["type"] == "emote" && image != null) {
-          if (x + 30 > width - 14) return@forEach
-          canvas.drawBitmap(image, null, RectF(x, baseline - 27, x + 30, baseline + 3), null)
-          x += 34
-        } else {
-          val available = width - 14f - x
-          if (available <= 0) return@forEach
-          val count = textPaint.breakText(text, true, available, null)
-          canvas.drawText(text.take(count), x, baseline, textPaint)
-          x += textPaint.measureText(text.take(count))
-        }
-      }
+      canvas.save()
+      canvas.translate(horizontalPadding.toFloat(), (y + 38).toFloat())
+      bodyLayout.draw(canvas)
+      canvas.restore()
       canvas.restoreToCount(layer)
+      y += rowHeight + rowGap
     }
     return bitmap
   }
@@ -1229,8 +1584,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
     val camera = cameras.firstOrNull { it.id == "back" }
       ?: cameras.firstOrNull() ?: throw DeviceUnavailableException()
-    val format = camera.formats.firstOrNull { it.width == 1280 && it.height == 720 }
-      ?: camera.formats.firstOrNull { it.width == 1920 && it.height == 1080 }
+    val format = camera.formats.firstOrNull { it.width == 1920 && it.height == 1080 }
+      ?: camera.formats.firstOrNull { it.width == 1280 && it.height == 720 }
       ?: camera.formats.first()
     return VideoConfiguration(
       cameraId = camera.id,
@@ -1250,12 +1605,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
         uri.port in 1..65_535 &&
         streamId?.startsWith("publish:") == true,
     )
-    return if (bondingMode == "off") {
-      trimmed
-    } else {
-      uri.buildUpon().encodedAuthority("${uri.host}:8891").build().toString()
+    return when (bondingMode) {
+      "srtla" -> uri.buildUpon().encodedAuthority("${uri.host}:5000").build().toString()
+      "broadcast", "backup" ->
+        uri.buildUpon().encodedAuthority("${uri.host}:8891").build().toString()
+      else -> trimmed
     }
   }
+
+  private fun localSrtUrl(value: String, port: Int): String =
+    Uri.parse(value).buildUpon().encodedAuthority("127.0.0.1:$port").build().toString()
 
   private fun isPortrait(): Boolean =
     if (width > 0 && height > 0) height >= width

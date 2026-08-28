@@ -1,4 +1,5 @@
 import type { AppRouter } from "@VISP/api/routers/index";
+import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -15,11 +16,12 @@ import {
 } from "@astryxdesign/core/SegmentedControl";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
 import { ArrowLeftIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
 	downloadSceneCollection,
@@ -37,6 +39,8 @@ import {
 	ADVANCED_SETUP_DEFAULTS,
 	getAdvancedSetupAction,
 } from "@/lib/advanced-setup";
+import { authClient, authRedirectURL } from "@/lib/auth-client";
+import { trackEvent } from "@/lib/analytics";
 import { docs } from "@/lib/docs";
 import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
@@ -44,10 +48,25 @@ import type { ObsPluginRelease } from "@/lib/obs-releases";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/setup")({
-	validateSearch: (search: Record<string, unknown>) => ({
-		lang: search.lang === "fi" ? ("fi" as const) : undefined,
-		redo: search.redo === true || search.redo === "true" || search.redo === "1",
-	}),
+	validateSearch: (search: Record<string, unknown>) => {
+		const direct =
+			search.direct === "twitch" ||
+			search.direct === "kick" ||
+			search.direct === "youtube"
+				? (search.direct as "twitch" | "kick" | "youtube")
+				: undefined;
+		const redoMode =
+			search.redoMode === "additive" || search.redoMode === "wipe"
+				? (search.redoMode as RedoMode)
+				: undefined;
+		return {
+			lang: search.lang === "fi" ? ("fi" as const) : undefined,
+			redo:
+				search.redo === true || search.redo === "true" || search.redo === "1",
+			...(direct ? { direct } : {}),
+			...(redoMode ? { redoMode } : {}),
+		};
+	},
 	beforeLoad: async ({ context, search }) => {
 		const status = await context.queryClient.ensureQueryData(
 			context.trpc.secrets.status.queryOptions(),
@@ -65,30 +84,37 @@ export const Route = createFileRoute("/_auth/setup")({
 
 type Outputs = inferRouterOutputs<AppRouter>;
 type SecretBundle = Outputs["onboarding"]["complete"];
-type SetupUseCase = "phone_to_obs" | "remote_guest" | "multi_cam" | "other";
+type SetupUseCase =
+	| "direct"
+	| "phone_to_obs"
+	| "remote_guest"
+	| "multi_cam"
+	| "other";
 type Publisher = "visp" | "web" | "obs" | "larix" | "moblin" | "other";
-type Destination = "twitch" | "kick" | "other";
+type Destination = "twitch" | "kick" | "youtube" | "other";
 type RedoMode = "additive" | "wipe";
 type WizardStep =
 	| "redo"
-	| "useCase"
-	| "publisher"
 	| "destination"
+	| "publisher"
+	| "authorize"
 	| "credentials"
-	| "test";
+	| "test"
+	| "obs";
 
 type StreamingSoftware = "obs" | "visp" | "larix" | "moblin" | "other";
 
 const QUESTION_STEPS: WizardStep[] = [
-	"useCase",
-	"publisher",
 	"destination",
+	"publisher",
+	"authorize",
 	"credentials",
 	"test",
+	"obs",
 ];
 
 const SEPPO_WELCOME =
-	"Hi, I'm Seppo. Tell me what you want to stream with — phone into OBS, a remote guest, multi-cam — and I'll steer the setup. Prefer the VISP phone app to publish and the VISP OBS plugin on your PC so you can sign in and add feeds without pasting URLs.";
+	"Hi, I'm Seppo. Choose Twitch, Kick, or YouTube for Direct output, then publish with the VISP app or browser. You can add the same relay feed to OBS afterward if you need monitoring, recording, or scenes.";
 
 const USE_CASE_OPTIONS: {
 	value: SetupUseCase;
@@ -176,23 +202,29 @@ const DESTINATION_OPTIONS: {
 	{
 		value: "twitch",
 		title: "Twitch",
-		description: "You go live on Twitch from OBS.",
+		description: "VISP sends your video straight to Twitch.",
 	},
 	{
 		value: "kick",
 		title: "Kick",
-		description: "You go live on Kick from OBS.",
+		description: "VISP sends your video straight to Kick.",
+	},
+	{
+		value: "youtube",
+		title: "YouTube",
+		description:
+			"VISP creates a public YouTube broadcast and sends video to it.",
 	},
 	{
 		value: "other",
 		title: "Somewhere else",
-		description: "YouTube, a custom RTMP destination, or not decided yet.",
+		description: "Use OBS for a custom RTMP destination or another service.",
 	},
 ];
 
 const MANUAL_PUBLISH_STEPS: Record<
 	Exclude<Publisher, "visp" | "web">,
-	{ name: string; primary: "srt" | "rtmp"; steps: string[] }
+	{ name: string; primary: "srt" | "rtmp" | "srtla"; steps: string[] }
 > = {
 	obs: {
 		name: "OBS Studio",
@@ -214,10 +246,11 @@ const MANUAL_PUBLISH_STEPS: Record<
 	},
 	moblin: {
 		name: "Moblin",
-		primary: "srt",
+		primary: "srtla",
 		steps: [
 			"Open Moblin and go to Settings → Streams → Create stream.",
 			"Paste your link as the stream URL and save.",
+			"The link is an SRTLA one, so Moblin can send over Wi-Fi and mobile data at the same time. Turn on the connections you want under Settings → Streams → your stream → SRT(LA).",
 		],
 	},
 	other: {
@@ -239,11 +272,12 @@ const SEPPO_SUGGESTIONS = [
 
 const STEP_LABELS: Record<WizardStep, string> = {
 	redo: "redo",
-	useCase: "use case",
-	publisher: "publisher",
 	destination: "destination",
+	publisher: "publisher",
+	authorize: "authorization",
 	credentials: "stream links",
 	test: "connection test",
+	obs: "optional OBS source",
 };
 
 function optionTitle(
@@ -378,7 +412,15 @@ function ExternalLinkButton({ href, label }: { href: string; label: string }) {
 	);
 }
 
-function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
+function RedoStep({
+	onKeep,
+	onSwitch,
+	onWipe,
+}: {
+	onKeep: () => void;
+	onSwitch: () => void;
+	onWipe: () => void;
+}) {
 	const fi = useLocale() === "fi";
 	return (
 		<VStack gap={4}>
@@ -393,11 +435,21 @@ function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
 			<OptionCard
 				description={
 					fi
-						? "Säilytä yhdistetyt laitteet ja niiden osoitteet. Käyttöönotto päivittää ensisijaisen laitteen tunnukset."
-						: "Keep existing linked devices and their URLs. Setup refreshes credentials for your primary device."
+						? "Säilytä nykyiset laitteet ja vaihda Directiin. Jatkamalla vahvistat, ettei OBS enää julkaise samaan Twitch- tai Kick-kohteeseen."
+						: "Keep current devices and switch to Direct. By continuing, you confirm OBS will stop publishing to the same Direct destination."
 				}
-				title={fi ? "Säilytä nykyiset laitteet" : "Keep existing devices"}
-				onClick={() => onPick("additive")}
+				badge={fi ? "Suositus" : "Recommended"}
+				title={fi ? "Vaihda Directiin" : "Switch to Direct"}
+				onClick={onSwitch}
+			/>
+			<OptionCard
+				description={
+					fi
+						? "Älä muuta laitteita, tunnuksia tai nykyistä OBS-lähetyspolkua."
+						: "Leave devices, credentials, and the current OBS workflow unchanged."
+				}
+				title={fi ? "Jatka OBS:n käyttöä" : "Keep using OBS"}
+				onClick={onKeep}
 			/>
 			<OptionCard
 				description={
@@ -406,7 +458,7 @@ function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
 						: "Revoke every device path and rotate OBS read credentials. Your chosen publisher creates a fresh device when needed."
 				}
 				title={fi ? "Tyhjennä ja aloita alusta" : "Wipe and start over"}
-				onClick={() => onPick("wipe")}
+				onClick={onWipe}
 			/>
 			<Banner
 				description={
@@ -417,59 +469,6 @@ function RedoStep({ onPick }: { onPick: (mode: RedoMode) => void }) {
 				status="warning"
 				title={fi ? "Tyhjentämistä ei voi perua" : "Wipe cannot be undone"}
 			/>
-		</VStack>
-	);
-}
-
-function UseCaseStep({ onPick }: { onPick: (useCase: SetupUseCase) => void }) {
-	const fi = useLocale() === "fi";
-	const options = fi
-		? [
-				{
-					value: "phone_to_obs" as const,
-					title: "Puhelimen kamera OBS:ään",
-					description:
-						"Käytä puhelinta kamerana ja mikrofonina OBS-lähetyskoneella.",
-				},
-				{
-					value: "remote_guest" as const,
-					title: "Ystävä tai toinen tietokone",
-					description: "Tuo etäpuhelimen tai -tietokoneen syöte OBS:ään.",
-				},
-				{
-					value: "multi_cam" as const,
-					title: "Useita puhelimia kameroina",
-					description:
-						"Aloita yhdellä laitteella ja lisää muut myöhemmin hallintapaneelista.",
-				},
-				{
-					value: "other" as const,
-					title: "Keskustele Sepon kanssa",
-					description:
-						"Etkö ole vielä varma? Avaa avustaja ja kuvaile tarpeesi.",
-				},
-			]
-		: USE_CASE_OPTIONS;
-	return (
-		<VStack gap={4}>
-			<StepIntro
-				description={
-					fi
-						? "VISP välittää ensin yhden kameran OBS:ään. Voit lisätä laitteita myöhemmin. Jos jäät jumiin, keskustele Sepon kanssa."
-						: "VISP relays one camera into OBS first. You can add more devices later. Stuck? Pick Talk with Seppo or tap the chat ball."
-				}
-				title={
-					fi ? "Mihin haluat käyttää VISPiä?" : "What do you want VISP for?"
-				}
-			/>
-			{options.map((option) => (
-				<OptionCard
-					key={option.value}
-					description={option.description}
-					title={option.title}
-					onClick={() => onPick(option.value)}
-				/>
-			))}
 		</VStack>
 	);
 }
@@ -537,7 +536,7 @@ function DestinationStep({
 	onBack,
 	onPick,
 }: {
-	onBack: () => void;
+	onBack?: () => void;
 	onPick: (destination: Destination) => void;
 }) {
 	const fi = useLocale() === "fi";
@@ -546,18 +545,22 @@ function DestinationStep({
 				{
 					value: "twitch" as const,
 					title: "Twitch",
-					description: "Aloitat Twitch-lähetyksen OBS:stä.",
+					description: "VISP lähettää Direct-lähdön Twitchiin.",
 				},
 				{
 					value: "kick" as const,
 					title: "Kick",
-					description: "Aloitat Kick-lähetyksen OBS:stä.",
+					description: "VISP lähettää Direct-lähdön Kickiin.",
+				},
+				{
+					value: "youtube" as const,
+					title: "YouTube",
+					description: "VISP luo julkisen YouTube-lähetyksen.",
 				},
 				{
 					value: "other" as const,
 					title: "Muu kohde",
-					description:
-						"YouTube, mukautettu RTMP-kohde tai et ole vielä päättänyt.",
+					description: "Mukautettu RTMP-kohde tai et ole vielä päättänyt.",
 				},
 			]
 		: DESTINATION_OPTIONS;
@@ -566,8 +569,8 @@ function DestinationStep({
 			<StepIntro
 				description={
 					fi
-						? "Valinta vaikuttaa vain ohjeisiin — relay-osoitteesi pysyvät samoina."
-						: "This only shapes guidance — your relay links stay the same either way."
+						? "Twitch, Kick ja YouTube käyttävät suoraa Direct-lähtöä. Muut palvelut määritetään OBS:n kautta."
+						: "Twitch, Kick, and YouTube use Direct output. Other platforms continue through OBS."
 				}
 				title={fi ? "Missä lähetät suorana?" : "Where do you go live?"}
 			/>
@@ -579,7 +582,168 @@ function DestinationStep({
 					onClick={() => onPick(option.value)}
 				/>
 			))}
-			<HStack>
+			{onBack ? (
+				<HStack>
+					<BackButton onBack={onBack} />
+				</HStack>
+			) : null}
+		</VStack>
+	);
+}
+
+function AuthorizeDirectStep({
+	destination,
+	redo,
+	redoMode,
+	onBack,
+	onContinue,
+}: {
+	destination: "twitch" | "kick" | "youtube";
+	redo: boolean;
+	redoMode: RedoMode | null;
+	onBack: () => void;
+	onContinue: () => void;
+}) {
+	const fi = useLocale() === "fi";
+	const trpc = useTRPC();
+	const direct = useQuery(trpc.direct.list.queryOptions());
+	const provider = direct.data?.providers.find(
+		(entry) => entry.provider === destination,
+	);
+	const [authorizing, setAuthorizing] = useState(false);
+	const wasAuthorized = useRef<boolean | undefined>(undefined);
+	const [youtubeTitle, setYoutubeTitle] = useState(
+		direct.data?.youtubeTitle ?? "Live from VISP",
+	);
+	const saveYoutubeTitle = useMutation(
+		trpc.direct.setYoutubeSettings.mutationOptions({
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	useEffect(() => {
+		if (destination === "youtube" && direct.data?.youtubeTitle) {
+			setYoutubeTitle(direct.data.youtubeTitle);
+		}
+	}, [destination, direct.data?.youtubeTitle]);
+
+	useEffect(() => {
+		const authorized = provider?.canReadStreamKey ?? false;
+		if (wasAuthorized.current === false && authorized) {
+			trackEvent("direct_authorized", { provider: destination });
+		}
+		wasAuthorized.current = authorized;
+	}, [destination, provider?.canReadStreamKey]);
+
+	const authorize = async () => {
+		setAuthorizing(true);
+		try {
+			const scopes = linkScopes(
+				destination,
+				provider?.grantedScopes ?? [],
+				PROVIDER_SCOPES[destination].streamKeyRequest,
+			);
+			const query = new URLSearchParams({ direct: destination });
+			if (fi) query.set("lang", "fi");
+			if (redo) query.set("redo", "1");
+			if (redoMode) query.set("redoMode", redoMode);
+			const callbackURL = authRedirectURL(`/setup?${query.toString()}`);
+			const result =
+				destination !== "kick"
+					? await authClient.linkSocial({
+							provider: destination === "youtube" ? "google" : destination,
+							callbackURL,
+							scopes,
+						})
+					: await authClient.oauth2.link({
+							providerId: destination,
+							callbackURL,
+							scopes,
+						});
+			if (result.error) {
+				toast.error(result.error.message ?? "Could not authorize streaming");
+			}
+		} finally {
+			setAuthorizing(false);
+		}
+	};
+
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description={
+					fi
+						? "VISP hakee lähetysavaimesi vasta lähetyksen alkaessa. Avainta ei näytetä sovelluksille eikä tallenneta erillisenä tietona."
+						: "VISP retrieves your stream key only when output starts. It is never shown to an app or stored as a separate value."
+				}
+				title={
+					fi
+						? `Valtuuta ${destination === "twitch" ? "Twitch" : destination === "kick" ? "Kick" : "YouTube"}`
+						: `Authorize ${destination === "twitch" ? "Twitch" : destination === "kick" ? "Kick" : "YouTube"} Direct`
+				}
+			/>
+			{provider?.canReadStreamKey ? (
+				<Banner
+					status="success"
+					title={
+						fi
+							? "Suora lähetys on valtuutettu"
+							: "Direct streaming is authorized"
+					}
+				/>
+			) : (
+				<Banner
+					description={
+						fi
+							? "Jatka palvelun lupasivulle ja hyväksy lähetysavaimen lukuoikeus."
+							: "Continue to the provider consent screen and grant stream-key access."
+					}
+					status="info"
+					title={fi ? "Yksi lupa tarvitaan" : "One permission is required"}
+				/>
+			)}
+			{destination === "youtube" ? (
+				<>
+					<TextInput
+						label={
+							fi ? "YouTube-lähetyksen otsikko" : "YouTube broadcast title"
+						}
+						value={youtubeTitle}
+						onChange={setYoutubeTitle}
+					/>
+					<Banner
+						description={
+							fi
+								? "VISP luo uuden julkisen YouTube-lähetyksen, kun julkaisu alkaa."
+								: "VISP creates a new public YouTube broadcast when publishing starts."
+						}
+						status="warning"
+						title={fi ? "Lähetys on julkinen" : "The broadcast is public"}
+					/>
+				</>
+			) : null}
+			<HStack gap={2} wrap="wrap">
+				{provider?.canReadStreamKey ? (
+					<Button
+						label={fi ? "Jatka" : "Continue"}
+						variant="primary"
+						onClick={() => {
+							if (destination === "youtube") {
+								const title = youtubeTitle.trim();
+								if (!title) return;
+								saveYoutubeTitle.mutate({ title }, { onSuccess: onContinue });
+								return;
+							}
+							onContinue();
+						}}
+					/>
+				) : (
+					<Button
+						isLoading={authorizing}
+						label={fi ? "Valtuuta lähetys" : "Authorize streaming"}
+						variant="primary"
+						onClick={() => void authorize()}
+					/>
+				)}
 				<BackButton onBack={onBack} />
 			</HStack>
 		</VStack>
@@ -587,9 +751,11 @@ function DestinationStep({
 }
 
 function TestStreamStep({
+	destination,
 	onBack,
 	onDone,
 }: {
+	destination: Destination;
 	onBack: () => void;
 	onDone: () => void;
 }) {
@@ -599,17 +765,57 @@ function TestStreamStep({
 	const paths = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5_000 }),
 	);
-	const path = paths.data?.[0];
+	const direct = useQuery(
+		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3_000 }),
+	);
+	const provider = destination === "other" ? null : destination;
+	const directPath = direct.data?.paths.find((entry) =>
+		provider ? entry[provider] : false,
+	);
+	const path = provider
+		? (paths.data?.find((entry) => entry.id === directPath?.id) ??
+			paths.data?.[0])
+		: paths.data?.[0];
 	const live = Boolean(path?.publishing && !path.stale);
 	const unknown = Boolean(path?.stale);
+	const outputState = provider ? directPath?.state[provider] : null;
+	const outputError = provider ? directPath?.error[provider] : null;
+	const ready = provider ? outputState === "live" : live;
+	const firstLiveTracked = useRef(false);
+
+	useEffect(() => {
+		if (!provider || outputState !== "live" || firstLiveTracked.current) return;
+		firstLiveTracked.current = true;
+		trackEvent("first_live", { provider });
+	}, [outputState, provider]);
+	const outputLabel =
+		outputState === "live"
+			? fi
+				? "Alustalähtö on suorana"
+				: "Platform output is live"
+			: outputState === "starting" || outputState === "retrying"
+				? fi
+					? "Alustalähtö käynnistyy"
+					: "Platform output is starting"
+				: outputState === "failed"
+					? fi
+						? "Alustalähtö epäonnistui"
+						: "Platform output failed"
+					: fi
+						? "Odotetaan alustalähtöä"
+						: "Waiting for platform output";
 
 	return (
 		<VStack gap={4}>
 			<StepIntro
 				description={
-					fi
-						? "Aloita julkaisu puhelimesta, selaimesta tai sovelluksesta. Jos asensit VISP OBS -lisäosan, avaa Tools → VISP ja lisää laite kohtaukseen odottaessasi."
-						: "Start publishing from your phone, browser, or app. If you installed the VISP OBS plugin, open Tools → VISP and add the device to your scene while you wait."
+					provider
+						? fi
+							? "Aloita julkaisu. Syötteen pitää yhdistyä VISPiin ja valitun alustan lähdön pitää muuttua suoraksi."
+							: "Start publishing. The feed must connect to VISP and the selected platform output must become live."
+						: fi
+							? "Aloita julkaisu ja varmista, että syöte yhdistyy VISPiin."
+							: "Start publishing and confirm that the feed connects to VISP."
 				}
 				title={t("Test your connection")}
 			/>
@@ -659,7 +865,22 @@ function TestStreamStep({
 					</Text>
 				)}
 			</Card>
-			{live ? (
+			{provider ? (
+				<Card variant="muted">
+					<VStack gap={1}>
+						<Text type="label">
+							{provider === "twitch"
+								? "Twitch"
+								: provider === "kick"
+									? "Kick"
+									: "YouTube"}
+							: {outputLabel}
+						</Text>
+						{outputError ? <Text color="secondary">{outputError}</Text> : null}
+					</VStack>
+				</Card>
+			) : null}
+			{ready ? (
 				<Banner
 					description={
 						fi
@@ -673,8 +894,8 @@ function TestStreamStep({
 				<Banner
 					description={
 						fi
-							? "Voit ohittaa testin ja viimeistellä käyttöönoton — hallintapaneeli näyttää myös suoran tilan."
-							: "You can skip and finish setup anyway — the dashboard shows live status too."
+							? "Voit ohittaa testin, mutta käyttöönotto jää vahvistamattomaksi. Hallintapaneeli näyttää suoran tilan."
+							: "You can skip the test, but setup remains unverified. The dashboard shows the live state."
 					}
 					status="info"
 					title={t("No live feed yet")}
@@ -683,17 +904,100 @@ function TestStreamStep({
 			<HStack gap={2} wrap="wrap">
 				<Button
 					label={
-						live
+						ready
 							? fi
-								? "Siirry hallintapaneeliin"
-								: "Go to my dashboard"
+								? "Jatka"
+								: "Continue"
 							: fi
-								? "Ohita ja siirry hallintapaneeliin"
-								: "Skip and go to dashboard"
+								? "Ohita testi — käyttöönottoa ei vahvisteta"
+								: "Skip test — leave setup unverified"
 					}
 					variant="primary"
 					onClick={onDone}
 				/>
+				<BackButton onBack={onBack} />
+			</HStack>
+		</VStack>
+	);
+}
+
+function OptionalObsStep({
+	obsRelease,
+	onBack,
+	onDone,
+}: {
+	obsRelease: ObsPluginRelease | null;
+	onBack: () => void;
+	onDone: () => void;
+}) {
+	const fi = useLocale() === "fi";
+	const trpc = useTRPC();
+	const [bundle, setBundle] = useState<Outputs["secrets"]["rotate"]>();
+	const rotate = useMutation(
+		trpc.secrets.rotate.mutationOptions({
+			onSuccess: setBundle,
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const readUrl = bundle?.urls.read[0]?.srt as string | undefined;
+
+	return (
+		<VStack gap={4}>
+			<StepIntro
+				description={
+					fi
+						? "Direct on jo ensisijainen lähetyspolkusi. OBS voi lisäksi lukea saman alkuperäisen syötteen valvontaa, tallennusta ja kohtauksia varten."
+						: "Direct is already your primary output. OBS can additionally read the original feed for monitoring, recording, and scenes."
+				}
+				title={fi ? "Lisätäänkö syöte OBS:ään?" : "Add this feed to OBS?"}
+			/>
+			{bundle ? (
+				<VStack gap={3}>
+					<ObsPluginPromo
+						destinationLabel="Direct"
+						downloadHref={fi ? "/download?lang=fi" : "/download"}
+						release={obsRelease}
+					/>
+					{readUrl ? (
+						<RevealedValue
+							docsHref={docs.getStarted}
+							docsLabel="See how to import this into OBS"
+							label="OBS SRT Media Source URL"
+							value={readUrl}
+						/>
+					) : null}
+					{bundle.sceneCollection ? (
+						<Button
+							label={
+								fi ? "Lataa OBS-kohtaustiedosto" : "Download OBS scene file"
+							}
+							onClick={() => downloadSceneCollection(bundle.sceneCollection)}
+						/>
+					) : null}
+				</VStack>
+			) : null}
+			<HStack gap={2} wrap="wrap">
+				{bundle ? (
+					<Button
+						label={fi ? "Valmis" : "Finish"}
+						variant="primary"
+						onClick={onDone}
+					/>
+				) : (
+					<>
+						<Button
+							isLoading={rotate.isPending}
+							label={fi ? "Lisää OBS-lähde" : "Add OBS source"}
+							variant="primary"
+							onClick={() => rotate.mutate({ kind: "read" })}
+						/>
+						<Button
+							label={fi ? "Valmis ilman OBS:ää" : "Finish without OBS"}
+							variant="secondary"
+							onClick={onDone}
+						/>
+					</>
+				)}
 				<BackButton onBack={onBack} />
 			</HStack>
 		</VStack>
@@ -710,7 +1014,11 @@ type WizardActions = {
 };
 
 function SetupWizard() {
-	const { redo } = Route.useSearch();
+	const {
+		direct: authorizedDestination,
+		redo,
+		redoMode: restoredRedoMode,
+	} = Route.useSearch();
 	const locale = useLocale();
 	const fi = locale === "fi";
 	const t = useT();
@@ -719,11 +1027,21 @@ function SetupWizard() {
 	const queryClient = useQueryClient();
 	const navigate = useNavigate();
 	const status = useQuery(trpc.secrets.status.queryOptions());
-	const [step, setStep] = useState<WizardStep>(redo ? "redo" : "useCase");
-	const [redoMode, setRedoMode] = useState<RedoMode | null>(null);
-	const [useCase, setUseCase] = useState<SetupUseCase>("phone_to_obs");
+	const [step, setStep] = useState<WizardStep>(
+		authorizedDestination
+			? "authorize"
+			: redo && !restoredRedoMode
+				? "redo"
+				: "destination",
+	);
+	const [redoMode, setRedoMode] = useState<RedoMode | null>(
+		restoredRedoMode ?? null,
+	);
+	const [useCase, setUseCase] = useState<SetupUseCase>("direct");
 	const [publisher, setPublisher] = useState<Publisher>("visp");
-	const [destination, setDestination] = useState<Destination>("twitch");
+	const [destination, setDestination] = useState<Destination>(
+		authorizedDestination ?? "twitch",
+	);
 	const [bundle, setBundle] = useState<SecretBundle | null>(null);
 	const [pendingCreate, setPendingCreate] = useState(false);
 	const [seppoOpen, setSeppoOpen] = useState(false);
@@ -749,9 +1067,9 @@ function SetupWizard() {
 		completeAdvanced.isPending || enableAdvanced.isPending;
 
 	const resetSimpleSetup = useCallback(() => {
-		setStep(redo ? "redo" : "useCase");
+		setStep(redo ? "redo" : "destination");
 		setRedoMode(null);
-		setUseCase("phone_to_obs");
+		setUseCase("direct");
 		setPublisher("visp");
 		setDestination("twitch");
 		setBundle(null);
@@ -797,18 +1115,18 @@ function SetupWizard() {
 			setSeppoOpen(true);
 			return;
 		}
-		setStep("publisher");
+		setStep("destination");
 	}, []);
 
 	const actions: WizardActions = {
 		setUseCase: pickUseCase,
 		setPublisher: (value) => {
 			setPublisher(value);
-			setStep("destination");
+			setStep(destination === "other" ? "credentials" : "authorize");
 		},
 		setDestination: (value) => {
 			setDestination(value);
-			setStep("credentials");
+			setStep("publisher");
 		},
 		setAdvancedMode: setSetupMode,
 		goToStep,
@@ -902,8 +1220,8 @@ function SetupWizard() {
 						}
 						subtitle={
 							fi
-								? "Käytännön kysymykset, aluksi yksi laite ja sitten lähetysosoitteesi. VISP-mobiilisovellus yhdistyy automaattisesti."
-								: "Real-world questions, one device to start, then your stream links. The VISP mobile app links automatically."
+								? "Valitse kohde ja videolähde. Direct lähettää suoraan Twitchiin, Kickiin tai YouTubeen; OBS on valinnainen lisälähde."
+								: "Choose a destination and video source. Direct streams to Twitch, Kick, or YouTube; OBS is an optional secondary source."
 						}
 						title={t("Let's get you streaming")}
 					/>
@@ -911,29 +1229,47 @@ function SetupWizard() {
 					<VStack gap={4}>
 						{step === "redo" ? (
 							<RedoStep
-								onPick={(mode) => {
-									setRedoMode(mode);
-									setStep("useCase");
+								onKeep={() =>
+									navigate({ to: "/dashboard", search: localeSearch(locale) })
+								}
+								onSwitch={() => {
+									setRedoMode("additive");
+									setStep("destination");
 								}}
-							/>
-						) : null}
-						{step === "useCase" ? <UseCaseStep onPick={pickUseCase} /> : null}
-						{step === "publisher" ? (
-							<PublisherStep
-								onBack={() => setStep("useCase")}
-								onPick={(value) => {
-									setPublisher(value);
+								onWipe={() => {
+									setRedoMode("wipe");
 									setStep("destination");
 								}}
 							/>
 						) : null}
 						{step === "destination" ? (
 							<DestinationStep
-								onBack={() => setStep("publisher")}
+								onBack={redo ? () => setStep("redo") : undefined}
 								onPick={(value) => {
 									setDestination(value);
-									setStep("credentials");
+									setUseCase(value === "other" ? "other" : "direct");
+									setStep("publisher");
 								}}
+							/>
+						) : null}
+						{step === "publisher" ? (
+							<PublisherStep
+								onBack={() => setStep("destination")}
+								onPick={(value) => {
+									setPublisher(value);
+									setStep(
+										destination === "other" ? "credentials" : "authorize",
+									);
+								}}
+							/>
+						) : null}
+						{step === "authorize" && destination !== "other" ? (
+							<AuthorizeDirectStep
+								destination={destination}
+								redo={redo}
+								redoMode={redoMode}
+								onBack={() => setStep("publisher")}
+								onContinue={() => setStep("credentials")}
 							/>
 						) : null}
 						{step === "credentials" ? (
@@ -945,7 +1281,9 @@ function SetupWizard() {
 								publisher={publisher}
 								redoMode={redoMode}
 								useCase={useCase}
-								onBack={() => setStep("destination")}
+								onBack={() =>
+									setStep(destination === "other" ? "publisher" : "authorize")
+								}
 								onBundle={setBundle}
 								onContinueToTest={() => setStep("test")}
 								onPendingCreateHandled={() => setPendingCreate(false)}
@@ -953,7 +1291,22 @@ function SetupWizard() {
 						) : null}
 						{step === "test" ? (
 							<TestStreamStep
+								destination={destination}
 								onBack={() => setStep("credentials")}
+								onDone={() =>
+									destination === "other"
+										? navigate({
+												to: "/dashboard",
+												search: localeSearch(locale),
+											})
+										: setStep("obs")
+								}
+							/>
+						) : null}
+						{step === "obs" ? (
+							<OptionalObsStep
+								obsRelease={obsRelease}
+								onBack={() => setStep("test")}
 								onDone={() =>
 									navigate({ to: "/dashboard", search: localeSearch(locale) })
 								}
@@ -976,15 +1329,15 @@ function SetupWizard() {
 				suggestions={
 					fi
 						? [
-								"Käytä puhelintani OBS-kamerana",
-								"Tuo ystävän syöte lähetykseeni",
+								"Lähetä puhelimestani suoraan Twitchiin",
+								"Lisää Direct-syöte myös OBS:ään",
 								"Millä sovelluksella minun kannattaa julkaista?",
 							]
 						: SEPPO_SUGGESTIONS
 				}
 				welcome={
 					fi
-						? "Hei, olen Seppo. Kerro, mitä haluat lähettää — puhelimen OBS:ään, etävieraan tai monta kameraa — niin ohjaan käyttöönoton."
+						? "Hei, olen Seppo. Valitse Twitch tai Kick Direct-lähdöksi ja julkaise VISP-sovelluksella tai selaimella. Voit lisätä saman syötteen myöhemmin myös OBS:ään."
 						: SEPPO_WELCOME
 				}
 				onOpenChange={setSeppoOpen}
@@ -1033,12 +1386,19 @@ function CredentialsStepWithCreateRef({
 	);
 
 	const createLinks = useCallback(() => {
+		const direct = {
+			twitch: destination === "twitch",
+			kick: destination === "kick",
+			youtube: destination === "youtube",
+		};
 		complete.mutate({
 			software: publisherToSoftware(publisher),
-			useCase,
+			useCase: destination === "other" ? useCase : "direct",
 			destination,
 			advancedMode: false,
-			createDevice: publisher !== "visp",
+			direct,
+			prepareObs: destination === "other",
+			createDevice: publisher !== "visp" && publisher !== "web",
 			...(redoMode ? { redoMode } : {}),
 		});
 	}, [complete, destination, publisher, redoMode, useCase]);
@@ -1069,6 +1429,7 @@ function CredentialsStepWithCreateRef({
 
 	return (
 		<CredentialsPrompt
+			destination={destination}
 			isLoading={complete.isPending}
 			publisher={publisher}
 			redoMode={redoMode}
@@ -1080,6 +1441,7 @@ function CredentialsStepWithCreateRef({
 }
 
 function CredentialsPrompt({
+	destination,
 	isLoading,
 	publisher,
 	redoMode,
@@ -1087,6 +1449,7 @@ function CredentialsPrompt({
 	onBack,
 	onCreate,
 }: {
+	destination: Destination;
 	isLoading: boolean;
 	publisher: Publisher;
 	redoMode: RedoMode | null;
@@ -1099,20 +1462,28 @@ function CredentialsPrompt({
 		<VStack gap={4}>
 			<StepIntro
 				description={
-					publisher === "visp"
+					destination !== "other"
 						? fi
-							? "Mobiilisovellus luo laitteensa automaattisesti. Käyttöönotto valmistelee vain OBS-lukutunnukset."
-							: "The mobile app creates its device automatically. Setup only prepares OBS read credentials."
-						: "One device link for publishing, plus OBS read credentials for your streaming PC."
+							? "Direct lähettää syötteen valitulle alustalle. Voit lisätä OBS:n suoran testin jälkeen."
+							: "Direct sends this source to your chosen platform. You can add OBS after the live test."
+						: publisher === "visp"
+							? fi
+								? "Mobiilisovellus luo laitteensa automaattisesti. Käyttöönotto valmistelee vain OBS-lukutunnukset."
+								: "The mobile app creates its device automatically. Setup only prepares OBS read credentials."
+							: "One device link for publishing, plus OBS read credentials for your streaming PC."
 				}
 				title={
-					publisher === "visp"
+					destination !== "other"
 						? fi
-							? "Valmis valmistelemaan OBS:n"
-							: "Ready to prepare OBS"
-						: fi
-							? "Valmis luomaan lähetysosoitteet"
-							: "Ready to create your stream links"
+							? "Valmis valmistelemaan Direct-lähetys"
+							: "Ready to prepare Direct"
+						: publisher === "visp"
+							? fi
+								? "Valmis valmistelemaan OBS:n"
+								: "Ready to prepare OBS"
+							: fi
+								? "Valmis luomaan lähetysosoitteet"
+								: "Ready to create your stream links"
 				}
 			/>
 			{useCase === "multi_cam" && publisher !== "visp" ? (
@@ -1164,13 +1535,17 @@ function CredentialsPrompt({
 				<Button
 					isLoading={isLoading}
 					label={
-						publisher === "visp"
+						destination !== "other"
 							? fi
-								? "Valmistele OBS-tunnukset"
-								: "Prepare OBS credentials"
-							: fi
-								? "Luo lähetysosoitteeni"
-								: "Create my stream links"
+								? "Valmistele Direct"
+								: "Prepare Direct"
+							: publisher === "visp"
+								? fi
+									? "Valmistele VISP OBS-tunnukset"
+									: "Prepare OBS credentials"
+								: fi
+									? "Luo lähetysosoitteeni"
+									: "Create my stream links"
 					}
 					variant="primary"
 					onClick={onCreate}
@@ -1205,7 +1580,9 @@ function CredentialsReady({
 	const primary =
 		manual?.primary === "rtmp"
 			? (publishUrl?.rtmp ?? "")
-			: (publishUrl?.srt ?? "");
+			: manual?.primary === "srtla"
+				? (publishUrl?.srtla ?? "")
+				: (publishUrl?.srt ?? "");
 	const destinationLabel =
 		destination === "twitch"
 			? "Twitch"
@@ -1225,13 +1602,17 @@ function CredentialsReady({
 				}
 				status="success"
 				title={
-					publisher === "visp"
+					destination !== "other"
 						? fi
-							? "OBS-tunnuksesi ovat valmiit"
-							: "Your OBS credentials are ready"
-						: fi
-							? "Laitteesi osoite on valmis"
-							: "Your device link is ready"
+							? "Direct-lähtösi on valmis"
+							: "Your Direct output is ready"
+						: publisher === "visp"
+							? fi
+								? "OBS-tunnuksesi ovat valmiit"
+								: "Your OBS credentials are ready"
+							: fi
+								? "Laitteesi osoite on valmis"
+								: "Your device link is ready"
 				}
 			/>
 
@@ -1255,25 +1636,25 @@ function CredentialsReady({
 						steps={
 							fi
 								? [
-										"Asenna VISP-beta iOS:lle TestFlightista tai Androidille Play-testauksesta.",
+										"Asenna VISP iOS:lle App Storesta tai Androidille Google Playsta.",
 										"Avaa sovellus ja kirjaudu samalla Twitch- tai Kick-tilillä.",
 										"Salli kamera ja mikrofoni — VISP ottaa laitteen käyttöön ja aloittaa SRT-julkaisun.",
 									]
 								: [
-										"Install the VISP beta for iOS (TestFlight) or Android (Play open testing).",
-										"Open the app and sign in with the same Twitch or Kick account.",
+										"Install VISP for iOS (App Store) or Android (Google Play).",
+										"Open the app and sign in with the same Twitch, Kick, or Google account.",
 										"Allow camera and mic — VISP claims this device and starts publishing over SRT.",
 									]
 						}
 					/>
 					<HStack gap={2} wrap="wrap">
 						<ExternalLinkButton
-							href={legalEntity.iosTestFlightUrl}
-							label={fi ? "Liity TestFlightissa" : "Join on TestFlight"}
+							href={legalEntity.iosAppStoreUrl}
+							label={fi ? "Lataa App Storesta" : "Download on the App Store"}
 						/>
 						<ExternalLinkButton
-							href={legalEntity.androidPlayTestingUrl}
-							label={fi ? "Liity Google Playssa" : "Join on Google Play"}
+							href={legalEntity.androidPlayStoreUrl}
+							label={fi ? "Asenna Google Playsta" : "Get it on Google Play"}
 						/>
 						<ExternalLinkButton
 							href={fi ? "/download?lang=fi" : "/download"}
@@ -1309,7 +1690,7 @@ function CredentialsReady({
 									]
 								: [
 										"Open the VISP browser publisher.",
-										"Sign in with the same Twitch or Kick account.",
+										"Sign in with the same Twitch, Kick, or Google account.",
 										"Allow camera and mic, then start publishing.",
 									]
 						}
@@ -1345,102 +1726,104 @@ function CredentialsReady({
 				</VStack>
 			) : null}
 
-			<VStack gap={3}>
-				<StepIntro
-					description={
-						fi
-							? `Asenna VISP OBS -lisäosa, tuo syötteet OBS:ään ja aloita lähetys ${destinationLabel} ilman medialähdeosoitteiden käsin liittämistä.`
-							: `Install the VISP OBS plugin to pull feeds into OBS and go live to ${destinationLabel} without hand-pasting Media Source URLs.`
-					}
-					docsHref={docs.obsRemoteControl}
-					docsLabel={
-						fi
-							? "Katso OBS-lisäosan yhdistämisohje"
-							: "See how to pair the OBS plugin"
-					}
-					title={t("On your streaming PC (OBS)")}
-				/>
-				<ObsPluginPromo
-					destinationLabel={destinationLabel}
-					downloadHref={fi ? "/download?lang=fi" : "/download"}
-					release={obsRelease}
-				/>
-				<Collapsible
-					defaultIsOpen={false}
-					trigger={
-						<Text color="secondary" type="supporting">
-							{fi
-								? "Etkö halua asentaa lisäosaa? OBS:n manuaalinen käyttöönotto"
-								: "Prefer not to install the plugin? Manual OBS setup"}
-						</Text>
-					}
-				>
-					<Grid columns={{ minWidth: 280, repeat: "fit" }} gap={3}>
-						<Card>
-							<VStack gap={3}>
-								<Heading level={3}>{t("By hand")}</Heading>
-								<NumberedSteps
-									steps={
-										fi
-											? [
-													"Lisää OBS:ssä Media Source -lähde.",
-													"Poista Local File -valinta käytöstä.",
-													"Liitä alla oleva osoite Input-kenttään.",
-												]
-											: [
-													"In OBS, add a Media Source.",
-													"Turn off the “Local File” checkbox.",
-													'Paste the URL below into the "Input" field.',
-												]
-									}
-								/>
-								{readUrl ? (
-									<RevealedValue
-										docsHref={docs.getStarted}
-										docsLabel="See how to import this into OBS"
-										label={t("Media source URL")}
-										value={readUrl.srt}
-									/>
-								) : null}
-							</VStack>
-						</Card>
-
-						{bundle.sceneCollection ? (
+			{destination === "other" ? (
+				<VStack gap={3}>
+					<StepIntro
+						description={
+							fi
+								? `Asenna VISP OBS -lisäosa, tuo syötteet OBS:ään ja aloita lähetys ${destinationLabel} ilman medialähdeosoitteiden käsin liittämistä.`
+								: `Install the VISP OBS plugin to pull feeds into OBS and go live to ${destinationLabel} without hand-pasting Media Source URLs.`
+						}
+						docsHref={docs.obsRemoteControl}
+						docsLabel={
+							fi
+								? "Katso OBS-lisäosan yhdistämisohje"
+								: "See how to pair the OBS plugin"
+						}
+						title={t("On your streaming PC (OBS)")}
+					/>
+					<ObsPluginPromo
+						destinationLabel={destinationLabel}
+						downloadHref={fi ? "/download?lang=fi" : "/download"}
+						release={obsRelease}
+					/>
+					<Collapsible
+						defaultIsOpen={false}
+						trigger={
+							<Text color="secondary" type="supporting">
+								{fi
+									? "Etkö halua asentaa lisäosaa? OBS:n manuaalinen käyttöönotto"
+									: "Prefer not to install the plugin? Manual OBS setup"}
+							</Text>
+						}
+					>
+						<Grid columns={{ minWidth: 280, repeat: "fit" }} gap={3}>
 							<Card>
 								<VStack gap={3}>
-									<Heading level={3}>{t("Download the scene file")}</Heading>
+									<Heading level={3}>{t("By hand")}</Heading>
 									<NumberedSteps
 										steps={
 											fi
 												? [
-														"Lataa alla oleva tiedosto.",
-														"Avaa OBS:ssä Scene Collection → Import ja valitse ladattu tiedosto.",
-														"Laitteesi näkyy valmiina kohtauksena.",
+														"Lisää OBS:ssä Media Source -lähde.",
+														"Poista Local File -valinta käytöstä.",
+														"Liitä alla oleva osoite Input-kenttään.",
 													]
 												: [
-														"Download the file below.",
-														"In OBS, open Scene Collection → Import and pick the downloaded file.",
-														"Your device shows up as a ready-made scene.",
+														"In OBS, add a Media Source.",
+														"Turn off the “Local File” checkbox.",
+														'Paste the URL below into the "Input" field.',
 													]
 										}
 									/>
-									<HStack>
-										<Button
-											icon={
-												<Icon color="inherit" icon={DownloadIcon} size="sm" />
-											}
-											label={t("Download OBS scene file")}
-											onClick={() =>
-												downloadSceneCollection(bundle.sceneCollection)
-											}
+									{readUrl ? (
+										<RevealedValue
+											docsHref={docs.getStarted}
+											docsLabel="See how to import this into OBS"
+											label={t("Media source URL")}
+											value={readUrl.srt}
 										/>
-									</HStack>
+									) : null}
 								</VStack>
 							</Card>
-						) : null}
-					</Grid>
-				</Collapsible>
-			</VStack>
+
+							{bundle.sceneCollection ? (
+								<Card>
+									<VStack gap={3}>
+										<Heading level={3}>{t("Download the scene file")}</Heading>
+										<NumberedSteps
+											steps={
+												fi
+													? [
+															"Lataa alla oleva tiedosto.",
+															"Avaa OBS:ssä Scene Collection → Import ja valitse ladattu tiedosto.",
+															"Laitteesi näkyy valmiina kohtauksena.",
+														]
+													: [
+															"Download the file below.",
+															"In OBS, open Scene Collection → Import and pick the downloaded file.",
+															"Your device shows up as a ready-made scene.",
+														]
+											}
+										/>
+										<HStack>
+											<Button
+												icon={
+													<Icon color="inherit" icon={DownloadIcon} size="sm" />
+												}
+												label={t("Download OBS scene file")}
+												onClick={() =>
+													downloadSceneCollection(bundle.sceneCollection)
+												}
+											/>
+										</HStack>
+									</VStack>
+								</Card>
+							) : null}
+						</Grid>
+					</Collapsible>
+				</VStack>
+			) : null}
 
 			<HStack gap={2} wrap="wrap">
 				<Button

@@ -1,0 +1,168 @@
+---
+title: "Streamable.run vs VISP for IRL Streaming"
+description: "Compare Streamable.run cloud OBS and bonding with VISP's free phone-to-platform relay, including cost, production features, and network tradeoffs."
+publishedAt: 2026-08-09
+coverAlt: "Side-by-side signal paths for Streamable.run cloud OBS and the VISP relay"
+---
+
+Streamable.run and VISP can both remove the requirement to keep a production
+computer running at home, but they do it in different ways. Streamable.run sells
+a managed IRL production service built around cloud OBS and resilient ingest.
+VISP provides a publishing app and relay that can send a phone feed directly to
+Twitch, Kick, or YouTube, with your own OBS remaining optional.
+
+The choice is not “which service has more features?” Streamable.run has the
+larger production package. The useful question is whether your show needs that
+package or only needs a reliable path from a camera to a platform.
+
+## The short comparison
+
+| | VISP | Streamable.run |
+| --- | --- | --- |
+| Price | Free during beta | Paid monthly plans |
+| Home computer | Optional | Not required |
+| Cloud OBS | No | Yes |
+| Phone publisher | iOS, Android, and browser included | Use a compatible encoder |
+| Scenes and overlays | Use your own OBS | Included in cloud OBS |
+| True cellular bonding | SRTLA ingest accepted; not in the VISP app, which duplicates packets | Yes, with supported ingest workflows |
+| Direct platform output | Relay encodes per destination | Cloud production sends the program output |
+| Source | GPL-2.0, self-hostable | Hosted service |
+
+Check current vendor pricing and plan limits before purchasing. Features and
+capacity can change, while the architectural difference above is the durable
+part of the comparison.
+
+## What Streamable.run gives you
+
+Cloud OBS is a remote production computer. Your field encoder sends video to the
+service, OBS composes it with scenes, browser sources, alerts, and overlays, and
+the finished program goes to the streaming platform. A moderator can control
+the show without being physically near you or your home computer.
+
+That is valuable for a produced IRL channel. A remote operator can switch to a
+BRB scene when coverage disappears, manage sponsor graphics, bring in another
+source, and monitor the output. The monthly bill replaces a computer, its power
+and internet connection, and some operational work.
+
+Streamable.run also targets creators who need resilient multi-network ingest.
+If your route crosses areas where no single carrier can sustain the stream,
+bonding multiple connections can be the deciding feature. Two weak links can be
+used together instead of merely keeping an identical copy on each one.
+
+## What VISP gives you
+
+VISP starts with a smaller job. Its iOS, Android, or browser publisher sends a
+contribution feed to a relay. Direct can encode that feed for an authorized
+Twitch, Kick, or YouTube destination. The platform credential stays on the
+server rather than being copied onto the phone.
+
+No home computer or cloud OBS is required for that path. For a walk-and-talk,
+ride, event visit, or other one-camera stream, that may be the entire required
+system. It is free during beta.
+
+If a session needs production, your own OBS can read the same contribution feed
+as a media source. That lets you add scenes and recording when they matter while
+keeping simple sessions simple. The setup is described in the
+[phone as a remote camera guide](/blog/use-phone-as-remote-camera-obs).
+
+## Cloud OBS versus a direct relay
+
+The difference is easiest to see as two paths:
+
+- Streamable.run: field encoder → resilient ingest → cloud OBS → platform.
+- VISP Direct: phone or browser → relay encode → platform.
+
+Every component can add capability and can also fail. Cloud OBS is justified
+when its compositor, remote controls, or managed environment are used. If the
+program is just the camera feed, a compositor adds cost and another operational
+layer without changing the picture.
+
+VISP deliberately does not reproduce a complete hosted OBS. It has no cloud
+scene collection, plugin ecosystem, or browser-source canvas. Use Streamable.run
+or another cloud OBS service when those are requirements rather than trying to
+turn a relay into a production suite.
+
+## Bonding versus packet duplication
+
+This distinction should decide the purchase for many mobile streamers.
+
+Bonding coordinates multiple internet connections so their capacity and
+availability contribute to the outgoing feed. It can keep a high-bitrate stream
+moving where one carrier alone is insufficient. It generally needs a compatible
+encoder and a receiving service.
+
+VISP's native app can duplicate packets over Wi-Fi and cellular. Both paths carry
+the same data, so losing one may not interrupt delivery. The stream must still
+fit through either path independently. Two 2 Mbps links do not become a 4 Mbps
+link. See the [Wi-Fi and cellular bonding guide](/blog/bond-cellular-wifi-visp-speedify)
+for a fuller explanation.
+
+There is a third option that is easy to miss. Every VISP relay accepts SRTLA on
+UDP 5000, so a BELABOX box or Moblin can aggregate several links and publish the
+result into VISP. The bonding happens in that encoder rather than in the VISP
+app, which means real aggregation is available today if you are willing to carry
+a second device. Setup is in the
+[broadcaster setup docs](https://docs.visp-stream.com/docs/broadcaster-setup).
+
+Choose the paid bonding workflow when tests on the real route prove that no
+single carrier can sustain the required bitrate and carrying a separate encoder
+is not acceptable. Do not substitute a lower-cost feature with a similar label;
+the network behavior is different.
+
+## Compare the real monthly cost
+
+A hosted service price should be compared with the system it replaces, not only
+with another subscription. Include a cloud or home production computer, relay
+capacity, operator access, support, and any required encoder or cellular plans.
+
+VISP is the lower-cost path when you already own the phone, do not require cloud
+production, and can use one adequate network at a time. Streamable.run can be
+the lower-effort path when assembling and maintaining cloud OBS yourself would
+consume paid operator time.
+
+Also count the cost of failure. A full-time creator may reasonably pay for a
+managed workflow, bonding, and support because one lost sponsored stream costs
+more than the monthly plan. A new creator testing a format should not accept the
+same fixed cost before knowing whether the format works.
+
+## Who should choose Streamable.run
+
+It is the stronger fit when:
+
+- A remote producer needs to switch scenes during the broadcast.
+- Overlays, alerts, and holding screens are part of every show.
+- True multi-connection bonding is required on the routes you use.
+- You prefer a managed production environment to maintaining your own OBS host.
+- Stream downtime has a clear business cost.
+
+Those are substantial needs, not luxuries. Paying for the service is simpler
+than recreating its combined production and networking features from unrelated
+pieces.
+
+## Who should choose VISP
+
+Start with VISP when:
+
+- The phone camera is the program and you want it sent directly to a platform.
+- You want to test IRL streaming without a large monthly commitment.
+- You sometimes use OBS but do not need it running for every session.
+- One cellular or Wi-Fi connection can sustain a sensibly chosen bitrate.
+- Keeping the platform stream key off the publishing device matters.
+
+Run a real route test before deciding. Tune bitrate using the
+[IRL bitrate guide](/blog/best-bitrate-irl-streaming-phone-obs), note where the
+link fails, and decide whether the missing capability is production, bonding,
+or neither.
+
+## A practical migration path
+
+The low-risk approach is to begin with the smaller system. Authorize a
+destination, publish from the phone, and complete several representative
+streams. Add your own OBS for a produced session. If remote scene control or
+network conditions remain unsolved, evaluate a cloud OBS and bonding plan with
+specific evidence from those tests.
+
+This is not a permanent commitment. Streamable.run is the better tool when you
+need a managed remote studio; VISP is the cheaper tool when you need transport
+and delivery. Paying for the former makes sense when the studio is doing real
+work. When it is not, the shorter signal path wins.
