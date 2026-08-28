@@ -32,8 +32,11 @@ Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,
 native web app, OBS Remote web app, and documentation; and attaches the OBS
-packages to the same GitHub Release. Native EAS submission remains disabled
-until the commented release job is configured and enabled.
+packages to the same GitHub Release. Mobile builds and store submissions run
+separately: `.github/workflows/mobile.yml` builds and submits whichever of the
+two mobile apps changed on every push to `main` touching `apps/native` or
+`apps/obs-remote`. The commented release job remains available for
+tag-driven mobile submissions.
 
 ## One-time app-server setup
 

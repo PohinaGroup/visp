@@ -32,6 +32,9 @@
 		"production": {
 			"android": {
 				"track": "production"
+			},
+			"ios": {
+				"groups": ["VISP Internal"]
 			}
 		}
 	}
