@@ -65,8 +65,9 @@ describe("mapKickProfileToAuthUser", () => {
 describe("fetchKickAuthUser", () => {
 	test("returns null and does not throw when Kick responds non-OK", async () => {
 		expect(
-			await fetchKickAuthUser("token", async () =>
-				new Response("unauthorized", { status: 401 }),
+			await fetchKickAuthUser(
+				"token",
+				async () => new Response("unauthorized", { status: 401 }),
 			),
 		).toBeNull();
 	});

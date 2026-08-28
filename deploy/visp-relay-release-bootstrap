@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly repo=/opt/visp
+readonly helper=/usr/local/libexec/visp-relay-release
+
+fail() {
+	echo "visp-relay-release: $*" >&2
+	exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ $# -ge 3 ]] || fail "usage: visp-relay-release <vX.Y.Z> <40-character-commit-sha> <component>..."
+
+readonly tag=$1
+readonly expected_sha=$2
+shift 2
+
+[[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid release tag: $tag"
+[[ $expected_sha =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
+git -C "$repo" rev-parse --is-inside-work-tree >/dev/null 2>&1 ||
+	fail "$repo is not a Git repository"
+
+exec 9>/run/lock/visp-relay-release.lock
+flock -w 1800 9 || fail "another relay release is still running"
+
+if ! git -C "$repo" diff --quiet ||
+	! git -C "$repo" diff --cached --quiet; then
+	fail "$repo has tracked changes"
+fi
+
+git -C "$repo" fetch --force --prune origin \
+	"refs/tags/$tag:refs/tags/$tag"
+actual_sha=$(git -C "$repo" rev-parse "$tag^{commit}")
+readonly actual_sha
+[[ $actual_sha == "$expected_sha" ]] ||
+	fail "$tag resolves to $actual_sha, expected $expected_sha"
+
+git -C "$repo" checkout --detach "$expected_sha"
+if ! git -C "$repo" diff --quiet ||
+	! git -C "$repo" diff --cached --quiet; then
+	fail "$repo checkout left tracked changes; repair its ownership and permissions"
+fi
+
+install -D -m 0755 "$repo/deploy/visp-relay-release" "$helper"
+exec "$helper" production "$@"

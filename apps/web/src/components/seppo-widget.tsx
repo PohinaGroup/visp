@@ -24,7 +24,6 @@ import { IconButton } from "@astryxdesign/core/IconButton";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Text } from "@astryxdesign/core/Text";
-import { MeterMark } from "@/components/meter-mark";
 import {
 	DefaultChatTransport,
 	lastAssistantMessageIsCompleteWithToolCalls,
@@ -40,6 +39,7 @@ import {
 } from "lucide-react";
 import { type SyntheticEvent, useEffect, useRef, useState } from "react";
 import { Streamdown } from "streamdown";
+import { MeterMark } from "@/components/meter-mark";
 
 export type SeppoContext = "landing" | "setup" | "dashboard";
 

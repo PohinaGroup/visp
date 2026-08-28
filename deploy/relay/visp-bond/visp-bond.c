@@ -2,7 +2,6 @@
 
 #include <arpa/inet.h>
 #include <pthread.h>
-#include <signal.h>
 #include <stdatomic.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -10,8 +9,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
-
 #include <srt/srt.h>
 
 enum { PAYLOAD_SIZE = 1316, STREAM_ID_SIZE = 512 };
@@ -21,7 +18,6 @@ typedef struct {
   char client[INET_ADDRSTRLEN];
 } session_args;
 
-static atomic_bool running = true;
 static atomic_int sessions = 0;
 static int max_groups = 64;
 static int max_links = 2;
@@ -38,11 +34,6 @@ static int env_int(const char *name, int fallback, int minimum, int maximum) {
     exit(2);
   }
   return (int)parsed;
-}
-
-static void stop_service(int signal_number) {
-  (void)signal_number;
-  running = false;
 }
 
 static SRTSOCKET connect_mediamtx(const char *stream_id) {
@@ -167,7 +158,7 @@ static void *serve_session(void *opaque) {
 
   char buffer[PAYLOAD_SIZE];
   time_t next_log = time(NULL) + 10;
-  while (running) {
+  for (;;) {
     const int size = srt_recvmsg(group, buffer, sizeof(buffer));
     if (size <= 0 || srt_sendmsg(output, buffer, size, -1, 0) == SRT_ERROR) {
       break;
@@ -194,8 +185,6 @@ int main(void) {
   max_groups = env_int("VISP_BOND_MAX_GROUPS", 64, 1, 10000);
   max_links = env_int("VISP_BOND_MAX_LINKS", 2, 1, 8);
   idle_timeout_ms = env_int("VISP_BOND_IDLE_TIMEOUT_MS", 15000, 1000, 3600000);
-  signal(SIGINT, stop_service);
-  signal(SIGTERM, stop_service);
   srt_startup();
 
   SRTSOCKET listener = srt_create_socket();
@@ -228,14 +217,13 @@ int main(void) {
           "idle_timeout_ms=%d\n",
           max_groups, max_links, idle_timeout_ms);
 
-  while (running) {
+  for (;;) {
     struct sockaddr_in peer = {0};
     int peer_size = sizeof(peer);
     SRTSOCKET group =
         srt_accept(listener, (struct sockaddr *)&peer, &peer_size);
     if (group == SRT_INVALID_SOCK) {
-      if (running)
-        fprintf(stderr, "Accept failed: %s\n", srt_getlasterror_str());
+      fprintf(stderr, "Accept failed: %s\n", srt_getlasterror_str());
       continue;
     }
     if (sessions >= max_groups) {
@@ -261,9 +249,4 @@ int main(void) {
     pthread_detach(thread);
   }
 
-  srt_close(listener);
-  while (sessions > 0)
-    sleep(1);
-  srt_cleanup();
-  return 0;
 }

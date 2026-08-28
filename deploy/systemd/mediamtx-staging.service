@@ -2,6 +2,7 @@
 Description=MediaMTX relay (staging)
 After=network-online.target
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -9,7 +10,6 @@ EnvironmentFile=/etc/visp-staging/relay.env
 ExecStart=/usr/local/bin/mediamtx /etc/mediamtx/mediamtx-staging.yml
 Restart=always
 RestartSec=2
-StartLimitIntervalSec=0
 LimitNOFILE=1048576
 # Separate runtime directory from the production relay unit so forwarder
 # locks, publisher markers, and snapshot files never collide. visp-snapshot

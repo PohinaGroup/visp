@@ -1,2140 +1,2023 @@
 {
-  "id": "6b45e9c8-e32a-4012-b60d-983480cfd5b0",
-  "prevId": "d68361b3-16f7-4e8a-9a2f-1783a840f874",
-  "version": "7",
-  "dialect": "postgresql",
-  "tables": {
-    "public.account": {
-      "name": "account",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "account_id": {
-          "name": "account_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider_id": {
-          "name": "provider_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "access_token": {
-          "name": "access_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "refresh_token": {
-          "name": "refresh_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "id_token": {
-          "name": "id_token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "access_token_expires_at": {
-          "name": "access_token_expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "refresh_token_expires_at": {
-          "name": "refresh_token_expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "password": {
-          "name": "password",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "account_userId_idx": {
-          "name": "account_userId_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "account_user_id_user_id_fk": {
-          "name": "account_user_id_user_id_fk",
-          "tableFrom": "account",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.device_code": {
-      "name": "device_code",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "device_code": {
-          "name": "device_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_code": {
-          "name": "user_code",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "status": {
-          "name": "status",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "last_polled_at": {
-          "name": "last_polled_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "polling_interval": {
-          "name": "polling_interval",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "client_id": {
-          "name": "client_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "scope": {
-          "name": "scope",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "device_code_user_id_idx": {
-          "name": "device_code_user_id_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "device_code_expires_at_idx": {
-          "name": "device_code_expires_at_idx",
-          "columns": [
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "device_code_user_id_user_id_fk": {
-          "name": "device_code_user_id_user_id_fk",
-          "tableFrom": "device_code",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "device_code_device_code_unique": {
-          "name": "device_code_device_code_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "device_code"
-          ]
-        },
-        "device_code_user_code_unique": {
-          "name": "device_code_user_code_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_code"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.session": {
-      "name": "session",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "token": {
-          "name": "token",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ip_address": {
-          "name": "ip_address",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_agent": {
-          "name": "user_agent",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "impersonated_by": {
-          "name": "impersonated_by",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "session_userId_idx": {
-          "name": "session_userId_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "session_user_id_user_id_fk": {
-          "name": "session_user_id_user_id_fk",
-          "tableFrom": "session",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "session_token_unique": {
-          "name": "session_token_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.user": {
-      "name": "user",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email": {
-          "name": "email",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "email_verified": {
-          "name": "email_verified",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "image": {
-          "name": "image",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'user'"
-        },
-        "banned": {
-          "name": "banned",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "ban_reason": {
-          "name": "ban_reason",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "ban_expires": {
-          "name": "ban_expires",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "user_email_unique": {
-          "name": "user_email_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.verification": {
-      "name": "verification",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "identifier": {
-          "name": "identifier",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "value": {
-          "name": "value",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "verification_identifier_idx": {
-          "name": "verification_identifier_idx",
-          "columns": [
-            {
-              "expression": "identifier",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.chat_bot": {
-      "name": "chat_bot",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "commands_enabled": {
-          "name": "commands_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "prefix": {
-          "name": "prefix",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'!'"
-        },
-        "post_twitch": {
-          "name": "post_twitch",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "post_kick": {
-          "name": "post_kick",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "post_youtube": {
-          "name": "post_youtube",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "alert_live": {
-          "name": "alert_live",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "alert_brb": {
-          "name": "alert_brb",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "alert_back": {
-          "name": "alert_back",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "alert_offline": {
-          "name": "alert_offline",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "live_message": {
-          "name": "live_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "brb_message": {
-          "name": "brb_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "back_message": {
-          "name": "back_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "offline_message": {
-          "name": "offline_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "chat_bot_user_id_app_user_id_fk": {
-          "name": "chat_bot_user_id_app_user_id_fk",
-          "tableFrom": "chat_bot",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "chat_bot_prefix_length": {
-          "name": "chat_bot_prefix_length",
-          "value": "char_length(\"chat_bot\".\"prefix\") between 1 and 3"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.chat_bot_alert": {
-      "name": "chat_bot_alert",
-      "schema": "",
-      "columns": {
-        "path_id": {
-          "name": "path_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "event": {
-          "name": "event",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "sent_at": {
-          "name": "sent_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "chat_bot_alert_path_id_path_id_fk": {
-          "name": "chat_bot_alert_path_id_path_id_fk",
-          "tableFrom": "chat_bot_alert",
-          "tableTo": "path",
-          "columnsFrom": [
-            "path_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "chat_bot_alert_path_id_event_pk": {
-          "name": "chat_bot_alert_path_id_event_pk",
-          "columns": [
-            "path_id",
-            "event"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "chat_bot_alert_event": {
-          "name": "chat_bot_alert_event",
-          "value": "\"chat_bot_alert\".\"event\" in ('live', 'brb', 'back', 'offline')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.chat_bot_command": {
-      "name": "chat_bot_command",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "bigserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "response": {
-          "name": "response",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "mod_only": {
-          "name": "mod_only",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "cooldown_seconds": {
-          "name": "cooldown_seconds",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 10
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "chat_bot_command_user_id_app_user_id_fk": {
-          "name": "chat_bot_command_user_id_app_user_id_fk",
-          "tableFrom": "chat_bot_command",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "chat_bot_command_user_name_unique": {
-          "name": "chat_bot_command_user_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "chat_bot_command_name": {
-          "name": "chat_bot_command_name",
-          "value": "\"chat_bot_command\".\"name\" ~ '^[a-z0-9_-]{1,24}$'"
-        },
-        "chat_bot_command_response_length": {
-          "name": "chat_bot_command_response_length",
-          "value": "char_length(\"chat_bot_command\".\"response\") between 1 and 200"
-        },
-        "chat_bot_command_cooldown_range": {
-          "name": "chat_bot_command_cooldown_range",
-          "value": "\"chat_bot_command\".\"cooldown_seconds\" between 0 and 3600"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.chat_connection": {
-      "name": "chat_connection",
-      "schema": "",
-      "columns": {
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "provider": {
-          "name": "provider",
-          "type": "chat_provider",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kick_subscription_id": {
-          "name": "kick_subscription_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "chat_connection_user_id_user_id_fk": {
-          "name": "chat_connection_user_id_user_id_fk",
-          "tableFrom": "chat_connection",
-          "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "chat_connection_user_id_provider_pk": {
-          "name": "chat_connection_user_id_provider_pk",
-          "columns": [
-            "user_id",
-            "provider"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.app_user": {
-      "name": "app_user",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "text",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "handle": {
-          "name": "handle",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "publish_secret_hash": {
-          "name": "publish_secret_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "read_secret_hash": {
-          "name": "read_secret_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "read_secret_encrypted": {
-          "name": "read_secret_encrypted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "secrets_rotated_at": {
-          "name": "secrets_rotated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "device_count": {
-          "name": "device_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "streaming_software": {
-          "name": "streaming_software",
-          "type": "streaming_software",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "setup_use_case": {
-          "name": "setup_use_case",
-          "type": "setup_use_case",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "stream_destination": {
-          "name": "stream_destination",
-          "type": "stream_destination",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "advanced_mode": {
-          "name": "advanced_mode",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_control_token_id": {
-          "name": "obs_control_token_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "obs_control_token_hash": {
-          "name": "obs_control_token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "chat_overlay_token_id": {
-          "name": "chat_overlay_token_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "chat_overlay_token_hash": {
-          "name": "chat_overlay_token_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "obs_desired_streaming": {
-          "name": "obs_desired_streaming",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_streaming": {
-          "name": "obs_streaming",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_scenes": {
-          "name": "obs_scenes",
-          "type": "text[]",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "ARRAY[]::text[]"
-        },
-        "obs_current_scene": {
-          "name": "obs_current_scene",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "obs_desired_scene": {
-          "name": "obs_desired_scene",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "obs_command_version": {
-          "name": "obs_command_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "obs_applied_version": {
-          "name": "obs_applied_version",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "obs_desired_recording": {
-          "name": "obs_desired_recording",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_recording": {
-          "name": "obs_recording",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_desired_virtual_cam": {
-          "name": "obs_desired_virtual_cam",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_virtual_cam": {
-          "name": "obs_virtual_cam",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_desired_replay_buffer": {
-          "name": "obs_desired_replay_buffer",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_replay_buffer": {
-          "name": "obs_replay_buffer",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_desired_record_paused": {
-          "name": "obs_desired_record_paused",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_record_paused": {
-          "name": "obs_record_paused",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "obs_last_seen_at": {
-          "name": "obs_last_seen_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_twitch": {
-          "name": "direct_twitch",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_kick": {
-          "name": "direct_kick",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_youtube": {
-          "name": "direct_youtube",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_youtube_title": {
-          "name": "direct_youtube_title",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'Live from VISP'"
-        },
-        "direct_youtube_stream_id": {
-          "name": "direct_youtube_stream_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_beta": {
-          "name": "direct_beta",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "better_tts": {
-          "name": "better_tts",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "better_audio_isolation": {
-          "name": "better_audio_isolation",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "better_subtitles": {
-          "name": "better_subtitles",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "brb_enabled": {
-          "name": "brb_enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "brb_message": {
-          "name": "brb_message",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "brb_source": {
-          "name": "brb_source",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'snapshot'"
-        },
-        "brb_image_key": {
-          "name": "brb_image_key",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "onboarded_at": {
-          "name": "onboarded_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "app_user_id_user_id_fk": {
-          "name": "app_user_id_user_id_fk",
-          "tableFrom": "app_user",
-          "tableTo": "user",
-          "columnsFrom": [
-            "id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "app_user_handle_unique": {
-          "name": "app_user_handle_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "handle"
-          ]
-        },
-        "app_user_obs_control_token_id_unique": {
-          "name": "app_user_obs_control_token_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "obs_control_token_id"
-          ]
-        },
-        "app_user_chat_overlay_token_id_unique": {
-          "name": "app_user_chat_overlay_token_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "chat_overlay_token_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "app_user_brb_source_known": {
-          "name": "app_user_brb_source_known",
-          "value": "\"app_user\".\"brb_source\" in ('snapshot', 'image', 'color')"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.obs_tile": {
-      "name": "obs_tile",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "bigserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "position": {
-          "name": "position",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "color": {
-          "name": "color",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "action": {
-          "name": "action",
-          "type": "obs_tile_action",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "scene_name": {
-          "name": "scene_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "obs_tile_user_position_idx": {
-          "name": "obs_tile_user_position_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "position",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "obs_tile_user_id_app_user_id_fk": {
-          "name": "obs_tile_user_id_app_user_id_fk",
-          "tableFrom": "obs_tile",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "obs_tile_label_length": {
-          "name": "obs_tile_label_length",
-          "value": "char_length(trim(\"obs_tile\".\"label\")) between 1 and 64"
-        },
-        "obs_tile_scene_requires_name": {
-          "name": "obs_tile_scene_requires_name",
-          "value": "\"obs_tile\".\"action\" <> 'scene' or \"obs_tile\".\"scene_name\" is not null"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.path_state": {
-      "name": "path_state",
-      "schema": "",
-      "columns": {
-        "path_id": {
-          "name": "path_id",
-          "type": "bigint",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "publishing": {
-          "name": "publishing",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "reader_count": {
-          "name": "reader_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
-        "source_type": {
-          "name": "source_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "last_event_at": {
-          "name": "last_event_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "link_bitrate_kbps": {
-          "name": "link_bitrate_kbps",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "link_target_bitrate_kbps": {
-          "name": "link_target_bitrate_kbps",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "link_rtt_ms": {
-          "name": "link_rtt_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "link_packet_loss_pct": {
-          "name": "link_packet_loss_pct",
-          "type": "real",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "link_count": {
-          "name": "link_count",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "link_degraded": {
-          "name": "link_degraded",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "link_stats_at": {
-          "name": "link_stats_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_twitch_state": {
-          "name": "direct_twitch_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_twitch_error": {
-          "name": "direct_twitch_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_kick_state": {
-          "name": "direct_kick_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_kick_error": {
-          "name": "direct_kick_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_twitch_reserved_until": {
-          "name": "direct_twitch_reserved_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_kick_reserved_until": {
-          "name": "direct_kick_reserved_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_youtube_state": {
-          "name": "direct_youtube_state",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_youtube_error": {
-          "name": "direct_youtube_error",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_youtube_reserved_until": {
-          "name": "direct_youtube_reserved_until",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_youtube_broadcast_id": {
-          "name": "direct_youtube_broadcast_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "brb_since": {
-          "name": "brb_since",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "path_state_path_id_path_id_fk": {
-          "name": "path_state_path_id_path_id_fk",
-          "tableFrom": "path_state",
-          "tableTo": "path",
-          "columnsFrom": [
-            "path_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "path_state_reader_count_nonnegative": {
-          "name": "path_state_reader_count_nonnegative",
-          "value": "\"path_state\".\"reader_count\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.relay": {
-      "name": "relay",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "serial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "name": {
-          "name": "name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "host": {
-          "name": "host",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "api_url": {
-          "name": "api_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "ping_url": {
-          "name": "ping_url",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "region": {
-          "name": "region",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "capacity_paths": {
-          "name": "capacity_paths",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "max_forwarders": {
-          "name": "max_forwarders",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "public_ip": {
-          "name": "public_ip",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "enabled": {
-          "name": "enabled",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": true
-        },
-        "drained_at": {
-          "name": "drained_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "relay_name_unique": {
-          "name": "relay_name_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "name"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "relay_capacity_paths_positive": {
-          "name": "relay_capacity_paths_positive",
-          "value": "\"relay\".\"capacity_paths\" > 0"
-        },
-        "relay_max_forwarders_nonnegative": {
-          "name": "relay_max_forwarders_nonnegative",
-          "value": "\"relay\".\"max_forwarders\" >= 0"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.path": {
-      "name": "path",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "bigserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "relay_id": {
-          "name": "relay_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "seq": {
-          "name": "seq",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "slug": {
-          "name": "slug",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "label": {
-          "name": "label",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "publish_secret_hash": {
-          "name": "publish_secret_hash",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "publish_secret_encrypted": {
-          "name": "publish_secret_encrypted",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "publish_origin": {
-          "name": "publish_origin",
-          "type": "publish_origin",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "native_installation_id": {
-          "name": "native_installation_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "publish_last_connected_at": {
-          "name": "publish_last_connected_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "direct_twitch": {
-          "name": "direct_twitch",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "direct_kick": {
-          "name": "direct_kick",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "direct_youtube": {
-          "name": "direct_youtube",
-          "type": "boolean",
-          "primaryKey": false,
-          "notNull": true,
-          "default": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "revoked_at": {
-          "name": "revoked_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "path_direct_twitch_owner": {
-          "name": "path_direct_twitch_owner",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"path\".\"direct_twitch\"",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "path_direct_kick_owner": {
-          "name": "path_direct_kick_owner",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"path\".\"direct_kick\"",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "path_direct_youtube_owner": {
-          "name": "path_direct_youtube_owner",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"path\".\"direct_youtube\"",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "path_relay_id_relay_id_fk": {
-          "name": "path_relay_id_relay_id_fk",
-          "tableFrom": "path",
-          "tableTo": "relay",
-          "columnsFrom": [
-            "relay_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "path_user_id_app_user_id_fk": {
-          "name": "path_user_id_app_user_id_fk",
-          "tableFrom": "path",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "path_slug_unique": {
-          "name": "path_slug_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "slug"
-          ]
-        },
-        "path_user_seq_unique": {
-          "name": "path_user_seq_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "seq"
-          ]
-        },
-        "path_user_native_installation_unique": {
-          "name": "path_user_native_installation_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id",
-            "native_installation_id"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {
-        "path_seq_positive": {
-          "name": "path_seq_positive",
-          "value": "\"path\".\"seq\" > 0"
-        },
-        "path_label_length": {
-          "name": "path_label_length",
-          "value": "char_length(trim(\"path\".\"label\")) between 1 and 64"
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.relay_stream_session": {
-      "name": "relay_stream_session",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "bigserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "path_id": {
-          "name": "path_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "started_at": {
-          "name": "started_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "ended_at": {
-          "name": "ended_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "source_type": {
-          "name": "source_type",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "relay_stream_session_path_started_idx": {
-          "name": "relay_stream_session_path_started_idx",
-          "columns": [
-            {
-              "expression": "path_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "started_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "relay_stream_session_one_open_per_path": {
-          "name": "relay_stream_session_one_open_per_path",
-          "columns": [
-            {
-              "expression": "path_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"relay_stream_session\".\"ended_at\" is null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "relay_stream_session_path_id_path_id_fk": {
-          "name": "relay_stream_session_path_id_path_id_fk",
-          "tableFrom": "relay_stream_session",
-          "tableTo": "path",
-          "columnsFrom": [
-            "path_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "relay_stream_session_valid_range": {
-          "name": "relay_stream_session_valid_range",
-          "value": "\"relay_stream_session\".\"ended_at\" is null or \"relay_stream_session\".\"ended_at\" >= \"relay_stream_session\".\"started_at\""
-        }
-      },
-      "isRLSEnabled": false
-    },
-    "public.rtt_sample": {
-      "name": "rtt_sample",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "bigserial",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "relay_id": {
-          "name": "relay_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "rtt_ms": {
-          "name": "rtt_ms",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "method": {
-          "name": "method",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        }
-      },
-      "indexes": {
-        "rtt_sample_user_created_idx": {
-          "name": "rtt_sample_user_created_idx",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "rtt_sample_relay_id_relay_id_fk": {
-          "name": "rtt_sample_relay_id_relay_id_fk",
-          "tableFrom": "rtt_sample",
-          "tableTo": "relay",
-          "columnsFrom": [
-            "relay_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "rtt_sample_user_id_app_user_id_fk": {
-          "name": "rtt_sample_user_id_app_user_id_fk",
-          "tableFrom": "rtt_sample",
-          "tableTo": "app_user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "rtt_sample_range": {
-          "name": "rtt_sample_range",
-          "value": "\"rtt_sample\".\"rtt_ms\" between 1 and 10000"
-        },
-        "rtt_sample_method": {
-          "name": "rtt_sample_method",
-          "value": "\"rtt_sample\".\"method\" in ('browser-probe', 'manual')"
-        }
-      },
-      "isRLSEnabled": false
-    }
-  },
-  "enums": {
-    "public.chat_provider": {
-      "name": "chat_provider",
-      "schema": "public",
-      "values": [
-        "twitch",
-        "kick",
-        "youtube"
-      ]
-    },
-    "public.obs_tile_action": {
-      "name": "obs_tile_action",
-      "schema": "public",
-      "values": [
-        "scene",
-        "stream",
-        "recording",
-        "virtualcam",
-        "replaybuffer",
-        "recordpause"
-      ]
-    },
-    "public.publish_origin": {
-      "name": "publish_origin",
-      "schema": "public",
-      "values": [
-        "native",
-        "web"
-      ]
-    },
-    "public.setup_use_case": {
-      "name": "setup_use_case",
-      "schema": "public",
-      "values": [
-        "direct",
-        "phone_to_obs",
-        "remote_guest",
-        "multi_cam",
-        "other"
-      ]
-    },
-    "public.stream_destination": {
-      "name": "stream_destination",
-      "schema": "public",
-      "values": [
-        "twitch",
-        "kick",
-        "youtube",
-        "other"
-      ]
-    },
-    "public.streaming_software": {
-      "name": "streaming_software",
-      "schema": "public",
-      "values": [
-        "obs",
-        "visp",
-        "larix",
-        "moblin",
-        "other"
-      ]
-    }
-  },
-  "schemas": {},
-  "sequences": {},
-  "roles": {},
-  "policies": {},
-  "views": {},
-  "_meta": {
-    "columns": {},
-    "schemas": {},
-    "tables": {}
-  }
+	"id": "6b45e9c8-e32a-4012-b60d-983480cfd5b0",
+	"prevId": "d68361b3-16f7-4e8a-9a2f-1783a840f874",
+	"version": "7",
+	"dialect": "postgresql",
+	"tables": {
+		"public.account": {
+			"name": "account",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"account_id": {
+					"name": "account_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider_id": {
+					"name": "provider_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"access_token": {
+					"name": "access_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"refresh_token": {
+					"name": "refresh_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"id_token": {
+					"name": "id_token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"access_token_expires_at": {
+					"name": "access_token_expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"refresh_token_expires_at": {
+					"name": "refresh_token_expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"scope": {
+					"name": "scope",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"password": {
+					"name": "password",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"account_userId_idx": {
+					"name": "account_userId_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"account_user_id_user_id_fk": {
+					"name": "account_user_id_user_id_fk",
+					"tableFrom": "account",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.device_code": {
+			"name": "device_code",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"device_code": {
+					"name": "device_code",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_code": {
+					"name": "user_code",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"status": {
+					"name": "status",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"last_polled_at": {
+					"name": "last_polled_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"polling_interval": {
+					"name": "polling_interval",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"client_id": {
+					"name": "client_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"scope": {
+					"name": "scope",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"device_code_user_id_idx": {
+					"name": "device_code_user_id_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"device_code_expires_at_idx": {
+					"name": "device_code_expires_at_idx",
+					"columns": [
+						{
+							"expression": "expires_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"device_code_user_id_user_id_fk": {
+					"name": "device_code_user_id_user_id_fk",
+					"tableFrom": "device_code",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"device_code_device_code_unique": {
+					"name": "device_code_device_code_unique",
+					"nullsNotDistinct": false,
+					"columns": ["device_code"]
+				},
+				"device_code_user_code_unique": {
+					"name": "device_code_user_code_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_code"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.session": {
+			"name": "session",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"token": {
+					"name": "token",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ip_address": {
+					"name": "ip_address",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"user_agent": {
+					"name": "user_agent",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"impersonated_by": {
+					"name": "impersonated_by",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				}
+			},
+			"indexes": {
+				"session_userId_idx": {
+					"name": "session_userId_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"session_user_id_user_id_fk": {
+					"name": "session_user_id_user_id_fk",
+					"tableFrom": "session",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"session_token_unique": {
+					"name": "session_token_unique",
+					"nullsNotDistinct": false,
+					"columns": ["token"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.user": {
+			"name": "user",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"email": {
+					"name": "email",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"email_verified": {
+					"name": "email_verified",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"image": {
+					"name": "image",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"role": {
+					"name": "role",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'user'"
+				},
+				"banned": {
+					"name": "banned",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"ban_reason": {
+					"name": "ban_reason",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"ban_expires": {
+					"name": "ban_expires",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"user_email_unique": {
+					"name": "user_email_unique",
+					"nullsNotDistinct": false,
+					"columns": ["email"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.verification": {
+			"name": "verification",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"identifier": {
+					"name": "identifier",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"value": {
+					"name": "value",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"expires_at": {
+					"name": "expires_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"verification_identifier_idx": {
+					"name": "verification_identifier_idx",
+					"columns": [
+						{
+							"expression": "identifier",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.chat_bot": {
+			"name": "chat_bot",
+			"schema": "",
+			"columns": {
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"enabled": {
+					"name": "enabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"commands_enabled": {
+					"name": "commands_enabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"prefix": {
+					"name": "prefix",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'!'"
+				},
+				"post_twitch": {
+					"name": "post_twitch",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"post_kick": {
+					"name": "post_kick",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"post_youtube": {
+					"name": "post_youtube",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"alert_live": {
+					"name": "alert_live",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"alert_brb": {
+					"name": "alert_brb",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"alert_back": {
+					"name": "alert_back",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"alert_offline": {
+					"name": "alert_offline",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"live_message": {
+					"name": "live_message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"brb_message": {
+					"name": "brb_message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"back_message": {
+					"name": "back_message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"offline_message": {
+					"name": "offline_message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"chat_bot_user_id_app_user_id_fk": {
+					"name": "chat_bot_user_id_app_user_id_fk",
+					"tableFrom": "chat_bot",
+					"tableTo": "app_user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"chat_bot_prefix_length": {
+					"name": "chat_bot_prefix_length",
+					"value": "char_length(\"chat_bot\".\"prefix\") between 1 and 3"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.chat_bot_alert": {
+			"name": "chat_bot_alert",
+			"schema": "",
+			"columns": {
+				"path_id": {
+					"name": "path_id",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"event": {
+					"name": "event",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"sent_at": {
+					"name": "sent_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"chat_bot_alert_path_id_path_id_fk": {
+					"name": "chat_bot_alert_path_id_path_id_fk",
+					"tableFrom": "chat_bot_alert",
+					"tableTo": "path",
+					"columnsFrom": ["path_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"chat_bot_alert_path_id_event_pk": {
+					"name": "chat_bot_alert_path_id_event_pk",
+					"columns": ["path_id", "event"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"chat_bot_alert_event": {
+					"name": "chat_bot_alert_event",
+					"value": "\"chat_bot_alert\".\"event\" in ('live', 'brb', 'back', 'offline')"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.chat_bot_command": {
+			"name": "chat_bot_command",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "bigserial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"response": {
+					"name": "response",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"mod_only": {
+					"name": "mod_only",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"enabled": {
+					"name": "enabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"cooldown_seconds": {
+					"name": "cooldown_seconds",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 10
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"chat_bot_command_user_id_app_user_id_fk": {
+					"name": "chat_bot_command_user_id_app_user_id_fk",
+					"tableFrom": "chat_bot_command",
+					"tableTo": "app_user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"chat_bot_command_user_name_unique": {
+					"name": "chat_bot_command_user_name_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "name"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"chat_bot_command_name": {
+					"name": "chat_bot_command_name",
+					"value": "\"chat_bot_command\".\"name\" ~ '^[a-z0-9_-]{1,24}$'"
+				},
+				"chat_bot_command_response_length": {
+					"name": "chat_bot_command_response_length",
+					"value": "char_length(\"chat_bot_command\".\"response\") between 1 and 200"
+				},
+				"chat_bot_command_cooldown_range": {
+					"name": "chat_bot_command_cooldown_range",
+					"value": "\"chat_bot_command\".\"cooldown_seconds\" between 0 and 3600"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.chat_connection": {
+			"name": "chat_connection",
+			"schema": "",
+			"columns": {
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"provider": {
+					"name": "provider",
+					"type": "chat_provider",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"kick_subscription_id": {
+					"name": "kick_subscription_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"updated_at": {
+					"name": "updated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"chat_connection_user_id_user_id_fk": {
+					"name": "chat_connection_user_id_user_id_fk",
+					"tableFrom": "chat_connection",
+					"tableTo": "user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {
+				"chat_connection_user_id_provider_pk": {
+					"name": "chat_connection_user_id_provider_pk",
+					"columns": ["user_id", "provider"]
+				}
+			},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {},
+			"isRLSEnabled": false
+		},
+		"public.app_user": {
+			"name": "app_user",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "text",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"handle": {
+					"name": "handle",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"publish_secret_hash": {
+					"name": "publish_secret_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"read_secret_hash": {
+					"name": "read_secret_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"read_secret_encrypted": {
+					"name": "read_secret_encrypted",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"secrets_rotated_at": {
+					"name": "secrets_rotated_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"device_count": {
+					"name": "device_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"streaming_software": {
+					"name": "streaming_software",
+					"type": "streaming_software",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"setup_use_case": {
+					"name": "setup_use_case",
+					"type": "setup_use_case",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"stream_destination": {
+					"name": "stream_destination",
+					"type": "stream_destination",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"advanced_mode": {
+					"name": "advanced_mode",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_control_token_id": {
+					"name": "obs_control_token_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"obs_control_token_hash": {
+					"name": "obs_control_token_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"chat_overlay_token_id": {
+					"name": "chat_overlay_token_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"chat_overlay_token_hash": {
+					"name": "chat_overlay_token_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"obs_desired_streaming": {
+					"name": "obs_desired_streaming",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_streaming": {
+					"name": "obs_streaming",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_scenes": {
+					"name": "obs_scenes",
+					"type": "text[]",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "ARRAY[]::text[]"
+				},
+				"obs_current_scene": {
+					"name": "obs_current_scene",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"obs_desired_scene": {
+					"name": "obs_desired_scene",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"obs_command_version": {
+					"name": "obs_command_version",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"obs_applied_version": {
+					"name": "obs_applied_version",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"obs_desired_recording": {
+					"name": "obs_desired_recording",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_recording": {
+					"name": "obs_recording",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_desired_virtual_cam": {
+					"name": "obs_desired_virtual_cam",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_virtual_cam": {
+					"name": "obs_virtual_cam",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_desired_replay_buffer": {
+					"name": "obs_desired_replay_buffer",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_replay_buffer": {
+					"name": "obs_replay_buffer",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_desired_record_paused": {
+					"name": "obs_desired_record_paused",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_record_paused": {
+					"name": "obs_record_paused",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"obs_last_seen_at": {
+					"name": "obs_last_seen_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_twitch": {
+					"name": "direct_twitch",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_kick": {
+					"name": "direct_kick",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_youtube": {
+					"name": "direct_youtube",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_youtube_title": {
+					"name": "direct_youtube_title",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'Live from VISP'"
+				},
+				"direct_youtube_stream_id": {
+					"name": "direct_youtube_stream_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_beta": {
+					"name": "direct_beta",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"better_tts": {
+					"name": "better_tts",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"better_audio_isolation": {
+					"name": "better_audio_isolation",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"better_subtitles": {
+					"name": "better_subtitles",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"brb_enabled": {
+					"name": "brb_enabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"brb_message": {
+					"name": "brb_message",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"brb_source": {
+					"name": "brb_source",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "'snapshot'"
+				},
+				"brb_image_key": {
+					"name": "brb_image_key",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"onboarded_at": {
+					"name": "onboarded_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"app_user_id_user_id_fk": {
+					"name": "app_user_id_user_id_fk",
+					"tableFrom": "app_user",
+					"tableTo": "user",
+					"columnsFrom": ["id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"app_user_handle_unique": {
+					"name": "app_user_handle_unique",
+					"nullsNotDistinct": false,
+					"columns": ["handle"]
+				},
+				"app_user_obs_control_token_id_unique": {
+					"name": "app_user_obs_control_token_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["obs_control_token_id"]
+				},
+				"app_user_chat_overlay_token_id_unique": {
+					"name": "app_user_chat_overlay_token_id_unique",
+					"nullsNotDistinct": false,
+					"columns": ["chat_overlay_token_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"app_user_brb_source_known": {
+					"name": "app_user_brb_source_known",
+					"value": "\"app_user\".\"brb_source\" in ('snapshot', 'image', 'color')"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.obs_tile": {
+			"name": "obs_tile",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "bigserial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"position": {
+					"name": "position",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"label": {
+					"name": "label",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"color": {
+					"name": "color",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"action": {
+					"name": "action",
+					"type": "obs_tile_action",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"scene_name": {
+					"name": "scene_name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"obs_tile_user_position_idx": {
+					"name": "obs_tile_user_position_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "position",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"obs_tile_user_id_app_user_id_fk": {
+					"name": "obs_tile_user_id_app_user_id_fk",
+					"tableFrom": "obs_tile",
+					"tableTo": "app_user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"obs_tile_label_length": {
+					"name": "obs_tile_label_length",
+					"value": "char_length(trim(\"obs_tile\".\"label\")) between 1 and 64"
+				},
+				"obs_tile_scene_requires_name": {
+					"name": "obs_tile_scene_requires_name",
+					"value": "\"obs_tile\".\"action\" <> 'scene' or \"obs_tile\".\"scene_name\" is not null"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.path_state": {
+			"name": "path_state",
+			"schema": "",
+			"columns": {
+				"path_id": {
+					"name": "path_id",
+					"type": "bigint",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"publishing": {
+					"name": "publishing",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"reader_count": {
+					"name": "reader_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true,
+					"default": 0
+				},
+				"source_type": {
+					"name": "source_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"last_event_at": {
+					"name": "last_event_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"link_bitrate_kbps": {
+					"name": "link_bitrate_kbps",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"link_target_bitrate_kbps": {
+					"name": "link_target_bitrate_kbps",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"link_rtt_ms": {
+					"name": "link_rtt_ms",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"link_packet_loss_pct": {
+					"name": "link_packet_loss_pct",
+					"type": "real",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"link_count": {
+					"name": "link_count",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"link_degraded": {
+					"name": "link_degraded",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"link_stats_at": {
+					"name": "link_stats_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_twitch_state": {
+					"name": "direct_twitch_state",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_twitch_error": {
+					"name": "direct_twitch_error",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_kick_state": {
+					"name": "direct_kick_state",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_kick_error": {
+					"name": "direct_kick_error",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_twitch_reserved_until": {
+					"name": "direct_twitch_reserved_until",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_kick_reserved_until": {
+					"name": "direct_kick_reserved_until",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_youtube_state": {
+					"name": "direct_youtube_state",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_youtube_error": {
+					"name": "direct_youtube_error",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_youtube_reserved_until": {
+					"name": "direct_youtube_reserved_until",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_youtube_broadcast_id": {
+					"name": "direct_youtube_broadcast_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"brb_since": {
+					"name": "brb_since",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {
+				"path_state_path_id_path_id_fk": {
+					"name": "path_state_path_id_path_id_fk",
+					"tableFrom": "path_state",
+					"tableTo": "path",
+					"columnsFrom": ["path_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"path_state_reader_count_nonnegative": {
+					"name": "path_state_reader_count_nonnegative",
+					"value": "\"path_state\".\"reader_count\" >= 0"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.relay": {
+			"name": "relay",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "serial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"name": {
+					"name": "name",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"host": {
+					"name": "host",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"api_url": {
+					"name": "api_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"ping_url": {
+					"name": "ping_url",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"region": {
+					"name": "region",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"capacity_paths": {
+					"name": "capacity_paths",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"max_forwarders": {
+					"name": "max_forwarders",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"public_ip": {
+					"name": "public_ip",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"enabled": {
+					"name": "enabled",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": true
+				},
+				"drained_at": {
+					"name": "drained_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {},
+			"foreignKeys": {},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"relay_name_unique": {
+					"name": "relay_name_unique",
+					"nullsNotDistinct": false,
+					"columns": ["name"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"relay_capacity_paths_positive": {
+					"name": "relay_capacity_paths_positive",
+					"value": "\"relay\".\"capacity_paths\" > 0"
+				},
+				"relay_max_forwarders_nonnegative": {
+					"name": "relay_max_forwarders_nonnegative",
+					"value": "\"relay\".\"max_forwarders\" >= 0"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.path": {
+			"name": "path",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "bigserial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"relay_id": {
+					"name": "relay_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"seq": {
+					"name": "seq",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"slug": {
+					"name": "slug",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"label": {
+					"name": "label",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"publish_secret_hash": {
+					"name": "publish_secret_hash",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"publish_secret_encrypted": {
+					"name": "publish_secret_encrypted",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"publish_origin": {
+					"name": "publish_origin",
+					"type": "publish_origin",
+					"typeSchema": "public",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"native_installation_id": {
+					"name": "native_installation_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"publish_last_connected_at": {
+					"name": "publish_last_connected_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"direct_twitch": {
+					"name": "direct_twitch",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"direct_kick": {
+					"name": "direct_kick",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"direct_youtube": {
+					"name": "direct_youtube",
+					"type": "boolean",
+					"primaryKey": false,
+					"notNull": true,
+					"default": false
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"revoked_at": {
+					"name": "revoked_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"path_direct_twitch_owner": {
+					"name": "path_direct_twitch_owner",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"path\".\"direct_twitch\"",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"path_direct_kick_owner": {
+					"name": "path_direct_kick_owner",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"path\".\"direct_kick\"",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"path_direct_youtube_owner": {
+					"name": "path_direct_youtube_owner",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"path\".\"direct_youtube\"",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"path_relay_id_relay_id_fk": {
+					"name": "path_relay_id_relay_id_fk",
+					"tableFrom": "path",
+					"tableTo": "relay",
+					"columnsFrom": ["relay_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"path_user_id_app_user_id_fk": {
+					"name": "path_user_id_app_user_id_fk",
+					"tableFrom": "path",
+					"tableTo": "app_user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {
+				"path_slug_unique": {
+					"name": "path_slug_unique",
+					"nullsNotDistinct": false,
+					"columns": ["slug"]
+				},
+				"path_user_seq_unique": {
+					"name": "path_user_seq_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "seq"]
+				},
+				"path_user_native_installation_unique": {
+					"name": "path_user_native_installation_unique",
+					"nullsNotDistinct": false,
+					"columns": ["user_id", "native_installation_id"]
+				}
+			},
+			"policies": {},
+			"checkConstraints": {
+				"path_seq_positive": {
+					"name": "path_seq_positive",
+					"value": "\"path\".\"seq\" > 0"
+				},
+				"path_label_length": {
+					"name": "path_label_length",
+					"value": "char_length(trim(\"path\".\"label\")) between 1 and 64"
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.relay_stream_session": {
+			"name": "relay_stream_session",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "bigserial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"path_id": {
+					"name": "path_id",
+					"type": "bigint",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"started_at": {
+					"name": "started_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				},
+				"ended_at": {
+					"name": "ended_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"source_type": {
+					"name": "source_type",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": false
+				}
+			},
+			"indexes": {
+				"relay_stream_session_path_started_idx": {
+					"name": "relay_stream_session_path_started_idx",
+					"columns": [
+						{
+							"expression": "path_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "started_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				},
+				"relay_stream_session_one_open_per_path": {
+					"name": "relay_stream_session_one_open_per_path",
+					"columns": [
+						{
+							"expression": "path_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": true,
+					"where": "\"relay_stream_session\".\"ended_at\" is null",
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"relay_stream_session_path_id_path_id_fk": {
+					"name": "relay_stream_session_path_id_path_id_fk",
+					"tableFrom": "relay_stream_session",
+					"tableTo": "path",
+					"columnsFrom": ["path_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"relay_stream_session_valid_range": {
+					"name": "relay_stream_session_valid_range",
+					"value": "\"relay_stream_session\".\"ended_at\" is null or \"relay_stream_session\".\"ended_at\" >= \"relay_stream_session\".\"started_at\""
+				}
+			},
+			"isRLSEnabled": false
+		},
+		"public.rtt_sample": {
+			"name": "rtt_sample",
+			"schema": "",
+			"columns": {
+				"id": {
+					"name": "id",
+					"type": "bigserial",
+					"primaryKey": true,
+					"notNull": true
+				},
+				"relay_id": {
+					"name": "relay_id",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": false
+				},
+				"user_id": {
+					"name": "user_id",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"rtt_ms": {
+					"name": "rtt_ms",
+					"type": "integer",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"method": {
+					"name": "method",
+					"type": "text",
+					"primaryKey": false,
+					"notNull": true
+				},
+				"created_at": {
+					"name": "created_at",
+					"type": "timestamp with time zone",
+					"primaryKey": false,
+					"notNull": true,
+					"default": "now()"
+				}
+			},
+			"indexes": {
+				"rtt_sample_user_created_idx": {
+					"name": "rtt_sample_user_created_idx",
+					"columns": [
+						{
+							"expression": "user_id",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						},
+						{
+							"expression": "created_at",
+							"isExpression": false,
+							"asc": true,
+							"nulls": "last"
+						}
+					],
+					"isUnique": false,
+					"concurrently": false,
+					"method": "btree",
+					"with": {}
+				}
+			},
+			"foreignKeys": {
+				"rtt_sample_relay_id_relay_id_fk": {
+					"name": "rtt_sample_relay_id_relay_id_fk",
+					"tableFrom": "rtt_sample",
+					"tableTo": "relay",
+					"columnsFrom": ["relay_id"],
+					"columnsTo": ["id"],
+					"onDelete": "no action",
+					"onUpdate": "no action"
+				},
+				"rtt_sample_user_id_app_user_id_fk": {
+					"name": "rtt_sample_user_id_app_user_id_fk",
+					"tableFrom": "rtt_sample",
+					"tableTo": "app_user",
+					"columnsFrom": ["user_id"],
+					"columnsTo": ["id"],
+					"onDelete": "cascade",
+					"onUpdate": "no action"
+				}
+			},
+			"compositePrimaryKeys": {},
+			"uniqueConstraints": {},
+			"policies": {},
+			"checkConstraints": {
+				"rtt_sample_range": {
+					"name": "rtt_sample_range",
+					"value": "\"rtt_sample\".\"rtt_ms\" between 1 and 10000"
+				},
+				"rtt_sample_method": {
+					"name": "rtt_sample_method",
+					"value": "\"rtt_sample\".\"method\" in ('browser-probe', 'manual')"
+				}
+			},
+			"isRLSEnabled": false
+		}
+	},
+	"enums": {
+		"public.chat_provider": {
+			"name": "chat_provider",
+			"schema": "public",
+			"values": ["twitch", "kick", "youtube"]
+		},
+		"public.obs_tile_action": {
+			"name": "obs_tile_action",
+			"schema": "public",
+			"values": [
+				"scene",
+				"stream",
+				"recording",
+				"virtualcam",
+				"replaybuffer",
+				"recordpause"
+			]
+		},
+		"public.publish_origin": {
+			"name": "publish_origin",
+			"schema": "public",
+			"values": ["native", "web"]
+		},
+		"public.setup_use_case": {
+			"name": "setup_use_case",
+			"schema": "public",
+			"values": ["direct", "phone_to_obs", "remote_guest", "multi_cam", "other"]
+		},
+		"public.stream_destination": {
+			"name": "stream_destination",
+			"schema": "public",
+			"values": ["twitch", "kick", "youtube", "other"]
+		},
+		"public.streaming_software": {
+			"name": "streaming_software",
+			"schema": "public",
+			"values": ["obs", "visp", "larix", "moblin", "other"]
+		}
+	},
+	"schemas": {},
+	"sequences": {},
+	"roles": {},
+	"policies": {},
+	"views": {},
+	"_meta": {
+		"columns": {},
+		"schemas": {},
+		"tables": {}
+	}
 }

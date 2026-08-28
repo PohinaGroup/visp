@@ -94,9 +94,7 @@ export function hasChatWriteScope(
 	);
 }
 
-export function hasTwitchBotChannelScope(
-	scope: string | null | undefined,
-) {
+export function hasTwitchBotChannelScope(scope: string | null | undefined) {
 	return PROVIDER_SCOPES.twitch.botChannel.every((name) =>
 		hasScope(scope, name),
 	);

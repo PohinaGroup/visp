@@ -37,10 +37,7 @@ export function mapKickProfileToAuthUser(
 	};
 }
 
-type FetchLike = (
-	input: string,
-	init?: RequestInit,
-) => Promise<Response>;
+type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 
 export async function fetchKickAuthUser(
 	accessToken: string,

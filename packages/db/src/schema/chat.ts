@@ -83,10 +83,7 @@ export const chatBot = pgTable(
 			"chat_bot_prefix_length",
 			sql`char_length(${table.prefix}) between 1 and 3`,
 		),
-		check(
-			"chat_bot_sender_mode",
-			sql`${table.senderMode} in ('visp', 'self')`,
-		),
+		check("chat_bot_sender_mode", sql`${table.senderMode} in ('visp', 'self')`),
 	],
 );
 

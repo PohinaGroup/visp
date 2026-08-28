@@ -13,8 +13,7 @@ function findWatchTarget(project) {
 		return (
 			name === TARGET_NAME ||
 			productName === "VISPWatch" ||
-			(typeof target.isWatchOSTarget === "function" &&
-				target.isWatchOSTarget())
+			(typeof target.isWatchOSTarget === "function" && target.isWatchOSTarget())
 		);
 	});
 }

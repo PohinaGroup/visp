@@ -20,6 +20,7 @@ jobs:
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.release.outputs.sha }}
+      relay_components: ${{ steps.relay_changes.outputs.components }}
     steps:
       - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
         with:
@@ -54,6 +55,36 @@ jobs:
           git merge-base --is-ancestor "$RELEASE_SHA" origin/main
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Find relay changes since the previous release
+        id: relay_changes
+        env:
+          RELEASE_SHA: ${{ steps.release.outputs.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous=$(git tag --merged "$RELEASE_SHA^" --list 'v[0-9]*' \
+            --sort=-version:refname | head -1)
+          components=()
+          if [[ -z "$previous" ]]; then
+            components=(mediamtx srtla-rec visp-bond)
+          else
+            changed() { ! git diff --quiet "$previous" "$RELEASE_SHA" -- "$@"; }
+            common=(deploy/visp-relay-release deploy/visp-relay-release-bootstrap)
+            if changed "${common[@]}"; then
+              components=(mediamtx srtla-rec visp-bond)
+            else
+              changed deploy/relay/mediamtx.version \
+                deploy/relay/mediamtx.yml \
+                deploy/relay/visp-snapshot \
+                deploy/systemd/mediamtx.service && components+=(mediamtx)
+              changed deploy/relay/srtla-rec \
+                deploy/systemd/srtla-rec.service && components+=(srtla-rec)
+              changed deploy/relay/visp-bond \
+                deploy/systemd/visp-bond.service && components+=(visp-bond)
+            fi
+          fi
+          echo "components=${components[*]}" >> "$GITHUB_OUTPUT"
 
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
@@ -167,6 +198,48 @@ jobs:
               --retry-delay 5 "$url" >/dev/null
           done
 
+  deploy_relay:
+    name: Deploy changed relay components
+    needs: [verify, deploy_app_server]
+    if: needs.verify.outputs.relay_components != ''
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    environment: production
+    steps:
+      - name: Join Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy exact release to relay
+        env:
+          DEPLOY_HOST: ${{ vars.RELAY_DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          RELEASE_TAG: ${{ needs.verify.outputs.tag }}
+          RELEASE_SHA: ${{ needs.verify.outputs.sha }}
+          RELAY_COMPONENTS: ${{ needs.verify.outputs.relay_components }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo /usr/local/sbin/visp-relay-release $RELEASE_TAG $RELEASE_SHA $RELAY_COMPONENTS"
+
+      - name: Smoke-check relay
+        env:
+          RELAY_URL: ${{ vars.RELAY_WEBRTC_URL }}
+        run: |
+          curl --fail --silent --show-error --retry 12 --retry-all-errors \
+            --retry-delay 5 "$RELAY_URL/ping" >/dev/null
+
 #  mobile:
 #    name: Build and distribute mobile apps
 #    needs: verify
@@ -176,7 +249,7 @@ jobs:
 #      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
 #
 #      - name: Set up EAS
-#        uses: expo/expo-github-action@c7b66a9c327a43a8fa7c0158e7f30d6040d2481e # v8
+#        uses: expo/expo-github-action@eab7a230208c952974db8c3245cfd78402c7b385 # v9
 #        with:
 #          eas-version: 18.13.0
 #          token: ${{ secrets.EXPO_TOKEN }}

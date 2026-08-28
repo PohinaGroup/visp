@@ -39,8 +39,8 @@ import {
 	ADVANCED_SETUP_DEFAULTS,
 	getAdvancedSetupAction,
 } from "@/lib/advanced-setup";
-import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { trackEvent } from "@/lib/analytics";
+import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
 import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";

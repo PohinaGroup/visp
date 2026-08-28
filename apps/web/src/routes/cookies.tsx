@@ -9,8 +9,8 @@ import {
 	readCookieConsent,
 	writeCookieConsent,
 } from "@/lib/cookie-consent";
-import { legalEntity } from "@/lib/legal";
 import { localizedHead } from "@/lib/i18n";
+import { legalEntity } from "@/lib/legal";
 
 export const Route = createFileRoute("/cookies")({
 	head: () => ({
@@ -135,7 +135,10 @@ function CookiesPage() {
 								: "Necessary only"
 							: "Not set"}
 					</strong>
-					{consent ? ` (saved ${new Date(consent.updatedAt).toLocaleString()})` : ""}.
+					{consent
+						? ` (saved ${new Date(consent.updatedAt).toLocaleString()})`
+						: ""}
+					.
 				</p>
 				<div className="flex flex-wrap gap-2">
 					<Button variant="outline" onClick={() => choose("necessary")}>

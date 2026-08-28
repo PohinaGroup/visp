@@ -1,0 +1,151 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+fail() {
+	echo "visp-relay-release: $*" >&2
+	exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+[[ $# -ge 2 ]] || fail "usage: visp-relay-release <production|staging> <component>..."
+
+readonly environment=$1
+shift
+
+case $environment in
+	production)
+		readonly repo=/opt/visp
+		readonly suffix=
+		readonly env_file=/etc/visp/relay.env
+		readonly mediamtx_config=mediamtx.yml
+		;;
+	staging)
+		readonly repo=/opt/visp-staging
+		readonly suffix=-staging
+		readonly env_file=/etc/visp-staging/relay.env
+		readonly mediamtx_config=mediamtx-staging.yml
+		;;
+	*) fail "invalid environment: $environment" ;;
+esac
+
+if [[ $environment == staging ]]; then
+	exec 9>/run/lock/visp-relay-release.lock
+	flock -w 1800 9 || fail "another relay release is still running"
+fi
+
+mediamtx=false
+srtla=false
+bond=false
+for component in "$@"; do
+	case $component in
+		mediamtx) mediamtx=true ;;
+		srtla-rec) srtla=true ;;
+		visp-bond) bond=true ;;
+		*) fail "invalid component: $component" ;;
+	esac
+done
+
+for path in "$repo/.git" "$env_file"; do
+	[[ -e $path ]] || fail "missing prerequisite: $path"
+done
+for command in cmake cc curl git make sha256sum systemctl; do
+	command -v "$command" >/dev/null 2>&1 || fail "missing prerequisite: $command"
+done
+
+work=$(mktemp -d /var/tmp/visp-relay-release.XXXXXX)
+readonly work
+trap 'rm -rf "$work"' EXIT
+
+if $mediamtx; then
+	# shellcheck disable=SC1091
+	source "$repo/deploy/relay/mediamtx.version"
+	[[ $(uname -m) == x86_64 ]] || fail "MediaMTX automation supports x86_64 only"
+	readonly archive="mediamtx_v${MEDIAMTX_VERSION}_linux_amd64.tar.gz"
+	curl -fL "https://github.com/bluenviron/mediamtx/releases/download/v${MEDIAMTX_VERSION}/$archive" \
+		-o "$work/$archive"
+	echo "$MEDIAMTX_LINUX_AMD64_SHA256  $work/$archive" | sha256sum -c -
+	tar -xzf "$work/$archive" -C "$work" mediamtx
+fi
+
+if $srtla; then
+	srtla_commit=$(sed -n 's/^ARG SRTLA_COMMIT=//p' \
+		"$repo/deploy/relay/srtla-rec/Dockerfile")
+	readonly srtla_commit
+	[[ $srtla_commit =~ ^[0-9a-f]{40}$ ]] || fail "invalid pinned SRTLA commit"
+	git clone --quiet https://github.com/BELABOX/srtla.git "$work/srtla"
+	git -C "$work/srtla" checkout --quiet "$srtla_commit"
+	make -C "$work/srtla" srtla_rec
+fi
+
+if $bond; then
+	srt_version=$(sed -n 's/^ARG SRT_VERSION=//p' \
+		"$repo/deploy/relay/visp-bond/Dockerfile")
+	readonly srt_version
+	srt_sha256=$(sed -n 's/^ARG SRT_SHA256=//p' \
+		"$repo/deploy/relay/visp-bond/Dockerfile")
+	readonly srt_sha256
+	[[ $srt_version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid pinned SRT version"
+	[[ $srt_sha256 =~ ^[0-9a-f]{64}$ ]] || fail "invalid pinned SRT checksum"
+	curl -fL "https://github.com/Haivision/srt/archive/refs/tags/v${srt_version}.tar.gz" \
+		-o "$work/srt.tar.gz"
+	echo "$srt_sha256  $work/srt.tar.gz" | sha256sum -c -
+	mkdir "$work/srt"
+	tar -xzf "$work/srt.tar.gz" -C "$work/srt" --strip-components=1
+	cmake -S "$work/srt" -B "$work/srt/build" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DCMAKE_INSTALL_PREFIX=/usr/local \
+		-DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+		-DENABLE_APPS=OFF \
+		-DENABLE_BONDING=ON \
+		-DENABLE_ENCRYPTION=ON \
+		-DUSE_ENCLIB=mbedtls
+	cmake --build "$work/srt/build" --parallel 2
+	cmake -S "$repo/deploy/relay/visp-bond" -B "$work/visp-bond" \
+		-DCMAKE_BUILD_TYPE=Release \
+		-DSRT_INCLUDE_DIR="$work/srt" \
+		-DSRT_LIBRARY="$work/srt/build/libsrt.so"
+	cmake --build "$work/visp-bond" --parallel 2
+fi
+
+if $mediamtx; then
+	install -m 0755 "$work/mediamtx" /usr/local/bin/mediamtx
+	install -D -m 0755 "$repo/deploy/relay/visp-snapshot" \
+		/usr/local/libexec/visp-snapshot
+	install -D -m 0644 "$repo/deploy/relay/$mediamtx_config" \
+		"/etc/mediamtx/$mediamtx_config"
+	install -m 0644 "$repo/deploy/systemd/mediamtx${suffix}.service" \
+		"/etc/systemd/system/mediamtx${suffix}.service"
+fi
+if $srtla; then
+	install -m 0755 "$work/srtla/srtla_rec" /usr/local/bin/srtla_rec
+	install -m 0644 "$repo/deploy/systemd/srtla-rec${suffix}.service" \
+		"/etc/systemd/system/srtla-rec${suffix}.service"
+fi
+if $bond; then
+	cmake --install "$work/srt/build"
+	ldconfig
+	install -m 0755 "$work/visp-bond/visp-bond" /usr/local/bin/visp-bond
+	install -m 0644 "$repo/deploy/systemd/visp-bond${suffix}.service" \
+		"/etc/systemd/system/visp-bond${suffix}.service"
+fi
+
+systemctl daemon-reload
+if $mediamtx; then
+	systemctl restart "mediamtx${suffix}"
+	systemctl restart "srtla-rec${suffix}" "visp-bond${suffix}"
+else
+	$srtla && systemctl restart "srtla-rec${suffix}"
+	$bond && systemctl restart "visp-bond${suffix}"
+fi
+
+systemctl is-active --quiet "mediamtx${suffix}" \
+	"srtla-rec${suffix}" "visp-bond${suffix}"
+set -a
+# shellcheck disable=SC1090
+source "$env_file"
+set +a
+readonly api_address=${MTX_APIADDRESS:-127.0.0.1:9997}
+curl --retry 20 --retry-delay 1 --retry-connrefused --fail --silent \
+	"http://$api_address/v3/paths/list" >/dev/null
+
+echo "VISP relay ($environment): $* deployed"

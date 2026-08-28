@@ -4,13 +4,7 @@ import { CircleHelpIcon } from "lucide-react";
 import type { MouseEvent } from "react";
 
 /** Compact help icon that opens a docs page in a new tab. */
-export function DocsHelpLink({
-	href,
-	label,
-}: {
-	href: string;
-	label: string;
-}) {
+export function DocsHelpLink({ href, label }: { href: string; label: string }) {
 	return (
 		<Link
 			href={href}

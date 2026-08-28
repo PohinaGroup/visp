@@ -3,8 +3,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { legalEntity } from "@/lib/legal";
 import {
 	githubRepoFromSourceUrl,
-	parseObsPluginRelease,
 	type ObsPluginRelease,
+	parseObsPluginRelease,
 } from "@/lib/obs-releases";
 
 const CACHE_TTL_MS = 5 * 60 * 1000;

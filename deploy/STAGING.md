@@ -56,6 +56,7 @@ day, so nothing collides). To finish isolation:
 The staging relay exposes ingest ports on the app box's public IP. Allow:
 
 - UDP 8890 (SRT publish/read)
+- UDP 8891 (bonded SRT)
 - UDP 5000 (SRTLA)
 - UDP and TCP 8189 (WebRTC media)
 - TCP 1935 (RTMP)
@@ -142,29 +143,49 @@ Both install next to the production apps because the TEST builds use bundle
 identifier `com.pohinagroup.visp.test`. First iOS build needs EAS credentials
 for the new bundle ID (EAS registers it via App Store Connect automatically).
 
-## 8. End-to-end acceptance
+## 8. Pair the OBS plugin
+
+The installed plugin can pair with either environment. Pairing with staging
+replaces the credential stored by this OBS installation, so pair with production
+again after the staging test.
+
+1. In OBS, open **Tools → VISP Remote Control** and expand **Advanced**.
+2. Set **Control URL** to
+   `https://staging.visp-stream.com/api/obs/control`.
+3. Click **Sign in with browser**, sign in to staging, and approve the code.
+4. Confirm that the Account section shows **Live control connected**.
+5. After testing, set **Control URL** to
+   `https://visp-stream.com/api/obs/control` and pair with production again.
+
+## 9. End-to-end acceptance
 
 1. Portal: sign in, create a device — name ends in `(TEST)` and the publish
-   URL points at `87.58.145.161` / `relay-staging` ports 8890/5000/1935.
+   URL points at `87.58.145.161` / `relay-staging` ports 8890/8891/5000/1935.
 2. Native TEST app: claim, start a camera stream, confirm the path goes live
    and the snapshot appears (after step 2's bucket).
-3. Actions: start/stop from portal and OBS Remote staging, secret rotation,
-   and reconciliation — all only touch staging data.
-4. OBS: point a reader at the staging SRT URL; confirm end-to-end latency and
+3. Actions: start and stop from the portal and OBS Remote staging. Test secret
+   rotation and reconciliation. Confirm that each action changes only staging
+   data.
+4. OBS: complete step 8, add a staging device as a Media Source, and switch a
+   scene from OBS Remote staging. Confirm start, stop, and live state updates.
+5. Point an OBS reader at the staging SRT URL. Confirm end-to-end latency and
    stop behavior.
-5. Confirm production still streams normally on visp-relay.
+6. Confirm production still streams normally on visp-relay.
 
 ## Operations
+
+Install `build-essential`, `cmake`, `libmbedtls-dev`, and `libssl-dev` on the
+app box. The staging workflow rebuilds and restarts only the relay components
+whose source, config, or systemd unit changed. A manual workflow run deploys
+all three components.
 
 - **Deploy staging**: push to `main` (automatic) or run
   `sudo /usr/local/sbin/visp-staging-release` on the app box.
 - **Logs**: `journalctl -u visp-server-staging -u visp-web-staging -f`;
-  relay: `journalctl -u mediamtx-staging -u srtla-rec-staging -f`.
+  relay: `journalctl -u mediamtx-staging -u srtla-rec-staging -u visp-bond-staging -f`.
 - **Shared with production**: host resources, Caddy process (staging vhosts
   live in `/etc/caddy/staging/*.caddy`, imported by the tracked Caddyfile),
   UpCloud DB instance (separate databases), OAuth applications (separate
   callbacks), snapshot bucket (until step 2).
 - **Isolated from production**: secrets, database data, relay registration,
   publish URLs, devices, and releases.
-- **Deferred**: `visp-bond` staging (bonded-SRT tests) — build the gateway on
-  the app box if needed; OBS plugin staging pairing.

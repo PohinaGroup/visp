@@ -14,9 +14,7 @@ const sslCaPath = process.env.DATABASE_SSL_CA;
 
 function isLocalDatabaseHost(hostname: string): boolean {
 	return (
-		hostname === "localhost" ||
-		hostname === "127.0.0.1" ||
-		hostname === "::1"
+		hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
 	);
 }
 
@@ -46,9 +44,7 @@ function postgresCredentials(url: string) {
 		...(needsSsl
 			? {
 					ssl: {
-						...(sslCaPath
-							? { ca: readFileSync(sslCaPath, "utf8") }
-							: {}),
+						...(sslCaPath ? { ca: readFileSync(sslCaPath, "utf8") } : {}),
 						rejectUnauthorized: true as const,
 					},
 				}

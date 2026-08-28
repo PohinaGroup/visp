@@ -1,13 +1,13 @@
 [Unit]
-Description=VISP bonded SRT gateway
-After=network-online.target mediamtx.service
+Description=VISP bonded SRT gateway (staging)
+After=network-online.target mediamtx-staging.service
 Wants=network-online.target
-Requires=mediamtx.service
+Requires=mediamtx-staging.service
 StartLimitIntervalSec=0
 
 [Service]
 Type=simple
-EnvironmentFile=/etc/visp/relay.env
+EnvironmentFile=/etc/visp-staging/relay.env
 ExecStart=/usr/local/bin/visp-bond
 Restart=always
 RestartSec=2
