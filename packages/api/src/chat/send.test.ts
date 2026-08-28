@@ -6,10 +6,22 @@ const { MAX_SEND_LENGTH, prepareMessage, resetSendLimits, sendChatMessage } =
 	await import("./send");
 
 type Call = { url: string; body: unknown; authorization: string };
+type DependencyCall = { providerId: string; userId: string };
 
-function dependencies(over: { scope?: string; status?: number } = {}) {
+function dependencies(
+	over: {
+		botScope?: string;
+		channelScope?: string;
+		senderMode?: "visp" | "self";
+		status?: number;
+	} = {},
+) {
 	const calls: Call[] = [];
+	const accountLoads: DependencyCall[] = [];
+	const tokenLoads: DependencyCall[] = [];
+	const senderModeLoads: string[] = [];
 	return {
+		accountLoads,
 		calls,
 		deps: {
 			fetch: (async (input, init) => {
@@ -20,15 +32,33 @@ function dependencies(over: { scope?: string; status?: number } = {}) {
 				});
 				return new Response(null, { status: over.status ?? 200 });
 			}) as typeof fetch,
-			getAccessToken: async () => ({ accessToken: "token" }),
-			loadAccount: async () => ({
-				accountId: "12345",
-				scope:
-					over.scope ??
-					"user:read:chat user:write:chat chat:write https://www.googleapis.com/auth/youtube.force-ssl",
-			}),
+			getAccessToken: async (providerId: string, userId: string) => {
+				tokenLoads.push({ providerId, userId });
+				return { accessToken: `${userId}-token` };
+			},
+			loadAccount: async (providerId: string, userId: string) => {
+				accountLoads.push({ providerId, userId });
+				if (providerId === "twitch" && userId === "test-visp-chat-bot-user") {
+					return {
+						accountId: "67890",
+						scope: over.botScope ?? "user:write:chat",
+					};
+				}
+				return {
+					accountId: "12345",
+					scope:
+						over.channelScope ??
+						"channel:bot user:write:chat chat:write https://www.googleapis.com/auth/youtube.force-ssl",
+				};
+			},
+			loadSenderMode: async (userId: string) => {
+				senderModeLoads.push(userId);
+				return over.senderMode;
+			},
 			liveChatId: async () => "live-chat-1",
 		},
+		senderModeLoads,
+		tokenLoads,
 	};
 }
 
@@ -52,10 +82,20 @@ describe("chat send", () => {
 		);
 		expect(twitch.calls[0]?.body).toEqual({
 			broadcaster_id: "12345",
-			sender_id: "12345",
+			sender_id: "67890",
 			message: "hello",
 		});
-		expect(twitch.calls[0]?.authorization).toBe("Bearer token");
+		expect(twitch.calls[0]?.authorization).toBe(
+			"Bearer test-visp-chat-bot-user-token",
+		);
+		expect(twitch.accountLoads).toEqual([
+			{ providerId: "twitch", userId: "user" },
+			{ providerId: "twitch", userId: "test-visp-chat-bot-user" },
+		]);
+		expect(twitch.senderModeLoads).toEqual(["user"]);
+		expect(twitch.tokenLoads).toEqual([
+			{ providerId: "twitch", userId: "test-visp-chat-bot-user" },
+		]);
 
 		const kick = dependencies();
 		expect(await sendChatMessage("user", "kick", "hello", kick.deps)).toBe(
@@ -66,6 +106,13 @@ describe("chat send", () => {
 			content: "hello",
 			type: "user",
 		});
+		expect(kick.accountLoads).toEqual([
+			{ providerId: "kick", userId: "user" },
+		]);
+		expect(kick.senderModeLoads).toEqual([]);
+		expect(kick.tokenLoads).toEqual([
+			{ providerId: "kick", userId: "user" },
+		]);
 
 		const youtube = dependencies();
 		expect(
@@ -78,14 +125,59 @@ describe("chat send", () => {
 				textMessageDetails: { messageText: "hello" },
 			},
 		});
+		expect(youtube.accountLoads).toEqual([
+			{ providerId: "google", userId: "user" },
+		]);
+		expect(youtube.senderModeLoads).toEqual([]);
+		expect(youtube.tokenLoads).toEqual([
+			{ providerId: "google", userId: "user" },
+		]);
 	});
 
-	test("refuses to post without the write scope, and never calls the API", async () => {
-		const { calls, deps } = dependencies({ scope: "user:read:chat" });
+	test("preserves Twitch own-account compatibility mode", async () => {
+		const twitch = dependencies({ senderMode: "self" });
+		expect(await sendChatMessage("user", "twitch", "hello", twitch.deps)).toBe(
+			"sent",
+		);
+		expect(twitch.calls[0]?.body).toEqual({
+			broadcaster_id: "12345",
+			sender_id: "12345",
+			message: "hello",
+		});
+		expect(twitch.calls[0]?.authorization).toBe("Bearer user-token");
+		expect(twitch.accountLoads).toEqual([
+			{ providerId: "twitch", userId: "user" },
+		]);
+		expect(twitch.tokenLoads).toEqual([
+			{ providerId: "twitch", userId: "user" },
+		]);
+	});
+
+	test("refuses shared bot sends without the broadcaster grant", async () => {
+		const { accountLoads, calls, deps, tokenLoads } = dependencies({
+			channelScope: "user:write:chat",
+		});
 		expect(await sendChatMessage("user", "twitch", "hello", deps)).toBe(
 			"unauthorized",
 		);
 		expect(calls).toHaveLength(0);
+		expect(accountLoads).toEqual([{ providerId: "twitch", userId: "user" }]);
+		expect(tokenLoads).toHaveLength(0);
+	});
+
+	test("refuses shared bot sends without sender write consent", async () => {
+		const { accountLoads, calls, deps, tokenLoads } = dependencies({
+			botScope: "user:read:chat",
+		});
+		expect(await sendChatMessage("user", "twitch", "hello", deps)).toBe(
+			"unauthorized",
+		);
+		expect(calls).toHaveLength(0);
+		expect(accountLoads).toEqual([
+			{ providerId: "twitch", userId: "user" },
+			{ providerId: "twitch", userId: "test-visp-chat-bot-user" },
+		]);
+		expect(tokenLoads).toHaveLength(0);
 	});
 
 	test("reports a revoked token as unauthorized and a failure as unavailable", async () => {

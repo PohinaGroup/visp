@@ -148,6 +148,9 @@ export const appUser = pgTable(
 		// runs distribution encode there. Kept for one rollback window; unused.
 		directBeta: boolean("direct_beta").default(false).notNull(),
 		directDualOutput: boolean("direct_dual_output").default(false).notNull(),
+		chatBotAccountSelection: boolean("chat_bot_account_selection")
+			.default(false)
+			.notNull(),
 		// Hosted text-to-speech for reading chat aloud. Every utterance costs money
 		// per character, so this gates spend, not capacity.
 		betterTts: boolean("better_tts").default(false).notNull(),
@@ -176,6 +179,12 @@ export const appUser = pgTable(
 		brbHighlightsOverlay: boolean("brb_highlights_overlay")
 			.default(true)
 			.notNull(),
+		directProductionMode: text("direct_production_mode")
+			.default("obs")
+			.notNull(),
+		studioEmptyWarningDismissed: boolean("studio_empty_warning_dismissed")
+			.default(false)
+			.notNull(),
 		onboardedAt: timestamp("onboarded_at", { withTimezone: true }),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
@@ -185,6 +194,10 @@ export const appUser = pgTable(
 		check(
 			"app_user_brb_source_known",
 			sql`${table.brbSource} in ('snapshot', 'image', 'color')`,
+		),
+		check(
+			"app_user_direct_production_mode_known",
+			sql`${table.directProductionMode} in ('cloud_studio', 'obs')`,
 		),
 	],
 );

@@ -1,12 +1,14 @@
 import * as UI from "@expo/ui";
+import * as Linking from "expo-linking";
 import { useEffect, useState } from "react";
-import type { apiClient } from "../lib/backend";
+import { type apiClient, serverOrigin } from "../lib/backend";
 import {
 	customOutputChangesDisabled,
 	customOutputStatus,
 	customOutputsForPath,
 } from "../lib/custom-direct-output";
 import { nativeDirectText } from "../lib/native-direct-i18n";
+import { studioEditUrl } from "../lib/studio-link";
 import {
 	DEFAULT_PORTRAIT_CROP,
 	DirectPortraitFraming,
@@ -227,6 +229,24 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 	return (
 		<>
 			<UI.FieldGroup.Section title="Stream to">
+				{outputs.studio?.available ? (
+					<ProviderRow
+						label="Cloud Studio"
+						status={
+							outputs.studio.mode === "cloud_studio"
+								? "Last saved program"
+								: "OBS mode"
+						}
+					>
+						<UI.Button
+							label="Edit on web"
+							onPress={() =>
+								void Linking.openURL(studioEditUrl(serverOrigin()))
+							}
+							variant="outlined"
+						/>
+					</ProviderRow>
+				) : null}
 				{outputs.providers.map((provider) => (
 					<ProviderRow
 						key={provider.provider}

@@ -79,6 +79,10 @@ import {
 	streamOwnerId,
 	validateStreamUrl,
 } from "../lib/stream-url";
+import {
+	emptySavedStudioNeedsWarning,
+	emptyStudioWarningDecision,
+} from "../lib/studio-link";
 import { useAfterMount } from "../lib/use-after-mount";
 import { useFirstLiveTracking } from "../lib/use-first-live-tracking";
 import { useLinkStatsReporter } from "../lib/use-link-stats-reporter";
@@ -127,6 +131,58 @@ function confirmStop(holdPossible: boolean): Promise<StopChoice> {
 			],
 		);
 	});
+}
+
+function confirmEmptyStudio(): Promise<"cancel" | "continue" | "dismiss"> {
+	if (IS_WEB) {
+		return new Promise((resolve) => {
+			const dialog = document.createElement("dialog");
+			const title = document.createElement("h2");
+			const description = document.createElement("p");
+			const form = document.createElement("form");
+			title.id = "empty-studio-title";
+			title.textContent = "Empty Cloud Studio";
+			description.textContent =
+				"Your studio has no sources yet. Go live anyway?";
+			form.method = "dialog";
+			for (const [value, text] of [
+				["cancel", "Cancel"],
+				["continue", "Continue"],
+				["dismiss", "Don't ask again"],
+			] as const) {
+				const button = document.createElement("button");
+				button.value = value;
+				button.textContent = text;
+				form.append(button);
+			}
+			dialog.setAttribute("aria-labelledby", title.id);
+			dialog.append(title, description, form);
+			dialog.addEventListener(
+				"close",
+				() => {
+					const choice = dialog.returnValue;
+					dialog.remove();
+					resolve(
+						choice === "continue" || choice === "dismiss" ? choice : "cancel",
+					);
+				},
+				{ once: true },
+			);
+			document.body.append(dialog);
+			dialog.showModal();
+		});
+	}
+	return new Promise((resolve) =>
+		Alert.alert(
+			"Empty Cloud Studio",
+			"Your studio has no sources yet. Go live anyway?",
+			[
+				{ onPress: () => resolve("cancel"), style: "cancel", text: "Cancel" },
+				{ onPress: () => resolve("continue"), text: "Go live" },
+				{ onPress: () => resolve("dismiss"), text: "Don't ask again" },
+			],
+		),
+	);
 }
 
 export default function Index() {
@@ -561,6 +617,27 @@ export default function Index() {
 					await endBrb(publishPathId);
 				}
 			} else {
+				if (userId && publishPathId) {
+					try {
+						const currentStudio = await apiClient.studio.get.query();
+						if (
+							emptySavedStudioNeedsWarning(
+								currentStudio.settings.mode,
+								currentStudio.graph,
+								currentStudio.settings.emptyWarningDismissed,
+							)
+						) {
+							const choice = await confirmEmptyStudio();
+							const decision = emptyStudioWarningDecision(choice);
+							if (!decision.continue) return;
+							if (decision.dismiss) {
+								await apiClient.studio.emptyWarning.mutate({ dismissed: true });
+							}
+						}
+					} catch {
+						// New native clients remain publish-compatible with older servers.
+					}
+				}
 				if (!(await confirmBondingDataUse())) return;
 				showToast("Connecting to relay service…", true);
 				setPreflighting(true);

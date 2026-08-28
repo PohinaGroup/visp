@@ -1,3 +1,4 @@
+import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Center } from "@astryxdesign/core/Center";
 import { CollapsibleGroup } from "@astryxdesign/core/Collapsible";
@@ -44,6 +45,7 @@ export function DashboardPage() {
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
 	const directQuery = useQuery(trpc.direct.list.queryOptions());
+	const studioQuery = useQuery(trpc.studio.get.queryOptions());
 	const setOperationalMode = useMutation(
 		trpc.direct.setMode.mutationOptions({
 			onSuccess: async () => {
@@ -142,6 +144,23 @@ export function DashboardPage() {
 							</SegmentedControl>
 						</VStack>
 					</Card>
+					{studioQuery.data?.settings.available ? (
+						<Card>
+							<VStack gap={2}>
+								<Heading level={2}>{t("Cloud Studio")}</Heading>
+								<Text color="secondary" type="supporting">
+									{t(
+										"Build the saved program that Direct sends to your platforms.",
+									)}
+								</Text>
+								<Button
+									href={`/studio${locale === "fi" ? "?lang=fi" : ""}`}
+									label={t("Open Studio")}
+									variant="primary"
+								/>
+							</VStack>
+						</Card>
+					) : null}
 					{operationalMode && operationalMode !== "unconfigured" ? (
 						<ChainStrip />
 					) : null}

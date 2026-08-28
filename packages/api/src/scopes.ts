@@ -28,8 +28,10 @@ export const PROVIDER_SCOPES = {
 			"channel:read:subscriptions",
 			"bits:read",
 		],
-		/** What the bot needs to post; the message lands as the streamer. */
+		/** What a Twitch sender account needs to post. */
 		chatWrite: ["user:write:chat"],
+		/** What a broadcaster grants so VISP's shared bot may post in its chat. */
+		botChannel: ["channel:bot"],
 		channelWrite: "channel:manage:broadcast",
 		/** The scope whose presence proves stream-key consent. */
 		streamKey: "channel:read:stream_key",
@@ -88,6 +90,14 @@ export function hasChatWriteScope(
 	scope: string | null | undefined,
 ) {
 	return PROVIDER_SCOPES[provider].chatWrite.every((name) =>
+		hasScope(scope, name),
+	);
+}
+
+export function hasTwitchBotChannelScope(
+	scope: string | null | undefined,
+) {
+	return PROVIDER_SCOPES.twitch.botChannel.every((name) =>
 		hasScope(scope, name),
 	);
 }

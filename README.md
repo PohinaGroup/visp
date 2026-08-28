@@ -77,7 +77,12 @@ bun test
 bun run test:integration
 bun run check-types
 bun run build
+bun run test:e2e
 ```
+
+Browser smoke tests require the local stack (`bun run dev:local`) and a one-time
+Playwright browser install (`bun run test:e2e:install`). See
+[DEVELOPMENT.md](DEVELOPMENT.md) for details.
 
 The integration suite starts a disposable PostgreSQL container on port 55432
 and removes it when the run finishes. OBS plugin builds and tests are documented

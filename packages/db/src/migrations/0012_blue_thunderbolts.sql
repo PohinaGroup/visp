@@ -1,3 +1,17 @@
+CREATE TABLE "custom_direct_destination" (
+	"id" text PRIMARY KEY NOT NULL,
+	"user_id" text NOT NULL,
+	"name" text NOT NULL,
+	"protocol" text NOT NULL,
+	"encrypted_url" text NOT NULL,
+	"endpoint_summary" text NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	CONSTRAINT "custom_direct_destination_user_name_unique" UNIQUE("user_id","name"),
+	CONSTRAINT "custom_direct_destination_name_length" CHECK (char_length(trim("custom_direct_destination"."name")) between 1 and 64),
+	CONSTRAINT "custom_direct_destination_protocol_known" CHECK ("custom_direct_destination"."protocol" in ('rtmp', 'rtmps', 'srt'))
+);
+--> statement-breakpoint
 CREATE TABLE "custom_direct_output" (
 	"id" text PRIMARY KEY NOT NULL,
 	"user_id" text NOT NULL,
@@ -14,6 +28,7 @@ CREATE TABLE "custom_direct_output" (
 	CONSTRAINT "custom_direct_output_crop_role" CHECK (("custom_direct_output"."role" = 'landscape' and "custom_direct_output"."crop" is null) or ("custom_direct_output"."role" = 'portrait' and "custom_direct_output"."crop" is not null))
 );
 --> statement-breakpoint
+ALTER TABLE "custom_direct_destination" ADD CONSTRAINT "custom_direct_destination_user_id_app_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."app_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "custom_direct_output" ADD CONSTRAINT "custom_direct_output_user_id_app_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."app_user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "custom_direct_output" ADD CONSTRAINT "custom_direct_output_destination_id_custom_direct_destination_id_fk" FOREIGN KEY ("destination_id") REFERENCES "public"."custom_direct_destination"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "custom_direct_output" ADD CONSTRAINT "custom_direct_output_path_id_path_id_fk" FOREIGN KEY ("path_id") REFERENCES "public"."path"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

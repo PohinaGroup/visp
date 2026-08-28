@@ -3,7 +3,7 @@ import "./test-env";
 import { describe, expect, test } from "bun:test";
 import { Elysia } from "elysia";
 
-const { machineRoutes } = await import("./machine");
+const { machineRoutes, studioScopedCredential } = await import("./machine");
 const { createApp, LOG_REDACTION_PATHS } = await import("./app");
 const { deleteBrbHighlightUploadsForUser, deleteSnapshotsForPathIds } =
 	await import("@VISP/auth");
@@ -48,18 +48,36 @@ describe("machine endpoints", () => {
 					user: "u",
 				})
 			).status,
-		).toBe(403);
+		).not.toBe(200);
 	});
 
-	test("allows only loopback RTSP reads without media credentials", async () => {
+	test("binds loopback Studio media credentials to one exact path", async () => {
+		const password = studioScopedCredential(
+			"test-studio-media-password-at-least-32-chars",
+			"streamer-1",
+			"media",
+		);
 		expect(
 			(
 				await authRequest({
 					action: "read",
+					password,
 					protocol: "rtsp",
+					user: "studio:streamer-1",
 				})
 			).status,
 		).toBe(200);
+		expect(
+			(
+				await authRequest({
+					action: "read",
+					path: "streamer-2",
+					password,
+					protocol: "rtsp",
+					user: "studio:streamer-1",
+				})
+			).status,
+		).not.toBe(200);
 		expect(
 			(
 				await authRequest({
@@ -71,6 +89,76 @@ describe("machine endpoints", () => {
 				})
 			).status,
 		).toBe(403);
+	});
+
+	test("allows only the compositor credential to publish a local Studio RTSP path", async () => {
+		const password = studioScopedCredential(
+			"test-studio-media-password-at-least-32-chars",
+			"streamer-1",
+			"media",
+		);
+		expect(
+			(
+				await authRequest({
+					action: "publish",
+					ip: "127.0.0.1",
+					path: "studio/streamer-1",
+					password,
+					protocol: "rtsp",
+					user: "studio:streamer-1",
+				})
+			).status,
+		).toBe(200);
+		for (const overrides of [
+			{ ip: "203.0.113.10" },
+			{ path: "streamer-1" },
+			{ password: "wrong-password" },
+		]) {
+			expect(
+				(
+					await authRequest({
+						action: "publish",
+						ip: "127.0.0.1",
+						path: "studio/streamer-1",
+						password,
+						protocol: "rtsp",
+						user: "studio:streamer-1",
+						...overrides,
+					})
+				).status,
+			).not.toBe(200);
+		}
+	});
+
+	test("binds every Studio worker hook token to its body path", async () => {
+		const token = studioScopedCredential(
+			"test-hook-secret-that-is-at-least-32-characters",
+			"streamer-1",
+			"hook",
+		);
+		const routes = [
+			["desired-state", { path: "streamer-2" }],
+			["relay-plan", { path: "streamer-2" }],
+			["health", { path: "streamer-2", healthy: false }],
+			[
+				"browser-failure",
+				{ path: "streamer-2", layerId: "11111111-1111-4111-8111-111111111111" },
+			],
+			["alert", { path: "streamer-2", event: "follow" }],
+		] as const;
+		for (const [route, body] of routes) {
+			const response = await app.handle(
+				new Request(`http://localhost/api/hooks/studio/${route}`, {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						"x-studio-token": token,
+					},
+					body: JSON.stringify(body),
+				}),
+			);
+			expect(response.status).toBe(401);
+		}
 	});
 
 	test("rejects hooks without the shared secret", async () => {

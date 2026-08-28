@@ -27,6 +27,21 @@ edelleen valittavissa; alustan kuvanlaatu tulee relayn koodauksesta.
 Jokainen valittu alusta käyttää oman välityspaikan ja koodauksen. Usean alustan
 valinta kasvattaa relayn kuormitusta, mutta ei lisää puhelimen lähetyksiä.
 
+## Missä ohjelma tehdään
+
+- **Cloud Studio** polttaa web-Studiossa viimeksi tallennetun näkymän Directin
+  ohjelmaan. Käytössä on enintään kolme näkymää, kahdeksan tasoa näkymää kohden,
+  kaksi julkista HTTPS-selainlähdettä ja yksi VISP-hälytystaso. Tallentamattomat
+  muutokset eivät päädy lähetykseen. Native käyttää viimeksi tallennettua ohjelmaa
+  ja avaa muokkauksen webissä.
+- **Käytän OBS:ää** säilyttää nykyisen työnkulun. VISP ei ylläpidä OBS:ää, vaan
+  oma OBS vastaa näkymistä, päällyksistä, lisäosista ja alustalähdöstä.
+
+Esikatselu on tavallisesti alle kolme sekuntia kamerasyötettä jäljessä, ja
+tallennettu muutos tulee tavallisesti käyttöön alle kahdessa sekunnissa. Nämä
+ovat toiminnallisia tavoitteita, eivät kova asiakas-SLA. Häiriössä Direct välittää
+vain kameran, yrittää uudelleen ja säilyttää tallennetut näkymät.
+
 ## Käyttöönotto
 
 1. Valitse käyttöönotossa Twitch, Kick tai YouTube ja valtuuta lähetys. Nykyinen käyttäjä

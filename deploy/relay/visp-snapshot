@@ -15,6 +15,17 @@ mkdir -p "$run_dir" 2>/dev/null || true
 # ingest drop (we are gone) from a destination failure (we are still here).
 live_marker="$run_dir/$safe_path.live"
 snapshot_file="$run_dir/$safe_path.jpg"
+compositor_service=""
+compositor_env=""
+
+scoped_credential() {
+	printf '%s' "$2:$path" | openssl dgst -sha256 -hmac "$1" | awk '{print $NF}'
+}
+
+studio_worker_token="$(scoped_credential "$HOOK_SECRET" hook)"
+studio_media_password="$(scoped_credential "$STUDIO_MEDIA_PASSWORD" media)"
+studio_media_user="studio:$path"
+studio_media_user_url="studio%3A$path"
 
 # MediaMTX starts runOnAvailable with Setpgid, so this script leads its own
 # process group and "kill 0" reaches the snapshot grab without touching
@@ -28,7 +39,7 @@ snapshot_file="$run_dir/$safe_path.jpg"
 # then reach nothing.
 #
 # The snapshot file outlives us on purpose: it is the BRB card's background.
-trap 'trap - INT TERM EXIT; rm -f "$live_marker"; kill 0 2>/dev/null; exit 0' \
+trap 'trap - INT TERM EXIT; rm -f "$live_marker"; test -z "$compositor_env" || rm -f "$compositor_env"; test -z "$compositor_service" || systemctl stop --no-block "$compositor_service" 2>/dev/null; kill 0 2>/dev/null; exit 0' \
 	INT TERM EXIT
 
 printf '%s\n' "$$" >"$live_marker"
@@ -38,6 +49,17 @@ printf '%s\n' "$$" >"$live_marker"
 video_encoder="${DIRECT_VIDEO_ENCODER:-libx264}"
 video_bitrate_kbps="${DIRECT_VIDEO_BITRATE_KBPS:-6000}"
 video_fps="${DIRECT_VIDEO_FPS:-30}"
+
+# The optional template keeps Chromium out of this root-owned hook. Starting it
+# for every ingest is cheap: OBS-mode workers never launch FFmpeg, while a cloud
+# worker reports healthy and Direct selects its local Studio program on retry.
+if test -n "${STUDIO_COMPOSITOR_UNIT:-}"; then
+	compositor_env="$run_dir/compositor-$safe_path.env"
+	(umask 077; printf 'APP_ORIGIN=%s\nSTUDIO_WORKER_TOKEN=%s\nSTUDIO_MEDIA_USER=%s\nSTUDIO_MEDIA_PASSWORD=%s\n' \
+		"$app_url" "$studio_worker_token" "$studio_media_user" "$studio_media_password" >"$compositor_env")
+	compositor_service="${STUDIO_COMPOSITOR_UNIT}${safe_path}.service"
+	systemctl start --no-block "$compositor_service" 2>/dev/null || compositor_service=""
+fi
 
 # BRB card knobs. The live branch passes the publisher's resolution through
 # untouched, so a card at a different size means the platform opens a new
@@ -177,6 +199,33 @@ brb_tick() {
 		"$app_url/api/hooks/$endpoint"
 }
 
+# Last saved desired state only. The app answers passthrough whenever the
+# rollout flag, account mode, kill switch, or compositor health says no.
+studio_plan() {
+	curl --fail --silent --show-error --max-time 2 --request POST \
+		--header "Content-Type: application/json" \
+		--header "X-Studio-Token: $studio_worker_token" \
+		--data "{\"path\":\"$path\"}" \
+		"$app_url/api/hooks/studio/relay-plan"
+}
+
+studio_source() {
+	local current="${1:-}" plan verb candidate
+	candidate="rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/$path"
+	plan="$(studio_plan)" || {
+		printf '%s' "${current:-$candidate}"
+		return
+	}
+	# shellcheck disable=SC2086
+	set -- $plan
+	verb="${1:-passthrough}"
+	case "$verb ${2:-}" in
+		"program rtsp://127.0.0.1:${RTSP_PORT}/studio/"*)
+			candidate="rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/${2#*:$RTSP_PORT/}" ;;
+	esac
+	printf '%s' "$candidate"
+}
+
 # One destination, one FFmpeg process, one retry loop. A failure here never
 # touches the other provider: each forwarder runs as its own background job.
 #
@@ -186,7 +235,7 @@ brb_tick() {
 # hosts and the VOD survive what used to end the stream.
 forward() {
 	local output_id="$1" kind="$2" role="$3" filter="$4" protocol="$5" muxer="$6" destination="$7" desired_state="$8" provider="${9:-$1}"
-	local backoff started reason
+	local backoff started reason source_url next_source switched
 	output_muxer="$muxer"
 	# log and lock are deliberately not local: the signal handler and final
 	# cleanup share them after the current encode attempt has returned.
@@ -246,21 +295,38 @@ forward() {
 
 	while true; do
 		started="$SECONDS"
+		source_url="$(studio_source)"
 		# Promote to live only once the destination has held for a while;
 		# a rejected stream key fails well inside this window.
 		( sleep 10; report_state "$output_id" live "" "$role" "$kind" "$provider" ) &
 		watcher="$!"
 		if test "$role" = portrait; then
 			encode_to exec "$destination" "$log" \
-				-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" \
+				-rtsp_transport tcp -i "$source_url" \
 				-vf "$filter" &
 		else
 			encode_to exec "$destination" "$log" \
-				-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" &
+				-rtsp_transport tcp -i "$source_url" &
 		fi
 		encoder_pid="$!"
 		printf '%s\n' "$encoder_pid" >"$lock/encoder-pid"
-		wait "$encoder_pid" 2>/dev/null
+		switched=0
+		while kill -0 "$encoder_pid" 2>/dev/null; do
+			sleep 3
+			ingest_live || continue
+			next_source="$(studio_source "$source_url")"
+			test "$next_source" = "$source_url" && continue
+			switched=1
+			kill -TERM "$encoder_pid" 2>/dev/null || true
+			for _ in {1..50}; do
+				kill -0 "$encoder_pid" 2>/dev/null || break
+				sleep 0.1
+			done
+			kill -0 "$encoder_pid" 2>/dev/null &&
+				kill -KILL "$encoder_pid" 2>/dev/null || true
+			break
+		done
+		wait "$encoder_pid" 2>/dev/null || true
 		kill "$watcher" 2>/dev/null
 		wait "$watcher" 2>/dev/null
 		watcher=""
@@ -275,6 +341,10 @@ forward() {
 			wait "$desired_watcher" 2>/dev/null
 			desired_watcher=""
 			break
+		fi
+		if test "$switched" -eq 1; then
+			backoff=2
+			continue
 		fi
 
 		if ! ingest_live; then
@@ -771,7 +841,7 @@ while true; do
 	# background — raise it here if anyone wants a crisp card, the cost is
 	# snapshot bandwidth on every live stream rather than encode.
 	if timeout 20s ffmpeg -nostdin -hide_banner -loglevel error \
-		-rtsp_transport tcp -i "rtsp://127.0.0.1:$RTSP_PORT/$path" \
+		-rtsp_transport tcp -i "rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/$path" \
 		-vf "scale=640:-2" -frames:v 1 -q:v 5 -y "$snapshot_file" && \
 		test -s "$snapshot_file"; then
 		upload_url="$(

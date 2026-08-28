@@ -6,6 +6,7 @@ import { Card } from "@astryxdesign/core/Card";
 import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Selector } from "@astryxdesign/core/Selector";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
@@ -33,6 +34,7 @@ type Settings = {
 	enabled: boolean;
 	commandsEnabled: boolean;
 	prefix: string;
+	senderMode: "visp" | "self";
 	targets: Record<ChatProvider, boolean>;
 	alerts: Record<(typeof ALERTS)[number]["key"], boolean>;
 	messages: Record<(typeof ALERTS)[number]["key"], string | null>;
@@ -101,10 +103,14 @@ export function ChatBotCard() {
 		const granted =
 			connections.data?.find((entry) => entry.provider === provider)
 				?.grantedScopes ?? [];
+		const adding =
+			provider === "twitch" && settings.senderMode === "visp"
+				? PROVIDER_SCOPES.twitch.botChannel
+				: PROVIDER_SCOPES[provider].chatWrite;
 		const result = await linkProvider({
 			provider,
 			granted,
-			adding: PROVIDER_SCOPES[provider].chatWrite,
+			adding,
 			fi,
 		});
 		if (result.error) {
@@ -128,7 +134,7 @@ export function ChatBotCard() {
 					</HStack>
 					<Text color="secondary" type="supporting">
 						{t(
-							"Posts to your chat when the stream goes live, drops, or comes back, and answers commands like !bitrate. Messages appear as your own account.",
+							"Posts to your chat when the stream goes live, drops, or comes back, and answers commands like !bitrate.",
 						)}
 					</Text>
 				</VStack>
@@ -139,6 +145,22 @@ export function ChatBotCard() {
 					value={settings.enabled}
 					onChange={(value) => save({ enabled: value })}
 				/>
+
+				{bot.data.canSelectSender ? (
+					<Selector
+						label={t("Twitch sender")}
+						options={[
+							{ value: "visp", label: t("VISP bot") },
+							{ value: "self", label: t("My Twitch account") },
+						]}
+						value={settings.senderMode}
+						onChange={(value) => {
+							if (value === "visp" || value === "self") {
+								save({ senderMode: value });
+							}
+						}}
+					/>
+				) : null}
 
 				{settings.enabled ? (
 					<>

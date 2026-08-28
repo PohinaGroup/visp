@@ -1,10 +1,11 @@
+import { chatBotSenderModes } from "@VISP/db/schema/index";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { betterFeatures } from "../better-features";
 import {
 	DEFAULT_ALERT_MESSAGES,
 	deleteBotCommand,
-	getBotSettings,
+	getBotSettingsAccess,
 	listBotCommands,
 	MAX_ALERT_MESSAGE_LENGTH,
 	setBotSettings,
@@ -26,6 +27,7 @@ import {
 	revokeChatOverlayToken,
 } from "../chat/overlay-token";
 import { sendableProviders, sendChatMessage } from "../chat/send";
+import { BotSenderSelectionError } from "../chat/sender";
 import { chatTickets } from "../chat/tickets";
 import { protectedProcedure, router } from "../index";
 import { relayProcedure } from "./relay";
@@ -40,6 +42,7 @@ const botSettings = z.object({
 	enabled: z.boolean(),
 	commandsEnabled: z.boolean(),
 	prefix: z.string().trim().min(1).max(3),
+	senderMode: z.enum(chatBotSenderModes),
 	targets: z.object({
 		twitch: z.boolean(),
 		kick: z.boolean(),
@@ -104,13 +107,14 @@ export const chatRouter = router({
 	/** Alerts, commands, and where the bot is allowed to post. */
 	bot: router({
 		get: relayProcedure.query(async ({ ctx }) => {
-			const [settings, commands, canPost] = await Promise.all([
-				getBotSettings(ctx.relayUser.id),
+			const [access, commands, canPost] = await Promise.all([
+				getBotSettingsAccess(ctx.relayUser.id),
 				listBotCommands(ctx.relayUser.id),
 				sendableProviders(ctx.relayUser.id),
 			]);
 			return {
-				settings,
+				settings: access.settings,
+				canSelectSender: access.canSelectSender,
 				commands,
 				canPost,
 				defaultMessages: DEFAULT_ALERT_MESSAGES,
@@ -119,7 +123,19 @@ export const chatRouter = router({
 		}),
 		update: relayProcedure
 			.input(botSettings)
-			.mutation(({ ctx, input }) => setBotSettings(ctx.relayUser.id, input)),
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setBotSettings(ctx.relayUser.id, input);
+				} catch (error) {
+					if (error instanceof BotSenderSelectionError) {
+						throw new TRPCError({
+							code: "FORBIDDEN",
+							message: "Your account cannot select a different chat sender",
+						});
+					}
+					throw error;
+				}
+			}),
 		upsertCommand: relayProcedure
 			.input(
 				z.object({

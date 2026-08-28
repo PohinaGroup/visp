@@ -423,6 +423,8 @@ export async function listDirectOutputs(userId: string) {
 				youtube: appUser.directYoutube,
 				youtubeTitle: appUser.directYoutubeTitle,
 				directDualOutput: appUser.directDualOutput,
+				productionMode: appUser.directProductionMode,
+				emptyWarningDismissed: appUser.studioEmptyWarningDismissed,
 			})
 			.from(appUser)
 			.where(eq(appUser.id, userId))
@@ -467,6 +469,11 @@ export async function listDirectOutputs(userId: string) {
 	};
 	return {
 		directDualOutput: owners[0]?.directDualOutput ?? false,
+		studio: {
+			available: env.CLOUD_STUDIO_ENABLED,
+			mode: (owners[0]?.productionMode ?? "obs") as "cloud_studio" | "obs",
+			emptyWarningDismissed: owners[0]?.emptyWarningDismissed ?? false,
+		},
 		mode:
 			owners[0]?.twitch === null &&
 			owners[0]?.kick === null &&

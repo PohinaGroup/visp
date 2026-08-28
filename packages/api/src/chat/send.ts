@@ -1,11 +1,12 @@
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
-import { account } from "@VISP/db/schema/index";
+import { account, type chatBotSenderModes } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, inArray } from "drizzle-orm";
 import { fixedWindow } from "../rate-limit";
-import { hasChatWriteScope } from "../scopes";
+import { hasChatWriteScope, hasTwitchBotChannelScope } from "../scopes";
 import { type ChatProvider, chatAuthProvider } from "./contract";
+import { getEffectiveBotSenderMode } from "./sender";
 import { findActiveYoutubeChat } from "./youtube";
 
 /**
@@ -29,6 +30,7 @@ const YOUTUBE_CHAT_TTL_MS = 5 * 60_000;
 const youtubeChats = new Map<string, { id: string; expiresAt: number }>();
 
 export type SendResult = "sent" | "unauthorized" | "throttled" | "unavailable";
+type BotSenderMode = (typeof chatBotSenderModes)[number];
 
 export type SendDependencies = {
 	fetch: typeof fetch;
@@ -40,6 +42,7 @@ export type SendDependencies = {
 		providerId: string,
 		userId: string,
 	) => Promise<{ accountId: string; scope: string | null } | undefined>;
+	loadSenderMode: (userId: string) => Promise<BotSenderMode | undefined>;
 	liveChatId: (userId: string) => Promise<string | null>;
 };
 
@@ -55,6 +58,7 @@ const defaultDependencies: SendDependencies = {
 				eq(account.providerId, providerId),
 			),
 		}),
+	loadSenderMode: getEffectiveBotSenderMode,
 	liveChatId: async (userId) => {
 		const cached = youtubeChats.get(userId);
 		if (cached && cached.expiresAt > Date.now()) return cached.id;
@@ -92,7 +96,8 @@ export function resetSendLimits() {
 }
 
 /**
- * Posts one line to one platform as the streamer's own account.
+ * Posts one line to one platform. Twitch defaults to VISP's shared bot;
+ * Kick, YouTube, and Twitch compatibility mode post as the streamer.
  *
  * Never throws: every caller is a fire-and-forget alert or command reply, and
  * a chat failure must not take a stream event handler down with it.
@@ -111,15 +116,42 @@ export async function sendChatMessage(
 	const providerId = chatAuthProvider(provider);
 	try {
 		const linked = await dependencies.loadAccount(providerId, userId);
-		if (!linked || !hasChatWriteScope(provider, linked.scope)) {
+		if (!linked) return "unauthorized";
+
+		let sender = linked;
+		let credentialUserId = userId;
+		if (provider === "twitch") {
+			const senderMode = (await dependencies.loadSenderMode(userId)) ?? "visp";
+			if (senderMode === "visp") {
+				if (!hasTwitchBotChannelScope(linked.scope)) return "unauthorized";
+				const bot = await dependencies.loadAccount(
+					"twitch",
+					env.VISP_CHAT_BOT_USER_ID,
+				);
+				if (!bot || !hasChatWriteScope("twitch", bot.scope)) {
+					return "unauthorized";
+				}
+				sender = bot;
+				credentialUserId = env.VISP_CHAT_BOT_USER_ID;
+			} else if (!hasChatWriteScope("twitch", linked.scope)) {
+				return "unauthorized";
+			}
+		} else if (!hasChatWriteScope(provider, linked.scope)) {
 			return "unauthorized";
 		}
 		const { accessToken } = await dependencies.getAccessToken(
 			providerId,
-			userId,
+			credentialUserId,
 		);
 		const response = await sendToProvider(
-			{ accessToken, accountId: linked.accountId, message, provider, userId },
+			{
+				accessToken,
+				broadcasterId: linked.accountId,
+				message,
+				provider,
+				senderId: sender.accountId,
+				userId,
+			},
 			dependencies,
 		);
 		if (!response) return "unavailable";
@@ -135,9 +167,10 @@ export async function sendChatMessage(
 async function sendToProvider(
 	input: {
 		accessToken: string;
-		accountId: string;
+		broadcasterId: string;
 		message: string;
 		provider: ChatProvider;
+		senderId: string;
 		userId: string;
 	},
 	dependencies: SendDependencies,
@@ -151,8 +184,8 @@ async function sendToProvider(
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
-				broadcaster_id: input.accountId,
-				sender_id: input.accountId,
+				broadcaster_id: input.broadcasterId,
+				sender_id: input.senderId,
 				message: input.message,
 			}),
 		});
@@ -167,7 +200,7 @@ async function sendToProvider(
 			// "user" posts as the streamer on their own channel, which is what the
 			// granted user token authorizes. "bot" would need a separate identity.
 			body: JSON.stringify({
-				broadcaster_user_id: Number(input.accountId),
+				broadcaster_user_id: Number(input.broadcasterId),
 				content: input.message,
 				type: "user",
 			}),
@@ -198,19 +231,39 @@ async function sendToProvider(
 
 /** Which providers this account has both enabled for chat and consented to post on. */
 export async function sendableProviders(userId: string) {
+	const senderMode = await getEffectiveBotSenderMode(userId);
+	const userIds =
+		senderMode === "visp" ? [userId, env.VISP_CHAT_BOT_USER_ID] : [userId];
 	const rows = await db
-		.select({ provider: account.providerId, scope: account.scope })
+		.select({
+			provider: account.providerId,
+			scope: account.scope,
+			userId: account.userId,
+		})
 		.from(account)
 		.where(
 			and(
-				eq(account.userId, userId),
+				inArray(account.userId, userIds),
 				inArray(account.providerId, ["twitch", "kick", "google"]),
 			),
 		);
 	return (["twitch", "kick", "youtube"] as const).filter((provider) => {
 		const linked = rows.find(
-			(row) => row.provider === chatAuthProvider(provider),
+			(row) =>
+				row.provider === chatAuthProvider(provider) && row.userId === userId,
 		);
+		if (provider === "twitch" && senderMode === "visp") {
+			const bot = rows.find(
+				(row) =>
+					row.provider === "twitch" && row.userId === env.VISP_CHAT_BOT_USER_ID,
+			);
+			return (
+				Boolean(linked) &&
+				hasTwitchBotChannelScope(linked?.scope) &&
+				Boolean(bot) &&
+				hasChatWriteScope("twitch", bot?.scope)
+			);
+		}
 		return Boolean(linked) && hasChatWriteScope(provider, linked?.scope);
 	});
 }

@@ -31,6 +31,7 @@ import { Route as FiCookiesRouteImport } from './routes/fi/cookies'
 import { Route as FiContactRouteImport } from './routes/fi/contact'
 import { Route as FiAffiliateRouteImport } from './routes/fi/affiliate'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AuthStudioRouteImport } from './routes/_auth/studio'
 import { Route as AuthSetupRouteImport } from './routes/_auth/setup'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
 import { Route as FiBlogIndexRouteImport } from './routes/fi/blog/index'
@@ -145,6 +146,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthStudioRoute = AuthStudioRouteImport.update({
+  id: '/studio',
+  path: '/studio',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
 const AuthSetupRoute = AuthSetupRouteImport.update({
   id: '/setup',
   path: '/setup',
@@ -182,6 +188,7 @@ export interface FileRoutesByFullPath {
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
+  '/studio': typeof AuthStudioRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
@@ -209,6 +216,7 @@ export interface FileRoutesByTo {
   '/terms': typeof TermsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
+  '/studio': typeof AuthStudioRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
@@ -238,6 +246,7 @@ export interface FileRoutesById {
   '/terms': typeof TermsRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/setup': typeof AuthSetupRoute
+  '/_auth/studio': typeof AuthStudioRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
@@ -267,6 +276,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/dashboard'
     | '/setup'
+    | '/studio'
     | '/blog/$slug'
     | '/fi/affiliate'
     | '/fi/contact'
@@ -294,6 +304,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/dashboard'
     | '/setup'
+    | '/studio'
     | '/blog/$slug'
     | '/fi/affiliate'
     | '/fi/contact'
@@ -322,6 +333,7 @@ export interface FileRouteTypes {
     | '/terms'
     | '/_auth/dashboard'
     | '/_auth/setup'
+    | '/_auth/studio'
     | '/blog/$slug'
     | '/fi/affiliate'
     | '/fi/contact'
@@ -517,6 +529,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_auth/studio': {
+      id: '/_auth/studio'
+      path: '/studio'
+      fullPath: '/studio'
+      preLoaderRoute: typeof AuthStudioRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
     '/_auth/setup': {
       id: '/_auth/setup'
       path: '/setup'
@@ -551,11 +570,13 @@ declare module '@tanstack/react-router' {
 interface AuthRouteRouteChildren {
   AuthDashboardRoute: typeof AuthDashboardRoute
   AuthSetupRoute: typeof AuthSetupRoute
+  AuthStudioRoute: typeof AuthStudioRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthDashboardRoute: AuthDashboardRoute,
   AuthSetupRoute: AuthSetupRoute,
+  AuthStudioRoute: AuthStudioRoute,
 }
 
 const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(

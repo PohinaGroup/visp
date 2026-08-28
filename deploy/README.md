@@ -51,10 +51,13 @@ disconnecting either side behaves as expected. Only then install
    APP_ORIGIN=https://app.example.com
    MTX_AUTHHTTPADDRESS=https://app.example.com/api/mediamtx/auth
    MTX_APIADDRESS=100.64.0.10:9997
+   MTX_WEBRTCALLOWORIGINS=https://visp-stream.com,https://stream.visp-stream.com
    ```
 
    Replace the example origin and Tailscale address. Set
-   `MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
+	`MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
+	Keep `MTX_WEBRTCALLOWORIGINS` aligned with the deployed portal and native-web
+	origins so authenticated WHEP previews can signal directly to the relay.
    MediaMTX maps the `MTX_*` variables to the matching YAML settings.
 
 	VISP Direct is the default Twitch/Kick output and uses distribution-encode
@@ -63,10 +66,22 @@ disconnecting either side behaves as expected. Only then install
    CPU-per-forwarder number on this box, not from a guess:
 
    ```text
-   DIRECT_VIDEO_ENCODER=libx264
-   DIRECT_VIDEO_BITRATE_KBPS=6000
-   DIRECT_VIDEO_FPS=30
-   ```
+	   DIRECT_VIDEO_ENCODER=libx264
+	   DIRECT_VIDEO_BITRATE_KBPS=6000
+	   DIRECT_VIDEO_FPS=30
+	   ```
+
+	   Leave `STUDIO_COMPOSITOR_UNIT` unset while Cloud Studio is disabled.
+	   Install the worker and hardened systemd template from
+	   [`compositor/README.md`](compositor/README.md) before setting it. The relay
+	   hook starts the unprivileged worker with an ingest and stops it when that
+	   ingest ends; Direct falls back to camera passthrough when its heartbeat is
+	   older than five seconds.
+	   Once `CLOUD_STUDIO_ENABLED=true` on the app, add this to the relay file:
+
+	   ```text
+	   STUDIO_COMPOSITOR_UNIT=visp-compositor@
+	   ```
 
 	When a customer enables "never drop again", a dropped ingest keeps its
 	forwarders running against the same destination and swaps the live encode
@@ -203,7 +218,11 @@ pprof stay disabled.
    the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`
    and `ADMIN_USER_IDS` to the comma-separated Better Auth user IDs that need
    break-glass access, set the per-user `MAX_PATHS_PER_USER` cap, and run
-   `bun run db:migrate`.
+	   `bun run db:migrate`.
+	   Keep `CLOUD_STUDIO_ENABLED=false` for the initial deploy. Enable it only
+	   after compositor acceptance; `CLOUD_STUDIO_DEFAULT_ENABLED` separately
+	   opts newly created Direct users into Cloud Studio. Existing users remain
+	   in OBS mode.
 3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
    values available to Vite. Put the native web app's public build values in the
    root-owned, mode `0600` file `/etc/visp/native-web.env`:

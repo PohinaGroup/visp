@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../VISP-network-bonding"
+		},
+		{
+			"path": "../Omni-orchestra"
+		}
+	],
+	"settings": {}
+}

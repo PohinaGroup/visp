@@ -24,10 +24,14 @@ docker compose --project-name "$compose_project" -f "$compose_file" up --detach 
 
 DATABASE_URL="$database_url" \
 	TEST_DATABASE_URL="$database_url" \
+	CLOUD_STUDIO_ENABLED="true" \
+	CLOUD_STUDIO_DEFAULT_ENABLED="false" \
 	BETTER_AUTH_SECRET="integration-secret-that-is-at-least-32-characters" \
 	BETTER_AUTH_URL="http://127.0.0.1:3000" \
 	CORS_ORIGIN="http://127.0.0.1:3001" \
 HOOK_SECRET="integration-hook-secret-at-least-32-characters" \
+STUDIO_MEDIA_USER="studio-compositor" \
+STUDIO_MEDIA_PASSWORD="integration-studio-media-password-32-chars" \
 KICK_CLIENT_ID="integration-kick-client" \
 KICK_CLIENT_SECRET="integration-kick-secret" \
 MEDIAMTX_API_URL="http://127.0.0.1:9997" \

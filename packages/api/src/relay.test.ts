@@ -5,12 +5,36 @@ import { describe, expect, test } from "bun:test";
 const {
 	buildMaskedPathUrls,
 	buildSceneCollection,
+	buildStudioPreviewUrls,
 	decryptPublishSecret,
 	encryptPublishSecret,
 	recommendLatency,
+	selectStudioPreviewPath,
 } = await import("./relay");
 
 describe("relay guidance", () => {
+	test("builds authenticated camera and program WHEP previews", () => {
+		expect(
+			buildStudioPreviewUrls("relay.test", "path-1", "creator", "secret pass"),
+		).toEqual({
+			camera: "https://relay.test/path-1/whep?user=creator&pass=secret+pass",
+			program:
+				"https://relay.test/studio/path-1/whep?user=creator&pass=secret+pass",
+		});
+	});
+	test("previews the publishing device, then falls back deterministically", () => {
+		const paths = [
+			{ id: 7, publishing: false },
+			{ id: 3, publishing: true },
+			{ id: 1, publishing: true },
+		];
+		expect(selectStudioPreviewPath(paths)?.id).toBe(1);
+		expect(
+			selectStudioPreviewPath(
+				paths.map((path) => ({ ...path, publishing: false })),
+			)?.id,
+		).toBe(1);
+	});
 	test("builds display-safe path URLs without exposing credentials", () => {
 		const urls = buildMaskedPathUrls(
 			{
