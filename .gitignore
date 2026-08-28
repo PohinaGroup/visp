@@ -76,10 +76,6 @@ PIPELINE.md
 @jonijuntto*
 MARKETING.md
 prompt.md
-<<<<<<< Updated upstream
-
 # Riptide artifacts (cloud-synced)
 .humanlayer/tasks/
-=======
 .humanlayer/workspace.local.json
->>>>>>> Stashed changes

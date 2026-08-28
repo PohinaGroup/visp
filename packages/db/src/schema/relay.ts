@@ -246,6 +246,40 @@ export const brbHighlight = pgTable(
 	],
 );
 
+export const customDirectDestination = pgTable(
+	"custom_direct_destination",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		name: text("name").notNull(),
+		protocol: text("protocol").notNull(),
+		encryptedUrl: text("encrypted_url").notNull(),
+		endpointSummary: text("endpoint_summary").notNull(),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		unique("custom_direct_destination_user_name_unique").on(
+			table.userId,
+			table.name,
+		),
+		check(
+			"custom_direct_destination_name_length",
+			sql`char_length(trim(${table.name})) between 1 and 64`,
+		),
+		check(
+			"custom_direct_destination_protocol_known",
+			sql`${table.protocol} in ('rtmp', 'rtmps', 'srt')`,
+		),
+	],
+);
+
 export const relayPath = pgTable(
 	"path",
 	{
@@ -295,6 +329,47 @@ export const relayPath = pgTable(
 		check(
 			"path_label_length",
 			sql`char_length(trim(${table.label})) between 1 and 64`,
+		),
+	],
+);
+
+export const customDirectOutput = pgTable(
+	"custom_direct_output",
+	{
+		id: text("id").primaryKey(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => appUser.id, { onDelete: "cascade" }),
+		destinationId: text("destination_id")
+			.notNull()
+			.references(() => customDirectDestination.id, { onDelete: "cascade" }),
+		pathId: bigint("path_id", { mode: "number" })
+			.notNull()
+			.references(() => relayPath.id, { onDelete: "cascade" }),
+		role: directRole("role").default("landscape").notNull(),
+		crop: jsonb("crop").$type<DirectCrop>(),
+		state: text("state"),
+		error: text("error"),
+		reservedRelayId: integer("reserved_relay_id").references(() => relay.id),
+		reservedUntil: timestamp("reserved_until", { withTimezone: true }),
+		createdAt: timestamp("created_at", { withTimezone: true })
+			.defaultNow()
+			.notNull(),
+	},
+	(table) => [
+		unique("custom_direct_output_user_destination_role_unique").on(
+			table.userId,
+			table.destinationId,
+			table.role,
+		),
+		index("custom_direct_output_path_idx").on(table.pathId),
+		index("custom_direct_output_reservation_idx").on(
+			table.reservedRelayId,
+			table.reservedUntil,
+		),
+		check(
+			"custom_direct_output_crop_role",
+			sql`(${table.role} = 'landscape' and ${table.crop} is null) or (${table.role} = 'portrait' and ${table.crop} is not null)`,
 		),
 	],
 );
@@ -482,9 +557,44 @@ export const appUserRelations = relations(appUser, ({ one, many }) => ({
 	user: one(user, { fields: [appUser.id], references: [user.id] }),
 	paths: many(relayPath),
 	highlights: many(brbHighlight),
+	customDirectDestinations: many(customDirectDestination),
+	customDirectOutputs: many(customDirectOutput),
 	rttSamples: many(rttSample),
 	tiles: many(obsTile),
 }));
+
+export const customDirectDestinationRelations = relations(
+	customDirectDestination,
+	({ one, many }) => ({
+		user: one(appUser, {
+			fields: [customDirectDestination.userId],
+			references: [appUser.id],
+		}),
+		outputs: many(customDirectOutput),
+	}),
+);
+
+export const customDirectOutputRelations = relations(
+	customDirectOutput,
+	({ one }) => ({
+		user: one(appUser, {
+			fields: [customDirectOutput.userId],
+			references: [appUser.id],
+		}),
+		destination: one(customDirectDestination, {
+			fields: [customDirectOutput.destinationId],
+			references: [customDirectDestination.id],
+		}),
+		path: one(relayPath, {
+			fields: [customDirectOutput.pathId],
+			references: [relayPath.id],
+		}),
+		relay: one(relay, {
+			fields: [customDirectOutput.reservedRelayId],
+			references: [relay.id],
+		}),
+	}),
+);
 
 export const brbHighlightRelations = relations(brbHighlight, ({ one }) => ({
 	user: one(appUser, {
@@ -510,6 +620,7 @@ export const relayPathRelations = relations(relayPath, ({ one, many }) => ({
 	user: one(appUser, { fields: [relayPath.userId], references: [appUser.id] }),
 	state: one(pathState),
 	sessions: many(relayStreamSession),
+	customDirectOutputs: many(customDirectOutput),
 }));
 
 export const pathStateRelations = relations(pathState, ({ one }) => ({

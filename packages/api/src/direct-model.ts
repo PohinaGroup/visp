@@ -1,6 +1,25 @@
 export const DIRECT_PROVIDERS = ["twitch", "kick", "youtube"] as const;
 export type DirectProvider = (typeof DIRECT_PROVIDERS)[number];
 export type DirectRole = "landscape" | "portrait";
+export type DirectOutputRef =
+	| { kind: "managed"; provider: DirectProvider; role: DirectRole }
+	| {
+			kind: "custom";
+			outputId: string;
+			destinationId: string;
+			role: DirectRole;
+	  };
+
+export type DirectHookV3Destination = {
+	outputId: string;
+	kind: "managed" | "custom";
+	label: string;
+	role: DirectRole;
+	protocol: "rtmp" | "rtmps" | "srt";
+	muxer: "flv" | "mpegts";
+	filter: string | null;
+	url: string;
+};
 
 export const DIRECT_RUNNING_STATES = [
 	"starting",

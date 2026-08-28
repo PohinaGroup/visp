@@ -170,6 +170,25 @@ describe("machine endpoints", () => {
 			}),
 		);
 		expect(response.status).toBe(401);
+		for (const route of [
+			"direct-destinations-v3",
+			"direct-active-v3",
+			"direct-state-v3",
+			"brb-v3",
+		]) {
+			const v3 = await app.handle(
+				new Request(`http://localhost/api/hooks/${route}`, {
+					method: "POST",
+					headers: { "content-type": "application/json" },
+					body: JSON.stringify({
+						path: "streamer-1",
+						outputId: "160b40b3-4e27-4773-9941-1c93ec895906",
+						state: "live",
+					}),
+				}),
+			);
+			expect(v3.status).toBe(401);
+		}
 	});
 
 	test("rejects OBS control without a pairing token", async () => {
@@ -197,6 +216,8 @@ describe("machine endpoints", () => {
 		expect(LOG_REDACTION_PATHS).toContain("**.token");
 		expect(LOG_REDACTION_PATHS).toContain("**.device_code");
 		expect(LOG_REDACTION_PATHS).toContain("**.authorization");
+		expect(LOG_REDACTION_PATHS).toContain("**.url");
+		expect(LOG_REDACTION_PATHS).toContain("**.encryptedUrl");
 		expect(LOG_REDACTION_PATHS).toContain("**.applicantName");
 		expect(LOG_REDACTION_PATHS).toContain("**.email");
 		expect(LOG_REDACTION_PATHS).toContain("**.audienceAndSetup");

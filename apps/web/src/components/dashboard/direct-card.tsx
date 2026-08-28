@@ -19,6 +19,7 @@ import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import { DirectCustomDestinations } from "./direct-custom-destinations";
 import {
 	DEFAULT_PORTRAIT_CROP,
 	DirectPortraitFraming,
@@ -275,6 +276,8 @@ export function DirectCard() {
 								</HStack>
 							</Card>
 						))}
+
+						<DirectCustomDestinations />
 
 						{direct.data.paths.map((path) => (
 							<Card key={path.id} padding={3} variant="muted">

@@ -13,6 +13,16 @@ import {
 	setDirectRole,
 	setYoutubeSettings,
 } from "../direct";
+import {
+	createCustomDirectDestination,
+	DirectCustomError,
+	deleteCustomDirectDestination,
+	listCustomDirectDestinations,
+	saveCustomDirectCrop,
+	setCustomDirectOutput,
+	setCustomDirectRole,
+	updateCustomDirectDestination,
+} from "../direct-custom";
 import { protectedProcedure, router } from "../index";
 import { linkStatsFromPath } from "../link-stats";
 import {
@@ -112,6 +122,20 @@ const DIRECT_ERROR_CODES = {
 } as const;
 
 function directError(error: unknown): never {
+	if (error instanceof DirectCustomError) {
+		const code = {
+			conflict: "CONFLICT",
+			invalid: "BAD_REQUEST",
+			limit: "TOO_MANY_REQUESTS",
+			"not-found": "NOT_FOUND",
+			"path-live": "PRECONDITION_FAILED",
+		} as const;
+		throw new TRPCError({
+			code: code[error.code],
+			message: error.message,
+			cause: error,
+		});
+	}
 	if (error instanceof DirectError) {
 		throw new TRPCError({
 			code: DIRECT_ERROR_CODES[error.code],
@@ -370,6 +394,78 @@ export const relayRoutes = {
 			}),
 	}),
 	direct: router({
+		custom: router({
+			list: relayProcedure.query(async ({ ctx }) => ({
+				destinations: await listCustomDirectDestinations(ctx.relayUser.id),
+			})),
+			create: relayProcedure
+				.input(
+					z.object({
+						name: z.string().trim().min(1).max(64),
+						url: z.string().min(1).max(4096),
+					}),
+				)
+				.mutation(async ({ ctx, input }) => {
+					try {
+						return {
+							destination: await createCustomDirectDestination(
+								ctx.relayUser.id,
+								input,
+							),
+						};
+					} catch (error) {
+						directError(error);
+					}
+				}),
+			update: relayProcedure
+				.input(
+					z.object({
+						destinationId: z.uuid(),
+						name: z.string().trim().min(1).max(64),
+						url: z.string().min(1).max(4096).optional(),
+					}),
+				)
+				.mutation(async ({ ctx, input }) => {
+					try {
+						return {
+							destination: await updateCustomDirectDestination(
+								ctx.relayUser.id,
+								input,
+							),
+						};
+					} catch (error) {
+						directError(error);
+					}
+				}),
+			delete: relayProcedure
+				.input(z.object({ destinationId: z.uuid() }))
+				.mutation(async ({ ctx, input }) => {
+					try {
+						await deleteCustomDirectDestination(
+							ctx.relayUser.id,
+							input.destinationId,
+						);
+						return { destinationId: input.destinationId };
+					} catch (error) {
+						directError(error);
+					}
+				}),
+			assign: relayProcedure
+				.input(
+					z.object({
+						destinationId: z.uuid(),
+						pathId: z.number().int().positive(),
+						enabled: z.boolean(),
+					}),
+				)
+				.mutation(async ({ ctx, input }) => {
+					try {
+						return await setCustomDirectOutput(ctx.relayUser.id, input);
+					} catch (error) {
+						directError(error);
+					}
+				}),
+		}),
 		list: relayProcedure.query(({ ctx }) =>
 			listDirectOutputs(ctx.relayUser.id),
 		),
@@ -424,6 +520,20 @@ export const relayRoutes = {
 					directError(error);
 				}
 			}),
+		setCustomRole: relayProcedure
+			.input(
+				pathIdInput.extend({
+					outputId: z.uuid(),
+					role: z.enum(["landscape", "portrait"]),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setCustomDirectRole(ctx.relayUser.id, input);
+				} catch (error) {
+					directError(error);
+				}
+			}),
 		saveCrop: relayProcedure
 			.input(
 				directDestinationInput.extend({
@@ -444,6 +554,26 @@ export const relayRoutes = {
 						input.provider,
 						input.crop,
 					);
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		saveCustomCrop: relayProcedure
+			.input(
+				pathIdInput.extend({
+					outputId: z.uuid(),
+					crop: z.object({
+						x: z.number(),
+						y: z.number(),
+						w: z.number(),
+						h: z.number(),
+						aspect: z.string().regex(/^\d+:\d+$/),
+					}),
+				}),
+			)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await saveCustomDirectCrop(ctx.relayUser.id, input);
 				} catch (error) {
 					directError(error);
 				}

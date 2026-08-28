@@ -30,6 +30,13 @@ while [ $# -gt 0 ]; do
 	esac
 done
 case "$url" in
+	*/direct-destinations-v3)
+		printf 'v3 %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
+		test "${FAKE_SERVER_VERSION:-new}" = v3 || exit 22
+		cat <<'JSON'
+{"destinations":[{"outputId":"managed-twitch-landscape","kind":"managed","label":"twitch","role":"landscape","protocol":"rtmps","muxer":"flv","filter":null,"url":"rtmps://twitch.test/app/TWITCHKEY"},{"outputId":"160b40b3-4e27-4773-9941-1c93ec895906","kind":"custom","label":"SRT backup","role":"landscape","protocol":"srt","muxer":"mpegts","filter":null,"url":"srt://receiver.test:9000?streamid=CUSTOMKEY"},{"outputId":"260b40b3-4e27-4773-9941-1c93ec895906","kind":"custom","label":"Portrait RTMP","role":"portrait","protocol":"rtmp","muxer":"flv","filter":"crop=iw*0.3164:ih*1:iw*0.3418:ih*0,scale=1080:1920","url":"rtmp://receiver.test/app/PORTRAITKEY"}]}
+JSON
+		;;
 	*/direct-destinations-v2)
 		printf 'v2 %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
 		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
@@ -44,9 +51,15 @@ case "$url" in
 		case "$data" in *'"kick"'*) ;; *) printf 'kick rtmps://kick.test/app/KICKKEY\n' ;; esac
 		case "$data" in *'"youtube"'*) ;; *) printf 'youtube rtmps://youtube.test/app/YOUTUBEKEY\n' ;; esac ;;
 	*/direct-active)
-		test "${FAKE_SERVER_VERSION:-new}" = new || exit 22
+		test "${FAKE_SERVER_VERSION:-new}" != old || exit 22
 		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
 		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
+	*/direct-active-v3)
+		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
+		case "$data" in *'"outputId":"260b40b3-4e27-4773-9941-1c93ec895906"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
+	*/hooks/brb-v3)
+		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
+		cat "$FAKE_BRB_REPLY" ;;
 	*/studio/relay-plan)
 		printf '%s\n' "$data" >>"$FAKE_STUDIO_PLAN_LOG"
 		test ! -f "$FAKE_STUDIO_PLAN_FAIL" || exit 22
@@ -80,6 +93,7 @@ case "$url" in
 				done
 				printf '%s\n' "$count" >>"$FAKE_STOP_ACK_LOG" ;;
 		esac ;;
+	*/direct-state-v3) printf '%s\n' "$data" >>"$FAKE_STATE_LOG" ;;
 	*/hooks/brb-played) printf '%s\n' "$data" >>"$FAKE_PLAYED_LOG" ;;
 	https://clips.test/*)
 		if test -f "$FAKE_CLIP_DELAY"; then rm -f "$FAKE_CLIP_DELAY"; sleep 5; fi
@@ -392,7 +406,7 @@ test "$(live_children)" -eq 3 ||
 	fail "TERM-ignoring portrait exited before the force-stop timeout"
 test "$(grep -c '"'"'"provider":"kick","state":"stopped","role":"portrait"'"'"' "$FAKE_STATE_LOG" || true)" -eq 0 ||
 	fail "portrait stop was acknowledged while its TERM-ignoring encoder lived"
-for _ in {1..70}; do
+for _ in {1..120}; do
 	removal_children="$(live_children)"
 	test "$removal_children" -ne 2 || break
 	sleep 0.1
@@ -597,6 +611,44 @@ wait "$script_pid" 2>/dev/null || true
 sleep 2
 test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 3 ||
 	fail "a stop-first tick opened hold output"
+
+# V3 carries stable output ids and selects the container from the protocol.
+export FAKE_SERVER_VERSION=v3
+: >"$FAKE_FFMPEG_LOG"
+: >"$FAKE_STATE_LOG"
+printf 'stop\n' >"$FAKE_BRB_REPLY"
+touch "$FAKE_LIVE_MARKER"
+start_script
+script_pid=$!
+wait_for_live_children 3 || fail "v3 did not start managed and custom outputs"
+test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)" -eq 2 ||
+	fail "v3 RTMP outputs did not use FLV"
+test "$(grep -c -- '-f mpegts' "$FAKE_FFMPEG_LOG" || true)" -eq 1 ||
+	fail "v3 SRT output did not use MPEG-TS"
+grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -q -- '-vf crop=iw\*0.3164:ih\*1:iw\*0.3418:ih\*0,scale=1080:1920' ||
+	fail "v3 custom portrait filter was not passed to FFmpeg"
+grep -q '"outputId":"160b40b3-4e27-4773-9941-1c93ec895906","state":"starting"' "$FAKE_STATE_LOG" ||
+	fail "custom output state did not use its opaque id"
+if grep -q 'CUSTOMKEY' "$FAKE_STATE_LOG" "$FAKE_BRB_LOG"; then
+	fail "the custom destination credential reached a callback"
+fi
+touch "$FAKE_PORTRAIT_REMOVED"
+for _ in {1..70}; do
+	test "$(live_children)" -ne 2 || break
+	sleep 0.1
+done
+test "$(live_children)" -eq 2 ||
+	fail "custom portrait removal affected another v3 output"
+for _ in {1..40}; do
+	grep -q '"outputId":"260b40b3-4e27-4773-9941-1c93ec895906","state":"stopped"' "$FAKE_STATE_LOG" && break
+	sleep 0.1
+done
+grep -q '"outputId":"260b40b3-4e27-4773-9941-1c93ec895906","state":"stopped"' "$FAKE_STATE_LOG" ||
+	fail "custom portrait removal was not acknowledged"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
+wait_for_hold_cleanup || fail "v3 outputs did not stop cleanly"
 
 printf 'ok: BRB held the stream up, resumed in place, and let go on stop\n'
 exit 0

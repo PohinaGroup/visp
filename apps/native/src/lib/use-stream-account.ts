@@ -239,6 +239,26 @@ export function useStreamAccount({
 		],
 	);
 
+	const applyCustomDirectSelection = useCallback(
+		async (pathId: number, destinationId: string, enabled: boolean) => {
+			try {
+				await apiClient.direct.custom.assign.mutate({
+					pathId,
+					destinationId,
+					enabled,
+				});
+				await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? error.message
+						: nativeDirectText("Custom output could not be saved"),
+				);
+			}
+		},
+		[refreshDirectOutputs, refreshPublishDevices, showToast],
+	);
+
 	const updateYoutubeTitle = useCallback(
 		async (title: string) => {
 			try {
@@ -294,6 +314,63 @@ export function useStreamAccount({
 		) => {
 			try {
 				await apiClient.direct.saveCrop.mutate({ pathId, provider, crop });
+				await refreshDirectOutputs();
+				showToast(nativeDirectText("Portrait framing saved"));
+			} catch (error) {
+				showToast(
+					nativeDirectText(
+						"Could not save framing. Check your connection and retry.",
+					),
+				);
+				throw error;
+			}
+		},
+		[refreshDirectOutputs, showToast],
+	);
+
+	const setCustomDirectRole = useCallback(
+		async (
+			pathId: number,
+			outputId: string,
+			role: "landscape" | "portrait",
+		) => {
+			try {
+				const result = await apiClient.direct.setCustomRole.mutate({
+					pathId,
+					outputId,
+					role,
+				});
+				await refreshDirectOutputs();
+				if (result.overCapacity) {
+					showToast(
+						nativeDirectText("Portrait will start when a Direct slot is free"),
+					);
+				}
+				return result;
+			} catch (error) {
+				showToast(
+					error instanceof Error
+						? nativeDirectText(error.message)
+						: nativeDirectText("Portrait output could not be saved"),
+				);
+				throw error;
+			}
+		},
+		[refreshDirectOutputs, showToast],
+	);
+
+	const saveCustomDirectCrop = useCallback(
+		async (
+			pathId: number,
+			outputId: string,
+			crop: { x: number; y: number; w: number; h: number; aspect: string },
+		) => {
+			try {
+				await apiClient.direct.saveCustomCrop.mutate({
+					pathId,
+					outputId,
+					crop,
+				});
 				await refreshDirectOutputs();
 				showToast(nativeDirectText("Portrait framing saved"));
 			} catch (error) {
@@ -499,6 +576,7 @@ export function useStreamAccount({
 
 	return {
 		applyDirectSelection,
+		applyCustomDirectSelection,
 		authorizeAlertProvider,
 		awaitingAutoProvision,
 		brb,
@@ -523,7 +601,9 @@ export function useStreamAccount({
 		revealedDeviceUrls,
 		revealPublishDevice,
 		saveDirectCrop,
+		saveCustomDirectCrop,
 		setDirectRole,
+		setCustomDirectRole,
 		setStreamUrl,
 		streamUrl,
 		reauthorizeChatProvider,

@@ -1,0 +1,369 @@
+import { Badge } from "@astryxdesign/core/Badge";
+import { Button } from "@astryxdesign/core/Button";
+import { Card } from "@astryxdesign/core/Card";
+import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Switch } from "@astryxdesign/core/Switch";
+import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextInput } from "@astryxdesign/core/TextInput";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { toast } from "sonner";
+import {
+	type CustomDestinationDraft,
+	type CustomDestinationMetadata,
+	customDestinationDraft,
+	customDestinationUpdateInput,
+} from "@/lib/custom-direct-destinations";
+import {
+	customOutputStatus,
+	customOutputsForPath,
+} from "@/lib/custom-direct-output";
+import { useT } from "@/lib/i18n";
+import { useTRPC } from "@/utils/trpc";
+import {
+	DEFAULT_PORTRAIT_CROP,
+	DirectPortraitFraming,
+	type PortraitCrop,
+} from "./direct-portrait-framing";
+
+type Editor = {
+	destination?: CustomDestinationMetadata;
+	draft: CustomDestinationDraft;
+};
+
+export function DirectCustomDestinations() {
+	const t = useT();
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const list = useQuery(trpc.direct.custom.list.queryOptions());
+	const direct = useQuery(trpc.direct.list.queryOptions());
+	const snapshots = useQuery(trpc.obs.snapshots.queryOptions());
+	const [editor, setEditor] = useState<Editor | null>(null);
+	const [framing, setFraming] = useState<{
+		outputId: string;
+		pathId: number;
+		crop: PortraitCrop;
+	} | null>(null);
+	const refresh = async () => {
+		await queryClient.invalidateQueries();
+		setEditor(null);
+	};
+	const create = useMutation(
+		trpc.direct.custom.create.mutationOptions({
+			onSuccess: async () => {
+				await refresh();
+				toast.success(t("Custom destination saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const update = useMutation(
+		trpc.direct.custom.update.mutationOptions({
+			onSuccess: async () => {
+				await refresh();
+				toast.success(t("Custom destination saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const remove = useMutation(
+		trpc.direct.custom.delete.mutationOptions({
+			onSuccess: async () => {
+				await refresh();
+				toast.success(t("Custom destination deleted"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const assign = useMutation(
+		trpc.direct.custom.assign.mutationOptions({
+			onSuccess: async () => {
+				await refresh();
+				toast.success(t("Direct output saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const setRole = useMutation(
+		trpc.direct.setCustomRole.mutationOptions({
+			onSuccess: () => queryClient.invalidateQueries(),
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const saveCrop = useMutation(
+		trpc.direct.saveCustomCrop.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				setFraming(null);
+				toast.success(t("Portrait framing saved"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const saving = create.isPending || update.isPending;
+	const valid = Boolean(
+		editor?.draft.name.trim() &&
+			(editor.destination || editor?.draft.url.trim()),
+	);
+
+	return (
+		<VStack gap={3}>
+			<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
+				<VStack gap={1}>
+					<Heading level={3}>{t("Custom destinations")}</Heading>
+					<Text color="secondary" type="supporting">
+						{t(
+							"Save RTMP, RTMPS, or SRT endpoints here. Credentials stay hidden after saving.",
+						)}
+					</Text>
+				</VStack>
+				<Button
+					label={t("Add custom destination")}
+					onClick={() => setEditor({ draft: customDestinationDraft() })}
+				/>
+			</HStack>
+			{list.data?.destinations.length ? (
+				<VStack gap={2}>
+					{list.data.destinations.map((destination) => (
+						<Card key={destination.id} padding={3} variant="muted">
+							<VStack gap={2}>
+								<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
+									<VStack gap={1}>
+										<HStack gap={2} vAlign="center">
+											<Text type="label">{destination.name}</Text>
+											<Badge
+												label={destination.protocol.toUpperCase()}
+												variant="neutral"
+											/>
+										</HStack>
+										<Text color="secondary" type="code">
+											{destination.endpointSummary}
+										</Text>
+									</VStack>
+									<HStack gap={2}>
+										<Button
+											isDisabled={direct.data?.customOutputs.some(
+												(output) =>
+													output.destinationId === destination.id &&
+													direct.data?.paths.find(
+														(path) => path.id === output.pathId,
+													)?.publishing,
+											)}
+											label={t("Edit")}
+											variant="ghost"
+											onClick={() =>
+												setEditor({
+													destination,
+													draft: customDestinationDraft(destination),
+												})
+											}
+										/>
+										<Button
+											isDisabled={remove.isPending}
+											label={t("Delete")}
+											variant="ghost"
+											onClick={() =>
+												remove.mutate({ destinationId: destination.id })
+											}
+										/>
+									</HStack>
+								</HStack>
+								{direct.data?.paths.map((path) => {
+									const { landscape, portrait } = customOutputsForPath(
+										direct.data.customOutputs,
+										destination.id,
+										path.id,
+									);
+									const enabled = Boolean(landscape);
+									return (
+										<VStack key={path.id} gap={1}>
+											<Switch
+												disabledMessage={t(
+													"Stop this device before changing its Direct outputs",
+												)}
+												isDisabled={
+													assign.isPending || (path.publishing && !enabled)
+												}
+												label={path.label}
+												labelSpacing="spread"
+												value={enabled}
+												onChange={(value) =>
+													assign.mutate({
+														destinationId: destination.id,
+														pathId: path.id,
+														enabled: value,
+													})
+												}
+											/>
+											{enabled && landscape?.state ? (
+												<Text color="secondary" type="supporting">
+													{t(customOutputStatus(landscape))}
+												</Text>
+											) : null}
+											{direct.data.directDualOutput && landscape ? (
+												portrait ? (
+													<HStack gap={2} vAlign="center" wrap="wrap">
+														<Badge label={t("Portrait")} variant="neutral" />
+														<Text type="supporting">
+															{t(customOutputStatus(portrait))}
+														</Text>
+														<Button
+															isDisabled={path.publishing}
+															label={t("Edit framing")}
+															variant="ghost"
+															onClick={() =>
+																setFraming({
+																	outputId: portrait.id,
+																	pathId: path.id,
+																	crop: portrait.crop ?? DEFAULT_PORTRAIT_CROP,
+																})
+															}
+														/>
+														<Button
+															isDisabled={setRole.isPending}
+															label={t("Remove portrait")}
+															variant="ghost"
+															onClick={() =>
+																setRole.mutate({
+																	outputId: portrait.id,
+																	pathId: path.id,
+																	role: "landscape",
+																})
+															}
+														/>
+													</HStack>
+												) : (
+													<Button
+														isDisabled={path.publishing || setRole.isPending}
+														label={t("Add portrait output")}
+														variant="ghost"
+														onClick={() => {
+															void setRole
+																.mutateAsync({
+																	outputId: landscape.id,
+																	pathId: path.id,
+																	role: "portrait",
+																})
+																.then((result) =>
+																	setFraming({
+																		outputId: result.outputId,
+																		pathId: path.id,
+																		crop: DEFAULT_PORTRAIT_CROP,
+																	}),
+																);
+														}}
+													/>
+												)
+											) : null}
+										</VStack>
+									);
+								})}
+							</VStack>
+						</Card>
+					))}
+				</VStack>
+			) : (
+				<Text color="secondary" type="supporting">
+					{t("No custom destinations saved")}
+				</Text>
+			)}
+			{editor ? (
+				<Dialog
+					isOpen
+					purpose="form"
+					width={560}
+					onOpenChange={(open) => !open && setEditor(null)}
+				>
+					<VStack gap={4} padding={4}>
+						<DialogHeader
+							title={t(
+								editor.destination
+									? "Edit custom destination"
+									: "Add custom destination",
+							)}
+						/>
+						<TextInput
+							label={t("Destination name")}
+							value={editor.draft.name}
+							onChange={(name) =>
+								setEditor({ ...editor, draft: { ...editor.draft, name } })
+							}
+						/>
+						{editor.destination ? (
+							<Text color="secondary" type="supporting">
+								{t("Current endpoint")}: {editor.destination.endpointSummary}
+							</Text>
+						) : null}
+						<div className="rr-block" data-rybbit-block>
+							<TextInput
+								label={t(
+									editor.destination
+										? "Replacement URL (optional)"
+										: "Destination URL",
+								)}
+								placeholder="rtmps://ingest.example.com/app/key"
+								value={editor.draft.url}
+								onChange={(url) =>
+									setEditor({ ...editor, draft: { ...editor.draft, url } })
+								}
+							/>
+						</div>
+						<Text color="secondary" type="supporting">
+							{t(
+								"Only the protocol, host, and explicit port are shown after saving.",
+							)}
+						</Text>
+						<HStack gap={2} hAlign="end">
+							<Button
+								label={t("Cancel")}
+								variant="ghost"
+								onClick={() => setEditor(null)}
+							/>
+							<Button
+								isDisabled={!valid}
+								isLoading={saving}
+								label={t("Save destination")}
+								onClick={() => {
+									if (editor.destination) {
+										update.mutate(
+											customDestinationUpdateInput(
+												editor.destination.id,
+												editor.draft,
+											),
+										);
+										return;
+									}
+									create.mutate({
+										name: editor.draft.name.trim(),
+										url: editor.draft.url.trim(),
+									});
+								}}
+							/>
+						</HStack>
+					</VStack>
+				</Dialog>
+			) : null}
+			{framing ? (
+				<DirectPortraitFraming
+					crop={framing.crop}
+					isOpen
+					previewUrl={
+						snapshots.data?.find(
+							(snapshot) => snapshot.pathId === framing.pathId,
+						)?.url ?? null
+					}
+					saving={saveCrop.isPending}
+					onClose={() => setFraming(null)}
+					onSave={(crop) =>
+						saveCrop.mutateAsync({
+							outputId: framing.outputId,
+							pathId: framing.pathId,
+							crop,
+						})
+					}
+				/>
+			) : null}
+		</VStack>
+	);
+}

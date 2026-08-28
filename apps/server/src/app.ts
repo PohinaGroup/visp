@@ -38,6 +38,8 @@ export const LOG_REDACTION_PATHS = [
 	"**.x-hook-secret",
 	// VISP Direct destination URLs embed the platform stream key.
 	"**.destinations",
+	"**.url",
+	"**.encryptedUrl",
 	"**.stream_key",
 	// Presigned BRB card URLs are bearer credentials for the object store.
 	"**.backgroundUrl",

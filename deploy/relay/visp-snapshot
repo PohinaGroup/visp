@@ -89,9 +89,13 @@ safe_reason() {
 }
 
 report_state() {
-	hook direct-state \
-		"{\"path\":\"$path\",\"provider\":\"$1\",\"state\":\"$2\",\"role\":\"${4:-landscape}\",\"error\":\"$(safe_reason "${3:-}")\"}" \
-		|| true
+	if test "${5:-managed}" = custom; then
+		hook direct-state-v3 \
+			"{\"path\":\"$path\",\"outputId\":\"$1\",\"state\":\"$2\",\"error\":\"$(safe_reason "${3:-}")\"}" || true
+	else
+		hook direct-state \
+			"{\"path\":\"$path\",\"provider\":\"${6:-$1}\",\"state\":\"$2\",\"role\":\"${4:-landscape}\",\"error\":\"$(safe_reason "${3:-}")\"}" || true
+	fi
 }
 
 lock_dir() {
@@ -146,6 +150,7 @@ ingest_live() {
 # double-publish against the same stream key.
 encode_to() {
 	local mode="$1" destination="$2" log="$3"
+	local muxer="${output_muxer:-flv}"
 	local -a command
 	shift 3
 	command=(ffmpeg -nostdin -hide_banner -loglevel error \
@@ -156,7 +161,7 @@ encode_to() {
 		-bufsize "$((video_bitrate_kbps * 2))k" \
 		-g "$((video_fps * 2))" -keyint_min "$((video_fps * 2))" \
 		-c:a aac -ac 2 -b:a 128k -ar 48000 \
-		-f flv "$destination")
+		-f "$muxer" "$destination")
 	if test -n "$mode"; then
 		exec "${command[@]}" 2>"$log"
 	else
@@ -180,11 +185,18 @@ cleanup_forward() {
 # Asks the app whether this forwarder should still be holding, and with what.
 # One line: "stop", or "brb <message-base64> <background-url|-> <source>".
 brb_tick() {
+	local endpoint=brb payload
+	if test "${2:-managed}" = custom; then
+		endpoint=brb-v3
+		payload="{\"path\":\"$path\",\"outputId\":\"$1\"}"
+	else
+		payload="{\"path\":\"$path\",\"provider\":\"${3:-$1}\"}"
+	fi
 	curl --fail --silent --show-error --max-time 5 --request POST \
 		--header "Content-Type: application/json" \
 		--header "X-Hook-Secret: $HOOK_SECRET" \
-		--data "{\"path\":\"$path\",\"provider\":\"$1\"}" \
-		"$app_url/api/hooks/brb"
+		--data "$payload" \
+		"$app_url/api/hooks/$endpoint"
 }
 
 # Last saved desired state only. The app answers passthrough whenever the
@@ -222,8 +234,9 @@ studio_source() {
 # reconnect, well inside every platform's grace window, so the broadcast, the
 # hosts and the VOD survive what used to end the stream.
 forward() {
-	local provider="$1" role="$2" filter="$3" destination="$4" desired_state="$5"
+	local output_id="$1" kind="$2" role="$3" filter="$4" protocol="$5" muxer="$6" destination="$7" desired_state="$8" provider="${9:-$1}"
 	local backoff started reason source_url next_source switched
+	output_muxer="$muxer"
 	# log and lock are deliberately not local: the signal handler and final
 	# cleanup share them after the current encode attempt has returned.
 	# Each forwarder is its own subshell, so these cannot collide.
@@ -231,7 +244,7 @@ forward() {
 	# Leaving it on would put every FFmpeg in a group of its own too, and the
 	# trap below could no longer reap them.
 	set +m
-	lock="$(lock_dir "$provider")"
+	lock="$(lock_dir "$output_id")"
 	log="$(mktemp)"
 	backoff=2
 
@@ -249,11 +262,18 @@ forward() {
 	if test "$desired_state" = 1; then
 		(
 			while sleep 2; do
+				if test "$kind" = custom; then
+					active_endpoint=direct-active-v3
+					active_payload="{\"path\":\"$path\",\"outputId\":\"$output_id\",\"filter\":\"$filter\"}"
+				else
+					active_endpoint=direct-active
+					active_payload="{\"path\":\"$path\",\"provider\":\"$provider\",\"role\":\"$role\",\"filter\":\"$filter\"}"
+				fi
 				curl --fail --silent --max-time 2 --request POST \
 					--header "Content-Type: application/json" \
 					--header "X-Hook-Secret: $HOOK_SECRET" \
-					--data "{\"path\":\"$path\",\"provider\":\"$provider\",\"role\":\"$role\",\"filter\":\"$filter\"}" \
-					"$app_url/api/hooks/direct-active" >/dev/null && continue
+					--data "$active_payload" \
+					"$app_url/api/hooks/$active_endpoint" >/dev/null && continue
 				touch "$lock/stop"
 				encoder_pid="$(cat "$lock/encoder-pid" 2>/dev/null)" || break
 				kill -TERM "$encoder_pid" 2>/dev/null
@@ -263,7 +283,7 @@ forward() {
 				done
 				if kill -0 "$encoder_pid" 2>/dev/null &&
 					! kill -KILL "$encoder_pid" 2>/dev/null; then
-					report_state "$provider" stopping "encoder did not exit" "$role"
+					report_state "$output_id" stopping "encoder did not exit" "$role" "$kind" "$provider"
 				fi
 				break
 			done
@@ -271,14 +291,14 @@ forward() {
 		desired_watcher="$!"
 	fi
 
-	report_state "$provider" starting "" "$role"
+	report_state "$output_id" starting "" "$role" "$kind" "$provider"
 
 	while true; do
 		started="$SECONDS"
 		source_url="$(studio_source)"
 		# Promote to live only once the destination has held for a while;
 		# a rejected stream key fails well inside this window.
-		( sleep 10; report_state "$provider" live "" "$role" ) &
+		( sleep 10; report_state "$output_id" live "" "$role" "$kind" "$provider" ) &
 		watcher="$!"
 		if test "$role" = portrait; then
 			encode_to exec "$destination" "$log" \
@@ -311,7 +331,7 @@ forward() {
 		wait "$watcher" 2>/dev/null
 		watcher=""
 		if kill -0 "$encoder_pid" 2>/dev/null; then
-			report_state "$provider" stopping "encoder did not exit" "$role"
+			report_state "$output_id" stopping "encoder did not exit" "$role" "$kind" "$provider"
 			encoder_pid=""
 			exit 1
 		fi
@@ -330,7 +350,7 @@ forward() {
 		if ! ingest_live; then
 			# The source is gone, not the destination. Hold the broadcast open
 			# until the publisher returns or the app says stop.
-			hold_brb "$provider" "$role" "$destination" "$log" || break
+			hold_brb "$output_id" "$role" "$destination" "$log" "$kind" "$provider" || break
 			backoff=2
 			continue
 		fi
@@ -338,14 +358,14 @@ forward() {
 		# A running retry loop still owns its encoder slot. Provider consent
 		# failures are reported before a forwarder is started.
 		test "$((SECONDS - started))" -lt 60 || backoff=2
-		report_state "$provider" retrying "$reason" "$role"
+		report_state "$output_id" retrying "$reason" "$role" "$kind" "$provider"
 		sleep "$backoff" &
 		wait "$!"
 		backoff="$((backoff * 2))"
 		test "$backoff" -le 60 || backoff=60
 	done
 
-	report_state "$provider" stopped "" "$role"
+	report_state "$output_id" stopped "" "$role" "$kind" "$provider"
 	cleanup_forward
 	exit 0
 }
@@ -578,18 +598,18 @@ brb_highlights_ffmpeg() {
 # back and the caller should go straight to the live encode, 1 when this
 # forwarder is done.
 hold_brb() {
-	local provider="$1" role="$2" destination="$3" log="$4"
+	local output_id="$1" role="$2" destination="$3" log="$4" kind="${5:-managed}" provider="${6:-$1}"
 	local text_file image_file entered line verb card_started card_image tick_wait
 	local highlights_dir highlights_list highlights_analytics highlights_failed highlights_muted highlights_overlay
 	local highlights_payload highlights_users highlights_user progress_file
-	text_file="$run_dir/$safe_path-$provider.txt"
-	image_file="$run_dir/$safe_path-$provider.img"
+	text_file="$run_dir/$safe_path-$output_id.txt"
+	image_file="$run_dir/$safe_path-$output_id.img"
 	highlights_dir="$run_dir/$safe_path-highlights"
 	highlights_list="$highlights_dir/playlist.txt"
 	highlights_analytics="$highlights_dir/analytics.txt"
 	highlights_users="$run_dir/$safe_path-highlights-users"
-	highlights_user="$highlights_users/$provider.$$"
-	progress_file="$run_dir/$safe_path-$provider.progress"
+	highlights_user="$highlights_users/$output_id.$$"
+	progress_file="$run_dir/$safe_path-$output_id.progress"
 	mkdir -p "$highlights_users"
 	touch "$highlights_user"
 	entered="$SECONDS"
@@ -600,7 +620,7 @@ hold_brb() {
 	highlights_failed=0
 
 	while true; do
-		line="$(brb_tick "$provider")" || line=""
+		line="$(brb_tick "$output_id" "$kind" "$provider")" || line=""
 		# shellcheck disable=SC2086
 		set -- $line
 		verb="${1:-}"
@@ -641,7 +661,7 @@ hold_brb() {
 				brb_pid="$!"
 				card_started="$SECONDS"
 				card_image="fallback"
-				report_state "$provider" brb "" "$role"
+				report_state "$output_id" brb "" "$role" "$kind" "$provider"
 			fi
 
 			test "$highlights_failed" -eq 1 ||
@@ -680,7 +700,7 @@ hold_brb() {
 			fi
 			card_started="$SECONDS"
 			card_image="brb"
-			report_state "$provider" brb "" "$role"
+			report_state "$output_id" brb "" "$role" "$kind" "$provider"
 		fi
 
 		tick_wait="$brb_tick_seconds"
@@ -713,11 +733,36 @@ hold_brb() {
 hook ready "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" || true
 
 start_destinations() {
-	local skip="" provider holder destinations role filter destination contract
-	for provider in twitch kick youtube; do
-		holder="$(lock_holder "$provider")" || continue
+	local skip="" legacy_skip="" provider holder destinations role filter destination contract
+	local output_id kind protocol muxer lock skip_id
+	for lock in "$run_dir/fwd-$safe_path-"*.lock; do
+		test -d "$lock" || continue
+		output_id="${lock#"$run_dir/fwd-$safe_path-"}"
+		output_id="${output_id%.lock}"
+		holder="$(lock_holder "$output_id")" || continue
 		test -n "$holder" || continue
-		test -z "$skip" && skip="\"$provider\"" || skip="$skip,\"$provider\""
+		case "$output_id" in
+			twitch|kick|youtube)
+				provider="$output_id"
+				for role in landscape portrait; do
+					skip_id="managed-$provider-$role"
+					test -z "$skip" && skip="\"$skip_id\"" || skip="$skip,\"$skip_id\""
+				done ;;
+			managed-twitch-*) provider=twitch ;;
+			managed-kick-*) provider=kick ;;
+			managed-youtube-*) provider=youtube ;;
+			*) provider="" ;;
+		esac
+		case "$output_id" in
+			twitch|kick|youtube) ;;
+			*) test -z "$skip" && skip="\"$output_id\"" || skip="$skip,\"$output_id\"" ;;
+		esac
+		if test -n "$provider"; then
+			case ",$legacy_skip," in
+				*,\"$provider\",*) ;;
+				*) test -z "$legacy_skip" && legacy_skip="\"$provider\"" || legacy_skip="$legacy_skip,\"$provider\"" ;;
+			esac
+		fi
 		# The publisher is back; drop the card and return to the live encode.
 		kill -USR1 "$holder" 2>/dev/null || true
 	done
@@ -726,25 +771,55 @@ start_destinations() {
 			--header "Content-Type: application/json" \
 			--header "X-Hook-Secret: $HOOK_SECRET" \
 			--data "{\"path\":\"$path\",\"skip\":[$skip]}" \
-			"$app_url/api/hooks/direct-destinations-v2"
-	)"; then
-		contract=2
+			"$app_url/api/hooks/direct-destinations-v3"
+	)" && printf '%s' "$destinations" | jq -e '.destinations | type == "array"' >/dev/null 2>&1; then
+		contract=3
 	else
-		contract=1
-		destinations="$(
+		if destinations="$(
 			curl --fail --silent --show-error --max-time 5 --request POST \
 				--header "Content-Type: application/json" \
 				--header "X-Hook-Secret: $HOOK_SECRET" \
-				--data "{\"path\":\"$path\",\"skip\":[$skip]}" \
-				"$app_url/api/hooks/direct-destinations"
-		)" || destinations=""
+				--data "{\"path\":\"$path\",\"skip\":[$legacy_skip]}" \
+				"$app_url/api/hooks/direct-destinations-v2"
+		)"; then
+			contract=2
+		else
+			contract=1
+			destinations="$(
+				curl --fail --silent --show-error --max-time 5 --request POST \
+					--header "Content-Type: application/json" \
+					--header "X-Hook-Secret: $HOOK_SECRET" \
+					--data "{\"path\":\"$path\",\"skip\":[$legacy_skip]}" \
+					"$app_url/api/hooks/direct-destinations"
+			)" || destinations=""
+		fi
 	fi
-	if test "$contract" = 2; then
+	if test "$contract" = 3; then
+		while IFS=$'\t' read -r output_id kind role filter protocol muxer destination; do
+			test -n "${output_id:-}" -a -n "${destination:-}" || continue
+			case "$output_id" in *[!A-Za-z0-9_-]*|'') continue ;; esac
+			case "$kind:$protocol:$muxer" in
+				managed:rtmps:flv|custom:rtmp:flv|custom:rtmps:flv|custom:srt:mpegts) ;;
+				*) continue ;;
+			esac
+			acquire_lock "$output_id" || continue
+			case "$output_id" in
+				managed-twitch-*) provider=twitch ;;
+				managed-kick-*) provider=kick ;;
+				managed-youtube-*) provider=youtube ;;
+				*) provider="$output_id" ;;
+			esac
+			set -m
+			forward "$output_id" "$kind" "$role" "$filter" "$protocol" "$muxer" "$destination" 1 "$provider" &
+			printf '%s\n' "$!" >"$(lock_dir "$output_id")/pid"
+			set +m
+		done < <(printf '%s' "$destinations" | jq -r '.destinations[] | [.outputId, .kind, .role, (.filter // "-"), .protocol, .muxer, .url] | @tsv')
+	elif test "$contract" = 2; then
 		while read -r provider role filter destination; do
 			test -n "${provider:-}" -a -n "${destination:-}" || continue
 			acquire_lock "$provider" || continue
 			set -m
-			forward "$provider" "$role" "$filter" "$destination" 1 &
+			forward "$provider" managed "$role" "$filter" rtmps flv "$destination" 1 "$provider" &
 			printf '%s\n' "$!" >"$(lock_dir "$provider")/pid"
 			set +m
 		done <<<"$destinations"
@@ -753,7 +828,7 @@ start_destinations() {
 			test -n "${provider:-}" -a -n "${destination:-}" || continue
 			acquire_lock "$provider" || continue
 			set -m
-			forward "$provider" landscape - "$destination" 0 &
+			forward "$provider" managed landscape - rtmps flv "$destination" 0 "$provider" &
 			printf '%s\n' "$!" >"$(lock_dir "$provider")/pid"
 			set +m
 		done <<<"$destinations"

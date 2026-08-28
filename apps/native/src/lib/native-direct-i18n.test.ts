@@ -19,6 +19,15 @@ describe("native Direct portrait translations", () => {
 		expect(
 			nativeDirectText("kick is already a landscape destination", "fi-FI"),
 		).toBe("Kick on jo vaakalähtö");
+		expect(nativeDirectText("Custom output could not be saved", "fi-FI")).toBe(
+			"Mukautettua lähtöä ei voitu tallentaa",
+		);
+		expect(
+			nativeDirectText(
+				"Stop the publishing device before changing portrait framing",
+				"fi-FI",
+			),
+		).toBe("Pysäytä julkaisulaite ennen pystyrajauksen muuttamista");
 	});
 
 	test("keeps English and unknown server errors unchanged", () => {

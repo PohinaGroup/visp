@@ -31,7 +31,7 @@ disconnecting either side behaves as expected. Only then install
 
 ## 2. Relay box
 
-1. Install Tailscale, Caddy, `curl`, `ffmpeg`, CMake, a C compiler, mbedTLS
+1. Install Tailscale, Caddy, `curl`, `jq`, `ffmpeg`, CMake, a C compiler, mbedTLS
    development headers, and the pinned MediaMTX binary.
 2. Install the snapshot hook and final config:
 

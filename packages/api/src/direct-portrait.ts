@@ -19,7 +19,7 @@ import {
 } from "./direct-model";
 import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
 
-const DEFAULT_PORTRAIT_CROP: DirectCrop = {
+export const DEFAULT_PORTRAIT_CROP: DirectCrop = {
 	x: 0.3418,
 	y: 0,
 	w: 0.3164,
