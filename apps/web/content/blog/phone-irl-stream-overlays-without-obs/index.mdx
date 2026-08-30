@@ -1,0 +1,222 @@
+---
+title: "How to Add Overlays to a Phone IRL Stream Without OBS"
+description: "Add scenes, PNG graphics, browser overlays, and live alerts to a phone IRL stream with VISP Cloud Studio, without running a home PC."
+publishedAt: 2026-08-30
+coverAlt: "An IRL creator films with a phone on a handheld grip while blank scene-layer frames float over a blue-hour city walkway"
+---
+
+Twitch's current
+[mobile broadcasting guide](https://help.twitch.tv/s/article/mobile-game-broadcasting)
+answers a common question plainly: its built-in mobile broadcast does not
+support overlays. Twitch's broader
+[mobile streaming guide](https://help.twitch.tv/s/article/getting-started-on-twitch)
+therefore points creators to apps that add scenes, alerts, and web overlays.
+
+That leaves IRL creators with a choice. Compose the whole program on the phone,
+keep OBS running somewhere, or put a smaller compositor between the phone and
+the platform. **VISP Cloud Studio uses the third route.** Your phone sends one
+camera contribution to VISP. Cloud Studio adds selected visual layers, and
+VISP Direct sends the saved program to Twitch, Kick, YouTube, or a custom
+destination.
+
+You do not need a computer at home for this workflow. You do need Cloud Studio
+to be enabled on your VISP deployment. If **Open Studio** does not appear on
+the dashboard, use a phone-side production app or keep OBS in the path.
+
+![A phone contribution enters VISP Cloud Studio, receives graphic layers, and leaves as one finished Direct program](./cloud-studio-signal-flow.svg)
+
+## What Cloud Studio changes
+
+Without a compositor, VISP Direct receives the phone's H.264 and AAC
+contribution and creates a separate platform encode for each destination. The
+camera picture is the program.
+
+Cloud Studio inserts one composition step before those destination encodes:
+
+1. The phone captures the camera and microphone and uploads one SRT feed.
+2. Cloud Studio uses the camera video as the 1920×1080 base canvas.
+3. It places the active scene's text, PNG, browser, and alert layers over the
+   camera.
+4. It keeps the camera audio and encodes it as stereo AAC. Cloud Studio does
+   not mix extra audio sources.
+5. Direct creates an independent output encode for every selected destination.
+
+The phone still makes one upload when you select more than one platform. Each
+destination still uses a Direct forwarder slot and relay CPU. Cloud Studio is
+not a way to avoid encoding. It moves visual composition away from the phone
+and removes the need for a home OBS computer.
+
+## Know the smaller scope before you build
+
+OBS supports many source types, filters, plugins, audio buses, local recording,
+and multi-camera switching. The official
+[OBS Sources Guide](https://obsproject.com/kb/sources-guide) shows why a full
+OBS production can grow far beyond a camera with graphics.
+
+Cloud Studio deliberately covers a smaller job:
+
+| Need | Cloud Studio support |
+| --- | --- |
+| Text over the camera | Yes |
+| Transparent graphic or sponsor corner | PNG, up to 10 MB |
+| Web-based status or simple overlay | Public HTTPS browser source |
+| Follow, subscription, or donation alert | One VISP alert layer |
+| Scene switching | Up to three scenes, with cut or fade |
+| Layer ordering and placement | Up to eight layers in each scene |
+| Local program recording | No |
+| Extra microphones or music mixing | No |
+| OBS plugins, replay, or multi-camera mixing | No |
+
+The whole Studio can contain at most two browser sources and one alert layer.
+Those totals apply across all scenes, not separately to each scene. The limits
+keep the relay compositor predictable. If your show needs more, OBS or a cloud
+OBS service is the right tool.
+
+## Build the first scene with one useful overlay
+
+Start with less than you think you need. A camera scene, one PNG, and one alert
+are enough to prove the path.
+
+1. Sign in to VISP and finish the normal Direct setup for your phone.
+2. Authorize the platform destinations that you want to test.
+3. Open the dashboard and select **Cloud Studio** as the Direct production
+   mode.
+4. Choose **Open Studio**. If you are in the phone app, **Edit on web** opens
+   the same authenticated editor.
+5. Create a scene named **Main**.
+6. Choose **Add source → PNG overlay** and upload a transparent PNG no larger
+   than 10 MB.
+7. Select the layer and set its position, width, and height. Use **Move
+   forward** or **Move backward** to fix the stacking order.
+8. Choose **Save**.
+
+Saving matters. The editor keeps changes as a draft until you save them. Direct
+uses the last saved program, including when you later start the stream from the
+phone. Leaving the editor with unsaved changes does not change the live output.
+
+Use the two previews for different checks. **Camera ingest** shows what arrived
+from the phone. **Program** shows the composited result. If the first looks
+right and the second does not, stay in Studio and inspect the layers. If both
+look wrong, check the phone and contribution settings first.
+
+## Treat browser sources as snapshots, not mini OBS tabs
+
+An OBS Browser Source runs a web page inside OBS. The official
+[Browser Source reference](https://obsproject.com/kb/browser-source) describes
+the live browser and its audio, page-permission, refresh, and custom-CSS
+options.
+
+Cloud Studio's browser source has a narrower design. It loads a public HTTPS
+page in an isolated browser, captures the rendered layer as an image, and
+refreshes that capture about every five seconds. This works for a scoreboard,
+schedule, static sponsor panel, or a slowly changing status page. It is a poor
+fit for video, audio, rapid animation, or a frame-accurate countdown.
+
+The URL must use HTTPS and resolve to a public address. Cloud Studio rejects
+credentials in the URL, localhost, local hostnames, and private network
+addresses. Page resources must stay on the same public host. A widget that loads
+scripts or images from another hostname will fail. Do not paste a dashboard URL
+that exposes an account token. Publish a dedicated read-only overlay page
+instead.
+
+If a browser layer fails, Studio skips that layer rather than ending the camera
+program. The editor marks the source as failed so that you can replace or hide
+it. Test the exact public URL before the event, including any cookie or login
+assumption that might make it render blank in a new browser session.
+
+## Add alerts without burning chat into the picture
+
+Choose **Add source → VISP alert** to add one alert layer. Select a follow,
+subscription, or donation event, then place the alert like any other visual
+layer. VISP maps supported events from connected platforms into those three
+display groups. The alert label appears for ten seconds.
+
+This is different from showing combined chat on every platform. An alert is a
+short event card. A chat overlay is a continuous stream of messages and can
+create policy or moderation problems during a simulcast. If you only need the
+field creator to hear messages, use the private workflow in the
+[chat text-to-speech guide](/blog/twitch-kick-chat-text-to-speech) instead of
+putting chat in the public program.
+
+Send a real test alert before going live. A layer can be placed correctly while
+the account connection that supplies its events is missing or has lost
+permission. The visual editor cannot prove the provider connection by itself.
+
+## Keep one shared program safe for every destination
+
+Cloud Studio creates one program from the active scene. Direct can encode that
+program for several destinations, but Studio does not make a separate scene for
+each platform. Anything burned into the picture reaches every selected output.
+
+This matters during a Twitch and Kick simulcast. Twitch's current
+[Simulcasting Guidelines](https://help.twitch.tv/s/article/simulcasting-guidelines)
+do not allow combined activity from other platforms in the Twitch experience.
+They also prohibit using Twitch to direct viewers to a live stream elsewhere.
+Keep the shared scene neutral. Do not add Kick chat, a Kick QR code, or a message
+that tells Twitch viewers to move to Kick. A private phone chat view is outside
+the public program and remains the safer way to follow both chats.
+
+Kick Partners also need to follow Kick's current
+[Multistreaming guide](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program).
+It requires the Multistreaming toggle when a Partner also broadcasts to another
+long-form platform. VISP does not change that account setting. Recheck both
+platform guides before a simulcast because their rules can change without a
+VISP update.
+
+## Make scene two a real fallback, not a duplicate
+
+Cloud Studio supports up to three scenes. A useful first pair is:
+
+- **Main**, with the camera and the normal corner graphic.
+- **Low signal**, with a short text line and fewer overlays.
+
+Choose **Cut** when the switch should be immediate. Choose **Fade** for a
+half-second transition. Keep both scenes within the same 1920×1080 canvas.
+After you choose **Save**, a scene change updates the Direct program. The editor
+is not a local switcher with zero network delay. Watch the **Program** preview
+and verify the public channel from a muted second device.
+
+Do not confuse a Studio scene with VISP's ingest-loss hold. A Studio scene still
+needs the phone contribution. If the phone disappears entirely and **Never
+drop again** is enabled, Direct's BRB behavior holds the platform output. The
+[bad mobile network guide](/blog/keep-stream-live-bad-mobile-network) explains
+why SRT recovery, reconnect behavior, and fallback content remain separate
+layers of reliability.
+
+## Plan for camera-only passthrough
+
+Cloud Studio is designed to fail toward a simpler program. If the compositor
+becomes unhealthy, Direct falls back to the camera contribution and keeps
+trying to restore the saved Studio program. The saved scenes remain intact.
+
+That is the safer failure than taking the whole stream offline, but it changes
+what viewers see. Never put essential safety information only in an overlay.
+Do not rely on a sponsor graphic to cover private material in the camera frame.
+Assume the clean camera can become public at any time.
+
+Run one rehearsal that proves the fallback:
+
+1. Start the phone with Cloud Studio and one platform output.
+2. Confirm the camera ingest, Studio program, and public channel.
+3. Switch scenes and save one live edit.
+4. Hide and restore one layer.
+5. Disconnect the phone long enough to trigger your chosen BRB behavior.
+6. Reconnect and verify that camera, overlays, audio, and alerts return.
+
+## Sources and next steps
+
+- [VISP Direct and Cloud Studio documentation](https://docs.visp-stream.com/docs/direct-output)
+- [VISP phone app documentation](https://docs.visp-stream.com/docs/phone-app)
+- [Cloud Studio limits and validation](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/studio.ts)
+- [Cloud Studio browser-source URL policy](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/studio-browser-url.ts)
+- [Twitch mobile broadcasting](https://help.twitch.tv/s/article/mobile-game-broadcasting)
+- [Twitch mobile streaming guide](https://help.twitch.tv/s/article/getting-started-on-twitch)
+- [OBS Browser Source](https://obsproject.com/kb/browser-source)
+- [Twitch Simulcasting Guidelines](https://help.twitch.tv/s/article/simulcasting-guidelines)
+- [Kick Partner multistreaming](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+
+Cloud Studio is the right middle option when a phone-only IRL stream needs a
+few scenes and overlays, but a full OBS computer would add more operations than
+the show needs. If that describes your production, [try VISP](https://visp-stream.com),
+build one small scene, and test the camera-only fallback before the next public
+stream.
