@@ -1,0 +1,253 @@
+---
+title: "Näin lähetät vaakakuvaa Twitchiin tai Kickiin ja pystykuvaa YouTubeen"
+description: "Lähetä yhdellä puhelimella 16:9-kuvaa Twitchiin tai Kickiin ja erillinen 9:16-rajaus YouTubeen ilman toista mobiililähetystä tai OBS-konetta."
+publishedAt: 2026-08-30
+updatedAt: 2026-08-30
+coverAlt: "Yksi puhelinkamera lähettää vaakakuvan laajalle näytölle ja pystyrajauksen pystynäytölle"
+---
+
+Vaakakuva sopii edelleen hyvin Twitchin ja Kickin IRL-lähetyksiin. YouTube
+tarjoaa toisenlaisen mahdollisuuden. Sen pystylähetys täyttää puhelimen näytön,
+ja YouTube voi näyttää sen Shorts-syötettä selaaville katsojille. Sama
+muuttamaton 16:9-kuva käyttää pystytilan huonosti, mutta kahden kuvan
+koodaaminen ja lähettäminen kenttäpuhelimesta tekee mobiililähetyksestä turhan
+hauraan.
+
+VISPin Portrait Direct pitää puhelimen tehtävän yksinkertaisena. Puhelin
+lähettää yhden vaakamuotoisen syötteen. Välityspalvelin käyttää koko kuvaa
+Twitchissä tai Kickissä ja tekee YouTubea varten erillisen 9:16-rajauksen.
+Valitset rajauksen ennen lähetystä. Kohteet käynnistyvät, yrittävät uudelleen ja
+ilmoittavat virheensä toisistaan riippumatta.
+
+![Puhelimen vaakasuuntainen syöte saapuu VISPiin, joka lähettää täyden 16:9-kuvan Twitchiin tai Kickiin ja rajatun 9:16-kuvan YouTubeen](./horizontal-vertical-direct-flow.svg)
+
+Tämä ohje on Twitch- tai Kick-sisällöntuottajalle, joka haluaa erillisen
+pystysuuntaisen YouTube-lähetyksen ilman OBS-konetta. Kyse ei ole Twitch Dual
+Formatista eikä YouTuben yhden kanavan kaksimuotoisesta lähetyksestä. Ero on
+tärkeä, joten aloitetaan signaalireitistä eikä rajausnapista.
+
+## Lyhyt vastaus
+
+Tee näin:
+
+1. Pidä puhelin vaakasuunnassa ja sijoita ihminen tai pääkohde lähelle kuvan
+   keskiosaa.
+2. Ota käyttöön yksi tavallinen Direct-kohde, joko Twitch tai Kick.
+3. Lisää YouTube pystykohteeksi.
+4. Siirrä ja mitoita 9:16-rajaus VISPissä ja tallenna se.
+5. Käynnistä lähetys kerran puhelimesta.
+6. Tarkista vaakasuuntainen kanava ja YouTuben mobiilisovelluksen pystysyöte
+   eri laitteilla ääni mykistettynä.
+
+Puhelin lähettää edelleen vain yhden H.264/AAC-syötteen. VISP tekee jokaiselle
+valitulle kohteelle oman H.264- ja stereo-AAC-jakelukoodauksen. Vaakakohde saa
+alkuperäisen kuvan. Pystykohde rajaa valitun alueen ja skaalaa sen kokoon
+1080×1920. Molemmat kohteet käyttävät yhden Direct-välityspaikan sekä
+välityspalvelimen suoritinaikaa ja lähtevää kaistaa.
+
+Lue [Portrait Direct -ohje](https://docs.visp-stream.com/fi/docs/portrait-direct-output)
+ennen tärkeää tapahtumaa. Toiminto näkyy vain tileillä, joille Portrait Direct
+on otettu käyttöön.
+
+## Tiedä, mitä alustat saavat
+
+Tämä asetelma luo kaksi erillistä lähetystä kahteen palveluun. Se ei yhdistä
+kahta kuvamuotoa samalle lähetyssivulle eikä yhdistä keskusteluja.
+
+| Kohde | Kuva | Katsojan kokemus |
+| --- | --- | --- |
+| Twitch tai Kick | Koko vaakasuuntainen ohjelma | Kanavan tavallinen lähetys ja keskustelu |
+| YouTube | Tallennettu 9:16-rajaus | Erillinen julkinen YouTube-lähetys, jonka YouTube voi näyttää pystysyötteessä |
+
+YouTuben mukaan pystylähetys voi löytyä Shorts-selauksen kautta myös muille
+kuin kanavan nykyisille tilaajille. YouTuben
+[ajantasainen lähetysohje](https://support.google.com/youtube/answer/2474026?hl=fi)
+kertoo myös, että pystysyöte on tarkoitettu puhelimelle. Ajastetut lähetykset
+ja ensi-illat eivät näy siinä. [Katsojan ohjeen](https://support.google.com/youtube/answer/13822251?hl=fi)
+mukaan pystylähetysten syöte näkyy tällä hetkellä YouTuben puhelinsovelluksessa,
+ei tableteilla.
+
+VISP Direct luo uuden julkisen YouTube-lähetyksen, kun puhelin alkaa julkaista,
+ja käyttää automaattista aloitusta ja lopetusta. Tallenna YouTube-otsikko
+VISPissä ennen testiä. Tarkista sitten julkinen katselusivu. Välityspalvelimen
+onnistunut tila ei vielä todista, että YouTube näyttää kuvan oikein tai tarjoaa
+sitä uusille katsojille.
+
+Valitse vaakakohteeksi palvelu, jossa nykyinen yleisösi jo on. Twitch sallii
+samanaikaiset lähetykset nykyisten
+[simulcasting-sääntöjensä](https://help.twitch.tv/s/article/simulcasting-guidelines?language=en_US)
+mukaisesti. Twitch-kokemus ei kuitenkaan saa olla toista palvelua heikompi,
+eikä lähetys saa ohjata katsojia pois Twitchistä käynnissä olevaan rinnakkaiseen
+lähetykseen. Älä polta yhteiseen kamerakuvaan toisen palvelun keskustelua tai
+sinne ohjaavaa kehotusta.
+
+Kickin [toukokuussa 2026 julkaistu multistreaming-ohje](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+vaatii Partner Program -lähettäjää käyttämään Kickin multistreaming-valintaa,
+kun rinnalla on toinen pitkä lähetys. Sama ohje käsittelee YouTube Shortsin
+kaltaiset pystypalvelut erikseen. Tarkista ajantasainen Kick-ohje ja oma
+sopimuksesi ennen tapahtumaa, sillä ohjelman ehdot voivat muuttua.
+
+## 1. Sommittele yksi käyttökelpoinen vaakakuva
+
+Portrait Direct rajaa vaakasuuntaisesta lähteestä. Se ei seuraa kasvoja, näytä
+kuvan ulkopuolelle jäävää aluetta tai rakenna toista kamerakulmaa. Hyvä
+pääkuva on siksi hieman väljä vaakakuva, jossa tärkein toiminta pysyy lähellä
+keskiosaa.
+
+Tee nämä valinnat ennen koodauksen käynnistämistä:
+
+- lukitse puhelin vaakasuuntaan;
+- valitse kamera, tarkkuus, kuvataajuus ja mikrofoni;
+- pidä kasvot ja kädet erossa kuvan uloimmista reunoista;
+- sijoita kuvaan poltetut tekstitykset tulevan pystyrajauksen sisään;
+- harjoittele kääntymistä, kävelyä ja kahden ihmisen keskustelua suurimmalla
+  odotetulla etäisyydellä.
+
+Oletusrajaus käyttää koko kuvan korkeuden mutta vain keskiosan 16:9-kuvan
+leveydestä. Reunalla näkyvä maamerkki voi näyttää Twitchissä hyvältä ja kadota
+YouTubesta kokonaan. Kaiken keskittäminen ei aina tuota parasta kuvaa, mutta se
+on toimiva lähtökohta, kun yhden kameran pitää palvella molempia kuvasuhteita.
+
+Älä käännä puhelinta lähetyksen aikana. Natiivisovellus lukitsee suunnan, kun
+kuvaus alkaa. Jos fyysinen asento muuttuu, pysäytä lähetys, vaihda suunta,
+sommittele molemmat kuvat uudelleen ja käynnistä vasta sitten.
+
+[VISP-puhelinsovelluksen ohje](https://docs.visp-stream.com/fi/docs/phone-app)
+kattaa kameran ja mikrofonin valinnan. Maltillisen tarkkuuden ja kuvataajuuden
+valintaan auttavat [IRL-bittinopeusohje](/fi/blog/best-bitrate-irl-streaming-phone-obs)
+ja [30 FPS:n ja 60 FPS:n vertailu](/fi/blog/30-vs-60-fps-irl-streaming).
+Toinen Direct-kohde ei lisää puhelimen lähettämien syötteiden määrää. Se ei
+kuitenkaan korjaa syötettä, jonka asetukset ovat jo liian raskaat todelliselle
+mobiilireitille.
+
+## 2. Valtuuta kaksi palvelua
+
+Avaa **Direct output** VISPin hallintapaneelissa tai puhelimen asetuksissa.
+Valtuuta lähetysoikeus vaakakohteelle ja YouTubelle. VISP pyytää tarvittavan
+oikeuden suoraan palvelulta. Sinun ei tarvitse liittää lähetysavainta
+puhelimeen.
+
+Ota Twitch tai Kick käyttöön tavallisena vaakakohteena. Älä ota YouTubea samalla
+käyttöön tavallisena vaakakohteena, jos siitä tulee pystykohde. Tässä
+työnkulussa yhdellä palvelulla on yksi rooli, joten sama palvelu ei voi olla
+yhtä aikaa vaaka- ja pystykohde.
+
+Siksi toiminto ei korvaa YouTuben omaa kaksoislähetystä. YouTube voi ottaa
+samalle lähetykselle vastaan vaaka- ja pystysyötteen, kun ne määritetään
+YouTube Studiossa. VISP Portrait Direct lähettää sen sijaan vaakaohjelman yhteen
+palveluun ja erillisen pystyohjelman toiseen. Käytä YouTuben omaa ohjetta, jos
+tarvitset yhden YouTube-sivun, yhden ilmoituksen ja yhteisen keskustelun.
+
+OBS voi lukea VISP-syötettä seurantaa tai paikallista tallennusta varten. Älä
+anna OBSin julkaista Twitchiin tai Kickiin, jos Direct omistaa saman kohteen.
+Kaksi saman kanavakohteen julkaisijaa voivat katkaista toisensa.
+[Direct output -ohje](https://docs.visp-stream.com/fi/docs/direct-output)
+selittää käsittelemättömän OBS-välityksen ja Directin kohdekohtaisten koodausten
+eron.
+
+## 3. Lisää ja tallenna pystykuva
+
+Valitse YouTuben vierestä **Add portrait output**. VISP avaa viimeisimmän
+vaakaesikatselun, siirrettävän 9:16-ruudun ja simuloidun pystykuvan.
+
+Siirrä ruutu niin, että pääkohde pysyy sen sisällä. Muuta kokoa vain, jos
+tiukempi tai väljempi rajaus auttaa todellista kohtausta. Pienempi rajaus tekee
+kohteesta suuremman 1080×1920-kuvassa, mutta heittää enemmän lähdepikseleitä
+pois ja jättää vähemmän liikkumavaraa. Koko korkeuden käyttävä rajaus on varma
+ensimmäinen testi kävelevään IRL-lähetykseen.
+
+Valitse **Save framing**. Tallennus on tarkoituksella erillinen toiminto.
+Editorin sulkeminen ilman onnistunutta tallennusta ei ota keskeneräistä
+rajausta käyttöön. Rajauksen voi tehdä selaimen hallintapaneelissa tai
+puhelinsovelluksessa. Selaineditoria voi käyttää myös näppäimistöllä ja
+esteettömyysohjaimella.
+
+Rajaus pysyy paikallaan, kunnes muokkaat ja tallennat sen uudelleen. VISP ei
+seuraa kohdetta automaattisesti. Jos lähettäjä kävelee torikojun laidalta
+toiselle, pystykuvan katsoja voi menettää tapahtuman, vaikka vaakakuvassa se
+näkyy edelleen. Harjoittele oikea liike tai sovi, että esiintyjä pysyy molempien
+kuvien yhteisellä turvallisella alueella.
+
+## 4. Tarkista kapasiteetti ennen oikeaa lähetystä
+
+Vaaka- ja pystykohde käyttävät kumpikin yhden välityspaikan. VISP sallii
+pystyasetuksen tallentamisen myös välityspalvelimen ollessa täynnä ja näyttää
+varoituksen. Kun käynnistät lähetyksen, vaakakohde voi silti käynnistyä ja
+pystykohde jäädä virhetilaan. Tämä suojaa päälähetystä, mutta testi epäonnistui,
+jos tavoitteena oli YouTuben pystynäkyvyys.
+
+Käynnistä yksityinen tai vähäriskinen harjoitus ja tarkista kummankin kohteen
+tila erikseen. Varmista, että molemmat saavuttavat **live**-tilan. Anna testin
+jatkua niin kauan, että se kattaa suunnitellun reitin vaikeimman osuuden.
+Minuutti Wi-Fi-verkossa ei todista kävelevän mobiililähetyksen toimintaa.
+
+Direct tekee kaksi jakelukoodausta, joten seuraa myös kapasiteettivirheitä ja
+palvelukohtaisia häiriöitä. Yhden kohteen uudelleenyritys ei pysäytä toista.
+Eristys on hyödyllinen, mutta yhden vihreän tilan tarkistaminen ei todista koko
+lähetyksen toimintaa.
+
+## 5. Tarkista kaksi oikeaa katselureittiä
+
+Käytä kahta toistolaitetta ääni mykistettynä, jotta ääni ei kierrä takaisin
+puhelimen mikrofoniin. Tarkista nämä kohdat:
+
+1. **VISP-syöte.** Puhelin näyttää vakaan yhteyden sekä odotetun
+   bittinopeuden, hävikin ja uudelleenyhdistämisen tilan.
+2. **Twitch- tai Kick-kanava.** Vaakakuva on ehjä, ääni on tahdissa eikä
+   kuvaan ole poltettu YouTubeen ohjaavaa viestiä.
+3. **YouTuben katselusivu.** VISP loi tarkoitetun julkisen lähetyksen, jolla on
+   tallennettu otsikko ja toimiva ääni.
+4. **YouTuben puhelinsovellus.** Kuva täyttää pystykatselun ja tärkeä toiminta
+   pysyy erossa keskustelusta ja soittimen ohjaimista.
+5. **Palautuminen.** Lyhyt syötekatko, palvelun uudelleenyritys tai
+   pystykohteen virhe ei jää huomaamatta, vaikka toinen kohde palautuu.
+
+YouTube-näkyvyyttä ei voi luvata. Oikea 9:16-lähetys voi olla kelvollinen
+pystysyötteeseen ilman, että YouTube näyttää sen tietylle katsojalle. Tarkista
+kuvasuhde ja katselusivu, joihin voit itse vaikuttaa. Älä lupaa tavoittavuutta
+yhden teknisen asetuksen perusteella.
+
+Myös keskustelut pysyvät erillään. VISP voi näyttää Twitchin, Kickin ja
+YouTuben viestit puhelimen yksityisessä Floating-näkymässä, mutta katsojat
+käyttävät oman palvelunsa keskustelua. Pidä yhdistetty keskustelu yksityisenä
+Twitch-rinnakkaislähetyksessä. [Puhelinkeskustelun ohje](/fi/blog/twitch-kick-chat-phone-obs)
+selittää yksityisen Floating-näkymän ja kuvaan poltetun keskustelun eron.
+
+## Milloin tämä on väärä työnkulku
+
+Valitse toinen reitti, kun tavoite on jokin näistä:
+
+- **Molemmat kuvasuhteet Twitchissä.** Käytä Twitch Dual Formatia yhteensopivan
+  OBS- ja Aitum-asennuksen kanssa. Seuraa
+  [Twitchin vaaka- ja pystykuvan ohjetta](/fi/blog/twitch-dual-format-phone-obs).
+- **Molemmat kuvasuhteet samalla YouTube-lähetyksellä.** Määritä YouTuben oma
+  kaksoislähetys kahdella koodausavaimella, jotta katsojilla on yksi sivu ja
+  keskustelu.
+- **Eri kohtaukset, grafiikat tai äänet eri palveluihin.** Käytä OBSia tai muuta
+  tuotantojärjestelmää, joka rakentaa kaksi täyttä ohjelmaa. Portrait Direct on
+  yhden ohjelman kiinteä rajaus, ei toinen kohtauskokoelma.
+- **Automaattinen kasvojen seuranta.** Käytä kameraa tai tuotantotyökalua, joka
+  tukee seurantaa. VISP tallentaa kiinteän rajauksen.
+- **Ei vapaata välityskapasiteettia.** Julkaise ensin pääasiallinen vaakakohde
+  ja lisää pystykuva vasta, kun vapaa paikka on varmistettu.
+
+Portrait Direct on hyödyllinen juuri siksi, että se tekee rajatun tehtävän.
+Yksi puhelinsyöte pysyy lähtökohtana. Välityspalvelin tekee siitä koko
+vaakakuvan ja yhden kiinteän pystykuvan. Kentällä ei tarvitse käyttää toista
+kooderia eikä kotona tarvitse pitää OBS-konetta käynnissä.
+
+[Ota VISP Direct käyttöön](https://docs.visp-stream.com/fi/docs/direct-output),
+valtuuta Twitch tai Kick sekä YouTube ja tee lyhyt kahden katselulaitteen
+harjoitus. Jos pystykuvan valinta ei näy tililläsi, käytä toistaiseksi
+vaakalähetystä. Älä rakenna oikeaa tapahtumaa sellaisen valinnan varaan, jota
+tilillä ei vielä ole.
+
+## Lähteet
+
+- [YouTube Help: Get started with live streaming](https://support.google.com/youtube/answer/2474026?hl=en)
+- [YouTube Help: Watch and interact with vertical live streams](https://support.google.com/youtube/answer/13822251?hl=en)
+- [Twitch: Simulcasting Guidelines FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines?language=en_US)
+- [Kick: Multistreaming on the Kick Partner Program](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+- [VISP: Portrait Direct output](https://docs.visp-stream.com/fi/docs/portrait-direct-output)
+- [VISP: Direct output](https://docs.visp-stream.com/fi/docs/direct-output)
+- [VISP: Phone and browser app](https://docs.visp-stream.com/fi/docs/phone-app)

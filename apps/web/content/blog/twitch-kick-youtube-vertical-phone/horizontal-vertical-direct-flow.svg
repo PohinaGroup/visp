@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">One phone feed becomes landscape and portrait Direct outputs</title>
+  <desc id="desc">A landscape phone contribution enters VISP. One full 16 by 9 output goes to Twitch or Kick, while a separate cropped 9 by 16 output goes to YouTube.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071225" />
+      <stop offset="1" stop-color="#18234b" />
+    </linearGradient>
+    <linearGradient id="flow" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#62a6ff" />
+      <stop offset="1" stop-color="#a98cff" />
+    </linearGradient>
+    <filter id="glow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="8" result="blur" />
+      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+    <marker id="arrow" markerWidth="14" markerHeight="14" refX="11" refY="7" orient="auto">
+      <path d="M0 0L14 7L0 14Z" fill="#8cb4ff" />
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="48" fill="url(#background)" />
+  <path d="M370 450H630" fill="none" stroke="url(#flow)" stroke-width="12" marker-end="url(#arrow)" filter="url(#glow)" />
+  <path d="M970 450C1090 450 1100 255 1220 255" fill="none" stroke="#62a6ff" stroke-width="12" marker-end="url(#arrow)" filter="url(#glow)" />
+  <path d="M970 450C1090 450 1100 650 1220 650" fill="none" stroke="#c08cff" stroke-width="12" marker-end="url(#arrow)" filter="url(#glow)" />
+
+  <g transform="translate(120 245)">
+    <rect width="250" height="410" rx="38" fill="#111a31" stroke="#9bbcff" stroke-width="6" />
+    <rect x="22" y="48" width="206" height="314" rx="18" fill="#26345d" />
+    <rect x="42" y="112" width="166" height="93" rx="8" fill="#6175a8" />
+    <circle cx="125" cy="285" r="38" fill="none" stroke="#e6ecff" stroke-width="8" />
+    <text x="125" y="386" fill="#f4f6ff" font-family="system-ui, sans-serif" font-size="26" text-anchor="middle">PHONE · 16:9</text>
+  </g>
+
+  <g transform="translate(630 300)">
+    <rect width="340" height="300" rx="50" fill="#202d58" stroke="#b2a6ff" stroke-width="6" />
+    <circle cx="170" cy="118" r="62" fill="#111a31" stroke="#8fb4ff" stroke-width="8" />
+    <path d="M130 118H210M170 78V158" stroke="#dce7ff" stroke-width="9" stroke-linecap="round" />
+    <text x="170" y="230" fill="#ffffff" font-family="system-ui, sans-serif" font-size="46" font-weight="700" text-anchor="middle">VISP</text>
+    <text x="170" y="270" fill="#cbd6ff" font-family="system-ui, sans-serif" font-size="24" text-anchor="middle">ONE CONTRIBUTION</text>
+  </g>
+
+  <g transform="translate(1220 110)">
+    <rect width="300" height="290" rx="32" fill="#111a31" stroke="#74b5ff" stroke-width="6" />
+    <rect x="28" y="34" width="244" height="137" rx="12" fill="#354a7a" />
+    <path d="M82 146L135 89L171 123L211 77L254 146Z" fill="#8297c9" />
+    <text x="150" y="225" fill="#ffffff" font-family="system-ui, sans-serif" font-size="30" font-weight="650" text-anchor="middle">TWITCH / KICK</text>
+    <text x="150" y="263" fill="#b8c8ef" font-family="system-ui, sans-serif" font-size="25" text-anchor="middle">LANDSCAPE · 16:9</text>
+  </g>
+
+  <g transform="translate(1280 455)">
+    <rect width="180" height="350" rx="32" fill="#111a31" stroke="#c08cff" stroke-width="6" />
+    <rect x="25" y="34" width="130" height="231" rx="12" fill="#4d3f79" />
+    <path d="M42 240L78 158L99 190L124 128L143 240Z" fill="#a891d2" />
+    <text x="90" y="305" fill="#ffffff" font-family="system-ui, sans-serif" font-size="27" font-weight="650" text-anchor="middle">YOUTUBE</text>
+    <text x="90" y="335" fill="#d9c7ef" font-family="system-ui, sans-serif" font-size="20" text-anchor="middle">PORTRAIT · 9:16</text>
+  </g>
+
+  <text x="800" y="80" fill="#ffffff" font-family="system-ui, sans-serif" font-size="46" font-weight="700" text-anchor="middle">ONE MOBILE UPLOAD, TWO FRAMES</text>
+  <text x="1095" y="485" fill="#d6ddff" font-family="system-ui, sans-serif" font-size="22" text-anchor="middle">SEPARATE ENCODE + SLOT</text>
+</svg>
