@@ -1,0 +1,57 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Phone to Cloud Studio overlay signal flow</title>
+  <desc id="desc">A phone camera feed enters a cloud compositor, receives transparent graphic and alert layers, and leaves as one finished platform program.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#111b3f"/>
+    </linearGradient>
+    <linearGradient id="cyan" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#22d3ee"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#background)"/>
+  <circle cx="800" cy="450" r="340" fill="#0c2440" opacity="0.55"/>
+
+  <g transform="translate(105 210)">
+    <rect x="0" y="0" width="270" height="480" rx="42" fill="#111827" stroke="#67e8f9" stroke-width="5"/>
+    <rect x="23" y="55" width="224" height="350" rx="12" fill="#183453"/>
+    <path d="M23 300 L88 230 L137 272 L185 205 L247 270 L247 405 L23 405 Z" fill="#245f79"/>
+    <circle cx="135" cy="27" r="8" fill="#64748b"/>
+    <circle cx="135" cy="442" r="18" fill="none" stroke="#64748b" stroke-width="4"/>
+  </g>
+
+  <path d="M420 450 C510 450 535 450 605 450" fill="none" stroke="#22d3ee" stroke-width="10" marker-end="url(#arrow)"/>
+
+  <g transform="translate(610 155)">
+    <path d="M180 530 H520 C600 530 650 480 650 410 C650 342 606 290 542 280 C524 170 432 90 320 90 C230 90 149 143 111 224 C45 235 0 286 0 350 C0 422 56 478 128 478 H180 Z" fill="#102d4e" stroke="#38bdf8" stroke-width="6"/>
+    <rect x="105" y="225" width="430" height="242" rx="24" fill="#122b45" stroke="#67e8f9" stroke-width="5"/>
+    <path d="M105 385 L210 300 L300 360 L386 270 L535 370 L535 467 L105 467 Z" fill="#1d607a"/>
+    <rect x="155" y="325" width="245" height="78" rx="16" fill="#22d3ee" opacity="0.78"/>
+    <rect x="335" y="245" width="170" height="95" rx="16" fill="#8b5cf6" opacity="0.8"/>
+    <path d="M420 267 C395 267 376 286 376 310 C376 337 355 345 355 345 H485 C485 345 464 337 464 310 C464 286 445 267 420 267 Z" fill="#f0abfc"/>
+    <circle cx="420" cy="353" r="11" fill="#f0abfc"/>
+    <rect x="210" y="185" width="220" height="70" rx="16" fill="#0f172a" stroke="#a5f3fc" stroke-width="4" stroke-dasharray="12 10"/>
+  </g>
+
+  <path d="M1260 450 C1320 450 1340 450 1390 450" fill="none" stroke="#22d3ee" stroke-width="10" marker-end="url(#arrow)"/>
+
+  <g transform="translate(1390 285)">
+    <rect x="0" y="0" width="160" height="280" rx="24" fill="#0f172a" stroke="url(#cyan)" stroke-width="5"/>
+    <rect x="16" y="22" width="128" height="215" rx="10" fill="#193d5d"/>
+    <path d="M16 168 L55 124 L88 150 L118 110 L144 139 L144 237 L16 237 Z" fill="#27687d"/>
+    <rect x="29" y="170" width="83" height="31" rx="8" fill="#22d3ee" opacity="0.8"/>
+    <rect x="102" y="133" width="31" height="31" rx="8" fill="#a78bfa"/>
+  </g>
+
+  <g fill="#94a3b8">
+    <circle cx="468" cy="450" r="8"/>
+    <circle cx="511" cy="450" r="8"/>
+    <circle cx="1300" cy="450" r="8"/>
+    <circle cx="1340" cy="450" r="8"/>
+  </g>
+</svg>
