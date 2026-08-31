@@ -2,38 +2,43 @@
 
 ## Relay bonding updates
 
-Changes under `deploy/relay/visp-bond` are deployed manually because the
-application release job does not restart media services. Build and install the
-gateway as described in [`README.md`](README.md), then run:
+The release workflow compares the release tag with the previous release and
+deploys only the changed relay components. The `production` environment must
+define `RELAY_DEPLOY_HOST` as the relay's Tailscale hostname. It uses the same
+`DEPLOY_USER`, SSH key, known-hosts entry, and Tailscale credentials as the app
+deployment.
+
+Install the stable relay bootstrap once on the relay host:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl restart visp-bond
-sudo systemctl status --no-pager visp-bond
+sudo install -m 0755 deploy/visp-relay-release-bootstrap \
+  /usr/local/sbin/visp-relay-release
 ```
 
-Restarting the gateway disconnects bonded publishers. Ordinary publishers on
-UDP 8890 continue through MediaMTX. Roll back by reinstalling the previous
-`visp-bond` binary and restarting only this unit.
+The bootstrap checks out the exact release on `/opt/visp`. The helper downloads
+the pinned MediaMTX archive, builds `srtla_rec` and `visp-bond` on the relay,
+installs only the requested components, and checks all relay services. The
+production environment approval gates this job.
 
-`srtla_rec` is deployed the same way and on the same terms:
+To recover or redeploy a component manually, run the same release command:
 
 ```bash
-sudo systemctl daemon-reload
-sudo systemctl restart srtla-rec
-sudo systemctl status --no-pager srtla-rec
+sudo visp-relay-release vX.Y.Z <40-character-commit-sha> \
+  mediamtx srtla-rec visp-bond
 ```
 
-It must be running on every relay before a release that shows SRTLA URLs goes
-out, because the portal offers `srtla://<relay>:5000` for every path. Restarting
-it disconnects SRTLA publishers only.
+Restarting MediaMTX disconnects every relay stream. Restarting `srtla_rec` or
+`visp-bond` disconnects only publishers using that ingest method.
 
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,
 native web app, OBS Remote web app, and documentation; and attaches the OBS
-packages to the same GitHub Release. Native EAS submission remains disabled
-until the commented release job is configured and enabled.
+packages to the same GitHub Release. Mobile builds and store submissions run
+separately: `.github/workflows/mobile.yml` builds and submits whichever of the
+two mobile apps changed on every push to `main` touching `apps/native` or
+`apps/obs-remote`. The commented release job remains available for
+tag-driven mobile submissions.
 
 ## One-time app-server setup
 
@@ -89,6 +94,7 @@ restrict the ephemeral `tag:ci` identity to SSH on the app server only.
 Configure these environment variables:
 
 - `DEPLOY_HOST`: app server Tailscale hostname or address.
+- `RELAY_DEPLOY_HOST`: relay server Tailscale hostname or address.
 - `DEPLOY_USER`: `root`.
 - `APP_URL`: public portal origin, including `https://`.
 - `ADMIN_URL`: `https://admin.visp-stream.com`.

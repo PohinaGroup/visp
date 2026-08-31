@@ -1,0 +1,16 @@
+[Unit]
+Description=VISP SRTLA receiver (staging)
+After=network-online.target mediamtx-staging.service
+Wants=network-online.target
+Requires=mediamtx-staging.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/srtla_rec 5000 127.0.0.1 8890
+Restart=always
+RestartSec=2
+LimitNOFILE=1048576
+
+[Install]
+WantedBy=multi-user.target

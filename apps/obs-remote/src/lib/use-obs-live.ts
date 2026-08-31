@@ -8,9 +8,9 @@ import {
 	commandTimedOut,
 	expireConnection,
 	type ObsStatus,
+	type PendingCommandWatch,
 	parseObsStatus,
 	parseStatusFrame,
-	type PendingCommandWatch,
 	pendingCommandWatch,
 	reconnectDelay,
 } from "./obs-live";
@@ -136,7 +136,8 @@ export function useObsLive(userId: string | undefined) {
 
 	useEffect(() => {
 		if (!pendingWatch || !status?.pending) return;
-		const remaining = COMMAND_TIMEOUT_MS - (Date.now() - pendingWatch.startedAt);
+		const remaining =
+			COMMAND_TIMEOUT_MS - (Date.now() - pendingWatch.startedAt);
 		if (remaining <= 0) {
 			setNow(Date.now());
 			return;

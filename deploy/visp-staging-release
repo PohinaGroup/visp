@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+readonly repo=/opt/visp-staging
+readonly bun=/usr/local/bin/bun
+readonly app_env=/etc/visp-staging/app.env
+readonly web_env=/etc/visp-staging/web.env
+readonly native_web_env=/etc/visp-staging/native-web.env
+readonly obs_remote_web_env=/etc/visp-staging/obs-remote-web.env
+readonly caddy_staging_dir=/etc/caddy/staging
+
+fail() {
+	echo "visp-staging-release: $*" >&2
+	exit 1
+}
+
+[[ $EUID -eq 0 ]] || fail "run as root"
+
+for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
+	"$obs_remote_web_env" "$caddy_staging_dir/app.caddy"; do
+	[[ -e $path ]] || fail "missing prerequisite: $path"
+done
+command -v node >/dev/null 2>&1 || fail "node is required to run visp-server"
+
+# One release at a time, and never while a production release is building on
+# this same small box.
+exec 9>/run/lock/visp-staging-release.lock
+flock -w 1800 9 || fail "another staging release is still running"
+exec 8>/run/lock/visp-release.lock
+flock -w 1800 8 || fail "a production release is still running"
+
+git -C "$repo" fetch --force --prune origin main
+if ! git -C "$repo" diff --quiet ||
+	! git -C "$repo" diff --cached --quiet; then
+	fail "$repo has tracked changes"
+fi
+git -C "$repo" checkout --detach FETCH_HEAD
+if ! git -C "$repo" diff --quiet ||
+	! git -C "$repo" diff --cached --quiet; then
+	fail "$repo checkout left tracked changes; repair its ownership and permissions"
+fi
+
+run_with_env() (
+	local env_file=$1
+	shift
+	set -a
+	# Environment files are root-owned deployment inputs.
+	# shellcheck disable=SC1090
+	source "$env_file"
+	set +a
+	"$@"
+)
+
+"$bun" install --cwd "$repo" --frozen-lockfile
+
+# Fail before migrating if app.env no longer satisfies the server env schema.
+(cd "$repo" && run_with_env "$app_env" "$bun" -e 'await import("@VISP/env/server")')
+
+run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
+(
+	cd "$repo"
+	run_with_env "$web_env" "$bun" x turbo run build -F server -F web -F admin
+)
+run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
+run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" build:web
+"$bun" run --cwd "$repo/apps/fumadocs" build
+
+for output in \
+	apps/server/dist/index.mjs \
+	apps/admin/dist/index.html \
+	apps/native/dist/index.html \
+	apps/obs-remote/dist/index.html \
+	apps/fumadocs/.output/public/_shell.html \
+	apps/fumadocs/.output/public/docs/index.html \
+	apps/fumadocs/.output/public/docs/get-started/index.html \
+	apps/fumadocs/.output/public/docs/broadcaster-setup/index.html \
+	apps/fumadocs/.output/public/docs/self-hosting/index.html \
+	apps/fumadocs/.output/public/docs/development/index.html \
+	apps/fumadocs/.output/public/api/search \
+	apps/fumadocs/.output/public/llms.txt \
+	apps/fumadocs/.output/public/llms-full.txt; do
+	[[ -f "$repo/$output" ]] || fail "build did not produce $output"
+done
+
+caddy validate --config "$caddy_staging_dir/app.caddy" --adapter caddyfile ||
+	fail "staging Caddy configuration is invalid"
+install -m 0644 "$repo/deploy/systemd/visp-server-staging.service" \
+	/etc/systemd/system/visp-server-staging.service
+install -m 0644 "$repo/deploy/systemd/visp-web-staging.service" \
+	/etc/systemd/system/visp-web-staging.service
+systemctl daemon-reload
+
+systemctl restart visp-server-staging visp-web-staging
+systemctl reload caddy
+systemctl is-active --quiet visp-server-staging visp-web-staging caddy
+
+if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3100/ >/dev/null; then
+	echo "visp-staging-release: visp-server-staging did not become ready on :3100" >&2
+	systemctl --no-pager --full status visp-server-staging >&2 || true
+	journalctl -u visp-server-staging -n 80 --no-pager >&2 || true
+	exit 1
+fi
+if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
+	--fail --silent --show-error http://127.0.0.1:3101/ >/dev/null; then
+	echo "visp-staging-release: visp-web-staging did not become ready on :3101" >&2
+	systemctl --no-pager --full status visp-web-staging >&2 || true
+	journalctl -u visp-web-staging -n 80 --no-pager >&2 || true
+	exit 1
+fi
+
+echo "VISP staging $(git -C "$repo" rev-parse --short HEAD) deployed"

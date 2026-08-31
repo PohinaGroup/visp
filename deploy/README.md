@@ -8,9 +8,16 @@ This directory contains templates, not host-specific secrets. Keep `/etc/visp/*.
 root-readable (`chmod 600`) and replace every example domain, IP, and Tailscale
 address before enabling a service.
 
+For a staging environment on the same hosts, see [`STAGING.md`](STAGING.md).
+The app Caddyfile imports `/etc/caddy/staging/*.caddy`; hosts without staging
+keep a `.empty.caddy` placeholder there, which `deploy/visp-release` creates
+automatically before validating.
+
 ## 1. Prove the relay with static credentials
 
-Install MediaMTX **v1.19.3**. For Linux amd64, the pinned archive SHA-256 is:
+Install the MediaMTX version pinned in
+[`relay/mediamtx.version`](relay/mediamtx.version). For Linux amd64, the current
+archive SHA-256 is:
 
 ```text
 a7ba21268fccda3ebc43fdad76b87fddb85ce77e725b5cb637bca724b5394fbe  mediamtx_v1.19.3_linux_amd64.tar.gz

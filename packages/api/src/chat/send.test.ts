@@ -106,13 +106,9 @@ describe("chat send", () => {
 			content: "hello",
 			type: "user",
 		});
-		expect(kick.accountLoads).toEqual([
-			{ providerId: "kick", userId: "user" },
-		]);
+		expect(kick.accountLoads).toEqual([{ providerId: "kick", userId: "user" }]);
 		expect(kick.senderModeLoads).toEqual([]);
-		expect(kick.tokenLoads).toEqual([
-			{ providerId: "kick", userId: "user" },
-		]);
+		expect(kick.tokenLoads).toEqual([{ providerId: "kick", userId: "user" }]);
 
 		const youtube = dependencies();
 		expect(

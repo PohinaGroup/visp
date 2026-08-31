@@ -1,0 +1,132 @@
+name: Staging
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Test and type-check
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    outputs:
+      relay_components: ${{ steps.relay_changes.outputs.components }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          fetch-depth: 0
+
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+        with:
+          bun-version: 1.3.14
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test and type-check
+        run: |
+          bun test
+          bun run check-types
+
+      - name: Find relay changes
+        id: relay_changes
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          CURRENT_SHA: ${{ github.sha }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          components=()
+          if [[ "$EVENT_NAME" == workflow_dispatch || "$BEFORE_SHA" =~ ^0+$ ]]; then
+            components=(mediamtx srtla-rec visp-bond)
+          else
+            changed() { ! git diff --quiet "$BEFORE_SHA" "$CURRENT_SHA" -- "$@"; }
+            common=(deploy/visp-relay-release)
+            if changed "${common[@]}"; then
+              components=(mediamtx srtla-rec visp-bond)
+            else
+              changed deploy/relay/mediamtx.version \
+                deploy/relay/mediamtx-staging.yml \
+                deploy/relay/visp-snapshot \
+                deploy/systemd/mediamtx-staging.service && components+=(mediamtx)
+              changed deploy/relay/srtla-rec \
+                deploy/systemd/srtla-rec-staging.service && components+=(srtla-rec)
+              changed deploy/relay/visp-bond \
+                deploy/systemd/visp-bond-staging.service && components+=(visp-bond)
+            fi
+          fi
+          echo "components=${components[*]}" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    name: Deploy staging
+    needs: check
+    # Skips cleanly until the staging environment is configured (DEPLOY_HOST
+    # var present); see deploy/STAGING.md.
+    if: vars.DEPLOY_HOST != ''
+    runs-on: blacksmith-4vcpu-ubuntu-2404
+    environment: staging
+    steps:
+      - name: Join Tailscale
+        uses: tailscale/github-action@306e68a486fd2350f2bfc3b19fcd143891a4a2d8 # v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: Deploy main to staging
+        env:
+          DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ vars.DEPLOY_USER }}
+          DEPLOY_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_HOST"
+          test -n "$DEPLOY_USER"
+          install -d -m 0700 "$HOME/.ssh"
+          printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/deploy_key"
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
+          chmod 0600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            sudo /usr/local/sbin/visp-staging-release
+
+      - name: Deploy changed relay components
+        if: needs.check.outputs.relay_components != ''
+        env:
+          RELAY_COMPONENTS: ${{ needs.check.outputs.relay_components }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
+            "sudo /opt/visp-staging/deploy/visp-relay-release staging $RELAY_COMPONENTS"
+
+      - name: Smoke-check public sites
+        env:
+          ADMIN_URL: https://admin.staging.visp-stream.com
+          APP_URL: https://staging.visp-stream.com
+          NATIVE_WEB_URL: https://stream.staging.visp-stream.com
+          OBS_REMOTE_WEB_URL: https://remote.staging.visp-stream.com
+          DOCS_URL: https://docs.staging.visp-stream.com
+          RELAY_URL: https://relay-staging.visp-stream.com
+        shell: bash
+        run: |
+          set -euo pipefail
+          for url in \
+            "$APP_URL" \
+            "$ADMIN_URL" \
+            "$NATIVE_WEB_URL" \
+            "$OBS_REMOTE_WEB_URL" \
+            "$DOCS_URL/docs" \
+            "$RELAY_URL/ping"; do
+            curl --fail --silent --show-error --retry 12 --retry-all-errors \
+              --retry-delay 5 "$url" >/dev/null
+          done

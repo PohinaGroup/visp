@@ -36,7 +36,9 @@ export function writeCookieConsent(choice: CookieConsentChoice): CookieConsent {
 		updatedAt: new Date().toISOString(),
 	};
 	window.localStorage.setItem(STORAGE_KEY, JSON.stringify(consent));
-	window.dispatchEvent(new CustomEvent("visp:cookie-consent", { detail: consent }));
+	window.dispatchEvent(
+		new CustomEvent("visp:cookie-consent", { detail: consent }),
+	);
 	return consent;
 }
 

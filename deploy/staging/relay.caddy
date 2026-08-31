@@ -1,0 +1,14 @@
+# Staging relay vhost, imported by the app box's Caddy via
+# /etc/caddy/staging/*.caddy. The staging MediaMTX runs on the app box itself
+# with the same ingest ports as production (8890/5000/1935/8189) because
+# publish URLs hardcode them; only the WHEP hostname differs.
+
+relay-staging.visp-stream.com {
+	@ping path /ping
+	header @ping Access-Control-Allow-Origin "https://staging.visp-stream.com"
+	header @ping Access-Control-Allow-Methods "GET, OPTIONS"
+	header @ping Cache-Control "no-store"
+	respond @ping 204
+
+	reverse_proxy 127.0.0.1:8889
+}

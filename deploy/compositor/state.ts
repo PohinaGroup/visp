@@ -49,7 +49,10 @@ export function authenticatedProgramUrls(
 	user: string,
 	password: string,
 ) {
-	return { publishUrl: authenticatedRtspUrl(value, user, password), readUrl: value };
+	return {
+		publishUrl: authenticatedRtspUrl(value, user, password),
+		readUrl: value,
+	};
 }
 
 export function authenticatedRtspUrl(

@@ -49,7 +49,11 @@ export function usePublishProvisioning({
 			setProvisioning(true);
 			setProvisionPhase("pending");
 			setMessage(undefined);
-			const label = Device.deviceName ?? Device.modelName ?? "VISP Native";
+			// Staging builds tag their publishing devices so test paths are
+			// distinguishable from production ones in the portal device list.
+			const testSuffix =
+				process.env.EXPO_PUBLIC_VISP_ENV === "staging" ? " (TEST)" : "";
+			const label = `${Device.deviceName ?? Device.modelName ?? "VISP Native"}${testSuffix}`;
 			try {
 				let url: string;
 				if (refresh) {

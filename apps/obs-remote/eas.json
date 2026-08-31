@@ -1,0 +1,22 @@
+{
+	"cli": {
+		"version": ">= 18.13.0",
+		"appVersionSource": "remote"
+	},
+	"build": {
+		"production": {
+			"autoIncrement": true,
+			"environment": "production"
+		}
+	},
+	"submit": {
+		"production": {
+			"android": {
+				"track": "production"
+			},
+			"ios": {
+				"groups": ["VISP Internal"]
+			}
+		}
+	}
+}

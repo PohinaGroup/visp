@@ -13,9 +13,7 @@ export function AuthAnalytics() {
 		const method = params.get("auth_method");
 		if (!method || !SIGN_IN_METHODS.has(method)) return;
 
-		trackOnce(`sign_in:${method}`, () =>
-			trackEvent("sign_in", { method }),
-		);
+		trackOnce(`sign_in:${method}`, () => trackEvent("sign_in", { method }));
 
 		params.delete("auth_method");
 		const nextSearch = params.toString();

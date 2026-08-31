@@ -500,17 +500,15 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 								</a>
 							</div>
 							<ul className="flex flex-col gap-3 text-muted-foreground text-sm leading-relaxed">
-								{(fi ? heroProofBulletsFi : heroProofBullets).map(
-									(item) => (
-										<li key={item.label}>
-											<span className="font-medium text-foreground">
-												{item.label}
-											</span>
-											{" — "}
-											{item.body}
-										</li>
-									),
-								)}
+								{(fi ? heroProofBulletsFi : heroProofBullets).map((item) => (
+									<li key={item.label}>
+										<span className="font-medium text-foreground">
+											{item.label}
+										</span>
+										{" — "}
+										{item.body}
+									</li>
+								))}
 							</ul>
 						</div>
 

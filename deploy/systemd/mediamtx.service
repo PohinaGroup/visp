@@ -2,6 +2,7 @@
 Description=MediaMTX relay
 After=network-online.target tailscaled.service
 Wants=network-online.target
+StartLimitIntervalSec=0
 
 [Service]
 Type=simple
@@ -9,7 +10,6 @@ EnvironmentFile=/etc/visp/relay.env
 ExecStart=/usr/local/bin/mediamtx /etc/mediamtx/mediamtx.yml
 Restart=always
 RestartSec=2
-StartLimitIntervalSec=0
 LimitNOFILE=1048576
 # /run/visp holds the forwarder locks, the publisher marker and the snapshot
 # that backs the BRB card. systemd creates it and clears it on stop, which is

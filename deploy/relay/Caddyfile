@@ -7,3 +7,7 @@
 
 	reverse_proxy 127.0.0.1:8889
 }
+
+# Optional per-host extra vhosts (e.g. a staging relay). The directory must
+# exist with at least one .caddy file; see deploy/STAGING.md.
+import /etc/caddy/staging/*.caddy
