@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { MeterMark } from "@/components/meter-mark";
 import { SeppoWidget } from "@/components/seppo-widget";
@@ -12,8 +12,6 @@ import {
 } from "@/lib/comparison";
 import { type Locale, landingHead, localeSearch } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
-import { scheduleLandingSeppoAutoOpen } from "@/lib/seppo-landing";
-
 export const Route = createFileRoute("/")({
 	head: () =>
 		landingHead(
@@ -422,12 +420,6 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				{ label: "Evästeet", href: "/cookies", external: false },
 			]
 		: footerLinks;
-
-	useEffect(
-		() =>
-			scheduleLandingSeppoAutoOpen(sessionStorage, () => setSeppoOpen(true)),
-		[],
-	);
 
 	return (
 		<>
