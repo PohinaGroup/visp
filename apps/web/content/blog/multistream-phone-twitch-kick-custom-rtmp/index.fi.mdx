@@ -1,0 +1,237 @@
+---
+title: "Näin lähetät puhelimesta Twitchiin, Kickiin ja mukautettuun RTMP-kohteeseen"
+description: "Lähetä yksi puhelimen IRL-kuvalähde Twitchiin, Kickiin, YouTubeen sekä mukautettuun RTMP-, RTMPS- tai SRT-kohteeseen VISP Directillä."
+publishedAt: 2026-08-30
+coverAlt: "IRL-kuvaaja lähettää yhden puhelinsyötteen relayn kautta vaaka-, pysty- ja palvelinkohteisiin"
+---
+
+Voit lähettää yhden puhelimen IRL-kuvalähteen Twitchiin, Kickiin tai YouTubeen
+sekä mukautettuun suoratoistokohteeseen ilman, että puhelin lataa jokaiselle
+kohteelle erillisen kopion. VISP Direct vastaanottaa puhelimen kuvalähteen
+kerran ja tekee sitten itsenäisen lähdön jokaiselle valitulle kohteelle.
+
+Mukautettu kohde voi olla toisen livealustan, tapahtumapalvelun tai oman julkisen
+mediapalvelimen tarjoama RTMP- tai RTMPS-syöte. Kohteena voi olla myös
+SRT-vastaanotin. OBS:n ei tarvitse hallita julkista lähtöä, vaikka se voi edelleen
+lukea puhelimen alkuperäistä kuvalähdettä seurantaa tai tallennusta varten.
+
+Tämä ratkaisu sopii tilanteeseen, jossa puhelin sisältää jo koko ohjelman ja
+haluat jakaa sen useampaan paikkaan. Se ei korvaa OBS:n kohtauksia, paikallista
+ääntä tai tuottajaa, jonka pitää muokata ohjelmaa ennen julkaisua.
+
+![Yksi puhelimen kuvalähde saapuu VISP-relaylle, joka tekee erilliset lähdöt kahdelle suoratoistoruudulle ja mukautetulle palvelimelle](./custom-direct-flow.svg)
+
+## Mitä mukautettu lähtö muuttaa?
+
+Puhelin lähettää yhden H.264- ja AAC-kuvalähteen VISPiin. Direct purkaa
+kuvalähteen ja tekee jokaiselle käytössä olevalle lähdölle erillisen H.264- ja
+stereo-AAC-jakelukoodauksen. RTMP- ja RTMPS-kohteet käyttävät FLV-säiliötä.
+SRT-kohteet käyttävät MPEG-TS-säiliötä.
+
+Ero vaikuttaa kapasiteetin suunnitteluun:
+
+- uusi kohde ei lisää puhelimen lähetyksiä;
+- jokainen kohde käyttää relayn suoritinta, lähtevää kaistaa ja yhden
+  forwarder-paikan;
+- yhden kohteen vika tai uusi yritys ei pysäytä muita kohteita; ja
+- OBS lukee alkuperäistä kuvalähdettä, ei Directin lähettämää jakelukoodausta.
+
+VISP Direct toimii siis eri tavalla kuin palvelu, joka kopioi valmiin
+alustasyötteen sellaisenaan. Puhelin koodaa edelleen oman kuvalähteensä, ja relay
+tekee yhden jakelukoodauksen kohdetta kohti. [VISP Direct
+-opas](https://docs.visp-stream.com/fi/docs/direct-output) selittää tämän rajan
+sekä relayn kapasiteettitarkistuksen, joka tehdään ennen julkaisun alkua.
+
+## Valitse sisäänrakennettu tai mukautettu kohde
+
+Käytä sisäänrakennettuja Twitch-, Kick- ja YouTube-kohteita, kun haluat lähettää
+jollekin näistä tileistä. VISP pyytää tarvittavan käyttöoikeuden, hakee
+julkaisukohteen lähetyksen alkaessa eikä anna striimiavainta puhelimelle tai
+selaimelle.
+
+Käytä mukautettua kohdetta, kun vastaanottava palvelu antaa täydellisen RTMP-,
+RTMPS- tai SRT-julkaisijan URL-osoitteen eikä sillä ole sisäänrakennettua
+VISP-yhteyttä. Tavallisia käyttökohteita ovat:
+
+- toinen livealusta, joka vastaanottaa mukautetun RTMP-julkaisijan;
+- yksityinen tapahtuma- tai lipullinen lähetyspalvelu;
+- tuotantokumppanin ylläpitämä julkinen SRT-yhdyskäytävä; tai
+- mediapalvelin, joka tallentaa, seuraa tai jakaa ohjelman edelleen.
+
+Älä lisää Twitchiä tai Kickiä käsin vain siksi, että nekin käyttävät RTMPS:ää.
+VISPin sisäänrakennetut kohteet hoitavat alustan valtuutuksen ja nykyiset
+syötetiedot. Kickin virallinen [mobiililähetyksen
+opas](https://help.kick.com/en/articles/7135289-streaming-on-kick-from-your-mobile-phone)
+osoittaa, miksi käsin tehtävä tapa on hauraampi: sovellus tarvitsee sekä täsmälleen
+oikean palvelinosoitteen että kanavan striimiavaimen.
+
+## Valitse RTMP, RTMPS tai SRT vastaanottajan ohjeesta
+
+Älä muuta protokollan URL-osoitetta toiseksi vaihtamalla vain sen alkua. Käytä
+vastaanottajan antamaa julkaisuosoitetta täsmälleen sellaisena kuin se on
+ohjeistettu.
+
+**RTMPS on tavallinen valinta yhteensopivalle julkiselle alustalle.** Se suojaa
+yhteyden TLS-salauksella. URL-osoite sisältää yleensä palvelinpolun ja
+striimiavaimen. Käsittele koko arvoa salaisuutena.
+
+**RTMP hyväksytään, kun vastaanottaja vaatii sitä.** Se ei lisää yhteyteen
+TLS-suojausta, joten valitse RTMPS, jos sama palvelu tarjoaa molemmat.
+
+**SRT sopii tuotannon hallitsemaan vastaanottimeen.** SRT tukee caller- ja
+listener-rooleja, pakettien korjausta, viiveasetuksia, Stream ID -tunnisteita ja
+valinnaisia tunnuslauseita. Vastaanottavan operaattorin pitää antaa täydellinen
+URL-osoite, jossa ovat oikea julkinen isäntä, portti ja asetukset. Haivision
+dokumentoi [SRT-URI:n
+muodon](https://github.com/Haivision/srt/blob/master/docs/apps/srt-live-transmit.md)
+sekä [Stream ID:n roolin pääsyn
+hallinnassa](https://github.com/Haivision/srt/blob/master/docs/features/access-control.md).
+
+VISP hyväksyy SRT-kohteen vain, kun URL-osoitteessa on erikseen annettu portti
+ja joko polku tai `streamid`-parametri. VISP lähettää osoitteeseen MPEG-TS-
+ohjelman. Se ei päättele vastaanottimen haluamaa viivettä, tunnuslausetta tai
+Stream ID:tä, joten kopioi arvot vastaanottajan ohjeesta.
+
+## Lisää mukautettu kohde VISPiin
+
+Luo ja muuta kohteen tunnuksia web-hallintapaneelissa. Puhelinsovellus voi sen
+jälkeen ottaa tallennetun kohteen käyttöön omalle julkaisulaitteelleen. Pysäytä
+laite ennen lähdön lisäämistä tai sen kohteen muuttamista. Käytössä olevan
+lähdön voi pysäyttää laitteen ollessa edelleen live-tilassa.
+
+1. Pysäytä julkaisulaite, jotta voit lisätä uuden lähdön turvallisesti.
+2. Hae täydellinen julkaisuosoite vastaanottavalta palvelulta. Jos palvelu
+   näyttää palvelimen ja avaimen erikseen, muodosta lopullinen URL-osoite sen
+   oman ohjeen mukaan.
+3. Avaa VISP-hallintapaneelin **Direct output**.
+4. Valitse **Custom destinations** -kohdasta **Add custom destination**.
+5. Anna lyhyt nimi ja täydellinen RTMP-, RTMPS- tai SRT-osoite.
+6. Tallenna kohde ja ota se käyttöön oikealle julkaisulaitteelle.
+7. Ota saman lähetyksen tarvitsemat sisäänrakennetut Twitch-, Kick- tai
+   YouTube-lähdöt käyttöön.
+8. Aloita lyhyt testi ja seuraa jokaisen kohteen tilaa erikseen.
+
+VISP tarkistaa isännän ennen kohteen tallentamista. Sen pitää ratketa julkiseksi
+IP-osoitteeksi. Loopback-, yksityiset, link-local-, multicast- ja varatut
+osoitteet hylätään. Siksi `localhost`, `127.0.0.1` ja kodin lähiverkon osoite,
+kuten `192.168.1.20`, eivät käy mukautetun Direct-lähdön kohteiksi. Sijoita
+vastaanotin oikein suojattuun julkiseen osoitteeseen, jos VISPin pitää tavoittaa
+se internetin kautta.
+
+Nykyinen [kohteen tarkistava
+koodi](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/direct-custom-destination.ts)
+hylkää myös URL-osoitteen authority-osaan kirjoitetut tunnukset ja vaatii
+RTMP-osoitteelta polun. Käytä kohdepalvelun dokumentoimaa polku- tai
+kyselymuotoa.
+
+## Mitä VISP tallentaa ja näyttää myöhemmin?
+
+Julkaisuosoite sisältää usein striimiavaimen, SRT-tunnuslauseen tai muun
+tunnuksen. VISP salaa koko mukautetun URL-osoitteen levyllä. Tallennuksen jälkeen
+hallintapaneeli ja puhelin näyttävät vain kohteen nimen, protokollan, isännän ja
+erikseen annetun portin. Salainen polku ja kyselyosa eivät palaudu näille
+asiakasohjelmille.
+
+Näytetty yhteenveto ei tarkoituksella riitä kadonneen avaimen palauttamiseen.
+Kun vaihdat tunnuksen, hae uusi osoite vastaanottavalta palvelulta ja syötä se
+hallintapaneelin korvaavaksi URL-osoitteeksi.
+
+VISP tarkistaa kohteen uudelleen lähdön käynnistyessä. Jos DNS alkaa myöhemmin
+ratkaista isännän yksityiseksi osoitteeksi, lähtö epäonnistuu yhteyden avaamisen
+sijaan. [Mukautettujen Direct-lähtöjen
+toteutus](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/direct.ts)
+purkaa osoitteen salauksen vain relay-kohdetta ratkaistaessa ja ilmoittaa
+yleisen käynnistysvirheen palauttamatta salaisuutta.
+
+Mukautettu URL-osoite määrittää vain median toimituksen. VISP ei tiedä
+mielivaltaisen kohteen otsikkoa, kategoriaa, näkyvyyttä, ajastettua tapahtumaa tai
+chat-sääntöjä. Aseta metatiedot vastaanottavassa palvelussa ja tarkista julkinen
+sivu sieltä.
+
+## Monilähetä kuormittamatta relayta liikaa
+
+Jokainen Direct-lähtö käyttää yhden forwarder-paikan. Twitch, Kick ja yksi
+mukautettu RTMPS-kohde tarvitsevat kolme paikkaa. Erillinen pystylähtö tarvitsee
+vielä yhden. Puhelin lähettää edelleen yhden kuvalähteen, mutta relay tekee
+enemmän koodausta ja lähettää enemmän dataa ulospäin.
+
+Jos relay ei pysty varaamaan kaikkia tarvittavia paikkoja, VISP estää uuden
+julkaisun tai merkitsee yksittäisen lähdön poissa käytöstä. Se ei teeskentele
+kaikkien kohteiden käynnistyneen. Tarkka kapasiteetti kuuluu relay-asennuksen
+asetuksiin, joten älä suunnittele kiinteän luvun varaan vanhan artikkelin tai
+kuvakaappauksen perusteella.
+
+Aloita tärkeistä lähdöistä. Jos otat hypoteettista tulevaa tarvetta varten
+lisätyn kohteen käyttöön, se kuluttaa oikeita resursseja. Lisää kohde vasta, kun
+vastaanotin ja yleisö tarvitsevat sitä.
+
+Jos teet tuotannon ilman kotikonetta, lue [Näin striimaat Twitchiin ilman kotona
+olevaa PC:tä](/fi/blog/stream-to-twitch-without-a-pc). Jos OBS-kohtaukset,
+hälytykset, paikallinen juontaja tai lopullinen tallenne ovat tärkeitä, käytä
+sen sijaan [puhelinta OBS:n etäkamerana](/fi/blog/use-phone-as-remote-camera-obs)
+ja anna OBS:n hallita julkista ohjelmaa.
+
+## Tarkista Twitchin ja Kickin säännöt ennen monilähetystä
+
+Toimiva lähtö ei anna lupaa ohittaa alustan sääntöjä. Tarkista säännöt uudelleen
+ennen jokaista uutta kohdeyhdistelmää.
+
+Twitchin nykyinen [Simulcasting Guidelines
+FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines) sanoo, ettei
+Twitch-kokemus saa olla toista palvelua heikompi. Twitchiä ei myöskään saa
+käyttää katsojien ohjaamiseen samaan aikaan käynnissä olevaan lähetykseen
+toisella alustalla. Twitch-ohjelmassa ei saa näyttää yhdistettyä alustojen
+välistä toimintaa, kuten yhdistettyä chattia. Kuvaajan puhelimen yksityinen
+chat-näkymä on eri asia, koska katsojat eivät näe sitä.
+
+Kickin nykyinen [Partner Program -ohjelman monilähetysohje](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+vaatii kumppaneita ottamaan Kickin Multistreaming-kytkimen käyttöön, kun he
+lähettävät samalla toiselle pitkän formaatin livealustalle. Opas kuvaa myös
+nykyisen vaikutuksen korvaukseen. VISP ei voi vaihtaa tätä tiliasetusta
+puolestasi.
+
+Säännöt voivat muuttua VISPistä riippumatta. Tarkista ennen lähetystä linkitetyt
+alustasivut, älä tallennettua tarkistuslistaa.
+
+## Testaa koko reitti kohteeseen asti
+
+VISPin tila osoittaa, yhdistikö sen forwarder vai epäonnistuiko se. Tila ei
+todista, että kohde julkaisi lähetyksen oikeilla metatiedoilla ja oikealla
+soitinkäyttäytymisellä.
+
+Tee tämä ennakkotesti ennen tapahtumaa:
+
+1. Käytä yksityistä, listaamatonta tai muuten matalan riskin testiä, jos
+   vastaanottava palvelu tarjoaa sellaisen.
+2. Tarkista valittu puhelin, kamera, suunta, mikrofoni, bittinopeus ja
+   kuvataajuus.
+3. Aloita yhdellä sisäänrakennetulla ja yhdellä mukautetulla kohteella.
+4. Katso molempia julkisia soittimia mykistetyillä laitteilla eri yhteydestä.
+5. Tarkista kummastakin kohteesta ääni, kuvasuhde, tekstitykset tai kuvaan
+   poltetut grafiikat sekä otsikko.
+6. Katkaise puhelimen yhteys kerran ja yhdistä uudelleen palautumisen
+   testaamiseksi.
+7. Pysäytä mukautettu vastaanotin tai peru sen avain. Varmista sitten, että
+   toinen kohde pysyy live-tilassa.
+8. Vaihda testitunnus, jos se päätyi kuvakaappaukseen, lokiin tai viestiin.
+
+Jos yksi lähtö epäonnistuu, lue sen tila ennen puhelimen bittinopeuden
+muuttamista. Väärä mukautettu osoite, vanhentunut avain, estetty vastaanotin tai
+täysi relay-paikka eivät ole mobiililähetyksen vikoja. Usean asetuksen
+muuttaminen samalla kertaa vaikeuttaa seuraavan vian tunnistamista.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP Direct -dokumentaatio](https://docs.visp-stream.com/fi/docs/direct-output)
+- [VISP-puhelinsovelluksen dokumentaatio](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISPin mukautetun kohteen tarkistus](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/direct-custom-destination.ts)
+- [VISPin Direct-kohteen ratkaisu](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/direct.ts)
+- [Twitch Simulcasting Guidelines FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines)
+- [Kick Partner Program -ohjelman monilähetys](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+- [Kickin mobiililähetys mukautetulla RTMP:llä](https://help.kick.com/en/articles/7135289-streaming-on-kick-from-your-mobile-phone)
+- [Haivisionin SRT-URI:n muoto](https://github.com/Haivision/srt/blob/master/docs/apps/srt-live-transmit.md)
+- [Haivisionin SRT Stream ID -ohje](https://github.com/Haivision/srt/blob/master/docs/features/access-control.md)
+
+Jos yksi puhelimen kuvalähde sisältää jo koko ohjelmasi, [kokeile
+VISPiä](https://visp-stream.com), lisää yksi mukautettu kohde ja harjoittele
+Twitch- tai Kick-monilähetystä ennen kuin luotat siihen kentällä.
