@@ -1,0 +1,242 @@
+---
+title: "IRL-striimaus yöllä: parhaat puhelinkameran asetukset"
+description: "Valitse puhelimen kamera, 30 FPS, valo ja bittinopeus pimeään IRL-lähetykseen ja korjaa kuvaa maltillisesti OBS:ssä Twitchiä tai Kickiä varten."
+publishedAt: 2026-08-31
+coverAlt: "IRL-sisällöntuottaja kävelee yöllisellä kaupunkikadulla puhelin ja pieni pehmeä valo samassa käsikahvassa"
+---
+
+Puhelimella voi tehdä hyvän Twitch- tai Kick-IRL-lähetyksen myös pimeällä,
+mutta väärä asetus näkyy yökuvassa nopeasti. Suuri kuvataajuus lyhentää yhden
+ruudun valotusaikaa. Tumma ja kohiseva kuva pakkautuu huonosti. Digitaalinen
+kirkastus nostaa kohinan näkyviin, vaikka se ei palauta kadonneita
+yksityiskohtia.
+
+Toimiva lähtökohta on yksinkertainen: **lisää hieman valoa, valitse takakameran
+1x-taso ja 30 FPS sekä pidä bittinopeus oikean mobiilireitin mukaisena.** Testaa
+julkinen lähetys auringonlaskun jälkeen, älä vain puhelimen esikatselua
+valoisassa huoneessa.
+
+![Pieni valo parantaa puhelimen kuvaa ennen kuin kiinteä 30 FPS:n koodaus kulkee VISPin kautta OBS:ään ja Twitchiin tai Kickiin](./night-capture-path.svg)
+
+## Lyhyt vastaus
+
+Aloita näillä VISP-puhelinsovelluksen asetuksilla:
+
+| Asetus | Lähtökohta yöhön | Muuta, kun |
+| --- | --- | --- |
+| Kamera | Takakamera 1x-tasolla | Toinen laitteen ilmoittama linssi voittaa rinnakkaistestin |
+| Kuvataajuus | 30 FPS | Käytä 60 FPS:ää vain nopeaan liikkeeseen aidosti hyvässä valossa |
+| Tarkkuus | 720p epävarmalla mobiiliverkolla, 1080p testatulla reitillä | Yhteys ja lopullinen katselutesti kestävät suuremman tarkkuuden |
+| Vakautus | Päällä kävellessä, jos VISP näyttää tuen | Poista jalustalla tai jos yötesti näyttää paremmalta ilman sitä |
+| Valo | Pieni hajautettu valo puhelimen lähellä | Siirrä tai pehmennä, jos iho palaa puhki tai valo heijastuu laseista |
+| OBS-korjaus | Pieni gamma- tai kirkkaussäätö | Lopeta, kun kohina ja pakkausruudut korostuvat |
+
+VISP näyttää tällä hetkellä kameran, tarkkuuden, kuvataajuuden, laitteen
+ilmoittamat zoomaustasot ja tuetun kuvanvakautuksen. Sovelluksessa ei ole
+manuaalista suljinaikaa, ISO-arvoa, valkotasapainon lukitusta tai taskulampun
+ohjausta. Rajaus näkyy [puhelinsovelluksen ohjeessa](https://docs.visp-stream.com/fi/docs/phone-app)
+ja avoimessa [kamerakykyjen tietomallissa](https://github.com/PohinaGroup/visp/blob/main/apps/native/modules/visp-srt/src/VispSrt.types.ts).
+
+## Lisää valoa ennen bittinopeutta
+
+Paras yöasetuksen korjaus on usein valo eikä uusi koodausvalinta. Puhelimen
+lähelle asetettu pieni ja hajautettu LED-valo valaisee kasvot, mutta jättää
+katuvalot ja kyltit osaksi paikkaa. Jalkakäytävää ei tarvitse muuttaa
+päivänvaloiseksi. Kameralle pitää vain antaa riittävän puhdas pääkohde.
+
+Kiinnitä valo lähelle puhelinta mutta hieman linssin yläpuolelle tai sivuun.
+Tällainen kulma näyttää kasvoilla yleensä paremmalta kuin suoraan eteenpäin
+osoittava paljas LED. Jos kuvattavalla on silmälasit, siirrä valoa, kunnes
+heijastus poistuu linsseistä. Pidä teho niin matalana, että ihossa säilyy
+yksityiskohtia.
+
+Tee yksi vertailu ilman valoa ja toinen valo päällä. Katso valmis Twitch- tai
+Kick-lähetys tavallisessa soitinkoossa. Puhelimen pieni ja kirkas esikatselu voi
+peittää kohinaa sekä pakkauksen rikkoutumista. Katsojat saavat julkisen
+koodauksen, eivät esikatselua.
+
+Puhdista kameran lasi ennen testiä. Kickin nykyinen [mobiililaadun
+ohje](https://help.kick.com/en/articles/15159752-settings-and-stream-quality-on-the-kick-go-live-app)
+mainitsee puhtaan linssin sumean kuvan vianetsinnässä. Apple neuvoo
+[puhdistamaan etu- ja takakameran linssit
+mikrokuituliinalla](https://support.apple.com/102514), jos kuva on epätarkka.
+Rasvakalvo levittää pistemäiset valot sumuksi, jota bittinopeus ei korjaa.
+
+## Aloita takakameran 1x-tasolta
+
+Avaa **Asetukset > Kamera**, kun VISP-lähetys on pysäytetty. Valitse takakamera
+ja aloita 1x-tasolta. Se on vertailukohta, ei lupaus siitä, että jokaisen
+puhelimen 1x-linssi voittaa kaikki muut. Kenno, aukko ja kuvankäsittely
+vaihtelevat laitteittain. Ratkaise valinta samalla puhelimella tehdyllä
+tallennetulla testillä.
+
+Älä zoomaa vain siksi, että ihminen näyttäisi kuvassa suuremmalta. Mene
+turvallisessa tilanteessa lähemmäs. Jos VISP näyttää 0,5x-, 1x-, 2x- tai muita
+tasoja, ne tulevat laitteen omasta kamerajärjestelmästä. iOS- ja
+Android-toteutukset johtavat valinnat käytettävissä olevista kameroista ja
+zoomausalueista eivätkä rakenna yleistä listaa. Katso [iOS-kameran
+toteutus](https://github.com/PohinaGroup/visp/blob/main/apps/native/modules/visp-srt/ios/VispSrtView.swift)
+ja [Android-kameran
+toteutus](https://github.com/PohinaGroup/visp/blob/main/apps/native/modules/visp-srt/android/VispSrt.kt).
+
+Testaa etukamera erikseen, jos striimaajan pitää nähdä näyttö kävellessään.
+Käytettävyys voi olla pientä kuvanlaatueroa tärkeämpi. Valitse kamera, jonka
+julkinen kuva on puhdas mutta jonka käyttö ei vie huomiota chatista,
+rajauksesta, liikenteestä tai muista vaaroista.
+
+## Valitse kuvaukseen 30 FPS
+
+Kolmekymmentä kuvaa sekunnissa on toimiva yöoletus. Apple kertoo oman
+Kamera-sovelluksensa voivan parantaa hämärävideota laskemalla kuvataajuuden
+automaattisesti 24 FPS:ään. Kick suosittelee 30 FPS:ää useimpiin
+IRL-lähetyksiin ja 60 FPS:ää nopeaan liikkeeseen. Molemmat ohjeet kertovat
+samasta kompromissista: lisäruudut eivät ole ilmaisia, kun valoa on vähän.
+
+VISP määrittää natiivin lähetyksen valitulla kuvataajuudella. iOS:ssa se asettaa
+aktiivisen kuvavälin pienimmän ja suurimman arvon valinnan mukaan. Androidissa
+se tarkistaa nopeuden kameran ja H.264-kooderin kyvyistä ja välittää arvon
+lähetyksen valmisteluun. Puhelimen oman Kamera-sovelluksen hämärätiloja ei siis
+pidä tulkita VISPin lähetysasetuksiksi.
+
+Valitse 60 FPS vain nopealle kohteelle, hyvin valaistuun paikkaan ja pitkän
+kokonaistestin jälkeen. [30 FPS:n ja 60 FPS:n
+vertailu](/fi/blog/30-vs-60-fps-irl-streaming) käsittelee tarkemmin liikettä,
+lämpöä, kaistaa ja OBS:n lähtöä.
+
+## Sovita tarkkuus ja bittinopeus reittiin
+
+Hämärä ei ole syy valita puhelimen suurinta tarkkuutta. Aloita epävarmalla
+mobiiliverkolla 720p30-asetuksesta. Kokeile 1080p30-asetusta vasta, kun reitti
+kestää vakaan 720p-testin ja lisäyksityiskohdat säilyvät julkisessa
+alustakoodauksessa.
+
+VISPin natiivisovellus asettaa valitulle formaatille bittinopeuden ylärajan ja
+mukauttaa tavoitetta yhteyden tilan mukaan. Lähetysnäkymä näyttää
+bittinopeuden, edestakaisen viiveen ja pakettihävikin. Luvut kuvaavat puhelimen
+ja välityspalvelimen väliä. Ne eivät todista, että OBS, Twitch tai Kick toimii
+sen jälkeen oikein.
+
+Älä nosta bittinopeutta ennen kuin tumma kuva on puhdas. Lisäbitit voivat
+säilyttää enemmän kuvatusta signaalista, mutta ne eivät tuo valoa tai palauta
+yksityiskohtia, joita kamera ei kuvannut. Suurempi tavoite voi myös heikentää
+mobiililähetyksen vakautta. [IRL-bittinopeusohje](/fi/blog/best-bitrate-irl-streaming-phone-obs)
+aloittaa mobiiliverkon 720p30-kuvalle noin 2 500 kbps:stä ja neuvoo testaamaan
+puhelimen sekä kotiyhteyden erikseen.
+
+## Testaa vakautus samalla yöasetelmalla
+
+Pidä kuvanvakautus päällä kävelylähetyksessä, jos VISP tarjoaa sen valitulle
+kameralle, tarkkuudelle ja kuvataajuudelle. Sovellus näyttää aktiivisen tilan
+vain yhdistelmillä, jotka laite ilmoittaa tuetuiksi. Myös Kick suosittelee
+vakautusta kävelyyn ja kertoo sen voivan rajata kuvaa hieman.
+
+Hämäräkäytös vaihtelee silti puhelimittain. Kuvaa sama lyhyt kävely vakautus
+päällä ja pois. Vertaa kasvojen yksityiskohtia, liikettä, rajausta ja kirkkaita
+pistevaloja julkisessa lähetyksessä. Poista vakautus jalustalla tai kiinteässä
+telineessä, ellei testi osoita siitä hyötyä.
+
+Älä luovu vakaasta 30 FPS:n tilasta vain pakottaaksesi käyttöön tärisevämmän
+60 FPS:n vaihtoehdon. Jos kävelyliike on suurin ongelma, jatka [puhelimen
+vakautusohjeeseen](/fi/blog/stabilize-shaky-phone-irl-stream-obs), kun valo ja
+kuvataajuus ovat kunnossa.
+
+## Tunnista ominaisuudet, jotka eivät siirry kamerasovelluksesta livekuvaan
+
+Puhelimen oma Kamera-sovellus voi mainostaa näyttäviä yöominaisuuksia, mutta
+livejulkaisija käyttää eri kuvausreittiä. Applen Auto FPS -ohje koskee iPhonen
+Kamera-sovellusta. VISP lukitsee valitun lähetyksen kuvataajuuden.
+
+Googlen [Pixel Video Boost -ohje](https://support.google.com/pixelcamera/answer/14257322?hl=en)
+kertoo puhelimen tallentavan väliaikaisen tiedoston, lähettävän sen Google
+Kuviin ja odottavan pilvikäsittelyä ennen parannetun version valmistumista.
+Ominaisuus voi parantaa tallennettua videota. Se ei ehdi käsitellä Twitchiin
+tai Kickiin jo lähetettyä livekuvaa.
+
+Arvioi VISPiä sen omasta esikatselusta, välityssyötteestä ja julkisesta
+lähetyksestä. Yötilan valokuva, pilvessä parannettu galleriavideo tai valmistajan
+esittely ei kerro suoraan kolmannen osapuolen livekuvauksen tuloksesta.
+
+## Käytä OBS-korjausta viimeistelyyn
+
+Jos puhelin syöttää kotistudion OBS:ää, napsauta puhelinlähdettä hiiren
+oikealla, avaa **Suodattimet** ja lisää **Color Correction**. OBS:n ohjeen
+mukaan suodatin säätää gammaa, kontrastia, kirkkautta, värikylläisyyttä,
+värisävyä ja väriarvoja.
+
+Muuta yhtä asetusta vähän kerrallaan. Pieni gamman nosto voi tehdä kasvoista
+luettavammat. Liiallinen kirkastus nostaa myös tumman kohinan, ja kova kontrasti
+voi kadottaa vähäisetkin varjoyksityiskohdat. Kytke suodatin pois ja päälle
+ohjelmakuvasta, älä arvioi vain lähteen esikatselua.
+
+OBS saa puhelimen H.264/AAC-syötteen, jonka VISPin tavallinen välitysreitti
+välittää ilman transkoodausta tai kohinanpoistoa. VISP Direct tekee valitulle
+kohteelle erillisen jakelukoodauksen, mutta sekään ei rakenna puuttuvia
+kuvatietoja uudelleen. Korjaa ensin valo ja kameravalinta. Viimeistele vasta
+käyttökelpoinen kuva.
+
+## Tee harjoitus pimeän tultua
+
+Käytä samaa puhelinta, telinettä, valoa, reittiä ja mobiiliyhteyttä kuin oikeassa
+lähetyksessä. Hyvä harjoitus kestää vähintään 15 minuuttia ja sisältää reitin
+kirkkaimman kyltin, pimeimmän kadun sekä nopeimman kävelyosuuden.
+
+1. Puhdista linssi ja aloita takakameran 1x-tasolla sekä 720p30-asetuksella.
+2. Säädä kannettava valo pienimmälle hyödylliselle teholle.
+3. Kävele kirkkaasta paikasta pimeimpään odotettuun osuuteen.
+4. Seuraa VISPin bittinopeutta, RTT:tä, pakettihävikkiä, uudelleenyhdistyksiä,
+   lämpöä ja akkua.
+5. Tarkista etenevä kuva OBS:ssä, jos käytät sitä.
+6. Katso julkinen Twitch- tai Kick-lähetys mykistetyllä toisella yhteydellä.
+7. Muuta yhtä asiaa, kuten kameraa, valotehoa, tarkkuutta tai vakautusta, ja
+   toista sama osuus.
+
+Pidä asetus, joka kestää siirtymät. Yölähetys ei pysy samassa kirkkaudessa.
+Näyteikkunat, ajovalot, pimeät puistot ja sisäänkäynnit pakottavat automaattisen
+kameran reagoimaan. Paras vaihtoehto pysyy katsottavana muutoksissa, ei vain
+yhdessä lampun alla onnistuneessa ruudussa.
+
+## Usein kysyttyä
+
+### Kannattaako yöllä käyttää 60 FPS:ää?
+
+Yleensä ei. Aloita 30 FPS:stä. Säilytä 60 FPS vain nopeaan liikkeeseen, kun hyvin
+valaistu koko reitin testi näyttää selvän liikehyödyn ilman suurempaa kohinaa,
+lämpöä tai yhteysongelmaa.
+
+### Pitääkö bittinopeutta nostaa, jos kuva on tumma?
+
+Ei. Bittinopeus ei valaise paikkaa. Lisää tai siirrä valoa, valitse puhtaampi
+kamera ja käytä ensin 30 FPS:ää. Nosta bittinopeutta vasta, jos reitillä on varaa
+ja muuten puhtaassa kuvassa näkyy yhä pakkausvirheitä.
+
+### Voiko OBS korjata puhelimen kohisevan kuvan?
+
+OBS voi muuttaa gammaa, kirkkautta, kontrastia ja väriä. Se ei palauta tietoa,
+jota puhelin ei kuvannut. Suuri korjaus tekee usein kohinasta ja
+pakkausruuduista näkyvämpiä.
+
+### Toimiiko iPhonen Auto FPS VISPissä?
+
+VISPin nykyinen iOS-kuvaus lukitsee lähetyksen valittuun kuvataajuuteen. Valitse
+yötestiin 30 FPS VISPissä sen sijaan, että luottaisit Kamera-sovelluksen Auto
+FPS -toimintaan.
+
+### Parantaako Pixel Video Boost Twitch- tai Kick-livekuvaa?
+
+Ei. Google kuvaa Video Boostin tallennetun tiedoston työnkuluksi, joka käyttää
+Google Kuvia ja pilvikäsittelyä. Se ei ole kolmannen osapuolen livekameratehoste.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP-puhelinsovelluksen asetukset](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISPin kamera-asetusten toteutus](https://github.com/PohinaGroup/visp/blob/main/apps/native/src/lib/camera-settings.ts)
+- [VISPin natiivin kameran tietomalli](https://github.com/PohinaGroup/visp/blob/main/apps/native/modules/visp-srt/src/VispSrt.types.ts)
+- [Applen iPhonen videotallennusasetukset](https://support.apple.com/en-euro/guide/iphone/iphc1827d32f/ios)
+- [Google Pixel Video Boost](https://support.google.com/pixelcamera/answer/14257322?hl=en)
+- [Kickin mobiililähetyksen laatu](https://help.kick.com/en/articles/15159752-settings-and-stream-quality-on-the-kick-go-live-app)
+- [OBS:n Color Correction -suodatin](https://obsproject.com/kb/color-correction-filter)
+
+Jos haluat kokeilla asetuksia toistettavalla puhelimen ja studion välisellä
+reitillä, [kokeile VISPiä](https://visp-stream.com), aloita pienestä valosta ja
+30 FPS:stä ja säilytä vain julkista Twitch- tai Kick-lähetystä parantavat
+muutokset.
