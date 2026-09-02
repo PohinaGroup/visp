@@ -8,7 +8,7 @@ import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "@tanstack/react-router";
-import { DownloadIcon, MonitorIcon, PowerIcon } from "lucide-react";
+import { DownloadIcon, MonitorIcon } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { RevealedValue } from "@/components/credential-reveal";
@@ -52,17 +52,8 @@ export function ObsControlCard() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const setStreaming = useMutation(
-		trpc.obs.setStreaming.mutationOptions({
-			onSuccess: async () => {
-				await queryClient.invalidateQueries();
-			},
-			onError: (error) => toast.error(error.message),
-		}),
-	);
 	const status = statusQuery.data;
 	const connected = Boolean(status?.connected);
-	const streaming = Boolean(status?.streaming);
 
 	return (
 		<Card id="obs-control">
@@ -144,18 +135,6 @@ export function ObsControlCard() {
 						</HStack>
 					</VStack>
 				</Collapsible>
-
-				<HStack>
-					<Button
-						icon={<Icon color="inherit" icon={PowerIcon} size="sm" />}
-						isDisabled={
-							!connected || Boolean(status?.pending) || setStreaming.isPending
-						}
-						label={t(streaming ? "Stop OBS stream" : "Start OBS stream")}
-						variant="primary"
-						onClick={() => setStreaming.mutate({ streaming: !streaming })}
-					/>
-				</HStack>
 			</VStack>
 		</Card>
 	);

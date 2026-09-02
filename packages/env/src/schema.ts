@@ -63,6 +63,7 @@ export const serverEnvSchema = {
 	RELAY_HOST: z.string().min(1),
 	/** Bootstrap value for the database-backed default relay. */
 	RELAY_PING_URL: z.url(),
+	RESEND_API_KEY: z.string().min(1),
 	SERVER_HOST: z.string().min(1).default("127.0.0.1"),
 	S3_ACCESS_KEY_ID: z.string().min(1),
 	S3_BUCKET: z.string().min(1),

@@ -15,11 +15,11 @@ import {
 import { docs } from "@/lib/docs";
 import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
-import { AdvancedSection } from "./advanced-section";
+import { DetailSection, type DetailSectionState } from "./detail-section";
 import { credentialsHint } from "./format";
 import type { SecretBundle } from "./types";
 
-export function CredentialsCard() {
+export function CredentialsCard(open: DetailSectionState) {
 	const t = useT();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -45,7 +45,8 @@ export function CredentialsCard() {
 	const revealable = statusQuery.data?.readRevealable;
 
 	return (
-		<AdvancedSection
+		<DetailSection
+			{...open}
 			action={
 				configured ? (
 					<Badge label={t("Configured")} variant="success" />
@@ -56,7 +57,7 @@ export function CredentialsCard() {
 			docsHref={docs.getStarted}
 			docsLabel="See how OBS read credentials fit into setup"
 			id="obs-read"
-			tag="Advanced · Relay to OBS"
+			tag={t("Relay to OBS")}
 			title={t("OBS read credentials")}
 			value="obs-read"
 		>
@@ -130,6 +131,6 @@ export function CredentialsCard() {
 					/>
 				) : null}
 			</HStack>
-		</AdvancedSection>
+		</DetailSection>
 	);
 }

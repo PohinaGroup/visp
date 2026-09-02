@@ -1,5 +1,6 @@
 import * as UI from "@expo/ui";
 import type { BondingMode } from "../../modules/visp-srt";
+import { SettingsPicker } from "./settings-picker";
 import {
 	type AccountSettings,
 	AdvancedSection,
@@ -22,6 +23,7 @@ import {
 } from "./stream-settings-direct-section";
 import {
 	type DestinationSettings,
+	IS_IOS,
 	IS_WEB,
 	SettingRow,
 	SUBTLE_TEXT,
@@ -66,7 +68,7 @@ export function StreamSettingsSheet({
 		<UI.BottomSheet
 			isPresented={isPresented}
 			onDismiss={onDismiss}
-			snapPoints={["half", "full"]}
+			snapPoints={IS_IOS || IS_WEB ? ["half", "full"] : ["full"]}
 		>
 			<UI.FieldGroup>
 				<CameraSection camera={camera} />
@@ -84,7 +86,7 @@ export function StreamSettingsSheet({
 						</SettingRow>
 						{network.bondingMode !== "off" ? (
 							<SettingRow label="Mode">
-								<UI.Picker
+								<SettingsPicker
 									enabled={!camera.settingsDisabled}
 									onValueChange={(mode) =>
 										void network.onUpdateBondingMode(
@@ -93,10 +95,13 @@ export function StreamSettingsSheet({
 									}
 									selectedValue={network.bondingMode}
 								>
-									<UI.Picker.Item label="SRTLA (aggregating)" value="srtla" />
-									<UI.Picker.Item label="Broadcast" value="broadcast" />
-									<UI.Picker.Item label="Main + backup" value="backup" />
-								</UI.Picker>
+									<SettingsPicker.Item
+										label="SRTLA (aggregating)"
+										value="srtla"
+									/>
+									<SettingsPicker.Item label="Broadcast" value="broadcast" />
+									<SettingsPicker.Item label="Main + backup" value="backup" />
+								</SettingsPicker>
 							</SettingRow>
 						) : null}
 						{network.bondingMode === "broadcast" ? (

@@ -13,9 +13,14 @@ export const Route = createFileRoute("/login")({
 		error: z.string().optional(),
 		lang: z.literal("fi").optional(),
 		redirect: z.string().optional(),
+		token: z.string().optional(),
 	}),
 	component: RouteComponent,
 });
+
+// Hairline field, matching the login page's outlined-button language.
+const FIELD =
+	"h-11 rounded-[var(--radius)] border border-border bg-transparent px-3 text-base text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
 
 function safeReturnPath(value: string | undefined) {
 	return value?.startsWith("/") && !value.startsWith("//") ? value : "/setup";
@@ -34,6 +39,34 @@ const en = {
 	kickPending: "Opening Kick...",
 	google: "Continue with Google",
 	googlePending: "Opening Google...",
+	emailHeading: "Or sign in with an email address",
+	emailIntro:
+		"Opens an empty account: no channels connected, no devices, nothing streaming. Good for looking around first.",
+	emailLabel: "Email",
+	passwordLabel: "Password",
+	passwordHint: "At least 10 characters.",
+	confirmPasswordLabel: "Confirm password",
+	signInAction: "Sign in",
+	signInPending: "Signing in...",
+	signUpAction: "Create account",
+	signUpPending: "Creating account...",
+	toSignUp: "New to VISP? Create an account",
+	toSignIn: "Already have an account? Sign in",
+	forgotPassword: "Forgot password?",
+	forgotHeading: "Reset your password",
+	forgotIntro: "Enter your email address and we will send you a reset link.",
+	sendResetAction: "Send reset link",
+	sendResetPending: "Sending reset link...",
+	resetHeading: "Choose a new password",
+	resetAction: "Save new password",
+	resetPending: "Saving password...",
+	verificationSent:
+		"Check your email to verify your address before signing in.",
+	resetSent: "If that account exists, a password reset link is on its way.",
+	resetComplete: "Your password has been reset. You can sign in now.",
+	invalidReset: "That password reset link is invalid or has expired.",
+	passwordMismatch: "The passwords do not match.",
+	emailFailed: "Check the email and password, then try again.",
 	agreeBefore: "By continuing, you agree to the ",
 	terms: "Terms of Service",
 	agreeAnd: " and ",
@@ -58,6 +91,33 @@ const fiCopy: typeof en = {
 	kickPending: "Avataan Kickiä...",
 	google: "Jatka Googlella",
 	googlePending: "Avataan Googlea...",
+	emailHeading: "Tai kirjaudu sähköpostilla",
+	emailIntro:
+		"Avaa tyhjän tilin: ei yhdistettyjä kanavia, ei laitteita, ei lähetystä. Sopii ensin tutustumiseen.",
+	emailLabel: "Sähköposti",
+	passwordLabel: "Salasana",
+	passwordHint: "Vähintään 10 merkkiä.",
+	confirmPasswordLabel: "Vahvista salasana",
+	signInAction: "Kirjaudu",
+	signInPending: "Kirjaudutaan...",
+	signUpAction: "Luo tili",
+	signUpPending: "Luodaan tiliä...",
+	toSignUp: "Uusi käyttäjä? Luo tili",
+	toSignIn: "Onko sinulla jo tili? Kirjaudu",
+	forgotPassword: "Unohditko salasanasi?",
+	forgotHeading: "Palauta salasana",
+	forgotIntro: "Anna sähköpostiosoitteesi, niin lähetämme palautuslinkin.",
+	sendResetAction: "Lähetä palautuslinkki",
+	sendResetPending: "Lähetetään palautuslinkkiä...",
+	resetHeading: "Valitse uusi salasana",
+	resetAction: "Tallenna uusi salasana",
+	resetPending: "Tallennetaan salasanaa...",
+	verificationSent: "Vahvista sähköpostiosoitteesi ennen kirjautumista.",
+	resetSent: "Jos tili on olemassa, salasanan palautuslinkki on lähetetty.",
+	resetComplete: "Salasanasi on vaihdettu. Voit nyt kirjautua.",
+	invalidReset: "Salasanan palautuslinkki on virheellinen tai vanhentunut.",
+	passwordMismatch: "Salasanat eivät täsmää.",
+	emailFailed: "Tarkista sähköposti ja salasana ja yritä uudelleen.",
 	agreeBefore: "Jatkamalla hyväksyt ",
 	terms: "käyttöehdot",
 	agreeAnd: " ja ",
@@ -73,11 +133,21 @@ const fiCopy: typeof en = {
 };
 
 function RouteComponent() {
-	const { error, redirect } = Route.useSearch();
+	const { error, redirect, token } = Route.useSearch();
 	const locale = useLocale();
 	const fi = locale === "fi";
 	const copy = fi ? fiCopy : en;
 	const [pending, setPending] = useState<"twitch" | "kick" | "google">();
+	const [mode, setMode] = useState<"forgot" | "reset" | "sign-in" | "sign-up">(
+		token ? "reset" : "sign-in",
+	);
+	const [email, setEmail] = useState("");
+	const [password, setPassword] = useState("");
+	const [confirmPassword, setConfirmPassword] = useState("");
+	const [emailPending, setEmailPending] = useState(false);
+	const [emailMessage, setEmailMessage] = useState(
+		error === "INVALID_TOKEN" ? copy.invalidReset : "",
+	);
 	const returnPath = safeReturnPath(
 		redirect ?? (fi ? "/setup?lang=fi" : undefined),
 	);
@@ -106,6 +176,73 @@ function RouteComponent() {
 			toast.error(result.error.message ?? `${provider} sign-in failed`);
 			setPending(undefined);
 		}
+	};
+
+	const signInWithEmail = async () => {
+		setEmailPending(true);
+		setEmailMessage("");
+
+		if (mode === "forgot") {
+			const result = await authClient.requestPasswordReset({
+				email,
+				redirectTo: authRedirectURL(`/login${fi ? "?lang=fi" : ""}`),
+			});
+			if (result.error) toast.error(result.error.message ?? copy.emailFailed);
+			else setEmailMessage(copy.resetSent);
+			setEmailPending(false);
+			return;
+		}
+
+		if (mode === "reset") {
+			if (password !== confirmPassword) {
+				toast.error(copy.passwordMismatch);
+				setEmailPending(false);
+				return;
+			}
+			const result = await authClient.resetPassword({
+				newPassword: password,
+				token,
+			});
+			if (result.error) toast.error(result.error.message ?? copy.invalidReset);
+			else {
+				setMode("sign-in");
+				setPassword("");
+				setConfirmPassword("");
+				setEmailMessage(copy.resetComplete);
+				window.history.replaceState(null, "", errorReturnPath);
+			}
+			setEmailPending(false);
+			return;
+		}
+
+		const result =
+			mode === "sign-up"
+				? await authClient.signUp.email({
+						email,
+						password,
+						name: email.split("@")[0] ?? "tester",
+						callbackURL: authRedirectURL(returnPath),
+					})
+				: await authClient.signIn.email({
+						email,
+						password,
+						callbackURL: authRedirectURL(returnPath),
+					});
+		if (result.error) {
+			if (result.error.code === "EMAIL_NOT_VERIFIED") {
+				setEmailMessage(copy.verificationSent);
+			}
+			toast.error(result.error.message ?? copy.emailFailed);
+			setEmailPending(false);
+			return;
+		}
+		if (mode === "sign-up") {
+			setEmailMessage(copy.verificationSent);
+			setPassword("");
+			setEmailPending(false);
+			return;
+		}
+		window.location.assign(returnPath);
 	};
 
 	return (
@@ -146,6 +283,150 @@ function RouteComponent() {
 							{pending === "google" ? copy.googlePending : copy.google}
 						</ProviderButton>
 					</div>
+
+					<form
+						className="flex flex-col gap-4 border-border border-t pt-8"
+						onSubmit={(event) => {
+							event.preventDefault();
+							void signInWithEmail();
+						}}
+					>
+						<div className="flex flex-col gap-2">
+							<h2 className="font-display font-semibold text-2xl uppercase leading-none tracking-tight">
+								{mode === "forgot"
+									? copy.forgotHeading
+									: mode === "reset"
+										? copy.resetHeading
+										: copy.emailHeading}
+							</h2>
+							{mode !== "reset" ? (
+								<p className="max-w-[60ch] text-muted-foreground text-sm leading-relaxed">
+									{mode === "forgot" ? copy.forgotIntro : copy.emailIntro}
+								</p>
+							) : null}
+						</div>
+
+						{mode !== "reset" ? (
+							<label className="flex flex-col gap-1.5 text-sm" htmlFor="email">
+								{copy.emailLabel}
+								<input
+									autoComplete="email"
+									className={FIELD}
+									id="email"
+									name="email"
+									required
+									type="email"
+									value={email}
+									onChange={(event) => setEmail(event.target.value)}
+								/>
+							</label>
+						) : null}
+
+						{mode !== "forgot" ? (
+							<label
+								className="flex flex-col gap-1.5 text-sm"
+								htmlFor="password"
+							>
+								{copy.passwordLabel}
+								<input
+									autoComplete={
+										mode === "sign-in" ? "current-password" : "new-password"
+									}
+									className={FIELD}
+									id="password"
+									minLength={10}
+									name="password"
+									required
+									type="password"
+									value={password}
+									onChange={(event) => setPassword(event.target.value)}
+								/>
+								{mode !== "sign-in" ? (
+									<span className="text-muted-foreground text-xs">
+										{copy.passwordHint}
+									</span>
+								) : null}
+							</label>
+						) : null}
+
+						{mode === "reset" ? (
+							<label
+								className="flex flex-col gap-1.5 text-sm"
+								htmlFor="confirm-password"
+							>
+								{copy.confirmPasswordLabel}
+								<input
+									autoComplete="new-password"
+									className={FIELD}
+									id="confirm-password"
+									minLength={10}
+									name="confirm-password"
+									required
+									type="password"
+									value={confirmPassword}
+									onChange={(event) => setConfirmPassword(event.target.value)}
+								/>
+							</label>
+						) : null}
+
+						{emailMessage ? (
+							<p
+								className="border-tally border-l-2 bg-card/40 px-4 py-3 text-sm leading-relaxed"
+								role="status"
+							>
+								{emailMessage}
+							</p>
+						) : null}
+
+						<ProviderButton
+							disabled={emailPending || Boolean(pending)}
+							type="submit"
+							variant="outline"
+						>
+							{mode === "forgot"
+								? emailPending
+									? copy.sendResetPending
+									: copy.sendResetAction
+								: mode === "reset"
+									? emailPending
+										? copy.resetPending
+										: copy.resetAction
+									: mode === "sign-up"
+										? emailPending
+											? copy.signUpPending
+											: copy.signUpAction
+										: emailPending
+											? copy.signInPending
+											: copy.signInAction}
+						</ProviderButton>
+
+						{mode !== "reset" ? (
+							<div className="flex flex-wrap gap-x-4 gap-y-2">
+								<button
+									className="text-muted-foreground text-sm underline underline-offset-4 transition-colors hover:text-foreground"
+									type="button"
+									onClick={() => {
+										setEmailMessage("");
+										setMode(mode === "sign-in" ? "sign-up" : "sign-in");
+									}}
+								>
+									{mode === "sign-in" ? copy.toSignUp : copy.toSignIn}
+								</button>
+								{mode === "sign-in" ? (
+									<button
+										className="text-muted-foreground text-sm underline underline-offset-4 transition-colors hover:text-foreground"
+										type="button"
+										onClick={() => {
+											setEmailMessage("");
+											setMode("forgot");
+										}}
+									>
+										{copy.forgotPassword}
+									</button>
+								) : null}
+							</div>
+						) : null}
+					</form>
 
 					<p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
 						{copy.agreeBefore}
@@ -191,11 +472,13 @@ function ProviderButton({
 	children,
 	disabled,
 	onClick,
+	type = "button",
 	variant = "primary",
 }: {
 	children: ReactNode;
 	disabled?: boolean;
-	onClick: () => void;
+	onClick?: () => void;
+	type?: "button" | "submit";
 	variant?: "primary" | "outline";
 }) {
 	return (
@@ -207,7 +490,7 @@ function ProviderButton({
 			}`}
 			disabled={disabled}
 			onClick={onClick}
-			type="button"
+			type={type}
 		>
 			{children}
 		</button>

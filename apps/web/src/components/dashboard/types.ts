@@ -14,6 +14,10 @@ export type DirectOutputs = Outputs["direct"]["list"];
 
 export type NetworkProfile = "wired" | "wifi" | "cellular";
 export type DashboardMode = "simple" | "advanced";
+
+/** The workbench tabs, in signal order. "brb" only exists in Direct mode. */
+export type DashboardTab = "sources" | "output" | "brb" | "chat";
+
 export type DashboardArea =
 	| "devices"
 	| "relay"
@@ -22,20 +26,21 @@ export type DashboardArea =
 	| "tuning"
 	| "setup";
 
-export type AdvancedSectionId = "obs-read" | "tuning" | "reference";
+export type DetailSectionId = "obs-read" | "tuning" | "reference";
 
-export type DashboardAreaTarget =
-	| { id: string }
-	| { id: string; section: AdvancedSectionId };
-
+// Seppo names areas; the dashboard answers with a tab, an element to scroll to,
+// and — for a collapsed section — the disclosure to open.
 export const DASHBOARD_AREA_TARGETS = {
-	devices: { id: "devices" },
-	obs: { id: "obs-control" },
-	relay: { id: "obs-read", section: "obs-read" },
-	connections: { id: "dashboard-connections" },
-	tuning: { id: "dashboard-tuning", section: "tuning" },
-	setup: { id: "dashboard-setup", section: "reference" },
-} as const satisfies Record<DashboardArea, DashboardAreaTarget>;
+	devices: { tab: "sources", id: "devices" },
+	obs: { tab: "output", id: "obs-control" },
+	relay: { tab: "output", id: "obs-read", section: "obs-read" },
+	connections: { tab: "chat", id: "dashboard-connections" },
+	tuning: { tab: "sources", id: "dashboard-tuning", section: "tuning" },
+	setup: { tab: "output", id: "dashboard-setup", section: "reference" },
+} as const satisfies Record<
+	DashboardArea,
+	{ tab: DashboardTab; id: string; section?: DetailSectionId }
+>;
 
 export const NETWORK_PROFILE_OPTIONS = [
 	{ value: "wired", label: "Wired" },

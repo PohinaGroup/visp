@@ -1,4 +1,5 @@
 const {
+	withAndroidManifest,
 	withProjectBuildGradle,
 	withXcodeProject,
 } = require("expo/config-plugins");
@@ -11,6 +12,7 @@ const haishinKit = {
 	upstreamUrl: "https://github.com/HaishinKit/HaishinKit.swift.git",
 };
 const libsrtPhaseName = "[VISP] Select libsrt";
+const foregroundService = "com.visp.mobile.srt.StreamForegroundService";
 const block = `
 // Expo inline Kotlin sources compile in the :expo project.
 project(":expo") {
@@ -158,12 +160,34 @@ function addHaishinKit(project) {
 }
 
 module.exports = function withVispSrt(config) {
-	const androidConfig = withProjectBuildGradle(config, (androidConfig) => {
-		if (!androidConfig.modResults.contents.includes(dependency)) {
-			androidConfig.modResults.contents += block;
+	const manifestConfig = withAndroidManifest(config, (androidConfig) => {
+		const application = androidConfig.modResults.manifest.application?.[0];
+		if (!application) return androidConfig;
+		application.service ??= [];
+		if (
+			!application.service.some(
+				(service) => service.$?.["android:name"] === foregroundService,
+			)
+		) {
+			application.service.push({
+				$: {
+					"android:exported": "false",
+					"android:foregroundServiceType": "camera|microphone",
+					"android:name": foregroundService,
+				},
+			});
 		}
 		return androidConfig;
 	});
+	const androidConfig = withProjectBuildGradle(
+		manifestConfig,
+		(androidConfig) => {
+			if (!androidConfig.modResults.contents.includes(dependency)) {
+				androidConfig.modResults.contents += block;
+			}
+			return androidConfig;
+		},
+	);
 	return withXcodeProject(androidConfig, (iosConfig) => {
 		iosConfig.modResults = addHaishinKit(iosConfig.modResults);
 		return iosConfig;

@@ -4,7 +4,6 @@ import type {
 	VispSrtViewRef,
 } from "../../modules/visp-srt";
 import { serverOrigin, sessionCookie } from "./backend";
-import { IS_IOS } from "./platform";
 import { resolveAudioIsolationMode } from "./speech-preferences";
 
 export function useAudioIsolation(
@@ -27,7 +26,7 @@ export function useAudioIsolation(
 	onErrorRef.current = onError;
 
 	useEffect(() => {
-		if (!IS_IOS || !camera || !configuration) return;
+		if (!camera || !configuration) return;
 		const mode = resolveAudioIsolationMode({
 			enabled,
 			better: betterEnabled,

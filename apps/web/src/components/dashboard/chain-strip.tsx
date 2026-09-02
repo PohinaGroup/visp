@@ -1,10 +1,14 @@
+import { Button } from "@astryxdesign/core/Button";
+import { Icon } from "@astryxdesign/core/Icon";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { PowerIcon } from "lucide-react";
 import { Fragment } from "react";
 import { toast } from "sonner";
 
 import { EYEBROW } from "@/components/page-header";
 import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
+import type { DashboardTab } from "./types";
 
 type NodeState = "live" | "ok" | "warn" | "idle";
 
@@ -17,22 +21,23 @@ const nodeDot: Record<NodeState, { dot: string; pulse: boolean }> = {
 };
 
 function ChainNode({
-	href,
 	label,
 	value,
 	state,
+	onSelect,
 }: {
-	href: string;
 	label: string;
 	value: string;
 	state: NodeState;
+	onSelect: () => void;
 }) {
 	const dot = nodeDot[state];
 	return (
-		<a
-			href={href}
+		<button
+			type="button"
 			aria-label={`${label}: ${value}`}
-			className="group flex min-w-[128px] flex-col gap-2 rounded-[var(--radius)] px-3 py-2 transition-colors hover:bg-card focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
+			onClick={onSelect}
+			className="group flex min-w-[128px] flex-col gap-2 rounded-[var(--radius)] px-3 py-2 text-left transition-colors hover:bg-card focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2"
 		>
 			<span className={EYEBROW}>{label}</span>
 			<span className="flex items-center gap-2">
@@ -45,13 +50,20 @@ function ChainNode({
 					{value}
 				</span>
 			</span>
-		</a>
+		</button>
 	);
 }
 
-// The dashboard's signature: the live signal path as one hairline patch strip,
-// echoing the lander's phone → studio → out schematic with real state.
-export function ChainStrip() {
+/**
+ * The dashboard's signature and its transport: the live signal path as one
+ * hairline patch strip, with the single action that matters while streaming.
+ * It stays above the tabs, so status never depends on which tab is open.
+ */
+export function ChainStrip({
+	onSelect,
+}: {
+	onSelect: (tab: DashboardTab) => void;
+}) {
 	const t = useT();
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
@@ -61,11 +73,25 @@ export function ChainStrip() {
 	const paths = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
 	);
+	const obs = useQuery(
+		trpc.obs.status.queryOptions(undefined, {
+			enabled: direct.data?.mode === "obs",
+			refetchInterval: 3000,
+		}),
+	);
 	const stopBrb = useMutation(
 		trpc.brb.stop.mutationOptions({
 			onSuccess: async () => {
 				await queryClient.invalidateQueries();
 				toast.success(t("Ending the stream"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const setStreaming = useMutation(
+		trpc.obs.setStreaming.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -99,43 +125,52 @@ export function ChainStrip() {
 	].filter(Boolean);
 
 	const nodes: {
-		href: string;
+		key: string;
+		tab: DashboardTab;
 		label: string;
 		value: string;
 		state: NodeState;
 	}[] = [
 		{
-			href: "#devices",
+			key: "sources",
+			tab: "sources",
 			label: t("Sources"),
 			state: live > 0 ? "live" : total > 0 ? "idle" : "warn",
 			value: total === 0 ? t("No devices") : `${live}/${total} ${t("live")}`,
 		},
 		{
-			href: "#devices",
+			key: "relay",
+			tab: "sources",
 			label: t("Relay"),
 			state: live > 0 ? "ok" : "idle",
 			value: live > 0 ? t("Receiving") : t("Ready"),
 		},
 	];
 	if (direct.data?.mode === "obs") {
+		const connected = Boolean(obs.data?.connected);
 		nodes.push(
 			{
-				href: "#obs-control",
+				key: "mode",
+				tab: "output",
 				label: t("Primary mode"),
-				state: "ok",
+				state: connected ? "ok" : "warn",
 				value: t("Route to Home Studio"),
 			},
 			{
-				href: "#obs-control",
+				key: "output",
+				tab: "output",
 				label: t("Output"),
-				state: "idle",
-				value: "OBS",
+				state: obs.data?.streaming ? "live" : connected ? "idle" : "warn",
+				value: connected
+					? t(obs.data?.streaming ? "OBS streaming" : "OBS connected")
+					: t("Pair OBS"),
 			},
 		);
 	} else {
 		nodes.push(
 			{
-				href: holding ? "#dashboard-brb" : "#dashboard-direct",
+				key: "mode",
+				tab: holding ? "brb" : "output",
 				label: t("Direct to Platform"),
 				state: holding
 					? "warn"
@@ -145,7 +180,7 @@ export function ChainStrip() {
 							? "ok"
 							: "warn",
 				value: holding
-					? t("BRB card")
+					? t("Showing BRB card")
 					: liveOutputs.length > 0
 						? `${liveOutputs.length} ${t("live")}`
 						: configured
@@ -153,7 +188,8 @@ export function ChainStrip() {
 							: t("Choose output"),
 			},
 			{
-				href: "#dashboard-direct",
+				key: "output",
+				tab: "output",
 				label: t("Output"),
 				state: liveOutputs.length > 0 ? "live" : configured ? "idle" : "warn",
 				value: destinations.join(" + ") || t("Choose output"),
@@ -161,41 +197,66 @@ export function ChainStrip() {
 		);
 	}
 
+	// One action, chosen by what the signal path can actually do right now.
+	const action =
+		direct.data?.mode === "obs" ? (
+			obs.data?.connected ? (
+				<Button
+					icon={<Icon color="inherit" icon={PowerIcon} size="sm" />}
+					isDisabled={Boolean(obs.data.pending) || setStreaming.isPending}
+					label={t(obs.data.streaming ? "Stop OBS stream" : "Start OBS stream")}
+					variant="primary"
+					onClick={() =>
+						setStreaming.mutate({ streaming: !obs.data?.streaming })
+					}
+				/>
+			) : (
+				<Button
+					label={t("Pair OBS")}
+					variant="secondary"
+					onClick={() => onSelect("output")}
+				/>
+			)
+		) : holding ? (
+			<Button
+				isLoading={stopBrb.isPending}
+				label={t("End stream")}
+				variant="primary"
+				onClick={() => stopBrb.mutate({ pathId: holding.id })}
+			/>
+		) : null;
+
 	return (
 		<nav
 			aria-label={t("Signal path")}
 			className="w-full rounded-[var(--radius)] border border-border"
 		>
-			<ol className="flex min-w-max items-center overflow-x-auto p-2">
-				{nodes.map((node, i) => (
-					<Fragment key={node.href + node.label}>
-						{i > 0 ? (
-							<li aria-hidden className="h-px w-6 shrink-0 bg-border sm:w-10" />
-						) : null}
-						<li>
-							<ChainNode
-								href={node.href}
-								label={node.label}
-								state={node.state}
-								value={node.value}
-							/>
-						</li>
-					</Fragment>
-				))}
-			</ol>
+			<div className="flex flex-wrap items-center gap-2 p-2">
+				<ol className="flex min-w-0 flex-1 items-center overflow-x-auto">
+					{nodes.map((node, i) => (
+						<Fragment key={node.key}>
+							{i > 0 ? (
+								<li
+									aria-hidden
+									className="h-px w-6 shrink-0 bg-border sm:w-10"
+								/>
+							) : null}
+							<li>
+								<ChainNode
+									label={node.label}
+									state={node.state}
+									value={node.value}
+									onSelect={() => onSelect(node.tab)}
+								/>
+							</li>
+						</Fragment>
+					))}
+				</ol>
+				{action ? <div className="shrink-0 px-1">{action}</div> : null}
+			</div>
 			{holding ? (
-				<p className="flex flex-wrap items-center gap-x-3 gap-y-2 border-border border-t px-3 py-2 text-sm">
-					<span className="text-foreground">
-						{t("Your ingest dropped. Viewers see your BRB card.")}
-					</span>
-					<button
-						type="button"
-						className="rounded-[var(--radius)] border border-border px-2 py-1 font-medium text-xs hover:bg-card focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-60"
-						disabled={stopBrb.isPending}
-						onClick={() => stopBrb.mutate({ pathId: holding.id })}
-					>
-						{t("End stream")}
-					</button>
+				<p className="border-border border-t px-3 py-2 text-sm">
+					{t("Your ingest dropped. Viewers see your BRB card.")}
 				</p>
 			) : null}
 		</nav>

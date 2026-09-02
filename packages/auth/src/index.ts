@@ -14,6 +14,7 @@ import {
 	genericOAuth,
 } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
+import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { adminAccess, adminRoles } from "./permissions";
 
@@ -101,6 +102,27 @@ export function createAuth() {
 			// BETTER_AUTH_URL (https://api.visp.localhost). The state cookie
 			// cannot cross that host boundary; database state still validates.
 			skipStateCookieCheck: env.NODE_ENV === "development",
+		},
+		emailAndPassword: {
+			enabled: true,
+			minPasswordLength: 10,
+			requireEmailVerification: true,
+			sendResetPassword: ({ user, url }) =>
+				sendAuthEmail(env.RESEND_API_KEY, {
+					subject: "Reset your VISP password",
+					text: `Reset your VISP password by opening this link:\n\n${url}\n\nThis link expires in one hour. If you did not request a reset, you can ignore this email.`,
+					to: user.email,
+				}),
+		},
+		emailVerification: {
+			sendOnSignIn: true,
+			sendOnSignUp: true,
+			sendVerificationEmail: ({ user, url }) =>
+				sendAuthEmail(env.RESEND_API_KEY, {
+					subject: "Verify your VISP email address",
+					text: `Verify your VISP email address by opening this link:\n\n${url}\n\nIf you did not create a VISP account, you can ignore this email.`,
+					to: user.email,
+				}),
 		},
 		database: drizzleAdapter(db, {
 			provider: "pg",

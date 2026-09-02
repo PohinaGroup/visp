@@ -310,6 +310,26 @@ const finnishUi: Record<string, string> = {
 	"Off air": "Ei lähetyksessä",
 	"Not paired": "Ei yhdistetty",
 	"Signal path": "Signaalipolku",
+	"BRB screen": "BRB-kortti",
+	Chat: "Chat",
+	"Where your stream goes": "Minne lähetyksesi menee",
+	"Pick one. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.":
+		"Valitse yksi. Direct lähettää syötteen alustalle; kotistudio lähettää sen OBS:ään, joka vastaa alustalähdöstä.",
+	"OBS connected": "OBS yhdistetty",
+	"OBS streaming": "OBS lähettää",
+	"Pair OBS": "Yhdistä OBS",
+	"Showing BRB card": "Näyttää BRB-korttia",
+	"Show RTMP and SRTLA fallback URLs": "Näytä RTMP- ja SRTLA-vara-osoitteet",
+	"SRT is the default. Turn this on if your network blocks UDP, or if you bond several connections with SRTLA.":
+		"SRT on oletus. Ota tämä käyttöön, jos verkkosi estää UDP:n tai jos yhdistät useita yhteyksiä SRTLA:lla.",
+	"Offers wipe or keep existing devices.":
+		"Voit joko tyhjentää tai säilyttää nykyiset laitteet.",
+	"Using OBS alongside Direct": "OBS:n käyttö Directin rinnalla",
+	Tuning: "Viritys",
+	Reference: "Ohjeet",
+	"Relay to OBS": "Välitys OBS:ään",
+	"Recommended SRT latency for your connection":
+		"Suositeltu SRT-viive yhteydellesi",
 	"OBS pairing token created": "OBS-yhdistämistunnus luotu",
 	"See how to pair the OBS plugin": "Katso OBS-lisäosan yhdistämisohje",
 	"The OBS plugin is live in beta": "OBS-lisäosa on saatavilla beetaversiona.",
