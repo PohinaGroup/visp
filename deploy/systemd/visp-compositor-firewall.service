@@ -1,0 +1,12 @@
+[Unit]
+Description=VISP Cloud Studio compositor egress firewall
+Before=visp-compositor@.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/sbin/nft -f /etc/visp/visp-compositor.nft
+ExecStop=/usr/sbin/nft delete table inet visp_compositor
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
