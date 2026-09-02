@@ -209,6 +209,19 @@ function confirmEmptyStudio(): Promise<"cancel" | "continue" | "dismiss"> {
 	);
 }
 
+function confirmHandover(message: string) {
+	const label = /^Stop (.+) before going live/.exec(message)?.[1];
+	if (!label) return Promise.resolve(false);
+	if (IS_WEB)
+		return Promise.resolve(globalThis.confirm(`Take over from ${label}?`));
+	return new Promise<boolean>((resolve) =>
+		Alert.alert(`Take over from ${label}?`, undefined, [
+			{ text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+			{ text: "Take over", onPress: () => resolve(true) },
+		]),
+	);
+}
+
 export default function Index() {
 	const window = useWindowDimensions();
 	const cameraRef = useRef<VispSrtViewRef>(null);
@@ -664,10 +677,25 @@ export default function Index() {
 				if (!(await confirmBondingDataUse())) return;
 				showToast("Connecting to relay service…", true);
 				setPreflighting(true);
-				const prepared =
-					userId && publishPathId
-						? await apiClient.direct.prepare.mutate({ pathId: publishPathId })
-						: null;
+				let prepared = null;
+				if (userId && publishPathId) {
+					try {
+						prepared = await apiClient.direct.prepare.mutate({
+							pathId: publishPathId,
+						});
+					} catch (error) {
+						if (
+							!(error instanceof Error) ||
+							!(await confirmHandover(error.message))
+						) {
+							throw error;
+						}
+						prepared = await apiClient.direct.prepare.mutate({
+							pathId: publishPathId,
+							handover: true,
+						});
+					}
+				}
 				if (configuration) {
 					await configureVideoCapture(
 						cameraRef.current,

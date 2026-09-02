@@ -11,6 +11,19 @@ VENDOR_DIR="$MODULE_DIR/vendor"
 BUILD_DIR="${VISP_LIBSRT_BUILD_DIR:-$MODULE_DIR/.build-libsrt}"
 SOURCE_DIR="$BUILD_DIR/sources"
 
+ensure_cmake() {
+  if command -v cmake >/dev/null; then
+    return
+  fi
+  if [[ "$(uname -s)" == Linux ]] && command -v sudo >/dev/null && command -v apt-get >/dev/null; then
+    sudo apt-get update
+    sudo apt-get install -y cmake
+    return
+  fi
+  echo "CMake not found. Install it and rerun this script." >&2
+  exit 1
+}
+
 download() {
   local url=$1 archive=$2 sha=$3
   if [[ ! -f "$archive" ]]; then
@@ -147,6 +160,7 @@ resolve_android_ndk() {
 }
 
 build_android() {
+  ensure_cmake
   local ndk
   ndk=$(resolve_android_ndk) || {
     echo "Android NDK not found. Install it in Android Studio (SDK Manager → NDK) or set ANDROID_NDK_HOME." >&2

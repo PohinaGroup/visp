@@ -588,10 +588,14 @@ export const relayRoutes = {
 				}
 			}),
 		prepare: relayProcedure
-			.input(pathIdInput)
+			.input(pathIdInput.extend({ handover: z.boolean().default(false) }))
 			.mutation(async ({ ctx, input }) => {
 				try {
-					return await prepareDirect(ctx.relayUser.id, input.pathId);
+					return await prepareDirect(
+						ctx.relayUser.id,
+						input.pathId,
+						input.handover,
+					);
 				} catch (error) {
 					directError(error);
 				}

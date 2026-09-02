@@ -60,7 +60,7 @@ JSON
 	*/hooks/brb-v3)
 		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
 		cat "$FAKE_BRB_REPLY" ;;
-	*/studio/relay-plan)
+	*/hooks/source-plan)
 		printf '%s\n' "$data" >>"$FAKE_STUDIO_PLAN_LOG"
 		test ! -f "$FAKE_STUDIO_PLAN_FAIL" || exit 22
 		cat "$FAKE_STUDIO_PLAN_REPLY" ;;
@@ -209,18 +209,19 @@ export BRB_FONT="$work/font.ttf"
 : >"$FAKE_FFPROBE_LOG"
 : >"$FAKE_OUTPUT_LOG"
 : >"$FAKE_STUDIO_PLAN_LOG"
-printf 'passthrough\n' >"$FAKE_STUDIO_PLAN_REPLY"
+printf 'source path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
 # "Be right back" over a solid card: no background URL, so no download either.
 printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 
 wait_for_count() {
-	local pattern="$1" expected="$2" deadline=$((SECONDS + 10)) count
-	while test "$SECONDS" -lt "$deadline"; do
+	local pattern="$1" expected="$2" attempts=$((${3:-10} * 5)) count
+	while test "$attempts" -gt 0; do
 		count="$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c "$pattern" || true)"
 		test "$count" -eq "$expected" && return 0
 		sleep 0.2
+		attempts=$((attempts - 1))
 	done
 	return 1
 }
@@ -270,7 +271,7 @@ test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c '@127.0.0.1:8554/path-1')"
 grep -- '-frames:v' "$FAKE_FFMPEG_LOG" | grep -q 'rtsp://studio%3Apath-1:' ||
 	fail "snapshot reader did not URL-encode its scoped Studio identity"
 
-printf 'program rtsp://127.0.0.1:8554/studio/path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
+printf 'program path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
 wait_for_count '@127.0.0.1:8554/studio/path-1' 3 ||
 	fail "healthy compositor did not switch running forwarders to program"
 
@@ -281,11 +282,24 @@ test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq "$before_plan_failure" ||
 	fail "a transient Studio plan failure restarted running forwarders"
 rm -f "$FAKE_STUDIO_PLAN_FAIL"
 
-printf 'passthrough\n' >"$FAKE_STUDIO_PLAN_REPLY"
+printf 'source path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
 wait_for_count '@127.0.0.1:8554/path-1' 6 ||
 	fail "stale compositor did not switch running forwarders to passthrough"
 
-test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c -- '-vf crop=' || true)" -eq 3 ||
+printf 'source phone-b\n' >"$FAKE_STUDIO_PLAN_REPLY"
+wait_for_count '@127.0.0.1:8554/phone-b' 3 4 ||
+	fail "handover did not switch every running forwarder to the replacement"
+while read -r args; do
+	case "$args" in
+		*'rtmps://twitch.test/app/TWITCHKEY'|*'rtmps://kick.test/app/KICKKEY'|*'rtmps://youtube.test/app/YOUTUBEKEY'|*'srt://receiver.test:9000?streamid=CUSTOMKEY'|*'rtmp://receiver.test/app/PORTRAITKEY') ;;
+		*) fail "handover changed a destination URL: $args" ;;
+	esac
+done <<<"$(grep -- '-f flv\|-f mpegts' "$FAKE_FFMPEG_LOG" | grep '@127.0.0.1:8554/phone-b')"
+printf 'source path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
+wait_for_count '@127.0.0.1:8554/path-1' 9 4 ||
+	fail "replacement loss did not switch every forwarder back to the owner"
+
+test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c -- '-vf crop=' || true)" -eq 5 ||
 	fail "every portrait source switch must preserve its crop filter"
 grep -q -- '-vf crop=iw\*0.3164:ih\*1:iw\*0.3418:ih\*0,scale=1080:1920' "$FAKE_FFMPEG_LOG" ||
 	fail "portrait crop filter was not passed to FFmpeg"
@@ -309,6 +323,7 @@ test "$(live_children)" -eq 3 ||
 kill -TERM "$script_pid" 2>/dev/null || true
 wait "$script_pid" 2>/dev/null || true
 rm -f "$FAKE_LIVE_MARKER"
+printf 'offline\n' >"$FAKE_STUDIO_PLAN_REPLY"
 sleep 4
 
 # The ingest is gone and the card is up: this is "never drop again" working.
@@ -317,8 +332,8 @@ test "$(live_children)" -eq 3 ||
 grep -q '"provider":"twitch","state":"brb"' "$FAKE_STATE_LOG" ||
 	fail "twitch BRB was not reported"
 brb_forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
-test "$brb_forwards" -eq 12 ||
-	fail "expected 9 switched live + 3 BRB encodes, saw $brb_forwards"
+test "$brb_forwards" -eq 18 ||
+	fail "expected 15 switched live + 3 BRB encodes, saw $brb_forwards"
 grep -q 'anullsrc' "$FAKE_FFMPEG_LOG" || fail "the BRB card carries no audio"
 # textfile=, never text=: user text must not reach a filtergraph or a shell word.
 grep -q 'drawtext=textfile=' "$FAKE_FFMPEG_LOG" ||
@@ -366,9 +381,9 @@ for provider in twitch kick youtube; do
 		*) fail "$provider was not skipped on reconnect: $second" ;;
 	esac
 done
-test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 15 ||
+test "$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG")" -eq 21 ||
 	fail "reconnect did not resume the live encode in place"
-test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c '@127.0.0.1:8554/path-1')" -eq 9 ||
+test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c '@127.0.0.1:8554/path-1')" -eq 12 ||
 	fail "an untrusted Studio plan escaped the local RTSP namespace"
 test "$(live_children)" -eq 3 ||
 	fail "reconnect left $(live_children) encoders against 3 stream keys"

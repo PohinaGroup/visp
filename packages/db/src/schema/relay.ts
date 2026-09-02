@@ -1,5 +1,6 @@
 import { relations, sql } from "drizzle-orm";
 import {
+	type AnyPgColumn,
 	bigint,
 	bigserial,
 	boolean,
@@ -411,6 +412,15 @@ export const pathState = pgTable(
 			withTimezone: true,
 		}),
 		directYoutubeBroadcastId: text("direct_youtube_broadcast_id"),
+		directSourcePathId: bigint("direct_source_path_id", {
+			mode: "number",
+		}).references((): AnyPgColumn => relayPath.id, { onDelete: "set null" }),
+		directHandoverTargetPathId: bigint("direct_handover_target_path_id", {
+			mode: "number",
+		}).references((): AnyPgColumn => relayPath.id, { onDelete: "set null" }),
+		directHandoverUntil: timestamp("direct_handover_until", {
+			withTimezone: true,
+		}),
 		// Non-null means the source is gone but the forwarders are still up on
 		// the BRB card. The single live flag for "never drop again": everything
 		// else about BRB derives from it.

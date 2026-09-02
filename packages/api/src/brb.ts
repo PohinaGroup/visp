@@ -655,6 +655,16 @@ export async function stopBrb(userId: string, pathId: number) {
 		)
 		.limit(1);
 	if (!row) return false;
-	await stopDirectForPaths([pathId]);
+	const owners = await db.execute<{ path_id: number }>(sql`
+		select p.id as path_id
+		from ${relayPath} p
+		where p.user_id = ${userId}
+			and p.revoked_at is null
+			and (p.direct_twitch or p.direct_kick or p.direct_youtube
+				or exists (select 1 from direct_destination d where d.path_id = p.id)
+				or exists (select 1 from custom_direct_output o where o.path_id = p.id))
+		limit 1
+	`);
+	await stopDirectForPaths([Number(owners.rows[0]?.path_id ?? pathId)]);
 	return true;
 }

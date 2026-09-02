@@ -816,9 +816,14 @@ export async function saveDirectPreferences(
 }
 
 export const RESERVATION_MS = DIRECT_RESERVATION_MS;
+export const HANDOVER_MS = 60_000;
 
 /** Atomically transfers Direct ownership and reserves this relay's encoders. */
-export async function prepareDirect(userId: string, pathId: number) {
+export async function prepareDirect(
+	userId: string,
+	pathId: number,
+	handover = false,
+) {
 	return db.transaction(async (tx) => {
 		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
 		const [path] = await tx
@@ -844,6 +849,131 @@ export async function prepareDirect(userId: string, pathId: number) {
 			.limit(1);
 		if (!path) {
 			throw new DirectError("not-found", "Publishing device not found");
+		}
+
+		const owners = await tx
+			.select({
+				id: relayPath.id,
+				label: relayPath.label,
+				relayId: relayPath.relayId,
+				twitch: relayPath.directTwitch,
+				kick: relayPath.directKick,
+				youtube: relayPath.directYoutube,
+				publishing: pathState.publishing,
+				directSourcePathId: pathState.directSourcePathId,
+				directHandoverTargetPathId: pathState.directHandoverTargetPathId,
+				directHandoverUntil: pathState.directHandoverUntil,
+				twitchReservedUntil: pathState.directTwitchReservedUntil,
+				kickReservedUntil: pathState.directKickReservedUntil,
+				youtubeReservedUntil: pathState.directYoutubeReservedUntil,
+			})
+			.from(relayPath)
+			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
+		let directOwner = owners.find(
+			(entry) => entry.twitch || entry.kick || entry.youtube,
+		);
+		if (!directOwner) {
+			const additiveOwners = await tx.execute<{ path_id: number }>(sql`
+				select path_id from (
+					select path_id from ${directDestination} where user_id = ${userId}
+					union all
+					select path_id from ${customDirectOutput} where user_id = ${userId}
+				) direct_owner limit 1
+			`);
+			directOwner = owners.find(
+				(entry) => entry.id === Number(additiveOwners.rows[0]?.path_id),
+			);
+		}
+		const armed = Boolean(
+			directOwner?.directHandoverTargetPathId === pathId &&
+				directOwner.directHandoverUntil &&
+				directOwner.directHandoverUntil.getTime() > Date.now(),
+		);
+		if (handover || armed) {
+			if (!directOwner || directOwner.id === pathId) {
+				throw new DirectError(
+					"invalid",
+					"No other live Direct source to take over",
+				);
+			}
+			if (directOwner.relayId !== path.relayId) {
+				throw new DirectError(
+					"invalid",
+					"Direct handover requires both devices on the same relay",
+				);
+			}
+			const sourceId = directOwner.directSourcePathId ?? directOwner.id;
+			if (!owners.find((entry) => entry.id === sourceId)?.publishing) {
+				throw new DirectError(
+					"provider-taken",
+					"The current Direct source is no longer live",
+				);
+			}
+			if (
+				handover &&
+				directOwner.directHandoverTargetPathId !== null &&
+				directOwner.directHandoverTargetPathId !== pathId &&
+				directOwner.directHandoverUntil &&
+				directOwner.directHandoverUntil.getTime() > Date.now()
+			) {
+				throw new DirectError(
+					"provider-taken",
+					"Another Direct handover is already armed",
+				);
+			}
+			const handoverUntil = handover
+				? new Date(Date.now() + HANDOVER_MS)
+				: directOwner.directHandoverUntil;
+			if (handover) {
+				await tx
+					.insert(pathState)
+					.values({
+						pathId: directOwner.id,
+						directHandoverTargetPathId: pathId,
+						directHandoverUntil: handoverUntil,
+					})
+					.onConflictDoUpdate({
+						target: pathState.pathId,
+						set: {
+							directHandoverTargetPathId: pathId,
+							directHandoverUntil: handoverUntil,
+						},
+					});
+			}
+			const portraitOutputs = (
+				await tx
+					.select({ provider: directDestination.provider })
+					.from(directDestination)
+					.where(eq(directDestination.pathId, directOwner.id))
+			).map(({ provider }) => provider as DirectProvider);
+			const customOutputIds = (
+				await tx
+					.select({ id: customDirectOutput.id })
+					.from(customDirectOutput)
+					.where(eq(customDirectOutput.pathId, directOwner.id))
+			).map(({ id }) => id);
+			const outputs = DIRECT_PROVIDERS.filter(
+				(provider) => directOwner?.[provider] === true,
+			);
+			return {
+				pathId: directOwner.id,
+				sourcePathId: pathId,
+				outputs,
+				customOutputIds,
+				portraitOutputs,
+				contributionMode: "direct" as const,
+				reservationExpiresAt:
+					[
+						directOwner.twitchReservedUntil,
+						directOwner.kickReservedUntil,
+						directOwner.youtubeReservedUntil,
+					]
+						.filter((value): value is Date => value !== null)
+						.sort((a, b) => b.getTime() - a.getTime())[0]
+						?.toISOString() ?? null,
+				handoverExpiresAt: handoverUntil?.toISOString() ?? null,
+			};
 		}
 
 		const outputs = DIRECT_PROVIDERS.filter(
@@ -938,22 +1068,12 @@ export async function prepareDirect(userId: string, pathId: number) {
 			}
 		}
 
-		const owners = await tx
-			.select({
-				id: relayPath.id,
-				label: relayPath.label,
-				twitch: relayPath.directTwitch,
-				kick: relayPath.directKick,
-				youtube: relayPath.directYoutube,
-				publishing: pathState.publishing,
-			})
-			.from(relayPath)
-			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
-			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
 		const liveOwner = owners.find(
 			(entry) =>
 				entry.id !== pathId &&
-				entry.publishing &&
+				owners.find(
+					(source) => source.id === (entry.directSourcePathId ?? entry.id),
+				)?.publishing &&
 				(entry.twitch || entry.kick || entry.youtube),
 		);
 		if (liveOwner) {
@@ -1038,6 +1158,9 @@ export async function prepareDirect(userId: string, pathId: number) {
 					directKickReservedUntil: null,
 					directYoutubeReservedUntil: null,
 					directYoutubeBroadcastId: null,
+					directSourcePathId: null,
+					directHandoverTargetPathId: null,
+					directHandoverUntil: null,
 				})
 				.where(inArray(pathState.pathId, previousPathIds));
 		}
@@ -1155,6 +1278,9 @@ export async function prepareDirect(userId: string, pathId: number) {
 					? expiresAt
 					: null,
 				directYoutubeBroadcastId: null,
+				directSourcePathId: null,
+				directHandoverTargetPathId: null,
+				directHandoverUntil: null,
 			})
 			.onConflictDoUpdate({
 				target: pathState.pathId,
@@ -1167,6 +1293,9 @@ export async function prepareDirect(userId: string, pathId: number) {
 						? expiresAt
 						: null,
 					directYoutubeBroadcastId: null,
+					directSourcePathId: null,
+					directHandoverTargetPathId: null,
+					directHandoverUntil: null,
 				},
 			});
 		return {
@@ -1181,6 +1310,55 @@ export async function prepareDirect(userId: string, pathId: number) {
 			reservationExpiresAt: expiresAt.toISOString(),
 		};
 	});
+}
+
+/** The live ingest the original Direct forwarders should read right now. */
+export async function directSourceSlug(ownerSlug: string) {
+	const [owner] = await db
+		.select({
+			id: relayPath.id,
+			userId: relayPath.userId,
+			relayId: relayPath.relayId,
+			publishing: pathState.publishing,
+			directSourcePathId: pathState.directSourcePathId,
+		})
+		.from(relayPath)
+		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+		.where(and(eq(relayPath.slug, ownerSlug), isNull(relayPath.revokedAt)))
+		.limit(1);
+	if (!owner) return null;
+	if (owner.directSourcePathId) {
+		const [source] = await db
+			.select({ slug: relayPath.slug, publishing: pathState.publishing })
+			.from(relayPath)
+			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+			.where(
+				and(
+					eq(relayPath.id, owner.directSourcePathId),
+					eq(relayPath.userId, owner.userId),
+					eq(relayPath.relayId, owner.relayId),
+					isNull(relayPath.revokedAt),
+				),
+			)
+			.limit(1);
+		if (source?.publishing) return source.slug;
+		if (owner.publishing) {
+			const [reset] = await db
+				.update(pathState)
+				.set({ directSourcePathId: null })
+				.where(
+					and(
+						eq(pathState.pathId, owner.id),
+						eq(pathState.directSourcePathId, owner.directSourcePathId),
+					),
+				)
+				.returning({ pathId: pathState.pathId });
+			if (!reset) return directSourceSlug(ownerSlug);
+			return ownerSlug;
+		}
+		return null;
+	}
+	return owner.publishing ? ownerSlug : null;
 }
 
 /** A revoked path owns no provider, which frees the owner's slot. */
@@ -1658,6 +1836,9 @@ export async function stopDirectForPaths(pathIds: number[]) {
 			// A hard stop is the end of BRB too, whatever got us here.
 			brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then now() else ${pathState.brbHighlightsResultAt} end`,
 			brbSince: null,
+			directSourcePathId: null,
+			directHandoverTargetPathId: null,
+			directHandoverUntil: null,
 		})
 		.where(inArray(pathState.pathId, pathIds));
 	await db

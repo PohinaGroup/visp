@@ -11,7 +11,12 @@ import { env } from "@VISP/env/server";
 import { randomBytes } from "node:crypto";
 import { and, count, eq, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
-import { DirectError, prepareDirect, saveDirectPreferences } from "./direct";
+import {
+	DirectError,
+	prepareDirect,
+	saveDirectPreferences,
+	stopDirectForPaths,
+} from "./direct";
 import { decryptSecret, encryptSecret } from "./encrypted-secret";
 import { hashSecret, verifySecret } from "./password";
 import { uniqueViolation } from "./pg-errors";
@@ -292,6 +297,7 @@ export async function revokePath(userId: string, pathId: number) {
 		)
 		.returning({ slug: relayPath.slug });
 	if (revoked) {
+		await stopDirectForPaths([pathId]);
 		applyInvalidation({ type: "slug", slug: revoked.slug });
 		await publishInvalidation({ type: "slug", slug: revoked.slug });
 	}
@@ -364,7 +370,15 @@ export async function authenticateMedia(input: {
 		return false;
 	}
 	if (input.action === "publish") {
-		await prepareDirect(credential.userId, credential.pathId);
+		try {
+			await prepareDirect(credential.userId, credential.pathId);
+		} catch (error) {
+			// A second ingest is still useful to OBS and as a future handover target.
+			// Only explicit preparation may claim the existing Direct outputs.
+			if (!(error instanceof DirectError) || error.code !== "provider-taken") {
+				throw error;
+			}
+		}
 		await db
 			.update(relayPath)
 			.set({ publishLastConnectedAt: new Date() })

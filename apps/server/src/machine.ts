@@ -11,6 +11,7 @@ import {
 	DIRECT_STATES,
 	DirectError,
 	directDestinationActive,
+	directSourceSlug,
 	resolveDirectDestinations,
 	resolveDirectDestinationsV3,
 } from "@VISP/api/direct";
@@ -422,6 +423,28 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				label: t.Optional(t.String({ maxLength: 120 })),
 			}),
 		},
+	)
+	.post(
+		"/api/hooks/source-plan",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const source = await directSourceSlug(body.path);
+				if (!source) return new Response("offline\n");
+				const studio = await compositorDesiredState(source);
+				const program =
+					studio?.mode === "program" &&
+					studio.inputUrl.endsWith(`/studio/${source}`);
+				return new Response(`${program ? "program" : "source"} ${source}\n`, {
+					headers: { "Content-Type": "text/plain; charset=utf-8" },
+				});
+			} catch {
+				return status(503, "source plan unavailable");
+			}
+		},
+		{ body: t.Object({ path: t.String({ minLength: 1 }) }) },
 	)
 	.post(
 		"/api/hooks/snapshot-upload/:path",

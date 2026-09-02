@@ -92,6 +92,13 @@
 			"when": 1787899338918,
 			"tag": "0012_blue_thunderbolts",
 			"breakpoints": true
+		},
+		{
+			"idx": 13,
+			"version": "7",
+			"when": 1788343849347,
+			"tag": "0013_foamy_vulcan",
+			"breakpoints": true
 		}
 	]
 }
