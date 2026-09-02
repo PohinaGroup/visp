@@ -26,7 +26,7 @@ export type DashboardArea =
 	| "tuning"
 	| "setup";
 
-export type DetailSectionId = "obs-read" | "tuning" | "reference";
+export type DetailSectionId = "obs-read" | "tuning" | "reference" | "mode";
 
 // Seppo names areas; the dashboard answers with a tab, an element to scroll to,
 // and — for a collapsed section — the disclosure to open.

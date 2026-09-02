@@ -1,4 +1,4 @@
-import { formatLinkStats } from "@VISP/api/link-stats";
+import { formatMbps } from "@VISP/api/link-stats";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
 import { Collapsible } from "@astryxdesign/core/Collapsible";
@@ -21,6 +21,64 @@ import { useTRPC } from "@/utils/trpc";
 import { formatUtc, publishOriginLabel } from "./format";
 import type { PathView } from "./types";
 
+const BITRATE_WINDOW_MS = 60_000;
+
+function BitrateMeter({
+	stats,
+}: {
+	stats: NonNullable<PathView["linkStats"]>;
+}) {
+	const [samples, setSamples] = useState([stats]);
+	if (samples.at(-1)?.updatedAt !== stats.updatedAt) {
+		const now = Date.parse(stats.updatedAt);
+		setSamples(
+			[...samples, stats].filter(
+				(sample) => now - Date.parse(sample.updatedAt) <= BITRATE_WINDOW_MS,
+			),
+		);
+	}
+
+	const now = Date.parse(stats.updatedAt);
+	const ceiling = Math.max(
+		stats.targetBitrateKbps,
+		...samples.map(({ bitrateKbps }) => bitrateKbps),
+		1,
+	);
+	const points = samples
+		.map(
+			(sample) =>
+				`${96 - ((now - Date.parse(sample.updatedAt)) / BITRATE_WINDOW_MS) * 96},${19 - (sample.bitrateKbps / ceiling) * 17}`,
+		)
+		.join(" ");
+	const color = stats.congested
+		? "stroke-tally fill-tally"
+		: stats.linkDegraded
+			? "stroke-caution fill-caution"
+			: "stroke-signal fill-signal";
+
+	return (
+		<HStack gap={1.5} vAlign="center">
+			<svg
+				aria-label={`${formatMbps(stats.bitrateKbps)} megabits per second, 60 second history`}
+				className={`h-5 w-24 ${color}`}
+				role="img"
+				viewBox="0 0 96 20"
+			>
+				<polyline
+					fill="none"
+					points={points}
+					strokeWidth="2"
+					vectorEffect="non-scaling-stroke"
+				/>
+				<circle cx="96" cy={19 - (stats.bitrateKbps / ceiling) * 17} r="1.5" />
+			</svg>
+			<Text type="supporting" weight="semibold">
+				{formatMbps(stats.bitrateKbps)} Mb/s
+			</Text>
+		</HStack>
+	);
+}
+
 function PathStatus({ path }: { path: PathView }) {
 	const t = useT();
 	if (path.stale) {
@@ -42,16 +100,7 @@ function PathStatus({ path }: { path: PathView }) {
 						{t("Live")}
 					</Text>
 				</HStack>
-				{path.linkStats ? (
-					<Text color="secondary" type="supporting">
-						{formatLinkStats(path.linkStats)}
-						{path.linkStats.linkCount && path.linkStats.linkCount > 1
-							? ` · ${path.linkStats.linkCount} ${t("links")}`
-							: ""}
-						{path.linkStats.linkDegraded ? ` · ${t("Degraded")}` : ""}
-						{path.linkStats.congested ? ` · ${t("Congested")}` : ""}
-					</Text>
-				) : null}
+				{path.linkStats ? <BitrateMeter stats={path.linkStats} /> : null}
 			</VStack>
 		);
 	}

@@ -155,6 +155,8 @@ const finnishUi: Record<string, string> = {
 	"Couldn’t save framing. Check your connection and retry.":
 		"Rajauksen tallennus epäonnistui. Tarkista yhteys ja yritä uudelleen.",
 	"Route to Home Studio": "Reititä kotistudioon",
+	"Advanced setup": "Edistynyt käyttöönotto",
+	"Change publishing path": "Vaihda julkaisupolkua",
 	"Primary mode saved": "Ensisijainen tila tallennettu",
 	"Choose one primary publishing path. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.":
 		"Valitse yksi ensisijainen julkaisupolku. Direct lähettää syötteen alustalle; kotistudiotilassa syöte menee OBS:ään, joka vastaa alustalähdöstä.",
@@ -162,11 +164,14 @@ const finnishUi: Record<string, string> = {
 		"Valitse, missä lopullinen lähetys tuotetaan. Tilat ovat erillisiä, eikä niitä voi käyttää yhtenä lähtöpolkuna.",
 	"Switch to Route to Home Studio? This turns off every Direct platform output.":
 		"Vaihdetaanko kotistudioreititykseen? Tämä poistaa kaikki Direct-alustalähdöt käytöstä.",
-	"Choose Route to Home Studio above to turn off Direct output":
-		"Poista Direct-lähtö käytöstä valitsemalla yllä Reititä kotistudioon",
+	"Open Advanced setup to turn off Direct output":
+		"Poista Direct-lähtö käytöstä avaamalla edistynyt käyttöönotto",
 	Simple: "Yksinkertainen",
 	Advanced: "Edistynyt",
 	"Live signal path": "Suora signaalipolku",
+	"Pre-flight passed": "Ennakkotarkistus läpäisty",
+	"Authorization, ownership, and relay capacity checked before Go Live.":
+		"Valtuutus, omistajuus ja relayn kapasiteetti tarkistettiin ennen lähetyksen aloitusta.",
 	"Devices publish to the relay, OBS reads the feeds, you go on air. Or send a device straight to a platform with Direct output.":
 		"Laitteet julkaisevat relaylle, OBS lukee syötteet ja sinä aloitat lähetyksen. Tai lähetä laite suoraan alustalle Direct-lähdöllä.",
 	"Devices publish to the relay and Direct sends them to Twitch or Kick. Add OBS afterward for monitoring, recording, or scenes.":

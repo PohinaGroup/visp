@@ -199,7 +199,9 @@ export function ChainStrip({
 
 	// One action, chosen by what the signal path can actually do right now.
 	const action =
-		direct.data?.mode === "obs" ? (
+		direct.data?.mode === "obs" &&
+		live > 0 &&
+		obs.data?.streaming ? null : direct.data?.mode === "obs" ? (
 			obs.data?.connected ? (
 				<Button
 					icon={<Icon color="inherit" icon={PowerIcon} size="sm" />}
