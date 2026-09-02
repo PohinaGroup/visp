@@ -6,10 +6,11 @@ import { probeRelayRtt } from "@/lib/relay";
 import { sanitizeDashboardStatus } from "@/lib/seppo-dashboard";
 import { useTRPC } from "@/utils/trpc";
 import {
-	type AdvancedSectionId,
 	DASHBOARD_AREA_TARGETS,
 	type DashboardArea,
 	type DashboardMode,
+	type DashboardTab,
+	type DetailSectionId,
 	type NetworkProfile,
 } from "./types";
 
@@ -64,7 +65,9 @@ export function seppoToolActivityLabel(part: {
 				"mode" in part.input
 					? String((part.input as { mode?: unknown }).mode ?? "updated")
 					: "updated";
-			return `Dashboard mode: ${mode}`;
+			return mode === "advanced"
+				? "Protocol fallbacks shown"
+				: "Protocol fallbacks hidden";
 		}
 		case "tool-measureRelayConnection":
 			return "Relay connection measured";
@@ -73,13 +76,11 @@ export function seppoToolActivityLabel(part: {
 	}
 }
 
-export function useDashboardSeppo(advancedMode: boolean) {
+export function useDashboardSeppo(selectTab: (tab: DashboardTab) => void) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
-	const [advancedSections, setAdvancedSections] = useState<AdvancedSectionId[]>(
-		[],
-	);
+	const [openSections, setOpenSections] = useState<DetailSectionId[]>([]);
 
 	const setAdvanced = useMutation(
 		trpc.secrets.setAdvancedMode.mutationOptions({
@@ -90,16 +91,6 @@ export function useDashboardSeppo(advancedMode: boolean) {
 		}),
 	);
 	const submitRtt = useMutation(trpc.rtt.submit.mutationOptions());
-
-	if (!advancedMode && advancedSections.length > 0) {
-		setAdvancedSections([]);
-	}
-
-	const openSection = (section: AdvancedSectionId) => {
-		setAdvancedSections((current) =>
-			current.includes(section) ? current : [...current, section],
-		);
-	};
 
 	const handleToolCall = async (toolCall: SeppoClientToolCall) => {
 		switch (toolCall.toolName) {
@@ -125,11 +116,13 @@ export function useDashboardSeppo(advancedMode: boolean) {
 					throw new Error("Unknown dashboard area");
 				}
 				const target = DASHBOARD_AREA_TARGETS[area];
+				selectTab(target.tab);
 				if ("section" in target) {
-					if (!advancedMode) {
-						await setAdvanced.mutateAsync({ advancedMode: true });
-					}
-					openSection(target.section);
+					setOpenSections((current) =>
+						current.includes(target.section)
+							? current
+							: [...current, target.section],
+					);
 				}
 				scrollToId(target.id);
 				return `Opened ${area}`;
@@ -145,7 +138,10 @@ export function useDashboardSeppo(advancedMode: boolean) {
 					throw new Error("Unknown dashboard mode");
 				}
 				await setAdvanced.mutateAsync({ advancedMode: mode === "advanced" });
-				return `Dashboard mode set to ${mode}`;
+				selectTab("sources");
+				return mode === "advanced"
+					? "Showing RTMP and SRTLA fallback URLs"
+					: "Showing the SRT URL only";
 			}
 			case "measureRelayConnection": {
 				const profile =
@@ -181,9 +177,8 @@ export function useDashboardSeppo(advancedMode: boolean) {
 	return {
 		open,
 		setOpen,
-		advancedSections,
-		setAdvancedSections,
-		setAdvanced,
+		openSections,
+		setOpenSections,
 		handleToolCall,
 	};
 }

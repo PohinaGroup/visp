@@ -1529,6 +1529,38 @@ integration("relay PostgreSQL integration", () => {
 		}
 	});
 
+	test("opens an email-only account empty, with no relay path", async () => {
+		await db.insert(user).values({
+			id: "email-only",
+			name: "Email Only",
+			email: "email-only@example.test",
+		});
+		await db.insert(account).values({
+			id: "account-credential",
+			accountId: "email-only@example.test",
+			providerId: "credential",
+			userId: "email-only",
+		});
+
+		const owner = await ensureRelayUser("email-only", "Email Only");
+		expect(owner.id).toBe("email-only");
+		expect(
+			await db.query.relayPath.findMany({
+				where: eq(relayPath.userId, "email-only"),
+			}),
+		).toHaveLength(0);
+
+		// An account with nothing linked at all is still refused.
+		await db.insert(user).values({
+			id: "no-accounts",
+			name: "No Accounts",
+			email: "no-accounts@example.test",
+		});
+		expect(ensureRelayUser("no-accounts", "No Accounts")).rejects.toThrow(
+			"Streaming account required",
+		);
+	});
+
 	test("scopes the chat overlay token to its owner and drops it on revoke", async () => {
 		await seed();
 		const { token } = await issueChatOverlayToken("user-a");

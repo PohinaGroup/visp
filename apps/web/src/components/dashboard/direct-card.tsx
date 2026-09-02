@@ -3,6 +3,7 @@ import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
+import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
@@ -210,6 +211,7 @@ export function DirectCard() {
 		}
 	};
 
+	const anyYoutube = direct.data?.paths.some((path) => path.youtube) ?? false;
 	const anyTwitch = direct.data?.paths.some((path) => path.twitch) ?? false;
 	const anyBoth =
 		direct.data?.paths.some((path) => path.twitch && path.kick) ?? false;
@@ -434,26 +436,37 @@ export function DirectCard() {
 							</Card>
 						))}
 
-						<YoutubeTitle
-							saving={setYoutubeSettings.isPending}
-							title={direct.data.youtubeTitle}
-							onSave={(title) => setYoutubeSettings.mutate({ title })}
-						/>
-						<Banner
-							description={t(
-								"VISP creates a new public YouTube broadcast when this device starts publishing.",
-							)}
-							status="warning"
-							title={t("YouTube broadcasts are public")}
-						/>
+						{anyYoutube ? (
+							<>
+								<YoutubeTitle
+									saving={setYoutubeSettings.isPending}
+									title={direct.data.youtubeTitle}
+									onSave={(title) => setYoutubeSettings.mutate({ title })}
+								/>
+								<Banner
+									description={t(
+										"VISP creates a new public YouTube broadcast when this device starts publishing.",
+									)}
+									status="warning"
+									title={t("YouTube broadcasts are public")}
+								/>
+							</>
+						) : null}
 
-						<Banner
-							description={t(
-								"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
-							)}
-							status="warning"
-							title={t("Keep OBS off the same destination")}
-						/>
+						<Collapsible
+							defaultIsOpen={false}
+							trigger={
+								<Text type="label">{t("Using OBS alongside Direct")}</Text>
+							}
+						>
+							<VStack paddingBlock={2}>
+								<Text color="secondary" type="supporting">
+									{t(
+										"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
+									)}
+								</Text>
+							</VStack>
+						</Collapsible>
 
 						{anyTwitch ? (
 							<Banner

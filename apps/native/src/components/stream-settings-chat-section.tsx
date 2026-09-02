@@ -8,6 +8,7 @@ import type { AudioOutputCapability } from "../../modules/visp-srt";
 import { VispRoutePicker } from "../../modules/visp-srt";
 import type { apiClient } from "../lib/backend";
 import type { ChatPreferences } from "../lib/chat-preferences";
+import { SettingsPicker } from "./settings-picker";
 import {
 	DESTRUCTIVE,
 	IS_IOS,
@@ -134,7 +135,7 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 						/>
 					</SettingRow>
 					<SettingRow label="Position">
-						<UI.Picker
+						<SettingsPicker
 							onValueChange={(mode) =>
 								chat.onUpdatePreferences((current) => ({
 									...current,
@@ -143,16 +144,16 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 							}
 							selectedValue={chat.preferences.mode}
 						>
-							<UI.Picker.Item label="Hidden" value="hidden" />
-							<UI.Picker.Item label="Floating" value="floating" />
+							<SettingsPicker.Item label="Hidden" value="hidden" />
+							<SettingsPicker.Item label="Floating" value="floating" />
 							{!IS_WEB ? (
-								<UI.Picker.Item label="Embedded" value="embedded" />
+								<SettingsPicker.Item label="Embedded" value="embedded" />
 							) : null}
-						</UI.Picker>
+						</SettingsPicker>
 					</SettingRow>
 					{!IS_WEB && chat.preferences.mode === "embedded" ? (
 						<SettingRow label="Corner">
-							<UI.Picker
+							<SettingsPicker
 								onValueChange={(corner) =>
 									chat.onUpdatePreferences((current) => ({
 										...current,
@@ -161,11 +162,14 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 								}
 								selectedValue={chat.preferences.corner}
 							>
-								<UI.Picker.Item label="Top left" value="top-left" />
-								<UI.Picker.Item label="Top right" value="top-right" />
-								<UI.Picker.Item label="Bottom left" value="bottom-left" />
-								<UI.Picker.Item label="Bottom right" value="bottom-right" />
-							</UI.Picker>
+								<SettingsPicker.Item label="Top left" value="top-left" />
+								<SettingsPicker.Item label="Top right" value="top-right" />
+								<SettingsPicker.Item label="Bottom left" value="bottom-left" />
+								<SettingsPicker.Item
+									label="Bottom right"
+									value="bottom-right"
+								/>
+							</SettingsPicker>
 						</SettingRow>
 					) : null}
 					<SettingRow label="Disappearing messages">
@@ -180,7 +184,7 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 						/>
 					</SettingRow>
 					<SettingRow label="Speak messages">
-						<UI.Picker
+						<SettingsPicker
 							onValueChange={(speechLanguage) =>
 								chat.onUpdatePreferences((current) => ({
 									...current,
@@ -190,10 +194,10 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 							}
 							selectedValue={chat.preferences.speechLanguage}
 						>
-							<UI.Picker.Item label="Off" value="off" />
-							<UI.Picker.Item label="Suomi" value="fi-FI" />
-							<UI.Picker.Item label="English" value="en-US" />
-						</UI.Picker>
+							<SettingsPicker.Item label="Off" value="off" />
+							<SettingsPicker.Item label="Suomi" value="fi-FI" />
+							<SettingsPicker.Item label="English" value="en-US" />
+						</SettingsPicker>
 					</SettingRow>
 					{chat.betterTts && !IS_WEB && chat.spokenLanguage ? (
 						<SettingRow label="Better voice">
@@ -223,17 +227,17 @@ export function ChatSection({ chat }: { chat: ChatSettings }) {
 									/>
 								</>
 							) : (
-								<UI.Picker
+								<SettingsPicker
 									onValueChange={(outputId) =>
 										void chat.onSelectOutput(String(outputId))
 									}
 									selectedValue={chat.outputId}
 								>
-									<UI.Picker.Item label="System default" value="default" />
+									<SettingsPicker.Item label="System default" value="default" />
 									{chat.outputs.map(({ id, name }) => (
-										<UI.Picker.Item key={id} label={name} value={id} />
+										<SettingsPicker.Item key={id} label={name} value={id} />
 									))}
-								</UI.Picker>
+								</SettingsPicker>
 							)}
 						</SettingRow>
 					) : null}

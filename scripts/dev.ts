@@ -94,6 +94,7 @@ async function main() {
 		"KICK_CLIENT_SECRET",
 		"TWITCH_CLIENT_ID",
 		"TWITCH_CLIENT_SECRET",
+		"RESEND_API_KEY",
 	].filter((key) => !serverFile[key]);
 	if (missingProviders.length) {
 		console.warn(
@@ -119,6 +120,7 @@ async function main() {
 		NODE_ENV: "development",
 		RELAY_HOST: "relay.visp.localhost",
 		RELAY_PING_URL: "https://relay.visp.localhost/ping",
+		RESEND_API_KEY: serverFile.RESEND_API_KEY || "local-unconfigured",
 		SERVER_HOST: "0.0.0.0",
 		S3_ACCESS_KEY_ID: "visp",
 		S3_BUCKET: "visp-snapshots",

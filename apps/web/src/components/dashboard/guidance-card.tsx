@@ -11,7 +11,7 @@ import { docs } from "@/lib/docs";
 import { useT } from "@/lib/i18n";
 import { probeRelayRtt } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
-import { AdvancedSection } from "./advanced-section";
+import { DetailSection, type DetailSectionState } from "./detail-section";
 import {
 	type Guidance,
 	NETWORK_PROFILE_OPTIONS,
@@ -22,7 +22,7 @@ function isNetworkProfile(value: string): value is NetworkProfile {
 	return value === "wired" || value === "wifi" || value === "cellular";
 }
 
-export function GuidanceCard() {
+export function GuidanceCard(open: DetailSectionState) {
 	const t = useT();
 	const trpc = useTRPC();
 	const [profile, setProfile] = useState<NetworkProfile>("wifi");
@@ -63,12 +63,13 @@ export function GuidanceCard() {
 		rtt !== null && Number.isInteger(rtt) && rtt >= 1 && !submit.isPending;
 
 	return (
-		<AdvancedSection
+		<DetailSection
+			{...open}
 			docsHref={docs.broadcasterSetup}
 			docsLabel="See how to tune SRT latency"
 			id="dashboard-tuning"
-			tag="Advanced · Tuning"
-			title={t("Connection guidance")}
+			tag={t("Tuning")}
+			title={t("Recommended SRT latency for your connection")}
 			value="tuning"
 		>
 			<Text color="secondary" type="supporting">
@@ -130,6 +131,6 @@ export function GuidanceCard() {
 					}}
 				/>
 			</HStack>
-		</AdvancedSection>
+		</DetailSection>
 	);
 }

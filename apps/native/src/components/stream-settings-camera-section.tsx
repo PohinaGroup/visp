@@ -9,6 +9,7 @@ import {
 	configurationForFormat,
 	supportsImageStabilization,
 } from "../lib/camera-settings";
+import { SettingsPicker } from "./settings-picker";
 import { DESTRUCTIVE, SettingRow, SUBTLE_TEXT } from "./stream-settings-shared";
 
 export type CameraSettings = {
@@ -50,17 +51,20 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 	) {
 		return (
 			<UI.FieldGroup.Section title="Camera">
-				<UI.Button
-					disabled={retrying}
-					label={retrying ? "Trying…" : "Try again"}
-					onPress={() => {
-						setRetrying(true);
-						void camera
-							.onRetry()
-							.catch(() => undefined)
-							.finally(() => setRetrying(false));
-					}}
-				/>
+				<SettingRow label="Unavailable">
+					<UI.Button
+						disabled={retrying}
+						label={retrying ? "Trying…" : "Try again"}
+						onPress={() => {
+							setRetrying(true);
+							void camera
+								.onRetry()
+								.catch(() => undefined)
+								.finally(() => setRetrying(false));
+						}}
+						variant="text"
+					/>
+				</SettingRow>
 				<UI.FieldGroup.SectionFooter>
 					<UI.Text textStyle={{ ...SUBTLE_TEXT, color: DESTRUCTIVE }}>
 						The camera could not be loaded.
@@ -74,7 +78,7 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 		<UI.FieldGroup.Section title="Camera">
 			{camera.cameras.length > 1 ? (
 				<SettingRow label="Camera">
-					<UI.Picker
+					<SettingsPicker
 						enabled={!camera.cameraSwitchDisabled}
 						onValueChange={(cameraId) => {
 							const selected = camera.cameras.find(({ id }) => id === cameraId);
@@ -83,13 +87,13 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 						selectedValue={camera.configuration?.cameraId ?? ""}
 					>
 						{camera.cameras.map(({ id, name }) => (
-							<UI.Picker.Item key={id} label={name} value={id} />
+							<SettingsPicker.Item key={id} label={name} value={id} />
 						))}
-					</UI.Picker>
+					</SettingsPicker>
 				</SettingRow>
 			) : null}
 			<SettingRow label="Resolution">
-				<UI.Picker
+				<SettingsPicker
 					enabled={!camera.settingsDisabled}
 					onValueChange={(value) => {
 						const format = currentCamera?.formats.find(
@@ -112,16 +116,16 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 					}
 				>
 					{currentCamera?.formats.map((format) => (
-						<UI.Picker.Item
+						<SettingsPicker.Item
 							key={`${format.width}x${format.height}`}
 							label={`${format.width}×${format.height}`}
 							value={`${format.width}x${format.height}`}
 						/>
 					))}
-				</UI.Picker>
+				</SettingsPicker>
 			</SettingRow>
 			<SettingRow label="Frame rate">
-				<UI.Picker
+				<SettingsPicker
 					enabled={!camera.settingsDisabled}
 					onValueChange={(fps) => {
 						if (camera.configuration) {
@@ -134,9 +138,9 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 					selectedValue={camera.configuration?.fps ?? 0}
 				>
 					{currentFormat?.fps.map((fps) => (
-						<UI.Picker.Item key={fps} label={`${fps} fps`} value={fps} />
+						<SettingsPicker.Item key={fps} label={`${fps} fps`} value={fps} />
 					))}
-				</UI.Picker>
+				</SettingsPicker>
 			</SettingRow>
 			{imageStabilizationSupported ? (
 				<SettingRow label="Image stabilization">

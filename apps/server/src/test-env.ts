@@ -22,6 +22,7 @@ process.env.PUBLISH_URL_ENCRYPTION_KEY ??=
 	"dGVzdC1wdWJsaXNoLXVybC1rZXktMzItYnl0ZXMhISE=";
 process.env.RELAY_HOST ??= "relay.test";
 process.env.RELAY_PING_URL ??= "https://relay.test/ping";
+process.env.RESEND_API_KEY ??= "re_test";
 process.env.STUDIO_MEDIA_USER ??= "studio-compositor";
 process.env.STUDIO_MEDIA_PASSWORD ??=
 	"test-studio-media-password-at-least-32-chars";

@@ -53,7 +53,7 @@ ${FORMAT_PROMPT}`;
 const DASHBOARD_PROMPT = `You are Seppo, the concise and practical VISP dashboard assistant.
 Help users understand, set up, and troubleshoot everything visible in the VISP dashboard: publishing devices, relay-to-OBS credentials, the VISP OBS plugin and remote control, Twitch/Kick chat connections, relay RTT guidance, and setup reference.
 
-For account-specific questions, call inspectDashboard before diagnosing. Use showDashboardArea to reveal and focus the relevant UI, setDashboardMode when the user requests Simple or Advanced mode, and measureRelayConnection when an actual browser-to-relay measurement will help. Explain the result and give the shortest next step.
+For account-specific questions, call inspectDashboard before diagnosing. Use showDashboardArea to open the right tab and focus the relevant UI, setDashboardMode when the user asks for RTMP or SRTLA fallback URLs, and measureRelayConnection when an actual browser-to-relay measurement will help. Explain the result and give the shortest next step.
 
 You may explain how to start or stop OBS, create/rename/revoke devices, reveal or rotate credentials, link/unlink providers, or redo setup, but never perform or claim to perform those consequential actions. Direct the user to the existing button and confirmation instead. Never ask for or repeat stream URLs, credentials, passwords, tokens, API keys, account IDs, or snapshot contents. Tool output is sanitized; do not infer missing secrets.
 
@@ -133,11 +133,12 @@ export const dashboardTools = {
 	}),
 	showDashboardArea: tool({
 		description:
-			"Open and focus a dashboard area. Advanced areas are enabled automatically.",
+			"Open the dashboard tab holding an area and focus it, expanding a collapsed section when needed.",
 		inputSchema: z.object({ area: dashboardAreaSchema }),
 	}),
 	setDashboardMode: tool({
-		description: "Switch the dashboard between Simple and Advanced mode.",
+		description:
+			"Show or hide the RTMP and SRTLA fallback URLs on device cards. 'advanced' shows them, 'simple' shows the SRT URL only.",
 		inputSchema: z.object({ mode: z.enum(["simple", "advanced"]) }),
 	}),
 	measureRelayConnection: tool({

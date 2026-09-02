@@ -71,7 +71,7 @@ import {
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
 import { useLiveChat } from "../lib/live-chat";
-import { IS_IOS, IS_WEB } from "../lib/platform";
+import { IS_WEB } from "../lib/platform";
 import { isPublishing, isStreamSession } from "../lib/stream-state";
 import {
 	deleteStreamUrl,
@@ -93,6 +93,30 @@ import { useWatchSnapshotSync } from "../lib/use-watch-snapshot-sync";
 
 const afterPaint = () =>
 	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+const isLandscapeOrientation = (orientation: ScreenOrientation.Orientation) =>
+	orientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
+	orientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT;
+
+async function lockCurrentOrientation() {
+	const orientation = await ScreenOrientation.getOrientationAsync();
+	await ScreenOrientation.lockAsync(
+		orientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT
+			? ScreenOrientation.OrientationLock.LANDSCAPE_LEFT
+			: orientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT
+				? ScreenOrientation.OrientationLock.LANDSCAPE_RIGHT
+				: ScreenOrientation.OrientationLock.PORTRAIT_UP,
+	);
+}
+
+async function restoreGeneralOrientationLock() {
+	const orientation = await ScreenOrientation.getOrientationAsync();
+	await ScreenOrientation.lockAsync(
+		isLandscapeOrientation(orientation)
+			? ScreenOrientation.OrientationLock.LANDSCAPE
+			: ScreenOrientation.OrientationLock.PORTRAIT_UP,
+	);
+}
 
 type StopChoice = "cancel" | "card" | "end";
 
@@ -444,9 +468,6 @@ export default function Index() {
 	useEffect(() => {
 		const subscription = AppState.addEventListener("change", (nextState) => {
 			setAppState(nextState);
-			if (!IS_WEB && !IS_IOS && nextState === "background") {
-				void cameraRef.current?.stop();
-			}
 		});
 		return () => subscription.remove();
 	}, []);
@@ -602,6 +623,7 @@ export default function Index() {
 			return;
 		}
 		setMessage(undefined);
+		let restoreOrientationOnFailure = false;
 		try {
 			if (isStreamSession(state)) {
 				// With BRB armed, stopping is two intentions wearing one button: a
@@ -613,6 +635,7 @@ export default function Index() {
 				if (choice === "cancel") return;
 				setToast(undefined);
 				await cameraRef.current?.stop();
+				await restoreGeneralOrientationLock();
 				if (choice === "end" && holdPossible && publishPathId) {
 					await endBrb(publishPathId);
 				}
@@ -653,12 +676,18 @@ export default function Index() {
 						bondingMode ?? "off",
 					);
 				}
+				await lockCurrentOrientation();
+				restoreOrientationOnFailure = true;
 				await cameraRef.current?.start(streamUrl);
+				restoreOrientationOnFailure = false;
 				if (prepared) {
 					await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
 				}
 			}
 		} catch (error) {
+			if (restoreOrientationOnFailure) {
+				await restoreGeneralOrientationLock().catch(() => undefined);
+			}
 			showToast(
 				error instanceof Error
 					? error.message
@@ -691,9 +720,7 @@ export default function Index() {
 		}
 		try {
 			const orientation = await ScreenOrientation.getOrientationAsync();
-			const isLandscape =
-				orientation === ScreenOrientation.Orientation.LANDSCAPE_LEFT ||
-				orientation === ScreenOrientation.Orientation.LANDSCAPE_RIGHT;
+			const isLandscape = isLandscapeOrientation(orientation);
 			await ScreenOrientation.lockAsync(
 				isLandscape
 					? ScreenOrientation.OrientationLock.PORTRAIT_UP
