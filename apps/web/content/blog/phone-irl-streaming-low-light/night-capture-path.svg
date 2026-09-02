@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Night phone stream capture path</title>
+  <desc id="desc">A small light illuminates a person beside a phone set to one-times zoom and 30 frames per second. The phone sends H.264 and AAC through a relay to OBS and a live platform.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#151d2f"/>
+    </linearGradient>
+    <radialGradient id="light" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffe4a3" stop-opacity="0.85"/>
+      <stop offset="1" stop-color="#ffe4a3" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="10" markerHeight="10" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#41d9ff"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" fill="url(#background)"/>
+  <circle cx="118" cy="128" r="4" fill="#ffe4a3"/>
+  <circle cx="240" cy="92" r="3" fill="#6ee7ff"/>
+  <circle cx="1425" cy="158" r="5" fill="#ffe4a3"/>
+  <circle cx="1520" cy="246" r="3" fill="#6ee7ff"/>
+
+  <rect x="96" y="170" width="430" height="560" rx="44" fill="#0c1728" stroke="#2a405a" stroke-width="4"/>
+  <circle cx="310" cy="395" r="192" fill="url(#light)" filter="url(#glow)"/>
+  <rect x="148" y="264" width="84" height="54" rx="12" fill="#fff1bf"/>
+  <path d="M232 278 L346 326 L346 488 L232 304 Z" fill="#ffe4a3" opacity="0.18"/>
+  <circle cx="354" cy="350" r="76" fill="#d7a478"/>
+  <path d="M278 342 C294 250 414 250 430 342 C397 308 309 308 278 342 Z" fill="#202939"/>
+  <path d="M252 614 C264 478 444 478 456 614 Z" fill="#31465f"/>
+  <rect x="390" y="300" width="104" height="202" rx="24" fill="#101725" stroke="#8ca2bb" stroke-width="5"/>
+  <circle cx="420" cy="330" r="10" fill="#41d9ff"/>
+  <circle cx="454" cy="330" r="10" fill="#25394e"/>
+  <rect x="320" y="650" width="136" height="48" rx="24" fill="#18283b" stroke="#41d9ff" stroke-width="2"/>
+  <text x="388" y="681" text-anchor="middle" fill="#eaf8ff" font-family="system-ui, sans-serif" font-size="26" font-weight="700">1x</text>
+  <rect x="158" y="650" width="136" height="48" rx="24" fill="#18283b" stroke="#41d9ff" stroke-width="2"/>
+  <text x="226" y="681" text-anchor="middle" fill="#eaf8ff" font-family="system-ui, sans-serif" font-size="26" font-weight="700">30 FPS</text>
+
+  <path d="M548 450 H716" fill="none" stroke="#41d9ff" stroke-width="10" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <rect x="744" y="300" width="260" height="300" rx="40" fill="#0c1728" stroke="#41d9ff" stroke-width="4"/>
+  <path d="M808 434 C808 389 846 352 892 352 C934 352 969 384 975 425 C1014 430 1044 463 1044 504 C1044 548 1008 584 964 584 H810 C762 584 724 546 724 498 C724 455 755 421 797 414 C800 421 805 428 808 434 Z" fill="#17344a" transform="translate(0 -26) scale(0.95)"/>
+  <circle cx="874" cy="446" r="20" fill="#41d9ff"/>
+  <circle cx="932" cy="446" r="20" fill="#ffe4a3"/>
+  <path d="M874 446 H932" stroke="#eaf8ff" stroke-width="9" stroke-linecap="round"/>
+  <text x="874" y="548" text-anchor="middle" fill="#eaf8ff" font-family="system-ui, sans-serif" font-size="25" font-weight="700">H.264 / AAC</text>
+
+  <path d="M1028 450 H1164" fill="none" stroke="#41d9ff" stroke-width="10" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <rect x="1192" y="220" width="310" height="460" rx="40" fill="#0c1728" stroke="#2a405a" stroke-width="4"/>
+  <rect x="1240" y="282" width="214" height="132" rx="14" fill="#17283c" stroke="#8ca2bb" stroke-width="4"/>
+  <path d="M1258 393 L1312 345 L1350 372 L1390 320 L1436 393 Z" fill="#41d9ff" opacity="0.7"/>
+  <rect x="1290" y="436" width="114" height="50" rx="14" fill="#18283b" stroke="#41d9ff" stroke-width="2"/>
+  <text x="1347" y="469" text-anchor="middle" fill="#eaf8ff" font-family="system-ui, sans-serif" font-size="26" font-weight="700">OBS</text>
+  <path d="M1347 505 V556" stroke="#41d9ff" stroke-width="8" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <rect x="1250" y="578" width="194" height="54" rx="27" fill="#ffe4a3"/>
+  <circle cx="1291" cy="605" r="12" fill="#e45353"/>
+  <path d="M1322 605 H1406" stroke="#26374b" stroke-width="8" stroke-linecap="round"/>
+
+  <text x="800" y="810" text-anchor="middle" fill="#8ca2bb" font-family="system-ui, sans-serif" font-size="30">LIGHT  ·  CAPTURE  ·  RELAY  ·  FINISH</text>
+</svg>
