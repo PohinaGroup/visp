@@ -304,7 +304,7 @@ export function DirectCard() {
 														key={provider}
 														disabledMessage={t(
 															lastOutput
-																? "Choose Route to Home Studio above to turn off Direct output"
+																? "Open Advanced setup to turn off Direct output"
 																: "Stop this device before changing its Direct outputs",
 														)}
 														isDisabled={

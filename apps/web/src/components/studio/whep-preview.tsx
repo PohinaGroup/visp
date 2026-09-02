@@ -2,7 +2,15 @@ import { Text } from "@astryxdesign/core/Text";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
 
-export function WhepPreview({ label, url }: { label: string; url?: string }) {
+export function WhepPreview({
+	label,
+	poster,
+	url,
+}: {
+	label: string;
+	poster?: string;
+	url?: string;
+}) {
 	const t = useT();
 	const video = useRef<HTMLVideoElement>(null);
 	const [state, setState] = useState<"idle" | "loading" | "playing" | "error">(
@@ -62,6 +70,7 @@ export function WhepPreview({ label, url }: { label: string; url?: string }) {
 				autoPlay
 				muted
 				playsInline
+				poster={poster}
 				ref={video}
 				style={{ aspectRatio: "16 / 9", background: "black", width: "100%" }}
 			/>

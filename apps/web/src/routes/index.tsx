@@ -50,24 +50,6 @@ function TryCta({
 	);
 }
 
-const productShots = [
-	{
-		src: "/marketing/app-live.jpg",
-		alt: "Live control with OBS status",
-		tag: "LIVE",
-	},
-	{
-		src: "/marketing/app-obs-control.jpg",
-		alt: "Ready to go live with chat overlay",
-		tag: "READY",
-	},
-	{
-		src: "/marketing/app-settings.jpg",
-		alt: "Camera settings — resolution, frame rate, relay",
-		tag: "CONFIG",
-	},
-] as const;
-
 // Features as channel strips: the mono tag is the signal-path capability,
 // not decoration. No 01/02/03 — these are channels, not a sequence.
 const channels = [
@@ -383,19 +365,6 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 				},
 			]
 		: channels;
-	const localizedShots = fi
-		? [
-				{ ...productShots[0], alt: "Suoran lähetyksen ohjaus ja OBS-tila" },
-				{
-					...productShots[1],
-					alt: "Valmis aloittamaan lähetys chat-näkymällä",
-				},
-				{
-					...productShots[2],
-					alt: "Kameran tarkkuus-, kuvataajuus- ja relay-asetukset",
-				},
-			]
-		: productShots;
 	const localizedNavLinks: LandingLink[] = fi
 		? [
 				{ label: "Kumppanit", href: "/fi/affiliate", external: false },
@@ -504,33 +473,31 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							</ul>
 						</div>
 
-						{/* Product shots — real captures, reframed in hairline device slabs */}
-						<div className="flex justify-center gap-3 md:justify-end">
-							{localizedShots.map((shot, i) => (
-								<figure
-									key={shot.src}
-									className="relative w-1/3 max-w-[140px] overflow-hidden rounded-[10px] border border-border bg-card"
-									style={{
-										transform: `translateY(${i === 1 ? -14 : 0}px)`,
-									}}
+						<div className="flex justify-center md:justify-end">
+							<figure className="relative w-full max-w-[300px] overflow-hidden rounded-[14px] border border-border bg-card">
+								<video
+									autoPlay
+									muted
+									loop
+									playsInline
+									preload="metadata"
+									poster="/marketing/go-live-loop.jpg"
+									aria-label={
+										fi
+											? "VISP-lähetys käynnistyy ja kuva saapuu OBS:iin"
+											: "A VISP stream goes live and arrives in OBS"
+									}
+									className="aspect-[9/16] w-full object-cover"
 								>
-									<img
-										src={shot.src}
-										alt={shot.alt}
-										width={560}
-										height={996}
-										// Hero shots are the mobile LCP element — lazy defers them
-										// behind everything else and tanks LCP.
-										loading="eager"
-										fetchPriority={i === 0 ? "high" : "auto"}
-										decoding="async"
-										className="aspect-[9/16] w-full object-cover"
+									<source
+										src="/marketing/go-live-loop.m4v"
+										type="video/mp4"
 									/>
-									<figcaption className="absolute top-2 left-2 rounded-sm bg-background/85 px-1.5 py-0.5 font-mono text-[10px] text-foreground uppercase tracking-wider backdrop-blur-sm">
-										{shot.tag}
-									</figcaption>
-								</figure>
-							))}
+								</video>
+								<figcaption className="absolute top-3 left-3 rounded-sm bg-background/85 px-2 py-1 font-mono text-[10px] text-foreground uppercase tracking-wider backdrop-blur-sm">
+									{fi ? "AITO LÄHETYS · 8 S" : "REAL GO-LIVE · 8 SEC"}
+								</figcaption>
+							</figure>
 						</div>
 					</section>
 
