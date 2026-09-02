@@ -8,10 +8,13 @@ sudo useradd --system --no-create-home --shell /usr/sbin/nologin visp-compositor
 bun build --compile visp-compositor.ts --outfile /tmp/visp-compositor
 sudo install -D -m 0755 /tmp/visp-compositor /usr/local/libexec/visp-compositor
 sudo install -D -m 0755 visp-compositor-egress-check /usr/local/libexec/visp-compositor-egress-check
-sudo nft -f visp-compositor.nft
+sudo install -D -m 0644 visp-compositor.nft /etc/visp/visp-compositor.nft
+sudo install -D -m 0644 ../systemd/visp-compositor-firewall.service \
+  /etc/systemd/system/visp-compositor-firewall.service
 sudo install -D -m 0644 ../systemd/visp-compositor@.service \
   /etc/systemd/system/visp-compositor@.service
 sudo systemctl daemon-reload
+sudo systemctl enable --now visp-compositor-firewall.service
 ```
 
 The compiled executable bundles the Studio URL policy, browser interception,
