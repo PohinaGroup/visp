@@ -37,6 +37,7 @@ import {
 import {
 	applyDirectState,
 	directDestinationActive,
+	directSourceSlug,
 	prepareDirect,
 	resolveDirectDestinations,
 	resolveDirectDestinationsV3,
@@ -2623,6 +2624,326 @@ integration("VISP Direct boundaries", () => {
 		await expect(prepareDirect("user-a", second.id)).rejects.toMatchObject({
 			code: "provider-taken",
 		});
+	});
+
+	test("same-relay handover keeps the original Direct session and falls back", async () => {
+		youtubeBroadcastCreates = 0;
+		youtubeBroadcastCompletes = 0;
+		globalThis.fetch = providerFetch;
+		const data = await seedDirect();
+		const replacement = await createPath("user-a", "Phone B");
+		const caller = await callerFor("user-a");
+		await db
+			.update(appUser)
+			.set({ brbEnabled: true })
+			.where(eq(appUser.id, "user-a"));
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: true,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		const before = (
+			await db
+				.select()
+				.from(pathState)
+				.where(eq(pathState.pathId, data.pathA.id))
+		)[0];
+
+		await expect(prepareDirect("user-a", replacement.id)).rejects.toMatchObject(
+			{
+				code: "provider-taken",
+			},
+		);
+		expect(await prepareDirect("user-a", replacement.id, true)).toMatchObject({
+			pathId: data.pathA.id,
+			sourcePathId: replacement.id,
+			outputs: ["twitch", "youtube"],
+		});
+		await applyPathHook("ready", {
+			path: replacement.slug,
+			sourceType: "srtConn",
+		});
+
+		const owner = (
+			await db
+				.select()
+				.from(pathState)
+				.where(eq(pathState.pathId, data.pathA.id))
+		)[0];
+		const paths = await db
+			.select()
+			.from(relayPath)
+			.where(eq(relayPath.userId, "user-a"));
+		expect(owner).toMatchObject({
+			directSourcePathId: replacement.id,
+			directHandoverTargetPathId: null,
+			directHandoverUntil: null,
+			directYoutubeBroadcastId: before?.directYoutubeBroadcastId,
+		});
+		expect(owner?.directTwitchReservedUntil?.getTime()).toBe(
+			before?.directTwitchReservedUntil?.getTime(),
+		);
+		expect(paths.find((path) => path.id === data.pathA.id)).toMatchObject({
+			directTwitch: true,
+			directYoutube: true,
+		});
+		expect(paths.find((path) => path.id === replacement.id)).toMatchObject({
+			directTwitch: false,
+			directYoutube: false,
+		});
+		expect(await directSourceSlug("alpha-1")).toBe(replacement.slug);
+		const sourcePlan = await app.handle(
+			new Request("http://localhost/api/hooks/source-plan", {
+				method: "POST",
+				headers: {
+					"content-type": "application/json",
+					"x-hook-secret": process.env.HOOK_SECRET ?? "",
+				},
+				body: JSON.stringify({ path: "alpha-1" }),
+			}),
+		);
+		expect(await sourcePlan.text()).toBe(`source ${replacement.slug}\n`);
+		expect(
+			(await resolveDirectDestinations(replacement.slug, directDeps()))
+				.destinations,
+		).toEqual([]);
+		expect(youtubeBroadcastCreates).toBe(1);
+
+		await applyPathHook("not-ready", { path: replacement.slug });
+		expect(await directSourceSlug("alpha-1")).toBe("alpha-1");
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0]?.directYoutubeBroadcastId,
+		).toBe(before?.directYoutubeBroadcastId);
+
+		await prepareDirect("user-a", replacement.id, true);
+		await applyPathHook("ready", { path: replacement.slug });
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		expect(await directSourceSlug("alpha-1")).toBe(replacement.slug);
+		await applyPathHook("not-ready", { path: replacement.slug });
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0]?.brbSince,
+		).toBeInstanceOf(Date);
+		expect(youtubeBroadcastCompletes).toBe(0);
+
+		expect(await stopBrb("user-a", replacement.id)).toBe(true);
+		expect(youtubeBroadcastCompletes).toBe(1);
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0],
+		).toMatchObject({
+			directTwitchState: "stopped",
+			directYoutubeState: "stopped",
+			directYoutubeBroadcastId: null,
+		});
+	});
+
+	test("handover rejects cross-user, cross-relay, expired, and concurrent targets", async () => {
+		const data = await seedDirect();
+		const second = await createPath("user-a", "Phone B");
+		const third = await createPath("user-a", "Phone C");
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1" });
+
+		await expect(
+			prepareDirect("user-b", data.pathB.id, true),
+		).rejects.toMatchObject({
+			code: "invalid",
+		});
+		const [otherRelay] = await db
+			.insert(relay)
+			.values({
+				name: "handover-other",
+				host: "other.test",
+				apiUrl: "http://other.test",
+				pingUrl: "http://other.test/ping",
+				region: "test",
+				capacityPaths: 10,
+				maxForwarders: 10,
+				publicIp: "127.0.0.2",
+			})
+			.returning();
+		await db
+			.update(relayPath)
+			.set({ relayId: otherRelay?.id })
+			.where(eq(relayPath.id, third.id));
+		await expect(prepareDirect("user-a", third.id, true)).rejects.toMatchObject(
+			{
+				code: "invalid",
+			},
+		);
+		await db
+			.update(relayPath)
+			.set({ relayId: data.pathA.relayId })
+			.where(eq(relayPath.id, third.id));
+
+		const attempts = await Promise.allSettled([
+			prepareDirect("user-a", second.id, true),
+			prepareDirect("user-a", third.id, true),
+		]);
+		expect(
+			attempts.filter(({ status }) => status === "fulfilled"),
+		).toHaveLength(1);
+		expect(attempts.filter(({ status }) => status === "rejected")).toHaveLength(
+			1,
+		);
+		const armed = (
+			await db
+				.select()
+				.from(pathState)
+				.where(eq(pathState.pathId, data.pathA.id))
+		)[0];
+		if (!armed?.directHandoverTargetPathId)
+			throw new Error("handover not armed");
+		await db
+			.update(pathState)
+			.set({ directHandoverUntil: new Date(Date.now() - 1) })
+			.where(eq(pathState.pathId, data.pathA.id));
+		const expiredTarget =
+			armed.directHandoverTargetPathId === second.id ? second : third;
+		await db
+			.update(relayPath)
+			.set({ publishSecretHash: await hashSecret("replacement-secret") })
+			.where(eq(relayPath.id, expiredTarget.id));
+		clearAuthCacheForTests();
+		expect(
+			await authenticateMedia({
+				action: "publish",
+				password: "replacement-secret",
+				path: expiredTarget.slug,
+				user: "alpha",
+			}),
+		).toBe(true);
+		await applyPathHook("ready", {
+			path: expiredTarget.slug,
+		});
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0]?.directSourcePathId,
+		).toBeNull();
+	});
+
+	test("revoking the original owner ends a handed-over broadcast once", async () => {
+		youtubeBroadcastCompletes = 0;
+		globalThis.fetch = providerFetch;
+		const data = await seedDirect();
+		const replacement = await createPath("user-a", "Phone B");
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: false,
+			kick: false,
+			youtube: true,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		await prepareDirect("user-a", replacement.id, true);
+		await applyPathHook("ready", { path: replacement.slug });
+
+		await revokePath("user-a", data.pathA.id);
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		expect(youtubeBroadcastCompletes).toBe(1);
+		expect(await directSourceSlug("alpha-1")).toBeNull();
+	});
+
+	test("reconciliation promotes and holds a handover when hooks are missed", async () => {
+		const data = await seedDirect();
+		const replacement = await createPath("user-a", "Phone B");
+		const caller = await callerFor("user-a");
+		await db
+			.update(appUser)
+			.set({ brbEnabled: true })
+			.where(eq(appUser.id, "user-a"));
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		await prepareDirect("user-a", replacement.id, true);
+
+		let items = [
+			{
+				name: "alpha-1",
+				ready: true,
+				readers: [],
+				source: { type: "srtConn" },
+			},
+			{
+				name: replacement.slug,
+				ready: true,
+				readers: [],
+				source: { type: "srtConn" },
+			},
+		];
+		globalThis.fetch = (async (input, init) =>
+			String(input).includes("/v3/paths/list")
+				? Response.json({ items })
+				: providerFetch(input, init)) as typeof fetch;
+		await reconcilePathState("http://relay-api.test");
+		expect(await directSourceSlug("alpha-1")).toBe(replacement.slug);
+
+		items = [
+			{
+				name: replacement.slug,
+				ready: true,
+				readers: [],
+				source: { type: "srtConn" },
+			},
+		];
+		await reconcilePathState("http://relay-api.test");
+		expect(await directSourceSlug("alpha-1")).toBe(replacement.slug);
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0]?.brbSince,
+		).toBeNull();
+
+		items = [];
+		await reconcilePathState("http://relay-api.test");
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0]?.brbSince,
+		).toBeInstanceOf(Date);
 	});
 
 	test("outputs cannot change while the device is publishing", async () => {

@@ -45,6 +45,7 @@ export function PublishingDevicesCard({
 	const pathsQuery = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
 	);
+	const directQuery = useQuery(trpc.direct.list.queryOptions());
 	const relaysQuery = useQuery(trpc.relays.list.queryOptions());
 	const create = useMutation(
 		trpc.paths.create.mutationOptions({
@@ -57,8 +58,23 @@ export function PublishingDevicesCard({
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const handover = useMutation(
+		trpc.direct.prepare.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("Direct source switched"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 
 	const paths = pathsQuery.data ?? [];
+	const directOwnerId =
+		Object.values(directQuery.data?.ownerPathId ?? {}).find(
+			(pathId) => pathId !== null,
+		) ??
+		directQuery.data?.destinations[0]?.pathId ??
+		directQuery.data?.customOutputs[0]?.pathId;
 	const createOnFastestRelay = async () => {
 		setProbing(true);
 		try {
@@ -165,7 +181,25 @@ export function PublishingDevicesCard({
 					<VStack gap={3}>
 						{paths.map((path) => (
 							<Card key={path.id} padding={3}>
-								<PathRow advancedMode={advancedMode} path={path} />
+								<VStack gap={2}>
+									<PathRow advancedMode={advancedMode} path={path} />
+									{path.publishing &&
+									directOwnerId &&
+									directOwnerId !== path.id ? (
+										<Button
+											isLoading={
+												handover.isPending &&
+												handover.variables?.pathId === path.id
+											}
+											label={t("Take over Direct")}
+											size="sm"
+											variant="secondary"
+											onClick={() =>
+												handover.mutate({ pathId: path.id, handover: true })
+											}
+										/>
+									) : null}
+								</VStack>
 							</Card>
 						))}
 					</VStack>

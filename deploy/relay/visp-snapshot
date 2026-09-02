@@ -19,7 +19,7 @@ compositor_service=""
 compositor_env=""
 
 scoped_credential() {
-	printf '%s' "$2:$path" | openssl dgst -sha256 -hmac "$1" | awk '{print $NF}'
+	printf '%s' "$2:${3:-$path}" | openssl dgst -sha256 -hmac "$1" | awk '{print $NF}'
 }
 
 studio_worker_token="$(scoped_credential "$HOOK_SECRET" hook)"
@@ -199,31 +199,33 @@ brb_tick() {
 		"$app_url/api/hooks/$endpoint"
 }
 
-# Last saved desired state only. The app answers passthrough whenever the
-# rollout flag, account mode, kill switch, or compositor health says no.
-studio_plan() {
+# The app resolves Direct ownership, handover fallback, and Studio mode in one
+# line: "source slug", "program slug", or "offline".
+source_plan() {
 	curl --fail --silent --show-error --max-time 2 --request POST \
 		--header "Content-Type: application/json" \
-		--header "X-Studio-Token: $studio_worker_token" \
+		--header "X-Hook-Secret: $HOOK_SECRET" \
 		--data "{\"path\":\"$path\"}" \
-		"$app_url/api/hooks/studio/relay-plan"
+		"$app_url/api/hooks/source-plan"
 }
 
 studio_source() {
-	local current="${1:-}" plan verb candidate
-	candidate="rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/$path"
-	plan="$(studio_plan)" || {
-		printf '%s' "${current:-$candidate}"
+	local current="${1:-}" fallback plan verb slug password user_url suffix
+	fallback="rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/$path"
+	plan="$(source_plan)" || {
+		printf '%s' "${current:-$fallback}"
 		return
 	}
 	# shellcheck disable=SC2086
 	set -- $plan
-	verb="${1:-passthrough}"
-	case "$verb ${2:-}" in
-		"program rtsp://127.0.0.1:${RTSP_PORT}/studio/"*)
-			candidate="rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/${2#*:$RTSP_PORT/}" ;;
-	esac
-	printf '%s' "$candidate"
+	verb="${1:-offline}"
+	slug="${2:-}"
+	test "$verb" != offline || { printf '%s' offline; return; }
+	case "$slug" in *[!A-Za-z0-9_-]*|'') printf '%s' "${current:-$fallback}"; return ;; esac
+	case "$verb" in source) suffix="$slug" ;; program) suffix="studio/$slug" ;; *) printf '%s' "${current:-$fallback}"; return ;; esac
+	password="$(scoped_credential "$STUDIO_MEDIA_PASSWORD" media "$slug")"
+	user_url="studio%3A$slug"
+	printf 'rtsp://%s:%s@127.0.0.1:%s/%s' "$user_url" "$password" "$RTSP_PORT" "$suffix"
 }
 
 # One destination, one FFmpeg process, one retry loop. A failure here never
@@ -235,7 +237,7 @@ studio_source() {
 # hosts and the VOD survive what used to end the stream.
 forward() {
 	local output_id="$1" kind="$2" role="$3" filter="$4" protocol="$5" muxer="$6" destination="$7" desired_state="$8" provider="${9:-$1}"
-	local backoff started reason source_url next_source switched
+	local backoff started reason source_url source_slug next_source switched
 	output_muxer="$muxer"
 	# log and lock are deliberately not local: the signal handler and final
 	# cleanup share them after the current encode attempt has returned.
@@ -296,6 +298,14 @@ forward() {
 	while true; do
 		started="$SECONDS"
 		source_url="$(studio_source)"
+		if test "$source_url" = offline; then
+			hold_brb "$output_id" "$role" "$destination" "$log" "$kind" "$provider" || break
+			backoff=2
+			continue
+		fi
+		source_slug="${source_url##*/}"
+		case "$source_slug" in *[!A-Za-z0-9_-]*|'') source_slug="$safe_path" ;; esac
+		snapshot_file="$run_dir/$source_slug.jpg"
 		# Promote to live only once the destination has held for a while;
 		# a rejected stream key fails well inside this window.
 		( sleep 10; report_state "$output_id" live "" "$role" "$kind" "$provider" ) &
@@ -313,10 +323,9 @@ forward() {
 		switched=0
 		while kill -0 "$encoder_pid" 2>/dev/null; do
 			sleep 3
-			ingest_live || continue
 			next_source="$(studio_source "$source_url")"
 			test "$next_source" = "$source_url" && continue
-			switched=1
+			test "$next_source" = offline && switched=2 || switched=1
 			kill -TERM "$encoder_pid" 2>/dev/null || true
 			for _ in {1..50}; do
 				kill -0 "$encoder_pid" 2>/dev/null || break
@@ -343,6 +352,19 @@ forward() {
 			break
 		fi
 		if test "$switched" -eq 1; then
+			backoff=2
+			continue
+		fi
+		if test "$switched" -eq 2; then
+			hold_brb "$output_id" "$role" "$destination" "$log" "$kind" "$provider" || break
+			backoff=2
+			continue
+		fi
+		next_source="$(studio_source "$source_url")"
+		if test "$next_source" != "$source_url"; then
+			if test "$next_source" = offline; then
+				hold_brb "$output_id" "$role" "$destination" "$log" "$kind" "$provider" || break
+			fi
 			backoff=2
 			continue
 		fi
@@ -599,7 +621,7 @@ brb_highlights_ffmpeg() {
 # forwarder is done.
 hold_brb() {
 	local output_id="$1" role="$2" destination="$3" log="$4" kind="${5:-managed}" provider="${6:-$1}"
-	local text_file image_file entered line verb card_started card_image tick_wait
+	local text_file image_file entered line verb card_started card_image tick_wait wait_seconds
 	local highlights_dir highlights_list highlights_analytics highlights_failed highlights_muted highlights_overlay
 	local highlights_payload highlights_users highlights_user progress_file
 	text_file="$run_dir/$safe_path-$output_id.txt"
@@ -620,6 +642,7 @@ hold_brb() {
 	highlights_failed=0
 
 	while true; do
+		test "$(studio_source offline)" = offline || { resume=1; break; }
 		line="$(brb_tick "$output_id" "$kind" "$provider")" || line=""
 		# shellcheck disable=SC2086
 		set -- $line
@@ -705,8 +728,14 @@ hold_brb() {
 
 		tick_wait="$brb_tick_seconds"
 		test "$verb" = highlights && tick_wait=1
-		sleep "$tick_wait" &
-		wait "$!"
+		while test "$tick_wait" -gt 0; do
+			wait_seconds=3
+			test "$tick_wait" -ge "$wait_seconds" || wait_seconds="$tick_wait"
+			sleep "$wait_seconds" &
+			wait "$!"
+			tick_wait=$((tick_wait - wait_seconds))
+			test "$(studio_source offline)" = offline || { resume=1; break; }
+		done
 		test "$resume" -eq 0 || break
 	done
 

@@ -6,7 +6,17 @@ import {
 	relayStreamSession,
 } from "@VISP/db/schema/index";
 import type { ObjectStore } from "@VISP/object-store";
-import { and, eq, inArray, isNull, notInArray, or, sql } from "drizzle-orm";
+import {
+	and,
+	eq,
+	gt,
+	inArray,
+	isNotNull,
+	isNull,
+	notInArray,
+	or,
+	sql,
+} from "drizzle-orm";
 import { handleSourceGone } from "./brb";
 import { cleanupDeletedBrbHighlightsForPath } from "./brb-highlights";
 import { announceStreamEvent } from "./chat/alerts";
@@ -23,8 +33,10 @@ export async function applyPathHook(
 	const [path] = await db
 		.select({
 			id: relayPath.id,
+			userId: relayPath.userId,
 			publishing: pathState.publishing,
 			brbSince: pathState.brbSince,
+			directSourcePathId: pathState.directSourcePathId,
 		})
 		.from(relayPath)
 		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
@@ -37,6 +49,7 @@ export async function applyPathHook(
 	const now = new Date();
 	if (event === "ready" || event === "not-ready") {
 		const publishing = event === "ready";
+		let promotedOwnerId: number | null = null;
 		await db.transaction(async (tx) => {
 			await tx
 				.insert(pathState)
@@ -64,6 +77,23 @@ export async function applyPathHook(
 					},
 				});
 			if (publishing) {
+				const [promoted] = await tx
+					.update(pathState)
+					.set({
+						directSourcePathId: path.id,
+						directHandoverTargetPathId: null,
+						directHandoverUntil: null,
+						brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then ${now} else ${pathState.brbHighlightsResultAt} end`,
+						brbSince: null,
+					})
+					.where(
+						and(
+							eq(pathState.directHandoverTargetPathId, path.id),
+							gt(pathState.directHandoverUntil, now),
+						),
+					)
+					.returning({ pathId: pathState.pathId });
+				promotedOwnerId = promoted?.pathId ?? null;
 				await tx
 					.insert(relayStreamSession)
 					.values({
@@ -88,11 +118,56 @@ export async function applyPathHook(
 			await cleanupDeletedBrbHighlightsForPath(path.id, media).catch(
 				() => undefined,
 			);
+			if (promotedOwnerId) {
+				await cleanupDeletedBrbHighlightsForPath(promotedOwnerId, media).catch(
+					() => undefined,
+				);
+			}
 		}
 		// The source is gone. Forwarders either hold the broadcast open on the
 		// BRB card or get torn down so their slots stop counting.
 		if (!publishing) {
-			await handleSourceGone([path.id], path.publishing ? [path.id] : []);
+			const [replacementOwner] = await db
+				.select({ id: relayPath.id, publishing: pathState.publishing })
+				.from(pathState)
+				.innerJoin(relayPath, eq(relayPath.id, pathState.pathId))
+				.where(
+					and(
+						eq(pathState.directSourcePathId, path.id),
+						eq(relayPath.userId, path.userId),
+						isNull(relayPath.revokedAt),
+					),
+				)
+				.limit(1);
+			if (replacementOwner?.publishing) {
+				await db
+					.update(pathState)
+					.set({ directSourcePathId: null })
+					.where(
+						and(
+							eq(pathState.pathId, replacementOwner.id),
+							eq(pathState.directSourcePathId, path.id),
+						),
+					);
+			} else if (replacementOwner) {
+				await handleSourceGone(
+					[replacementOwner.id],
+					path.publishing ? [replacementOwner.id] : [],
+				);
+			} else if (path.directSourcePathId) {
+				const [source] = await db
+					.select({ publishing: pathState.publishing })
+					.from(pathState)
+					.where(eq(pathState.pathId, path.directSourcePathId))
+					.limit(1);
+				if (!source?.publishing) {
+					await handleSourceGone([path.id], path.publishing ? [path.id] : []);
+				}
+			} else {
+				await handleSourceGone([path.id], path.publishing ? [path.id] : []);
+			}
+		} else if (promotedOwnerId) {
+			// The owner already announced this broadcast. Handover is only an input change.
 		} else if (path.brbSince) {
 			// The card comes down inside the transaction above, so the outage
 			// length has to travel with the call rather than be read back.
@@ -129,6 +204,56 @@ type MediaMtxPath = {
 	source?: { type?: string } | null;
 };
 
+async function directGonePathIds(pathIds: number[]) {
+	if (pathIds.length === 0) return [];
+	const rows = await db.execute<{
+		path_id: number;
+		publishing: boolean;
+		direct_source_path_id: number | null;
+		source_publishing: boolean | null;
+	}>(sql`
+		select owner.path_id, owner.publishing, owner.direct_source_path_id,
+			(select source.publishing from path_state source
+				where source.path_id = owner.direct_source_path_id) as source_publishing
+		from path_state owner
+		where ${inArray(sql`owner.path_id`, pathIds)}
+			or ${inArray(sql`owner.direct_source_path_id`, pathIds)}
+	`);
+	const gone = new Set(pathIds);
+	for (const row of rows.rows) {
+		if (
+			row.direct_source_path_id &&
+			pathIds.includes(row.direct_source_path_id)
+		) {
+			gone.delete(row.direct_source_path_id);
+		}
+	}
+	for (const row of rows.rows) {
+		const ownerId = Number(row.path_id);
+		const sourceId = row.direct_source_path_id
+			? Number(row.direct_source_path_id)
+			: null;
+		if (sourceId && pathIds.includes(sourceId)) {
+			if (row.publishing) {
+				await db
+					.update(pathState)
+					.set({ directSourcePathId: null })
+					.where(
+						and(
+							eq(pathState.pathId, ownerId),
+							eq(pathState.directSourcePathId, sourceId),
+						),
+					);
+			} else {
+				gone.add(ownerId);
+			}
+		} else if (pathIds.includes(ownerId) && sourceId && row.source_publishing) {
+			gone.delete(ownerId);
+		}
+	}
+	return [...gone];
+}
+
 async function reconcileRelay(relayId: number, apiUrl: string) {
 	const response = await fetch(`${apiUrl.replace(/\/$/, "")}/v3/paths/list`, {
 		signal: AbortSignal.timeout(2000),
@@ -158,12 +283,15 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 			and(
 				eq(relayPath.relayId, relayId),
 				isNull(relayPath.revokedAt),
-				liveSlugs.length > 0
-					? or(
-							inArray(relayPath.slug, liveSlugs),
-							eq(pathState.publishing, true),
-						)
-					: eq(pathState.publishing, true),
+				or(
+					eq(pathState.publishing, true),
+					isNotNull(pathState.directSourcePathId),
+					sql`exists (
+						select 1 from ${pathState} direct_owner
+						where direct_owner.direct_source_path_id = ${relayPath.id}
+					)`,
+					liveSlugs.length > 0 ? inArray(relayPath.slug, liveSlugs) : undefined,
+				),
 			),
 		);
 	const now = new Date();
@@ -178,6 +306,7 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 	// device that has been off for an hour re-announces on every tick.
 	const becameLive = publishing.filter((path) => !path.publishing);
 	let justStopped: number[] = [];
+	let promotedSourceIds: number[] = [];
 
 	await db.transaction(async (tx) => {
 		if (present.length > 0) {
@@ -233,6 +362,24 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 		}
 
 		if (publishingIds.length > 0) {
+			promotedSourceIds = (
+				await tx
+					.update(pathState)
+					.set({
+						directSourcePathId: sql`${pathState.directHandoverTargetPathId}`,
+						directHandoverTargetPathId: null,
+						directHandoverUntil: null,
+						brbHighlightsResultAt: sql`case when ${pathState.brbSince} is not null then ${now} else ${pathState.brbHighlightsResultAt} end`,
+						brbSince: null,
+					})
+					.where(
+						and(
+							inArray(pathState.directHandoverTargetPathId, publishingIds),
+							gt(pathState.directHandoverUntil, now),
+						),
+					)
+					.returning({ sourcePathId: pathState.directSourcePathId })
+			).flatMap(({ sourcePathId }) => (sourcePathId ? [sourcePathId] : []));
 			await tx.execute(sql`
 				insert into ${relayStreamSession} (path_id, source_type, started_at)
 				select ${pathState.pathId}, ${pathState.sourceType}, ${now}
@@ -262,8 +409,13 @@ async function reconcileRelay(relayId: number, apiUrl: string) {
 
 	// A missed not-ready hook must free Direct capacity too — through the same
 	// helper, or this poll would tear down a BRB card the hook just raised.
-	await handleSourceGone(stoppedIds, justStopped);
+	const goneIds = await directGonePathIds(stoppedIds);
+	await handleSourceGone(
+		goneIds,
+		justStopped.flatMap((id) => (goneIds.includes(id) ? [id] : [])),
+	);
 	for (const path of becameLive) {
+		if (promotedSourceIds.includes(path.id)) continue;
 		if (path.brbSince) {
 			void announceStreamEvent(path.id, "back", {
 				downtime: formatDuration(now.getTime() - path.brbSince.getTime()),

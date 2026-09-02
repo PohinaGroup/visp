@@ -25,7 +25,10 @@
 		},
 		"production": {
 			"autoIncrement": true,
-			"environment": "production"
+			"environment": "production",
+			"ios": {
+				"scheme": "VISP"
+			}
 		}
 	},
 	"submit": {
@@ -34,7 +37,9 @@
 				"track": "production"
 			},
 			"ios": {
-				"groups": ["VISP Internal"]
+				"ascAppId": "6791948092",
+				"appleTeamId": "VKN9G4GC43",
+				"bundleIdentifier": "com.pohinagroup.visp"
 			}
 		}
 	}
