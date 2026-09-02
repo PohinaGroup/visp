@@ -1,5 +1,6 @@
 import * as UI from "@expo/ui";
 import type { CaptionLanguage } from "../lib/speech-preferences";
+import { SettingsPicker } from "./settings-picker";
 import type { CameraSettings } from "./stream-settings-camera-section";
 import {
 	IS_IOS,
@@ -33,18 +34,18 @@ export function AudioSection({
 	return (
 		<UI.FieldGroup.Section title="Audio">
 			<SettingRow label="Microphone">
-				<UI.Picker
+				<SettingsPicker
 					enabled={!camera.settingsDisabled}
 					onValueChange={(audioInputId) =>
 						camera.onApplyAudioInput(String(audioInputId))
 					}
 					selectedValue={camera.selectedAudioInputId}
 				>
-					<UI.Picker.Item label="System default" value="default" />
+					<SettingsPicker.Item label="System default" value="default" />
 					{camera.audioInputs.map(({ id, name }) => (
-						<UI.Picker.Item key={id} label={name} value={id} />
+						<SettingsPicker.Item key={id} label={name} value={id} />
 					))}
-				</UI.Picker>
+				</SettingsPicker>
 			</SettingRow>
 			{camera.settingsDisabled ? (
 				<UI.FieldGroup.SectionFooter>
@@ -53,15 +54,13 @@ export function AudioSection({
 					</UI.Text>
 				</UI.FieldGroup.SectionFooter>
 			) : null}
-			{IS_IOS ? (
-				<SettingRow label="Audio isolation">
-					<UI.Switch
-						disabled={camera.settingsDisabled}
-						onValueChange={speech.onSetAudioIsolationEnabled}
-						value={speech.audioIsolationEnabled}
-					/>
-				</SettingRow>
-			) : null}
+			<SettingRow label="Audio isolation">
+				<UI.Switch
+					disabled={camera.settingsDisabled}
+					onValueChange={speech.onSetAudioIsolationEnabled}
+					value={speech.audioIsolationEnabled}
+				/>
+			</SettingRow>
 			{speech.betterAudioIsolationAvailable &&
 			IS_IOS &&
 			speech.audioIsolationEnabled ? (
@@ -73,29 +72,29 @@ export function AudioSection({
 					/>
 				</SettingRow>
 			) : null}
-			{IS_IOS ? (
-				<UI.FieldGroup.SectionFooter>
-					<UI.Text textStyle={SUBTLE_TEXT}>
-						{speech.betterAudioIsolationAvailable &&
-						speech.audioIsolationEnabled &&
-						speech.betterAudioIsolationEnabled
+			<UI.FieldGroup.SectionFooter>
+				<UI.Text textStyle={SUBTLE_TEXT}>
+					{IS_IOS
+						? speech.betterAudioIsolationAvailable &&
+							speech.audioIsolationEnabled &&
+							speech.betterAudioIsolationEnabled
 							? "Uses hosted processing to remove background noise. Adds about half a second of delay and uses upload bandwidth."
-							: "Uses the iPhone's built-in voice isolation. Pick Voice Isolation in Control Center if the system asks."}
-					</UI.Text>
-				</UI.FieldGroup.SectionFooter>
-			) : null}
+							: "Uses the iPhone's built-in voice isolation. Pick Voice Isolation in Control Center if the system asks."
+						: "Uses Android's built-in echo cancellation and noise suppression. Hosted Better isolation is available only on iPhone."}
+				</UI.Text>
+			</UI.FieldGroup.SectionFooter>
 			{!IS_WEB ? (
 				<SettingRow label="Subtitles">
-					<UI.Picker
+					<SettingsPicker
 						onValueChange={(language) =>
 							speech.onSetCaptionLanguage(language as CaptionLanguage)
 						}
 						selectedValue={speech.captionLanguage}
 					>
-						<UI.Picker.Item label="Off" value="off" />
-						<UI.Picker.Item label="Suomi" value="fi" />
-						<UI.Picker.Item label="English" value="en" />
-					</UI.Picker>
+						<SettingsPicker.Item label="Off" value="off" />
+						<SettingsPicker.Item label="Suomi" value="fi" />
+						<SettingsPicker.Item label="English" value="en" />
+					</SettingsPicker>
 				</SettingRow>
 			) : null}
 			{speech.betterSubtitlesAvailable &&

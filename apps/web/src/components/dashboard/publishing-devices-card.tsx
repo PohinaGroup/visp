@@ -5,6 +5,7 @@ import { Divider } from "@astryxdesign/core/Divider";
 import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -33,6 +34,14 @@ export function PublishingDevicesCard({
 	const [probing, setProbing] = useState(false);
 	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
 	const advancedMode = statusQuery.data?.advancedMode ?? false;
+	const setAdvanced = useMutation(
+		trpc.secrets.setAdvancedMode.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
 	const pathsQuery = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
 	);
@@ -185,6 +194,21 @@ export function PublishingDevicesCard({
 						onClick={() => void createOnFastestRelay()}
 					/>
 				</HStack>
+				<Divider />
+
+				<Switch
+					isDisabled={setAdvanced.isPending}
+					label={t("Show RTMP and SRTLA fallback URLs")}
+					labelSpacing="spread"
+					value={advancedMode}
+					onChange={(value) => setAdvanced.mutate({ advancedMode: value })}
+				/>
+				<Text color="secondary" type="supporting">
+					{t(
+						"SRT is the default. Turn this on if your network blocks UDP, or if you bond several connections with SRTLA.",
+					)}
+				</Text>
+
 				<HStack gap={2} wrap="wrap">
 					<Button
 						label={t("Redo setup")}
@@ -192,7 +216,7 @@ export function PublishingDevicesCard({
 						onClick={onRedoSetup}
 					/>
 					<Text color="secondary" type="supporting">
-						Offers wipe or keep existing devices.
+						{t("Offers wipe or keep existing devices.")}
 					</Text>
 				</HStack>
 			</VStack>

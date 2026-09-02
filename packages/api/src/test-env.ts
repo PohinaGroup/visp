@@ -22,6 +22,7 @@ process.env.PUBLISH_URL_ENCRYPTION_KEY ??=
 	"dGVzdC1wdWJsaXNoLXVybC1rZXktMzItYnl0ZXMhISE=";
 process.env.RELAY_HOST ??= "relay.test";
 process.env.RELAY_PING_URL ??= "https://relay.test/ping";
+process.env.RESEND_API_KEY ??= "re_test";
 process.env.S3_ACCESS_KEY_ID ??= "test-access-key";
 process.env.S3_BUCKET ??= "test-snapshots";
 process.env.S3_ENDPOINT ??= "https://objects.test";

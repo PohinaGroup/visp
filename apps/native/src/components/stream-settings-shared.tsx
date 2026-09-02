@@ -25,7 +25,6 @@ export function providerLabel(provider: DirectProvider) {
 			: "YouTube";
 }
 
-// ponytail: iOS Forms put picker labels inline; Material dropdowns read better with the label above.
 export function SettingRow({
 	label,
 	children,
@@ -33,20 +32,12 @@ export function SettingRow({
 	label: string;
 	children: ReactNode;
 }) {
-	if (IS_IOS) {
-		return (
-			<UI.Row alignment="center">
-				<UI.Text>{label}</UI.Text>
-				<UI.Spacer flexible />
-				{children}
-			</UI.Row>
-		);
-	}
 	return (
-		<UI.Column spacing={4}>
-			<UI.Text textStyle={SUBTLE_TEXT}>{label}</UI.Text>
+		<UI.Row alignment="center">
+			<UI.Text>{label}</UI.Text>
+			<UI.Spacer flexible />
 			{children}
-		</UI.Column>
+		</UI.Row>
 	);
 }
 

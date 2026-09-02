@@ -1,55 +1,9 @@
+**1. Put the stream on the dashboard.** The first thing on `dashboard-page.tsx:106` is a settings question ("Primary operational mode"). The daily job is *am I up, how healthy, stop*. Everything needed already exists: `studio/whep-preview.tsx` (live video), `snapshots.ts` (still frames, used by BRB), and `paths.list` already returns `linkStats` per path. Hoist a single live tile above the fold — picture + bitrate/RTT + one End button. No new backend.
 
-Custom RTMP + more destinations
-Chat bot alerts
-SRTLA (or a clear Moblin/BELABOX path)
-Billing tiers
+**2. Make bitrate a meter, not a string.** `path-row.tsx:45` renders link stats as text buried in the devices card. The brand mark is literally a level meter and `linkStats` already polls every 3s. A 60s bitrate sparkline with the existing tally/caution/signal colors is the thing that makes it feel like broadcast gear instead of a settings page. ~30 lines, no new data.
 
+**3. Demote the mode picker.** "Direct vs Home Studio" is a setup decision being re-asked every session, at the top, on the busiest surface. It belongs in setup/advanced — which is what the progressive-disclosure rule you set already says.
 
+**4. Pre-flight before Go Live.** The lander promises "fail early, before viewers arrive" (`routes/index.tsx`), but the dashboard never shows that check passing. Surface the auth/ownership/capacity check as a visible green readiness row. Turns an invisible backend virtue into the reason people trust it.
 
-
-# TODO - SRTLA
-## Install the receiver on **every** relay box
-
-This is manual, like `visp-bond` — the release workflow does not restart media services. On each relay:
-
-```bash
-git clone https://github.com/BELABOX/srtla.git /tmp/srtla
-git -C /tmp/srtla checkout 37862da3d0c13b46956efd3f88877053293d97d6
-make -C /tmp/srtla srtla_rec
-sudo install -m 0755 /tmp/srtla/srtla_rec /usr/local/bin/srtla_rec
-
-sudo install -m 0644 /opt/visp/deploy/systemd/srtla-rec.service \
-  /etc/systemd/system/srtla-rec.service
-sudo systemctl daemon-reload
-sudo systemctl enable --now srtla-rec
-sudo systemctl status --no-pager srtla-rec
-```
-
-Then open **UDP 5000** in both the host firewall and the UpCloud firewall.
-
-## 3. Verify on the relay before touching the app
-
-```bash
-sudo journalctl -u srtla-rec -n 20
-```
-
-You want `srtla_rec is now running` and, at startup, `Trying to connect to SRT at 127.0.0.1:8890... success`. If it says it can't reach the SRT server, MediaMTX isn't up — fix that first, the receiver will still start but nothing will publish.
-
-## 4. Ship the app release
-
-Publish a `vX.Y.Z` GitHub Release as usual. **Order matters:** the portal now advertises `srtla://<relay>:5000` for every path, so if step 2 hasn't happened on a relay, users of that relay get a dead link. Steps 2–3 on all relays, then the release.
-
-## 5. Test with a real phone
-
-In Moblin: paste the SRTLA link from the setup wizard (or dashboard → Advanced → *Bonding two connections with BELABOX or Moblin?*) as the stream URL, then enable both Wi-Fi and mobile under **Settings → Streams → your stream → SRT(LA)**. Go live, confirm the path shows as publishing, then turn Wi-Fi off mid-stream — the feed should survive on cellular alone.
-
-## 6. Commit
-
-Two things to know before you do:
-
-- **Your index is already fully staged** — I didn't run `git add`, but everything is sitting in it, including your pre-existing Apple Watch branch changes (`project.pbxproj`, `Info.plist`, the watch app icon). Those are genuinely yours, not biome collateral: biome ignores all three paths (I verified). You probably want them in a separate commit, so `git reset` first and stage deliberately.
-- You're on `agent/apple-watch-irl-streaming`, which is unrelated to this work. Consider branching off `main` for the SRTLA change.
-
-The SRTLA files are: `deploy/relay/srtla-rec/Dockerfile`, `deploy/relay/srtla-rec.test.sh`, `deploy/systemd/srtla-rec.service`, `compose.yml`, `deploy/README.md`, `deploy/UPDATE.md`, `packages/api/src/relay.ts`, `packages/api/src/relay.test.ts`, `apps/web/src/components/credential-reveal.tsx`, `apps/web/src/components/dashboard/path-row.tsx`, `apps/web/src/routes/_auth/setup.tsx`, `apps/fumadocs/content/docs/broadcaster-setup{,.fi}.mdx`, `scripts/test-integration.sh`.
-
-One caveat worth repeating: don't run `bun run check` at the repo root — it rewrites 100+ unrelated files. Scope biome to the files you touched.
+**5. Lander: one 8-second loop of a real go-live** replacing the three static shots in `productShots`. Static screenshots of a live-video product undersell it.

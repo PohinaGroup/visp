@@ -2,7 +2,7 @@ import { List, ListItem } from "@astryxdesign/core/List";
 import { Text } from "@astryxdesign/core/Text";
 import { docs } from "@/lib/docs";
 import { useLocale, useT } from "@/lib/i18n";
-import { AdvancedSection } from "./advanced-section";
+import { DetailSection, type DetailSectionState } from "./detail-section";
 
 const SETUP_TIPS = [
 	"Use the Media condition, not Source, to detect whether bytes are arriving.",
@@ -12,7 +12,7 @@ const SETUP_TIPS = [
 	"Only one publisher can own a path at once; RTMP is the fallback when UDP is blocked.",
 ] as const;
 
-export function SetupCard() {
+export function SetupCard(open: DetailSectionState) {
 	const t = useT();
 	const fi = useLocale() === "fi";
 	const tips = fi
@@ -25,11 +25,12 @@ export function SetupCard() {
 			]
 		: SETUP_TIPS;
 	return (
-		<AdvancedSection
+		<DetailSection
+			{...open}
 			docsHref={docs.broadcasterSetup}
 			docsLabel="See the full encoders and fallback guide"
 			id="dashboard-setup"
-			tag="Advanced · Reference"
+			tag={t("Reference")}
 			title={t("OBS and scene switcher setup")}
 			value="reference"
 		>
@@ -43,6 +44,6 @@ export function SetupCard() {
 					<ListItem key={tip} label={tip} />
 				))}
 			</List>
-		</AdvancedSection>
+		</DetailSection>
 	);
 }

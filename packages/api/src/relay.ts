@@ -9,7 +9,7 @@ import {
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { randomBytes } from "node:crypto";
-import { and, count, eq, inArray, isNull, max, sql } from "drizzle-orm";
+import { and, count, eq, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
 import { DirectError, prepareDirect, saveDirectPreferences } from "./direct";
 import { decryptSecret, encryptSecret } from "./encrypted-secret";
@@ -98,15 +98,19 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 		return existing;
 	}
 
-	const streamingAccount = await db.query.account.findFirst({
-		where: and(
-			eq(account.userId, userId),
-			inArray(account.providerId, ["twitch", "kick", "google"]),
-		),
+	const linked = await db.query.account.findMany({
+		columns: { providerId: true },
+		where: eq(account.userId, userId),
 	});
-	if (!streamingAccount) {
+	if (linked.length === 0) {
 		throw new Error("Streaming account required");
 	}
+	// An email-only account has nowhere to stream yet, so it opens empty: no
+	// relay assignment, no publishing device. It gets one when the person asks
+	// for one, in setup or from the dashboard.
+	const canStream = linked.some((entry) =>
+		["twitch", "kick", "google"].includes(entry.providerId),
+	);
 
 	const base = slugify(displayName);
 	const discriminator =
@@ -143,15 +147,17 @@ export async function ensureRelayUser(userId: string, displayName: string) {
 				if (!created) {
 					throw new Error("Failed to create relay user");
 				}
-				const assignedRelay = await chooseRelay(userId, undefined, tx);
-				if (!assignedRelay) throw new Error("Relay capacity reached");
-				await tx.insert(relayPath).values({
-					relayId: assignedRelay.id,
-					userId,
-					seq: 1,
-					slug: `${handle}-1`,
-					label: "main",
-				});
+				if (canStream) {
+					const assignedRelay = await chooseRelay(userId, undefined, tx);
+					if (!assignedRelay) throw new Error("Relay capacity reached");
+					await tx.insert(relayPath).values({
+						relayId: assignedRelay.id,
+						userId,
+						seq: 1,
+						slug: `${handle}-1`,
+						label: "main",
+					});
+				}
 				return created;
 			});
 		} catch (error) {

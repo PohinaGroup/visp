@@ -1,0 +1,270 @@
+---
+title: "Näin testaat IRL-striimin ennen Twitch- tai Kick-lähetystä"
+description: "Testaa puhelimen IRL-striimi VISP:n ja OBS:n kautta ensin julkistamatta sitä. Tarkista sitten Twitch Inspector tai tee lyhyt Kick-koelähetys."
+publishedAt: 2026-09-01
+coverAlt: "IRL-kuvaaja lähettää puhelimesta öistä kaupunkikuvaa kotistudioon, jossa signaali pysähtyy tallennukseen ennen katsojia"
+---
+
+Turvallisin IRL-striimin testi etenee vaiheittain. Lähetä ensin puhelimen kuva
+VISP:n kautta OBS:ään ilman yhtäkään alustalähtöä. Tallenna koko ohjelma OBS:llä
+ja katso tallenne. Testaa lopullinen kohde vasta tämän jälkeen. Twitch tarjoaa
+piilotetun kaistatestin Twitch Inspectorissa. Kickin virallisessa OBS-työnkulussa
+**Aloita striimi** käynnistää julkisen lähetyksen, joten Kickin ingest-testi on
+aina syytä käsitellä lyhyenä julkisena koelähetyksenä.
+
+Älä aloita julkisella testillä. Julkaisematon tallenne paljastaa useimmat
+kalliit virheet: äänettömän mikrofonin, väärän kameran, peittävän grafiikan,
+toimimattoman varanäkymän, epävakaan reitin tai kuvassa näkyvän yksityisen
+tiedon.
+
+![Puhelimen kuva kulkee relayn kautta OBS-tallennukseen, mutta viimeinen yhteys katsojille pysyy poissa käytöstä](./irl-stream-test-path.svg)
+
+## Lyhyt vastaus
+
+Etene tässä järjestyksessä:
+
+1. Poista testattavan VISP-laitteen Direct-lähdöt käytöstä.
+2. Käynnistä puhelimen lähetys ja varmista, että VISP-hallintapaneeli näyttää
+   laitteen olevan linjoilla.
+3. Tarkista OBS:n medialähde, äänimittarit, näkymät ja varanäkymä.
+4. Tallenna realistinen, 10 minuutista 15 minuuttiin kestävä reitti
+   käynnistämättä OBS-striimiä.
+5. Kuuntele tallenne kuulokkeilla ja tarkista OBS:n **Näytä → Tilastot**.
+6. Tee Twitch Inspectorin kaistatesti tai suunnittele lyhyt Kick-koelähetys.
+7. Palauta lopulliset alustalähdöt vasta, kun julkaisematon testi läpäisee
+   tarkistukset.
+
+Järjestys erottaa kolme kysymystä toisistaan. Pääseekö puhelimen kuva OBS:ään?
+Tuottaako OBS ehjän ohjelman? Vastaanottaako ja toistaako alusta ohjelman? Yksi
+vihreä esikatselu ei vastaa kaikkiin kolmeen.
+
+## Pidä ensimmäinen testi poissa julkisesta lähetyksestä
+
+VISP:ssä on kaksi lähtötapaa. Niiden ero ratkaisee, pysyykö harjoitus pois
+kanavalta.
+
+Tavallisessa puhelimesta OBS:ään kulkevassa reitissä puhelin pakkaa H.264-kuvan
+ja AAC-äänen. VISP välittää tämän contribution-syötteen OBS:n medialähteeseen
+transkoodaamatta. OBS hallitsee näkymiä, tallennusta, lopullista enkoodausta ja
+Twitch- tai Kick-kohdetta. Voit siis käyttää puhelinta ja tallentaa OBS:llä
+lähettämättä mitään alustalle.
+
+[VISP Directissä](https://docs.visp-stream.com/fi/docs/direct-output) relay
+käynnistää oman distribution-enkoodauksen jokaiselle valitulle kohteelle, kun
+lähettävä laite yhdistyy. **Go Live** voi silloin aloittaa Twitch- tai
+Kick-lähetyksen ilman OBS:ää. Pysäytä laite ennen julkaisemattoman testin
+valmistelua. Avaa sitten **Asetukset → Stream to** ja poista Twitch, Kick,
+YouTube sekä mukautetut Direct-kohteet käytöstä tältä laitteelta.
+
+Valitsimet on lukittu laitteen lähettäessä. Tämä estää aktiivisen lähdön
+siirtämisen kesken lähetyksen. Nykyiset
+[Direct-asetukset](https://github.com/PohinaGroup/visp/blob/main/apps/native/src/components/stream-settings-direct-section.tsx)
+ja [Direct-omistajuuden logiikka](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/direct.ts)
+toteuttavat tämän rajan.
+
+Jos **Never drop again** pitää vanhaa Direct-lähetystä BRB-kortilla, lopeta
+lähetys ennen testiasetusten muuttamista. Direct-lähtöjen poistaminen käytöstä
+laitteen ollessa pysäytettynä luo selkeimmän testitilan.
+
+## Testaa puhelimesta OBS:ään kulkeva reitti
+
+Kokoa sama varustus, jota aiot kantaa lähetyksessä. Käytä samaa puhelinta,
+kameraa, pidikettä, mikrofonia, virtapankkia, suojakuorta, mobiiliyhteyttä,
+resoluutiota, kuvataajuutta ja bittinopeutta. Pöytätesti kodin Wi-Fi-verkossa
+todistaa vain eri kokoonpanon toimivuuden.
+
+1. Avaa OBS:ssä lähetyksessä käytettävä näkymäkokoelma.
+2. Käynnistä VISP-puhelinsovelluksen lähetys, mutta älä käynnistä OBS-striimiä.
+3. Varmista, että VISP-hallintapaneelin laiterivillä lukee **Live**.
+4. Odota, että puhelimen medialähteessä näkyy liikkuva kuva ja äänimittari
+   liikkuu.
+5. Aloita OBS-tallennus.
+6. Kulje oikean reitin heikoin kohta vähintään 10 minuutin ajan.
+
+[VISP-puhelinsovelluksen ohje](https://docs.visp-stream.com/fi/docs/phone-app)
+kuvaa automaattisen laitesidonnan. [Enkoodereiden ja varanäkymän
+ohje](https://docs.visp-stream.com/fi/docs/broadcaster-setup) käsittelee OBS:n
+medialähdettä, SRT-viivettä, uudelleenyhdistämistä ja varanäkymää.
+
+Älä paina puhelimesta **Start OBS stream** tässä vaiheessa. Painike pyytää
+paritettua OBS-lisäosaa käynnistämään OBS:ään asetetun alustalähdön. Puhelimen
+contribution-syöte ja OBS:n lähtö ovat erillisiä. Siksi julkaisematon testi on
+mahdollinen.
+
+## Tee harjoituksesta oikean lähetyksen kaltainen
+
+Hiljaisessa huoneessa paikallaan seisominen piilottaa ulkona merkittävät
+virheet. Tee harjoituksessa samat asiat kuin lähetyksessä:
+
+- kävele reitin tunnetun heikon mobiilialueen läpi;
+- käänny, panoroi ja siirry kirkkaan sekä hämärän paikan välillä;
+- puhu tavalliselta etäisyydeltä liikenteen tai väkijoukon kuuluessa;
+- vaihda jokainen OBS-näkymä, jota kuvaaja tai kotituottaja tarvitsee;
+- laukaise yksi hälytys ja tarkista, ettei se peitä kasvoja tai tekstitystä;
+- katkaise puhelimen yhteys niin pitkäksi aikaa, että varanäkymä tulee esiin;
+- yhdistä uudelleen ja varmista, että OBS palaa live-näkymään käynnistämättä
+  alustalähtöä uudelleen.
+
+Tallenna myös vikatesti. OBS:n esikatselu voi näyttää kelvolliselta, vaikka
+tallenteessa puhe leikkaa, ääni kuuluu vain toisesta kanavasta, mikrofoni on
+myöhässä tai siirtymä paljastaa tyhjän lähteen.
+
+OBS:n virallinen [pika-aloitusopas](https://obsproject.com/kb/quick-start-guide)
+suosittelee usean minuutin testiä ennen ensimmäistä striimiä tai tallennusta.
+Sen [äänimikserin ohje](https://obsproject.com/kb/audio-mixer-guide) neuvoo
+tallentamaan tavallisen session ja kuuntelemaan sen ennen lähetystä.
+
+## Katso tallenne, älä luota pelkkään esikatseluun
+
+Katso koko tiedosto normaalilla nopeudella ja kuulokkeilla. Älä tarkista vain
+ensimmäistä ja viimeistä minuuttia.
+
+Varmista nämä asiat:
+
+- puhe kuuluu selkeästi sekä vasemmasta että oikeasta kanavasta;
+- rajaus säilyy kävellessä ja kääntyessä;
+- tekstitys, chat ja hälytykset erottuvat sekä kirkkaalla että tummalla
+  taustalla;
+- varanäkymä ilmestyy yhteyden katkettua ja poistuu yhteyden palauduttua;
+- osoite, rekisterikilpi, ilmoitus, heijastus tai sivullinen ei jää kuvaan
+  tarkoitettua pidemmäksi aikaa;
+- kuva ei jäädy äänen jatkuessa;
+- puhelin saavuttaa normaalin käyttölämpötilan ilman kuvataajuuden romahtamista.
+
+Avaa **Näytä → Tilastot** ennen testiä. Tallennus kuormittaa näkymien
+renderöintiä ja enkoodausta, joten renderöinti- ja enkoodausviiveet ovat
+merkityksellisiä myös alustalähdön ollessa pois päältä. OBS:n verkkoperusteiset
+pudotetut ruudut koskevat sen lähtevää striimiä, joten tämä mittari tulee
+mukaan alustatestissä. [OBS:n enkoodausohje](https://obsproject.com/kb/encoding-performance-troubleshooting)
+erottaa tietokoneen kuorman yhteysongelmasta.
+
+Seuraa VISP:stä puhelimen ja relayn bittinopeutta, edestakaista viivettä,
+hävikkiä sekä uudelleenyhdistämisiä. Jos kuva katkeaa ennen OBS:ää, paikanna
+puhelimesta relayhin ja relaysta OBS:ään kulkevat tarkistuspisteet
+[IRL-striimin pudotettujen ruutujen ohjeella](/fi/blog/obs-dropped-frames-irl-streaming).
+
+## Tee piilotettu Twitch-kaistatesti
+
+Twitch tukee testistriimiä, joka ei näy kanavalla julkisena lähetyksenä.
+Twitchin [lähetysavaimen ohje](https://help.twitch.tv/s/article/twitch-stream-key-faq?language=en_US)
+neuvoo lisäämään avaimen loppuun `?bandwidthtest=true`. Käynnistä OBS-striimi
+tällä testiavaimella ja avaa sitten
+[Twitch Inspector](https://inspector.twitch.tv/) lähetyksen kunnon tarkistamista
+varten.
+
+Pidä varsinainen lähetysavain salassa. Älä liitä sitä chattiin,
+kuvakaappaukseen, muistiinpanoihin tai jaettuun tarkistuslistaan. Noudata
+Twitchin nykyisiä hallintapaneelin ohjeita, jos avain pitää näyttää.
+
+Jatka testiä niin pitkään, että se kattaa oikean reitin ja kotiverkon oleelliset
+olosuhteet. Twitch Inspector lisää OBS:stä Twitchin ingest-palvelimeen kulkevan
+osuuden testiin. Se ei korvaa OBS-tallenteen katsomista. Ingest voi olla vakaa,
+vaikka ohjelmassa olisi huono ääni tai yksityistä tietoa.
+
+Palauta testin jälkeen tavallinen Twitch-yhteys. Varmista ennen suunniteltua
+lähetystä, että `?bandwidthtest=true` on poistettu.
+
+## Käsittele Kickin ingest-testiä julkisena lähetyksenä
+
+Kickin virallinen [OBS-asennusohje](https://help.kick.com/en/articles/7066931-how-to-stream-on-kick-com)
+määrittelee OBS:n **Start Streaming** -painikkeen **Go Live** -vaiheeksi. Ohje
+ei lisää OBS:n ja julkisen kanavan väliin yksityistä harjoitustilaa.
+
+Pidä siksi ensimmäinen Kick-testi VISP:n ja OBS:n sisällä. Tallenna ohjelma
+julkistamatta sitä. Korjaa paikalliset ongelmat ja tarkista Kickin otsikko,
+kategoria, palvelinosoite, lähetysavain, H.264-lähtö, CBR sekä kahden sekunnin
+keyframe-väli ennen viimeistä vaihetta.
+
+Kun Kickin ingest ja soitin pitää todistaa, suunnittele lyhyt julkinen
+koelähetys. Kerro moderaattoreille testistä, älä mainosta sitä ja lopeta heti,
+kun julkinen soitin, ääni ja palautuminen on varmistettu. Kickin mukaan OBS:n
+pysäyttäminen lopettaa lähetyksen ja tallentaa VODin. Tarkista testitallenne
+kanavasi käytännön mukaisesti.
+
+Älä kutsu Kick-testiä yksityiseksi, ellei Kick julkaise erityistä
+yksityistestausominaisuutta ja käytä sitä. Hiljainen koelähetys on edelleen
+julkinen lähetys.
+
+## Testaa VISP Direct erikseen
+
+OBS-tallenne näyttää alkuperäisen contribution-syötteen. Se ei näytä erillistä
+enkoodausta, jonka VISP Direct lähettää katsojille. Jos aiot käyttää Directiä,
+tee ensin julkaisematon puhelimesta OBS:ään kulkeva tallennus. Ota sen jälkeen
+tarkoitettu Direct-kohde käyttöön ja tee lyhyt alustatesti.
+
+Katso oikeaa Twitch- tai Kick-soitinta mykistetyllä toisella laitteella ja eri
+verkkoyhteydellä. Tarkista julkinen resoluutio, ääni, otsikko, kategoria,
+katsojille näkyvät grafiikat sekä palautuminen. Mykistys estää soittimen ääntä
+kiertämästä takaisin puhelimen mikrofoniin.
+
+Direct-kohteet epäonnistuvat erikseen, ja jokainen käyttää omaa relay-paikkaa.
+Toimiva Twitch-lähtö ei todista Kick-lähdön käynnistyneen. Tarkista
+monistriimauksessa jokainen kohde erikseen.
+
+## Käytä hyväksymislistaa
+
+Pidä tarkistuslista niin lyhyenä, että käytät sitä ennen jokaista tapahtumaa.
+
+| Tarkistuspiste | Hyväksymisehto |
+| --- | --- |
+| Puhelin → VISP | Laite pysyy linjoilla oikealla reitillä, ja bittinopeus, RTT, hävikki sekä lämpö pysyvät hyväksytyissä rajoissa |
+| VISP → OBS | Kuva ja ääni palaavat pakotetun katkoksen jälkeen ilman lähteen luomista uudelleen |
+| OBS-ohjelma | Koko tallenteessa on puhdas ääni, oikeat näkymät, luettavat grafiikat eikä yksityisiä tietoja |
+| OBS:n suorituskyky | Renderöinti- ja enkoodausviive pysyvät nollassa tai ennalta hyväksytyssä testirajassa |
+| Twitch | Inspector näyttää vakaan piilotetun kaistatestin lopullisilla lähtöasetuksilla |
+| Kick | Suunniteltu lyhyt koelähetys näkyy julkisessa soittimessa oikeilla tiedoilla ja äänellä |
+| Direct | Jokainen valittu kohde käynnistyy, toistuu ja palautuu itsenäisesti |
+
+Jos yksi rivi hylätään, korjaa kyseinen tarkistuspiste ja toista vain siihen
+liittyvä vaihe. Älä muuta bittinopeutta, kuvataajuutta, SRT-viivettä,
+äänisuodattimia ja näkymiä samalla kertaa. Yksi muutos antaa tuloksen, jonka
+syyn voi tunnistaa.
+
+## Usein kysyttyä
+
+### Voiko Twitch-striimiä testata menemättä liveen?
+
+Kyllä. Twitchin virallinen menetelmä lisää lähetysavaimen loppuun
+`?bandwidthtest=true` ja näyttää tuloksen Twitch Inspectorissa. Testi tarkistaa
+ingestin kunnon avaamatta kanavaa julkiseksi lähetykseksi.
+
+### Voiko Kick-striimin testata yksityisesti?
+
+Kickin nykyinen OBS-ohje käsittelee **Start Streaming** -painiketta toimintona
+**Go Live**. Tee ensimmäinen harjoitus julkaisemattomana OBS:ssä. Käsittele
+lopullista Kick-ingest-testiä lyhyenä julkisena lähetyksenä, ellei Kick
+dokumentoi muuta tilaa.
+
+### Tekeekö VISP-puhelinsovelluksen käynnistäminen lähetyksestä julkisen?
+
+Se riippuu laitteen lähdöistä. Ilman Direct-kohdetta puhelin lähettää relayhin,
+ja OBS voi lukea syötettä menemättä liveen Twitchissä tai Kickissä. Kun Direct
+on käytössä, julkaiseminen käynnistää valitut alustalähdöt.
+
+### Todistaako OBS-tallenne sen, mitä Direct-katsojat näkevät?
+
+Ei. OBS lukee contribution-syötettä, kun taas Direct tekee alustalle erillisen
+enkoodauksen. Katso lopullisessa Direct-testissä oikeaa alustasoitinta.
+
+### Kuinka pitkän IRL-testin pitää olla?
+
+Perustestiin kannattaa varata 10 minuutista 15 minuuttiin. Tärkeää tapahtumaa
+varten testaa oikea reitti, heikko verkkoalue, puhelimen normaali käyttölämpö,
+näkymänvaihdot, ääniolosuhteet ja yksi pakotettu uudelleenyhdistäminen.
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP-puhelinsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISP Direct](https://docs.visp-stream.com/fi/docs/direct-output)
+- [VISP-enkooderit ja varanäkymä](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [Twitch Stream Key FAQ](https://help.twitch.tv/s/article/twitch-stream-key-faq?language=en_US)
+- [Twitch Inspector -ohje](https://help.twitch.tv/s/article/guide-to-using-twitch-inspector?language=en_US)
+- [Kickin OBS-asennus](https://help.kick.com/en/articles/7066931-how-to-stream-on-kick-com)
+- [OBS Quick Start Guide](https://obsproject.com/kb/quick-start-guide)
+- [OBS Audio Mixer Guide](https://obsproject.com/kb/audio-mixer-guide)
+- [OBS:n enkoodauksen vianmääritys](https://obsproject.com/kb/encoding-performance-troubleshooting)
+
+Kun haluat harjoitella oikeaa puhelimesta studioon kulkevaa reittiä ennen
+seuraavaa lähetystäsi, [kokeile VISP:iä](https://visp-stream.com). Pidä Direct
+pois päältä ensimmäisen tallennuksen aikana. Todista reitti OBS:ssä ja ota
+julkinen kohde käyttöön vasta viimeistä tarkistusta varten.

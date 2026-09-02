@@ -99,8 +99,7 @@ install -m 0644 "$repo/deploy/systemd/visp-web.service" \
 systemctl daemon-reload
 
 systemctl restart visp-server visp-web
-systemctl reload caddy
-systemctl is-active --quiet visp-server visp-web caddy
+systemctl is-active --quiet visp-server visp-web
 
 if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
 	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
@@ -116,5 +115,19 @@ if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
 	journalctl -u visp-web -n 80 --no-pager >&2 || true
 	exit 1
 fi
+
+# Reload Caddy only after upstreams are ready so proxied routes do not 502,
+# then confirm static vhosts (including the browser publisher) answer through
+# Caddy before the deploy is considered complete.
+systemctl reload caddy
+systemctl is-active --quiet caddy
+(
+	set -a
+	# shellcheck disable=SC1090
+	source "$caddy_env"
+	set +a
+	"$repo/deploy/visp-caddy-static-smoke.sh" \
+		"$NATIVE_WEB_DOMAIN" "$ADMIN_DOMAIN" "$OBS_REMOTE_WEB_DOMAIN"
+)
 
 echo "VISP $tag ($expected_sha) deployed"

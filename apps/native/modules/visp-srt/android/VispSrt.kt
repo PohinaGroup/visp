@@ -14,12 +14,14 @@ import android.graphics.drawable.BitmapDrawable
 import android.hardware.camera2.CameraCharacteristics
 import android.hardware.camera2.CameraManager
 import android.hardware.camera2.CaptureRequest
+import android.hardware.display.DisplayManager
 import android.media.AudioDeviceInfo
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.MediaCodecList
 import android.media.MediaFormat
 import android.media.MediaPlayer
+import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
@@ -44,6 +46,7 @@ import com.pedro.encoder.utils.CodecUtil
 import com.pedro.encoder.input.audio.CustomAudioEffect
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.video.CameraHelper
 import com.pedro.encoder.input.gl.render.filters.NoFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.utils.gl.TranslateTo
@@ -180,6 +183,17 @@ class VispSrt : Module() {
         view.configureAudioInput(audioInputId, promise)
       }
 
+      AsyncFunction("setAudioIsolation") {
+          view: VispSrtView,
+          mode: String,
+          _serverUrl: String?,
+          _authCookie: String?,
+          promise: Promise,
+        ->
+        remember(view)
+        view.setAudioIsolation(mode, promise)
+      }
+
       AsyncFunction("switchCamera") {
           view: VispSrtView,
           cameraId: String,
@@ -283,7 +297,7 @@ class VispSrt : Module() {
     }
 
     OnActivityEntersBackground {
-      currentView?.get()?.cleanup()
+      currentView?.get()?.let { if (!it.isStreaming()) it.cleanup() }
     }
 
     OnActivityDestroys {
@@ -480,6 +494,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
   @Volatile private var intentionalStop = true
   @Volatile private var state = StreamState.IDLE
   private var audioInputId: Int? = null
+  private var audioIsolationEnabled = false
   private var bondingMode = "off"
   private var configuration: VideoConfiguration? = null
   private var imageStabilizationEnabled = true
@@ -487,7 +502,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var lastBytesSent = 0L
   private var lastLinkDegraded: Boolean? = null
   private var measuredBitrateBps = 0L
-  private var preparedPortrait: Boolean? = null
+  private var preparedRotation: Int? = null
   private var reconfigurePosted = false
   private var retryAttempt = 0
   private var selectedZoom = 1f
@@ -507,6 +522,41 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var overlayFilter: ImageObjectFilterRender? = null
   private var amplitudeEffect: PeakAmplitudeEffect? = null
   private var lastAudioLevelAt = 0L
+  private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+  private val displayListener =
+    object : DisplayManager.DisplayListener {
+      override fun onDisplayAdded(displayId: Int) = Unit
+
+      override fun onDisplayRemoved(displayId: Int) = Unit
+
+      override fun onDisplayChanged(displayId: Int) {
+        if (
+          display?.displayId != displayId ||
+          stream == null ||
+          state != StreamState.IDLE ||
+          reconfigurePosted
+        ) return
+        val rotation = currentRotation()
+        if (rotation == preparedRotation) return
+
+        reconfigurePosted = true
+        post {
+          reconfigurePosted = false
+          if (!isAttachedToWindow || state != StreamState.IDLE || rotation == preparedRotation) {
+            return@post
+          }
+          try {
+            stream?.let {
+              it.setOrientation(rotation)
+              preparedRotation = rotation
+              applyOverlays()
+            } ?: configure(rotation)
+          } catch (_: Throwable) {
+            emit(StreamState.ERROR, code = "capture-failed", message = CAMERA_UNAVAILABLE)
+          }
+        }
+      }
+    }
   private val liveCaptions =
     LiveCaptionsController(context) { text ->
       applyCaptionsText(text)
@@ -524,7 +574,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     withPermissions(
       onGranted = {
         try {
-          configure(isPortrait())
+          configure(currentRotation())
           promise.resolve(requestedPermissions)
         } catch (error: DeviceUnavailableException) {
           fail("device-unavailable", CAMERA_UNAVAILABLE, promise, error)
@@ -548,7 +598,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
     fun startPrepared() {
       try {
-        val current = stream ?: configure(isPortrait())
+        val current = stream ?: configure(currentRotation())
         if (current.isStreaming) {
           promise.resolve()
           return
@@ -558,6 +608,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
         retryAttempt = 0
         current.getGlInterface().autoHandleOrientation = false
         emit(StreamState.CONNECTING)
+        requestNotificationPermission()
+        StreamForegroundService.start(context)
         if (bondingMode == "off") {
           current.startStream(url)
           promise.resolve()
@@ -568,6 +620,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
             }.getOrElse {
               post {
                 intentionalStop = true
+                StreamForegroundService.stop(context)
                 fail("connection-failed", CONNECTION_FAILED, promise, it)
               }
               return@execute
@@ -588,6 +641,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
         }
       } catch (error: Throwable) {
         intentionalStop = true
+        StreamForegroundService.stop(context)
         fail("connection-failed", CONNECTION_FAILED, promise, error)
       }
     }
@@ -601,7 +655,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     withPermissions(
       onGranted = {
         try {
-          configure(isPortrait())
+          configure(currentRotation())
           startPrepared()
         } catch (error: DeviceUnavailableException) {
           fail("device-unavailable", CAMERA_UNAVAILABLE, promise, error)
@@ -768,7 +822,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
           videoBitrateCeilingBps = nextVideoBitrateCeilingBps
           targetBitrateBps = videoBitrateCeilingBps
           this.bondingMode = nextBondingMode
-          configure(isPortrait(), clearPreview = false)
+          configure(currentRotation(), clearPreview = false)
           promise.resolve()
         } catch (error: Throwable) {
           fail("configuration-unavailable", CONFIGURATION_UNAVAILABLE, promise, error)
@@ -792,10 +846,34 @@ class VispSrtView(context: Context, appContext: AppContext) :
             val id = inputId.toIntOrNull() ?: throw IllegalArgumentException()
             audioInputs().firstOrNull { it.id == id }?.id ?: throw IllegalArgumentException()
           }
-          configure(isPortrait(), clearPreview = false)
+          configure(currentRotation(), clearPreview = false)
           promise.resolve()
         } catch (error: Throwable) {
           fail("audio-input-unavailable", AUDIO_INPUT_UNAVAILABLE, promise, error)
+        }
+      },
+      onDenied = { fail("permission-denied", PERMISSION_DENIED, promise) },
+    )
+  }
+
+  fun setAudioIsolation(mode: String, promise: Promise) {
+    if (state != StreamState.IDLE && state != StreamState.ERROR) {
+      fail("configuration-unavailable", CONFIGURATION_UNAVAILABLE, promise)
+      return
+    }
+    val enabled = mode == "native" || mode == "better"
+    if (enabled == audioIsolationEnabled) {
+      promise.resolve()
+      return
+    }
+    withPermissions(
+      onGranted = {
+        try {
+          audioIsolationEnabled = enabled
+          configure(currentRotation(), clearPreview = false)
+          promise.resolve()
+        } catch (error: Throwable) {
+          fail("configuration-unavailable", CONFIGURATION_UNAVAILABLE, promise, error)
         }
       },
       onDenied = { fail("permission-denied", PERMISSION_DENIED, promise) },
@@ -914,10 +992,11 @@ class VispSrtView(context: Context, appContext: AppContext) :
         // Keep camera preview alive (iOS parity). cleanup() is for teardown only.
         val encodersReady = current.stopStream()
         if (!encodersReady) {
-          configure(isPortrait())
+          configure(currentRotation())
         }
       }
       if (bondingMode != "off") BondedSrtNative.stop(context)
+      StreamForegroundService.stop(context)
       keepScreenOn = false
       emit(StreamState.IDLE)
       promise.resolve()
@@ -939,41 +1018,30 @@ class VispSrtView(context: Context, appContext: AppContext) :
       current.release()
     }
     if (bondingMode != "off") BondedSrtNative.stop(context)
+    StreamForegroundService.stop(context)
     stream = null
     overlayFilter = null
-    preparedPortrait = null
+    preparedRotation = null
     keepScreenOn = false
     state = StreamState.IDLE
   }
 
-  override fun onDetachedFromWindow() {
-    cleanup()
-    super.onDetachedFromWindow()
+  fun isStreaming(): Boolean =
+    stream?.isStreaming == true ||
+      (!intentionalStop &&
+        (state == StreamState.CONNECTING ||
+          state == StreamState.LIVE ||
+          state == StreamState.RECONNECTING))
+
+  override fun onAttachedToWindow() {
+    super.onAttachedToWindow()
+    displayManager.registerDisplayListener(displayListener, null)
   }
 
-  override fun onSizeChanged(width: Int, height: Int, oldWidth: Int, oldHeight: Int) {
-    super.onSizeChanged(width, height, oldWidth, oldHeight)
-    val portrait = height >= width
-    if (
-      width <= 0 ||
-      height <= 0 ||
-      stream == null ||
-      state != StreamState.IDLE ||
-      portrait == preparedPortrait ||
-      reconfigurePosted
-    ) return
-
-    reconfigurePosted = true
-    post {
-      reconfigurePosted = false
-      if (stream != null && state == StreamState.IDLE && portrait != preparedPortrait) {
-        try {
-          configure(portrait)
-        } catch (_: Throwable) {
-          emit(StreamState.ERROR, code = "capture-failed", message = CAMERA_UNAVAILABLE)
-        }
-      }
-    }
+  override fun onDetachedFromWindow() {
+    displayManager.unregisterDisplayListener(displayListener)
+    cleanup()
+    super.onDetachedFromWindow()
   }
 
   override fun onConnectionStarted(url: String) = Unit
@@ -1041,7 +1109,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
   override fun onAuthSuccess() = Unit
 
-  private fun configure(portrait: Boolean, clearPreview: Boolean = true): StreamBase {
+  private fun configure(rotation: Int, clearPreview: Boolean = true): StreamBase {
     if (
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_CAMERA) ||
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_MICROPHONE)
@@ -1056,7 +1124,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
     stream = null
     overlayFilter = null
-    preparedPortrait = null
+    preparedRotation = null
 
     emit(StreamState.PREPARING)
     val cameras = cameraCapabilities()
@@ -1069,7 +1137,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val cameraSource = Camera2Source(context).apply {
       if (selected.cameraId == "front") switchCamera()
     }
-    val microphoneSource = MicrophoneSource()
+    val microphoneSource =
+      if (audioIsolationEnabled) {
+        MicrophoneSource(MediaRecorder.AudioSource.VOICE_COMMUNICATION)
+      } else {
+        MicrophoneSource()
+      }
     amplitudeEffect?.stop()
     // Peak amplitude 0-100 per PCM buffer on the audio thread (no interruptible worker).
     val effect =
@@ -1112,7 +1185,6 @@ class VispSrtView(context: Context, appContext: AppContext) :
       getGlInterface().autoHandleOrientation = true
     }
 
-    val rotation = if (portrait) 90 else 0
     val videoReady = next.prepareVideo(
       selected.width,
       selected.height,
@@ -1125,8 +1197,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
       AUDIO_SAMPLE_RATE,
       false,
       AUDIO_BITRATE,
-      true,
-      true,
+      audioIsolationEnabled,
+      audioIsolationEnabled,
     )
 
     if (!videoReady || !audioReady) {
@@ -1135,7 +1207,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
 
     stream = next
-    preparedPortrait = portrait
+    preparedRotation = rotation
     next.startPreview(preview, true)
     cameraSource.setZoom(selectedZoom)
     applyImageStabilization(cameraSource, imageStabilizationEnabled)
@@ -1153,7 +1225,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
       overlayFilter = null
       return
     }
-    val portrait = preparedPortrait == true
+    val portrait = preparedRotation == 90 || preparedRotation == 270
     val selected = configuration ?: return
     val frameWidth = if (portrait) selected.height else selected.width
     val frameHeight = if (portrait) selected.width else selected.height
@@ -1440,6 +1512,21 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
   }
 
+  private fun requestNotificationPermission() {
+    if (
+      Build.VERSION.SDK_INT < 33 ||
+      appContext.permissions?.hasGrantedPermissions(Manifest.permission.POST_NOTIFICATIONS) != false
+    ) return
+    try {
+      appContext.permissions?.askForPermissions(
+        PermissionsResponseListener { },
+        Manifest.permission.POST_NOTIFICATIONS,
+      )
+    } catch (_: IllegalStateException) {
+      // Notification permission is optional; the foreground service still runs when denied.
+    }
+  }
+
   private fun cameraCapabilities(): List<CameraCapability> {
     val manager = context.getSystemService(Context.CAMERA_SERVICE) as CameraManager
     val encoder = MediaCodecList(MediaCodecList.ALL_CODECS).codecInfos
@@ -1616,9 +1703,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private fun localSrtUrl(value: String, port: Int): String =
     Uri.parse(value).buildUpon().encodedAuthority("127.0.0.1:$port").build().toString()
 
-  private fun isPortrait(): Boolean =
-    if (width > 0 && height > 0) height >= width
-    else resources.configuration.orientation != android.content.res.Configuration.ORIENTATION_LANDSCAPE
+  private fun currentRotation(): Int = CameraHelper.getCameraOrientation(context)
 
   private fun fail(
     code: String,

@@ -1,16 +1,17 @@
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Center } from "@astryxdesign/core/Center";
-import { CollapsibleGroup } from "@astryxdesign/core/Collapsible";
-import { Grid } from "@astryxdesign/core/Grid";
+import { Divider } from "@astryxdesign/core/Divider";
 import { VStack } from "@astryxdesign/core/Layout";
 import {
 	SegmentedControl,
 	SegmentedControlItem,
 } from "@astryxdesign/core/SegmentedControl";
+import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
+import { useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
@@ -26,14 +27,27 @@ import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
 import { SetupCard } from "./setup-card";
-import type { AdvancedSectionId, DashboardMode } from "./types";
+import type { DashboardTab, DetailSectionId } from "./types";
 import {
 	seppoToolActivityLabel,
 	useDashboardSeppo,
 } from "./use-dashboard-seppo";
 
-function isAdvancedSectionId(value: string): value is AdvancedSectionId {
-	return value === "obs-read" || value === "tuning" || value === "reference";
+function isTab(value: string): value is DashboardTab {
+	return (
+		value === "sources" ||
+		value === "output" ||
+		value === "brb" ||
+		value === "chat"
+	);
+}
+
+// The tab lives in the hash so a reload — or the round trip through a
+// platform's OAuth consent screen — comes back to the panel you were on.
+function tabFromHash(): DashboardTab {
+	if (typeof window === "undefined") return "sources";
+	const hash = window.location.hash.replace("#", "");
+	return isTab(hash) ? hash : "sources";
 }
 
 export function DashboardPage() {
@@ -43,7 +57,6 @@ export function DashboardPage() {
 	const trpc = useTRPC();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const statusQuery = useQuery(trpc.secrets.status.queryOptions());
 	const directQuery = useQuery(trpc.direct.list.queryOptions());
 	const studioQuery = useQuery(trpc.studio.get.queryOptions());
 	const setOperationalMode = useMutation(
@@ -55,18 +68,40 @@ export function DashboardPage() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const advancedMode = statusQuery.data?.advancedMode ?? false;
+	const [tab, setTab] = useState<DashboardTab>(tabFromHash);
+	const selectTab = (next: DashboardTab) => {
+		setTab(next);
+		window.history.replaceState(null, "", `#${next}`);
+	};
 	const {
 		open: seppoOpen,
 		setOpen: setSeppoOpen,
-		advancedSections,
-		setAdvancedSections,
-		setAdvanced,
+		openSections,
+		setOpenSections,
 		handleToolCall,
-	} = useDashboardSeppo(advancedMode);
+	} = useDashboardSeppo(selectTab);
 
-	const mode: DashboardMode = advancedMode ? "advanced" : "simple";
 	const operationalMode = directQuery.data?.mode;
+	const isDirect = operationalMode === "direct";
+	const tabs: { value: DashboardTab; label: string }[] = [
+		{ value: "sources", label: t("Sources") },
+		{ value: "output", label: t("Output") },
+		...(isDirect ? [{ value: "brb" as const, label: t("BRB screen") }] : []),
+		{ value: "chat", label: t("Chat") },
+	];
+	const active = tabs.some((entry) => entry.value === tab) ? tab : "sources";
+
+	// Open/close wiring for a collapsed detail section, so Seppo can open one.
+	const section = (id: DetailSectionId) => ({
+		isOpen: openSections.includes(id),
+		onOpenChange: (isOpen: boolean) =>
+			setOpenSections((current) =>
+				isOpen
+					? [...new Set([...current, id])]
+					: current.filter((entry) => entry !== id),
+			),
+	});
+
 	const chooseOperationalMode = (value: string) => {
 		if (value === "direct") {
 			navigate({
@@ -94,120 +129,120 @@ export function DashboardPage() {
 	return (
 		<>
 			<Center axis="horizontal">
-				<VStack gap={6} maxWidth={1180} padding={4} width="100%">
-					<PageHeader
-						actions={
-							<SegmentedControl
-								label={t("Dashboard detail level")}
-								value={mode}
-								onChange={(value) =>
-									setAdvanced.mutate({ advancedMode: value === "advanced" })
+				<VStack gap={5} maxWidth={960} padding={4} width="100%">
+					<PageHeader eyebrow={t("Live signal path")} title={t("Dashboard")} />
+
+					<ChainStrip onSelect={selectTab} />
+
+					<TabList
+						hasDivider
+						value={active}
+						onChange={(value) => {
+							if (isTab(value)) selectTab(value);
+						}}
+					>
+						{tabs.map((entry) => (
+							<Tab key={entry.value} label={entry.label} value={entry.value} />
+						))}
+					</TabList>
+
+					{active === "sources" ? (
+						<VStack gap={4} width="100%">
+							<PublishingDevicesCard
+								onRedoSetup={() =>
+									navigate({
+										to: "/setup",
+										search: {
+											lang: locale === "fi" ? "fi" : undefined,
+											redo: true,
+										},
+									})
 								}
-							>
-								<SegmentedControlItem label={t("Simple")} value="simple" />
-								<SegmentedControlItem label={t("Advanced")} value="advanced" />
-							</SegmentedControl>
-						}
-						eyebrow={t("Live signal path")}
-						subtitle={t(
-							"Choose one primary publishing path. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.",
-						)}
-						title={t("Dashboard")}
-					/>
-					<Card>
-						<VStack gap={2}>
-							<Heading level={2}>{t("Primary operational mode")}</Heading>
-							<Text color="secondary" type="supporting">
-								{t(
-									"Select where the final stream is produced. These modes are separate and cannot run as one output path.",
-								)}
-							</Text>
-							<SegmentedControl
-								isDisabled={!operationalMode || setOperationalMode.isPending}
-								label={t("Primary operational mode")}
-								layout="fill"
-								value={
-									operationalMode === "unconfigured"
-										? ""
-										: (operationalMode ?? "")
-								}
-								onChange={chooseOperationalMode}
-							>
-								<SegmentedControlItem
-									label={t("Direct to Platform")}
-									value="direct"
-								/>
-								<SegmentedControlItem
-									label={t("Route to Home Studio")}
-									value="obs"
-								/>
-							</SegmentedControl>
+							/>
+							<Card>
+								<GuidanceCard {...section("tuning")} />
+							</Card>
 						</VStack>
-					</Card>
-					{studioQuery.data?.settings.available ? (
-						<Card>
-							<VStack gap={2}>
-								<Heading level={2}>{t("Cloud Studio")}</Heading>
-								<Text color="secondary" type="supporting">
-									{t(
-										"Build the saved program that Direct sends to your platforms.",
-									)}
-								</Text>
-								<Button
-									href={`/studio${locale === "fi" ? "?lang=fi" : ""}`}
-									label={t("Open Studio")}
-									variant="primary"
-								/>
-							</VStack>
-						</Card>
 					) : null}
-					{operationalMode && operationalMode !== "unconfigured" ? (
-						<ChainStrip />
-					) : null}
-					<Grid columns={{ minWidth: 440, repeat: "fit" }} gap={4}>
-						<PublishingDevicesCard
-							onRedoSetup={() =>
-								navigate({
-									to: "/setup",
-									search: {
-										lang: locale === "fi" ? "fi" : undefined,
-										redo: true,
-									},
-								})
-							}
-						/>
-						<VStack gap={4}>
-							{operationalMode === "direct" ? (
-								<>
-									<DirectCard />
-									<BrbCard />
-								</>
+
+					{active === "output" ? (
+						<VStack gap={4} width="100%">
+							<Card>
+								<VStack gap={2}>
+									<Heading level={2}>{t("Where your stream goes")}</Heading>
+									<Text color="secondary" type="supporting">
+										{t(
+											"Pick one. Direct sends the feed to a platform; Home Studio sends it to OBS, which owns the platform output.",
+										)}
+									</Text>
+									<SegmentedControl
+										isDisabled={
+											!operationalMode || setOperationalMode.isPending
+										}
+										label={t("Primary operational mode")}
+										layout="fill"
+										value={
+											operationalMode === "unconfigured"
+												? ""
+												: (operationalMode ?? "")
+										}
+										onChange={chooseOperationalMode}
+									>
+										<SegmentedControlItem
+											label={t("Direct to Platform")}
+											value="direct"
+										/>
+										<SegmentedControlItem
+											label={t("Route to Home Studio")}
+											value="obs"
+										/>
+									</SegmentedControl>
+								</VStack>
+							</Card>
+
+							{studioQuery.data?.settings.available ? (
+								<Card>
+									<VStack gap={2}>
+										<Heading level={2}>{t("Cloud Studio")}</Heading>
+										<Text color="secondary" type="supporting">
+											{t(
+												"Build the saved program that Direct sends to your platforms.",
+											)}
+										</Text>
+										<Button
+											href={`/studio${fi ? "?lang=fi" : ""}`}
+											label={t("Open Studio")}
+											variant="primary"
+										/>
+									</VStack>
+								</Card>
 							) : null}
-							{operationalMode === "obs" ? <ObsControlCard /> : null}
+
+							{operationalMode === "obs" ? (
+								<>
+									<ObsControlCard />
+									<Card>
+										<VStack gap={4}>
+											<CredentialsCard {...section("obs-read")} />
+											<Divider />
+											<SetupCard {...section("reference")} />
+										</VStack>
+									</Card>
+								</>
+							) : (
+								<DirectCard />
+							)}
+						</VStack>
+					) : null}
+
+					{active === "brb" ? <BrbCard /> : null}
+
+					{active === "chat" ? (
+						<VStack gap={4} width="100%">
 							<ConnectionsCard />
 							<ChatBotCard />
-							{advancedMode ? (
-								<VStack gap={2}>
-									<Text color="secondary" type="supporting">
-										{t("Advanced")}
-									</Text>
-									<CollapsibleGroup
-										hasDividers
-										type="multiple"
-										value={advancedSections}
-										onChange={(value) => {
-											const next = Array.isArray(value) ? value : [value];
-											setAdvancedSections(next.filter(isAdvancedSectionId));
-										}}
-									>
-										{operationalMode === "obs" ? <CredentialsCard /> : null}
-										<GuidanceCard />
-										<SetupCard />
-									</CollapsibleGroup>
-								</VStack>
-							) : null}
 						</VStack>
-					</Grid>
+					) : null}
 				</VStack>
 			</Center>
 			<SeppoWidget

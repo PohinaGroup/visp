@@ -91,8 +91,7 @@ install -m 0644 "$repo/deploy/systemd/visp-web-staging.service" \
 systemctl daemon-reload
 
 systemctl restart visp-server-staging visp-web-staging
-systemctl reload caddy
-systemctl is-active --quiet visp-server-staging visp-web-staging caddy
+systemctl is-active --quiet visp-server-staging visp-web-staging
 
 if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
 	--fail --silent --show-error http://127.0.0.1:3100/ >/dev/null; then
@@ -108,5 +107,12 @@ if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
 	journalctl -u visp-web-staging -n 80 --no-pager >&2 || true
 	exit 1
 fi
+
+systemctl reload caddy
+systemctl is-active --quiet caddy
+"$repo/deploy/visp-caddy-static-smoke.sh" \
+	stream.staging.visp-stream.com \
+	admin.staging.visp-stream.com \
+	remote.staging.visp-stream.com
 
 echo "VISP staging $(git -C "$repo" rev-parse --short HEAD) deployed"
