@@ -62,6 +62,7 @@ import {
 	createPath,
 	createPublishDevice,
 	ensureRelayUser,
+	getStudioPreviewUrls,
 	listPaths,
 	reconcilePathState,
 	revealPublishPath,
@@ -487,6 +488,35 @@ integration("relay PostgreSQL integration", () => {
 			userId: "user-a",
 		});
 		expect(await listPaths("user-a")).toHaveLength(1);
+	});
+
+	test("creates a dashboard preview credential for direct onboarding", async () => {
+		await seed();
+		await db
+			.update(appUser)
+			.set({ readSecretHash: null })
+			.where(eq(appUser.id, "user-a"));
+		await completeOnboarding("user-a", {
+			software: "visp",
+			useCase: "direct",
+			destination: "other",
+			advancedMode: false,
+			direct: { twitch: false, kick: false, youtube: false },
+			prepareObs: false,
+		});
+
+		const camera = new URL(
+			(await getStudioPreviewUrls("user-a"))?.camera ?? "missing",
+		);
+		expect(camera.href).toStartWith("https://relay.test/alpha-1/whep?");
+		expect(
+			await authenticateMedia({
+				action: "read",
+				password: camera.searchParams.get("pass") ?? "",
+				path: "alpha-1",
+				user: camera.searchParams.get("user") ?? "",
+			}),
+		).toBe(true);
 	});
 
 	test("logs streaming clients out when setup is redone with a wipe", async () => {
