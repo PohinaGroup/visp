@@ -101,7 +101,7 @@ export function PublishingDevicesCard({
 	};
 
 	return (
-		<Card>
+		<Card id="devices">
 			<VStack gap={4}>
 				<HStack gap={1.5} vAlign="center">
 					<Heading level={2}>{t("Video sources")}</Heading>

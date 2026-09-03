@@ -109,6 +109,32 @@ const finnishUi: Record<string, string> = {
 	browser: "selain",
 	alert: "hälytys",
 	Dashboard: "Hallintapaneeli",
+	Settings: "Asetukset",
+	"Show day": "Lähetyspäivä",
+	"Setup and controls": "Käyttöönotto ja hallinta",
+	"Almost ready": "Melkein valmis",
+	"Preview appears when you go live from the app.":
+		"Esikatselu näkyy, kun aloitat lähetyksen sovelluksesta.",
+	"Your stream is on air.": "Lähetyksesi on suorana.",
+	"Everything is ready for your next stream.":
+		"Kaikki on valmista seuraavaa lähetystä varten.",
+	"Finish the next step below.": "Tee seuraava vaihe alta.",
+	"Connect a platform": "Yhdistä alusta",
+	"Get the VISP app": "Hanki VISP-sovellus",
+	"Open the app to go live": "Avaa sovellus ja aloita lähetys",
+	"Next step": "Seuraava vaihe",
+	"Authorize Twitch, Kick, or YouTube before show day.":
+		"Valtuuta Twitch, Kick tai YouTube ennen lähetyspäivää.",
+	"Install VISP and add this phone as a publishing device.":
+		"Asenna VISP ja lisää tämä puhelin julkaisulaitteeksi.",
+	"Pair the VISP plugin with OBS before you stream.":
+		"Yhdistä VISP-lisäosa OBS:ään ennen lähetystä.",
+	"Back to dashboard": "Takaisin hallintapaneeliin",
+	"Publishing path": "Julkaisupolku",
+	"Where your phone sends video": "Minne puhelin lähettää videon",
+	"Phone to platform": "Puhelimesta alustalle",
+	"Phone to your OBS": "Puhelimesta omaan OBS:ään",
+	Destinations: "Kohteet",
 	"Dashboard detail level": "Hallintapaneelin tarkkuustaso",
 	"Primary operational mode": "Ensisijainen toimintatila",
 	"Primary mode": "Ensisijainen tila",

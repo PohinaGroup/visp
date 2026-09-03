@@ -73,7 +73,10 @@ const en = {
 	privacy: "Privacy Policy",
 	assurances: [
 		{ tag: "KEY", body: "No stream key pasting — VISP fetches it over OAuth." },
-		{ tag: "OBS", body: "Your feeds stay on your own OBS machine." },
+		{
+			tag: "DIRECT",
+			body: "Go live without putting a stream key on your phone.",
+		},
 		{ tag: "OAUTH", body: "Revoke access from the dashboard at any time." },
 	],
 };
@@ -127,7 +130,10 @@ const fiCopy: typeof en = {
 			tag: "KEY",
 			body: "Lähetysavainta ei liitetä — VISP hakee sen OAuth-luvalla.",
 		},
-		{ tag: "OBS", body: "Syötteesi pysyvät omalla OBS-koneellasi." },
+		{
+			tag: "DIRECT",
+			body: "Aloita lähetys ilman, että lähetysavain tallentuu puhelimeen.",
+		},
 		{ tag: "OAUTH", body: "Voit perua käyttöoikeuden hallintapaneelista." },
 	],
 };

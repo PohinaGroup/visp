@@ -9,7 +9,7 @@ import {
 	DASHBOARD_AREA_TARGETS,
 	type DashboardArea,
 	type DashboardMode,
-	type DashboardTab,
+	type DashboardView,
 	type DetailSectionId,
 	type NetworkProfile,
 } from "./types";
@@ -76,7 +76,7 @@ export function seppoToolActivityLabel(part: {
 	}
 }
 
-export function useDashboardSeppo(selectTab: (tab: DashboardTab) => void) {
+export function useDashboardSeppo(selectView: (view: DashboardView) => void) {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
@@ -95,14 +95,15 @@ export function useDashboardSeppo(selectTab: (tab: DashboardTab) => void) {
 	const handleToolCall = async (toolCall: SeppoClientToolCall) => {
 		switch (toolCall.toolName) {
 			case "inspectDashboard": {
-				const [secrets, paths, obs, connections] = await Promise.all([
+				const [secrets, paths, obs, connections, direct] = await Promise.all([
 					queryClient.fetchQuery(trpc.secrets.status.queryOptions()),
 					queryClient.fetchQuery(trpc.paths.list.queryOptions()),
 					queryClient.fetchQuery(trpc.obs.status.queryOptions()),
 					queryClient.fetchQuery(trpc.chat.connections.list.queryOptions()),
+					queryClient.fetchQuery(trpc.direct.list.queryOptions()),
 				]);
 				return JSON.stringify(
-					sanitizeDashboardStatus({ secrets, paths, obs, connections }),
+					sanitizeDashboardStatus({ secrets, paths, obs, connections, direct }),
 				);
 			}
 			case "showDashboardArea": {
@@ -116,7 +117,7 @@ export function useDashboardSeppo(selectTab: (tab: DashboardTab) => void) {
 					throw new Error("Unknown dashboard area");
 				}
 				const target = DASHBOARD_AREA_TARGETS[area];
-				selectTab(target.tab);
+				selectView(target.view);
 				if ("section" in target) {
 					setOpenSections((current) =>
 						current.includes(target.section)
@@ -138,7 +139,7 @@ export function useDashboardSeppo(selectTab: (tab: DashboardTab) => void) {
 					throw new Error("Unknown dashboard mode");
 				}
 				await setAdvanced.mutateAsync({ advancedMode: mode === "advanced" });
-				selectTab("sources");
+				selectView("settings");
 				return mode === "advanced"
 					? "Showing RTMP and SRTLA fallback URLs"
 					: "Showing the SRT URL only";

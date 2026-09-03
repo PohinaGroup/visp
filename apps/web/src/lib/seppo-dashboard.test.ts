@@ -36,10 +36,20 @@ describe("Seppo dashboard status", () => {
 					needsConsent: false,
 				},
 			],
+			direct: {
+				mode: "direct",
+				desired: { twitch: true, kick: false, youtube: false },
+				customOutputs: [],
+			},
 		});
 
 		expect(status.relay.liveDeviceCount).toBe(1);
 		expect(status.obs.connected).toBe(true);
+		expect(status.direct).toEqual({
+			mode: "direct",
+			destinationCount: 1,
+			ready: true,
+		});
 		const serialized = JSON.stringify(status);
 		expect(serialized).not.toContain("secret");
 		expect(serialized).not.toContain("token");

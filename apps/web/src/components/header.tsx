@@ -35,6 +35,12 @@ export default function Header() {
 					>
 						{fi ? "Hallintapaneeli" : "Dashboard"}
 					</Link>
+					<a
+						href={`/dashboard${fi ? "?lang=fi" : ""}#settings`}
+						className="text-muted-foreground hover:text-foreground"
+					>
+						{fi ? "Asetukset" : "Settings"}
+					</a>
 					{studio.data?.available ? (
 						<Link
 							to="/studio"

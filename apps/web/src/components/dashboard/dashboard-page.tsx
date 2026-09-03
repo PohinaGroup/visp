@@ -4,12 +4,11 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Center } from "@astryxdesign/core/Center";
 import { Divider } from "@astryxdesign/core/Divider";
-import { VStack } from "@astryxdesign/core/Layout";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
 import {
 	SegmentedControl,
 	SegmentedControlItem,
 } from "@astryxdesign/core/SegmentedControl";
-import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -18,10 +17,11 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { WhepPreview } from "@/components/studio/whep-preview";
+import { trackEvent } from "@/lib/analytics";
+import { dashboardHomeState } from "@/lib/dashboard-home";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { BrbCard } from "./brb-card";
-import { ChainStrip } from "./chain-strip";
 import { ChatBotCard } from "./chat-bot-card";
 import { ConnectionsCard } from "./connections-card";
 import { CredentialsCard } from "./credentials-card";
@@ -31,27 +31,15 @@ import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
 import { SetupCard } from "./setup-card";
-import type { DashboardTab, DetailSectionId } from "./types";
+import type { DashboardView, DetailSectionId } from "./types";
 import {
 	seppoToolActivityLabel,
 	useDashboardSeppo,
 } from "./use-dashboard-seppo";
 
-function isTab(value: string): value is DashboardTab {
-	return (
-		value === "sources" ||
-		value === "output" ||
-		value === "brb" ||
-		value === "chat"
-	);
-}
-
-// The tab lives in the hash so a reload — or the round trip through a
-// platform's OAuth consent screen — comes back to the panel you were on.
-function tabFromHash(): DashboardTab {
-	if (typeof window === "undefined") return "sources";
-	const hash = window.location.hash.replace("#", "");
-	return isTab(hash) ? hash : "sources";
+function viewFromHash(): DashboardView {
+	if (typeof window === "undefined") return "home";
+	return window.location.hash === "#settings" ? "settings" : "home";
 }
 
 export function DashboardPage() {
@@ -61,18 +49,11 @@ export function DashboardPage() {
 	const trpc = useTRPC();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const directQuery = useQuery(trpc.direct.list.queryOptions());
+	const directQuery = useQuery(
+		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3000 }),
+	);
 	const pathsQuery = useQuery(
 		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
-	);
-	const livePath = pathsQuery.data?.find(
-		(path) => path.publishing && !path.stale,
-	);
-	const snapshotsQuery = useQuery(
-		trpc.obs.snapshots.queryOptions(undefined, {
-			enabled: Boolean(livePath),
-			refetchInterval: 30_000,
-		}),
 	);
 	const studioQuery = useQuery(
 		trpc.studio.get.queryOptions(undefined, { refetchInterval: 30_000 }),
@@ -81,6 +62,15 @@ export function DashboardPage() {
 		trpc.obs.status.queryOptions(undefined, {
 			enabled: directQuery.data?.mode === "obs",
 			refetchInterval: 3000,
+		}),
+	);
+	const livePath = pathsQuery.data?.find(
+		(path) => path.publishing && !path.stale,
+	);
+	const snapshotsQuery = useQuery(
+		trpc.obs.snapshots.queryOptions(undefined, {
+			enabled: Boolean(livePath),
+			refetchInterval: 30_000,
 		}),
 	);
 	const setOperationalMode = useMutation(
@@ -101,18 +91,32 @@ export function DashboardPage() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const stopObs = useMutation(
+	const setObsStreaming = useMutation(
 		trpc.obs.setStreaming.mutationOptions({
-			onSuccess: async () => {
-				await queryClient.invalidateQueries();
-			},
+			onSuccess: async () => queryClient.invalidateQueries(),
 			onError: (error) => toast.error(error.message),
 		}),
 	);
-	const [tab, setTab] = useState<DashboardTab>(tabFromHash);
-	const selectTab = (next: DashboardTab) => {
-		setTab(next);
-		window.history.replaceState(null, "", `#${next}`);
+	const [view, setView] = useState<DashboardView>(viewFromHash);
+	const selectView = (next: DashboardView) => {
+		setView(next);
+		window.history.replaceState(
+			null,
+			"",
+			next === "settings" ? "#settings" : "#",
+		);
+	};
+	const openSettings = (target?: string) => {
+		selectView("settings");
+		if (target) {
+			window.setTimeout(
+				() =>
+					document
+						.getElementById(target)
+						?.scrollIntoView({ behavior: "smooth" }),
+				100,
+			);
+		}
 	};
 	const {
 		open: seppoOpen,
@@ -120,22 +124,40 @@ export function DashboardPage() {
 		openSections,
 		setOpenSections,
 		handleToolCall,
-	} = useDashboardSeppo(selectTab);
+	} = useDashboardSeppo(selectView);
 
-	const operationalMode = directQuery.data?.mode;
-	const isDirect = operationalMode === "direct";
+	const direct = directQuery.data;
+	const paths = pathsQuery.data ?? [];
+	const holding = direct?.paths.find((path) =>
+		(["twitch", "kick", "youtube"] as const).some(
+			(provider) => path.state[provider] === "brb",
+		),
+	);
+	const liveOutputs = [
+		...(direct?.destinations ?? []),
+		...(direct?.customOutputs ?? []),
+	].filter((output) => output.state === "live").length;
+	const desiredDestinations = direct
+		? Number(direct.desired.twitch) +
+			Number(direct.desired.kick) +
+			Number(direct.desired.youtube) +
+			direct.customOutputs.length
+		: 0;
+	const home = dashboardHomeState({
+		mode: direct?.mode ?? "unconfigured",
+		desiredDestinations,
+		liveOutputs,
+		holding: Boolean(holding),
+		paths,
+		obs: {
+			configured: Boolean(obsQuery.data?.configured),
+			connected: Boolean(obsQuery.data?.connected),
+			streaming: Boolean(obsQuery.data?.streaming),
+		},
+	});
 	const snapshot = snapshotsQuery.data?.find(
 		(entry) => entry.pathId === livePath?.id,
 	);
-	const tabs: { value: DashboardTab; label: string }[] = [
-		{ value: "sources", label: t("Sources") },
-		{ value: "output", label: t("Output") },
-		...(isDirect ? [{ value: "brb" as const, label: t("BRB screen") }] : []),
-		{ value: "chat", label: t("Chat") },
-	];
-	const active = tabs.some((entry) => entry.value === tab) ? tab : "sources";
-
-	// Open/close wiring for a collapsed detail section, so Seppo can open one.
 	const section = (id: DetailSectionId) => ({
 		isOpen: openSections.includes(id),
 		onOpenChange: (isOpen: boolean) =>
@@ -145,13 +167,12 @@ export function DashboardPage() {
 					: current.filter((entry) => entry !== id),
 			),
 	});
-
 	const chooseOperationalMode = (value: string) => {
 		if (value === "direct") {
 			navigate({
 				to: "/setup",
 				search: {
-					lang: locale === "fi" ? "fi" : undefined,
+					lang: fi ? "fi" : undefined,
 					redo: true,
 					redoMode: "additive",
 				},
@@ -159,7 +180,7 @@ export function DashboardPage() {
 			return;
 		}
 		if (
-			operationalMode !== "direct" ||
+			direct?.mode !== "direct" ||
 			window.confirm(
 				t(
 					"Switch to Route to Home Studio? This turns off every Direct platform output.",
@@ -169,121 +190,155 @@ export function DashboardPage() {
 			setOperationalMode.mutate({ mode: "obs" });
 		}
 	};
+	const primaryAction = () => {
+		trackEvent("dashboard_home_cta", { action: home.primaryAction });
+		switch (home.primaryAction) {
+			case "connect-platform":
+			case "pair-obs": {
+				const target =
+					home.primaryAction === "pair-obs"
+						? "obs-control"
+						: "dashboard-direct";
+				openSettings(target);
+				break;
+			}
+			case "get-app":
+			case "open-app":
+				navigate({ to: "/download", search: fi ? { lang: "fi" } : {} });
+				break;
+			case "end-stream": {
+				const pathId = holding?.id ?? livePath?.id;
+				if (pathId) stopDirect.mutate({ pathId });
+				break;
+			}
+			case "start-obs":
+				setObsStreaming.mutate({ streaming: true });
+				break;
+			case "stop-obs":
+				setObsStreaming.mutate({ streaming: false });
+				break;
+		}
+	};
+	const actionLabel = {
+		"connect-platform": t("Connect a platform"),
+		"get-app": t("Get the VISP app"),
+		"open-app": t("Open the app to go live"),
+		"end-stream": t("End stream"),
+		"pair-obs": t("Pair OBS"),
+		"start-obs": t("Start OBS stream"),
+		"stop-obs": t("Stop OBS stream"),
+	}[home.primaryAction];
 
 	return (
 		<>
 			<Center axis="horizontal">
 				<VStack gap={5} maxWidth={960} padding={4} width="100%">
-					<PageHeader eyebrow={t("Live signal path")} title={t("Dashboard")} />
-
-					{livePath ? (
-						<Card>
-							<div className="grid gap-3 sm:grid-cols-[minmax(0,2fr)_minmax(180px,1fr)] sm:items-end">
-								<WhepPreview
-									label={`${livePath.label}: ${t("Live")}`}
-									poster={snapshot?.url ?? undefined}
-									url={studioQuery.data?.preview?.camera}
-								/>
-								<VStack gap={2}>
-									<VStack gap={0.5}>
-										<Text weight="semibold">
-											{livePath.label} · {t("Live")}
-										</Text>
-										{livePath.linkStats ? (
-											<Text color="secondary" type="supporting">
-												{formatLinkStats(livePath.linkStats)}
-												{livePath.linkStats.linkDegraded
-													? ` · ${t("Degraded")}`
-													: ""}
-												{livePath.linkStats.congested
-													? ` · ${t("Congested")}`
-													: ""}
-											</Text>
-										) : null}
-									</VStack>
-									{operationalMode === "direct" ? (
-										<Banner
-											description={t(
-												"Authorization, ownership, and relay capacity checked before Go Live.",
-											)}
-											status="success"
-											title={t("Pre-flight passed")}
-										/>
-									) : null}
-									<Button
-										isDisabled={
-											!operationalMode ||
-											operationalMode === "unconfigured" ||
-											(operationalMode === "obs" && !obsQuery.data?.streaming)
-										}
-										isLoading={stopDirect.isPending || stopObs.isPending}
-										label={t("End stream")}
-										variant="primary"
-										onClick={() =>
-											operationalMode === "obs"
-												? stopObs.mutate({ streaming: false })
-												: stopDirect.mutate({ pathId: livePath.id })
-										}
-									/>
-								</VStack>
-							</div>
-						</Card>
-					) : null}
-
-					<ChainStrip onSelect={selectTab} />
-
-					<TabList
-						hasDivider
-						value={active}
-						onChange={(value) => {
-							if (isTab(value)) selectTab(value);
-						}}
-					>
-						{tabs.map((entry) => (
-							<Tab key={entry.value} label={entry.label} value={entry.value} />
-						))}
-					</TabList>
-
-					{active === "sources" ? (
+					<PageHeader
+						eyebrow={t(view === "settings" ? "Setup and controls" : "Show day")}
+						title={t(view === "settings" ? "Settings" : "Dashboard")}
+					/>
+					{view === "home" ? (
 						<VStack gap={4} width="100%">
+							<Card>
+								<VStack gap={1}>
+									<Heading level={2}>
+										{t(
+											home.status === "live"
+												? "Live"
+												: home.status === "ready"
+													? "Ready"
+													: "Almost ready",
+										)}
+									</Heading>
+									<Text color="secondary">
+										{holding
+											? t("Your ingest dropped. Viewers see your BRB card.")
+											: livePath?.linkStats
+												? `${formatLinkStats(livePath.linkStats)}${livePath.linkStats.linkDegraded ? ` · ${t("Degraded")}` : ""}${livePath.linkStats.congested ? ` · ${t("Congested")}` : ""}`
+												: t(
+														home.status === "live"
+															? "Your stream is on air."
+															: home.status === "ready"
+																? "Everything is ready for your next stream."
+																: "Finish the next step below.",
+													)}
+									</Text>
+								</VStack>
+							</Card>
+							<Card>
+								<VStack gap={2}>
+									<Heading level={2}>{t("Preview")}</Heading>
+									{livePath ? (
+										<WhepPreview
+											label={`${livePath.label}: ${t("Live")}`}
+											poster={snapshot?.url ?? undefined}
+											url={studioQuery.data?.preview?.camera}
+										/>
+									) : (
+										<Text color="secondary">
+											{t("Preview appears when you go live from the app.")}
+										</Text>
+									)}
+								</VStack>
+							</Card>
+							{direct?.mode !== "obs" ? <DirectCard /> : null}
+							{home.nextStep ? (
+								<Banner
+									description={t(
+										home.nextStep === "connect-platform"
+											? "Authorize Twitch, Kick, or YouTube before show day."
+											: home.nextStep === "get-app"
+												? "Install VISP and add this phone as a publishing device."
+												: "Pair the VISP plugin with OBS before you stream.",
+									)}
+									status="info"
+									title={t("Next step")}
+								/>
+							) : null}
+							<Button
+								isLoading={stopDirect.isPending || setObsStreaming.isPending}
+								label={actionLabel}
+								variant="primary"
+								onClick={primaryAction}
+							/>
+							<HStack gap={2} wrap="wrap">
+								<Button
+									label={t("Chat")}
+									onClick={() => openSettings("dashboard-connections")}
+								/>
+								{home.status === "live" && direct?.mode !== "obs" ? (
+									<Button
+										label={t("BRB screen")}
+										onClick={() => openSettings("dashboard-brb")}
+									/>
+								) : null}
+								{studioQuery.data?.settings.available ? (
+									<Button
+										href={`/studio${fi ? "?lang=fi" : ""}`}
+										label={t("Cloud Studio")}
+									/>
+								) : null}
+								<Button label={t("Settings")} onClick={() => openSettings()} />
+							</HStack>
+						</VStack>
+					) : (
+						<VStack gap={4} width="100%">
+							<Button
+								label={t("Back to dashboard")}
+								onClick={() => selectView("home")}
+							/>
 							<PublishingDevicesCard
 								onRedoSetup={() =>
 									navigate({
 										to: "/setup",
-										search: {
-											lang: locale === "fi" ? "fi" : undefined,
-											redo: true,
-										},
+										search: { lang: fi ? "fi" : undefined, redo: true },
 									})
 								}
 							/>
 							<Card>
 								<GuidanceCard {...section("tuning")} />
 							</Card>
-						</VStack>
-					) : null}
-
-					{active === "output" ? (
-						<VStack gap={4} width="100%">
-							{studioQuery.data?.settings.available ? (
-								<Card>
-									<VStack gap={2}>
-										<Heading level={2}>{t("Cloud Studio")}</Heading>
-										<Text color="secondary" type="supporting">
-											{t(
-												"Build the saved program that Direct sends to your platforms.",
-											)}
-										</Text>
-										<Button
-											href={`/studio${fi ? "?lang=fi" : ""}`}
-											label={t("Open Studio")}
-											variant="primary"
-										/>
-									</VStack>
-								</Card>
-							) : null}
-
-							{operationalMode === "obs" ? (
+							{direct?.mode === "obs" ? (
 								<>
 									<ObsControlCard />
 									<Card>
@@ -295,57 +350,45 @@ export function DashboardPage() {
 									</Card>
 								</>
 							) : (
-								<DirectCard />
+								<DirectCard advanced />
 							)}
-
 							<Card>
 								<DetailSection
 									{...section("mode")}
 									id="dashboard-mode"
-									tag={t("Advanced setup")}
-									title={t("Change publishing path")}
+									tag={t("Publishing path")}
+									title={t("Where your phone sends video")}
 									value="mode"
 								>
-									<Text color="secondary" type="supporting">
-										{t(
-											"Select where the final stream is produced. These modes are separate and cannot run as one output path.",
-										)}
-									</Text>
 									<SegmentedControl
-										isDisabled={
-											!operationalMode || setOperationalMode.isPending
-										}
+										isDisabled={!direct?.mode || setOperationalMode.isPending}
 										label={t("Primary operational mode")}
 										layout="fill"
 										value={
-											operationalMode === "unconfigured"
+											direct?.mode === "unconfigured"
 												? ""
-												: (operationalMode ?? "")
+												: (direct?.mode ?? "")
 										}
 										onChange={chooseOperationalMode}
 									>
 										<SegmentedControlItem
-											label={t("Direct to Platform")}
+											label={t("Phone to platform")}
 											value="direct"
 										/>
 										<SegmentedControlItem
-											label={t("Route to Home Studio")}
+											label={t("Phone to your OBS")}
 											value="obs"
 										/>
 									</SegmentedControl>
 								</DetailSection>
 							</Card>
-						</VStack>
-					) : null}
-
-					{active === "brb" ? <BrbCard /> : null}
-
-					{active === "chat" ? (
-						<VStack gap={4} width="100%">
-							<ConnectionsCard />
+							<BrbCard />
+							<div id="dashboard-connections">
+								<ConnectionsCard />
+							</div>
 							<ChatBotCard />
 						</VStack>
-					) : null}
+					)}
 				</VStack>
 			</Center>
 			<SeppoWidget
@@ -374,8 +417,8 @@ export function DashboardPage() {
 				}
 				welcome={
 					fi
-						? "Hei, olen Seppo. Voin tarkistaa hallintapaneelin turvalliset tilatiedot, selvittää signaalipolun ongelmia ja avata oikeat käyttöönoton ohjaimet."
-						: "Hi, I'm Seppo. I can inspect the safe status shown on this dashboard, troubleshoot your signal path, and open the right setup controls."
+						? "Hei, olen Seppo. Voin tarkistaa tilan ja avata oikeat asetukset."
+						: "Hi, I'm Seppo. I can inspect your status and open the right settings."
 				}
 				onOpenChange={setSeppoOpen}
 				onToolCall={handleToolCall}

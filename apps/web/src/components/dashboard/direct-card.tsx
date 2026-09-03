@@ -104,7 +104,7 @@ function YoutubeTitle({
 	);
 }
 
-export function DirectCard() {
+export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 	const t = useT();
 	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
@@ -221,7 +221,9 @@ export function DirectCard() {
 			<VStack gap={4}>
 				<VStack gap={1}>
 					<HStack gap={1.5} vAlign="center">
-						<Heading level={2}>{t("Direct to Platform")}</Heading>
+						<Heading level={2}>
+							{t(advanced ? "Direct to Platform" : "Destinations")}
+						</Heading>
 						<DocsHelpLink
 							href={docs.directOutput}
 							label={t("See how Direct output works")}
@@ -272,14 +274,18 @@ export function DirectCard() {
 												? t("Reauthorize")
 												: t("Authorize streaming")
 										}
-										variant={provider.canReadStreamKey ? "ghost" : "primary"}
+										variant={
+											advanced && !provider.canReadStreamKey
+												? "primary"
+												: "ghost"
+										}
 										onClick={() => authorize(provider.provider)}
 									/>
 								</HStack>
 							</Card>
 						))}
 
-						<DirectCustomDestinations />
+						{advanced ? <DirectCustomDestinations /> : null}
 
 						{direct.data.paths.map((path) => (
 							<Card key={path.id} padding={3} variant="muted">
@@ -330,7 +336,7 @@ export function DirectCard() {
 											},
 										)}
 									</VStack>
-									{direct.data.directDualOutput ? (
+									{advanced && direct.data.directDualOutput ? (
 										<VStack gap={2}>
 											{direct.data.destinations
 												.filter(
@@ -436,7 +442,7 @@ export function DirectCard() {
 							</Card>
 						))}
 
-						{anyYoutube ? (
+						{advanced && anyYoutube ? (
 							<>
 								<YoutubeTitle
 									saving={setYoutubeSettings.isPending}
@@ -453,22 +459,24 @@ export function DirectCard() {
 							</>
 						) : null}
 
-						<Collapsible
-							defaultIsOpen={false}
-							trigger={
-								<Text type="label">{t("Using OBS alongside Direct")}</Text>
-							}
-						>
-							<VStack paddingBlock={2}>
-								<Text color="secondary" type="supporting">
-									{t(
-										"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
-									)}
-								</Text>
-							</VStack>
-						</Collapsible>
+						{advanced ? (
+							<Collapsible
+								defaultIsOpen={false}
+								trigger={
+									<Text type="label">{t("Using OBS alongside Direct")}</Text>
+								}
+							>
+								<VStack paddingBlock={2}>
+									<Text color="secondary" type="supporting">
+										{t(
+											"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
+										)}
+									</Text>
+								</VStack>
+							</Collapsible>
+						) : null}
 
-						{anyTwitch ? (
+						{advanced && anyTwitch ? (
 							<Banner
 								description={t(
 									"Twitch's simulcasting terms prohibit showing activity from another platform on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
@@ -478,7 +486,7 @@ export function DirectCard() {
 							/>
 						) : null}
 
-						{anyBoth ? (
+						{advanced && anyBoth ? (
 							<Banner
 								description={t(
 									"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout for the duration of a multistreaming session.",
@@ -490,7 +498,7 @@ export function DirectCard() {
 					</>
 				) : null}
 			</VStack>
-			{framing ? (
+			{advanced && framing ? (
 				<DirectPortraitFraming
 					crop={framing.crop}
 					isOpen

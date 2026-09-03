@@ -27,6 +27,11 @@ type DashboardStatusInput = {
 		enabled: boolean;
 		needsConsent: boolean;
 	}>;
+	direct: {
+		mode: "unconfigured" | "direct" | "obs";
+		desired: { twitch: boolean; kick: boolean; youtube: boolean };
+		customOutputs: unknown[];
+	};
 };
 
 export function sanitizeDashboardStatus({
@@ -34,6 +39,7 @@ export function sanitizeDashboardStatus({
 	paths,
 	obs,
 	connections,
+	direct,
 }: DashboardStatusInput) {
 	return {
 		setup: {
@@ -62,6 +68,20 @@ export function sanitizeDashboardStatus({
 			connected: obs.connected,
 			pending: obs.pending,
 			streaming: obs.streaming,
+		},
+		direct: {
+			mode: direct.mode,
+			destinationCount:
+				Number(direct.desired.twitch) +
+				Number(direct.desired.kick) +
+				Number(direct.desired.youtube) +
+				direct.customOutputs.length,
+			ready:
+				direct.mode === "direct" &&
+				(direct.desired.twitch ||
+					direct.desired.kick ||
+					direct.desired.youtube ||
+					direct.customOutputs.length > 0),
 		},
 		chat: connections.map((connection) => ({
 			provider: connection.provider,
