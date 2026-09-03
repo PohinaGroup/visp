@@ -10,7 +10,14 @@ test.describe("portal", () => {
 			}),
 		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: "Try VISP free" }),
+			page.locator("section").first().getByRole("button", {
+				name: "Try VISP free",
+			}),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", {
+				name: "Live from your phone in three steps",
+			}),
 		).toBeVisible();
 	});
 
@@ -38,7 +45,14 @@ test.describe("portal", () => {
 			}),
 		).toBeVisible();
 		await expect(
-			page.getByRole("button", { name: "Kokeile VISPiä ilmaiseksi" }),
+			page.locator("section").first().getByRole("button", {
+				name: "Kokeile VISPiä ilmaiseksi",
+			}),
+		).toBeVisible();
+		await expect(
+			page.getByRole("heading", {
+				name: "Puhelimesta suorana kolmessa vaiheessa",
+			}),
 		).toBeVisible();
 	});
 });

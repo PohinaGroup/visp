@@ -3,6 +3,7 @@ import { useState } from "react";
 
 import { MeterMark } from "@/components/meter-mark";
 import { SeppoWidget } from "@/components/seppo-widget";
+import { trackEvent } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import {
 	COMPARISON_CHECKED,
@@ -36,11 +37,12 @@ function TryCta({
 	return (
 		<button
 			type="button"
-			onClick={() =>
-				session
+			onClick={() => {
+				trackEvent("lander_cta", { action: "try_free", locale });
+				return session
 					? navigate({ to: "/dashboard", search: localeSearch(locale) })
-					: navigate({ to: "/login", search: localeSearch(locale) })
-			}
+					: navigate({ to: "/login", search: localeSearch(locale) });
+			}}
 			className={`inline-flex items-center justify-center rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
 				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
 			}`}
@@ -78,38 +80,50 @@ const channels = [
 const steps = [
 	{
 		tag: "STEP 01",
-		title: "Connect your home OBS",
-		body: "Install the VISP OBS plugin and sign in. It adds your authenticated remote feeds without port forwarding or hand-pasting Media Source URLs.",
+		title: "Sign in",
+		body: "Sign in with Twitch, Kick, or Google.",
 	},
 	{
 		tag: "STEP 02",
-		title: "Publish from phone or browser",
-		body: "Open the VISP app on iOS or Android, or use the browser publisher on a laptop. VISP carries that contribution feed back to your studio.",
+		title: "Connect your platform",
+		body: "Choose the Twitch, Kick, or YouTube channel where you stream.",
 	},
 	{
 		tag: "STEP 03",
-		title: "Produce on hardware you own",
-		body: "Switch scenes, run overlays and alerts, record locally, and send the finished show from your own OBS to Twitch, Kick, YouTube, or any custom destination.",
+		title: "Go live",
+		body: "Open the VISP app and start your stream. No OBS or stream key on the phone.",
 	},
 ];
 
 const stepsFi = [
 	{
 		tag: "VAIHE 01",
-		title: "Yhdistä kodin OBS",
-		body: "Asenna VISP OBS -lisäosa ja kirjaudu sisään. Se lisää valtuutetut etäsyötteet ilman porttiohjausta tai Media Source -osoitteiden käsin liittämistä.",
+		title: "Kirjaudu sisään",
+		body: "Kirjaudu Twitchillä, Kickillä tai Googlella.",
 	},
 	{
 		tag: "VAIHE 02",
-		title: "Julkaise puhelimesta tai selaimesta",
-		body: "Avaa VISP-sovellus iOS- tai Android-laitteella tai käytä selainjulkaisijaa läppärillä. VISP kuljettaa syötteen takaisin studioosi.",
+		title: "Yhdistä alustasi",
+		body: "Valitse Twitch-, Kick- tai YouTube-kanava, jolla lähetät.",
 	},
 	{
 		tag: "VAIHE 03",
-		title: "Tuota omalla laitteistollasi",
-		body: "Vaihda kohtauksia, aja grafiikat ja hälytykset, tallenna paikallisesti ja lähetä valmis ohjelma omasta OBS:stä Twitchiin, Kickiin, YouTubeen tai muuhun kohteeseen.",
+		title: "Aloita lähetys",
+		body: "Avaa VISP-sovellus ja aloita. Puhelimeen ei tarvita OBS:ää tai lähetysavainta.",
 	},
 ];
+
+const obsSteps = [
+	"Install the VISP OBS plugin and sign in.",
+	"Add your authenticated phone feed to OBS.",
+	"Use your existing scenes, overlays, alerts, and local recording.",
+] as const;
+
+const obsStepsFi = [
+	"Asenna VISP OBS -lisäosa ja kirjaudu sisään.",
+	"Lisää valtuutettu puhelinsyöte OBS:ään.",
+	"Käytä nykyisiä kohtauksia, grafiikoita, hälytyksiä ja paikallista tallennusta.",
+] as const;
 
 export const faq = [
 	{
@@ -186,12 +200,8 @@ const footerLinks: LandingLink[] = [
 ];
 
 const navLinks: LandingLink[] = [
-	{ label: "Founding creators", href: "/affiliate", external: false },
-	{ label: "Blog", href: "/blog", external: false },
-	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 	{ label: "Download", href: "/download", external: false },
-	{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
-	{ label: "Contact", href: "/contact", external: false },
+	{ label: "Docs", href: legalEntity.docsUrl, external: true },
 ];
 
 const LANDING_SEPPO_SUGGESTIONS = [
@@ -234,13 +244,13 @@ const eyebrow =
 	"font-mono text-xs uppercase tracking-[0.2em] text-muted-foreground";
 
 const annualCosts = [
-	{ product: "VISP + your OBS", cost: "$0 during beta", width: "0%" },
+	{ product: "VISP + your OBS", cost: "$0 during beta", width: "4%" },
 	{ product: "IRLToolkit", cost: "$1,548–$2,148", width: "99.4%" },
 	{ product: "Streamable.run", cost: "$1,440–$2,160", width: "100%" },
 ] as const;
 
 const annualCostsFi = [
-	{ product: "VISP + oma OBS", cost: "0 $ betan ajan", width: "0%" },
+	{ product: "VISP + oma OBS", cost: "0 $ betan ajan", width: "4%" },
 	{ product: "IRLToolkit", cost: "1 548–2 148 $", width: "99.4%" },
 	{ product: "Streamable.run", cost: "1 440–2 160 $", width: "100%" },
 ] as const;
@@ -288,7 +298,7 @@ function ComparisonTable({ locale }: { locale: Locale }) {
 	return (
 		// A real <table>: crawlers and answer engines parse it, a grid of divs
 		// they do not.
-		<div className="mt-12 overflow-x-auto">
+		<div className="overflow-x-auto">
 			<table className="w-full min-w-[860px] border-collapse border border-border text-left text-sm">
 				<caption className="sr-only">
 					{fi
@@ -367,22 +377,22 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 		: channels;
 	const localizedNavLinks: LandingLink[] = fi
 		? [
-				{ label: "Kumppanit", href: "/fi/affiliate", external: false },
-				{ label: "Blogi", href: "/blog", external: false },
-				{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
 				{
 					label: "Lataa",
 					href: "/download",
 					external: false,
 					search: { lang: "fi" },
 				},
-				{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
-				{ label: "Yhteystiedot", href: "/contact", external: false },
+				{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
 			]
 		: navLinks;
 	const localizedFooterLinks: LandingLink[] = fi
 		? [
+				{ label: "Kumppanit", href: "/fi/affiliate", external: false },
+				{ label: "Blogi", href: "/blog", external: false },
 				...localizedNavLinks,
+				{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
+				{ label: "Yhteystiedot", href: "/contact", external: false },
 				{ label: "X", href: legalEntity.xUrl, external: true },
 				{ label: "Tietosuoja", href: "/privacy", external: false },
 				{ label: "Käyttöehdot", href: "/terms", external: false },
@@ -402,8 +412,8 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							</span>
 							<MeterMark />
 						</Link>
-						<nav className="flex items-center gap-7 text-sm">
-							<span className="hidden items-center gap-7 sm:flex">
+						<nav className="flex items-center gap-4 text-sm sm:gap-7">
+							<span className="flex items-center gap-4 sm:gap-7">
 								{localizedNavLinks.map((l) =>
 									l.external ? (
 										<a
@@ -411,7 +421,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 											href={l.href}
 											target="_blank"
 											rel="noreferrer"
-											className="text-muted-foreground transition-colors hover:text-foreground"
+											className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
 										>
 											{l.label}
 										</a>
@@ -420,6 +430,14 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 											key={l.label}
 											to={l.href}
 											search={l.search}
+											onClick={() =>
+												l.href === "/download"
+													? trackEvent("lander_cta", {
+															action: "download",
+															locale,
+														})
+													: undefined
+											}
 											className="text-muted-foreground transition-colors hover:text-foreground"
 										>
 											{l.label}
@@ -430,7 +448,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							<a
 								href={fi ? "/" : "/fi"}
 								hrefLang={fi ? "en" : "fi"}
-								className="text-muted-foreground hover:text-foreground"
+								className="hidden text-muted-foreground hover:text-foreground sm:inline"
 							>
 								{fi ? "EN" : "FI"}
 							</a>
@@ -451,14 +469,21 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							</p>
 							<div className="flex flex-wrap items-center gap-4">
 								<TryCta locale={locale} size="lg" />
-								<a
-									href={fi ? `${legalEntity.docsUrl}/fi` : legalEntity.docsUrl}
-									target="_blank"
-									rel="noreferrer"
+								<Link
+									to="/download"
+									search={localeSearch(locale)}
+									onClick={() =>
+										trackEvent("lander_cta", { action: "download", locale })
+									}
 									className="text-sm underline underline-offset-4"
 								>
-									{fi ? "Lue ohjeet" : "Read the docs"}
-								</a>
+									{fi ? "Lataa sovellus" : "Download the app"}
+								</Link>
+								<span className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
+									{fi
+										? "Ilmainen betan ajan · ei lähetysavainta puhelimeen"
+										: "Free during beta · no stream key on your phone"}
+								</span>
 							</div>
 							<ul className="flex flex-col gap-3 text-muted-foreground text-sm leading-relaxed">
 								{(fi ? heroProofBulletsFi : heroProofBullets).map((item) => (
@@ -489,10 +514,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 									}
 									className="aspect-[9/16] w-full object-cover"
 								>
-									<source
-										src="/marketing/go-live-loop.m4v"
-										type="video/mp4"
-									/>
+									<source src="/marketing/go-live-loop.m4v" type="video/mp4" />
 								</video>
 								<figcaption className="absolute top-3 left-3 rounded-sm bg-background/85 px-2 py-1 font-mono text-[10px] text-foreground uppercase tracking-wider backdrop-blur-sm">
 									{fi ? "AITO LÄHETYS · 8 S" : "REAL GO-LIVE · 8 SEC"}
@@ -501,47 +523,48 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</div>
 					</section>
 
-					{/* Two paths: let visitors self-select before technical detail. */}
+					{/* Direct is the default path. */}
 					<section id="workflows" className="border-border border-y py-20">
 						<span className={eyebrow}>
-							{fi ? "Valitse työnkulkusi" : "Choose your workflow"}
+							{fi ? "Näin Direct toimii" : "How Direct works"}
 						</span>
 						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
-							{fi ? "Tietokone on valinnainen" : "The computer is optional"}
+							{fi
+								? "Puhelimesta suorana kolmessa vaiheessa"
+								: "Live from your phone in three steps"}
 						</h2>
-						<div className="mt-12 grid gap-px border border-border bg-border md:grid-cols-2">
-							<article className="bg-background p-8">
-								<span className={eyebrow}>VISP Direct</span>
-								<h3 className="mt-4 font-display font-semibold text-3xl uppercase leading-tight tracking-tight">
-									{fi ? "Puhelimesta suoraan alustalle" : "Phone to platform"}
-								</h3>
-								<p className="mt-4 text-muted-foreground leading-relaxed">
-									{fi
-										? "Et tarvitse tietokonetta. Kirjaudu sisään, valitse Twitch, Kick tai YouTube ja aloita lähetys puhelimesta tai selaimesta. VISP hoitaa kohdelähdön relaylla."
-										: "No computer required. Sign in, choose Twitch, Kick, or YouTube, and go live from your phone or browser. VISP handles the destination output at the relay."}
-								</p>
-								<p className="mt-5 font-mono text-muted-foreground text-xs uppercase tracking-[0.16em]">
-									{fi
-										? "Kävelystriimit · matkat · nopeat lähetykset"
-										: "Walk-and-talk · travel · spontaneous streams"}
-								</p>
-							</article>
-							<article className="bg-background p-8">
-								<span className={eyebrow}>VISP + OBS</span>
-								<h3 className="mt-4 font-display font-semibold text-3xl uppercase leading-tight tracking-tight">
-									{fi ? "Puhelimesta omaan OBS:ään" : "Phone to your OBS"}
-								</h3>
-								<p className="mt-4 text-muted-foreground leading-relaxed">
-									{fi
-										? "Tuo kenttäsyöte turvallisesti kotikoneesi OBS:ään. Pidä nykyiset kohtaukset, grafiikat, ääniasetukset ja paikallinen tallennus ilman vuokrattua pilvistudiota."
-										: "Bring the field feed securely into OBS at home. Keep your existing scenes, overlays, audio routing, and local recording without renting a cloud studio."}
-								</p>
-								<p className="mt-5 font-mono text-muted-foreground text-xs uppercase tracking-[0.16em]">
-									{fi
-										? "Kohtaukset · monikamera · etätuotanto"
-										: "Scenes · multi-camera · remote production"}
-								</p>
-							</article>
+						<ol className="mt-12 grid gap-px border border-border bg-border md:grid-cols-3">
+							{(fi ? stepsFi : steps).map((step) => (
+								<li key={step.tag} className="bg-background p-8">
+									<span className={eyebrow}>{step.tag}</span>
+									<h3 className="mt-4 font-display font-semibold text-2xl uppercase leading-tight tracking-tight">
+										{step.title}
+									</h3>
+									<p className="mt-3 text-muted-foreground leading-relaxed">
+										{step.body}
+									</p>
+								</li>
+							))}
+						</ol>
+						<div className="mt-10 grid gap-6 sm:grid-cols-2">
+							<img
+								src="/marketing/app-live.jpg"
+								alt={
+									fi
+										? "VISP-sovelluksen suora lähetys"
+										: "VISP app live stream screen"
+								}
+								className="w-full border border-border"
+							/>
+							<img
+								src="/marketing/app-settings.jpg"
+								alt={
+									fi
+										? "VISP-sovelluksen lähetysasetukset"
+										: "VISP app stream settings"
+								}
+								className="w-full border border-border"
+							/>
 						</div>
 					</section>
 
@@ -572,33 +595,26 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						</ul>
 					</section>
 
-					{/* How it works */}
+					{/* OBS is available when the show needs production tools. */}
 					<section className="border-border border-t py-20">
-						<span className={eyebrow}>
-							{fi ? "Näin se toimii" : "How it works"}
-						</span>
+						<span className={eyebrow}>VISP + OBS</span>
 						<h2 className="mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl">
 							{fi
-								? "Lisää oma OBS, kun tarvitset studion"
-								: "Add your OBS when you need a studio"}
+								? "Tarvitsetko kohtauksia ja grafiikoita?"
+								: "Need scenes and overlays?"}
 						</h2>
 						<p className="mt-6 max-w-2xl text-muted-foreground leading-relaxed">
 							{fi
 								? "Direct toimii ilman tietokonetta. Kun tuotanto tarvitsee kohtauksia, grafiikoita, lisäosia tai paikallisen tallennuksen, VISP kuljettaa kenttäsyötteen jo omistamaasi studioon."
 								: "Direct works without a computer. When the production needs scenes, overlays, plugins, or local recording, VISP carries the field feed into the studio you already own."}
 						</p>
-						<ol className="mt-12 grid gap-px border border-border bg-border md:grid-cols-3">
-							{(fi ? stepsFi : steps).map((s) => (
-								<li key={s.tag} className="bg-background p-8">
-									<span className="font-mono text-muted-foreground text-xs uppercase tracking-[0.2em]">
-										{s.tag}
+						<ol className="mt-8 grid gap-px border border-border bg-border sm:grid-cols-3">
+							{(fi ? obsStepsFi : obsSteps).map((step, index) => (
+								<li key={step} className="bg-background p-6">
+									<span className={eyebrow}>
+										{String(index + 1).padStart(2, "0")}
 									</span>
-									<h3 className="mt-4 font-display font-semibold text-2xl uppercase leading-tight tracking-tight">
-										{s.title}
-									</h3>
-									<p className="mt-3 text-muted-foreground leading-relaxed">
-										{s.body}
-									</p>
+									<p className="mt-3 leading-relaxed">{step}</p>
 								</li>
 							))}
 						</ol>
@@ -618,7 +634,12 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 								: "Unlimited cloud OBS plans in this comparison cost $120–180 a month. If you already have a computer that runs OBS, VISP brings the feed to it free during beta — a 12-month software saving of $1,440–$2,160. If you need a managed cloud studio or true cellular bonding, a paid service can still be the right choice."}
 						</p>
 						<AnnualCostChart locale={locale} />
-						<ComparisonTable locale={locale} />
+						<details className="mt-8 border border-border p-4">
+							<summary className="cursor-pointer font-medium">
+								{fi ? "Näytä koko vertailu" : "See full comparison"}
+							</summary>
+							<ComparisonTable locale={locale} />
+						</details>
 						<p className="mt-6 font-mono text-muted-foreground text-xs">
 							{fi
 								? `Julkiset listahinnat, tarkistettu ${COMPARISON_CHECKED}.`
@@ -667,6 +688,9 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 								<Link
 									to="/download"
 									search={fi ? { lang: "fi" } : {}}
+									onClick={() =>
+										trackEvent("lander_cta", { action: "download", locale })
+									}
 									className="text-foreground underline underline-offset-4"
 								>
 									{fi ? "katso Lataus ja beta" : "see Download & beta"}
@@ -695,6 +719,14 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 										key={l.label}
 										to={l.href}
 										search={l.search}
+										onClick={() =>
+											l.href === "/download"
+												? trackEvent("lander_cta", {
+														action: "download",
+														locale,
+													})
+												: undefined
+										}
 										className="text-muted-foreground transition-colors hover:text-foreground"
 									>
 										{l.label}
