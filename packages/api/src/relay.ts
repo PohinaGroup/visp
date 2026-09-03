@@ -412,14 +412,19 @@ export async function getStudioPreviewUrls(userId: string) {
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.id, userId),
 	});
-	if (!owner?.readSecretEncrypted) return null;
+	if (!owner) return null;
 	const path = selectStudioPreviewPath(await listPaths(userId));
 	if (!path) return null;
 	let readSecret: string;
-	try {
-		readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
-	} catch {
-		return null;
+	if (!owner.readSecretHash) {
+		readSecret = (await rotateReadSecret(userId)).revealed.read;
+	} else {
+		if (!owner.readSecretEncrypted) return null;
+		try {
+			readSecret = decryptReadSecret(owner.readSecretEncrypted, userId);
+		} catch {
+			return null;
+		}
 	}
 	return buildStudioPreviewUrls(
 		path.relayHost,
