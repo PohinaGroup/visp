@@ -2,6 +2,27 @@ import { Text } from "@astryxdesign/core/Text";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
 
+export function buildWhepRequest(url: string, sdp?: string) {
+	const target = new URL(url);
+	const user = target.searchParams.get("user");
+	const pass = target.searchParams.get("pass");
+	target.searchParams.delete("user");
+	target.searchParams.delete("pass");
+	return {
+		url: target.toString(),
+		init: {
+			method: "POST",
+			headers: {
+				"Content-Type": "application/sdp",
+				...(user !== null && pass !== null
+					? { Authorization: `Basic ${btoa(`${user}:${pass}`)}` }
+					: {}),
+			},
+			body: sdp,
+		},
+	};
+}
+
 export function WhepPreview({
 	label,
 	poster,
@@ -43,11 +64,8 @@ export function WhepPreview({
 						if (peer.iceGatheringState === "complete") resolve();
 					});
 				});
-				const response = await fetch(url, {
-					method: "POST",
-					headers: { "Content-Type": "application/sdp" },
-					body: peer.localDescription?.sdp,
-				});
+				const request = buildWhepRequest(url, peer.localDescription?.sdp);
+				const response = await fetch(request.url, request.init);
 				if (!response.ok) throw new Error("preview unavailable");
 				await peer.setRemoteDescription({
 					type: "answer",
