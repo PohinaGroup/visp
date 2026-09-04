@@ -90,6 +90,13 @@ export function studioPreviewUrls(
 	};
 }
 
+export function showStudioPassthroughWarning(
+	live: boolean,
+	passthrough: boolean,
+) {
+	return live && passthrough;
+}
+
 export function newStudioScene(
 	id: string = crypto.randomUUID(),
 	name = "Scene",
@@ -324,5 +331,143 @@ export function studioLayerDisplayState(layer: {
 	return {
 		failed: layer.runtimeDisabled === true,
 		visible: layer.visible && layer.runtimeDisabled !== true,
+	};
+}
+
+export type StudioPreviewReason =
+	| "idle"
+	| "passthrough"
+	| "no-path"
+	| "offline";
+export type StudioPreviewPane =
+	| { url: string; reason?: undefined }
+	| { url?: undefined; reason: StudioPreviewReason };
+
+/**
+ * Every preview pane carries either a URL or the reason it has none, so the UI
+ * never shows a black box without saying why it is black.
+ */
+export function studioPreviewPanes(
+	preview: { camera?: string; program?: string } | null | undefined,
+	live: boolean,
+	passthrough: boolean,
+	online = true,
+): { camera: StudioPreviewPane; program: StudioPreviewPane } {
+	const urls = studioPreviewUrls(preview, live, passthrough);
+	const blocked: StudioPreviewReason | null = !online
+		? "offline"
+		: live
+			? null
+			: "idle";
+	return {
+		camera: blocked
+			? { reason: blocked }
+			: urls.camera
+				? { url: urls.camera }
+				: { reason: "no-path" },
+		program: blocked
+			? { reason: blocked }
+			: passthrough
+				? { reason: "passthrough" }
+				: urls.program
+					? { url: urls.program }
+					: { reason: "no-path" },
+	};
+}
+
+/**
+ * Turns a raw model or server error into the next thing the user can do about
+ * it. Unknown messages fall through unchanged.
+ */
+export function studioErrorHint(message: string) {
+	switch (message) {
+		case "Studio layer pixel budget exceeded":
+			return "Sources cover too much of the frame. Make one smaller or hide it, then try again.";
+		case "Studio crossfade pixel budget exceeded":
+			return "Fade renders two scenes at once. Shrink a source, or set this scene to Cut.";
+		case "Scene limit reached (3)":
+			return "Delete a scene before adding another. Cloud Studio allows 3.";
+		case "Layer limit reached (8)":
+			return "This scene is full. Delete a source before adding another. Each scene allows 8.";
+		case "Browser source limit reached (2)":
+			return "Delete a browser source before adding another. Cloud Studio allows 2 in total.";
+		case "Alert layer limit reached (1)":
+			return "You already have a VISP alert. One alert source covers every event.";
+		case "Browser source must be a public HTTPS URL":
+			return "Use an https:// address that opens in a normal browser tab, with no username or password in it.";
+		default:
+			return message;
+	}
+}
+
+export type StudioSaveBlocker = {
+	sceneId: string;
+	sceneName: string;
+	layerId: string;
+	layerName: string;
+	message: string;
+};
+
+/**
+ * Problems the server would reject on save, named per source so the UI can say
+ * which one to fix. Only real rejections belong here — an empty text layer is
+ * legal, and is surfaced as a warning on the field instead.
+ */
+export function studioSaveBlockers(graph: StudioGraph): StudioSaveBlocker[] {
+	return graph.scenes.flatMap((scene) =>
+		scene.layers.flatMap((layer) => {
+			const message =
+				layer.type === "browser" ? browserSourceUrlError(layer.url) : null;
+			return message
+				? [
+						{
+							sceneId: scene.id,
+							sceneName: scene.name,
+							layerId: layer.id,
+							layerName: layer.name,
+							message,
+						},
+					]
+				: [];
+		}),
+	);
+}
+
+/** Remaining headroom per source type, so limits are visible before they bite. */
+export function studioSourceCapacity(
+	graph: StudioGraph,
+	sceneId: string | undefined,
+) {
+	const layers = graph.scenes.flatMap(({ layers }) => layers);
+	const scene = graph.scenes.find(({ id }) => id === sceneId);
+	return {
+		layers: { used: scene?.layers.length ?? 0, max: 8 },
+		browser: {
+			used: layers.filter(({ type }) => type === "browser").length,
+			max: 2,
+		},
+		alert: {
+			used: layers.filter(({ type }) => type === "alert").length,
+			max: 1,
+		},
+		scenes: { used: graph.scenes.length, max: 3 },
+	};
+}
+
+/**
+ * Where a dragged layer lands: pointer travel is in rendered pixels, the graph
+ * is in frame pixels, so the delta is divided by the canvas scale.
+ * `updateStudioLayer` does the clamping into the frame.
+ */
+export function draggedLayerPosition(
+	origin: { x: number; y: number },
+	start: { x: number; y: number },
+	pointer: { x: number; y: number },
+	scale: number,
+) {
+	if (scale <= 0) return origin;
+	return {
+		x: Math.round(origin.x + (pointer.x - start.x) / scale),
+		y: Math.round(origin.y + (pointer.y - start.y) / scale),
 	};
 }
