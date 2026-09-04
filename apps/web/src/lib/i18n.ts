@@ -476,6 +476,159 @@ const finnishUi: Record<string, string> = {
 	"Join at example.com/discord": "Liity: example.com/discord",
 	"Built in: !bitrate, !uptime, !viewers, !commands, and !title for you and your mods.":
 		"Valmiina: !bitrate, !uptime, !viewers, !commands sekä !title sinulle ja moderaattoreillesi.",
+	"1. Build a scene below. 2. Save the composition. 3. Go live from the VISP app — the saved program is what viewers see.":
+		"1. Rakenna näkymä alla. 2. Tallenna sommittelu. 3. Aloita lähetys VISP-sovelluksesta — katsojat näkevät tallennetun ohjelman.",
+	"A line of text — show title, topic, or a handle.":
+		"Tekstirivi — otsikko, aihe tai käyttäjänimi.",
+	"A scene is one arrangement of sources. Switch between them while live.":
+		"Näkymä on yksi lähteiden asettelu. Voit vaihtaa näkymää kesken lähetyksen.",
+	"Any public https:// page — a widget, a timer, a chat overlay.":
+		"Mikä tahansa julkinen https://-sivu — widget, ajastin tai chat-päällys.",
+	"Applies this composition to your saved program.":
+		"Ottaa tämän sommittelun käyttöön tallennetussa ohjelmassa.",
+	"Back to paths, platforms, and stream keys.":
+		"Takaisin polkuihin, alustoihin ja lähetysavaimiin.",
+	"Can't reach VISP — editing is paused":
+		"VISP ei vastaa — muokkaus on keskeytetty",
+	"Cloud Studio allows up to 3 scenes.":
+		"Cloud Studiossa voi olla enintään 3 näkymää.",
+	"Cloud Studio mode: VISP composes the scenes below onto your camera and sends the result to your platforms.":
+		"Cloud Studio -tila: VISP yhdistää alla olevat näkymät kamerakuvaasi ja lähettää lopputuloksen alustoillesi.",
+	"Composition preview": "Sommittelun esikatselu",
+	"Compositor offline — camera passes through":
+		"Kuvamiksaus pois päältä — kamera menee läpi sellaisenaan",
+	"Connecting to the stream…": "Yhdistetään lähetykseen…",
+	"Cut: instant switch into this scene.":
+		"Leikkaus: vaihtaa tähän näkymään välittömästi.",
+	"Delete a browser source before adding another. Cloud Studio allows 2 in total.":
+		"Poista selainlähde ennen uuden lisäämistä. Cloud Studiossa niitä voi olla 2.",
+	"Delete a scene before adding another. Cloud Studio allows 3.":
+		"Poista näkymä ennen uuden lisäämistä. Cloud Studiossa niitä voi olla 3.",
+	"Draw this source behind the one below it.":
+		"Piirrä tämä lähde alapuolellaan olevan taakse.",
+	"Draw this source on top of the one above it.":
+		"Piirrä tämä lähde yläpuolellaan olevan päälle.",
+	"Edit this scene.": "Muokkaa tätä näkymää.",
+	"Editing is paused until VISP is reachable again.":
+		"Muokkaus jatkuu, kun yhteys VISPiin palaa.",
+	"Editing preview — drag a source to move it, or select it and nudge with the arrow keys. Sizes and exact positions are on the right.":
+		"Muokkausnäkymä — siirrä lähdettä raahaamalla tai valitse se ja siirrä nuolinäppäimillä. Koot ja tarkat sijainnit ovat oikealla.",
+	"Empty text": "Tyhjä teksti",
+	"Every source is drawn on top of your camera, in the order shown in the scene list.":
+		"Jokainen lähde piirretään kamerakuvan päälle näkymälistan järjestyksessä.",
+	"Fade renders two scenes at once. Shrink a source, or set this scene to Cut.":
+		"Häivytys piirtää kaksi näkymää yhtä aikaa. Pienennä lähdettä tai vaihda tämä näkymä leikkaukseen.",
+	"Fade: half-second blend. Uses more of the frame budget than Cut.":
+		"Häivytys: puolen sekunnin sulautus. Vie enemmän kuvabudjettia kuin leikkaus.",
+	"Finish setup on the dashboard to get a publish target.":
+		"Viimeistele käyttöönotto hallintapaneelissa, niin saat julkaisukohteen.",
+	"Fix the highlighted sources before saving.":
+		"Korjaa merkityt lähteet ennen tallennusta.",
+	"Fix these sources before saving": "Korjaa nämä lähteet ennen tallennusta",
+	Hidden: "Piilotettu",
+	"Hidden sources stay in the scene but are not rendered.":
+		"Piilotettu lähde pysyy näkymässä mutta ei näy lähetyksessä.",
+	"Needs fixing": "Vaatii korjausta",
+	"No sources in this scene yet": "Tässä näkymässä ei ole vielä lähteitä",
+	"No stream path yet": "Lähetyspolkua ei ole vielä",
+	"Nothing is streaming right now": "Mitään ei lähetetä juuri nyt",
+	"Nothing selected. Click a source in the preview or the list to edit it.":
+		"Mitään ei ole valittuna. Valitse lähde esikatselusta tai listasta.",
+	"Nothing to save — every change is already applied.":
+		"Ei tallennettavaa — kaikki muutokset ovat jo käytössä.",
+	"OBS mode: your own software composes the picture. VISP passes your feed through untouched and ignores the scenes below.":
+		"OBS-tila: oma ohjelmistosi rakentaa kuvan. VISP välittää syötteen sellaisenaan eikä käytä alla olevia näkymiä.",
+	"On air in the saved program.": "Lähetyksessä tallennetussa ohjelmassa.",
+	"Only you see scene names.": "Näkymien nimet näkyvät vain sinulle.",
+	"Only you see source names.": "Lähteiden nimet näkyvät vain sinulle.",
+	"Opens the VISP broadcast page. Save first — only the saved composition goes on air.":
+		"Avaa VISPin lähetyssivun. Tallenna ensin — vain tallennettu sommittelu menee lähetykseen.",
+	"PNG could not be loaded": "PNG-kuvaa ei voitu ladata",
+	"PNG, up to 10 MB. Transparency is kept, so logos and frames work.":
+		"PNG, enintään 10 Mt. Läpinäkyvyys säilyy, joten logot ja kehykset toimivat.",
+	"Pick what to place on top of your camera.":
+		"Valitse, mitä asetat kamerakuvan päälle.",
+	"Pops up on a follow, sub, or donation. One alert source covers every event.":
+		"Ponnahtaa näkyviin uudesta seuraajasta, tilauksesta tai lahjoituksesta. Yksi hälytyslähde kattaa kaikki tapahtumat.",
+	"Position and size in pixels. The frame is 1920 × 1080. You can also drag the source in the preview.":
+		"Sijainti ja koko pikseleinä. Kuva-ala on 1920 × 1080. Voit myös raahata lähdettä esikatselussa.",
+	"Move source": "Siirrä lähdettä",
+	"Some sites refuse to be embedded, so this box can look empty here even though the compositor renders it on air.":
+		"Osa sivustoista estää upottamisen, joten tämä laatikko voi näyttää tyhjältä täällä, vaikka kuvamiksaus näyttää sen lähetyksessä.",
+	"Preview could not connect": "Esikatselu ei saanut yhteyttä",
+	"Previews need a connection. Anything already saved keeps streaming.":
+		"Esikatselu vaatii verkkoyhteyden. Jo tallennettu jatkaa lähetystä.",
+	"Reconnect to keep editing. Changes made offline are not saved.":
+		"Yhdistä uudelleen jatkaaksesi muokkausta. Ilman yhteyttä tehtyjä muutoksia ei tallenneta.",
+	"Removes it from this scene. Saving makes it final.":
+		"Poistaa lähteen tästä näkymästä. Tallennus vahvistaa poiston.",
+	"Removes this scene and its sources.":
+		"Poistaa tämän näkymän ja sen lähteet.",
+	"Renders any public https:// page — widgets, timers, chat overlays.":
+		"Näyttää minkä tahansa julkisen https://-sivun — widgetit, ajastimet, chat-päällykset.",
+	"Retry now": "Yritä uudelleen",
+	"Retry preview": "Yritä esikatselua uudelleen",
+	"Shown on screen exactly as typed.":
+		"Näkyy ruudulla juuri kirjoitetussa muodossa.",
+	"Shows only when the event fires": "Näkyy vain, kun tapahtuma laukeaa",
+	"Sources cover too much of the frame. Make one smaller or hide it, then try again.":
+		"Lähteet peittävät liian suuren osan kuvasta. Pienennä tai piilota yksi ja yritä uudelleen.",
+	"Sources in this scene": "Lähteitä tässä näkymässä",
+	"Sources stack on top of your camera: text, a PNG overlay, any public web page, or a VISP alert. You can arrange them here without being live.":
+		"Lähteet asettuvat kamerakuvan päälle: teksti, PNG-päällys, mikä tahansa julkinen verkkosivu tai VISP-hälytys. Voit järjestellä ne täällä ilman lähetystä.",
+	"Sources, front to back": "Lähteet edestä taakse",
+	"Start publishing from the VISP app or OBS. This preview appears within a few seconds.":
+		"Aloita lähetys VISP-sovelluksesta tai OBS:stä. Esikatselu ilmestyy muutamassa sekunnissa.",
+	"Studio saved — it is live on your next scene change":
+		"Studio tallennettu — käytössä seuraavassa näkymänvaihdossa",
+	"Switch the mode above to Cloud Studio to put this composition on air.":
+		"Vaihda tila yllä Cloud Studioksi, niin tämä sommittelu menee lähetykseen.",
+	"Switching production mode changes what viewers see within seconds. Switch now?":
+		"Tuotantotilan vaihto muuttaa katsojien näkemän kuvan sekunneissa. Vaihdetaanko nyt?",
+	"Empty text renders nothing on screen.":
+		"Tyhjä teksti ei näy ruudulla lainkaan.",
+	"The alert only appears when this event fires on your platform.":
+		"Hälytys näkyy vain, kun tämä tapahtuma laukeaa alustallasi.",
+	"The compositor is down, so viewers see your plain camera. Your overlays return automatically when it recovers.":
+		"Kuvamiksaus on pois käytöstä, joten katsojat näkevät pelkän kamerakuvan. Päällykset palaavat automaattisesti.",
+	"The program feed appears once Cloud Studio has a path.":
+		"Ohjelmasyöte näkyy, kun Cloud Studiolla on polku.",
+	"The stream is still going out. Only this browser preview failed — check your network, then retry.":
+		"Lähetys jatkuu normaalisti. Vain tämä selaimen esikatselu epäonnistui — tarkista verkkoyhteys ja yritä uudelleen.",
+	"This scene is full. Delete a source before adding another. Each scene allows 8.":
+		"Näkymä on täynnä. Poista lähde ennen uuden lisäämistä. Yhdessä näkymässä voi olla 8.",
+	"This source failed at runtime. Turning it on retries it.":
+		"Tämä lähde epäonnistui lähetyksessä. Kytkeminen päälle yrittää uudelleen.",
+	"This studio has no saved sources, so viewers will see your plain camera. Go live anyway?":
+		"Studiossa ei ole tallennettuja lähteitä, joten katsojat näkevät pelkän kamerakuvan. Aloitetaanko lähetys silti?",
+	"This usually takes a few seconds.": "Tämä kestää yleensä muutaman sekunnin.",
+	"Unsaved changes": "Tallentamattomia muutoksia",
+	"Unsaved changes are not on air. Save them before leaving?":
+		"Tallentamattomat muutokset eivät ole lähetyksessä. Tallennetaanko ne ennen poistumista?",
+	"Use an https:// address that opens in a normal browser tab, with no username or password in it.":
+		"Käytä https://-osoitetta, joka aukeaa tavallisessa selainvälilehdessä ilman käyttäjänimeä tai salasanaa.",
+	"Waiting for the live picture": "Odotetaan live-kuvaa",
+	"What your camera sends into VISP, before overlays.":
+		"Mitä kamerasi lähettää VISPiin ennen päällyksiä.",
+	"What your viewers see: camera plus your saved sources.":
+		"Mitä katsojat näkevät: kamera ja tallennetut lähteesi.",
+	"You already have a VISP alert. One alert source covers every event.":
+		"Sinulla on jo VISP-hälytys. Yksi hälytyslähde kattaa kaikki tapahtumat.",
+	"You are in OBS mode — these scenes are not on air":
+		"Olet OBS-tilassa — nämä näkymät eivät ole lähetyksessä",
+	"You are offline": "Verkkoyhteys puuttuu",
+	"Your account is streaming through Direct as usual. We will enable Cloud Studio here when it reaches your plan.":
+		"Tilisi lähettää Directin kautta normaalisti. Cloud Studio avautuu tänne, kun se tulee tilaukseesi.",
+	"Your camera fills this frame underneath":
+		"Kamerakuvasi täyttää tämän kuva-alan alla",
+	"Your program needs at least one scene.":
+		"Ohjelmassa on oltava vähintään yksi näkymä.",
+	"Your saved program keeps streaming. This page retries on its own; nothing you already saved is lost.":
+		"Tallennettu ohjelmasi jatkaa lähetystä. Sivu yrittää yhteyttä automaattisesti eikä tallennettu katoa.",
+	"Your stream is still going out. Only this browser preview has no picture.":
+		"Lähetyksesi jatkuu normaalisti. Vain tässä selaimen esikatselussa ei ole kuvaa.",
+	"Your stream keeps going out as the plain camera. Overlays return automatically.":
+		"Lähetys jatkuu pelkkänä kamerakuvana. Päällykset palaavat automaattisesti.",
 };
 
 export function useT() {

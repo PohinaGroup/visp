@@ -270,6 +270,10 @@ export function DashboardPage() {
 									<Heading level={2}>{t("Preview")}</Heading>
 									{livePath ? (
 										<WhepPreview
+											emptyHint={t(
+												"Your stream is still going out. Only this browser preview has no picture.",
+											)}
+											emptyTitle={t("Waiting for the live picture")}
 											label={`${livePath.label}: ${t("Live")}`}
 											poster={snapshot?.url ?? undefined}
 											url={studioQuery.data?.preview?.camera}

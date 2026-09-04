@@ -1,3 +1,5 @@
+import { Button } from "@astryxdesign/core/Button";
+import { Spinner } from "@astryxdesign/core/Spinner";
 import { Text } from "@astryxdesign/core/Text";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
@@ -23,22 +25,35 @@ export function buildWhepRequest(url: string, sdp?: string) {
 	};
 }
 
+/**
+ * A live WHEP pane. It never renders a bare black rectangle: whenever there is
+ * no picture it says which state it is in and what the viewer can do next.
+ */
 export function WhepPreview({
+	emptyHint,
+	emptyTitle,
 	label,
 	poster,
 	url,
 }: {
+	emptyHint?: string;
+	emptyTitle: string;
 	label: string;
 	poster?: string;
 	url?: string;
 }) {
 	const t = useT();
 	const video = useRef<HTMLVideoElement>(null);
+	const [attempt, setAttempt] = useState(0);
 	const [state, setState] = useState<"idle" | "loading" | "playing" | "error">(
 		"idle",
 	);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `attempt` is a nonce — bumping it reconnects
 	useEffect(() => {
-		if (!url || typeof RTCPeerConnection === "undefined") return;
+		if (!url || typeof RTCPeerConnection === "undefined") {
+			setState("idle");
+			return;
+		}
 		const peer = new RTCPeerConnection();
 		let cancelled = false;
 		setState("loading");
@@ -80,9 +95,29 @@ export function WhepPreview({
 			peer.close();
 			if (video.current) video.current.srcObject = null;
 		};
-	}, [url]);
+	}, [url, attempt]);
+
+	const overlay =
+		!url || state === "idle"
+			? { title: emptyTitle, hint: emptyHint, canRetry: false }
+			: state === "loading"
+				? {
+						title: t("Connecting to the stream…"),
+						hint: t("This usually takes a few seconds."),
+						canRetry: false,
+					}
+				: state === "error"
+					? {
+							title: t("Preview could not connect"),
+							hint: t(
+								"The stream is still going out. Only this browser preview failed — check your network, then retry.",
+							),
+							canRetry: true,
+						}
+					: null;
+
 	return (
-		<>
+		<div style={{ position: "relative", width: "100%" }}>
 			<video
 				aria-label={label}
 				autoPlay
@@ -90,17 +125,47 @@ export function WhepPreview({
 				playsInline
 				poster={poster}
 				ref={video}
-				style={{ aspectRatio: "16 / 9", background: "black", width: "100%" }}
+				style={{
+					aspectRatio: "16 / 9",
+					background: "var(--color-neutral, #0b0f19)",
+					display: "block",
+					width: "100%",
+				}}
 			/>
-			<Text role="status">
-				{!url || state === "idle"
-					? t("Preview unavailable")
-					: state === "loading"
-						? t("Loading preview…")
-						: state === "error"
-							? t("Preview failed")
-							: ""}
-			</Text>
-		</>
+			{overlay ? (
+				<div
+					role="status"
+					style={{
+						alignItems: "center",
+						display: "flex",
+						flexDirection: "column",
+						gap: "0.5rem",
+						inset: 0,
+						justifyContent: "center",
+						padding: "1rem",
+						position: "absolute",
+						textAlign: "center",
+					}}
+				>
+					{state === "loading" ? (
+						<Spinner label={t("Loading preview…")} />
+					) : null}
+					<Text type="label">{overlay.title}</Text>
+					{overlay.hint ? (
+						<Text color="secondary" type="supporting">
+							{overlay.hint}
+						</Text>
+					) : null}
+					{overlay.canRetry ? (
+						<Button
+							label={t("Retry preview")}
+							size="sm"
+							variant="secondary"
+							onClick={() => setAttempt((value) => value + 1)}
+						/>
+					) : null}
+				</div>
+			) : null}
+		</div>
 	);
 }
