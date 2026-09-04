@@ -31,6 +31,8 @@ const finnishUi: Record<string, string> = {
 	"Open Studio": "Avaa Studio",
 	"Studio actions": "Studion toiminnot",
 	"Studio saved": "Studio tallennettu",
+	"Save composition": "Tallenna sommittelu",
+	"Production mode updated": "Tuotantotila päivitetty",
 	"Go Live": "Aloita lähetys",
 	"Empty Cloud Studio": "Tyhjä Cloud Studio",
 	"Your studio has no sources yet. Go live anyway?":
@@ -55,6 +57,8 @@ const finnishUi: Record<string, string> = {
 	Visible: "Näkyvissä",
 	Text: "Teksti",
 	"Browser URL": "Selainosoite",
+	"Browser source must be a public HTTPS URL":
+		"Selainlähteen on oltava julkinen HTTPS-osoite",
 	Transition: "Siirtymä",
 	Cut: "Leikkaus",
 	Fade: "Häivytys",

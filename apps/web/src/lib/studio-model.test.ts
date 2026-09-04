@@ -4,6 +4,7 @@ import {
 	addStudioLayer,
 	addStudioScene,
 	addStudioSource,
+	browserSourceUrlError,
 	deleteStudioLayer,
 	deleteStudioScene,
 	moveStudioLayer,
@@ -13,6 +14,7 @@ import {
 	selectStudioScene,
 	shouldEnterStudio,
 	studioLayerDisplayState,
+	studioPreviewUrls,
 	updateStudioLayer,
 } from "./studio-model";
 
@@ -166,5 +168,23 @@ describe("Studio editor model", () => {
 			failed: true,
 			visible: false,
 		});
+	});
+
+	test("only opens WHEP previews for paths that can exist", () => {
+		const preview = { camera: "camera", program: "program" };
+		expect(studioPreviewUrls(preview, false, false)).toEqual({});
+		expect(studioPreviewUrls(preview, true, true)).toEqual({
+			camera: "camera",
+		});
+		expect(studioPreviewUrls(preview, true, false)).toEqual(preview);
+	});
+
+	test("reports unsafe browser source URLs before save", () => {
+		expect(browserSourceUrlError("not-a-url")).toBe(
+			"Browser source must be a public HTTPS URL",
+		);
+		expect(
+			browserSourceUrlError("https://widgets.example.com/live"),
+		).toBeNull();
 	});
 });

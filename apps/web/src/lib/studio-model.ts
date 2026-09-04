@@ -1,5 +1,4 @@
 import type { StudioGraph } from "@VISP/api/studio";
-
 export type StudioScene = StudioGraph["scenes"][number];
 export type StudioLayerType = StudioScene["layers"][number]["type"];
 export type StudioLayer = StudioScene["layers"][number];
@@ -66,6 +65,29 @@ export function shouldEnterStudio(settings: {
 		settings.mode === "cloud_studio" &&
 		!settings.configured
 	);
+}
+
+export function browserSourceUrlError(value: string) {
+	try {
+		const url = new URL(value);
+		if (url.protocol === "https:" && !url.username && !url.password)
+			return null;
+	} catch {
+		// The server performs the full public-address check at the trust boundary.
+	}
+	return "Browser source must be a public HTTPS URL";
+}
+
+export function studioPreviewUrls(
+	preview: { camera?: string; program?: string } | null | undefined,
+	live: boolean,
+	passthrough: boolean,
+) {
+	if (!live) return {};
+	return {
+		...(preview?.camera ? { camera: preview.camera } : {}),
+		...(!passthrough && preview?.program ? { program: preview.program } : {}),
+	};
 }
 
 export function newStudioScene(
