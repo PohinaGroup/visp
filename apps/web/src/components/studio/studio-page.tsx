@@ -39,6 +39,7 @@ import { useLocale, useT } from "@/lib/i18n";
 import {
 	addStudioScene,
 	addStudioSource,
+	browserSourceUrlError,
 	deleteStudioLayer,
 	deleteStudioScene,
 	moveStudioLayer,
@@ -46,6 +47,7 @@ import {
 	type StudioLayerType,
 	selectStudioScene,
 	studioLayerDisplayState,
+	studioPreviewUrls,
 	updateStudioLayer,
 } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
@@ -112,8 +114,12 @@ export function StudioPage() {
 	);
 	const setMode = useMutation(
 		trpc.studio.mode.set.mutationOptions({
-			onSuccess: async () =>
-				queryClient.invalidateQueries({ queryKey: trpc.studio.get.queryKey() }),
+			onSuccess: async () => {
+				await queryClient.invalidateQueries({
+					queryKey: trpc.studio.get.queryKey(),
+				});
+				toast.success(t("Production mode updated"));
+			},
 			onError: (error) => toast.error(error.message),
 		}),
 	);
@@ -134,6 +140,11 @@ export function StudioPage() {
 		({ id }) => id === selectedLayerId,
 	);
 	const live = paths.data?.some(({ publishing }) => publishing) ?? false;
+	const preview = studioPreviewUrls(
+		studio.data?.preview,
+		live,
+		studio.data?.settings.passthrough ?? false,
+	);
 	const readOnly = !online || studio.isError;
 	const mutateDraft = (updater: (graph: StudioGraph) => StudioGraph) => {
 		if (!draft || readOnly) return;
@@ -269,7 +280,7 @@ export function StudioPage() {
 									/>
 									<Button
 										isDisabled={readOnly || save.isPending || !dirty}
-										label={t("Save")}
+										label={t("Save composition")}
 										variant="primary"
 										onClick={() => draft && save.mutate(draft)}
 									/>
@@ -418,6 +429,16 @@ export function StudioPage() {
 									<TextInput
 										isDisabled={readOnly}
 										label={t("Browser URL")}
+										status={
+											browserSourceUrlError(selectedLayer.url)
+												? {
+														type: "error",
+														message: t(
+															"Browser source must be a public HTTPS URL",
+														),
+													}
+												: undefined
+										}
 										value={selectedLayer.url}
 										onChange={(url) => updateLayer({ url })}
 									/>
@@ -535,29 +556,19 @@ export function StudioPage() {
 						/>
 					) : null}
 					<Text role="status">
-						{save.isSuccess
-							? t("Saved composition applied")
-							: studio.data.settings.passthrough
-								? t("Cloud Studio unavailable — showing camera only")
-								: ""}
+						{save.isSuccess ? t("Saved composition applied") : ""}
 					</Text>
 					<Grid columns={{ minWidth: 280, max: 2, repeat: "fit" }} gap={3}>
 						<Card>
 							<VStack gap={2}>
 								<Text type="label">{t("Camera ingest")}</Text>
-								<WhepPreview
-									label={t("Camera ingest")}
-									url={studio.data.preview?.camera}
-								/>
+								<WhepPreview label={t("Camera ingest")} url={preview.camera} />
 							</VStack>
 						</Card>
 						<Card>
 							<VStack gap={2}>
 								<Text type="label">{t("Program")}</Text>
-								<WhepPreview
-									label={t("Program")}
-									url={studio.data.preview?.program}
-								/>
+								<WhepPreview label={t("Program")} url={preview.program} />
 							</VStack>
 						</Card>
 					</Grid>
@@ -770,7 +781,7 @@ export function StudioPage() {
 									}}
 								/>
 								<Button
-									label={t("Save")}
+									label={t("Save composition")}
 									variant="primary"
 									isDisabled={save.isPending}
 									onClick={async () => {
