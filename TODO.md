@@ -1,0 +1,4 @@
+- Cloud obs studio thingie should be more like the streamelements overlay editor.
+- Relay for Americas
+- Multi-chat browser source. 
+    - Web page where you login with VISP account, give the overlay your twitch nickname, kick nickname, tiktok nickname, etc. and the overlay will show the chats in one place. No access granted, just the chat messages. 

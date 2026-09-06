@@ -351,9 +351,7 @@ export function DirectSection({ direct }: { direct: DirectSettings }) {
 									}
 								>
 									<UI.Switch
-										disabled={
-											direct.busy || (ownPath.publishing && !landscape)
-										}
+										disabled={direct.busy || (ownPath.publishing && !landscape)}
 										value={Boolean(landscape)}
 										onValueChange={(enabled) =>
 											direct.onApplyCustomSelection(

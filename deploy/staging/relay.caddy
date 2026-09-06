@@ -5,7 +5,7 @@
 
 relay-staging.visp-stream.com {
 	@ping path /ping
-	header @ping Access-Control-Allow-Origin "https://staging.visp-stream.com"
+	header @ping Access-Control-Allow-Origin "*"
 	header @ping Access-Control-Allow-Methods "GET, OPTIONS"
 	header @ping Cache-Control "no-store"
 	respond @ping 204

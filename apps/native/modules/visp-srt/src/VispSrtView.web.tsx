@@ -406,8 +406,6 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 					}
 					try {
 						const relayUrl = process.env.EXPO_PUBLIC_RELAY_WEBRTC_URL;
-						if (!relayUrl)
-							throw new Error("Browser streaming is not configured.");
 						const target = webPublishTarget(streamUrl, relayUrl);
 						const PublisherClass = await publisherClass(
 							target.publisherScriptUrl,

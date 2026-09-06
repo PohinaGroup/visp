@@ -344,6 +344,9 @@ needed.
 
 ## Adding relay N
 
+For the Finland + US rollout, follow [REGIONS.md](REGIONS.md), including release
+targets, disabled registration, and moving existing devices.
+
 Provision every additional relay from the same `relay/mediamtx.yml`, Caddyfile,
 systemd units, firewall rules, and Tailscale ACLs described above. Give it a
 distinct `RELAY_DOMAIN`, public IP, and `MTX_APIADDRESS`/`MTX_WEBRTCADDITIONALHOSTS`

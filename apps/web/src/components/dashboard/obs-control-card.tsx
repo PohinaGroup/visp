@@ -90,6 +90,11 @@ export function ObsControlCard() {
 				</VStack>
 
 				<Text color="secondary">{t(obsStatusMessage(status))}</Text>
+				<Text color="secondary" type="supporting">
+					{t(
+						"This controls the OBS running on your own computer. It does not change Cloud Studio scenes.",
+					)}
+				</Text>
 
 				<Collapsible
 					defaultIsOpen={false}

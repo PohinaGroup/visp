@@ -1,6 +1,8 @@
 #!/bin/sh
 set -eu
 
+bun apps/server/src/proxy-check.ts
+
 compose_file="compose.test.yml"
 compose_project="visp-test"
 database_url="postgresql://visp:visp@127.0.0.1:55432/visp_test"

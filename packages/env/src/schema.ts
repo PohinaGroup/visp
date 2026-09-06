@@ -50,6 +50,7 @@ export const serverEnvSchema = {
 	GOOGLE_CLIENT_SECRET: z.string().min(1),
 	KICK_CLIENT_ID: z.string().min(1),
 	KICK_CLIENT_SECRET: z.string().min(1),
+	MULTICHAT_ORIGIN: z.url().optional(),
 	/** Bootstrap value for the database-backed default relay. */
 	MEDIAMTX_API_URL: z.url(),
 	NATIVE_WEB_ORIGIN: z.url(),
@@ -75,6 +76,8 @@ export const serverEnvSchema = {
 	STUDIO_MEDIA_PASSWORD: z.string().min(32),
 	TWITCH_CLIENT_ID: z.string().min(1),
 	TWITCH_CLIENT_SECRET: z.string().min(1),
+	/** Required by TikTok's unofficial LIVE connector in production. */
+	TIKTOK_SIGN_API_KEY: z.string().min(1).optional(),
 	VISP_CHAT_BOT_USER_ID: z.string().min(1),
 };
 

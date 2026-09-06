@@ -1,12 +1,16 @@
 import "./test-env";
 import { describe, expect, test } from "bun:test";
 import { chatRoutes } from "./chat";
+import { multiChatRoutes } from "./multichat";
 import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 
 describe("shared node adapter websocket routes", () => {
-	test("registers chat and obs live websocket handlers", () => {
+	test("registers chat, multichat, and obs live websocket handlers", () => {
 		expect(chatRoutes.router.static["/api/chat/live"]?.WS).toBeDefined();
+		expect(
+			multiChatRoutes.router.static["/api/multichat/live"]?.WS,
+		).toBeDefined();
 		expect(obsLiveRoutes.router.static["/api/obs/live"]?.WS).toBeDefined();
 	});
 

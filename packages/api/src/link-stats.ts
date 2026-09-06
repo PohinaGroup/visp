@@ -1,5 +1,19 @@
 export const LINK_STATS_FRESH_MS = 15_000;
 export const LINK_STATS_MIN_INTERVAL_MS = 1_500;
+export const TELEMETRY_MAX_BACKOFF_MS = 60_000;
+
+/**
+ * Telemetry is the least important thing on the wire, so a failing report must
+ * get out of the way instead of retrying at the stats cadence. Doubles from the
+ * normal interval up to a minute; success resets it.
+ */
+export function nextTelemetryBackoffMs(
+	currentMs: number,
+	minimumMs = LINK_STATS_MIN_INTERVAL_MS,
+	maximumMs = TELEMETRY_MAX_BACKOFF_MS,
+) {
+	return Math.min(currentMs > 0 ? currentMs * 2 : minimumMs, maximumMs);
+}
 
 /** Soft ABR step thresholds shared by web and native publishers. */
 export const LINK_SOFT_LOSS_PCT = 0.5;

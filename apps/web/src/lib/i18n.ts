@@ -24,7 +24,73 @@ export function localeSearch(locale: Locale) {
 	return locale === "fi" ? { lang: "fi" as const } : {};
 }
 
-const finnishUi: Record<string, string> = {
+export const finnishUi: Record<string, string> = {
+	// Stream status — one entry per state in `studioStreamStatus`.
+	"Stream status unavailable": "Lähetyksen tila ei ole saatavilla",
+	"VISP cannot read your stream status right now. Retrying automatically.":
+		"VISP ei saa luettua lähetyksesi tilaa juuri nyt. Yritetään automaattisesti uudelleen.",
+	"Start publishing from the VISP app or OBS to see live status here.":
+		"Aloita lähetys VISP-sovelluksesta tai OBS:stä, niin tila näkyy tässä.",
+	"VISP is receiving your camera. Cloud Studio is off, so overlays are not applied.":
+		"VISP vastaanottaa kamerakuvasi. Cloud Studio ei ole käytössä, joten grafiikoita ei lisätä.",
+	"Cloud Studio is starting": "Cloud Studio käynnistyy",
+	"VISP is bringing up the compositor for this camera. Overlays appear in a few seconds.":
+		"VISP käynnistää kuvamikserin tälle kameralle. Grafiikat ilmestyvät muutamassa sekunnissa.",
+	"Overlays are being applied": "Grafiikat ovat käytössä",
+	"Cloud Studio is compositing your saved program onto the camera.":
+		"Cloud Studio yhdistää tallennetun ohjelmasi kamerakuvaan.",
+	"Cloud Studio is temporarily unavailable":
+		"Cloud Studio ei ole tilapäisesti käytettävissä",
+	"Overlays aren't being applied. VISP will retry automatically.":
+		"Grafiikoita ei lisätä. VISP yrittää automaattisesti uudelleen.",
+	"This browser could not connect to the preview. Stream status is shown separately below.":
+		"Tämä selain ei saanut yhteyttä esikatseluun. Lähetyksen tila näkyy erikseen alla.",
+	"This browser could not connect to the preview. Check the stream status above, then retry.":
+		"Tämä selain ei saanut yhteyttä esikatseluun. Tarkista lähetyksen tila yltä ja yritä uudelleen.",
+	"Your camera is still going out to your platforms.":
+		"Kamerakuvasi menee edelleen alustoillesi.",
+	// Saving.
+	"Changes weren't saved. Try again in {seconds} seconds. Your edits are still here.":
+		"Muutoksia ei tallennettu. Yritä uudelleen {seconds} sekunnin kuluttua. Muokkauksesi ovat yhä tallessa.",
+	"Another tab saved this Studio. Reload to see it — your edits are still here.":
+		"Toinen välilehti tallensi tämän Studion. Lataa sivu uudelleen nähdäksesi sen — muokkauksesi ovat yhä tallessa.",
+	"A save is already running. Your edits are still here.":
+		"Tallennus on jo käynnissä. Muokkauksesi ovat yhä tallessa.",
+	"Studio saved. Your newer edits are still unsaved.":
+		"Studio tallennettu. Uudemmat muokkauksesi ovat yhä tallentamatta.",
+	"Studio saved — the compositor picks it up within a second":
+		"Studio tallennettu — kuvamikseri ottaa sen käyttöön sekunnissa",
+	"Studio could not be loaded": "Studiota ei voitu ladata",
+	"VISP could not read your Studio. Anything already saved keeps streaming.":
+		"VISP ei saanut luettua Studiotasi. Jo tallennettu ohjelma jatkaa lähetystä.",
+	// Scene editing versus what is on air.
+	"Open this scene for editing.": "Avaa tämä näkymä muokattavaksi.",
+	"Goes on air when you save": "Menee lähetykseen kun tallennat",
+	"Put on air": "Vie lähetykseen",
+	"This scene is already the one that goes on air.":
+		"Tämä näkymä menee jo lähetykseen.",
+	"Makes this the scene viewers see, from your next save.":
+		"Tekee tästä näkymän, jonka katsojat näkevät seuraavasta tallennuksesta alkaen.",
+	"Scene could not be added": "Näkymää ei voitu lisätä",
+
+	"Check output settings": "Tarkista lähtöasetukset",
+	"Camera connected": "Kamera yhdistetty",
+	"Output starting": "Alustalähtö käynnistyy",
+	"Output failed": "Alustalähtö epäonnistui",
+	"Your camera is connected. No platform output is live.":
+		"Kamera on yhdistetty. Yksikään alustalähtö ei ole suorana.",
+	"Connecting to your platform. Your broadcast is not live yet.":
+		"Yhdistetään alustaan. Lähetys ei ole vielä suorana.",
+	"Your platform output failed. Check the output details below.":
+		"Alustalähtö epäonnistui. Tarkista lähdön tiedot alta.",
+	"Status unavailable": "Tilatieto ei ole saatavilla",
+	"Loading stream status…": "Ladataan lähetyksen tilaa…",
+	"Could not load your stream status. Retrying automatically.":
+		"Lähetyksen tilaa ei voitu ladata. Yritetään automaattisesti uudelleen.",
+	"Showing last known state. Retrying automatically.":
+		"Näytetään viimeisin tunnettu tila. Yritetään automaattisesti uudelleen.",
+	"Please wait.": "Odota hetki.",
+	"Waiting for a picture from your camera.": "Odotetaan kuvaa kamerastasi.",
 	"Cloud Studio": "Cloud Studio",
 	"Build the saved program that Direct sends to your platforms.":
 		"Rakenna tallennettu ohjelma, jonka Direct lähettää alustoillesi.",
@@ -63,8 +129,6 @@ const finnishUi: Record<string, string> = {
 	Cut: "Leikkaus",
 	Fade: "Häivytys",
 	"Select a source to edit it": "Valitse muokattava lähde",
-	"Cloud Studio unavailable — showing camera only":
-		"Cloud Studio ei ole käytettävissä — näytetään vain kamera",
 	"You are offline — saved program stays live":
 		"Verkkoyhteys puuttuu — tallennettu ohjelma pysyy suorana",
 	"Saved composition applied": "Tallennettu sommittelu otettiin käyttöön",
@@ -371,6 +435,12 @@ const finnishUi: Record<string, string> = {
 	"Download the plugin": "Lataa lisäosa",
 	"OBS is not paired yet. Open plugin pairing below to connect it.":
 		"OBS:ää ei ole vielä yhdistetty. Avaa alta lisäosan yhdistäminen.",
+	"OBS is offline, so your last command has not been delivered. It is applied when OBS reconnects.":
+		"OBS ei ole yhteydessä, joten viimeisintä komentoa ei ole toimitettu. Se otetaan käyttöön, kun OBS yhdistää uudelleen.",
+	"OBS is paired but not connected. Start OBS with the VISP plugin.":
+		"OBS on pariliitetty mutta ei yhteydessä. Käynnistä OBS, jossa VISP-liitännäinen on asennettuna.",
+	"This controls the OBS running on your own computer. It does not change Cloud Studio scenes.":
+		"Tämä ohjaa omalla koneellasi pyörivää OBS:ää. Se ei muuta Cloud Studion näkymiä.",
 	"OBS has not acknowledged the latest command yet.":
 		"OBS ei ole vielä vahvistanut viimeisintä komentoa.",
 	"OBS reports that the stream is live.":
@@ -495,8 +565,6 @@ const finnishUi: Record<string, string> = {
 	"Cloud Studio mode: VISP composes the scenes below onto your camera and sends the result to your platforms.":
 		"Cloud Studio -tila: VISP yhdistää alla olevat näkymät kamerakuvaasi ja lähettää lopputuloksen alustoillesi.",
 	"Composition preview": "Sommittelun esikatselu",
-	"Compositor offline — camera passes through":
-		"Kuvamiksaus pois päältä — kamera menee läpi sellaisenaan",
 	"Connecting to the stream…": "Yhdistetään lähetykseen…",
 	"Cut: instant switch into this scene.":
 		"Leikkaus: vaihtaa tähän näkymään välittömästi.",
@@ -508,7 +576,6 @@ const finnishUi: Record<string, string> = {
 		"Piirrä tämä lähde alapuolellaan olevan taakse.",
 	"Draw this source on top of the one above it.":
 		"Piirrä tämä lähde yläpuolellaan olevan päälle.",
-	"Edit this scene.": "Muokkaa tätä näkymää.",
 	"Editing is paused until VISP is reachable again.":
 		"Muokkaus jatkuu, kun yhteys VISPiin palaa.",
 	"Editing preview — drag a source to move it, or select it and nudge with the arrow keys. Sizes and exact positions are on the right.":
@@ -538,7 +605,6 @@ const finnishUi: Record<string, string> = {
 		"Ei tallennettavaa — kaikki muutokset ovat jo käytössä.",
 	"OBS mode: your own software composes the picture. VISP passes your feed through untouched and ignores the scenes below.":
 		"OBS-tila: oma ohjelmistosi rakentaa kuvan. VISP välittää syötteen sellaisenaan eikä käytä alla olevia näkymiä.",
-	"On air in the saved program.": "Lähetyksessä tallennetussa ohjelmassa.",
 	"Only you see scene names.": "Näkymien nimet näkyvät vain sinulle.",
 	"Only you see source names.": "Lähteiden nimet näkyvät vain sinulle.",
 	"Opens the VISP broadcast page. Save first — only the saved composition goes on air.":
@@ -555,7 +621,6 @@ const finnishUi: Record<string, string> = {
 	"Move source": "Siirrä lähdettä",
 	"Some sites refuse to be embedded, so this box can look empty here even though the compositor renders it on air.":
 		"Osa sivustoista estää upottamisen, joten tämä laatikko voi näyttää tyhjältä täällä, vaikka kuvamiksaus näyttää sen lähetyksessä.",
-	"Preview could not connect": "Esikatselu ei saanut yhteyttä",
 	"Previews need a connection. Anything already saved keeps streaming.":
 		"Esikatselu vaatii verkkoyhteyden. Jo tallennettu jatkaa lähetystä.",
 	"Reconnect to keep editing. Changes made offline are not saved.":
@@ -579,8 +644,6 @@ const finnishUi: Record<string, string> = {
 	"Sources, front to back": "Lähteet edestä taakse",
 	"Start publishing from the VISP app or OBS. This preview appears within a few seconds.":
 		"Aloita lähetys VISP-sovelluksesta tai OBS:stä. Esikatselu ilmestyy muutamassa sekunnissa.",
-	"Studio saved — it is live on your next scene change":
-		"Studio tallennettu — käytössä seuraavassa näkymänvaihdossa",
 	"Switch the mode above to Cloud Studio to put this composition on air.":
 		"Vaihda tila yllä Cloud Studioksi, niin tämä sommittelu menee lähetykseen.",
 	"Switching production mode changes what viewers see within seconds. Switch now?":
@@ -589,12 +652,8 @@ const finnishUi: Record<string, string> = {
 		"Tyhjä teksti ei näy ruudulla lainkaan.",
 	"The alert only appears when this event fires on your platform.":
 		"Hälytys näkyy vain, kun tämä tapahtuma laukeaa alustallasi.",
-	"The compositor is down, so viewers see your plain camera. Your overlays return automatically when it recovers.":
-		"Kuvamiksaus on pois käytöstä, joten katsojat näkevät pelkän kamerakuvan. Päällykset palaavat automaattisesti.",
 	"The program feed appears once Cloud Studio has a path.":
 		"Ohjelmasyöte näkyy, kun Cloud Studiolla on polku.",
-	"The stream is still going out. Only this browser preview failed — check your network, then retry.":
-		"Lähetys jatkuu normaalisti. Vain tämä selaimen esikatselu epäonnistui — tarkista verkkoyhteys ja yritä uudelleen.",
 	"This scene is full. Delete a source before adding another. Each scene allows 8.":
 		"Näkymä on täynnä. Poista lähde ennen uuden lisäämistä. Yhdessä näkymässä voi olla 8.",
 	"This source failed at runtime. Turning it on retries it.":
@@ -627,8 +686,6 @@ const finnishUi: Record<string, string> = {
 		"Tallennettu ohjelmasi jatkaa lähetystä. Sivu yrittää yhteyttä automaattisesti eikä tallennettu katoa.",
 	"Your stream is still going out. Only this browser preview has no picture.":
 		"Lähetyksesi jatkuu normaalisti. Vain tässä selaimen esikatselussa ei ole kuvaa.",
-	"Your stream keeps going out as the plain camera. Overlays return automatically.":
-		"Lähetys jatkuu pelkkänä kamerakuvana. Päällykset palaavat automaattisesti.",
 };
 
 export function useT() {

@@ -448,7 +448,7 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 							<a
 								href={fi ? "/" : "/fi"}
 								hrefLang={fi ? "en" : "fi"}
-								className="hidden text-muted-foreground hover:text-foreground sm:inline"
+								className="text-muted-foreground hover:text-foreground"
 							>
 								{fi ? "EN" : "FI"}
 							</a>

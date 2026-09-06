@@ -4,7 +4,10 @@
 
 The release workflow compares the release tag with the previous release and
 deploys only the changed relay components. The `production` environment must
-define `RELAY_DEPLOY_HOST` as the relay's Tailscale hostname. It uses the same
+define `RELAY_DEPLOY_HOST` as the relay's Tailscale hostname, or set
+`RELAY_DEPLOY_TARGETS` to a JSON array of `{ "host": "tailscale-host", "url": "https://relay-host" }`
+objects for all relay hosts. See [REGIONS.md](REGIONS.md) for the Finland + US
+setup. It uses the same
 `DEPLOY_USER`, SSH key, known-hosts entry, and Tailscale credentials as the app
 deployment.
 
@@ -18,6 +21,8 @@ sudo install -m 0755 deploy/visp-relay-release-bootstrap \
 The bootstrap checks out the exact release on `/opt/visp`. The helper downloads
 the pinned MediaMTX archive, builds `srtla_rec` and `visp-bond` on the relay,
 installs only the requested components, and checks all relay services. The
+`caddy` component validates and reloads relay HTTP configuration. Each configured
+relay receives changed components and a public `/ping` smoke check. The
 production environment approval gates this job.
 
 To recover or redeploy a component manually, run the same release command:

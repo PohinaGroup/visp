@@ -15,8 +15,6 @@ export type DirectOutputs = Outputs["direct"]["list"];
 export type NetworkProfile = "wired" | "wifi" | "cellular";
 export type DashboardMode = "simple" | "advanced";
 export type DashboardView = "home" | "settings";
-/** Kept for the legacy ChainStrip component, which is no longer on home. */
-export type DashboardTab = "sources" | "output" | "brb" | "chat";
 
 export type DashboardArea =
 	| "devices"

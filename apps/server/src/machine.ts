@@ -259,7 +259,7 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				if (
 					path &&
 					allowedAction &&
-					body.user === `studio:${path}` &&
+					body.user === `studio-${path}` &&
 					matchesSecret(
 						body.password,
 						studioScopedCredential(env.STUDIO_MEDIA_PASSWORD, path, "media"),

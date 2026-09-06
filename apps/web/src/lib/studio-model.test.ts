@@ -11,16 +11,18 @@ import {
 	moveStudioLayer,
 	navigationChoice,
 	newStudioScene,
+	rateLimitRetrySeconds,
 	renameStudioScene,
 	selectStudioScene,
 	shouldEnterStudio,
-	showStudioPassthroughWarning,
 	studioErrorHint,
 	studioLayerDisplayState,
 	studioPreviewPanes,
 	studioPreviewUrls,
 	studioSaveBlockers,
 	studioSourceCapacity,
+	studioStreamCopy,
+	studioStreamStatus,
 	updateStudioLayer,
 } from "./studio-model";
 
@@ -185,12 +187,6 @@ describe("Studio editor model", () => {
 		expect(studioPreviewUrls(preview, true, false)).toEqual(preview);
 	});
 
-	test("does not report an idle compositor as unavailable", () => {
-		expect(showStudioPassthroughWarning(false, true)).toBe(false);
-		expect(showStudioPassthroughWarning(true, true)).toBe(true);
-		expect(showStudioPassthroughWarning(true, false)).toBe(false);
-	});
-
 	test("reports unsafe browser source URLs before save", () => {
 		expect(browserSourceUrlError("not-a-url")).toBe(
 			"Browser source must be a public HTTPS URL",
@@ -284,4 +280,96 @@ describe("Studio editor model", () => {
 		});
 		expect(moved.scenes[0]?.layers[0]).toMatchObject({ x: 1280, y: 0 });
 	});
+});
+
+describe("studioStreamStatus", () => {
+	const base = {
+		statusKnown: true,
+		mode: "cloud_studio" as const,
+		cameraLive: true,
+		cameraLiveSince: new Date(1_000_000).toISOString(),
+		compositorHealthy: true,
+		outputsLive: 1,
+		previewFailed: false,
+		now: 1_000_000 + 120_000,
+	};
+
+	test("names every state it has to tell apart", () => {
+		expect(studioStreamStatus(base).status).toBe("overlays-active");
+		expect(studioStreamStatus({ ...base, mode: "obs" }).status).toBe(
+			"camera-connected",
+		);
+		expect(studioStreamStatus({ ...base, cameraLive: false }).status).toBe(
+			"idle",
+		);
+		expect(studioStreamStatus({ ...base, statusKnown: false }).status).toBe(
+			"unknown",
+		);
+		expect(studioStreamStatus({ ...base, previewFailed: true }).status).toBe(
+			"preview-failed",
+		);
+	});
+
+	test("tells a starting compositor apart from a fallback", () => {
+		const unhealthy = { ...base, compositorHealthy: false };
+		expect(
+			studioStreamStatus({ ...unhealthy, now: 1_000_000 + 5_000 }).status,
+		).toBe("studio-starting");
+		expect(studioStreamStatus(unhealthy).status).toBe("camera-only");
+		// No ingest timestamp is no evidence of a startup, so it is a fallback.
+		expect(
+			studioStreamStatus({ ...unhealthy, cameraLiveSince: null }).status,
+		).toBe("camera-only");
+	});
+
+	test("only the destination state may back a broadcast claim", () => {
+		const fallback = { ...base, compositorHealthy: false };
+		expect(studioStreamStatus(fallback).broadcastConfirmed).toBe(true);
+		expect(
+			studioStreamStatus({ ...fallback, outputsLive: 0 }).broadcastConfirmed,
+		).toBe(false);
+		// A healthy compositor is not evidence about viewers.
+		expect(
+			studioStreamStatus({ ...base, outputsLive: 0 }).broadcastConfirmed,
+		).toBe(false);
+		expect(
+			studioStreamStatus({ ...base, statusKnown: false }).broadcastConfirmed,
+		).toBe(false);
+	});
+
+	test("fallback copy never claims overlays or viewers", () => {
+		const copy = studioStreamCopy("camera-only");
+		expect(copy.title).toBe("Cloud Studio is temporarily unavailable");
+		expect(copy.description).toBe(
+			"Overlays aren't being applied. VISP will retry automatically.",
+		);
+		expect(copy.description).not.toContain("viewers");
+		expect(studioStreamCopy("preview-failed").title).toBe(
+			"Preview unavailable",
+		);
+	});
+});
+
+describe("save failures", () => {
+	test("reads the real wait out of a rate-limited error", () => {
+		expect(rateLimitRetrySeconds({ data: { retryAfterMs: 11_400 } })).toBe(12);
+		expect(rateLimitRetrySeconds({ data: { retryAfterMs: 1 } })).toBe(1);
+		expect(rateLimitRetrySeconds({ data: {} })).toBeNull();
+		expect(rateLimitRetrySeconds(new Error("Save failed"))).toBeNull();
+		expect(rateLimitRetrySeconds(null)).toBeNull();
+	});
+});
+
+test("adding a scene does not change what is on air", () => {
+	const first = newStudioScene("scene-1", "One");
+	const graph = addStudioScene(
+		{ activeSceneId: "scene-1", scenes: [first] },
+		"scene-2",
+	);
+	expect(graph.activeSceneId).toBe("scene-1");
+	// An empty Studio still gets an on-air scene, or nothing could go out.
+	expect(
+		addStudioScene({ activeSceneId: null, scenes: [] }, "scene-1")
+			.activeSceneId,
+	).toBe("scene-1");
 });

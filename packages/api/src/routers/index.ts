@@ -4,6 +4,7 @@ import { affiliateRouter } from "./affiliate";
 import { brbRouter } from "./brb";
 import { channelRouter } from "./channel";
 import { chatRouter } from "./chat";
+import { multiChatRouter } from "./multichat";
 import { relayRoutes } from "./relay";
 import { studioRouter } from "./studio";
 
@@ -20,6 +21,7 @@ export const appRouter = router({
 		};
 	}),
 	chat: chatRouter,
+	multichat: multiChatRouter,
 	channel: channelRouter,
 	brb: brbRouter,
 	studio: studioRouter,

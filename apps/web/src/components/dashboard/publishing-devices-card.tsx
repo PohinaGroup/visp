@@ -16,7 +16,7 @@ import { SimpleUrl, UrlWithFallback } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
 import { useT } from "@/lib/i18n";
-import { probeRelayRtt } from "@/lib/relay";
+import { fastestRelay } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 import { PathRow } from "./path-row";
 import type { CreatedDevice } from "./types";
@@ -81,15 +81,7 @@ export function PublishingDevicesCard({
 			const relays =
 				relaysQuery.data ??
 				(await queryClient.fetchQuery(trpc.relays.list.queryOptions()));
-			const probes = await Promise.allSettled(
-				relays.map(async (relay) => ({
-					id: relay.id,
-					rtt: await probeRelayRtt(relay.pingUrl),
-				})),
-			);
-			const fastest = probes
-				.flatMap((probe) => (probe.status === "fulfilled" ? [probe.value] : []))
-				.sort((a, b) => a.rtt - b.rtt)[0];
+			const fastest = await fastestRelay(relays);
 			create.mutate({ label, relayId: fastest?.id });
 		} catch (error) {
 			toast.error(

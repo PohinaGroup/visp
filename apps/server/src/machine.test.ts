@@ -28,6 +28,36 @@ function authRequest(overrides: Record<string, unknown> = {}) {
 }
 
 describe("machine endpoints", () => {
+	test("accepts relay credentials after RTSP Basic authentication decoding", async () => {
+		const hook = await Bun.file(
+			new URL("../../../deploy/relay/visp-snapshot", import.meta.url),
+		).text();
+		const user = hook
+			.match(/studio_media_user="([^"]+)"/)?.[1]
+			?.replace("$path", "streamer-1");
+		const password = studioScopedCredential(
+			"test-studio-media-password-at-least-32-chars",
+			"streamer-1",
+			"media",
+		);
+		// RTSP Basic auth separates the decoded credential at its first colon.
+		const decoded = Buffer.from(
+			Buffer.from(`${user}:${password}`).toString("base64"),
+			"base64",
+		).toString();
+		const separator = decoded.indexOf(":");
+		expect(
+			(
+				await authRequest({
+					action: "read",
+					protocol: "rtsp",
+					user: decoded.slice(0, separator),
+					password: decoded.slice(separator + 1),
+				})
+			).status,
+		).toBe(200);
+	});
+
 	test("challenges empty credentials", async () => {
 		expect((await authRequest()).status).toBe(401);
 	});
@@ -63,7 +93,7 @@ describe("machine endpoints", () => {
 					action: "read",
 					password,
 					protocol: "rtsp",
-					user: "studio:streamer-1",
+					user: "studio-streamer-1",
 				})
 			).status,
 		).toBe(200);
@@ -74,7 +104,7 @@ describe("machine endpoints", () => {
 					path: "streamer-2",
 					password,
 					protocol: "rtsp",
-					user: "studio:streamer-1",
+					user: "studio-streamer-1",
 				})
 			).status,
 		).not.toBe(200);
@@ -105,7 +135,7 @@ describe("machine endpoints", () => {
 					path: "studio/streamer-1",
 					password,
 					protocol: "rtsp",
-					user: "studio:streamer-1",
+					user: "studio-streamer-1",
 				})
 			).status,
 		).toBe(200);
@@ -122,7 +152,7 @@ describe("machine endpoints", () => {
 						path: "studio/streamer-1",
 						password,
 						protocol: "rtsp",
-						user: "studio:streamer-1",
+						user: "studio-streamer-1",
 						...overrides,
 					})
 				).status,

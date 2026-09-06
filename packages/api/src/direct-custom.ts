@@ -11,6 +11,7 @@ import {
 import { env } from "@VISP/env/server";
 import { randomUUID } from "node:crypto";
 import { and, asc, count, eq, isNull, ne, sql } from "drizzle-orm";
+import { recordPlatformLive } from "./activation";
 import { directCropError } from "./direct-crop";
 import {
 	type HostResolver,
@@ -621,7 +622,12 @@ export async function applyCustomDirectState(input: {
 	error?: string | null;
 }) {
 	const [row] = await db
-		.select({ id: customDirectOutput.id, state: customDirectOutput.state })
+		.select({
+			id: customDirectOutput.id,
+			state: customDirectOutput.state,
+			userId: relayPath.userId,
+			pathId: relayPath.id,
+		})
 		.from(customDirectOutput)
 		.innerJoin(relayPath, eq(relayPath.id, customDirectOutput.pathId))
 		.where(
@@ -654,5 +660,7 @@ export async function applyCustomDirectState(input: {
 				: {}),
 		})
 		.where(eq(customDirectOutput.id, row.id));
+	if (input.state === "live")
+		await recordPlatformLive(row.userId, row.pathId, "custom");
 	return true;
 }

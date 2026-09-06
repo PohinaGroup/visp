@@ -14,6 +14,7 @@ import { evlog } from "evlog/elysia";
 import { audioIsolationRoutes } from "./audio-isolation";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
+import { multiChatRoutes } from "./multichat";
 import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
@@ -80,6 +81,8 @@ export function createApp() {
 				origin: [
 					env.CORS_ORIGIN,
 					env.ADMIN_ORIGIN,
+					"https://multichat.visp.localhost",
+					...(env.MULTICHAT_ORIGIN ? [env.MULTICHAT_ORIGIN] : []),
 					env.NATIVE_WEB_ORIGIN,
 					env.OBS_REMOTE_WEB_ORIGIN,
 				],
@@ -89,6 +92,7 @@ export function createApp() {
 			}),
 		)
 		.use(chatRoutes)
+		.use(multiChatRoutes)
 		.use(machineRoutes)
 		.use(obsLiveRoutes)
 		.use(seppoRoutes)

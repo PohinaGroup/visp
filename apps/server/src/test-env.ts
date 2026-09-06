@@ -14,6 +14,7 @@ process.env.GOOGLE_CLIENT_SECRET ??= "test-google-secret";
 process.env.KICK_CLIENT_ID ??= "test-kick-client";
 process.env.KICK_CLIENT_SECRET ??= "test-kick-secret";
 process.env.MEDIAMTX_API_URL ??= "http://100.64.0.10:9997";
+process.env.MULTICHAT_ORIGIN ??= "http://127.0.0.1:3003";
 process.env.NATIVE_WEB_ORIGIN ??= "http://127.0.0.1:8081";
 process.env.CLOUD_STUDIO_ENABLED ??= "false";
 process.env.CLOUD_STUDIO_DEFAULT_ENABLED ??= "false";

@@ -19,3 +19,20 @@ describe("fixedWindow", () => {
 		expect(limiter.take("0", 2)).toBe(true);
 	});
 });
+
+describe("retryAfterMs", () => {
+	test("reports the real remaining wait once the window is spent", () => {
+		const limiter = fixedWindow(2, 100);
+		expect(limiter.retryAfterMs("user", 0)).toBe(0);
+		limiter.take("user", 0);
+		expect(limiter.retryAfterMs("user", 5)).toBe(0);
+		limiter.take("user", 10);
+		expect(limiter.take("user", 20)).toBe(false);
+		expect(limiter.retryAfterMs("user", 20)).toBe(80);
+		expect(limiter.retryAfterMs("user", 100)).toBe(0);
+	});
+
+	test("an unknown key never has to wait", () => {
+		expect(fixedWindow(1, 100).retryAfterMs("nobody", 0)).toBe(0);
+	});
+});

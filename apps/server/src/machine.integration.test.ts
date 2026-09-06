@@ -39,6 +39,7 @@ import {
 	directDestinationActive,
 	directSourceSlug,
 	prepareDirect,
+	reportFirstLiveActivation,
 	resolveDirectDestinations,
 	resolveDirectDestinationsV3,
 } from "@VISP/api/direct";
@@ -70,6 +71,7 @@ import {
 	rotatePublishPath,
 	rotateReadSecret,
 } from "@VISP/api/relay";
+import { movePublishDevice } from "@VISP/api/relay-move";
 import { chooseRelay, ensureDefaultRelay } from "@VISP/api/relays";
 import { appRouter } from "@VISP/api/routers/index";
 import { resetRelayMutationLimitForTests } from "@VISP/api/routers/relay";
@@ -111,6 +113,8 @@ import { Elysia } from "elysia";
 import { machineRoutes } from "./machine";
 import { nodeAdapter } from "./node-adapter";
 import { obsLiveRoutes } from "./obs-live";
+
+import { resetSeppoRateLimit, seppoRoutes, takeAccountRequest } from "./seppo";
 
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
 const test = bunTest.serial;
@@ -1452,6 +1456,172 @@ integration("relay PostgreSQL integration", () => {
 		expect((await chooseRelay("new-user"))?.id).toBe(data.pathA.relayId);
 	});
 
+	test("regional native claims stay pinned and offline moves preserve the installation", async () => {
+		const data = await seed();
+		await db
+			.update(appUser)
+			.set({ publishSecretHash: null })
+			.where(eq(appUser.id, "user-a"));
+		const [us] = await db
+			.insert(relay)
+			.values({
+				name: "regional-us",
+				host: "us.test",
+				apiUrl: "http://us.test:9997",
+				pingUrl: "https://us.test/ping",
+				region: "US",
+				publicIp: "192.0.2.90",
+				capacityPaths: 10,
+				maxForwarders: 2,
+			})
+			.onConflictDoUpdate({
+				target: relay.name,
+				set: { enabled: true, drainedAt: null, capacityPaths: 10 },
+			})
+			.returning();
+		if (!us) throw new Error("missing US relay");
+		const input = {
+			userId: "user-a",
+			installationId: "10000000-0000-4000-8000-000000000099",
+			label: "Phone",
+			relayId: us.id,
+		};
+		const device = await claimNativePublishDevice(input);
+		if (!device) throw new Error("missing native device");
+		expect(device.path.id).toBe(data.pathA.id);
+		expect(device.path.relay.id).toBe(us.id);
+		expect(device.urls.srt).toStartWith("srt://us.test:");
+		expect(
+			(
+				await claimNativePublishDevice({
+					...input,
+					relayId: data.pathA.relayId,
+				})
+			)?.path.id,
+		).toBe(device.path.id);
+		expect(
+			(
+				await claimNativePublishDevice({
+					...input,
+					relayId: data.pathA.relayId,
+				})
+			)?.path.relay.id,
+		).toBe(us.id);
+		globalThis.fetch = (async () =>
+			new Response(null, { status: 404 })) as unknown as typeof fetch;
+		await expect(
+			movePublishDevice("user-b", device.path.id, data.pathA.relayId),
+		).rejects.toThrow("Device not found");
+		const moved = await movePublishDevice(
+			"user-a",
+			device.path.id,
+			data.pathA.relayId,
+		);
+		expect(moved?.path.id).toBe(device.path.id);
+		expect(moved?.path.slug).not.toBe(device.path.slug);
+		expect(moved?.path.relay.id).toBe(data.pathA.relayId);
+		expect((await claimNativePublishDevice(input))?.path.slug).toBe(
+			moved?.path.slug,
+		);
+		expect(
+			await authenticateMedia({
+				action: "read",
+				path: device.path.slug,
+				user: "alpha",
+				password: data.readA,
+			}),
+		).toBe(false);
+		await db.update(relay).set({ enabled: false }).where(eq(relay.id, us.id));
+	});
+
+	test("regional moves reject live, reserved, unreachable and full relays", async () => {
+		const data = await seed();
+		await rotatePublishPath("user-a", data.pathA.id);
+		const [us] = await db
+			.insert(relay)
+			.values({
+				name: "move-us",
+				host: "move-us.test",
+				apiUrl: "http://move-us.test:9997",
+				pingUrl: "https://move-us.test/ping",
+				region: "US",
+				publicIp: "192.0.2.91",
+				capacityPaths: 1,
+				maxForwarders: 2,
+			})
+			.onConflictDoUpdate({
+				target: relay.name,
+				set: { enabled: true, drainedAt: null },
+			})
+			.returning();
+		if (!us) throw new Error("missing US relay");
+		await db
+			.insert(pathState)
+			.values({ pathId: data.pathA.id, publishing: true });
+		await expect(
+			movePublishDevice("user-a", data.pathA.id, us.id),
+		).rejects.toThrow("Stop all");
+		await db
+			.update(pathState)
+			.set({
+				publishing: false,
+				directTwitchReservedUntil: new Date(Date.now() + 60_000),
+			})
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect((await chooseRelay("user-a", us.id))?.id).toBe(data.pathA.relayId);
+		await expect(
+			movePublishDevice("user-a", data.pathA.id, us.id),
+		).rejects.toThrow("Stop all");
+		await db
+			.update(pathState)
+			.set({ directTwitchReservedUntil: null })
+			.where(eq(pathState.pathId, data.pathA.id));
+		globalThis.fetch = (async () =>
+			new Response(null, { status: 503 })) as unknown as typeof fetch;
+		await expect(
+			movePublishDevice("user-a", data.pathA.id, us.id),
+		).rejects.toThrow("verify");
+		globalThis.fetch = (async () =>
+			Response.json({ ready: true, readers: [] })) as unknown as typeof fetch;
+		await expect(
+			movePublishDevice("user-a", data.pathA.id, us.id),
+		).rejects.toThrow("Stop this device");
+		await db
+			.update(relayPath)
+			.set({ relayId: us.id })
+			.where(eq(relayPath.id, data.pathB.id));
+		await expect(
+			movePublishDevice("user-a", data.pathA.id, us.id),
+		).rejects.toThrow("unavailable or full");
+		await db.update(relay).set({ enabled: false }).where(eq(relay.id, us.id));
+	});
+
+	test("regional allocation cannot overbook the final slot across users", async () => {
+		const data = await seed();
+		await db.update(relay).set({ enabled: false });
+		await db
+			.update(relay)
+			.set({ enabled: true, capacityPaths: 3 })
+			.where(eq(relay.id, data.pathA.relayId));
+		try {
+			const results = await Promise.allSettled([
+				createPath("user-a", "extra"),
+				createPath("user-b", "extra"),
+			]);
+			expect(
+				results.filter((result) => result.status === "fulfilled"),
+			).toHaveLength(1);
+			expect(
+				results.filter((result) => result.status === "rejected"),
+			).toHaveLength(1);
+		} finally {
+			await db
+				.update(relay)
+				.set({ capacityPaths: 1000 })
+				.where(eq(relay.id, data.pathA.relayId));
+		}
+	});
+
 	test("allocates concurrent monotonic sequences and never reuses revoked ones", async () => {
 		const data = await seed();
 		const [second, third] = await Promise.all([
@@ -1864,6 +2034,104 @@ integration("VISP Direct boundaries", () => {
 		return data;
 	}
 
+	test("authenticated Seppo contexts share an account generation limit", async () => {
+		await seedDirect();
+		await callerFor("user-a");
+		resetSeppoRateLimit();
+		for (let i = 0; i < 20; i++)
+			expect(takeAccountRequest("user-a")).toBe(true);
+		expect(takeAccountRequest("user-b")).toBe(true);
+		for (const context of ["setup", "dashboard"]) {
+			const response = await seppoRoutes.handle(
+				new Request("http://localhost/api/seppo", {
+					method: "POST",
+					headers: {
+						authorization: "Bearer user-a-direct-token",
+						"content-type": "application/json",
+					},
+					body: JSON.stringify({
+						context,
+						messages: [
+							{
+								id: "1",
+								role: "user",
+								parts: [{ type: "text", text: "Hello" }],
+							},
+						],
+					}),
+				}),
+			);
+			expect(response.status).toBe(429);
+		}
+	});
+
+	test("activation is durable across concurrent hooks, clients, providers and sessions", async () => {
+		const { pathA } = await seedDirect();
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true, directKick: true })
+			.where(eq(relayPath.id, pathA.id));
+		await db.insert(relayStreamSession).values({ pathId: pathA.id });
+		const events: string[] = [];
+		const previous = [
+			process.env.RYBBIT_ENDPOINT,
+			process.env.RYBBIT_SITE_ID,
+			process.env.RYBBIT_HOSTNAME,
+		];
+		process.env.RYBBIT_ENDPOINT = "https://analytics.test/track";
+		process.env.RYBBIT_SITE_ID = "test-site";
+		process.env.RYBBIT_HOSTNAME = "staging.test";
+		globalThis.fetch = (async (_url, init) => {
+			const body = JSON.parse(String(init?.body));
+			expect(body.site_id).toBe("test-site");
+			expect(body.hostname).toBe("staging.test");
+			events.push(body.event_name);
+			return Response.json({});
+		}) as typeof fetch;
+		try {
+			await Promise.all(
+				["twitch", "kick", "twitch"].map((provider) =>
+					applyDirectState({
+						slug: pathA.slug,
+						provider: provider as "twitch" | "kick",
+						state: "live",
+					}),
+				),
+			);
+			expect(
+				await reportFirstLiveActivation("user-a", pathA.id, "twitch"),
+			).toEqual({ tracked: false });
+			expect(
+				await reportFirstLiveActivation("user-b", pathA.id, "twitch"),
+			).toEqual({ tracked: false });
+			await db
+				.update(relayStreamSession)
+				.set({ endedAt: new Date() })
+				.where(eq(relayStreamSession.pathId, pathA.id));
+			await db.insert(relayStreamSession).values({ pathId: pathA.id });
+			await applyDirectState({
+				slug: pathA.slug,
+				provider: "twitch",
+				state: "live",
+			});
+			expect(events.filter((e) => e === "first_live")).toHaveLength(1);
+			expect(events.filter((e) => e === "stream_live")).toHaveLength(2);
+			expect(
+				(await db.query.appUser.findFirst({ where: eq(appUser.id, "user-a") }))
+					?.firstLiveAt,
+			).toBeInstanceOf(Date);
+		} finally {
+			for (const [i, key] of [
+				"RYBBIT_ENDPOINT",
+				"RYBBIT_SITE_ID",
+				"RYBBIT_HOSTNAME",
+			].entries()) {
+				if (previous[i] === undefined) delete process.env[key];
+				else process.env[key] = previous[i];
+			}
+		}
+	});
+
 	let youtubeBroadcastCreates = 0;
 	// Completing a broadcast cannot be undone, so BRB must never trigger one.
 	let youtubeBroadcastCompletes = 0;
@@ -2062,7 +2330,7 @@ integration("VISP Direct boundaries", () => {
 		).toBe(true);
 		expect((await caller.studio.mode.get()).configured).toBe(false);
 		expect(await reportCompositorHealth("alpha-1", false)).toBe(true);
-		expect(await caller.studio.save(graph)).toEqual(graph);
+		expect(await caller.studio.save({ graph })).toEqual(graph);
 		expect((await caller.studio.get()).graph).toEqual(graph);
 		expect((await other.studio.get()).graph.scenes).toEqual([]);
 		await caller.studio.mode.set({ mode: "cloud_studio" });
@@ -2089,7 +2357,7 @@ integration("VISP Direct boundaries", () => {
 			visible: true,
 			runtimeDisabled: true,
 		});
-		await caller.studio.save(disabled.graph);
+		await caller.studio.save({ graph: disabled.graph });
 		expect(
 			(await caller.studio.get()).graph.scenes[0]?.layers[1],
 		).toMatchObject({
@@ -2098,7 +2366,7 @@ integration("VISP Direct boundaries", () => {
 		const reenabled = structuredClone(disabled.graph);
 		const browser = reenabled.scenes[0]?.layers[1];
 		if (browser) browser.runtimeDisabled = false;
-		await caller.studio.save(reenabled);
+		await caller.studio.save({ graph: reenabled });
 		expect(
 			(await caller.studio.get()).graph.scenes[0]?.layers[1],
 		).not.toHaveProperty("runtimeDisabled");
@@ -2132,6 +2400,126 @@ integration("VISP Direct boundaries", () => {
 		});
 		await caller.studio.emptyWarning({ dismissed: true });
 		expect((await caller.studio.mode.get()).emptyWarningDismissed).toBe(true);
+	});
+
+	test("one path's compositor crash leaves the other path composited", async () => {
+		const data = await seedDirect();
+		const relayId = data.pathA.relayId;
+		await db.insert(relayPath).values({
+			relayId,
+			userId: "user-a",
+			seq: 2,
+			slug: "alpha-2",
+			label: "second camera",
+		});
+		const caller = await callerFor("user-a");
+		const sceneId = "55555555-5555-4555-8555-555555555555";
+		await caller.studio.save({
+			graph: {
+				activeSceneId: sceneId,
+				scenes: [
+					{
+						id: sceneId,
+						name: "Main",
+						order: 0,
+						transition: "cut" as const,
+						layers: [],
+					},
+				],
+			},
+		});
+		await caller.studio.mode.set({ mode: "cloud_studio" });
+
+		for (const slug of ["alpha-1", "alpha-2"]) {
+			expect(
+				await reportCompositorHealth(
+					slug,
+					true,
+					`rtsp://127.0.0.1:8554/studio/${slug}`,
+				),
+			).toBe(true);
+		}
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			mode: "program",
+			inputUrl: "rtsp://127.0.0.1:8554/studio/alpha-1",
+		});
+		// Each path is told to read its own program, never a sibling's.
+		expect(await compositorDesiredState("alpha-2")).toMatchObject({
+			mode: "program",
+			inputUrl: "rtsp://127.0.0.1:8554/studio/alpha-2",
+		});
+
+		expect(await reportCompositorHealth("alpha-2", false)).toBe(true);
+		expect(await compositorDesiredState("alpha-2")).toMatchObject({
+			mode: "passthrough",
+			requestedMode: "program",
+		});
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			mode: "program",
+			inputUrl: "rtsp://127.0.0.1:8554/studio/alpha-1",
+		});
+		// The account is still composited, because a healthy worker remains.
+		expect((await caller.studio.mode.get()).compositorHealthy).toBe(true);
+
+		// Recovery restores the crashed path without touching the healthy one.
+		expect(
+			await reportCompositorHealth(
+				"alpha-2",
+				true,
+				"rtsp://127.0.0.1:8554/studio/alpha-2",
+			),
+		).toBe(true);
+		expect(await compositorDesiredState("alpha-2")).toMatchObject({
+			mode: "program",
+			inputUrl: "rtsp://127.0.0.1:8554/studio/alpha-2",
+		});
+
+		// Every worker gone means account-level fallback, and it is reported.
+		for (const slug of ["alpha-1", "alpha-2"])
+			expect(await reportCompositorHealth(slug, false)).toBe(true);
+		const settings = await caller.studio.mode.get();
+		expect(settings.compositorHealthy).toBe(false);
+		expect(settings.passthrough).toBe(true);
+	});
+
+	test("a save from a stale revision is refused instead of overwriting", async () => {
+		await seedDirect();
+		const caller = await callerFor("user-a");
+		const first = "66666666-6666-4666-8666-666666666666";
+		const second = "77777777-7777-4777-8777-777777777777";
+		const scene = (id: string, name: string) => ({
+			activeSceneId: id,
+			scenes: [
+				{
+					id,
+					name,
+					order: 0,
+					transition: "cut" as const,
+					layers: [],
+				},
+			],
+		});
+
+		await caller.studio.save({
+			graph: scene(first, "Tab one"),
+			expectedVersion: 0,
+		});
+		expect((await caller.studio.mode.get()).version).toBe(1);
+		// The second tab still believes it is editing revision 0.
+		await expect(
+			caller.studio.save({
+				graph: scene(second, "Tab two"),
+				expectedVersion: 0,
+			}),
+		).rejects.toThrow("Studio changed elsewhere");
+		expect((await caller.studio.get()).graph.scenes[0]?.name).toBe("Tab one");
+
+		// Re-reading the revision lets the same edit through.
+		await caller.studio.save({
+			graph: scene(second, "Tab two"),
+			expectedVersion: (await caller.studio.mode.get()).version,
+		});
+		expect((await caller.studio.get()).graph.scenes[0]?.name).toBe("Tab two");
 	});
 
 	test("a path without a reservation receives no relay destination URLs", async () => {

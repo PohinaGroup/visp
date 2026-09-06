@@ -127,6 +127,8 @@ export function useStreamSettingsModel({
 			: undefined,
 		accountOpen,
 		advanced: {
+			onOptimizeRelay: () => void streamAccount.optimizeRelay(),
+			relayBusy: streamAccount.provisioning,
 			installationId: streamAccount.installationId,
 			onRevealPublishDevice: streamAccount.revealPublishDevice,
 			publishDevices: streamAccount.publishDevices,

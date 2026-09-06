@@ -7,6 +7,18 @@ import {
 } from "./web-stream";
 
 describe("web publisher helpers", () => {
+	test("regional media follows the assigned host, not the build-time default", () => {
+		const url = "srt://us.example.com:8890?streamid=publish:phone:user:secret";
+		expect(webPublishTarget(url, "https://fi.example.com").whipUrl).toBe(
+			"https://us.example.com/phone/whip",
+		);
+		expect(webPublishTarget(url).whipUrl).toBe(
+			"https://us.example.com/phone/whip",
+		);
+		expect(webPublishTarget(url, "https://us.example.com:9443").whipUrl).toBe(
+			"https://us.example.com:9443/phone/whip",
+		);
+	});
 	test("maps SRT credentials to the MediaMTX publisher and WHIP URLs", () => {
 		expect(
 			webPublishTarget(

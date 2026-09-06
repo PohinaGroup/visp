@@ -40,7 +40,7 @@ import {
 	reorderObsTiles,
 	updateObsTile,
 } from "../obs-tiles";
-import { fixedWindow } from "../rate-limit";
+import { fixedWindow, RateLimitedError } from "../rate-limit";
 import {
 	buildMaskedPathUrls,
 	claimNativePublishDevice,
@@ -57,20 +57,39 @@ import {
 	setAdvancedMode,
 	submitRtt,
 } from "../relay";
+import { movePublishDevice } from "../relay-move";
 import { listRelaysForProbing } from "../relays";
 import { reportLinkStats } from "../report-link-stats";
 import { listSnapshots } from "../snapshots";
 
 // ponytail: per-instance limit allows N× traffic on N app instances; move to
 // Postgres or the cache bus only if a strict global request cap is needed.
+//
+// One bucket per class of traffic. Telemetry and OBS keep-alive both run on the
+// same account as a Studio save, so a single shared bucket let background
+// chatter spend the budget an editing session needs. Each bucket is still
+// capped on its own, so the abuse ceiling is the sum, not "unlimited".
 const relayMutations = fixedWindow(20, 60_000);
+const relayTelemetry = fixedWindow(120, 60_000);
+const relayObs = fixedWindow(60, 60_000);
+
+// Fire-and-forget reporting from the app and the browser probe.
+const TELEMETRY_PATHS = new Set(["rtt.submit", "paths.reportLinkStats"]);
+
+export function relayLimiterFor(path: string) {
+	if (TELEMETRY_PATHS.has(path)) return relayTelemetry;
+	if (path === "obs" || path.startsWith("obs.")) return relayObs;
+	return relayMutations;
+}
 
 export function resetRelayMutationLimitForTests() {
 	relayMutations.reset();
+	relayTelemetry.reset();
+	relayObs.reset();
 }
 
 export const relayProcedure = protectedProcedure.use(
-	async ({ ctx, next, type }) => {
+	async ({ ctx, next, path, type }) => {
 		let relayUser: Awaited<ReturnType<typeof ensureRelayUser>>;
 		try {
 			relayUser = await ensureRelayUser(
@@ -85,11 +104,16 @@ export const relayProcedure = protectedProcedure.use(
 				cause: error,
 			});
 		}
-		if (type === "mutation" && !relayMutations.take(ctx.session.user.id)) {
-			throw new TRPCError({
-				code: "TOO_MANY_REQUESTS",
-				message: "Too many relay changes; try again in a minute",
-			});
+		if (type === "mutation") {
+			const limiter = relayLimiterFor(path);
+			if (!limiter.take(ctx.session.user.id)) {
+				const retryAfterMs = limiter.retryAfterMs(ctx.session.user.id);
+				throw new TRPCError({
+					code: "TOO_MANY_REQUESTS",
+					message: `Too many relay changes; try again in ${Math.ceil(retryAfterMs / 1_000)} seconds`,
+					cause: new RateLimitedError(retryAfterMs),
+				});
+			}
 		}
 		const result = await next({ ctx: { ...ctx, relayUser } });
 		if (
@@ -257,6 +281,19 @@ export const relayRoutes = {
 		}),
 	}),
 	paths: router({
+		moveRelay: relayProcedure
+			.input(pathIdInput.extend({ relayId: z.number().int().positive() }))
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await movePublishDevice(
+						ctx.relayUser.id,
+						input.pathId,
+						input.relayId,
+					);
+				} catch (error) {
+					directError(error);
+				}
+			}),
 		list: relayProcedure.query(async ({ ctx }) => {
 			const paths = await listPaths(ctx.relayUser.id);
 			return paths.map((path) => {
@@ -331,6 +368,7 @@ export const relayRoutes = {
 			.input(
 				z.object({
 					installationId: z.uuid(),
+					relayId: z.number().int().positive().optional(),
 					label: z.string().trim().min(1).max(64).default("VISP Native"),
 					legacyUrl: z.string().max(2048).optional(),
 				}),
@@ -668,6 +706,7 @@ export const relayRoutes = {
 					youtubeTitle: z.string().trim().min(1).max(100).optional(),
 					prepareObs: z.boolean(),
 					createDevice: z.boolean().optional(),
+					relayId: z.number().int().positive().optional(),
 					redoMode: z.enum(["additive", "wipe"]).optional(),
 				}),
 			)

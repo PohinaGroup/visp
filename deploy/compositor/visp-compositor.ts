@@ -16,6 +16,7 @@ import {
 	compositorExited,
 	compositorHasPublisher,
 	publisherProbeArgs,
+	rendererProgressFrames,
 	shouldCrossfadeScenes,
 	studioXfadeFilter,
 } from "./state";
@@ -232,6 +233,7 @@ let applied = "";
 let appliedSceneId: string | undefined;
 let lastBrowserRefresh = 0;
 let activeFeedSlot: 0 | 1 | undefined;
+let requestedMode: "program" | "passthrough" = "passthrough";
 const pathHash = createHash("sha256").update(path).digest();
 const programPort = 20_000 + (pathHash.readUInt16BE(0) % 20_000);
 const feedPort = 40_000 + (pathHash.readUInt16BE(2) % 10_000) * 2;
@@ -316,6 +318,19 @@ async function ensurePublisher() {
 	]);
 }
 
+/** Bounded wait for the renderer to emit its first frame. */
+async function waitForRendererFrames(file: string) {
+	for (let attempt = 0; attempt < 50; attempt++) {
+		try {
+			if (rendererProgressFrames(await readFile(file, "utf8")) > 0) return true;
+		} catch {
+			// ffmpeg has not created the progress file yet.
+		}
+		await Bun.sleep(100);
+	}
+	return false;
+}
+
 async function waitForProgramPublisher() {
 	for (let attempt = 0; attempt < 20; attempt++) {
 		if (compositorExited(pipeline.publisherExitCode)) return false;
@@ -348,12 +363,16 @@ async function apply(desired: Desired, crossfade: boolean) {
 	const nextFeed = rendererFeed(nextSlot);
 	const previousFeed =
 		activeFeedSlot === undefined ? undefined : rendererFeed(activeFeedSlot);
+	const progressFile = `${work}/renderer-${nextSlot}.progress`;
+	await rm(progressFile, { force: true });
 	const args = [
 		"ffmpeg",
 		"-nostdin",
 		"-hide_banner",
 		"-loglevel",
 		"warning",
+		"-progress",
+		progressFile,
 		"-rtsp_transport",
 		"tcp",
 		"-i",
@@ -441,6 +460,7 @@ async function apply(desired: Desired, crossfade: boolean) {
 	await pipeline.applyRenderer({
 		rendererArgs: args,
 		relayArgs: relayArgs(nextFeed.input),
+		rendererReady: () => waitForRendererFrames(progressFile),
 		...(crossfade && previousFeed
 			? {
 					transitionArgs: xfadeArgs(previousFeed.input, nextFeed.input),
@@ -470,6 +490,7 @@ try {
 			const response = await hook("desired-state", { path });
 			if (!response.ok) throw new Error("desired state unavailable");
 			const desired = (await response.json()) as Desired;
+			requestedMode = desired.requestedMode;
 			const revision = `${desired.version}:${desired.graph.activeSceneId}:${desired.alert?.at ?? ""}`;
 			const activeScene = desired.graph.scenes.find(
 				({ id }) => id === desired.graph.activeSceneId,
@@ -523,7 +544,20 @@ try {
 				...(healthy ? { programUrl: programUrls.readUrl } : {}),
 			});
 		} catch {
-			await hook("health", { path, healthy: false }).catch(() => undefined);
+			// A failed re-apply is not proof the program stopped. Report what the
+			// processes actually say, so one bad save cannot drop a still-running
+			// program into camera-only fallback.
+			const healthy = compositorHasPublisher(
+				requestedMode,
+				pipeline.publisherExitCode,
+				pipeline.rendererExitCode,
+				pipeline.outputExitCode,
+			);
+			await hook("health", {
+				path,
+				healthy,
+				...(healthy ? { programUrl: programUrls.readUrl } : {}),
+			}).catch(() => undefined);
 		}
 		await Bun.sleep(1_000);
 	}

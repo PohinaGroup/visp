@@ -58,7 +58,7 @@ fi
 run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
 (
 	cd "$repo"
-	run_with_env "$web_env" "$bun" x turbo run build -F server -F web -F admin
+	run_with_env "$web_env" "$bun" x turbo run build -F server -F web -F admin -F multichat
 )
 run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
 run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" build:web
@@ -67,6 +67,7 @@ run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" buil
 for output in \
 	apps/server/dist/index.mjs \
 	apps/admin/dist/index.html \
+	apps/multichat/dist/index.html \
 	apps/native/dist/index.html \
 	apps/obs-remote/dist/index.html \
 	apps/fumadocs/.output/public/_shell.html \

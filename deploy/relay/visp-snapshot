@@ -24,8 +24,9 @@ scoped_credential() {
 
 studio_worker_token="$(scoped_credential "$HOOK_SECRET" hook)"
 studio_media_password="$(scoped_credential "$STUDIO_MEDIA_PASSWORD" media)"
-studio_media_user="studio:$path"
-studio_media_user_url="studio%3A$path"
+# Basic authentication reserves the first colon as the password separator.
+studio_media_user="studio-$path"
+studio_media_user_url="studio-$path"
 
 # MediaMTX starts runOnAvailable with Setpgid, so this script leads its own
 # process group and "kill 0" reaches the snapshot grab without touching
@@ -224,7 +225,7 @@ studio_source() {
 	case "$slug" in *[!A-Za-z0-9_-]*|'') printf '%s' "${current:-$fallback}"; return ;; esac
 	case "$verb" in source) suffix="$slug" ;; program) suffix="studio/$slug" ;; *) printf '%s' "${current:-$fallback}"; return ;; esac
 	password="$(scoped_credential "$STUDIO_MEDIA_PASSWORD" media "$slug")"
-	user_url="studio%3A$slug"
+	user_url="studio-$slug"
 	printf 'rtsp://%s:%s@127.0.0.1:%s/%s' "$user_url" "$password" "$RTSP_PORT" "$suffix"
 }
 

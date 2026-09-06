@@ -8,6 +8,8 @@ import {
 	getStudioAssetUrl,
 	getStudioGraph,
 	getStudioSettings,
+	StudioConflictError,
+	StudioSaveInFlightError,
 	saveStudioGraph,
 	setEmptyStudioWarning,
 	setStudioMode,
@@ -16,6 +18,18 @@ import {
 import { relayProcedure } from "./relay";
 
 function studioError(error: unknown): never {
+	if (error instanceof StudioConflictError)
+		throw new TRPCError({
+			code: "CONFLICT",
+			message: "Studio changed elsewhere",
+			cause: error,
+		});
+	if (error instanceof StudioSaveInFlightError)
+		throw new TRPCError({
+			code: "CONFLICT",
+			message: "Studio save already in progress",
+			cause: error,
+		});
 	throw new TRPCError({
 		code:
 			error instanceof Error && error.message.includes("not found")
@@ -33,10 +47,21 @@ export const studioRouter = router({
 		settings: await getStudioSettings(ctx.relayUser.id),
 	})),
 	save: relayProcedure
-		.input(studioGraphSchema)
+		.input(
+			z.object({
+				graph: studioGraphSchema,
+				// Omitted by clients that have not read a revision yet; present it and
+				// a save from a stale tab is rejected instead of overwriting.
+				expectedVersion: z.number().int().min(0).optional(),
+			}),
+		)
 		.mutation(async ({ ctx, input }) => {
 			try {
-				return await saveStudioGraph(ctx.relayUser.id, input);
+				return await saveStudioGraph(
+					ctx.relayUser.id,
+					input.graph,
+					input.expectedVersion,
+				);
 			} catch (error) {
 				studioError(error);
 			}

@@ -78,3 +78,12 @@ export function browserRefreshDue(
 ) {
 	return hasBrowser && !runtimeDisabled && nowMs - lastRefreshMs >= 5_000;
 }
+
+/**
+ * Frames ffmpeg reports through `-progress`. Zero means the encoder has not
+ * produced a frame yet, so switching the program feed to it would go silent.
+ */
+export function rendererProgressFrames(text: string) {
+	const frames = [...text.matchAll(/^frame=\s*(\d+)\s*$/gm)];
+	return Number(frames.at(-1)?.[1] ?? 0);
+}

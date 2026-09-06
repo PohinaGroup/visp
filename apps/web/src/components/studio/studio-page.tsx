@@ -34,26 +34,29 @@ import { TextInput } from "@astryxdesign/core/TextInput";
 import { Toolbar } from "@astryxdesign/core/Toolbar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocale, useT } from "@/lib/i18n";
 import {
+	addStudioLayer,
 	addStudioScene,
 	addStudioSource,
 	browserSourceUrlError,
 	deleteStudioLayer,
 	deleteStudioScene,
 	moveStudioLayer,
+	rateLimitRetrySeconds,
 	renameStudioScene,
 	type StudioLayerType,
 	type StudioPreviewPane,
 	selectStudioScene,
-	showStudioPassthroughWarning,
 	studioErrorHint,
 	studioLayerDisplayState,
 	studioPreviewPanes,
 	studioSaveBlockers,
 	studioSourceCapacity,
+	studioStreamCopy,
+	studioStreamStatus,
 	updateStudioLayer,
 } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
@@ -68,7 +71,16 @@ export function StudioPage() {
 	const studio = useQuery(
 		trpc.studio.get.queryOptions(undefined, { refetchInterval: 2_000 }),
 	);
-	const paths = useQuery(trpc.paths.list.queryOptions());
+	// Camera state drives the same banners as Studio state, so it refreshes on the
+	// same cadence — a 2s Studio poll against a never-refetched path list is how
+	// "live" went stale while the banner claimed otherwise.
+	const paths = useQuery(
+		trpc.paths.list.queryOptions(undefined, { refetchInterval: 2_000 }),
+	);
+	// Only the destination state can confirm viewers are receiving video.
+	const direct = useQuery(
+		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3_000 }),
+	);
 	const [draft, setDraft] = useState<StudioGraph>();
 	const [selectedSceneId, setSelectedSceneId] = useState<string>();
 	const [selectedLayerId, setSelectedLayerId] = useState<string>();
@@ -76,6 +88,16 @@ export function StudioPage() {
 	const [emptyWarningOpen, setEmptyWarningOpen] = useState(false);
 	const [file, setFile] = useState<File | null>(null);
 	const [dirty, setDirty] = useState(false);
+	// Bumped by every local edit. A save compares it before and after so edits
+	// made while the save was in flight are never overwritten by the response.
+	const editSeq = useRef(0);
+	const [previewFailed, setPreviewFailed] = useState(false);
+	// A dead preview pane is a fact about this browser, never about the broadcast.
+	const onProgramPreviewState = useCallback(
+		(state: "idle" | "loading" | "playing" | "error") =>
+			setPreviewFailed(state === "error"),
+		[],
+	);
 	const [online, setOnline] = useState(
 		typeof navigator === "undefined" || navigator.onLine,
 	);
@@ -111,19 +133,68 @@ export function StudioPage() {
 			t(studioErrorHint(error instanceof Error ? error.message : fallback)),
 		);
 
-	const save = useMutation(
-		trpc.studio.save.mutationOptions({
-			onSuccess: async (graph) => {
-				setDraft(graph);
+	const save = useMutation(trpc.studio.save.mutationOptions());
+	const saveFailed = (error: unknown) => {
+		const seconds = rateLimitRetrySeconds(error);
+		if (seconds !== null) {
+			toast.error(
+				t(
+					"Changes weren't saved. Try again in {seconds} seconds. Your edits are still here.",
+				).replace("{seconds}", String(seconds)),
+			);
+			return;
+		}
+		if (
+			error instanceof Error &&
+			error.message === "Studio changed elsewhere"
+		) {
+			toast.error(
+				t(
+					"Another tab saved this Studio. Reload to see it — your edits are still here.",
+				),
+			);
+			return;
+		}
+		if (
+			error instanceof Error &&
+			error.message === "Studio save already in progress"
+		) {
+			toast.error(t("A save is already running. Your edits are still here."));
+			return;
+		}
+		failed(error, "Save failed");
+	};
+	/**
+	 * The single save path. Refuses to start a second save while one is running,
+	 * keeps the draft on failure, and keeps newer local edits on success.
+	 */
+	const saveDraft = async () => {
+		if (!draft || save.isPending) return false;
+		const seq = editSeq.current;
+		try {
+			const saved = await save.mutateAsync({
+				graph: draft,
+				expectedVersion: studio.data?.settings.version,
+			});
+			const superseded = editSeq.current !== seq;
+			if (!superseded) {
+				setDraft(saved);
 				setDirty(false);
-				await queryClient.invalidateQueries({
-					queryKey: trpc.studio.get.queryKey(),
-				});
-				toast.success(t("Studio saved — it is live on your next scene change"));
-			},
-			onError: (error) => failed(error, "Save failed"),
-		}),
-	);
+			}
+			await queryClient.invalidateQueries({
+				queryKey: trpc.studio.get.queryKey(),
+			});
+			toast.success(
+				superseded
+					? t("Studio saved. Your newer edits are still unsaved.")
+					: t("Studio saved — the compositor picks it up within a second"),
+			);
+			return !superseded;
+		} catch (error) {
+			saveFailed(error);
+			return false;
+		}
+	};
 	const setMode = useMutation(
 		trpc.studio.mode.set.mutationOptions({
 			onSuccess: async () => {
@@ -151,8 +222,35 @@ export function StudioPage() {
 	const selectedLayer = selectedScene?.layers.find(
 		({ id }) => id === selectedLayerId,
 	);
-	const live = paths.data?.some(({ publishing }) => publishing) ?? false;
+	// A stale path is one VISP has not heard from in a minute — it is not proof
+	// of a live camera, so it must not count as one.
+	const livePath = paths.data?.find(
+		({ publishing, stale }) => publishing && !stale,
+	);
+	const live = Boolean(livePath);
+	const savedActiveSceneId = studio.data?.graph.activeSceneId ?? null;
 	const passthrough = studio.data?.settings.passthrough ?? false;
+	const outputs = [
+		...(direct.data?.destinations ?? []),
+		...(direct.data?.customOutputs ?? []),
+	];
+	const statusKnown =
+		!studio.isError &&
+		!paths.isError &&
+		!direct.isError &&
+		studio.data !== undefined &&
+		paths.data !== undefined &&
+		direct.data !== undefined;
+	const stream = studioStreamStatus({
+		statusKnown,
+		mode: studio.data?.settings.mode ?? "obs",
+		cameraLive: live,
+		cameraLiveSince: livePath?.publishLastConnectedAt,
+		compositorHealthy: studio.data?.settings.compositorHealthy ?? false,
+		outputsLive: outputs.filter(({ state }) => state === "live").length,
+		previewFailed,
+	});
+	const streamCopy = studioStreamCopy(stream.status);
 	const preview = studioPreviewPanes(
 		studio.data?.preview,
 		live,
@@ -193,9 +291,9 @@ export function StudioPage() {
 				};
 			case "passthrough":
 				return {
-					title: t("Compositor offline — camera passes through"),
+					title: t("Cloud Studio is temporarily unavailable"),
 					hint: t(
-						"Your stream keeps going out as the plain camera. Overlays return automatically.",
+						"Overlays aren't being applied. VISP will retry automatically.",
 					),
 				};
 			default:
@@ -209,10 +307,14 @@ export function StudioPage() {
 		}
 	};
 
+	const markEdited = () => {
+		editSeq.current += 1;
+		setDirty(true);
+	};
 	const mutateDraft = (updater: (graph: StudioGraph) => StudioGraph) => {
 		if (!draft || readOnly) return;
 		setDraft(updater(draft));
-		setDirty(true);
+		markEdited();
 	};
 	const updateLayer = (over: Parameters<typeof updateStudioLayer>[2]) => {
 		if (!selectedLayerId) return;
@@ -234,18 +336,25 @@ export function StudioPage() {
 	const addSource = (type: StudioLayerType, assetId?: string) => {
 		if (!draft) return;
 		try {
-			const next = addStudioSource(
-				selectedSceneId ? { ...draft, activeSceneId: selectedSceneId } : draft,
-				type,
-				assetId,
-			);
+			// Sources land in the scene being edited. Which scene is on air is a
+			// separate decision the user makes explicitly.
+			const target =
+				selectedSceneId && draft.scenes.some(({ id }) => id === selectedSceneId)
+					? selectedSceneId
+					: undefined;
+			const next = target
+				? {
+						...draft,
+						scenes: addStudioLayer(draft.scenes, target, type, assetId),
+					}
+				: addStudioSource(draft, type, assetId);
+			const editedSceneId = target ?? next.activeSceneId ?? undefined;
 			setDraft(next);
-			setSelectedSceneId(next.activeSceneId ?? undefined);
+			setSelectedSceneId(editedSceneId);
 			setSelectedLayerId(
-				next.scenes.find(({ id }) => id === next.activeSceneId)?.layers.at(-1)
-					?.id,
+				next.scenes.find(({ id }) => id === editedSceneId)?.layers.at(-1)?.id,
 			);
-			setDirty(true);
+			markEdited();
 			setAddOpen(false);
 		} catch (error) {
 			failed(error, "Source could not be added");
@@ -300,10 +409,30 @@ export function StudioPage() {
 		window.location.assign("https://stream.visp-stream.com");
 	};
 
+	// A first load that fails must not sit on "Loading Studio…" forever.
 	if (!draft || !studio.data)
 		return (
 			<LayoutContent padding={6}>
-				<Text>{t("Loading Studio…")}</Text>
+				{studio.isError ? (
+					<Banner
+						container="section"
+						status="error"
+						title={t("Studio could not be loaded")}
+						description={t(
+							"VISP could not read your Studio. Anything already saved keeps streaming.",
+						)}
+						endContent={
+							<Button
+								isDisabled={studio.isFetching}
+								label={t("Retry now")}
+								variant="secondary"
+								onClick={() => studio.refetch()}
+							/>
+						}
+					/>
+				) : (
+					<Text>{t("Loading Studio…")}</Text>
+				)}
 			</LayoutContent>
 		);
 	if (!studio.data.settings.available)
@@ -373,7 +502,7 @@ export function StudioPage() {
 											t("Applies this composition to your saved program.")
 										}
 										variant="primary"
-										onClick={() => draft && save.mutate(draft)}
+										onClick={() => void saveDraft()}
 									/>
 									<Button
 										label={t("Dashboard")}
@@ -441,20 +570,40 @@ export function StudioPage() {
 							<VStack gap={1} key={scene.id}>
 								<Button
 									label={scene.name}
-									tooltip={
-										scene.id === draft.activeSceneId
-											? t("On air in the saved program.")
-											: t("Edit this scene.")
-									}
+									tooltip={t("Open this scene for editing.")}
 									variant={scene.id === selectedSceneId ? "secondary" : "ghost"}
 									onClick={() => {
-										mutateDraft((graph) => selectStudioScene(graph, scene.id));
 										setSelectedSceneId(scene.id);
 										setSelectedLayerId(undefined);
 									}}
 								/>
+								{scene.id === savedActiveSceneId ? (
+									<Badge label={t("On air")} variant="success" />
+								) : scene.id === draft.activeSceneId ? (
+									<Badge
+										label={t("Goes on air when you save")}
+										variant="warning"
+									/>
+								) : null}
 								{scene.id === selectedSceneId ? (
 									<>
+										<Button
+											isDisabled={readOnly || scene.id === draft.activeSceneId}
+											label={t("Put on air")}
+											tooltip={
+												scene.id === draft.activeSceneId
+													? t("This scene is already the one that goes on air.")
+													: t(
+															"Makes this the scene viewers see, from your next save.",
+														)
+											}
+											variant="secondary"
+											onClick={() =>
+												mutateDraft((graph) =>
+													selectStudioScene(graph, scene.id),
+												)
+											}
+										/>
 										<TextInput
 											description={t("Only you see scene names.")}
 											isDisabled={readOnly}
@@ -479,9 +628,9 @@ export function StudioPage() {
 											onClick={() => {
 												const next = deleteStudioScene(draft, scene.id);
 												setDraft(next);
-												setSelectedSceneId(next.activeSceneId ?? undefined);
+												setSelectedSceneId(next.scenes[0]?.id ?? undefined);
 												setSelectedLayerId(undefined);
-												setDirty(true);
+												markEdited();
 											}}
 										/>
 									</>
@@ -499,9 +648,13 @@ export function StudioPage() {
 							variant="secondary"
 							onClick={() => {
 								const id = crypto.randomUUID();
-								mutateDraft((graph) => addStudioScene(graph, id));
-								setSelectedSceneId(id);
-								setSelectedLayerId(undefined);
+								try {
+									mutateDraft((graph) => addStudioScene(graph, id));
+									setSelectedSceneId(id);
+									setSelectedLayerId(undefined);
+								} catch (error) {
+									failed(error, "Scene could not be added");
+								}
 							}}
 						/>
 						<Text color="secondary" type="supporting">
@@ -766,16 +919,16 @@ export function StudioPage() {
 							)}
 						/>
 					) : null}
-					{showStudioPassthroughWarning(live, passthrough) ? (
-						<Banner
-							container="section"
-							status="warning"
-							title={t("Cloud Studio unavailable — showing camera only")}
-							description={t(
-								"The compositor is down, so viewers see your plain camera. Your overlays return automatically when it recovers.",
-							)}
-						/>
-					) : null}
+					<Banner
+						container="section"
+						status={streamCopy.tone === "success" ? "info" : streamCopy.tone}
+						title={t(streamCopy.title)}
+						description={
+							stream.broadcastConfirmed && stream.status === "camera-only"
+								? `${t(streamCopy.description)} ${t("Your camera is still going out to your platforms.")}`
+								: t(streamCopy.description)
+						}
+					/>
 					{!cloudMode ? (
 						<Banner
 							container="section"
@@ -824,6 +977,7 @@ export function StudioPage() {
 									emptyHint={previewCopy(preview.program, "program").hint}
 									emptyTitle={previewCopy(preview.program, "program").title}
 									label={t("Program")}
+									onStateChange={onProgramPreviewState}
 									url={preview.program.url}
 								/>
 							</VStack>
@@ -1088,8 +1242,9 @@ export function StudioPage() {
 									}
 									onClick={async () => {
 										if (blocker.status !== "blocked" || !draft) return;
-										await save.mutateAsync(draft);
-										blocker.proceed();
+										// Only leave if the save actually landed; a failed save
+										// keeps the draft and the dialog.
+										if (await saveDraft()) blocker.proceed();
 									}}
 								/>
 							</HStack>

@@ -128,15 +128,14 @@ export function DashboardPage() {
 
 	const direct = directQuery.data;
 	const paths = pathsQuery.data ?? [];
-	const holding = direct?.paths.find((path) =>
-		(["twitch", "kick", "youtube"] as const).some(
-			(provider) => path.state[provider] === "brb",
-		),
-	);
-	const liveOutputs = [
+	const outputs = [
 		...(direct?.destinations ?? []),
 		...(direct?.customOutputs ?? []),
-	].filter((output) => output.state === "live").length;
+	];
+	const holding = outputs.find((output) => output.state === "brb");
+	const liveOutputs = outputs.filter(
+		(output) => output.state === "live",
+	).length;
 	const desiredDestinations = direct
 		? Number(direct.desired.twitch) +
 			Number(direct.desired.kick) +
@@ -147,6 +146,10 @@ export function DashboardPage() {
 		mode: direct?.mode ?? "unconfigured",
 		desiredDestinations,
 		liveOutputs,
+		startingOutputs: outputs.filter(
+			(o) => o.state === "starting" || o.state === "retrying",
+		).length,
+		failedOutputs: outputs.filter((o) => o.state === "failed").length,
 		holding: Boolean(holding),
 		paths,
 		obs: {
@@ -193,6 +196,7 @@ export function DashboardPage() {
 	const primaryAction = () => {
 		trackEvent("dashboard_home_cta", { action: home.primaryAction });
 		switch (home.primaryAction) {
+			case "inspect-output":
 			case "connect-platform":
 			case "pair-obs": {
 				const target =
@@ -207,7 +211,15 @@ export function DashboardPage() {
 				navigate({ to: "/download", search: fi ? { lang: "fi" } : {} });
 				break;
 			case "end-stream": {
-				const pathId = holding?.id ?? livePath?.id;
+				const pathId =
+					holding?.pathId ??
+					livePath?.id ??
+					outputs.find(
+						(output) =>
+							output.state === "live" ||
+							output.state === "starting" ||
+							output.state === "retrying",
+					)?.pathId;
 				if (pathId) stopDirect.mutate({ pathId });
 				break;
 			}
@@ -220,6 +232,7 @@ export function DashboardPage() {
 		}
 	};
 	const actionLabel = {
+		"inspect-output": t("Check output settings"),
 		"connect-platform": t("Connect a platform"),
 		"get-app": t("Get the VISP app"),
 		"open-app": t("Open the app to go live"),
@@ -229,6 +242,47 @@ export function DashboardPage() {
 		"stop-obs": t("Stop OBS stream"),
 	}[home.primaryAction];
 
+	const statusQueries = [
+		directQuery,
+		pathsQuery,
+		...(direct?.mode === "obs" ? [obsQuery] : []),
+	];
+	const statusError = statusQueries.some((query) => query.isError);
+	const statusMissing = statusQueries.some((query) => query.data === undefined);
+	const statusLabel = {
+		"almost-ready": "Almost ready",
+		ready: "Ready",
+		live: "Live",
+		brb: "BRB",
+		"source-connected": "Camera connected",
+		starting: "Output starting",
+		failed: "Output failed",
+	}[home.status];
+	const statusDescription = {
+		"almost-ready": "Finish the next step below.",
+		ready: "Everything is ready for your next stream.",
+		live: "Your stream is on air.",
+		brb: "Your ingest dropped. Viewers see your BRB card.",
+		"source-connected": "Your camera is connected. No platform output is live.",
+		starting: "Connecting to your platform. Your broadcast is not live yet.",
+		failed: "Your platform output failed. Check the output details below.",
+	}[home.status];
+	if (statusMissing)
+		return (
+			<Card>
+				<Heading level={2}>
+					{t(statusError ? "Status unavailable" : "Loading stream status…")}
+				</Heading>
+				<Text>
+					{t(
+						statusError
+							? "Could not load your stream status. Retrying automatically."
+							: "Please wait.",
+					)}
+				</Text>
+			</Card>
+		);
+
 	return (
 		<>
 			<Center axis="horizontal">
@@ -237,32 +291,26 @@ export function DashboardPage() {
 						eyebrow={t(view === "settings" ? "Setup and controls" : "Show day")}
 						title={t(view === "settings" ? "Settings" : "Dashboard")}
 					/>
+					{statusError ? (
+						<Banner
+							status="warning"
+							title={t("Status unavailable")}
+							description={t(
+								"Showing last known state. Retrying automatically.",
+							)}
+						/>
+					) : null}
 					{view === "home" ? (
 						<VStack gap={4} width="100%">
 							<Card>
 								<VStack gap={1}>
-									<Heading level={2}>
-										{t(
-											home.status === "live"
-												? "Live"
-												: home.status === "ready"
-													? "Ready"
-													: "Almost ready",
-										)}
-									</Heading>
-									<Text color="secondary">
-										{holding
-											? t("Your ingest dropped. Viewers see your BRB card.")
-											: livePath?.linkStats
-												? `${formatLinkStats(livePath.linkStats)}${livePath.linkStats.linkDegraded ? ` · ${t("Degraded")}` : ""}${livePath.linkStats.congested ? ` · ${t("Congested")}` : ""}`
-												: t(
-														home.status === "live"
-															? "Your stream is on air."
-															: home.status === "ready"
-																? "Everything is ready for your next stream."
-																: "Finish the next step below.",
-													)}
-									</Text>
+									<Heading level={2}>{t(statusLabel)}</Heading>
+									<Text color="secondary">{t(statusDescription)}</Text>
+									{livePath?.linkStats ? (
+										<Text color="secondary">
+											{formatLinkStats(livePath.linkStats)}
+										</Text>
+									) : null}
 								</VStack>
 							</Card>
 							<Card>
@@ -270,9 +318,7 @@ export function DashboardPage() {
 									<Heading level={2}>{t("Preview")}</Heading>
 									{livePath ? (
 										<WhepPreview
-											emptyHint={t(
-												"Your stream is still going out. Only this browser preview has no picture.",
-											)}
+											emptyHint={t("Waiting for a picture from your camera.")}
 											emptyTitle={t("Waiting for the live picture")}
 											label={`${livePath.label}: ${t("Live")}`}
 											poster={snapshot?.url ?? undefined}
@@ -286,7 +332,7 @@ export function DashboardPage() {
 								</VStack>
 							</Card>
 							{direct?.mode !== "obs" ? <DirectCard /> : null}
-							{home.nextStep ? (
+							{!statusError && home.nextStep ? (
 								<Banner
 									description={t(
 										home.nextStep === "connect-platform"
@@ -300,6 +346,7 @@ export function DashboardPage() {
 								/>
 							) : null}
 							<Button
+								isDisabled={statusError}
 								isLoading={stopDirect.isPending || setObsStreaming.isPending}
 								label={actionLabel}
 								variant="primary"
