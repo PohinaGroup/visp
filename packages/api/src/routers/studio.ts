@@ -15,6 +15,7 @@ import {
 	setStudioMode,
 	studioGraphSchema,
 } from "../studio";
+import { STUDIO_MEDIA_TYPES } from "../studio-alert";
 import { relayProcedure } from "./relay";
 
 function studioError(error: unknown): never {
@@ -84,9 +85,15 @@ export const studioRouter = router({
 			setEmptyStudioWarning(ctx.relayUser.id, input.dismissed),
 		),
 	assetUploadUrl: relayProcedure
-		.input(z.object({ assetId: z.uuid(), contentType: z.literal("image/png") }))
+		.input(
+			z.object({ assetId: z.uuid(), contentType: z.enum(STUDIO_MEDIA_TYPES) }),
+		)
 		.mutation(({ ctx, input }) =>
-			createStudioAssetUpload(ctx.relayUser.id, input.assetId),
+			createStudioAssetUpload(
+				ctx.relayUser.id,
+				input.assetId,
+				input.contentType,
+			),
 		),
 	assetFinalize: relayProcedure
 		.input(z.object({ assetId: z.uuid() }))

@@ -3,10 +3,16 @@
 import { createHash } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import type { StudioAlertAppearance } from "../../packages/api/src/studio-alert";
+import {
+	studioAlertAppearance,
+	studioAlertEvents,
+} from "../../packages/api/src/studio-alert";
 import {
 	isPublicAddress,
 	validateBrowserSourceUrl,
 } from "../../packages/api/src/studio-browser-url";
+import { renderStudioAlertPng, studioAlertFilters } from "./alert";
 import { validateBrowserRequest } from "./browser-security";
 import { CompositorPipeline } from "./pipeline";
 import {
@@ -61,6 +67,9 @@ type Layer = {
 	zIndex: number;
 	text?: string;
 	event?: "follow" | "sub" | "donation";
+	events?: string[];
+	appearance?: StudioAlertAppearance;
+	assetId?: string | null;
 	url?: string | null;
 	runtimeDisabled?: boolean;
 };
@@ -228,6 +237,7 @@ async function browserPng(layer: Layer) {
 	}
 }
 
+let alertTextCache: { key: string; bytes: Buffer } | undefined;
 const pipeline = new CompositorPipeline();
 let applied = "";
 let appliedSceneId: string | undefined;
@@ -356,7 +366,9 @@ async function apply(desired: Desired, crossfade: boolean) {
 			(layer) =>
 				layer.visible &&
 				!layer.runtimeDisabled &&
-				(layer.type !== "alert" || desired.alert?.event === layer.event),
+				(layer.type !== "alert" ||
+					(!!desired.alert &&
+						studioAlertEvents(layer).includes(desired.alert.event))),
 		)
 		.sort((a, b) => a.zIndex - b.zIndex);
 	const nextSlot: 0 | 1 = activeFeedSlot === 0 ? 1 : 0;
@@ -378,24 +390,100 @@ async function apply(desired: Desired, crossfade: boolean) {
 		"-i",
 		authenticatedInputUrl,
 	];
-	const overlays: Array<{ layer: Layer; input: number }> = [];
-	const textFilters: string[] = [];
+	let current = "[0:v]";
+	let inputs = 0;
+	const filters: string[] = [];
 	for (const layer of layers) {
+		const output = `layer${layer.zIndex}`;
+		if (layer.type === "alert") {
+			const appearance = studioAlertAppearance(layer);
+			let media: { file: string; animated: boolean } | undefined;
+			if (layer.url && layer.assetId) {
+				try {
+					const response = await fetch(layer.url, {
+						signal: AbortSignal.timeout(5_000),
+					});
+					if (!response.ok || !response.body)
+						throw new Error("Alert image unavailable");
+					const chunks: Uint8Array[] = [];
+					let size = 0;
+					for await (const chunk of response.body) {
+						size += chunk.byteLength;
+						if (size > 10 * 1024 * 1024)
+							throw new Error("Alert image exceeds size limit");
+						chunks.push(chunk);
+					}
+					const contentType = response.headers
+						.get("content-type")
+						?.split(";")[0]
+						?.trim();
+					// Upload finalization normalizes every verified asset to PNG or GIF.
+					if (contentType !== "image/png" && contentType !== "image/gif")
+						throw new Error("Unexpected alert image type");
+					const animated = contentType === "image/gif";
+					const file = `${work}/alert-media-${nextSlot}.${animated ? "gif" : "png"}`;
+					await writeFile(file, Buffer.concat(chunks), { mode: 0o600 });
+					media = { file, animated };
+				} catch {
+					console.warn("Alert image unavailable; showing text");
+				}
+			}
+			try {
+				const label = desired.alert?.label ?? "Alert";
+				const render = {
+					width: layer.width,
+					height: layer.height,
+					appearance,
+					label,
+					hasMedia: !!media,
+				};
+				const key = JSON.stringify(render);
+				if (alertTextCache?.key !== key)
+					alertTextCache = { key, bytes: await renderStudioAlertPng(render) };
+				const file = `${work}/alert-text-${nextSlot}.png`;
+				await writeFile(file, alertTextCache.bytes, { mode: 0o600 });
+				args.push("-loop", "1", "-i", file);
+				const textInput = ++inputs;
+				let mediaInput: number | undefined;
+				if (media) {
+					args.push(
+						...(media.animated
+							? ["-stream_loop", "-1", "-ignore_loop", "1"]
+							: ["-loop", "1"]),
+						"-i",
+						media.file,
+					);
+					mediaInput = ++inputs;
+				}
+				filters.push(
+					...studioAlertFilters({
+						...layer,
+						appearance,
+						base: current,
+						output,
+						textInput,
+						mediaInput,
+					}),
+				);
+				current = `[${output}]`;
+				continue;
+			} catch {
+				console.warn("Styled alert unavailable; showing plain text");
+			}
+		}
 		if (layer.type === "text" || layer.type === "alert") {
-			const file = `${work}/${safeId(layer.id)}.txt`;
-			const x = Number(layer.x);
-			const y = Number(layer.y);
-			const height = Number(layer.height);
+			const file = `${work}/${safeId(layer.id)}-${nextSlot}.txt`;
 			await writeFile(
 				file,
 				layer.type === "alert"
-					? (desired.alert?.label ?? "")
+					? (desired.alert?.label ?? "Alert")
 					: (layer.text ?? ""),
 				{ mode: 0o600 },
 			);
-			textFilters.push(
-				`drawtext=textfile='${file}':x=${x}:y=${y}:fontsize=${Math.max(12, Math.min(height, 200))}:fontcolor=white:box=1:boxcolor=black@0.45`,
+			filters.push(
+				`${current}drawtext=textfile='${file}':expansion=none:x=${Number(layer.x)}:y=${Number(layer.y)}:fontsize=${Math.max(12, Math.min(layer.height, 200))}:fontcolor=white:box=1:boxcolor=black@0.45[${output}]`,
 			);
+			current = `[${output}]`;
 			continue;
 		}
 		try {
@@ -403,7 +491,13 @@ async function apply(desired: Desired, crossfade: boolean) {
 				layer.type === "browser" ? await browserPng(layer) : layer.url;
 			if (!source) throw new Error("asset unavailable");
 			args.push("-loop", "1", "-i", source);
-			overlays.push({ layer, input: overlays.length + 1 });
+			filters.push(
+				`[${++inputs}:v]scale=${layer.width}:${layer.height}[${output}source]`,
+			);
+			filters.push(
+				`${current}[${output}source]overlay=${layer.x}:${layer.y}[${output}]`,
+			);
+			current = `[${output}]`;
 		} catch (error) {
 			if (layer.type === "browser") {
 				const response = await hook("browser-failure", {
@@ -415,21 +509,6 @@ async function apply(desired: Desired, crossfade: boolean) {
 			}
 			throw error;
 		}
-	}
-	let current = "[0:v]";
-	const filters: string[] = [];
-	for (const [index, { layer, input }] of overlays.entries()) {
-		filters.push(
-			`[${input}:v]scale=${layer.width}:${layer.height}[source${index}]`,
-		);
-		filters.push(
-			`${current}[source${index}]overlay=${layer.x}:${layer.y}[stage${index}]`,
-		);
-		current = `[stage${index}]`;
-	}
-	if (textFilters.length) {
-		filters.push(`${current}${textFilters.join(",")}[program]`);
-		current = "[program]";
 	}
 	if (filters.length)
 		args.push("-filter_complex", filters.join(";"), "-map", current);

@@ -15,6 +15,13 @@ import { z } from "zod";
 import { tryAdvisoryLock } from "./advisory-lock";
 import { alertText, type ChatAlert, type ChatAlertKind } from "./chat/contract";
 import { snapshotReads, snapshotUploads } from "./snapshots";
+import {
+	STUDIO_ALERT_EVENTS,
+	STUDIO_MEDIA_MAX_BYTES,
+	studioAlertAppearanceSchema,
+	studioAlertEvents,
+} from "./studio-alert";
+import { validateStudioMedia } from "./studio-media";
 
 export { validateBrowserSourceUrl } from "./studio-browser-url";
 
@@ -28,7 +35,6 @@ export const STUDIO_CAPS = {
 } as const;
 const STUDIO_PNG_MAX_BYTES = 10 * 1024 * 1024;
 const STUDIO_PNG_MAX_DECODED_BYTES = 64 * 1024 * 1024;
-const STUDIO_ALERT_LIFETIME_MS = 10_000;
 const STUDIO_CANVAS_WIDTH = 1920;
 const STUDIO_CANVAS_HEIGHT = 1080;
 const STUDIO_CANVAS_PIXELS = STUDIO_CANVAS_WIDTH * STUDIO_CANVAS_HEIGHT;
@@ -48,8 +54,9 @@ export function activeStudioAlert(
 	label: string | null,
 	at: Date | null,
 	now = new Date(),
+	duration = 10,
 ) {
-	if (!event || !at || now.getTime() - at.getTime() > STUDIO_ALERT_LIFETIME_MS)
+	if (!event || !at || now.getTime() - at.getTime() > duration * 1000)
 		return null;
 	return { event, label: label?.trim() || "Alert", at: at.toISOString() };
 }
@@ -244,7 +251,10 @@ export const studioLayerSchema = z.discriminatedUnion("type", [
 	z.object({
 		...transform,
 		type: z.literal("alert"),
-		event: z.enum(["follow", "sub", "donation"]),
+		event: z.enum(STUDIO_ALERT_EVENTS),
+		events: z.array(z.enum(STUDIO_ALERT_EVENTS)).min(1).max(3).optional(),
+		appearance: studioAlertAppearanceSchema.optional(),
+		assetId: z.uuid().nullable().optional(),
 	}),
 ]);
 
@@ -447,6 +457,21 @@ export async function getStudioGraph(userId: string): Promise<StudioGraph> {
 							return {
 								...base,
 								type: "alert" as const,
+								...(layer.assetId ? { assetId: layer.assetId } : {}),
+								...(layer.alertAppearance
+									? {
+											appearance: studioAlertAppearanceSchema.parse(
+												layer.alertAppearance,
+											),
+										}
+									: {}),
+								...(layer.alertEvents
+									? {
+											events: layer.alertEvents as Array<
+												"follow" | "sub" | "donation"
+											>,
+										}
+									: {}),
 								event: (layer.alertEvent ?? "follow") as
 									| "follow"
 									| "sub"
@@ -484,12 +509,14 @@ export async function saveStudioGraph(
 	const graph = studioGraphSchema.parse(input);
 	const assetIds = graph.scenes.flatMap((scene) =>
 		scene.layers.flatMap((layer) =>
-			layer.type === "png" ? [layer.assetId] : [],
+			(layer.type === "png" || layer.type === "alert") && layer.assetId
+				? [layer.assetId]
+				: [],
 		),
 	);
 	if (assetIds.length) {
 		const owned = await db
-			.select({ id: studioAsset.id })
+			.select({ id: studioAsset.id, contentType: studioAsset.contentType })
 			.from(studioAsset)
 			.where(
 				and(
@@ -499,7 +526,20 @@ export async function saveStudioGraph(
 				),
 			);
 		if (owned.length !== new Set(assetIds).size)
-			throw new Error("PNG asset not found");
+			throw new Error("Image asset not found");
+		const pngAssets = new Set(
+			graph.scenes.flatMap((scene) =>
+				scene.layers.flatMap((layer) =>
+					layer.type === "png" ? [layer.assetId] : [],
+				),
+			),
+		);
+		if (
+			owned.some(
+				(asset) => pngAssets.has(asset.id) && asset.contentType !== "image/png",
+			)
+		)
+			throw new Error("PNG layers require a still image");
 	}
 	// One save at a time per account: a double-submit or a second tab is
 	// rejected with a named error instead of silently clobbering the first save.
@@ -573,9 +613,15 @@ async function saveStudioGraphLocked(
 				width: layer.width,
 				height: layer.height,
 				text: layer.type === "text" ? layer.text : null,
-				assetId: layer.type === "png" ? layer.assetId : null,
+				assetId:
+					layer.type === "png" || layer.type === "alert"
+						? (layer.assetId ?? null)
+						: null,
 				browserUrl: layer.type === "browser" ? layer.url : null,
 				alertEvent: layer.type === "alert" ? layer.event : null,
+				alertEvents: layer.type === "alert" ? (layer.events ?? null) : null,
+				alertAppearance:
+					layer.type === "alert" ? (layer.appearance ?? null) : null,
 				disabledByRuntime: studioLayerRuntimeState(
 					previouslyDisabled.has(layer.id),
 					layer.runtimeDisabled,
@@ -658,8 +704,12 @@ export async function setEmptyStudioWarning(
 	return { dismissed };
 }
 
-export function studioAssetKey(userId: string, assetId: string) {
-	return `studio-staging/${userId}/${assetId}/${randomUUID()}.png`;
+export function studioAssetKey(
+	userId: string,
+	assetId: string,
+	contentType = "image/png",
+) {
+	return `studio-staging/${userId}/${assetId}/${randomUUID()}.${contentType.split("/")[1]}`;
 }
 
 type StudioAssetStore = {
@@ -682,11 +732,34 @@ export async function promoteStudioPng(
 	return { ...dimensions, checksum, key };
 }
 
-export async function createStudioAssetUpload(userId: string, assetId: string) {
-	const key = studioAssetKey(userId, assetId);
+async function promoteStudioMedia(
+	stagingKey: string,
+	prefix: string,
+	contentType: string,
+) {
+	const input = await snapshotReads.read(
+		stagingKey,
+		STUDIO_MEDIA_MAX_BYTES + 1,
+	);
+	const { bytes, extension, ...verified } = await validateStudioMedia(
+		input,
+		contentType,
+	);
+	const key = `${prefix}/${verified.checksum}.${extension}`;
+	await snapshotReads.write(key, bytes, verified.contentType);
+	await snapshotReads.delete(stagingKey);
+	return { ...verified, key };
+}
+
+export async function createStudioAssetUpload(
+	userId: string,
+	assetId: string,
+	contentType = "image/png",
+) {
+	const key = studioAssetKey(userId, assetId, contentType);
 	await db
 		.insert(studioAsset)
-		.values({ id: assetId, userId, key, contentType: "image/png" });
+		.values({ id: assetId, userId, key, contentType });
 	return {
 		assetId,
 		uploadUrl: await snapshotUploads.presign(key, {
@@ -718,6 +791,7 @@ export async function finalizeStudioAsset(userId: string, assetId: string) {
 		const [asset] = await tx
 			.select({
 				key: studioAsset.key,
+				contentType: studioAsset.contentType,
 				verifiedAt: studioAsset.verifiedAt,
 				width: studioAsset.width,
 				height: studioAsset.height,
@@ -731,10 +805,11 @@ export async function finalizeStudioAsset(userId: string, assetId: string) {
 			return { value: { width: asset.width, height: asset.height } };
 		let cleanupKey = asset.key;
 		try {
-			const verified = await promoteStudioPng(
-				asset.key,
-				`studio-verified/${userId}/${assetId}`,
-			);
+			const prefix = `studio-verified/${userId}/${assetId}`;
+			const verified =
+				asset.contentType === "image/png"
+					? await promoteStudioPng(asset.key, prefix)
+					: await promoteStudioMedia(asset.key, prefix, asset.contentType);
 			cleanupKey = verified.key;
 			await tx
 				.update(studioAsset)
@@ -796,7 +871,7 @@ export async function compositorDesiredState(path: string) {
 			...scene,
 			layers: await Promise.all(
 				scene.layers.map(async (layer) =>
-					layer.type === "png"
+					(layer.type === "png" || layer.type === "alert") && layer.assetId
 						? {
 								...layer,
 								url: await getStudioAssetUrl(record.userId, layer.assetId),
@@ -818,6 +893,10 @@ export async function compositorDesiredState(path: string) {
 			record.lastAlertEvent,
 			record.lastAlert,
 			record.lastAlertAt,
+			new Date(),
+			graph.scenes
+				.flatMap((scene) => scene.layers)
+				.find((layer) => layer.type === "alert")?.appearance?.duration ?? 10,
 		),
 	};
 }
@@ -911,18 +990,25 @@ export async function deliverStudioProviderAlert(
 	const event = studioAlertKind(alert.kind);
 	if (!event) return false;
 	const [configured] = await db
-		.select({ id: studioLayer.id })
+		.select({
+			id: studioLayer.id,
+			event: studioLayer.alertEvent,
+			events: studioLayer.alertEvents,
+		})
 		.from(studioLayer)
 		.innerJoin(studioScene, eq(studioScene.id, studioLayer.sceneId))
 		.where(
-			and(
-				eq(studioScene.studioUserId, userId),
-				eq(studioLayer.type, "alert"),
-				eq(studioLayer.alertEvent, event),
-			),
+			and(eq(studioScene.studioUserId, userId), eq(studioLayer.type, "alert")),
 		)
 		.limit(1);
-	if (!configured) return false;
+	if (
+		!configured ||
+		!studioAlertEvents({
+			event: configured.event ?? "follow",
+			events: configured.events ?? undefined,
+		}).includes(event)
+	)
+		return false;
 	await db
 		.update(studio)
 		.set({

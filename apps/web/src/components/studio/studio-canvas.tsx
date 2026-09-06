@@ -1,3 +1,4 @@
+import { DEFAULT_ALERT_APPEARANCE } from "@VISP/api/studio-alert";
 import { Button } from "@astryxdesign/core/Button";
 import { Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
@@ -18,6 +19,7 @@ import {
 	studioLayerDisplayState,
 } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
+import { AlertPreview } from "./alert-preview";
 import styles from "./studio-editor.module.css";
 
 const FRAME_WIDTH = 1920;
@@ -116,10 +118,14 @@ function LayerBody({
 	layer,
 	scale,
 	sampleAlert,
+	sampleName,
+	sampleEvent,
 }: {
 	layer: StudioLayer;
 	scale: number;
-	sampleAlert: boolean;
+	sampleAlert: number;
+	sampleName: string;
+	sampleEvent: string;
 }) {
 	const t = useT();
 	switch (layer.type) {
@@ -151,14 +157,12 @@ function LayerBody({
 			);
 		default:
 			return (
-				<span style={{ fontSize: "2.6cqh", opacity: 0.85 }}>
-					{sampleAlert ? t("Sample viewer") : t("VISP alert")} ·{" "}
-					{t(layer.event)}
-					<br />
-					{sampleAlert
-						? t("Sample alert, preview only")
-						: t("Shows only when the event fires")}
-				</span>
+				<AlertPreview
+					key={sampleAlert}
+					layer={layer}
+					scale={scale}
+					label={`${sampleName || t("Sample viewer")} ${sampleEvent === "sub" ? t("subscribed!") : sampleEvent === "donation" ? t("cheered 100 bits!") : t("followed!")}`}
+				/>
 			);
 	}
 }
@@ -204,7 +208,12 @@ export function StudioCanvas({
 	const [clean, setClean] = useState(false);
 	const [showCamera, setShowCamera] = useState(false);
 	const [snapping, setSnapping] = useState(true);
-	const [sampleAlert, setSampleAlert] = useState(false);
+	const [sampleAlert, setSampleAlert] = useState(0);
+	const [sampleName, setSampleName] = useState(t("Sample viewer"));
+	const [sampleEvent, setSampleEvent] = useState("follow");
+	const alertLayer = scene.layers.find((layer) => layer.type === "alert");
+	const alertDuration =
+		alertLayer?.appearance?.duration ?? DEFAULT_ALERT_APPEARANCE.duration;
 	const [guides, setGuides] = useState<{ guideX?: number; guideY?: number }>(
 		{},
 	);
@@ -228,9 +237,9 @@ export function StudioCanvas({
 	}, []);
 	useEffect(() => {
 		if (!sampleAlert) return;
-		const timer = setTimeout(() => setSampleAlert(false), 5000);
+		const timer = setTimeout(() => setSampleAlert(0), alertDuration * 1000);
 		return () => clearTimeout(timer);
-	}, [sampleAlert]);
+	}, [sampleAlert, alertDuration]);
 	useEffect(
 		() => () => {
 			if (drag.current) onGestureEnd();
@@ -351,14 +360,38 @@ export function StudioCanvas({
 					variant={showCamera ? "secondary" : "ghost"}
 					onClick={() => setShowCamera(!showCamera)}
 				/>
-				{scene.layers.some(({ type }) => type === "alert") && (
-					<Button
-						size="sm"
-						label={t("Test alert")}
-						isDisabled={sampleAlert}
-						variant="ghost"
-						onClick={() => setSampleAlert(true)}
-					/>
+				{alertLayer && (
+					<>
+						<label>
+							{t("Sample viewer")}{" "}
+							<input
+								aria-label={t("Sample viewer")}
+								value={sampleName}
+								maxLength={100}
+								style={{ width: 140 }}
+								onChange={(event) => setSampleName(event.target.value)}
+							/>
+						</label>
+						<label>
+							{t("Sample event")}{" "}
+							<select
+								value={sampleEvent}
+								onChange={(event) => setSampleEvent(event.target.value)}
+							>
+								{["follow", "sub", "donation"].map((event) => (
+									<option key={event} value={event}>
+										{t(event)}
+									</option>
+								))}
+							</select>
+						</label>
+						<Button
+							size="sm"
+							label={t("Test alert")}
+							variant="ghost"
+							onClick={() => setSampleAlert(Date.now())}
+						/>
+					</>
 				)}
 			</div>
 			<div className={styles.canvasViewport} ref={viewport}>
@@ -414,6 +447,8 @@ export function StudioCanvas({
 											layer={layer}
 											scale={scale}
 											sampleAlert={sampleAlert}
+											sampleName={sampleName}
+											sampleEvent={sampleEvent}
 										/>
 									</div>
 									{!clean && (

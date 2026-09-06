@@ -76,6 +76,11 @@ test("Studio edits the draft visually, keeps failed saves, and supports small sc
 			};
 			const data: Record<string, unknown> = {
 				"studio.get": { graph, settings, preview: {} },
+				"studio.assetUploadUrl": {
+					uploadUrl: `${url.origin}/test-alert-upload`,
+				},
+				"studio.assetFinalize": { width: 1, height: 1 },
+				"studio.assetUrl": { url: `${url.origin}/test-alert.gif` },
 				"studio.mode.get": settings,
 				"paths.list": [
 					{
@@ -91,6 +96,16 @@ test("Studio edits the draft visually, keeps failed saves, and supports small sc
 		});
 		await route.fulfill({ json: result });
 	});
+	const gif = Buffer.from(
+		"R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7",
+		"base64",
+	);
+	await page.route("**/test-alert-upload", (route) =>
+		route.fulfill({ status: 200, body: "" }),
+	);
+	await page.route("**/test-alert.gif", (route) =>
+		route.fulfill({ contentType: "image/gif", body: gif }),
+	);
 	await page.goto("/studio");
 	const canvas = page.getByRole("region", { name: "Composition preview" });
 	await expect(canvas).toBeVisible();
@@ -229,15 +244,58 @@ test("Studio edits the draft visually, keeps failed saves, and supports small sc
 	await page
 		.getByRole("button", { name: "VISP alert 0/1", exact: true })
 		.click();
+	await page
+		.getByRole("spinbutton", { name: "Font size", exact: true })
+		.fill("36");
+	await page
+		.getByRole("spinbutton", { name: "Alert duration (seconds)", exact: true })
+		.fill("2");
+	await page.getByLabel("Text color", { exact: true }).fill("#ff00ff");
+	await page
+		.locator('input[type="file"][accept*="image/gif"]')
+		.setInputFiles({ name: "alert.gif", mimeType: "image/gif", buffer: gif });
+	await expect(
+		page.getByRole("button", { name: "Remove picture", exact: true }),
+	).toBeVisible();
+	const preview = page.frameLocator('iframe[title="Alert preview"]');
+	await expect(preview.locator("img")).toBeVisible();
+	await expect(preview.locator(".text")).toHaveCSS("font-size", "36px");
+	await expect(preview.locator(".text")).toHaveCSS("color", "rgb(255, 0, 255)");
+	await page
+		.getByRole("button", { name: "Save and apply", exact: true })
+		.click();
+	await expect(
+		page.getByRole("button", { name: "Save and apply", exact: true }),
+	).toBeDisabled();
+	expect(graph.scenes.flatMap((scene) => scene.layers)).toEqual(
+		expect.arrayContaining([
+			expect.objectContaining({
+				type: "alert",
+				events: ["follow", "sub", "donation"],
+				assetId: expect.any(String),
+				appearance: expect.objectContaining({
+					fontSize: 36,
+					color: "#ff00ff",
+					duration: 2,
+				}),
+			}),
+		]),
+	);
+	await page.screenshot({ path: "/tmp/visp-studio-alert-controls.png" });
 	const beforeSample = saveCount;
+	await page
+		.getByLabel("Sample viewer", { exact: true })
+		.fill("AViewerWithAnExtraLongNameÄÖ");
 	await page.getByRole("button", { name: "Test alert", exact: true }).click();
-	await expect(page.getByText("Sample alert, preview only")).toBeVisible();
+	await expect(
+		preview.getByText("AViewerWithAnExtraLongNameÄÖ followed!"),
+	).toBeVisible();
 	await page
 		.getByRole("button", { name: "Clean preview", exact: true })
 		.click();
-	await expect(page.getByText("Sample alert, preview only")).toBeVisible();
+	await expect(preview.locator("img")).toBeVisible();
 	expect(saveCount).toBe(beforeSample);
-	await expect(page.getByText("Sample alert, preview only")).toHaveCount(0, {
-		timeout: 7000,
+	await expect(page.locator('iframe[title="Alert preview"]')).toHaveCount(0, {
+		timeout: 5000,
 	});
 });

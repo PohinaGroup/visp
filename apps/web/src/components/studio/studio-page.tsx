@@ -1,4 +1,5 @@
 import type { StudioGraph } from "@VISP/api/studio";
+import { STUDIO_MEDIA_TYPES } from "@VISP/api/studio-alert";
 import {
 	type EmptyStudioWarningChoice,
 	emptySavedStudioNeedsWarning,
@@ -397,19 +398,21 @@ export function StudioPage() {
 			failed(error, "Source could not be added");
 		}
 	};
-	const uploadPngAsset = async (value: File | File[] | null) => {
+	const uploadImageAsset = async (value: File | File[] | null) => {
 		const png = value instanceof File ? value : null;
 		setFile(png);
 		if (!png) return null;
 		try {
+			if (!(STUDIO_MEDIA_TYPES as readonly string[]).includes(png.type))
+				throw new Error("Choose a PNG, JPEG, WebP or GIF image");
 			const assetId = crypto.randomUUID();
 			const { uploadUrl } = await upload.mutateAsync({
 				assetId,
-				contentType: "image/png",
+				contentType: png.type as (typeof STUDIO_MEDIA_TYPES)[number],
 			});
 			const response = await fetch(uploadUrl, {
 				method: "PUT",
-				headers: { "Content-Type": "image/png" },
+				headers: { "Content-Type": png.type },
 				body: png,
 			});
 			if (!response.ok) throw new Error("Upload failed, try again");
@@ -421,7 +424,7 @@ export function StudioPage() {
 		}
 	};
 	const uploadPng = async (value: File | File[] | null) => {
-		const assetId = await uploadPngAsset(value);
+		const assetId = await uploadImageAsset(value);
 		if (assetId) addSource("png", assetId);
 	};
 	const goLive = () => {
@@ -1051,7 +1054,7 @@ export function StudioPage() {
 						setAspectLocked={setAspectLocked}
 						mutateDraft={mutateDraft}
 						changeLayer={changeLayer}
-						uploadPngAsset={uploadPngAsset}
+						uploadImageAsset={uploadImageAsset}
 					/>
 				</aside>
 			</div>

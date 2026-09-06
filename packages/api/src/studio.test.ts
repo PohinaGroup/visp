@@ -171,6 +171,16 @@ describe("Studio graph contract", () => {
 		expect(activeStudioAlert(null, "Alert", new Date(), now)).toBeNull();
 	});
 
+	test("expires alerts using their configured duration", () => {
+		const at = new Date("2026-09-06T12:00:00Z");
+		expect(
+			activeStudioAlert("follow", "Ada", at, new Date(at.getTime() + 2000), 3),
+		).not.toBeNull();
+		expect(
+			activeStudioAlert("follow", "Ada", at, new Date(at.getTime() + 3001), 3),
+		).toBeNull();
+	});
+
 	test("falls back only when an actual alert label render fails", () => {
 		const alert = {
 			id: "follow-1",
