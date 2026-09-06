@@ -153,12 +153,12 @@ remain disabled.
 
    Use Caddy's packaged unit with `deploy/app/Caddyfile` and
    `deploy/systemd/caddy-app.conf` as the drop-in. In `/etc/visp/caddy.env` set
-   `APP_DOMAIN`, `ADMIN_DOMAIN`, `NATIVE_WEB_DOMAIN`, `OBS_REMOTE_WEB_DOMAIN`,
-   `DOCS_DOMAIN`, and `RELAY_PUBLIC_IPS`. The latter is a space-separated list
-   of every relay public IP. Caddy serves `apps/admin/dist`,
-   `apps/native/dist`, `apps/obs-remote/dist`, and
-   `apps/fumadocs/.output/public` as static files; none needs its own systemd
-   unit.
+   `APP_DOMAIN`, `ADMIN_DOMAIN`, `MULTICHAT_DOMAIN`, `NATIVE_WEB_DOMAIN`,
+   `OBS_REMOTE_WEB_DOMAIN`, `DOCS_DOMAIN`, and `RELAY_PUBLIC_IPS`. The latter is
+   a space-separated list of every relay public IP. Caddy serves
+   `apps/admin/dist`, `apps/multichat/dist`, `apps/native/dist`,
+   `apps/obs-remote/dist`, and `apps/fumadocs/.output/public` as static files;
+   none needs its own systemd unit.
 5. Register provider callbacks:
 
    ```text

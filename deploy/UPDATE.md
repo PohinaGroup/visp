@@ -63,7 +63,8 @@ Create these root-owned, mode `0600` files:
 - `/etc/visp/app.env`, including
   `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com`,
   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com`,
-  `ADMIN_ORIGIN=https://admin.visp-stream.com`, and comma-separated
+  `ADMIN_ORIGIN=https://admin.visp-stream.com`,
+  `MULTICHAT_ORIGIN=https://multichat.visp-stream.com`, and comma-separated
   `ADMIN_USER_IDS`.
 - `/etc/visp/web.env`, containing the portal's build-time `VITE_*` values.
 - `/etc/visp/native-web.env`, containing
@@ -73,6 +74,7 @@ Create these root-owned, mode `0600` files:
   `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN`.
 - `/etc/visp/caddy.env`, containing `APP_DOMAIN`,
   `ADMIN_DOMAIN=admin.visp-stream.com`,
+  `MULTICHAT_DOMAIN=multichat.visp-stream.com`,
   `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
   `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
   `DOCS_DOMAIN=docs.visp-stream.com`, and the existing relay values.
@@ -84,9 +86,9 @@ sudo install -m 0644 deploy/app/Caddyfile /etc/caddy/Caddyfile
 sudo systemctl enable --now visp-server visp-web caddy
 ```
 
-The admin app, native web app, OBS Remote web app, and Fumadocs are static
+The admin app, multi-chat app, native web app, OBS Remote web app, and Fumadocs are static
 files. They do not have systemd services. Caddy serves
-`/opt/visp/apps/admin/dist`, `/opt/visp/apps/native/dist`, and
+`/opt/visp/apps/admin/dist`, `/opt/visp/apps/multichat/dist`, `/opt/visp/apps/native/dist`, and
 `/opt/visp/apps/obs-remote/dist` with an `index.html` SPA fallback and
 `/opt/visp/apps/fumadocs/.output/public` with `_shell.html` as its fallback.
 
@@ -103,6 +105,7 @@ Configure these environment variables:
 - `DEPLOY_USER`: `root`.
 - `APP_URL`: public portal origin, including `https://`.
 - `ADMIN_URL`: `https://admin.visp-stream.com`.
+- `MULTICHAT_URL`: `https://multichat.visp-stream.com`.
 - `RELAY_WEBRTC_URL`: public relay WebRTC origin.
 - `NATIVE_WEB_URL`: `https://stream.visp-stream.com`.
 - `OBS_REMOTE_WEB_URL`: `https://remote.visp-stream.com`.
@@ -126,7 +129,8 @@ workflow is also reusable:
 - `MACOS_NOTARIZATION_USERNAME`
 - `MACOS_NOTARIZATION_PASSWORD`
 
-Create DNS records for `admin.visp-stream.com`, `stream.visp-stream.com`,
+Create DNS records for `admin.visp-stream.com`, `multichat.visp-stream.com`,
+`stream.visp-stream.com`,
 `remote.visp-stream.com`, and `docs.visp-stream.com` before the first release so
 Caddy can obtain their certificates.
 
@@ -159,7 +163,9 @@ migrations must stay backward-compatible.
 
 Confirm the portal and API are healthy. At `admin.visp-stream.com`, verify the
 main login is reused, an admin can open the console, and an ordinary user is
-denied. Then test a deep native-web route at `stream.visp-stream.com`, OAuth
+denied. At `multichat.visp-stream.com`, sign in with the same VISP account,
+save channels, and confirm `/chat` on the portal origin redirects to this host.
+Then test a deep native-web route at `stream.visp-stream.com`, OAuth
 return to that origin, and WebRTC through the configured relay. At
 `remote.visp-stream.com`, confirm OBS Remote signs in with the same VISP
 account and receives live OBS state. At `docs.visp-stream.com`, check `/docs`,

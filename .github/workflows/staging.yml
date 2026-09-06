@@ -127,6 +127,7 @@ jobs:
         env:
           ADMIN_URL: https://admin.staging.visp-stream.com
           APP_URL: https://staging.visp-stream.com
+          MULTICHAT_URL: https://multichat.staging.visp-stream.com
           NATIVE_WEB_URL: https://stream.staging.visp-stream.com
           OBS_REMOTE_WEB_URL: https://remote.staging.visp-stream.com
           DOCS_URL: https://docs.staging.visp-stream.com
@@ -136,7 +137,7 @@ jobs:
           set -euo pipefail
           for url in \
             "$APP_URL" \
-            "$APP_URL/chat" \
+            "$MULTICHAT_URL" \
             "$ADMIN_URL" \
             "$NATIVE_WEB_URL" \
             "$OBS_REMOTE_WEB_URL" \

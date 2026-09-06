@@ -4,8 +4,7 @@ import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 export const serverUrl = (
-	import.meta.env.VITE_SERVER_URL ||
-	(import.meta.env.PROD ? window.location.origin : "https://api.visp.localhost")
+	import.meta.env.VITE_SERVER_URL || "https://api.visp.localhost"
 ).replace(/\/$/, "");
 
 export const authClient = createAuthClient({

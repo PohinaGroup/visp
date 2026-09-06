@@ -50,7 +50,7 @@ export const serverEnvSchema = {
 	GOOGLE_CLIENT_SECRET: z.string().min(1),
 	KICK_CLIENT_ID: z.string().min(1),
 	KICK_CLIENT_SECRET: z.string().min(1),
-	MULTICHAT_ORIGIN: z.url().optional(),
+	MULTICHAT_ORIGIN: z.url(),
 	/** Bootstrap value for the database-backed default relay. */
 	MEDIAMTX_API_URL: z.url(),
 	NATIVE_WEB_ORIGIN: z.url(),

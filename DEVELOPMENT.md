@@ -49,8 +49,8 @@ credentials are reported and only affect those provider flows. Direct server
 commands still require every schema-required value. Important groups are:
 
 - `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, `CORS_ORIGIN`,
-  `ADMIN_ORIGIN`, and `ADMIN_USER_IDS` configure the database, browser
-  authentication boundary, and break-glass admin access.
+  `ADMIN_ORIGIN`, `MULTICHAT_ORIGIN`, and `ADMIN_USER_IDS` configure the database, browser
+  authentication boundary, multi-chat origin, and break-glass admin access.
 - `TWITCH_*`, `KICK_*`, and `GOOGLE_*` configure provider OAuth and APIs. Development values
   may be placeholders only when the matching provider flow is not exercised.
 - `AI_GATEWAY_API_KEY` authenticates the server-side Seppo setup assistant with
@@ -190,6 +190,7 @@ For normal portal/API work, use the one-stop launcher:
 | Complete local stack | `bun run dev:local` | `https://visp.localhost` |
 | API | managed by the launcher | `https://api.visp.localhost` |
 | Admin console | managed by the launcher | `https://admin.visp.localhost` |
+| Multi-chat | managed by the launcher | `https://multichat.visp.localhost` |
 | Docs | managed by the launcher | `https://docs.visp.localhost` |
 | OBS Remote web | managed by the launcher | `http://localhost:8083` |
 | Relay | managed by the launcher | `https://relay.visp.localhost` |

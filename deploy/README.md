@@ -222,8 +222,9 @@ pprof stay disabled.
    Twitch, Kick, and Google application credentials and snapshot bucket settings. Use
    the relay's Tailscale address for `MEDIAMTX_API_URL`, generate
    `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32`, back it up with
-   the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`
-   and `ADMIN_USER_IDS` to the comma-separated Better Auth user IDs that need
+   the other application secrets, set `ADMIN_ORIGIN=https://admin.visp-stream.com`,
+   `MULTICHAT_ORIGIN=https://multichat.visp-stream.com`, and `ADMIN_USER_IDS` to
+   the comma-separated Better Auth user IDs that need
    break-glass access, set the per-user `MAX_PATHS_PER_USER` cap, and run
 	   `bun run db:migrate`.
 	   Keep `CLOUD_STUDIO_ENABLED=false` for the initial deploy. Enable it only
@@ -249,15 +250,18 @@ pprof stay disabled.
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
    `ADMIN_DOMAIN=admin.visp-stream.com`,
+   `MULTICHAT_DOMAIN=multichat.visp-stream.com`,
    `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
    `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
    `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IPS` in
    `/etc/visp/caddy.env`. `RELAY_PUBLIC_IPS` is the space-separated list of
-   every relay's public IP. Caddy serves `apps/admin/dist`, `apps/native/dist`,
+   every relay's public IP. Caddy serves `apps/admin/dist`, `apps/multichat/dist`,
+   `apps/native/dist`,
    `apps/obs-remote/dist`, and `apps/fumadocs/.output/public` directly; these
    static sites need no runtime service. Add
-   `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com` and
-   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com` to
+   `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com`,
+   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com`, and
+   `MULTICHAT_ORIGIN=https://multichat.visp-stream.com` to
    `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
    console. In the Kick developer dashboard, register
@@ -266,7 +270,7 @@ pprof stay disabled.
    needs the `user:read` scope; chat delivery uses the server's app token and
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
    SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for
-   `admin.visp-stream.com`, `stream.visp-stream.com`,
+   `admin.visp-stream.com`, `multichat.visp-stream.com`, `stream.visp-stream.com`,
    `remote.visp-stream.com`, and `docs.visp-stream.com` before Caddy obtains
    their certificates.
 6. Install the stable release bootstrap as a root-owned executable:

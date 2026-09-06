@@ -14,6 +14,7 @@ test "$(printf '%s\n' "$release" | grep -n 'systemctl reload caddy' | head -1 | 
 	-gt "$(printf '%s\n' "$release" | grep -n '127.0.0.1:3001' | head -1 | cut -d: -f1)"
 printf '%s\n' "$release" | grep -q 'visp-caddy-static-smoke.sh'
 printf '%s\n' "$release" | grep -q '\$NATIVE_WEB_DOMAIN'
+printf '%s\n' "$release" | grep -q '\$MULTICHAT_DOMAIN'
 
 staging=$(
 	awk '/systemctl restart visp-server-staging/,/echo "VISP staging/' \
@@ -23,6 +24,7 @@ printf '%s\n' "$staging" | grep -q 'systemctl reload caddy'
 test "$(printf '%s\n' "$staging" | grep -n 'systemctl reload caddy' | head -1 | cut -d: -f1)" \
 	-gt "$(printf '%s\n' "$staging" | grep -n '127.0.0.1:3101' | head -1 | cut -d: -f1)"
 printf '%s\n' "$staging" | grep -q 'stream.staging.visp-stream.com'
+printf '%s\n' "$staging" | grep -q 'multichat.staging.visp-stream.com'
 
 test -f "$root/visp-caddy-static-smoke.sh"
 grep -q -- '--resolve' "$root/visp-caddy-static-smoke.sh"

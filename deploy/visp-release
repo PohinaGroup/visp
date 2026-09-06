@@ -128,7 +128,8 @@ systemctl is-active --quiet caddy
 	source "$caddy_env"
 	set +a
 	"$repo/deploy/visp-caddy-static-smoke.sh" \
-		"$NATIVE_WEB_DOMAIN" "$ADMIN_DOMAIN" "$OBS_REMOTE_WEB_DOMAIN"
+		"$NATIVE_WEB_DOMAIN" "$ADMIN_DOMAIN" "$OBS_REMOTE_WEB_DOMAIN" \
+		"$MULTICHAT_DOMAIN"
 )
 
 echo "VISP $tag ($expected_sha) deployed"

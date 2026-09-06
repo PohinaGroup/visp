@@ -25,16 +25,11 @@
 		handle /api/multichat/* {
 			reverse_proxy 127.0.0.1:3000
 		}
-		@multichat_root path /chat
-		handle @multichat_root {
-			root * /opt/visp/apps/multichat/dist
-			rewrite * /index.html
-			file_server
+		handle /chat {
+			redir https://{$MULTICHAT_DOMAIN}/ 308
 		}
 		handle_path /chat/* {
-			root * /opt/visp/apps/multichat/dist
-			try_files {path} /index.html
-			file_server
+			redir https://{$MULTICHAT_DOMAIN}{uri} 308
 		}
 		handle /api/seppo {
 			reverse_proxy 127.0.0.1:3000 {
@@ -64,6 +59,13 @@
 
 {$ADMIN_DOMAIN} {
 	root * /opt/visp/apps/admin/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
+{$MULTICHAT_DOMAIN} {
+	root * /opt/visp/apps/multichat/dist
 	encode zstd gzip
 	try_files {path} /index.html
 	file_server

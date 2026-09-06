@@ -227,6 +227,7 @@ jobs:
         env:
           ADMIN_URL: ${{ vars.ADMIN_URL }}
           APP_URL: ${{ vars.APP_URL }}
+          MULTICHAT_URL: ${{ vars.MULTICHAT_URL }}
           NATIVE_WEB_URL: ${{ vars.NATIVE_WEB_URL }}
           OBS_REMOTE_WEB_URL: ${{ vars.OBS_REMOTE_WEB_URL }}
           DOCS_URL: ${{ vars.DOCS_URL }}
@@ -236,7 +237,7 @@ jobs:
           for url in \
             "$ADMIN_URL" \
             "$APP_URL" \
-            "$APP_URL/chat" \
+            "$MULTICHAT_URL" \
             "$NATIVE_WEB_URL" \
             "$OBS_REMOTE_WEB_URL" \
             "$DOCS_URL/docs" \
