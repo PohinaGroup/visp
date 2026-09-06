@@ -74,7 +74,7 @@ JSON
 				if test "$verb" = highlights; then
 					payload="$(printf '%s' "$payload" | base64 -d |
 						sed "1! s|$|?$provider|" |
-						base64)"
+						base64 | tr -d '\n')"
 					printf '%s %s %s %s %s\n' "$verb" "$message" "$payload" \
 						"$background" "$source"
 					exit 0
@@ -246,7 +246,7 @@ wait_for_hold_cleanup() {
 wait_for_live_children() {
 	local expected="$1"
 	for _ in {1..40}; do
-		test "$(live_children)" -eq "$expected" && return 0
+		test "$(live_children)" -ne "$expected" || return 0
 		sleep 0.25
 	done
 	return 1
@@ -471,7 +471,8 @@ sleep 5
 : >"$FAKE_FFMPEG_LOG"
 : >"$FAKE_PLAYED_LOG"
 : >"$FAKE_OUTPUT_LOG"
-playlist="$(printf '1 1\nbad 500 https://clips.test/bad\none 500 https://clips.test/one\ntwo 500 https://clips.test/two' | base64)"
+# Keep the one-line hook contract even when base64 wraps output on Linux.
+playlist="$(printf '1 1\nbad 500 https://clips.test/bad\none 500 https://clips.test/one\ntwo 500 https://clips.test/two' | base64 | tr -d '\n')"
 printf 'highlights QmUgcmlnaHQgYmFjaw== %s https://background.test/card image\n' \
 	"$playlist" >"$FAKE_BRB_REPLY"
 mkdir -p "$FAKE_BRB_DELAY_DIR"
@@ -545,7 +546,7 @@ wait_for_hold_cleanup || fail "highlight hold did not clean up"
 
 # Unmuted keeps source audio, fills missing audio with silence, and can omit the overlay.
 : >"$FAKE_FFMPEG_LOG"
-playlist="$(printf '0 0\none 500 https://clips.test/one\ntwo 500 https://clips.test/two' | base64)"
+playlist="$(printf '0 0\none 500 https://clips.test/one\ntwo 500 https://clips.test/two' | base64 | tr -d '\n')"
 printf 'highlights QmUgcmlnaHQgYmFjaw== %s - snapshot\n' "$playlist" >"$FAKE_BRB_REPLY"
 start_script
 script_pid=$!
@@ -574,7 +575,7 @@ wait_for_hold_cleanup || fail "snapshot highlight hold did not clean up"
 
 # An all-invalid playlist retains the configured image fallback.
 : >"$FAKE_FFMPEG_LOG"
-playlist="$(printf '1 1\nbad 500 https://clips.test/bad' | base64)"
+playlist="$(printf '1 1\nbad 500 https://clips.test/bad' | base64 | tr -d '\n')"
 printf 'highlights QmUgcmlnaHQgYmFjaw== %s https://background.test/card image\n' \
 	"$playlist" >"$FAKE_BRB_REPLY"
 start_script
