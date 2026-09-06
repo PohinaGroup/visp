@@ -1,7 +1,15 @@
+import { Button } from "@astryxdesign/core/Button";
 import { Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
+import type { PointerEvent, ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { useT } from "@/lib/i18n";
+import {
+	type LayerRect,
+	type ResizeHandle,
+	resizeStudioLayer,
+	snapStudioPosition,
+} from "@/lib/studio-editor";
 import {
 	browserSourceUrlError,
 	draggedLayerPosition,
@@ -10,11 +18,11 @@ import {
 	studioLayerDisplayState,
 } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
+import styles from "./studio-editor.module.css";
 
 const FRAME_WIDTH = 1920;
-const FRAME_HEIGHT = 1080;
-const NUDGE_STEP = 10;
-const NUDGE_FINE_STEP = 1;
+const NUDGE_STEP = 1;
+const NUDGE_FINE_STEP = 10;
 
 const NUDGE: Record<string, readonly [number, number]> = {
 	ArrowLeft: [-1, 0],
@@ -104,7 +112,15 @@ function BrowserLayerFrame({
 	);
 }
 
-function LayerBody({ layer, scale }: { layer: StudioLayer; scale: number }) {
+function LayerBody({
+	layer,
+	scale,
+	sampleAlert,
+}: {
+	layer: StudioLayer;
+	scale: number;
+	sampleAlert: boolean;
+}) {
 	const t = useT();
 	switch (layer.type) {
 		case "text":
@@ -136,213 +152,380 @@ function LayerBody({ layer, scale }: { layer: StudioLayer; scale: number }) {
 		default:
 			return (
 				<span style={{ fontSize: "2.6cqh", opacity: 0.85 }}>
-					{t("VISP alert")} · {t(layer.event)}
+					{sampleAlert ? t("Sample viewer") : t("VISP alert")} ·{" "}
+					{t(layer.event)}
 					<br />
-					{t("Shows only when the event fires")}
+					{sampleAlert
+						? t("Sample alert, preview only")
+						: t("Shows only when the event fires")}
 				</span>
 			);
 	}
 }
 
-/**
- * What the composition actually looks like, at frame scale. This is the preview
- * that works with no stream running — every source is drawn, not boxed — and
- * sources move by dragging or with the arrow keys.
- */
 export function StudioCanvas({
 	blockedLayerIds,
 	readOnly,
 	scene,
 	selectedLayerId,
-	onMove,
+	lockedIds,
+	aspectLocked,
+	camera,
+	onChange,
 	onSelect,
+	onGestureStart,
+	onGestureEnd,
 }: {
 	blockedLayerIds: string[];
 	readOnly: boolean;
 	scene: StudioScene;
 	selectedLayerId?: string;
-	onMove: (layerId: string, x: number, y: number) => void;
-	onSelect: (layerId: string) => void;
+	lockedIds: Set<string>;
+	aspectLocked: boolean;
+	camera?: ReactNode;
+	onChange: (layerId: string, rect: Partial<LayerRect>) => void;
+	onSelect: (layerId?: string) => void;
+	onGestureStart: () => void;
+	onGestureEnd: () => void;
 }) {
 	const t = useT();
-	const frame = useRef<HTMLElement>(null);
+	const viewport = useRef<HTMLDivElement>(null);
 	const drag = useRef<{
-		originX: number;
-		originY: number;
-		pointerId: number;
+		layerId: string;
+		origin: LayerRect;
 		startX: number;
 		startY: number;
+		pointerId: number;
+		handle?: ResizeHandle;
+		scale: number;
 	} | null>(null);
-	const [frameWidth, setFrameWidth] = useState(0);
+	const [fitWidth, setFitWidth] = useState(0);
+	const [zoom, setZoom] = useState(0);
+	const [clean, setClean] = useState(false);
+	const [showCamera, setShowCamera] = useState(false);
+	const [snapping, setSnapping] = useState(true);
+	const [sampleAlert, setSampleAlert] = useState(false);
+	const [guides, setGuides] = useState<{ guideX?: number; guideY?: number }>(
+		{},
+	);
 	useEffect(() => {
-		const node = frame.current;
-		if (!node || typeof ResizeObserver === "undefined") return;
-		const observer = new ResizeObserver(([entry]) =>
-			setFrameWidth(entry?.contentRect.width ?? 0),
-		);
+		const node = viewport.current;
+		if (!node) return;
+		const observer = new ResizeObserver(([entry]) => {
+			if (entry)
+				setFitWidth(
+					Math.max(
+						1,
+						Math.min(
+							entry.contentRect.width - 32,
+							((entry.contentRect.height - 32) * 16) / 9,
+						),
+					),
+				);
+		});
 		observer.observe(node);
 		return () => observer.disconnect();
 	}, []);
-	// Frame pixels to rendered pixels. Zero until measured, which disables drag.
-	const scale = frameWidth / FRAME_WIDTH;
-
+	useEffect(() => {
+		if (!sampleAlert) return;
+		const timer = setTimeout(() => setSampleAlert(false), 5000);
+		return () => clearTimeout(timer);
+	}, [sampleAlert]);
+	useEffect(
+		() => () => {
+			if (drag.current) onGestureEnd();
+		},
+		[onGestureEnd],
+	);
+	const width = zoom ? FRAME_WIDTH * zoom : fitWidth;
+	const scale = width / FRAME_WIDTH;
+	const finish = () => {
+		if (!drag.current) return;
+		drag.current = null;
+		setGuides({});
+		onGestureEnd();
+	};
+	const begin = (
+		event: PointerEvent<HTMLButtonElement>,
+		layer: StudioLayer,
+		handle?: ResizeHandle,
+	) => {
+		if (
+			readOnly ||
+			clean ||
+			lockedIds.has(layer.id) ||
+			scale <= 0 ||
+			event.button !== 0
+		)
+			return;
+		event.preventDefault();
+		event.stopPropagation();
+		event.currentTarget.focus();
+		event.currentTarget.setPointerCapture(event.pointerId);
+		drag.current = {
+			layerId: layer.id,
+			origin: layer,
+			startX: event.clientX,
+			startY: event.clientY,
+			pointerId: event.pointerId,
+			handle,
+			scale,
+		};
+		onSelect(layer.id);
+		onGestureStart();
+	};
+	const move = (event: PointerEvent<HTMLButtonElement>) => {
+		const active = drag.current;
+		if (!active || event.pointerId !== active.pointerId) return;
+		if (readOnly || lockedIds.has(active.layerId)) {
+			finish();
+			return;
+		}
+		if (active.handle) {
+			onChange(
+				active.layerId,
+				resizeStudioLayer(
+					active.origin,
+					active.handle,
+					(event.clientX - active.startX) / active.scale,
+					(event.clientY - active.startY) / active.scale,
+					aspectLocked || event.shiftKey,
+				),
+			);
+		} else {
+			const position = draggedLayerPosition(
+				active.origin,
+				{ x: active.startX, y: active.startY },
+				{ x: event.clientX, y: event.clientY },
+				active.scale,
+			);
+			const next =
+				snapping && !event.altKey
+					? snapStudioPosition(
+							{ ...active.origin, ...position },
+							6 / active.scale,
+						)
+					: { ...position, guideX: undefined, guideY: undefined };
+			setGuides(next);
+			onChange(active.layerId, { x: next.x, y: next.y });
+		}
+	};
+	const handles: ResizeHandle[] = ["nw", "n", "ne", "e", "se", "s", "sw", "w"];
 	return (
-		<section
-			aria-label={t("Composition preview")}
-			ref={frame}
-			style={{
-				aspectRatio: "16 / 9",
-				background:
-					"repeating-linear-gradient(45deg, #131a26 0 12px, #172032 12px 24px)",
-				containerType: "size",
-				overflow: "hidden",
-				position: "relative",
-				width: "100%",
-			}}
-		>
-			<span
-				style={{
-					bottom: "2%",
-					color: "rgba(226,232,240,0.55)",
-					fontSize: "2.4cqh",
-					left: "2%",
-					position: "absolute",
-				}}
-			>
-				{t("Your camera fills this frame underneath")}
-			</span>
-			{[...scene.layers]
-				.sort((a, b) => a.zIndex - b.zIndex)
-				.map((layer) => {
-					const display = studioLayerDisplayState(layer);
-					const blocked = blockedLayerIds.includes(layer.id);
-					const selected = layer.id === selectedLayerId;
-					const draggable = !readOnly && scale > 0;
-					return (
-						<div
-							key={layer.id}
-							style={{
-								alignItems: "center",
-								border: blocked
-									? "2px solid #f87171"
-									: display.failed
-										? "2px solid #ef4444"
-										: selected
-											? "2px solid #60a5fa"
-											: "1px dashed rgba(148,163,184,0.55)",
-								color: "white",
-								display: "flex",
-								height: `${(layer.height / FRAME_HEIGHT) * 100}%`,
-								justifyContent: "flex-start",
-								left: `${(layer.x / FRAME_WIDTH) * 100}%`,
-								opacity: display.visible ? 1 : 0.25,
-								overflow: "hidden",
-								position: "absolute",
-								textAlign: "left",
-								top: `${(layer.y / FRAME_HEIGHT) * 100}%`,
-								width: `${(layer.width / FRAME_WIDTH) * 100}%`,
-								zIndex: layer.zIndex,
-							}}
-						>
-							<LayerBody layer={layer} scale={scale} />
-							{selected || blocked || display.failed || !display.visible ? (
-								<span
+		<div className={styles.canvasEditor}>
+			<div className={styles.canvasToolbar}>
+				<Text type="label">{t("Draft preview")}</Text>
+				<label>
+					{t("Zoom")}{" "}
+					<select
+						aria-label={t("Zoom")}
+						value={zoom}
+						onChange={(event) => setZoom(Number(event.target.value))}
+					>
+						<option value={0}>{t("Fit to screen")}</option>
+						{[0.25, 0.5, 1, 2].map((value) => (
+							<option key={value} value={value}>
+								{value * 100}%
+							</option>
+						))}
+					</select>
+				</label>
+				<Button
+					size="sm"
+					label={t("Snap")}
+					aria-pressed={snapping}
+					variant={snapping ? "secondary" : "ghost"}
+					onClick={() => setSnapping(!snapping)}
+				/>
+				<Button
+					size="sm"
+					label={t("Clean preview")}
+					aria-pressed={clean}
+					variant={clean ? "secondary" : "ghost"}
+					onClick={() => setClean(!clean)}
+				/>
+				<Button
+					size="sm"
+					label={t("Camera background")}
+					aria-pressed={showCamera}
+					variant={showCamera ? "secondary" : "ghost"}
+					onClick={() => setShowCamera(!showCamera)}
+				/>
+				{scene.layers.some(({ type }) => type === "alert") && (
+					<Button
+						size="sm"
+						label={t("Test alert")}
+						isDisabled={sampleAlert}
+						variant="ghost"
+						onClick={() => setSampleAlert(true)}
+					/>
+				)}
+			</div>
+			<div className={styles.canvasViewport} ref={viewport}>
+				<section
+					aria-label={t("Composition preview")}
+					className={styles.canvasFrame}
+					style={{ width, minWidth: width, height: (width * 9) / 16 }}
+				>
+					{showCamera && (
+						<div className={styles.cameraBackground}>{camera}</div>
+					)}
+					<button
+						type="button"
+						className={styles.canvasDeselect}
+						aria-label={t("Deselect layers")}
+						onClick={() => onSelect(undefined)}
+					/>
+					{[...scene.layers]
+						.sort((a, b) => a.zIndex - b.zIndex)
+						.map((layer) => {
+							const display = studioLayerDisplayState(layer);
+							const blocked = blockedLayerIds.includes(layer.id);
+							const selected = layer.id === selectedLayerId && !clean;
+							const locked = lockedIds.has(layer.id);
+							if (
+								clean &&
+								(!display.visible || (layer.type === "alert" && !sampleAlert))
+							)
+								return null;
+							return (
+								<div
+									key={layer.id}
+									data-layer-id={layer.id}
+									className={styles.canvasLayer}
 									style={{
-										background:
-											blocked || display.failed ? "#b91c1c" : "#1d4ed8",
-										borderRadius: 2,
-										fontSize: "2.2cqh",
-										left: 0,
-										padding: "0 0.4em",
-										pointerEvents: "none",
-										position: "absolute",
-										top: 0,
+										left: layer.x * scale,
+										top: layer.y * scale,
+										width: layer.width * scale,
+										height: layer.height * scale,
+										zIndex: layer.zIndex + 1,
+										opacity: display.visible ? 1 : 0.25,
+										outline: clean
+											? undefined
+											: blocked || display.failed
+												? "2px solid #ef4444"
+												: selected
+													? "2px solid #60a5fa"
+													: undefined,
 									}}
 								>
-									{layer.name}
-									{blocked || display.failed
-										? ` · ${blocked ? t("Needs fixing") : t("Failed")}`
-										: display.visible
-											? ""
-											: ` · ${t("Hidden")}`}
-								</span>
-							) : null}
-							<button
-								aria-label={
-									draggable
-										? `${t("Move source")} ${layer.name}`
-										: `${t("Edit source")} ${layer.name}`
-								}
-								onClick={() => onSelect(layer.id)}
-								onKeyDown={(event) => {
-									const step = NUDGE[event.key];
-									if (!step || !draggable) return;
-									event.preventDefault();
-									const distance = event.shiftKey
-										? NUDGE_FINE_STEP
-										: NUDGE_STEP;
-									onSelect(layer.id);
-									onMove(
-										layer.id,
-										layer.x + step[0] * distance,
-										layer.y + step[1] * distance,
-									);
-								}}
-								onPointerDown={(event) => {
-									if (!draggable || event.button !== 0) return;
-									event.currentTarget.setPointerCapture(event.pointerId);
-									drag.current = {
-										originX: layer.x,
-										originY: layer.y,
-										pointerId: event.pointerId,
-										startX: event.clientX,
-										startY: event.clientY,
-									};
-									onSelect(layer.id);
-								}}
-								onPointerMove={(event) => {
-									const active = drag.current;
-									if (!active || active.pointerId !== event.pointerId) return;
-									const next = draggedLayerPosition(
-										{ x: active.originX, y: active.originY },
-										{ x: active.startX, y: active.startY },
-										{ x: event.clientX, y: event.clientY },
-										scale,
-									);
-									onMove(layer.id, next.x, next.y);
-								}}
-								onPointerUp={(event) => {
-									if (drag.current?.pointerId === event.pointerId)
-										drag.current = null;
-									event.currentTarget.releasePointerCapture(event.pointerId);
-								}}
-								style={{
-									background: "transparent",
-									border: 0,
-									cursor: draggable ? "move" : "pointer",
-									inset: 0,
-									padding: 0,
-									position: "absolute",
-									touchAction: "none",
-								}}
-								type="button"
-							/>
-						</div>
-					);
-				})}
-			{scene.layers.length === 0 ? (
-				<div
-					style={{
-						alignItems: "center",
-						display: "flex",
-						inset: 0,
-						justifyContent: "center",
-						position: "absolute",
-					}}
-				>
-					<Text color="secondary">{t("No sources in this scene yet")}</Text>
-				</div>
-			) : null}
-		</section>
+									<div className={styles.layerBody}>
+										<LayerBody
+											layer={layer}
+											scale={scale}
+											sampleAlert={sampleAlert}
+										/>
+									</div>
+									{!clean && (
+										<button
+											type="button"
+											className={styles.layerMove}
+											aria-label={`${t("Edit source")} ${layer.name}`}
+											style={{
+												cursor: locked || readOnly ? "pointer" : "move",
+											}}
+											onClick={() => onSelect(layer.id)}
+											onPointerDown={(event) => begin(event, layer)}
+											onPointerMove={move}
+											onPointerUp={finish}
+											onPointerCancel={finish}
+											onLostPointerCapture={finish}
+											onKeyDown={(event) => {
+												const step = NUDGE[event.key];
+												if (!step || locked || readOnly) return;
+												event.preventDefault();
+												const distance = event.shiftKey
+													? NUDGE_FINE_STEP
+													: NUDGE_STEP;
+												onSelect(layer.id);
+												onChange(layer.id, {
+													x: layer.x + step[0] * distance,
+													y: layer.y + step[1] * distance,
+												});
+											}}
+										/>
+									)}
+									{selected &&
+										!locked &&
+										!readOnly &&
+										handles.map((handle) => (
+											<button
+												key={handle}
+												type="button"
+												aria-label={`${t("Resize source")} ${handle}`}
+												className={styles.resizeHandle}
+												style={{
+													left: handle.includes("w")
+														? 0
+														: handle.includes("e")
+															? "100%"
+															: "50%",
+													top: handle.includes("n")
+														? 0
+														: handle.includes("s")
+															? "100%"
+															: "50%",
+													cursor: `${handle}-resize`,
+												}}
+												onPointerDown={(event) => begin(event, layer, handle)}
+												onPointerMove={move}
+												onPointerUp={finish}
+												onPointerCancel={finish}
+												onLostPointerCapture={finish}
+												onKeyDown={(event) => {
+													const step = NUDGE[event.key];
+													if (!step) return;
+													event.preventDefault();
+													const distance = event.shiftKey ? 10 : 1;
+													onChange(
+														layer.id,
+														resizeStudioLayer(
+															layer,
+															handle,
+															step[0] * distance,
+															step[1] * distance,
+															aspectLocked,
+														),
+													);
+												}}
+											/>
+										))}
+								</div>
+							);
+						})}
+					{!clean && guides.guideX !== undefined && (
+						<div
+							className={styles.guide}
+							style={{
+								left: Math.min(width - 1, guides.guideX * scale),
+								top: 0,
+								bottom: 0,
+								borderLeft: "1px solid #f472b6",
+							}}
+						/>
+					)}
+					{!clean && guides.guideY !== undefined && (
+						<div
+							className={styles.guide}
+							style={{
+								top: Math.min((width * 9) / 16 - 1, guides.guideY * scale),
+								left: 0,
+								right: 0,
+								borderTop: "1px solid #f472b6",
+							}}
+						/>
+					)}
+					{!scene.layers.length && !clean && (
+						<span className={styles.canvasEmpty}>
+							{t("Add a layer to start building your overlay")}
+						</span>
+					)}
+				</section>
+			</div>
+			<div className={styles.canvasFooter}>
+				<span>1920 × 1080 · {Math.round(scale * 100)}%</span>
+				<span>{t("Draft only. Save and apply to update the program.")}</span>
+			</div>
+		</div>
 	);
 }

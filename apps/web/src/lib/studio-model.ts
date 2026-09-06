@@ -417,7 +417,8 @@ export function deleteStudioLayer(graph: StudioGraph, layerId: string) {
 		...graph,
 		scenes: graph.scenes.map((scene) => ({
 			...scene,
-			layers: scene.layers
+			layers: [...scene.layers]
+				.sort((a, b) => a.zIndex - b.zIndex)
 				.filter(({ id }) => id !== layerId)
 				.map((layer, zIndex) => ({ ...layer, zIndex })),
 		})),
