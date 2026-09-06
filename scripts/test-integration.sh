@@ -13,13 +13,13 @@ cleanup() {
 trap cleanup EXIT INT TERM
 
 # The relay forwarder is bash, so its check is bash. No database needed.
-sh deploy/relay/visp-snapshot.test.sh
+./deploy/relay/visp-snapshot.test.sh
 # Release helper reloads Caddy only after upstreams are ready.
-sh deploy/visp-release.test.sh
+./deploy/visp-release.test.sh
 # The SRTLA receiver is an upstream binary; the check is the whole path through it.
-sh deploy/relay/srtla-rec.test.sh
+./deploy/relay/srtla-rec.test.sh
 # The bonded-SRT gateway must let systemd stop it without a forced kill.
-sh deploy/relay/visp-bond.test.sh
+./deploy/relay/visp-bond.test.sh
 
 docker compose --project-name "$compose_project" -f "$compose_file" up --detach --wait
 
