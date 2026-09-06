@@ -8,7 +8,7 @@ production deploys only from `vX.Y.Z` release tags.
 | | Production | Staging |
 | --- | --- | --- |
 | Portal + API | visp-stream.com (:3000/:3001) | staging.visp-stream.com (:3100/:3101) |
-| Static sites | admin/stream/remote/docs.visp-stream.com | *.staging.visp-stream.com |
+| Static sites | admin/multichat/stream/remote/docs.visp-stream.com | *.staging.visp-stream.com |
 | Relay (MediaMTX) | visp-relay 87.58.146.41 | app box 87.58.145.161, same ports |
 | Database | UpCloud `visp` | UpCloud `visp_staging` (same instance) |
 | Repo checkout | /opt/visp (tags) | /opt/visp-staging (main) |
@@ -30,6 +30,7 @@ Add these A records for `visp-stream.com`:
 | --- | --- |
 | staging | 87.58.145.161 |
 | admin.staging | 87.58.145.161 |
+| multichat.staging | 87.58.145.161 |
 | stream.staging | 87.58.145.161 |
 | remote.staging | 87.58.145.161 |
 | docs.staging | 87.58.145.161 |
@@ -38,6 +39,10 @@ Add these A records for `visp-stream.com`:
 Wait for propagation (`dig +short staging.visp-stream.com`), then confirm
 each URL answers with a valid certificate. Caddy retries issuance
 automatically once records exist.
+
+In `/etc/visp-staging/app.env` set
+`MULTICHAT_ORIGIN=https://multichat.staging.visp-stream.com`. The next staging
+release will fail schema validation until that origin is present.
 
 ## 2. UpCloud: staging snapshot bucket
 

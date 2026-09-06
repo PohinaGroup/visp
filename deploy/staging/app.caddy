@@ -34,16 +34,11 @@ staging.visp-stream.com {
 		handle /api/multichat/* {
 			reverse_proxy 127.0.0.1:3100
 		}
-		@multichat_root path /chat
-		handle @multichat_root {
-			root * /opt/visp-staging/apps/multichat/dist
-			rewrite * /index.html
-			file_server
+		handle /chat {
+			redir https://multichat.staging.visp-stream.com/ 308
 		}
 		handle_path /chat/* {
-			root * /opt/visp-staging/apps/multichat/dist
-			try_files {path} /index.html
-			file_server
+			redir https://multichat.staging.visp-stream.com{uri} 308
 		}
 		handle /api/seppo {
 			reverse_proxy 127.0.0.1:3100 {
@@ -73,6 +68,13 @@ staging.visp-stream.com {
 
 admin.staging.visp-stream.com {
 	root * /opt/visp-staging/apps/admin/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
+multichat.staging.visp-stream.com {
+	root * /opt/visp-staging/apps/multichat/dist
 	encode zstd gzip
 	try_files {path} /index.html
 	file_server

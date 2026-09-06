@@ -132,8 +132,7 @@ export function createAuth() {
 		trustedOrigins: [
 			env.CORS_ORIGIN,
 			env.ADMIN_ORIGIN,
-			"https://multichat.visp.localhost",
-			...(env.MULTICHAT_ORIGIN ? [env.MULTICHAT_ORIGIN] : []),
+			env.MULTICHAT_ORIGIN,
 			env.NATIVE_WEB_ORIGIN,
 			env.OBS_REMOTE_WEB_ORIGIN,
 			"visp://",

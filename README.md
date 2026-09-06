@@ -44,7 +44,8 @@ unrelated local work.
 
 Open the portal at <https://visp.localhost>, the API at
 <https://api.visp.localhost>, admin console at
-<https://admin.visp.localhost>, docs at <https://docs.visp.localhost>, and
+<https://admin.visp.localhost>, multi-chat at
+<https://multichat.visp.localhost>, docs at <https://docs.visp.localhost>, and
 OBS Remote at <http://localhost:8083>. MinIO is available at
 <https://minio.visp.localhost>.
 Stop the application with Ctrl+C; infrastructure stays available for quick
@@ -58,6 +59,7 @@ migrations, tests, and troubleshooting.
 apps/server       Elysia API, machine endpoints, hooks, and reconciliation
 apps/web          TanStack Start portal
 apps/admin        Internal support console
+apps/multichat    Combined Twitch/Kick/TikTok chat overlay
 apps/native       Expo development-build client and native SRT module
 apps/obs-remote   Dedicated Expo OBS control surface
 apps/obs-plugin   OBS Studio remote-control plugin

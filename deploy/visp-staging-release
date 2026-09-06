@@ -114,6 +114,7 @@ systemctl is-active --quiet caddy
 "$repo/deploy/visp-caddy-static-smoke.sh" \
 	stream.staging.visp-stream.com \
 	admin.staging.visp-stream.com \
-	remote.staging.visp-stream.com
+	remote.staging.visp-stream.com \
+	multichat.staging.visp-stream.com
 
 echo "VISP staging $(git -C "$repo" rev-parse --short HEAD) deployed"

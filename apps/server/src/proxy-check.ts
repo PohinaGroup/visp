@@ -38,6 +38,8 @@ try {
 		const routes = source
 			.slice(start, source.indexOf("\n}\n", start) + 3)
 			.replace(/^.*\{\n/, ":80 {\n")
+			.replaceAll("{$MULTICHAT_DOMAIN}", "multichat.test")
+			.replaceAll("multichat.staging.visp-stream.com", "multichat.test")
 			.replace(/127\.0\.0\.1:3[01]00/g, `host.docker.internal:${api.port}`)
 			.replace(/127\.0\.0\.1:3[01]01/g, `host.docker.internal:${portal.port}`);
 		// Exercise both trusted relay and untrusted public clients without real hosts.
@@ -72,6 +74,20 @@ try {
 				const base = `http://${address}`;
 				await Bun.$`curl --fail --silent --retry 10 --retry-all-errors --retry-delay 1 ${base}`.quiet();
 				assert.equal(await (await fetch(base)).text(), "portal");
+				const chatRoot = await fetch(`${base}/chat`, { redirect: "manual" });
+				assert.equal(chatRoot.status, 308);
+				assert.equal(
+					chatRoot.headers.get("location"),
+					"https://multichat.test/",
+				);
+				const chat = await fetch(`${base}/chat/overlay`, {
+					redirect: "manual",
+				});
+				assert.equal(chat.status, 308);
+				assert.equal(
+					chat.headers.get("location"),
+					"https://multichat.test/overlay",
+				);
 				assert.equal(
 					(await fetch(`${base}/api/subtitles/token`, { method: "POST" }))
 						.status,
