@@ -20,8 +20,8 @@ export default function Header() {
 	});
 	return (
 		<header className="border-b">
-			<div className="flex flex-row items-center justify-between px-4 py-3">
-				<nav className="flex items-center gap-6 text-sm">
+			<div className="flex flex-row flex-wrap items-center justify-between gap-3 px-4 py-3">
+				<nav className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
 					<Link to={fi ? "/fi" : "/"} className="flex items-center gap-2.5">
 						<span className="font-bold font-display text-base uppercase leading-none tracking-[0.3em]">
 							VISP

@@ -1,8 +1,18 @@
 import type { StudioGraph } from "@VISP/api/studio";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { editStudioHistory, emptyStudioHistory, endStudioGesture, savedStudioHistory, type StudioHistory, travelStudioHistory } from "@/lib/studio-editor";
+import {
+	editStudioHistory,
+	emptyStudioHistory,
+	endStudioGesture,
+	type StudioHistory,
+	savedStudioHistory,
+	travelStudioHistory,
+} from "@/lib/studio-editor";
 
-export function useStudioDraft(remote?: { graph: StudioGraph; settings: { version: number } }) {
+export function useStudioDraft(remote?: {
+	graph: StudioGraph;
+	settings: { version: number };
+}) {
 	const [state, setState] = useState(emptyStudioHistory);
 	const current = useRef(state);
 	const commit = useCallback((next: StudioHistory) => {
@@ -11,20 +21,40 @@ export function useStudioDraft(remote?: { graph: StudioGraph; settings: { versio
 	}, []);
 	useEffect(() => {
 		const previous = current.current;
-		if (!remote || previous.dirty || previous.gesture || remote.settings.version < (previous.version ?? 0)) return;
-		commit({ ...previous, graph: remote.graph, version: remote.settings.version,
-			...(previous.version !== remote.settings.version ? { past: [], future: [] } : {}) });
+		if (
+			!remote ||
+			previous.dirty ||
+			previous.gesture ||
+			remote.settings.version < (previous.version ?? 0)
+		)
+			return;
+		commit({
+			...previous,
+			graph: remote.graph,
+			version: remote.settings.version,
+			...(previous.version !== remote.settings.version
+				? { past: [], future: [] }
+				: {}),
+		});
 	}, [remote, commit]);
+	const endGesture = useCallback(() => {
+		if (current.current.gesture) commit(endStudioGesture(current.current));
+	}, [commit]);
 	return {
 		...state,
 		current,
 		edit: (updater: (graph: StudioGraph) => StudioGraph) => {
-			if (current.current.graph) commit(editStudioHistory(current.current, updater(current.current.graph)));
+			if (current.current.graph)
+				commit(
+					editStudioHistory(current.current, updater(current.current.graph)),
+				);
 		},
-		beginGesture: () => commit({ ...current.current, gesture: current.current.graph }),
-		endGesture: () => commit(endStudioGesture(current.current)),
+		beginGesture: () =>
+			commit({ ...current.current, gesture: current.current.graph }),
+		endGesture,
 		undo: () => commit(travelStudioHistory(current.current, "past")),
 		redo: () => commit(travelStudioHistory(current.current, "future")),
-		saved: (graph: StudioGraph, seq: number, version: number) => commit(savedStudioHistory(current.current, graph, seq, version)),
+		saved: (graph: StudioGraph, seq: number, version: number) =>
+			commit(savedStudioHistory(current.current, graph, seq, version)),
 	};
 }

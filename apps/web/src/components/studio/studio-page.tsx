@@ -9,7 +9,6 @@ import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
-import { EmptyState } from "@astryxdesign/core/EmptyState";
 import { FileInput } from "@astryxdesign/core/FileInput";
 import { Grid } from "@astryxdesign/core/Grid";
 import {
@@ -17,31 +16,43 @@ import {
 	Layout,
 	LayoutContent,
 	LayoutFooter,
-	LayoutHeader,
-	LayoutPanel,
 	VStack,
 } from "@astryxdesign/core/Layout";
-import { NumberInput } from "@astryxdesign/core/NumberInput";
 import {
 	SegmentedControl,
 	SegmentedControlItem,
 } from "@astryxdesign/core/SegmentedControl";
-import { Selector } from "@astryxdesign/core/Selector";
-import { StatusDot } from "@astryxdesign/core/StatusDot";
-import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
-import { Toolbar } from "@astryxdesign/core/Toolbar";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBlocker } from "@tanstack/react-router";
+import {
+	ArrowDown,
+	ArrowUp,
+	Bell,
+	Copy,
+	Eye,
+	EyeOff,
+	Globe,
+	Image,
+	LockKeyhole,
+	Plus,
+	Trash2,
+	Type,
+	UnlockKeyhole,
+} from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocale, useT } from "@/lib/i18n";
 import {
+	duplicateStudioLayer,
+	type LayerRect,
+	reorderStudioLayer,
+} from "@/lib/studio-editor";
+import {
 	addStudioLayer,
 	addStudioScene,
 	addStudioSource,
-	browserSourceUrlError,
 	deleteStudioLayer,
 	deleteStudioScene,
 	moveStudioLayer,
@@ -61,6 +72,9 @@ import {
 } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
 import { StudioCanvas } from "./studio-canvas";
+import styles from "./studio-editor.module.css";
+import { StudioInspector } from "./studio-inspector";
+import { useStudioDraft } from "./use-studio-draft";
 import { WhepPreview } from "./whep-preview";
 
 export function StudioPage() {
@@ -81,16 +95,25 @@ export function StudioPage() {
 	const direct = useQuery(
 		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3_000 }),
 	);
-	const [draft, setDraft] = useState<StudioGraph>();
+	const history = useStudioDraft(studio.data);
+	const draft = history.graph;
+	const dirty = history.dirty;
+	const saving = useRef(false);
+	const [lockedIds, setLockedIds] = useState<Set<string>>(new Set());
+	const [aspectLocked, setAspectLocked] = useState(true);
+	const layersToggle = useRef<HTMLButtonElement>(null);
+	const inspectorToggle = useRef<HTMLButtonElement>(null);
+	const [drawer, setDrawer] = useState<"layers" | "inspector">();
+	const closeDrawer = () => {
+		(drawer === "layers" ? layersToggle : inspectorToggle).current?.focus();
+		setDrawer(undefined);
+	};
+	const [monitorsOpen, setMonitorsOpen] = useState(false);
 	const [selectedSceneId, setSelectedSceneId] = useState<string>();
 	const [selectedLayerId, setSelectedLayerId] = useState<string>();
 	const [addOpen, setAddOpen] = useState(false);
 	const [emptyWarningOpen, setEmptyWarningOpen] = useState(false);
 	const [file, setFile] = useState<File | null>(null);
-	const [dirty, setDirty] = useState(false);
-	// Bumped by every local edit. A save compares it before and after so edits
-	// made while the save was in flight are never overwritten by the response.
-	const editSeq = useRef(0);
 	const [previewFailed, setPreviewFailed] = useState(false);
 	// A dead preview pane is a fact about this browser, never about the broadcast.
 	const onProgramPreviewState = useCallback(
@@ -103,16 +126,12 @@ export function StudioPage() {
 	);
 
 	useEffect(() => {
-		if (studio.data && !dirty) {
-			setDraft(studio.data.graph);
-			setSelectedSceneId(
-				(current) =>
-					current ??
-					studio.data.graph.activeSceneId ??
-					studio.data.graph.scenes[0]?.id,
-			);
-		}
-	}, [dirty, studio.data]);
+		setSelectedSceneId((id) =>
+			draft?.scenes.some((scene) => scene.id === id)
+				? id
+				: (draft?.activeSceneId ?? draft?.scenes[0]?.id),
+		);
+	}, [draft]);
 	useEffect(() => {
 		const update = () => setOnline(navigator.onLine);
 		window.addEventListener("online", update);
@@ -169,18 +188,24 @@ export function StudioPage() {
 	 * keeps the draft on failure, and keeps newer local edits on success.
 	 */
 	const saveDraft = async () => {
-		if (!draft || save.isPending) return false;
-		const seq = editSeq.current;
+		if (
+			!history.current.current.graph ||
+			saving.current ||
+			!online ||
+			studio.isError ||
+			history.current.current.gesture ||
+			studioSaveBlockers(history.current.current.graph).length
+		)
+			return false;
+		const { graph, seq, version } = history.current.current;
+		saving.current = true;
 		try {
 			const saved = await save.mutateAsync({
-				graph: draft,
-				expectedVersion: studio.data?.settings.version,
+				graph,
+				expectedVersion: version,
 			});
-			const superseded = editSeq.current !== seq;
-			if (!superseded) {
-				setDraft(saved);
-				setDirty(false);
-			}
+			const superseded = history.current.current.seq !== seq;
+			history.saved(saved, seq, (version ?? 0) + 1);
 			await queryClient.invalidateQueries({
 				queryKey: trpc.studio.get.queryKey(),
 			});
@@ -193,6 +218,8 @@ export function StudioPage() {
 		} catch (error) {
 			saveFailed(error);
 			return false;
+		} finally {
+			saving.current = false;
 		}
 	};
 	const setMode = useMutation(
@@ -307,34 +334,45 @@ export function StudioPage() {
 		}
 	};
 
-	const markEdited = () => {
-		editSeq.current += 1;
-		setDirty(true);
-	};
 	const mutateDraft = (updater: (graph: StudioGraph) => StudioGraph) => {
-		if (!draft || readOnly) return;
-		setDraft(updater(draft));
-		markEdited();
-	};
-	const updateLayer = (over: Parameters<typeof updateStudioLayer>[2]) => {
-		if (!selectedLayerId) return;
+		if (readOnly) return;
 		try {
-			mutateDraft((graph) => updateStudioLayer(graph, selectedLayerId, over));
+			history.edit(updater);
 		} catch (error) {
 			failed(error, "Update failed");
 		}
 	};
-
-	const moveLayer = (layerId: string, x: number, y: number) => {
-		try {
-			mutateDraft((graph) => updateStudioLayer(graph, layerId, { x, y }));
-		} catch (error) {
-			failed(error, "Update failed");
-		}
+	const changeLayer = (
+		layerId: string,
+		over: Parameters<typeof updateStudioLayer>[2],
+	) => {
+		if (lockedIds.has(layerId)) return;
+		mutateDraft((graph) => updateStudioLayer(graph, layerId, over));
 	};
+	const duplicateLayer = () => {
+		if (!selectedLayer || lockedIds.has(selectedLayer.id)) return;
+		mutateDraft((graph) => duplicateStudioLayer(graph, selectedLayer.id));
+	};
+	const removeLayer = () => {
+		if (!selectedLayer || lockedIds.has(selectedLayer.id)) return;
+		mutateDraft((graph) => deleteStudioLayer(graph, selectedLayer.id));
+		setSelectedLayerId(undefined);
+	};
+	const layerReadOnly =
+		readOnly || Boolean(selectedLayerId && lockedIds.has(selectedLayerId));
+	const duplicateBlocked =
+		!selectedLayer ||
+		layerReadOnly ||
+		!capacity ||
+		capacity.layers.used >= capacity.layers.max ||
+		(selectedLayer.type === "browser" &&
+			capacity.browser.used >= capacity.browser.max) ||
+		(selectedLayer.type === "alert" &&
+			capacity.alert.used >= capacity.alert.max);
 
 	const addSource = (type: StudioLayerType, assetId?: string) => {
-		if (!draft) return;
+		const draft = history.current.current.graph;
+		if (!draft || readOnly) return;
 		try {
 			// Sources land in the scene being edited. Which scene is on air is a
 			// separate decision the user makes explicitly.
@@ -349,12 +387,11 @@ export function StudioPage() {
 					}
 				: addStudioSource(draft, type, assetId);
 			const editedSceneId = target ?? next.activeSceneId ?? undefined;
-			setDraft(next);
+			history.edit(() => next);
 			setSelectedSceneId(editedSceneId);
 			setSelectedLayerId(
 				next.scenes.find(({ id }) => id === editedSceneId)?.layers.at(-1)?.id,
 			);
-			markEdited();
 			setAddOpen(false);
 		} catch (error) {
 			failed(error, "Source could not be added");
@@ -452,476 +489,177 @@ export function StudioPage() {
 	const cloudMode = studio.data.settings.mode === "cloud_studio";
 
 	return (
-		<Layout
-			height="fill"
-			header={
-				<LayoutHeader hasDivider>
-					<VStack gap={2}>
-						<Toolbar
-							label={t("Studio actions")}
-							startContent={
-								<HStack gap={2} vAlign="center">
-									<Heading level={1}>{t("Cloud Studio")}</Heading>
-									{live ? (
-										<>
-											<StatusDot
-												isPulsing
-												label={t("LIVE")}
-												variant="success"
-											/>
-											<Text type="label">{t("LIVE")}</Text>
-										</>
-									) : (
-										<Badge label={t("Offline")} variant="neutral" />
-									)}
-									{dirty ? (
-										<Badge label={t("Unsaved changes")} variant="warning" />
-									) : null}
-								</HStack>
-							}
-							endContent={
-								<HStack gap={2}>
-									<Button
-										label={t("Go Live")}
-										tooltip={t(
-											"Opens the VISP broadcast page. Save first — only the saved composition goes on air.",
-										)}
-										variant="secondary"
-										onClick={goLive}
-									/>
-									<Button
-										isDisabled={
-											readOnly ||
-											save.isPending ||
-											!dirty ||
-											blockers.length > 0
-										}
-										label={t("Save composition")}
-										tooltip={
-											saveBlockedReason ??
-											t("Applies this composition to your saved program.")
-										}
-										variant="primary"
-										onClick={() => void saveDraft()}
-									/>
-									<Button
-										label={t("Dashboard")}
-										tooltip={t("Back to paths, platforms, and stream keys.")}
-										variant="ghost"
-										href={`/dashboard${locale === "fi" ? "?lang=fi" : ""}`}
-									/>
-								</HStack>
-							}
-						/>
-						<Text color="secondary" type="supporting">
-							{t(
-								"1. Build a scene below. 2. Save the composition. 3. Go live from the VISP app — the saved program is what viewers see.",
-							)}
-						</Text>
-						<SegmentedControl
-							isDisabled={setMode.isPending || readOnly}
-							disabledMessage={
-								readOnly
-									? t("Editing is paused until VISP is reachable again.")
-									: undefined
-							}
-							label={t("Direct production mode")}
-							value={studio.data.settings.mode}
-							onChange={(mode) => {
-								if (
-									!live ||
-									window.confirm(
-										t(
-											"Switching production mode changes what viewers see within seconds. Switch now?",
-										),
-									)
-								)
-									setMode.mutate({ mode: mode as "cloud_studio" | "obs" });
-							}}
-						>
-							<SegmentedControlItem
-								label={t("Cloud Studio")}
-								value="cloud_studio"
-							/>
-							<SegmentedControlItem label={t("I use OBS")} value="obs" />
-						</SegmentedControl>
-						<Text color="secondary" type="supporting">
-							{cloudMode
-								? t(
-										"Cloud Studio mode: VISP composes the scenes below onto your camera and sends the result to your platforms.",
-									)
-								: t(
-										"OBS mode: your own software composes the picture. VISP passes your feed through untouched and ignores the scenes below.",
-									)}
-						</Text>
-					</VStack>
-				</LayoutHeader>
-			}
-			start={
-				<LayoutPanel hasDivider label={t("Scenes")} padding={3} width={240}>
-					<VStack gap={2}>
-						<Heading level={2}>{t("Scenes")}</Heading>
-						<Text color="secondary" type="supporting">
-							{t(
-								"A scene is one arrangement of sources. Switch between them while live.",
-							)}
-						</Text>
-						{draft.scenes.map((scene) => (
-							<VStack gap={1} key={scene.id}>
-								<Button
-									label={scene.name}
-									tooltip={t("Open this scene for editing.")}
-									variant={scene.id === selectedSceneId ? "secondary" : "ghost"}
-									onClick={() => {
-										setSelectedSceneId(scene.id);
-										setSelectedLayerId(undefined);
-									}}
-								/>
-								{scene.id === savedActiveSceneId ? (
-									<Badge label={t("On air")} variant="success" />
-								) : scene.id === draft.activeSceneId ? (
-									<Badge
-										label={t("Goes on air when you save")}
-										variant="warning"
-									/>
-								) : null}
-								{scene.id === selectedSceneId ? (
-									<>
-										<Button
-											isDisabled={readOnly || scene.id === draft.activeSceneId}
-											label={t("Put on air")}
-											tooltip={
-												scene.id === draft.activeSceneId
-													? t("This scene is already the one that goes on air.")
-													: t(
-															"Makes this the scene viewers see, from your next save.",
-														)
-											}
-											variant="secondary"
-											onClick={() =>
-												mutateDraft((graph) =>
-													selectStudioScene(graph, scene.id),
-												)
-											}
-										/>
-										<TextInput
-											description={t("Only you see scene names.")}
-											isDisabled={readOnly}
-											label={t("Scene name")}
-											value={scene.name}
-											onChange={(name) => {
-												if (name.trim())
-													mutateDraft((graph) =>
-														renameStudioScene(graph, scene.id, name),
-													);
-											}}
-										/>
-										<Button
-											isDisabled={readOnly || draft.scenes.length <= 1}
-											label={t("Delete scene")}
-											tooltip={
-												draft.scenes.length <= 1
-													? t("Your program needs at least one scene.")
-													: t("Removes this scene and its sources.")
-											}
-											variant="ghost"
-											onClick={() => {
-												const next = deleteStudioScene(draft, scene.id);
-												setDraft(next);
-												setSelectedSceneId(next.scenes[0]?.id ?? undefined);
-												setSelectedLayerId(undefined);
-												markEdited();
-											}}
-										/>
-									</>
-								) : null}
-							</VStack>
-						))}
-						<Button
-							isDisabled={readOnly || draft.scenes.length >= 3}
-							label={t("Add scene")}
-							tooltip={
-								draft.scenes.length >= 3
-									? t("Scene limit reached (3)")
-									: t("Cloud Studio allows up to 3 scenes.")
-							}
-							variant="secondary"
-							onClick={() => {
-								const id = crypto.randomUUID();
-								try {
-									mutateDraft((graph) => addStudioScene(graph, id));
-									setSelectedSceneId(id);
-									setSelectedLayerId(undefined);
-								} catch (error) {
-									failed(error, "Scene could not be added");
-								}
-							}}
-						/>
-						<Text color="secondary" type="supporting">
-							{t("Scenes")} {draft.scenes.length}/3
-						</Text>
-					</VStack>
-				</LayoutPanel>
-			}
-			end={
-				<LayoutPanel hasDivider label={t("Inspector")} padding={3} width={300}>
-					<VStack gap={3}>
-						<Heading level={2}>{t("Inspector")}</Heading>
-						{selectedScene ? (
-							<SegmentedControl
-								label={t("Transition")}
-								isDisabled={readOnly}
-								value={selectedScene.transition}
-								onChange={(transition) =>
-									mutateDraft((graph) => ({
-										...graph,
-										scenes: graph.scenes.map((scene) =>
-											scene.id === selectedSceneId
-												? {
-														...scene,
-														transition: transition as "cut" | "fade",
-													}
-												: scene,
-										),
-									}))
-								}
-							>
-								<SegmentedControlItem label={t("Cut")} value="cut" />
-								<SegmentedControlItem label={t("Fade")} value="fade" />
-							</SegmentedControl>
-						) : null}
-						{selectedScene ? (
-							<Text color="secondary" type="supporting">
-								{selectedScene.transition === "cut"
-									? t("Cut: instant switch into this scene.")
-									: t(
-											"Fade: half-second blend. Uses more of the frame budget than Cut.",
-										)}
-							</Text>
-						) : null}
-						{selectedLayer ? (
-							<>
-								<TextInput
-									description={t("Only you see source names.")}
-									isDisabled={readOnly}
-									label={t("Source name")}
-									value={selectedLayer.name}
-									onChange={(name) => updateLayer({ name })}
-								/>
-								<Switch
-									description={
-										studioLayerDisplayState(selectedLayer).failed
-											? t(
-													"This source failed at runtime. Turning it on retries it.",
-												)
-											: t(
-													"Hidden sources stay in the scene but are not rendered.",
-												)
-									}
-									isDisabled={readOnly}
-									label={t("Visible")}
-									value={studioLayerDisplayState(selectedLayer).visible}
-									onChange={(visible) =>
-										updateLayer({ visible, runtimeDisabled: false })
-									}
-								/>
-								{selectedLayer.type === "text" ? (
-									<TextInput
-										description={t("Shown on screen exactly as typed.")}
-										isDisabled={readOnly}
-										label={t("Text")}
-										status={
-											selectedLayer.text.trim()
-												? undefined
-												: {
-														type: "warning",
-														message: t("Empty text renders nothing on screen."),
-													}
-										}
-										value={selectedLayer.text}
-										onChange={(text) => updateLayer({ text })}
-									/>
-								) : null}
-								{selectedLayer.type === "browser" ? (
-									<TextInput
-										description={t(
-											"Any public https:// page — a widget, a timer, a chat overlay.",
-										)}
-										isDisabled={readOnly}
-										label={t("Browser URL")}
-										status={
-											browserSourceUrlError(selectedLayer.url)
-												? {
-														type: "error",
-														message: t(
-															"Use an https:// address that opens in a normal browser tab, with no username or password in it.",
-														),
-													}
-												: undefined
-										}
-										value={selectedLayer.url}
-										onChange={(url) => updateLayer({ url })}
-									/>
-								) : null}
-								{selectedLayer.type === "browser" ? (
-									<Text color="secondary" type="supporting">
-										{t(
-											"Some sites refuse to be embedded, so this box can look empty here even though the compositor renders it on air.",
-										)}
-									</Text>
-								) : null}
-								{selectedLayer.type === "alert" ? (
-									<Selector
-										description={t(
-											"The alert only appears when this event fires on your platform.",
-										)}
-										label={t("Alert event")}
-										options={["follow", "sub", "donation"]}
-										value={selectedLayer.event}
-										onChange={(event) =>
-											updateLayer({
-												event: event as "follow" | "sub" | "donation",
-											})
-										}
-									/>
-								) : null}
-								{selectedLayer.type === "png" ? (
-									<FileInput
-										accept="image/png"
-										description={t("PNG, up to 10 MB.")}
-										label={t("Replace PNG")}
-										maxSize={10 * 1024 * 1024}
-										mode="dropzone"
-										value={null}
-										onChange={(value) =>
-											setFile(value instanceof File ? value : null)
-										}
-										changeAction={async (value) => {
-											const assetId = await uploadPngAsset(value);
-											if (assetId) updateLayer({ assetId });
-										}}
-									/>
-								) : null}
-								<Text color="secondary" type="supporting">
-									{t(
-										"Position and size in pixels. The frame is 1920 × 1080. You can also drag the source in the preview.",
-									)}
-								</Text>
-								<Grid
-									columns={{ minWidth: 100, max: 2, repeat: "fit" }}
-									gap={2}
-								>
-									<NumberInput
-										isDisabled={readOnly}
-										label={t("X position")}
-										value={selectedLayer.x}
-										onChange={(x) => x !== null && updateLayer({ x })}
-									/>
-									<NumberInput
-										isDisabled={readOnly}
-										label={t("Y position")}
-										value={selectedLayer.y}
-										onChange={(y) => y !== null && updateLayer({ y })}
-									/>
-									<NumberInput
-										isDisabled={readOnly}
-										label={t("Width")}
-										value={selectedLayer.width}
-										onChange={(width) =>
-											width !== null && updateLayer({ width })
-										}
-									/>
-									<NumberInput
-										isDisabled={readOnly}
-										label={t("Height")}
-										value={selectedLayer.height}
-										onChange={(height) =>
-											height !== null && updateLayer({ height })
-										}
-									/>
-								</Grid>
-								<HStack gap={2}>
-									<Button
-										isDisabled={readOnly}
-										label={t("Move forward")}
-										tooltip={t("Draw this source on top of the one above it.")}
-										variant="secondary"
-										onClick={() =>
-											mutateDraft((graph) =>
-												moveStudioLayer(graph, selectedLayer.id, "up"),
-											)
-										}
-									/>
-									<Button
-										isDisabled={readOnly}
-										label={t("Move backward")}
-										tooltip={t("Draw this source behind the one below it.")}
-										variant="secondary"
-										onClick={() =>
-											mutateDraft((graph) =>
-												moveStudioLayer(graph, selectedLayer.id, "down"),
-											)
-										}
-									/>
-								</HStack>
-								<Button
-									isDisabled={readOnly}
-									label={t("Delete source")}
-									tooltip={t(
-										"Removes it from this scene. Saving makes it final.",
-									)}
-									variant="ghost"
-									onClick={() => {
-										mutateDraft((graph) =>
-											deleteStudioLayer(graph, selectedLayer.id),
-										);
-										setSelectedLayerId(undefined);
-									}}
-								/>
-							</>
-						) : (
-							<Text color="secondary">
-								{t(
-									"Nothing selected. Click a source in the preview or the list to edit it.",
-								)}
-							</Text>
-						)}
-					</VStack>
-				</LayoutPanel>
-			}
+		<section
+			aria-label={t("Cloud Studio editor")}
+			className={styles.editor}
+			onKeyDown={(event) => {
+				if (
+					(event.target as HTMLElement).closest(
+						'input, textarea, select, [contenteditable="true"], [role="dialog"]',
+					) ||
+					addOpen ||
+					emptyWarningOpen ||
+					blocker.status === "blocked"
+				)
+					return;
+				if (event.key === "Escape") {
+					setSelectedLayerId(undefined);
+					if (drawer) closeDrawer();
+					return;
+				}
+				if (readOnly || history.gesture || event.defaultPrevented) return;
+				const nudge = {
+					ArrowLeft: [-1, 0],
+					ArrowRight: [1, 0],
+					ArrowUp: [0, -1],
+					ArrowDown: [0, 1],
+				}[event.key];
+				if (
+					nudge &&
+					selectedLayer &&
+					!layerReadOnly &&
+					!event.ctrlKey &&
+					!event.metaKey &&
+					!event.altKey
+				) {
+					event.preventDefault();
+					const step = event.shiftKey ? 10 : 1;
+					changeLayer(selectedLayer.id, {
+						x: selectedLayer.x + (nudge[0] ?? 0) * step,
+						y: selectedLayer.y + (nudge[1] ?? 0) * step,
+					});
+					return;
+				}
+				const command = event.ctrlKey || event.metaKey;
+				if (command && event.key.toLowerCase() === "z") {
+					event.preventDefault();
+					event.shiftKey ? history.redo() : history.undo();
+				} else if (command && event.key.toLowerCase() === "y") {
+					event.preventDefault();
+					history.redo();
+				} else if (event.shiftKey && event.key.toLowerCase() === "d") {
+					event.preventDefault();
+					if (!duplicateBlocked) duplicateLayer();
+				} else if (event.key === "Delete") {
+					event.preventDefault();
+					removeLayer();
+				}
+			}}
 		>
-			<LayoutContent padding={4}>
-				<VStack gap={4}>
-					{studio.isError ? (
-						<Banner
-							container="section"
-							status="error"
-							title={t("Can't reach VISP — editing is paused")}
-							description={t(
-								"Your saved program keeps streaming. This page retries on its own; nothing you already saved is lost.",
-							)}
-							endContent={
-								<Button
-									label={t("Retry now")}
-									variant="secondary"
-									onClick={() => studio.refetch()}
-								/>
+			<header className={styles.header}>
+				<div className={styles.toolbar}>
+					<Heading level={1}>{t("Cloud Studio")}</Heading>
+					<span className={styles.sceneTitle}>
+						{selectedScene?.name ?? t("New scene")}
+					</span>
+					<Badge
+						label={
+							save.isPending
+								? t("Saving…")
+								: dirty
+									? t("Unsaved changes")
+									: t("Saved")
+						}
+						variant={dirty ? "warning" : "neutral"}
+					/>
+					<div className={styles.toolbarActions}>
+						<Button
+							size="sm"
+							label={t("Undo")}
+							isDisabled={
+								readOnly || !history.past.length || Boolean(history.gesture)
 							}
+							variant="ghost"
+							onClick={history.undo}
 						/>
-					) : null}
-					{!online ? (
-						<Banner
-							container="section"
-							status="warning"
-							title={t("You are offline — saved program stays live")}
-							description={t(
-								"Reconnect to keep editing. Changes made offline are not saved.",
-							)}
+						<Button
+							size="sm"
+							label={t("Redo")}
+							isDisabled={
+								readOnly || !history.future.length || Boolean(history.gesture)
+							}
+							variant="ghost"
+							onClick={history.redo}
 						/>
-					) : null}
+						<Button
+							size="sm"
+							label={t("Save and apply")}
+							tooltip={
+								saveBlockedReason ??
+								t("Updates the broadcast when Cloud Studio mode is active.")
+							}
+							isDisabled={
+								readOnly ||
+								save.isPending ||
+								!dirty ||
+								blockers.length > 0 ||
+								Boolean(history.gesture)
+							}
+							variant="primary"
+							onClick={() => void saveDraft()}
+						/>
+						<Button
+							size="sm"
+							label={t("Go Live")}
+							variant="secondary"
+							onClick={goLive}
+						/>
+						<Button
+							size="sm"
+							label={t("Dashboard")}
+							variant="ghost"
+							href={`/dashboard${locale === "fi" ? "?lang=fi" : ""}`}
+						/>
+					</div>
+				</div>
+				<div className={styles.statusbar}>
+					<span>{t(streamCopy.title)}</span>
+					<span>
+						{cloudMode
+							? t("Saved overlays apply to your broadcast")
+							: t("OBS mode: overlays are not applied")}
+					</span>
+					<Button
+						size="sm"
+						label={t("Monitors and production")}
+						aria-expanded={monitorsOpen}
+						variant="ghost"
+						onClick={() => setMonitorsOpen(!monitorsOpen)}
+					/>
+				</div>
+			</header>
+			<div className={styles.notices}>
+				{studio.isError ? (
 					<Banner
 						container="section"
-						status={streamCopy.tone === "success" ? "info" : streamCopy.tone}
+						status="error"
+						title={t("Can't reach VISP — editing is paused")}
+						description={t(
+							"Your saved program keeps streaming. This page retries on its own; nothing you already saved is lost.",
+						)}
+						endContent={
+							<Button
+								label={t("Retry now")}
+								variant="secondary"
+								onClick={() => studio.refetch()}
+							/>
+						}
+					/>
+				) : null}
+				{!online ? (
+					<Banner
+						container="section"
+						status="warning"
+						title={t("You are offline — saved program stays live")}
+						description={t(
+							"Reconnect to keep editing. Changes made offline are not saved.",
+						)}
+					/>
+				) : null}
+				{(streamCopy.tone === "warning" || streamCopy.tone === "error") && (
+					<Banner
+						container="section"
+						status={streamCopy.tone}
 						title={t(streamCopy.title)}
 						description={
 							stream.broadcastConfirmed && stream.status === "camera-only"
@@ -929,29 +667,435 @@ export function StudioPage() {
 								: t(streamCopy.description)
 						}
 					/>
-					{!cloudMode ? (
-						<Banner
-							container="section"
-							status="info"
-							title={t("You are in OBS mode — these scenes are not on air")}
-							description={t(
-								"Switch the mode above to Cloud Studio to put this composition on air.",
+				)}
+				{!cloudMode ? (
+					<Banner
+						container="section"
+						status="info"
+						title={t("You are in OBS mode — these scenes are not on air")}
+						description={t(
+							"Switch the mode above to Cloud Studio to put this composition on air.",
+						)}
+					/>
+				) : null}
+				{blockers.length ? (
+					<Banner
+						container="section"
+						status="error"
+						title={t("Fix these sources before saving")}
+						description={blockers
+							.map(
+								({ sceneName, layerName, message }) =>
+									`${sceneName} · ${layerName}: ${t(studioErrorHint(message))}`,
+							)
+							.join("\n")}
+					/>
+				) : null}
+			</div>
+			<div className={styles.mobileToolbar}>
+				<Button
+					label={t("Layers")}
+					ref={layersToggle}
+					aria-expanded={drawer === "layers"}
+					variant="secondary"
+					onClick={() => setDrawer(drawer === "layers" ? undefined : "layers")}
+				/>
+				<Button
+					label={t("Inspector")}
+					ref={inspectorToggle}
+					aria-expanded={drawer === "inspector"}
+					variant="secondary"
+					onClick={() =>
+						setDrawer(drawer === "inspector" ? undefined : "inspector")
+					}
+				/>
+			</div>
+			<div className={styles.workspace}>
+				<aside
+					aria-label={t("Scenes and layers")}
+					className={styles.sidebar}
+					data-open={drawer === "layers"}
+				>
+					<div className={styles.drawerClose}>
+						<Button
+							label={t("Close layers")}
+							variant="ghost"
+							onClick={closeDrawer}
+						/>
+					</div>
+					<label className={styles.sceneSelector}>
+						{t("Scene")}
+						<select
+							aria-label={t("Scene")}
+							value={selectedScene?.id ?? ""}
+							onChange={(event) => {
+								setSelectedSceneId(event.target.value);
+								setSelectedLayerId(undefined);
+							}}
+						>
+							{!draft.scenes.length && (
+								<option value="">{t("New scene")}</option>
 							)}
+							{draft.scenes.map((scene) => (
+								<option key={scene.id} value={scene.id}>
+									{scene.name}
+								</option>
+							))}
+						</select>
+					</label>
+					{selectedScene && (
+						<>
+							<Badge
+								label={
+									selectedScene.id === savedActiveSceneId
+										? t("Saved program scene")
+										: selectedScene.id === draft.activeSceneId
+											? t("Goes on air when you save")
+											: t("Editing only")
+								}
+								variant={
+									selectedScene.id === draft.activeSceneId
+										? "success"
+										: "neutral"
+								}
+							/>
+							<Button
+								size="sm"
+								label={t("Use in program")}
+								isDisabled={
+									readOnly || selectedScene.id === draft.activeSceneId
+								}
+								tooltip={t("Applies on your next save.")}
+								variant="secondary"
+								onClick={() =>
+									mutateDraft((graph) =>
+										selectStudioScene(graph, selectedScene.id),
+									)
+								}
+							/>
+						</>
+					)}
+					<details className={styles.sceneSettings}>
+						<summary>
+							{t("Scene settings")} · {draft.scenes.length}/3
+						</summary>
+						{selectedScene && (
+							<TextInput
+								label={t("Scene name")}
+								isDisabled={readOnly}
+								value={selectedScene.name}
+								onChange={(name) => {
+									if (name.trim())
+										mutateDraft((graph) =>
+											renameStudioScene(graph, selectedScene.id, name),
+										);
+								}}
+							/>
+						)}
+						<Button
+							size="sm"
+							label={t("Add scene")}
+							isDisabled={readOnly || draft.scenes.length >= 3}
+							variant="ghost"
+							onClick={() => {
+								const id = crypto.randomUUID();
+								mutateDraft((graph) => addStudioScene(graph, id));
+								setSelectedSceneId(id);
+								setSelectedLayerId(undefined);
+							}}
 						/>
-					) : null}
-					{blockers.length ? (
-						<Banner
-							container="section"
-							status="error"
-							title={t("Fix these sources before saving")}
-							description={blockers
-								.map(
-									({ sceneName, layerName, message }) =>
-										`${sceneName} · ${layerName}: ${t(studioErrorHint(message))}`,
+						<Button
+							size="sm"
+							label={t("Delete scene")}
+							isDisabled={
+								readOnly || !selectedScene || draft.scenes.length <= 1
+							}
+							variant="ghost"
+							onClick={() => {
+								if (selectedScene)
+									mutateDraft((graph) =>
+										deleteStudioScene(graph, selectedScene.id),
+									);
+								setSelectedLayerId(undefined);
+							}}
+						/>
+					</details>
+					<div className={styles.layerHeading}>
+						<Heading level={2}>{t("Layers")}</Heading>
+						<span>{selectedScene?.layers.length ?? 0}/8</span>
+					</div>
+					<Button
+						label={t("Add layer")}
+						icon={<Plus />}
+						isDisabled={readOnly || (capacity?.layers.used ?? 0) >= 8}
+						variant="primary"
+						onClick={() => setAddOpen(true)}
+					/>
+					<p className={styles.hint}>{t("Front to back. Drag to reorder.")}</p>
+					<ul className={styles.layerList}>
+						{[...(selectedScene?.layers ?? [])]
+							.sort((a, b) => b.zIndex - a.zIndex)
+							.map((layer) => {
+								const Icon = {
+									text: Type,
+									png: Image,
+									browser: Globe,
+									alert: Bell,
+								}[layer.type];
+								const locked = lockedIds.has(layer.id);
+								const display = studioLayerDisplayState(layer);
+								const blocked = blockers.some(
+									({ layerId }) => layerId === layer.id,
+								);
+								return (
+									<li
+										key={layer.id}
+										className={styles.layerRow}
+										data-selected={layer.id === selectedLayerId}
+										draggable={!readOnly && !locked}
+										onDragStart={(event) => {
+											event.dataTransfer.setData(
+												"application/x-visp-layer",
+												layer.id,
+											);
+											event.dataTransfer.effectAllowed = "move";
+										}}
+										onDragOver={(event) => {
+											if (
+												!readOnly &&
+												event.dataTransfer.types.includes(
+													"application/x-visp-layer",
+												)
+											)
+												event.preventDefault();
+										}}
+										onDrop={(event) => {
+											event.preventDefault();
+											const id = event.dataTransfer.getData(
+												"application/x-visp-layer",
+											);
+											if (!lockedIds.has(id))
+												mutateDraft((graph) =>
+													reorderStudioLayer(graph, id, layer.id),
+												);
+										}}
+									>
+										<Button
+											size="sm"
+											className={styles.layerSelect}
+											label={layer.name}
+											icon={<Icon />}
+											variant="ghost"
+											aria-pressed={layer.id === selectedLayerId}
+											onClick={() => setSelectedLayerId(layer.id)}
+										/>
+										<Button
+											size="sm"
+											isIconOnly
+											label={`${display.visible ? t("Hide") : t("Show")} ${layer.name}`}
+											icon={display.visible ? <Eye /> : <EyeOff />}
+											isDisabled={readOnly || locked}
+											variant="ghost"
+											onClick={() =>
+												changeLayer(layer.id, {
+													visible: !display.visible,
+													runtimeDisabled: false,
+												})
+											}
+										/>
+										<Button
+											size="sm"
+											isIconOnly
+											label={`${locked ? t("Unlock") : t("Lock")} ${layer.name}`}
+											tooltip={t("Locks this layer for this editing session.")}
+											icon={locked ? <LockKeyhole /> : <UnlockKeyhole />}
+											aria-pressed={locked}
+											variant="ghost"
+											onClick={() =>
+												setLockedIds((ids) => {
+													const next = new Set(ids);
+													if (locked) next.delete(layer.id);
+													else next.add(layer.id);
+													return next;
+												})
+											}
+										/>
+										{layer.id === selectedLayerId && (
+											<input
+												className={styles.layerRename}
+												aria-label={t("Rename layer")}
+												value={layer.name}
+												maxLength={64}
+												disabled={readOnly || locked}
+												onChange={(event) =>
+													changeLayer(layer.id, { name: event.target.value })
+												}
+											/>
+										)}
+										{(blocked || display.failed) && (
+											<span className={styles.layerError}>
+												{blocked ? t("Needs fixing") : t("Failed")}
+											</span>
+										)}
+									</li>
+								);
+							})}
+					</ul>
+					<div className={styles.layerActions}>
+						<Button
+							size="sm"
+							isIconOnly
+							label={t("Duplicate layer")}
+							icon={<Copy />}
+							isDisabled={duplicateBlocked}
+							tooltip={
+								duplicateBlocked
+									? t(
+											"Unlock the layer and check source limits before duplicating.",
+										)
+									: t("Duplicate layer")
+							}
+							variant="ghost"
+							onClick={duplicateLayer}
+						/>
+						<Button
+							size="sm"
+							isIconOnly
+							label={t("Delete source")}
+							icon={<Trash2 />}
+							isDisabled={!selectedLayer || layerReadOnly}
+							variant="ghost"
+							onClick={removeLayer}
+						/>
+						<Button
+							size="sm"
+							isIconOnly
+							label={t("Move forward")}
+							icon={<ArrowUp />}
+							isDisabled={!selectedLayer || layerReadOnly}
+							variant="ghost"
+							onClick={() => {
+								if (selectedLayer)
+									mutateDraft((graph) =>
+										moveStudioLayer(graph, selectedLayer.id, "up"),
+									);
+							}}
+						/>
+						<Button
+							size="sm"
+							isIconOnly
+							label={t("Move backward")}
+							icon={<ArrowDown />}
+							isDisabled={!selectedLayer || layerReadOnly}
+							variant="ghost"
+							onClick={() => {
+								if (selectedLayer)
+									mutateDraft((graph) =>
+										moveStudioLayer(graph, selectedLayer.id, "down"),
+									);
+							}}
+						/>
+					</div>
+				</aside>
+				<main className={styles.stage}>
+					<StudioCanvas
+						key={selectedScene?.id ?? "empty"}
+						scene={
+							selectedScene ?? {
+								id: "empty",
+								name: "",
+								order: 0,
+								transition: "cut",
+								layers: [],
+							}
+						}
+						selectedLayerId={selectedLayerId}
+						blockedLayerIds={blockers.map(({ layerId }) => layerId)}
+						lockedIds={lockedIds}
+						aspectLocked={aspectLocked}
+						readOnly={readOnly}
+						onSelect={setSelectedLayerId}
+						onChange={(id: string, rect: Partial<LayerRect>) =>
+							changeLayer(id, rect)
+						}
+						onGestureStart={history.beginGesture}
+						onGestureEnd={history.endGesture}
+						camera={
+							<WhepPreview
+								url={preview.camera.url}
+								label={t("Camera background")}
+								emptyTitle={previewCopy(preview.camera, "camera").title}
+								emptyHint={previewCopy(preview.camera, "camera").hint}
+							/>
+						}
+					/>
+				</main>
+				<aside
+					aria-label={t("Inspector")}
+					className={styles.inspector}
+					data-open={drawer === "inspector"}
+				>
+					<div className={styles.drawerClose}>
+						<Button
+							label={t("Close inspector")}
+							variant="ghost"
+							onClick={closeDrawer}
+						/>
+					</div>
+					<StudioInspector
+						selectedScene={selectedScene}
+						selectedLayer={selectedLayer}
+						readOnly={readOnly}
+						layerReadOnly={layerReadOnly}
+						aspectLocked={aspectLocked}
+						setAspectLocked={setAspectLocked}
+						mutateDraft={mutateDraft}
+						changeLayer={changeLayer}
+						uploadPngAsset={uploadPngAsset}
+					/>
+				</aside>
+			</div>
+			{monitorsOpen && (
+				<section
+					className={styles.monitors}
+					aria-label={t("Monitors and production")}
+				>
+					<SegmentedControl
+						isDisabled={setMode.isPending || readOnly}
+						disabledMessage={
+							readOnly
+								? t("Editing is paused until VISP is reachable again.")
+								: undefined
+						}
+						label={t("Direct production mode")}
+						value={studio.data.settings.mode}
+						onChange={(mode) => {
+							if (
+								!live ||
+								window.confirm(
+									t(
+										"Switching production mode changes what viewers see within seconds. Switch now?",
+									),
 								)
-								.join("\n")}
+							)
+								setMode.mutate({ mode: mode as "cloud_studio" | "obs" });
+						}}
+					>
+						<SegmentedControlItem
+							label={t("Cloud Studio")}
+							value="cloud_studio"
 						/>
-					) : null}
+						<SegmentedControlItem label={t("I use OBS")} value="obs" />
+					</SegmentedControl>
+					<Text color="secondary" type="supporting">
+						{cloudMode
+							? t(
+									"Cloud Studio mode: VISP composes the scenes below onto your camera and sends the result to your platforms.",
+								)
+							: t(
+									"OBS mode: your own software composes the picture. VISP passes your feed through untouched and ignores the scenes below.",
+								)}
+					</Text>
 					<Grid columns={{ minWidth: 280, max: 2, repeat: "fit" }} gap={3}>
 						<Card>
 							<VStack gap={2}>
@@ -983,94 +1127,8 @@ export function StudioPage() {
 							</VStack>
 						</Card>
 					</Grid>
-					<Card>
-						{!selectedScene || selectedScene.layers.length === 0 ? (
-							<EmptyState
-								headingLevel={2}
-								title={t("Add a source to build your program")}
-								description={t(
-									"Sources stack on top of your camera: text, a PNG overlay, any public web page, or a VISP alert. You can arrange them here without being live.",
-								)}
-								actions={
-									<Button
-										isDisabled={readOnly}
-										label={t("Add source")}
-										tooltip={t("Pick what to place on top of your camera.")}
-										variant="primary"
-										onClick={() => setAddOpen(true)}
-									/>
-								}
-							/>
-						) : (
-							<VStack gap={3}>
-								<HStack hAlign="between" vAlign="center">
-									<VStack gap={0}>
-										<Heading level={2}>{selectedScene.name}</Heading>
-										<Text color="secondary" type="supporting">
-											{t(
-												"Editing preview — drag a source to move it, or select it and nudge with the arrow keys. Sizes and exact positions are on the right.",
-											)}
-										</Text>
-									</VStack>
-									<Button
-										isDisabled={readOnly || (capacity?.layers.used ?? 0) >= 8}
-										label={t("Add source")}
-										tooltip={
-											(capacity?.layers.used ?? 0) >= 8
-												? t("Layer limit reached (8)")
-												: t("Pick what to place on top of your camera.")
-										}
-										variant="primary"
-										onClick={() => setAddOpen(true)}
-									/>
-								</HStack>
-								<StudioCanvas
-									blockedLayerIds={blockers.map(({ layerId }) => layerId)}
-									readOnly={readOnly}
-									scene={selectedScene}
-									selectedLayerId={selectedLayerId}
-									onMove={moveLayer}
-									onSelect={setSelectedLayerId}
-								/>
-								<VStack gap={1}>
-									<Text type="label">{t("Sources, front to back")}</Text>
-									{[...selectedScene.layers]
-										.sort((a, b) => b.zIndex - a.zIndex)
-										.map((layer) => {
-											const display = studioLayerDisplayState(layer);
-											const blocked = blockers.some(
-												({ layerId }) => layerId === layer.id,
-											);
-											return (
-												<HStack gap={2} key={layer.id} vAlign="center">
-													<Button
-														label={`${layer.name} · ${t(layer.type)}`}
-														variant={
-															layer.id === selectedLayerId
-																? "secondary"
-																: "ghost"
-														}
-														onClick={() => setSelectedLayerId(layer.id)}
-													/>
-													{blocked ? (
-														<Badge label={t("Needs fixing")} variant="error" />
-													) : display.failed ? (
-														<Badge label={t("Failed")} variant="error" />
-													) : display.visible ? null : (
-														<Badge label={t("Hidden")} variant="neutral" />
-													)}
-												</HStack>
-											);
-										})}
-									<Text color="secondary" type="supporting">
-										{t("Sources in this scene")} {selectedScene.layers.length}/8
-									</Text>
-								</VStack>
-							</VStack>
-						)}
-					</Card>
-				</VStack>
-			</LayoutContent>
+				</section>
+			)}
 			<Dialog
 				isOpen={addOpen}
 				onOpenChange={setAddOpen}
@@ -1090,7 +1148,7 @@ export function StudioPage() {
 									)}
 								</Text>
 								<Button
-									isDisabled={(capacity?.layers.used ?? 0) >= 8}
+									isDisabled={readOnly || (capacity?.layers.used ?? 0) >= 8}
 									label={t("Text")}
 									tooltip={t(
 										"A line of text — show title, topic, or a handle.",
@@ -1103,6 +1161,7 @@ export function StudioPage() {
 									description={t(
 										"PNG, up to 10 MB. Transparency is kept, so logos and frames work.",
 									)}
+									isDisabled={readOnly || (capacity?.layers.used ?? 0) >= 8}
 									label={t("PNG overlay")}
 									maxSize={10 * 1024 * 1024}
 									mode="dropzone"
@@ -1113,7 +1172,11 @@ export function StudioPage() {
 									changeAction={uploadPng}
 								/>
 								<Button
-									isDisabled={(capacity?.browser.used ?? 0) >= 2}
+									isDisabled={
+										readOnly ||
+										(capacity?.layers.used ?? 0) >= 8 ||
+										(capacity?.browser.used ?? 0) >= 2
+									}
 									label={`${t("Browser source")} ${capacity?.browser.used ?? 0}/2`}
 									tooltip={
 										(capacity?.browser.used ?? 0) >= 2
@@ -1126,7 +1189,11 @@ export function StudioPage() {
 									onClick={() => addSource("browser")}
 								/>
 								<Button
-									isDisabled={(capacity?.alert.used ?? 0) >= 1}
+									isDisabled={
+										readOnly ||
+										(capacity?.layers.used ?? 0) >= 8 ||
+										(capacity?.alert.used ?? 0) >= 1
+									}
 									label={`${t("VISP alert")} ${capacity?.alert.used ?? 0}/1`}
 									tooltip={
 										(capacity?.alert.used ?? 0) >= 1
@@ -1227,14 +1294,13 @@ export function StudioPage() {
 									variant="secondary"
 									onClick={() => {
 										if (blocker.status !== "blocked") return;
-										setDirty(false);
 										blocker.proceed();
 									}}
 								/>
 								<Button
-									label={t("Save composition")}
+									label={t("Save and apply")}
 									variant="primary"
-									isDisabled={save.isPending || blockers.length > 0}
+									isDisabled={readOnly || save.isPending || blockers.length > 0}
 									tooltip={
 										blockers.length
 											? t("Fix the highlighted sources before saving.")
@@ -1252,6 +1318,6 @@ export function StudioPage() {
 					}
 				/>
 			</Dialog>
-		</Layout>
+		</section>
 	);
 }

@@ -25,6 +25,59 @@ export function localeSearch(locale: Locale) {
 }
 
 export const finnishUi: Record<string, string> = {
+	"Add a layer to start building your overlay":
+		"Aloita sommittelu lisäämällä taso",
+	"Add layer": "Lisää taso",
+	"Applies on your next save.": "Tulee käyttöön seuraavalla tallennuksella.",
+	"Camera background": "Kamera taustalla",
+	"Clean preview": "Puhdas esikatselu",
+	"Close inspector": "Sulje ominaisuudet",
+	"Close layers": "Sulje tasot",
+	"Cloud Studio editor": "Cloud Studio -editori",
+	"Deselect layers": "Poista tasojen valinta",
+	"Draft only. Save and apply to update the program.":
+		"Vain luonnos. Päivitä lähetys tallentamalla ja ottamalla käyttöön.",
+	"Draft preview": "Luonnoksen esikatselu",
+	"Duplicate layer": "Monista taso",
+	"Editing only": "Vain muokattavana",
+	"Fit to screen": "Sovita näyttöön",
+	"Front to back. Drag to reorder.":
+		"Edestä taakse. Vaihda järjestystä vetämällä.",
+	Hide: "Piilota",
+	Layers: "Tasot",
+	Lock: "Lukitse",
+	"Lock aspect ratio": "Lukitse kuvasuhde",
+	"Locks this layer for this editing session.":
+		"Lukitsee tason tämän muokkauskerran ajaksi.",
+	"Monitors and production": "Esikatselut ja tuotantotila",
+	"New scene": "Uusi näkymä",
+	"OBS mode: overlays are not applied":
+		"OBS-tila: päällykset eivät ole käytössä",
+	Redo: "Tee uudelleen",
+	"Rename layer": "Nimeä taso uudelleen",
+	"Resize source": "Muuta lähteen kokoa",
+	"Sample alert, preview only": "Testihälytys, vain esikatselussa",
+	"Sample viewer": "Testikatsoja",
+	"Save and apply": "Tallenna ja ota käyttöön",
+	Saved: "Tallennettu",
+	"Saved overlays apply to your broadcast":
+		"Tallennetut päällykset tulevat lähetykseen",
+	"Saved program scene": "Tallennettu lähetysnäkymä",
+	"Saving…": "Tallennetaan…",
+	Scene: "Näkymä",
+	"Scene settings": "Näkymän asetukset",
+	"Scenes and layers": "Näkymät ja tasot",
+	Show: "Näytä",
+	Snap: "Kohdista",
+	"Test alert": "Testaa hälytys",
+	Undo: "Kumoa",
+	Unlock: "Avaa lukitus",
+	"Updates the broadcast when Cloud Studio mode is active.":
+		"Päivittää lähetyksen, kun Cloud Studio -tila on käytössä.",
+	"Use in program": "Käytä lähetyksessä",
+	Zoom: "Zoomaus",
+	"Unlock the layer and check source limits before duplicating.":
+		"Avaa tason lukitus ja tarkista lähderajat ennen monistamista.",
 	// Stream status — one entry per state in `studioStreamStatus`.
 	"Stream status unavailable": "Lähetyksen tila ei ole saatavilla",
 	"VISP cannot read your stream status right now. Retrying automatically.":
