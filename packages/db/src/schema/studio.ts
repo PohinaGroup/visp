@@ -4,6 +4,7 @@ import {
 	check,
 	index,
 	integer,
+	jsonb,
 	pgEnum,
 	pgTable,
 	text,
@@ -77,6 +78,8 @@ export const studioLayer = pgTable(
 		}),
 		browserUrl: text("browser_url"),
 		alertEvent: text("alert_event"),
+		alertEvents: jsonb("alert_events").$type<string[]>(),
+		alertAppearance: jsonb("alert_appearance"),
 	},
 	(table) => [
 		unique("studio_layer_position_unique").on(table.sceneId, table.position),
@@ -113,7 +116,10 @@ export const studioAsset = pgTable(
 	(table) => [
 		unique("studio_asset_owner_key_unique").on(table.userId, table.key),
 		index("studio_asset_owner_idx").on(table.userId),
-		check("studio_asset_png_only", sql`${table.contentType} = 'image/png'`),
+		check(
+			"studio_asset_image_type",
+			sql`${table.contentType} in ('image/png', 'image/jpeg', 'image/webp', 'image/gif')`,
+		),
 	],
 );
 

@@ -1,4 +1,8 @@
 import type { StudioGraph } from "@VISP/api/studio";
+import {
+	DEFAULT_ALERT_APPEARANCE,
+	type StudioAlertAppearance,
+} from "@VISP/api/studio-alert";
 export type StudioScene = StudioGraph["scenes"][number];
 export type StudioLayerType = StudioScene["layers"][number]["type"];
 export type StudioLayer = StudioScene["layers"][number];
@@ -17,8 +21,10 @@ export type StudioLayerUpdate = Partial<
 > & {
 	text?: string;
 	url?: string;
-	assetId?: string;
+	assetId?: string | null;
 	event?: "follow" | "sub" | "donation";
+	events?: Array<"follow" | "sub" | "donation">;
+	appearance?: StudioAlertAppearance;
 };
 
 function clampInteger(value: number, minimum: number, maximum: number) {
@@ -313,7 +319,15 @@ export function addStudioLayer(
 					? { ...base, type, assetId: assetId ?? crypto.randomUUID() }
 					: type === "browser"
 						? { ...base, type, url: "https://example.com/" }
-						: { ...base, type, event: "follow" as const };
+						: {
+								...base,
+								type,
+								event: "follow" as const,
+								events: ["follow", "sub", "donation"] as Array<
+									"follow" | "sub" | "donation"
+								>,
+								appearance: { ...DEFAULT_ALERT_APPEARANCE },
+							};
 		return { ...scene, layers: [...scene.layers, layer] };
 	});
 }
@@ -395,6 +409,10 @@ export function updateStudioLayer(
 							...common,
 							type: "alert" as const,
 							event: update.event ?? layer.event,
+							events: update.events ?? layer.events,
+							appearance: update.appearance ?? layer.appearance,
+							assetId:
+								update.assetId === undefined ? layer.assetId : update.assetId,
 						};
 					case "png":
 						return {

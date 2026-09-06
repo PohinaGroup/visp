@@ -7,7 +7,6 @@ import {
 	SegmentedControl,
 	SegmentedControlItem,
 } from "@astryxdesign/core/SegmentedControl";
-import { Selector } from "@astryxdesign/core/Selector";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
@@ -20,6 +19,7 @@ import {
 	type StudioScene,
 	studioLayerDisplayState,
 } from "@/lib/studio-model";
+import { AlertControls } from "./alert-controls";
 
 export function StudioInspector({
 	selectedScene,
@@ -30,7 +30,7 @@ export function StudioInspector({
 	setAspectLocked,
 	mutateDraft,
 	changeLayer,
-	uploadPngAsset,
+	uploadImageAsset,
 }: {
 	selectedScene?: StudioScene;
 	selectedLayer?: StudioLayer;
@@ -40,7 +40,7 @@ export function StudioInspector({
 	setAspectLocked: (value: boolean) => void;
 	mutateDraft: (updater: (graph: StudioGraph) => StudioGraph) => void;
 	changeLayer: (id: string, update: StudioLayerUpdate) => void;
-	uploadPngAsset: (value: File | File[] | null) => Promise<string | null>;
+	uploadImageAsset: (value: File | File[] | null) => Promise<string | null>;
 }) {
 	const t = useT();
 	const updateLayer = (update: StudioLayerUpdate) => {
@@ -149,19 +149,12 @@ export function StudioInspector({
 						</Text>
 					) : null}
 					{selectedLayer.type === "alert" ? (
-						<Selector
-							description={t(
-								"The alert only appears when this event fires on your platform.",
-							)}
-							isDisabled={layerReadOnly}
-							label={t("Alert event")}
-							options={["follow", "sub", "donation"]}
-							value={selectedLayer.event}
-							onChange={(event) =>
-								updateLayer({
-									event: event as "follow" | "sub" | "donation",
-								})
-							}
+						<AlertControls
+							key={selectedLayer.id}
+							layer={selectedLayer}
+							disabled={layerReadOnly}
+							update={(update) => changeLayer(selectedLayer.id, update)}
+							uploadAsset={uploadImageAsset}
 						/>
 					) : null}
 					{selectedLayer.type === "png" ? (
@@ -175,7 +168,7 @@ export function StudioInspector({
 							value={null}
 							onChange={() => undefined}
 							changeAction={async (value) => {
-								const assetId = await uploadPngAsset(value);
+								const assetId = await uploadImageAsset(value);
 								if (assetId) changeLayer(selectedLayer.id, { assetId });
 							}}
 						/>

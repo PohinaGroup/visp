@@ -120,6 +120,13 @@
       "when": 1788685913486,
       "tag": "0016_motionless_nocturne",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1788726581978,
+      "tag": "0017_studio_alert_appearance",
+      "breakpoints": true
     }
   ]
 }

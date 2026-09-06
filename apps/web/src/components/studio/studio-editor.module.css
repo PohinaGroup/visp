@@ -158,6 +158,13 @@
 	border-bottom: 1px solid var(--studio-border);
 	font-size: 12px;
 }
+.canvasToolbar input {
+	border: 1px solid var(--studio-border);
+	border-radius: 4px;
+	padding: 4px 6px;
+	background: #14171c;
+	color: inherit;
+}
 .canvasViewport {
 	flex: 1;
 	min-height: 180px;

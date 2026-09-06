@@ -83,6 +83,7 @@ import {
 	reportBrowserFailure,
 	reportCompositorHealth,
 } from "@VISP/api/studio";
+import { DEFAULT_ALERT_APPEARANCE } from "@VISP/api/studio-alert";
 import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import {
@@ -99,6 +100,7 @@ import {
 	relay,
 	relayPath,
 	relayStreamSession,
+	studioAsset,
 	user,
 } from "@VISP/db/schema/index";
 import {
@@ -2398,6 +2400,68 @@ integration("VISP Direct boundaries", () => {
 		expect(await compositorDesiredState("alpha-1")).toMatchObject({
 			alert: { event: "follow", label: "Alert" },
 		});
+		const customized = (await caller.studio.get()).graph;
+		const alert = customized.scenes[0]?.layers.find(
+			(layer) => layer.type === "alert",
+		);
+		if (!alert) throw new Error("Alert missing");
+		alert.events = ["sub", "donation"];
+		alert.appearance = {
+			...DEFAULT_ALERT_APPEARANCE,
+			font: "ibm-plex-mono",
+			color: "#ff00ff",
+			duration: 3,
+		};
+		expect(await caller.studio.save({ graph: customized })).toEqual(customized);
+		expect((await caller.studio.get()).graph).toEqual(customized);
+		expect(await compositorDesiredState("alpha-1")).toMatchObject({
+			graph: customized,
+		});
+		for (const kind of ["follow", "sub", "cheer"] as const) {
+			expect(
+				await deliverStudioProviderAlert("user-a", {
+					id: kind,
+					provider: "twitch",
+					kind,
+					name: "Ada",
+					sentAt: new Date().toISOString(),
+				}),
+			).toBe(kind !== "follow");
+		}
+		alert.assetId = "55555555-5555-4555-8555-555555555555";
+		await expect(caller.studio.save({ graph: customized })).rejects.toThrow(
+			"Image asset not found",
+		);
+		await db.insert(studioAsset).values({
+			id: alert.assetId,
+			userId: "user-b",
+			key: "studio-verified/other/image.gif",
+			contentType: "image/gif",
+			width: 16,
+			height: 16,
+			verifiedAt: new Date(),
+		});
+		await expect(caller.studio.save({ graph: customized })).rejects.toThrow(
+			"Image asset not found",
+		);
+		await db
+			.update(studioAsset)
+			.set({ userId: "user-a" })
+			.where(eq(studioAsset.id, alert.assetId));
+		expect(await caller.studio.save({ graph: customized })).toEqual(customized);
+		const desiredAlert = (
+			await compositorDesiredState("alpha-1")
+		)?.graph.scenes[0]?.layers.find((layer) => layer.type === "alert");
+		expect(desiredAlert).toMatchObject({
+			assetId: alert.assetId,
+			appearance: alert.appearance,
+			url: expect.stringContaining("studio-verified"),
+		});
+		alert.assetId = null;
+		const removed = await caller.studio.save({ graph: customized });
+		expect(
+			removed.scenes[0]?.layers.find((layer) => layer.type === "alert"),
+		).not.toHaveProperty("assetId");
 		await caller.studio.emptyWarning({ dismissed: true });
 		expect((await caller.studio.mode.get()).emptyWarningDismissed).toBe(true);
 	});

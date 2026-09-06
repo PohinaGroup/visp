@@ -14,6 +14,6 @@ export default defineConfig({
 		// ESM entry (which has top-level await) crashes Node 22 with
 		// ERR_AMBIGUOUS_MODULE_SYNTAX. Keep it external and install it on the
 		// server package so Node can resolve it from WorkingDirectory.
-		neverBundle: ["@node-rs/argon2"],
+		neverBundle: ["@node-rs/argon2", "sharp"],
 	},
 });
