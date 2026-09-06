@@ -25,11 +25,6 @@ export const studio = pgTable("studio", {
 		.primaryKey()
 		.references(() => appUser.id, { onDelete: "cascade" }),
 	version: integer("version").default(0).notNull(),
-	compositorHealthy: boolean("compositor_healthy").default(false).notNull(),
-	programUrl: text("program_url"),
-	compositorCheckedAt: timestamp("compositor_checked_at", {
-		withTimezone: true,
-	}),
 	lastAlert: text("last_alert"),
 	lastAlertEvent: text("last_alert_event"),
 	lastAlertAt: timestamp("last_alert_at", { withTimezone: true }),

@@ -45,6 +45,7 @@ import { docs } from "@/lib/docs";
 import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
+import { fastestRelay } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 
 export const Route = createFileRoute("/_auth/setup")({
@@ -781,13 +782,6 @@ function TestStreamStep({
 	const outputState = provider ? directPath?.state[provider] : null;
 	const outputError = provider ? directPath?.error[provider] : null;
 	const ready = provider ? outputState === "live" : live;
-	const firstLiveTracked = useRef(false);
-
-	useEffect(() => {
-		if (!provider || outputState !== "live" || firstLiveTracked.current) return;
-		firstLiveTracked.current = true;
-		trackEvent("first_live", { provider });
-	}, [outputState, provider]);
 	const outputLabel =
 		outputState === "live"
 			? fi
@@ -1385,23 +1379,52 @@ function CredentialsStepWithCreateRef({
 		}),
 	);
 
-	const createLinks = useCallback(() => {
-		const direct = {
-			twitch: destination === "twitch",
-			kick: destination === "kick",
-			youtube: destination === "youtube",
-		};
-		complete.mutate({
-			software: publisherToSoftware(publisher),
-			useCase: destination === "other" ? useCase : "direct",
-			destination,
-			advancedMode: false,
-			direct,
-			prepareObs: destination === "other",
-			createDevice: publisher !== "visp" && publisher !== "web",
-			...(redoMode ? { redoMode } : {}),
-		});
-	}, [complete, destination, publisher, redoMode, useCase]);
+	const [probing, setProbing] = useState(false);
+	const createLinks = useCallback(async () => {
+		if (probing) return;
+		setProbing(true);
+		try {
+			const createDevice = publisher !== "visp" && publisher !== "web";
+			const fastest = createDevice
+				? await fastestRelay(
+						await queryClient.fetchQuery(trpc.relays.list.queryOptions()),
+					)
+				: undefined;
+			const direct = {
+				twitch: destination === "twitch",
+				kick: destination === "kick",
+				youtube: destination === "youtube",
+			};
+			await complete.mutateAsync({
+				software: publisherToSoftware(publisher),
+				useCase: destination === "other" ? useCase : "direct",
+				destination,
+				advancedMode: false,
+				direct,
+				prepareObs: destination === "other",
+				createDevice,
+				relayId: fastest?.id,
+				...(redoMode ? { redoMode } : {}),
+			});
+		} catch (error) {
+			toast.error(
+				error instanceof Error
+					? error.message
+					: "Could not create publishing device",
+			);
+		} finally {
+			setProbing(false);
+		}
+	}, [
+		complete,
+		destination,
+		publisher,
+		redoMode,
+		useCase,
+		probing,
+		queryClient,
+		trpc,
+	]);
 
 	useEffect(() => {
 		if (!pendingCreate || bundle || complete.isPending) return;
@@ -1430,7 +1453,7 @@ function CredentialsStepWithCreateRef({
 	return (
 		<CredentialsPrompt
 			destination={destination}
-			isLoading={complete.isPending}
+			isLoading={complete.isPending || probing}
 			publisher={publisher}
 			redoMode={redoMode}
 			useCase={useCase}

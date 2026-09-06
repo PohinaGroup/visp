@@ -1004,7 +1004,7 @@ function RelayAdmin() {
 									capacityPaths: Number(draft.capacityPaths),
 									maxForwarders: Number(draft.maxForwarders),
 								}),
-							"Relay created",
+							"Relay created disabled. Verify its configuration, then enable it.",
 						);
 					}}
 				>

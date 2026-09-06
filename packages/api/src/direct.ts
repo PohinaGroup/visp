@@ -12,6 +12,7 @@ import {
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { recordPlatformLive } from "./activation";
 import { cleanupDeletedBrbHighlightsForPath } from "./brb-highlights";
 import { type DirectCrop, directCropError } from "./direct-crop";
 import {
@@ -44,7 +45,6 @@ import {
 	portraitFilterValue,
 } from "./direct-portrait";
 import { decryptSecret } from "./encrypted-secret";
-import { trackRybbitEvent } from "./rybbit";
 import { hasStreamKeyScope, parseScopes } from "./scopes";
 
 export type { DirectCrop } from "./direct-crop";
@@ -1381,36 +1381,20 @@ export async function applyDirectState(input: {
 	error?: string | null;
 }) {
 	const [path] = await db
-		.select({ id: relayPath.id })
+		.select({ id: relayPath.id, userId: relayPath.userId })
 		.from(relayPath)
 		.where(eq(relayPath.slug, input.slug))
 		.limit(1);
 	if (!path) return false;
 	if (input.role === "portrait") {
-		return applyPortraitState(path.id, input, sanitizeDirectError);
-	}
-
-	const [existing] = await db
-		.select({
-			twitch: pathState.directTwitchState,
-			kick: pathState.directKickState,
-			youtube: pathState.directYoutubeState,
-		})
-		.from(pathState)
-		.where(eq(pathState.pathId, path.id))
-		.limit(1);
-	const previousState =
-		input.provider === "twitch"
-			? existing?.twitch
-			: input.provider === "kick"
-				? existing?.kick
-				: existing?.youtube;
-	if (
-		input.state === "live" &&
-		previousState !== "live" &&
-		previousState !== "brb"
-	) {
-		trackRybbitEvent("first_live", { provider: input.provider });
+		const applied = await applyPortraitState(
+			path.id,
+			input,
+			sanitizeDirectError,
+		);
+		if (applied && input.state === "live")
+			await recordPlatformLive(path.userId, path.id, input.provider);
+		return applied;
 	}
 
 	const columns =
@@ -1441,10 +1425,12 @@ export async function applyDirectState(input: {
 		.insert(pathState)
 		.values({ pathId: path.id, lastEventAt: new Date(), ...columns })
 		.onConflictDoUpdate({ target: pathState.pathId, set: columns });
+	if (input.state === "live")
+		await recordPlatformLive(path.userId, path.id, input.provider);
 	return true;
 }
 
-/** Native Go Live reports platform live via tRPC; emits on portal site 2. */
+/** Compatibility endpoint for native clients; deduplication is durable. */
 export async function reportFirstLiveActivation(
 	userId: string,
 	pathId: number,
@@ -1455,8 +1441,7 @@ export async function reportFirstLiveActivation(
 	if (!path?.[provider] || path.state[provider] !== "live") {
 		return { tracked: false as const };
 	}
-	trackRybbitEvent("first_live", { provider });
-	return { tracked: true as const };
+	return { tracked: await recordPlatformLive(userId, pathId, provider) };
 }
 
 export type DirectDestination = {

@@ -1,0 +1,150 @@
+.login,
+.dashboard {
+	max-width: 760px;
+	margin: 0 auto;
+	padding: 4rem 1.25rem;
+}
+.login {
+	min-height: 100vh;
+	display: grid;
+	place-items: center;
+}
+.panel {
+	background: #17171d;
+	border: 1px solid #30303a;
+	border-radius: 12px;
+	padding: 1.5rem;
+	margin: 1rem 0;
+}
+.login .panel {
+	max-width: 420px;
+}
+h1,
+h2,
+p {
+	margin-top: 0;
+}
+h1 {
+	font-size: 2.5rem;
+}
+.eyebrow {
+	color: #a78bfa;
+	font-size: 0.8rem;
+	font-weight: 700;
+	letter-spacing: 0.12em;
+}
+button {
+	background: #8b5cf6;
+	border: 0;
+	border-radius: 7px;
+	color: white;
+	cursor: pointer;
+	font: inherit;
+	font-weight: 600;
+	padding: 0.72rem 1rem;
+}
+button:disabled {
+	cursor: wait;
+	opacity: 0.6;
+}
+.login button {
+	display: block;
+	margin-top: 0.7rem;
+	width: 100%;
+}
+.quiet {
+	background: transparent;
+	color: #d4d4dc;
+}
+header {
+	align-items: center;
+	display: flex;
+	justify-content: space-between;
+}
+.source {
+	align-items: center;
+	display: grid;
+	gap: 0.7rem;
+	grid-template-columns: auto 110px 1fr;
+	margin: 0.85rem 0;
+}
+input,
+textarea {
+	background: #0f0f14;
+	border: 1px solid #3d3d48;
+	border-radius: 6px;
+	color: #f7f7fb;
+	font: inherit;
+	padding: 0.65rem;
+}
+.source input[type="checkbox"] {
+	accent-color: #8b5cf6;
+	width: 1rem;
+	height: 1rem;
+}
+textarea {
+	box-sizing: border-box;
+	display: block;
+	height: 5rem;
+	margin-top: 1rem;
+	resize: vertical;
+	width: 100%;
+}
+.error {
+	color: #fca5a5;
+	margin-top: 0.8rem;
+}
+.overlay {
+	background: transparent;
+	color: white;
+	font-family: system-ui, sans-serif;
+	max-width: 680px;
+	padding: 16px;
+}
+.message {
+	align-items: baseline;
+	animation: appear 0.2s ease-out;
+	background: rgb(10 10 14 / 82%);
+	border-radius: 8px;
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.45rem;
+	margin: 0.55rem 0;
+	padding: 0.7rem 0.85rem;
+	text-shadow: 0 1px 2px #000;
+}
+.platform {
+	border-radius: 4px;
+	font-size: 0.7rem;
+	font-weight: 800;
+	padding: 0.18rem 0.35rem;
+}
+.platform.twitch {
+	background: #9146ff;
+}
+.platform.kick {
+	background: #53fc18;
+	color: #081007;
+}
+.platform.tiktok {
+	background: #fe2c55;
+}
+.overlay-status {
+	color: #bbb;
+	font-size: 0.8rem;
+	text-shadow: 0 1px 2px #000;
+}
+@keyframes appear {
+	from {
+		opacity: 0;
+		transform: translateY(6px);
+	}
+}
+@media (max-width: 560px) {
+	.source {
+		grid-template-columns: auto 1fr;
+	}
+	.source input:last-child {
+		grid-column: 1 / -1;
+	}
+}

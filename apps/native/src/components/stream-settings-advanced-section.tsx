@@ -57,6 +57,8 @@ function linkedStatus(entry: LinkedAccounts[number]) {
 }
 
 export type AdvancedSettings = {
+	onOptimizeRelay: () => void;
+	relayBusy: boolean;
 	installationId?: string;
 	onRevealPublishDevice: (pathId: number) => void;
 	publishDevices: PublishDevices;
@@ -204,6 +206,22 @@ export function AdvancedSection({
 
 			{advancedOpen ? (
 				<>
+					<UI.FieldGroup.Section title="Relay region">
+						<UI.Text textStyle={SUBTLE_TEXT}>
+							{advanced.publishDevices.find(
+								(device) =>
+									device.nativeInstallationId === advanced.installationId,
+							)?.relay.region ?? "Not assigned"}
+						</UI.Text>
+						<UI.Button
+							label={
+								advanced.relayBusy ? "Checking relays…" : "Find best relay"
+							}
+							disabled={settingsDisabled || advanced.relayBusy}
+							onPress={advanced.onOptimizeRelay}
+							variant="text"
+						/>
+					</UI.FieldGroup.Section>
 					<DestinationSection
 						destination={destination}
 						settingsDisabled={settingsDisabled}

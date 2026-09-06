@@ -2,6 +2,7 @@ import {
 	formatBondedLinks,
 	formatLiveLinkHud,
 	LINK_STATS_MIN_INTERVAL_MS,
+	nextTelemetryBackoffMs,
 	nextVideoBitrateKbps,
 } from "@VISP/api/link-stats";
 import { useCallback, useRef, useState } from "react";
@@ -28,6 +29,8 @@ export function useLinkStatsReporter(options: {
 	const lastAbrAtRef = useRef(0);
 	const lastSentAtRef = useRef(0);
 	const inFlightRef = useRef(false);
+	const backoffMsRef = useRef(0);
+	const retryAtRef = useRef(0);
 
 	const clearLinkStats = useCallback(() => {
 		setLinkStats(undefined);
@@ -60,6 +63,7 @@ export function useLinkStatsReporter(options: {
 			}
 			if (!userId || !live || pathId == null || inFlightRef.current) return;
 			if (now - lastSentAtRef.current < LINK_STATS_MIN_INTERVAL_MS) return;
+			if (now < retryAtRef.current) return;
 			inFlightRef.current = true;
 			void apiClient.paths.reportLinkStats
 				.mutate({
@@ -76,8 +80,13 @@ export function useLinkStatsReporter(options: {
 				})
 				.then(() => {
 					lastSentAtRef.current = Date.now();
+					backoffMsRef.current = 0;
+					retryAtRef.current = 0;
 				})
-				.catch(() => undefined)
+				.catch(() => {
+					backoffMsRef.current = nextTelemetryBackoffMs(backoffMsRef.current);
+					retryAtRef.current = Date.now() + backoffMsRef.current;
+				})
 				.finally(() => {
 					inFlightRef.current = false;
 				});

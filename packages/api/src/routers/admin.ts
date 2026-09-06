@@ -167,7 +167,7 @@ export const adminRouter = router({
 				.orderBy(relay.name),
 		),
 		create: adminProcedure
-			.input(relayFields)
+			.input(relayFields.extend({ enabled: z.boolean().default(false) }))
 			.mutation(async ({ ctx, input }) => {
 				const [created] = await db.insert(relay).values(input).returning();
 				if (!created) {

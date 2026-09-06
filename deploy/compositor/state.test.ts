@@ -6,6 +6,7 @@ import {
 	compositorExited,
 	compositorHasPublisher,
 	publisherProbeArgs,
+	rendererProgressFrames,
 	shouldCrossfadeScenes,
 	studioXfadeFilter,
 } from "./state";
@@ -75,8 +76,23 @@ test("keeps compositor credentials in local media access and out of relay plans"
 	expect(
 		authenticatedRtspUrl(
 			"rtsp://127.0.0.1:8554/path-1",
-			"studio:path-1",
+			"studio-path-1",
 			"secret pass",
 		),
-	).toBe("rtsp://studio%3Apath-1:secret%20pass@127.0.0.1:8554/path-1");
+	).toBe("rtsp://studio-path-1:secret%20pass@127.0.0.1:8554/path-1");
+});
+
+test("reads the newest frame count out of an ffmpeg progress file", () => {
+	expect(rendererProgressFrames("")).toBe(0);
+	// ffmpeg writes a block per report; only the last one is current.
+	expect(
+		rendererProgressFrames(
+			"frame=0\nfps=0.00\nprogress=continue\nframe=12\nfps=30.0\nprogress=continue\n",
+		),
+	).toBe(12);
+	// Padded counts parse, with or without a trailing newline.
+	expect(rendererProgressFrames("frame= 7 ")).toBe(7);
+	expect(rendererProgressFrames("frame= 7 \n")).toBe(7);
+	// A file that exists but has no frame line yet is not ready.
+	expect(rendererProgressFrames("bitrate=N/A\nprogress=continue\n")).toBe(0);
 });

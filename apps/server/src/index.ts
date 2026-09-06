@@ -2,6 +2,7 @@ import { subscribeInvalidations } from "@VISP/api/cache-bus";
 import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
 import { reconcileKickSubscriptions } from "@VISP/api/chat/kick";
+import { startMultiChatSources } from "@VISP/api/multichat/connectors";
 import { applyInvalidation } from "@VISP/api/relay";
 import { ensureDefaultRelay } from "@VISP/api/relays";
 import { env } from "@VISP/env/server";
@@ -22,6 +23,7 @@ try {
 startReconciler();
 subscribeInvalidations(applyInvalidation);
 startChatFanout();
+startMultiChatSources();
 startChatBots();
 const reconcileKick = async () => {
 	try {

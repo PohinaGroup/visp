@@ -1,6 +1,7 @@
 {$RELAY_DOMAIN} {
 	@ping path /ping
-	header @ping Access-Control-Allow-Origin "https://{$APP_DOMAIN}"
+	# Public, credential-free probe used by both portal and browser broadcaster.
+	header @ping Access-Control-Allow-Origin "*"
 	header @ping Access-Control-Allow-Methods "GET, OPTIONS"
 	header @ping Cache-Control "no-store"
 	respond @ping 204

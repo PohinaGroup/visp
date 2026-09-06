@@ -19,6 +19,7 @@ import { docs } from "@/lib/docs";
 import { useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { formatUtc, publishOriginLabel } from "./format";
+import { RelayRegion } from "./relay-region";
 import type { PathView } from "./types";
 
 const BITRATE_WINDOW_MS = 60_000;
@@ -191,6 +192,7 @@ export function PathRow({
 			}
 		>
 			<VStack gap={3} paddingBlock={2}>
+				<RelayRegion path={path} />
 				{advancedMode ? (
 					<>
 						{path.maskedUrls.publish ? (

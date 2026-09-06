@@ -115,6 +115,7 @@ async function main() {
 		KICK_CLIENT_ID: serverFile.KICK_CLIENT_ID || "local-unconfigured",
 		KICK_CLIENT_SECRET: serverFile.KICK_CLIENT_SECRET || "local-unconfigured",
 		MEDIAMTX_API_URL: "http://127.0.0.1:9997",
+		MULTICHAT_ORIGIN: "https://multichat.visp.localhost",
 		NATIVE_WEB_ORIGIN: "http://127.0.0.1:8081",
 		OBS_REMOTE_WEB_ORIGIN: "http://localhost:8083",
 		NODE_ENV: "development",
@@ -158,6 +159,7 @@ async function main() {
 	console.log("  Web:           https://visp.localhost");
 	console.log("  API:           https://api.visp.localhost");
 	console.log("  Admin:         https://admin.visp.localhost");
+	console.log("  Multi-chat:    https://multichat.visp.localhost");
 	console.log("  Docs:          https://docs.visp.localhost");
 	console.log("  OBS Remote:    http://localhost:8083");
 	console.log("  Relay:         https://relay.visp.localhost");
@@ -175,6 +177,8 @@ async function main() {
 			"fumadocs",
 			"--filter",
 			"admin",
+			"--filter",
+			"multichat",
 			"--filter",
 			"@VISP/obs-remote",
 			"--parallel",

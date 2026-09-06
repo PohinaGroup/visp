@@ -2,6 +2,7 @@ import { db } from "@VISP/db";
 import { relay } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
+import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
 
 type DbExecutor = Pick<typeof db, "execute">;
 type RelayCandidate = {
@@ -11,6 +12,31 @@ type RelayCandidate = {
 	maxForwarders: number;
 	pingUrl: string;
 };
+
+// Used for both assignment and offline moves. BRB, stopping, reservations,
+// portrait and custom outputs all keep a Direct session on its relay.
+export function activeDirectRelays(userId: string) {
+	return sql`select distinct p.relay_id from path p
+		left join path_state s on s.path_id = p.id
+		where p.user_id = ${userId} and p.revoked_at is null and (
+			s.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL}
+			or s.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL}
+			or s.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL}
+			or s.direct_twitch_reserved_until > now()
+			or s.direct_kick_reserved_until > now()
+			or s.direct_youtube_reserved_until > now()
+			or s.brb_since is not null or s.direct_handover_until > now()
+			or exists (select 1 from direct_destination d where d.path_id = p.id
+				and (d.state in ${DIRECT_OCCUPIED_STATES_SQL} or d.reserved_until > now()))
+			or exists (select 1 from custom_direct_output d where d.path_id = p.id
+				and (d.state in ${DIRECT_OCCUPIED_STATES_SQL} or d.reserved_until > now()))
+		)`;
+}
+
+export async function lockRelayAssignments(executor: DbExecutor) {
+	// ponytail: serialize rare device allocations; use per-relay locks if this becomes busy.
+	await executor.execute(sql`select pg_advisory_xact_lock(71843, 1)`);
+}
 
 export async function ensureDefaultRelay() {
 	await db
@@ -40,8 +66,11 @@ export async function chooseRelay(
 	userId: string,
 	preferredRelayId?: number,
 	executor: DbExecutor = db,
+	replacingPathId?: number,
 ) {
+	await lockRelayAssignments(executor);
 	const result = await executor.execute(sql<RelayCandidate>`
+		with active_direct as (${activeDirectRelays(userId)})
 		select
 			r.id,
 			r.host,
@@ -52,8 +81,11 @@ export async function chooseRelay(
 		left join path assigned
 			on assigned.relay_id = r.id
 			and assigned.revoked_at is null
+			and assigned.id <> ${replacingPathId ?? -1}
 		where r.enabled = true
 			and r.drained_at is null
+			and (not exists (select 1 from active_direct)
+				or r.id in (select relay_id from active_direct))
 		group by r.id
 		having count(assigned.id) < r.capacity_paths
 		order by

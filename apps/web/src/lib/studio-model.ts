@@ -90,11 +90,142 @@ export function studioPreviewUrls(
 	};
 }
 
-export function showStudioPassthroughWarning(
-	live: boolean,
-	passthrough: boolean,
-) {
-	return live && passthrough;
+/** How long a fresh ingest may go without a healthy worker before it is a fallback. */
+export const STUDIO_STARTUP_GRACE_MS = 20_000;
+
+export type StudioStreamStatus =
+	| "unknown"
+	| "idle"
+	| "camera-connected"
+	| "studio-starting"
+	| "overlays-active"
+	| "camera-only"
+	| "preview-failed";
+
+export type StudioStreamInput = {
+	/** False whenever any status query is erroring or has never loaded. */
+	statusKnown: boolean;
+	mode: "cloud_studio" | "obs";
+	/** A path is publishing into VISP right now. */
+	cameraLive: boolean;
+	/** When that ingest connected, used only to tell "starting" from "fallback". */
+	cameraLiveSince?: string | null;
+	/** A compositor worker reported a fresh healthy heartbeat. */
+	compositorHealthy: boolean;
+	/** Platform outputs confirmed live by the destination state, not by the worker. */
+	outputsLive: number;
+	/** The browser's own WHEP pane failed. Says nothing about the broadcast. */
+	previewFailed: boolean;
+	now?: number;
+};
+
+/**
+ * The one place that decides what the Studio page claims about the stream.
+ *
+ * Two rules it exists to enforce:
+ * a worker heartbeat is evidence about overlays, never about viewers — only
+ * `outputsLive` may back a "still broadcasting" claim; and a failed browser
+ * preview is a fact about this tab, so it never downgrades the stream state.
+ */
+export function studioStreamStatus(input: StudioStreamInput): {
+	status: StudioStreamStatus;
+	/** Safe to tell the user their camera is still reaching viewers. */
+	broadcastConfirmed: boolean;
+} {
+	const broadcastConfirmed = input.statusKnown && input.outputsLive > 0;
+	if (!input.statusKnown) return { status: "unknown", broadcastConfirmed };
+	if (!input.cameraLive)
+		return {
+			status: input.previewFailed ? "preview-failed" : "idle",
+			broadcastConfirmed,
+		};
+	if (input.mode !== "cloud_studio")
+		return {
+			status: input.previewFailed ? "preview-failed" : "camera-connected",
+			broadcastConfirmed,
+		};
+	if (input.compositorHealthy)
+		return {
+			status: input.previewFailed ? "preview-failed" : "overlays-active",
+			broadcastConfirmed,
+		};
+	const connectedAt = input.cameraLiveSince
+		? Date.parse(input.cameraLiveSince)
+		: Number.NaN;
+	const starting =
+		Number.isFinite(connectedAt) &&
+		(input.now ?? Date.now()) - connectedAt < STUDIO_STARTUP_GRACE_MS;
+	return {
+		status: starting ? "studio-starting" : "camera-only",
+		broadcastConfirmed,
+	};
+}
+
+/**
+ * Copy per state. Both strings are English source keys; `t()` supplies Finnish.
+ * `camera-only` never claims viewers are receiving video — the caller appends
+ * the broadcast line only when `broadcastConfirmed` is true.
+ */
+export function studioStreamCopy(status: StudioStreamStatus): {
+	title: string;
+	description: string;
+	tone: "info" | "warning" | "error" | "success";
+} {
+	switch (status) {
+		case "unknown":
+			return {
+				title: "Stream status unavailable",
+				description:
+					"VISP cannot read your stream status right now. Retrying automatically.",
+				tone: "warning",
+			};
+		case "idle":
+			return {
+				title: "Nothing is streaming right now",
+				description:
+					"Start publishing from the VISP app or OBS to see live status here.",
+				tone: "info",
+			};
+		case "camera-connected":
+			return {
+				title: "Camera connected",
+				description:
+					"VISP is receiving your camera. Cloud Studio is off, so overlays are not applied.",
+				tone: "info",
+			};
+		case "studio-starting":
+			return {
+				title: "Cloud Studio is starting",
+				description:
+					"VISP is bringing up the compositor for this camera. Overlays appear in a few seconds.",
+				tone: "info",
+			};
+		case "overlays-active":
+			return {
+				title: "Overlays are being applied",
+				description:
+					"Cloud Studio is compositing your saved program onto the camera.",
+				tone: "success",
+			};
+		case "camera-only":
+			return {
+				title: "Cloud Studio is temporarily unavailable",
+				description:
+					"Overlays aren't being applied. VISP will retry automatically.",
+				tone: "warning",
+			};
+		case "preview-failed":
+			return {
+				title: "Preview unavailable",
+				description:
+					"This browser could not connect to the preview. Stream status is shown separately below.",
+				tone: "warning",
+			};
+		default: {
+			const exhaustive: never = status;
+			return exhaustive;
+		}
+	}
 }
 
 export function newStudioScene(
@@ -110,8 +241,10 @@ export function addStudioScene(
 ) {
 	if (graph.scenes.length >= 3) throw new Error("Scene limit reached (3)");
 	const scene = { ...newStudioScene(id), order: graph.scenes.length };
+	// Adding a scene is an edit, not a cut: whatever is on air stays on air until
+	// the user puts the new scene on air on purpose.
 	return {
-		activeSceneId: scene.id,
+		activeSceneId: graph.activeSceneId ?? scene.id,
 		scenes: [...graph.scenes, scene],
 	};
 }
@@ -379,6 +512,17 @@ export function studioPreviewPanes(
  * Turns a raw model or server error into the next thing the user can do about
  * it. Unknown messages fall through unchanged.
  */
+/**
+ * Seconds a rate-limited request must wait, taken from the server's own limiter
+ * rather than guessed, so the UI can name the real number.
+ */
+export function rateLimitRetrySeconds(error: unknown) {
+	const data = (error as { data?: { retryAfterMs?: unknown } } | null)?.data;
+	return typeof data?.retryAfterMs === "number"
+		? Math.max(1, Math.ceil(data.retryAfterMs / 1_000))
+		: null;
+}
+
 export function studioErrorHint(message: string) {
 	switch (message) {
 		case "Studio layer pixel budget exceeded":

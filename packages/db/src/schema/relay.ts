@@ -92,6 +92,7 @@ export const appUser = pgTable(
 			.primaryKey()
 			.references(() => user.id, { onDelete: "cascade" }),
 		handle: text("handle").notNull().unique(),
+		firstLiveAt: timestamp("first_live_at", { withTimezone: true }),
 		publishSecretHash: text("publish_secret_hash"),
 		readSecretHash: text("read_secret_hash"),
 		readSecretEncrypted: text("read_secret_encrypted"),
@@ -301,6 +302,14 @@ export const relayPath = pgTable(
 		publishLastConnectedAt: timestamp("publish_last_connected_at", {
 			withTimezone: true,
 		}),
+		// Cloud Studio compositor heartbeat. Per path, not per account: one path's
+		// worker crashing must not switch another path's program to passthrough,
+		// and each path's program URL only ever belongs to that path.
+		compositorHealthy: boolean("compositor_healthy").default(false).notNull(),
+		compositorProgramUrl: text("compositor_program_url"),
+		compositorCheckedAt: timestamp("compositor_checked_at", {
+			withTimezone: true,
+		}),
 		directTwitch: boolean("direct_twitch").default(false).notNull(),
 		directKick: boolean("direct_kick").default(false).notNull(),
 		directYoutube: boolean("direct_youtube").default(false).notNull(),
@@ -492,6 +501,7 @@ export const relayStreamSession = pgTable(
 		startedAt: timestamp("started_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
+		firstLiveAt: timestamp("first_live_at", { withTimezone: true }),
 		endedAt: timestamp("ended_at", { withTimezone: true }),
 		sourceType: text("source_type"),
 	},

@@ -195,17 +195,21 @@ export function useStreamAccount({
 		}
 	}, [userId]);
 
-	const { awaitingAutoProvision, provisionDestination, provisioning } =
-		usePublishProvisioning({
-			installationId,
-			refreshPublishDevices,
-			sessionPending,
-			setMessage,
-			setStreamUrl,
-			streamOwner,
-			streamUrl,
-			userId,
-		});
+	const {
+		awaitingAutoProvision,
+		provisionDestination,
+		provisioning,
+		optimizeRelay,
+	} = usePublishProvisioning({
+		installationId,
+		refreshPublishDevices,
+		sessionPending,
+		setMessage,
+		setStreamUrl,
+		streamOwner,
+		streamUrl,
+		userId,
+	});
 
 	const applyDirectSelection = useCallback(
 		async (
@@ -592,6 +596,7 @@ export function useStreamAccount({
 		linkedAccounts,
 		linkProvider,
 		provisionDestination,
+		optimizeRelay,
 		provisioning,
 		publishDevices,
 		refreshChatConnections,

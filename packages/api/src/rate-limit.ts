@@ -1,11 +1,28 @@
 const MAX_KEYS = 10_000;
 
+/**
+ * Thrown through `TRPCError.cause` so the error formatter can put the real
+ * remaining wait on the wire. Without it the UI can only guess ("a minute").
+ */
+export class RateLimitedError extends Error {
+	constructor(readonly retryAfterMs: number) {
+		super("Rate limited");
+		this.name = "RateLimitedError";
+	}
+}
+
 export function fixedWindow(limit: number, windowMs: number) {
 	const requests = new Map<string, { count: number; resetAt: number }>();
 
 	return {
 		reset() {
 			requests.clear();
+		},
+		/** Milliseconds until `key` gets its budget back; 0 when it has budget now. */
+		retryAfterMs(key: string, now = Date.now()) {
+			const current = requests.get(key);
+			if (!current || current.resetAt <= now || current.count < limit) return 0;
+			return current.resetAt - now;
 		},
 		take(key: string, now = Date.now()) {
 			const current = requests.get(key);

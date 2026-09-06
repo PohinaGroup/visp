@@ -77,6 +77,26 @@ async function kickRequest(path: string, init?: RequestInit) {
 	});
 }
 
+/** Resolves the public channel nickname entered in the multichat app. */
+export async function resolveKickChannelLogin(login: string) {
+	const response = await kickRequest(
+		`/channels?slug=${encodeURIComponent(login)}`,
+	);
+	if (!response.ok)
+		throw new Error(`Kick channel lookup failed (${response.status})`);
+	const payload = (await response.json()) as {
+		data?: Array<{
+			broadcaster_user_id?: string | number;
+			id?: string | number;
+			user_id?: string | number;
+		}>;
+	};
+	const channel = payload.data?.[0];
+	const id = channel?.broadcaster_user_id ?? channel?.user_id ?? channel?.id;
+	if (id === undefined) throw new Error("Kick channel was not found");
+	return { id: String(id) };
+}
+
 export async function createKickSubscription(
 	broadcasterId: string,
 	events: readonly KickEvent[] = KICK_EVENTS,
@@ -333,7 +353,15 @@ export async function handleVerifiedKickPayload(
 			),
 		)
 		.limit(1);
-	if (!connection) return "disabled" as const;
+	const multiChatAccepted =
+		type === "chat.message.sent"
+			? await import("../multichat/kick").then(
+					({ handleMultiChatKickPayload }) =>
+						handleMultiChatKickPayload(payload),
+				)
+			: false;
+	if (!connection && !multiChatAccepted) return "disabled" as const;
+	if (!connection) return "accepted" as const;
 	if (type === "chat.message.sent") {
 		const message = normalizeKickMessage(payload);
 		if (!message) return "payload" as const;

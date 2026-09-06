@@ -10,12 +10,19 @@ export type WebPublishTarget = {
 
 export function webPublishTarget(
 	streamUrl: string,
-	relayWebRtcUrl: string,
+	relayWebRtcUrl?: string,
 ): WebPublishTarget {
 	const { password, path, user } = parsePublishCredentials(streamUrl);
 	let relay: URL;
 	try {
-		relay = new URL(relayWebRtcUrl);
+		const assignedHost = new URL(streamUrl).hostname;
+		const configured = relayWebRtcUrl ? new URL(relayWebRtcUrl) : null;
+		// Keep same-host overrides for staging ports; never send a regional
+		// device's media to the build-time default relay.
+		relay =
+			configured?.hostname === assignedHost
+				? configured
+				: new URL(`https://${assignedHost}`);
 	} catch {
 		throw new Error("Browser streaming is not configured.");
 	}

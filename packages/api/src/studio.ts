@@ -12,6 +12,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { inflateSync } from "node:zlib";
 import { and, asc, eq, inArray, isNotNull, isNull, sql } from "drizzle-orm";
 import { z } from "zod";
+import { tryAdvisoryLock } from "./advisory-lock";
 import { alertText, type ChatAlert, type ChatAlertKind } from "./chat/contract";
 import { snapshotReads, snapshotUploads } from "./snapshots";
 
@@ -459,7 +460,27 @@ export async function getStudioGraph(userId: string): Promise<StudioGraph> {
 	};
 }
 
-export async function saveStudioGraph(userId: string, input: StudioGraph) {
+/** Someone else already saved on top of the revision this edit was based on. */
+export class StudioConflictError extends Error {
+	constructor(readonly currentVersion: number) {
+		super("Studio changed elsewhere");
+		this.name = "StudioConflictError";
+	}
+}
+
+/** A save for this account is already running. */
+export class StudioSaveInFlightError extends Error {
+	constructor() {
+		super("Studio save already in progress");
+		this.name = "StudioSaveInFlightError";
+	}
+}
+
+export async function saveStudioGraph(
+	userId: string,
+	input: StudioGraph,
+	expectedVersion?: number,
+) {
 	const graph = studioGraphSchema.parse(input);
 	const assetIds = graph.scenes.flatMap((scene) =>
 		scene.layers.flatMap((layer) =>
@@ -480,7 +501,32 @@ export async function saveStudioGraph(userId: string, input: StudioGraph) {
 		if (owned.length !== new Set(assetIds).size)
 			throw new Error("PNG asset not found");
 	}
+	// One save at a time per account: a double-submit or a second tab is
+	// rejected with a named error instead of silently clobbering the first save.
+	const lock = await tryAdvisoryLock(`studio-save:${userId}`);
+	if (!lock) throw new StudioSaveInFlightError();
+	try {
+		await saveStudioGraphLocked(userId, graph, expectedVersion);
+	} finally {
+		await lock.release();
+	}
+	return getStudioGraph(userId);
+}
+
+async function saveStudioGraphLocked(
+	userId: string,
+	graph: StudioGraph,
+	expectedVersion: number | undefined,
+) {
 	await db.transaction(async (tx) => {
+		const [current] = await tx
+			.select({ version: studio.version })
+			.from(studio)
+			.where(eq(studio.userId, userId))
+			.limit(1);
+		const currentVersion = current?.version ?? 0;
+		if (expectedVersion !== undefined && expectedVersion !== currentVersion)
+			throw new StudioConflictError(currentVersion);
 		const previouslyDisabled = new Set(
 			(
 				await tx
@@ -538,7 +584,6 @@ export async function saveStudioGraph(userId: string, input: StudioGraph) {
 		);
 		if (layers.length) await tx.insert(studioLayer).values(layers);
 	});
-	return getStudioGraph(userId);
 }
 
 export async function getStudioSettings(userId: string) {
@@ -551,21 +596,30 @@ export async function getStudioSettings(userId: string) {
 		.where(eq(appUser.id, userId))
 		.limit(1);
 	const [state] = await db
-		.select({
-			healthy: studio.compositorHealthy,
-			checkedAt: studio.compositorCheckedAt,
-			version: studio.version,
-		})
+		.select({ version: studio.version })
 		.from(studio)
 		.where(eq(studio.userId, userId))
 		.limit(1);
+	// Health is per path now, so the account is "composited" when at least one
+	// live path reports a fresh healthy worker.
+	const heartbeats = await db
+		.select({
+			healthy: relayPath.compositorHealthy,
+			checkedAt: relayPath.compositorCheckedAt,
+		})
+		.from(relayPath)
+		.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
 	const mode = (owner?.mode ?? "obs") as DirectProductionMode;
-	const healthy = compositorIsHealthy(
-		state?.healthy ?? false,
-		state?.checkedAt,
+	const healthy = heartbeats.some((beat) =>
+		compositorIsHealthy(beat.healthy, beat.checkedAt),
 	);
+	const checkedAt = heartbeats
+		.map((beat) => beat.checkedAt)
+		.filter((value): value is Date => value instanceof Date)
+		.sort((a, b) => b.getTime() - a.getTime())[0];
 	return {
 		available: env.CLOUD_STUDIO_ENABLED,
+		version: state?.version ?? 0,
 		configured: studioIsConfigured({
 			version: state?.version ?? 0,
 			compositorHealthy: healthy,
@@ -574,7 +628,7 @@ export async function getStudioSettings(userId: string) {
 		effectiveMode: env.CLOUD_STUDIO_ENABLED ? mode : ("obs" as const),
 		emptyWarningDismissed: owner?.emptyWarningDismissed ?? false,
 		compositorHealthy: healthy,
-		compositorCheckedAt: state?.checkedAt?.toISOString() ?? null,
+		compositorCheckedAt: checkedAt?.toISOString() ?? null,
 		passthrough:
 			mode === "cloud_studio" && (!env.CLOUD_STUDIO_ENABLED || !healthy),
 	};
@@ -713,9 +767,9 @@ export async function compositorDesiredState(path: string) {
 		.select({
 			userId: relayPath.userId,
 			mode: appUser.directProductionMode,
-			healthy: studio.compositorHealthy,
-			checkedAt: studio.compositorCheckedAt,
-			programUrl: studio.programUrl,
+			healthy: relayPath.compositorHealthy,
+			checkedAt: relayPath.compositorCheckedAt,
+			programUrl: relayPath.compositorProgramUrl,
 			version: studio.version,
 			lastAlert: studio.lastAlert,
 			lastAlertEvent: studio.lastAlertEvent,
@@ -785,29 +839,16 @@ export async function reportCompositorHealth(
 			throw new Error("Program URL must be a local Studio RTSP path");
 		}
 	}
-	const [owner] = await db
-		.select({ userId: relayPath.userId })
-		.from(relayPath)
-		.where(eq(relayPath.slug, path))
-		.limit(1);
-	if (!owner) return false;
-	await db
-		.insert(studio)
-		.values({
-			userId: owner.userId,
+	const updated = await db
+		.update(relayPath)
+		.set({
 			compositorHealthy: healthy,
-			programUrl: healthy ? programUrl : null,
+			compositorProgramUrl: healthy ? (programUrl ?? null) : null,
 			compositorCheckedAt: new Date(),
 		})
-		.onConflictDoUpdate({
-			target: studio.userId,
-			set: {
-				compositorHealthy: healthy,
-				programUrl: healthy ? programUrl : null,
-				compositorCheckedAt: new Date(),
-			},
-		});
-	return true;
+		.where(eq(relayPath.slug, path))
+		.returning({ userId: relayPath.userId });
+	return updated.length > 0;
 }
 
 export async function reportBrowserFailure(path: string, layerId: string) {

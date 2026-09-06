@@ -7,9 +7,12 @@ import {
 	formatLiveLinkHud,
 	formatMbps,
 	isLinkCongested,
+	LINK_STATS_MIN_INTERVAL_MS,
 	linkHealth,
 	linkStatsFromPath,
+	nextTelemetryBackoffMs,
 	nextVideoBitrateKbps,
+	TELEMETRY_MAX_BACKOFF_MS,
 	videoBitrateFloorKbps,
 } from "./link-stats";
 
@@ -176,5 +179,19 @@ describe("nextVideoBitrateKbps", () => {
 				rttMs: 40,
 			}),
 		).toBe(2175);
+	});
+});
+
+describe("nextTelemetryBackoffMs", () => {
+	test("doubles from the report interval and caps at a minute", () => {
+		let backoff = nextTelemetryBackoffMs(0);
+		expect(backoff).toBe(LINK_STATS_MIN_INTERVAL_MS);
+		const seen = [backoff];
+		for (let step = 0; step < 10; step += 1) {
+			backoff = nextTelemetryBackoffMs(backoff);
+			seen.push(backoff);
+		}
+		expect(seen[1]).toBe(LINK_STATS_MIN_INTERVAL_MS * 2);
+		expect(Math.max(...seen)).toBe(TELEMETRY_MAX_BACKOFF_MS);
 	});
 });

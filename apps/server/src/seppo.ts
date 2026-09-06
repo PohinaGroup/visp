@@ -155,6 +155,10 @@ const contextConfig = {
 } as const;
 
 const landingRequests = fixedWindow(LANDING_LIMIT, LANDING_WINDOW_MS);
+// ponytail: per-process windows; use shared storage if the API scales to multiple workers.
+const accountRequests = fixedWindow(LANDING_LIMIT, LANDING_WINDOW_MS);
+export const takeAccountRequest = (userId: string, now = Date.now()) =>
+	accountRequests.take(userId, now);
 
 export function landingSuggestionResponse(messages: UIMessage[]) {
 	const last = messages.at(-1);
@@ -183,6 +187,7 @@ function fixedTextResponse(text: string) {
 
 export function resetSeppoRateLimit() {
 	landingRequests.reset();
+	accountRequests.reset();
 }
 
 export function takeLandingRequest(ip: string, now = Date.now()) {
@@ -272,9 +277,11 @@ export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 			return status(400, { error: "Invalid context" });
 		const context = parsedContext.data;
 
+		let userId: string | undefined;
 		if (context !== "landing") {
 			const session = await auth.api.getSession({ headers: request.headers });
 			if (!session) return status(401, { error: "Authentication required" });
+			userId = session.user.id;
 		}
 
 		const messages = await validateSeppoMessages(
@@ -288,8 +295,9 @@ export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 		if (fixedResponse) return fixedTextResponse(fixedResponse);
 
 		if (
-			context === "landing" &&
-			!takeLandingRequest(request.headers.get("x-real-ip") ?? "direct")
+			!(userId
+				? takeAccountRequest(userId)
+				: takeLandingRequest(request.headers.get("x-real-ip") ?? "direct"))
 		) {
 			return status(429, { error: "Too many requests" });
 		}

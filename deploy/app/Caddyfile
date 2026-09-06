@@ -22,12 +22,29 @@
 		handle /api/chat/* {
 			reverse_proxy 127.0.0.1:3000
 		}
+		handle /api/multichat/* {
+			reverse_proxy 127.0.0.1:3000
+		}
+		@multichat_root path /chat
+		handle @multichat_root {
+			root * /opt/visp/apps/multichat/dist
+			rewrite * /index.html
+			file_server
+		}
+		handle_path /chat/* {
+			root * /opt/visp/apps/multichat/dist
+			try_files {path} /index.html
+			file_server
+		}
 		handle /api/seppo {
 			reverse_proxy 127.0.0.1:3000 {
 				header_up X-Real-IP {remote_host}
 			}
 		}
 		handle /api/obs/* {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /api/subtitles/token {
 			reverse_proxy 127.0.0.1:3000
 		}
 		handle /api/tts {

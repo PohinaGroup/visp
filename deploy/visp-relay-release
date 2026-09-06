@@ -36,11 +36,13 @@ fi
 mediamtx=false
 srtla=false
 bond=false
+caddy=false
 for component in "$@"; do
 	case $component in
 		mediamtx) mediamtx=true ;;
 		srtla-rec) srtla=true ;;
 		visp-bond) bond=true ;;
+		caddy) caddy=true ;;
 		*) fail "invalid component: $component" ;;
 	esac
 done
@@ -55,6 +57,24 @@ done
 work=$(mktemp -d /var/tmp/visp-relay-release.XXXXXX)
 readonly work
 trap 'rm -rf "$work"' EXIT
+
+if $caddy; then
+	[[ $environment == production ]] || fail "caddy component is production-only; staging uses the app Caddyfile"
+	[[ -f /etc/visp/caddy.env ]] || fail "missing prerequisite: /etc/visp/caddy.env"
+	command -v caddy >/dev/null || fail "missing prerequisite: caddy"
+	install -d /etc/caddy/staging
+	touch /etc/caddy/staging/.empty.caddy
+	(
+		set -a
+		source /etc/visp/caddy.env
+		set +a
+		caddy validate --config "$repo/deploy/relay/Caddyfile" --adapter caddyfile
+	)
+	install -m 0644 "$repo/deploy/relay/Caddyfile" /etc/caddy/Caddyfile
+	install -D -m 0644 "$repo/deploy/systemd/caddy-relay.conf" /etc/systemd/system/caddy.service.d/visp.conf
+	systemctl daemon-reload
+	systemctl reload caddy
+fi
 
 if $mediamtx; then
 	# shellcheck disable=SC1091

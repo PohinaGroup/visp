@@ -29,16 +29,22 @@ export function buildWhepRequest(url: string, sdp?: string) {
  * A live WHEP pane. It never renders a bare black rectangle: whenever there is
  * no picture it says which state it is in and what the viewer can do next.
  */
+/** Bounds on a WHEP connect, so a pane can never sit on "Connecting…" forever. */
+const ICE_GATHERING_TIMEOUT_MS = 3_000;
+const CONNECT_TIMEOUT_MS = 15_000;
+
 export function WhepPreview({
 	emptyHint,
 	emptyTitle,
 	label,
+	onStateChange,
 	poster,
 	url,
 }: {
 	emptyHint?: string;
 	emptyTitle: string;
 	label: string;
+	onStateChange?: (state: "idle" | "loading" | "playing" | "error") => void;
 	poster?: string;
 	url?: string;
 }) {
@@ -55,47 +61,82 @@ export function WhepPreview({
 			return;
 		}
 		const peer = new RTCPeerConnection();
+		const abort = new AbortController();
 		let cancelled = false;
+		let playing = false;
 		setState("loading");
+		const fail = () => {
+			if (!cancelled) setState("error");
+		};
+		// Nothing below is allowed to hang: the whole connect is on one clock, and
+		// firing it aborts the in-flight request and tears the peer down.
+		const connectTimer = setTimeout(() => {
+			if (playing) return;
+			abort.abort();
+			peer.close();
+			fail();
+		}, CONNECT_TIMEOUT_MS);
 		peer.addTransceiver("video", { direction: "recvonly" });
 		peer.addTransceiver("audio", { direction: "recvonly" });
 		peer.ontrack = ({ streams }) => {
 			if (video.current && streams[0]) video.current.srcObject = streams[0];
+			playing = true;
+			clearTimeout(connectTimer);
 			if (!cancelled) setState("playing");
 		};
 		peer.onconnectionstatechange = () => {
 			if (
 				!cancelled &&
-				["failed", "disconnected"].includes(peer.connectionState)
+				["failed", "disconnected", "closed"].includes(peer.connectionState)
 			)
-				setState("error");
+				fail();
 		};
 		void (async () => {
 			try {
 				await peer.setLocalDescription(await peer.createOffer());
 				await new Promise<void>((resolve) => {
 					if (peer.iceGatheringState === "complete") return resolve();
-					peer.addEventListener("icegatheringstatechange", () => {
-						if (peer.iceGatheringState === "complete") resolve();
-					});
+					// Half-gathered candidates still connect far more often than a pane
+					// that waits forever, so this resolves rather than rejects.
+					const done = () => {
+						clearTimeout(iceTimer);
+						peer.removeEventListener("icegatheringstatechange", onChange);
+						resolve();
+					};
+					const iceTimer = setTimeout(done, ICE_GATHERING_TIMEOUT_MS);
+					const onChange = () => {
+						if (peer.iceGatheringState === "complete") done();
+					};
+					peer.addEventListener("icegatheringstatechange", onChange);
 				});
+				if (cancelled) return;
 				const request = buildWhepRequest(url, peer.localDescription?.sdp);
-				const response = await fetch(request.url, request.init);
-				if (!response.ok) throw new Error("preview unavailable");
-				await peer.setRemoteDescription({
-					type: "answer",
-					sdp: await response.text(),
+				const response = await fetch(request.url, {
+					...request.init,
+					signal: abort.signal,
 				});
+				if (!response.ok) throw new Error("preview unavailable");
+				const sdp = await response.text();
+				if (cancelled) return;
+				await peer.setRemoteDescription({ type: "answer", sdp });
 			} catch {
-				if (!cancelled) setState("error");
+				fail();
 			}
 		})();
 		return () => {
 			cancelled = true;
+			clearTimeout(connectTimer);
+			abort.abort();
+			peer.ontrack = null;
+			peer.onconnectionstatechange = null;
 			peer.close();
 			if (video.current) video.current.srcObject = null;
 		};
 	}, [url, attempt]);
+
+	useEffect(() => {
+		onStateChange?.(state);
+	}, [onStateChange, state]);
 
 	const overlay =
 		!url || state === "idle"
@@ -108,9 +149,11 @@ export function WhepPreview({
 					}
 				: state === "error"
 					? {
-							title: t("Preview could not connect"),
+							title: t("Preview unavailable"),
+							// Deliberately says nothing about the broadcast: this pane only
+							// knows that this browser could not connect.
 							hint: t(
-								"The stream is still going out. Only this browser preview failed — check your network, then retry.",
+								"This browser could not connect to the preview. Check the stream status above, then retry.",
 							),
 							canRetry: true,
 						}

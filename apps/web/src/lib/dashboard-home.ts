@@ -2,6 +2,8 @@ export type DashboardHomeInput = {
 	mode: "unconfigured" | "direct" | "obs";
 	desiredDestinations: number;
 	liveOutputs: number;
+	startingOutputs?: number;
+	failedOutputs?: number;
 	holding: boolean;
 	paths: Array<{ publishing: boolean | null; stale: boolean }>;
 	obs: {
@@ -12,8 +14,16 @@ export type DashboardHomeInput = {
 };
 
 export type DashboardHomeState = {
-	status: "almost-ready" | "ready" | "live";
+	status:
+		| "almost-ready"
+		| "ready"
+		| "live"
+		| "brb"
+		| "source-connected"
+		| "starting"
+		| "failed";
 	primaryAction:
+		| "inspect-output"
 		| "connect-platform"
 		| "get-app"
 		| "open-app"
@@ -31,10 +41,31 @@ export function dashboardHomeState(
 	switch (input.mode) {
 		case "unconfigured":
 		case "direct":
-			if (input.holding || input.liveOutputs > 0 || livePath) {
+			if (
+				input.holding ||
+				input.liveOutputs > 0 ||
+				livePath ||
+				input.startingOutputs ||
+				input.failedOutputs
+			) {
 				return {
-					status: "live",
-					primaryAction: "end-stream",
+					status:
+						input.liveOutputs > 0
+							? "live"
+							: input.holding
+								? "brb"
+								: input.failedOutputs
+									? "failed"
+									: input.startingOutputs
+										? "starting"
+										: "source-connected",
+					primaryAction:
+						!livePath &&
+						!input.holding &&
+						input.liveOutputs === 0 &&
+						!input.startingOutputs
+							? "inspect-output"
+							: "end-stream",
 					nextStep: null,
 				};
 			}

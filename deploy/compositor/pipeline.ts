@@ -43,6 +43,8 @@ export class CompositorPipeline {
 		relayArgs: string[];
 		transitionArgs?: string[];
 		transitionMs?: number;
+		/** Resolves true once the new renderer is actually producing frames. */
+		rendererReady?: () => Promise<boolean>;
 	}) {
 		const previousRenderer = this.renderer;
 		const nextRenderer = Bun.spawn(input.rendererArgs, {
@@ -53,6 +55,14 @@ export class CompositorPipeline {
 		if (nextRenderer.exitCode !== null) {
 			await nextRenderer.exited;
 			throw new Error("Studio renderer exited during startup");
+		}
+		// The program feed is single-writer, so the old relay has to die before
+		// the new one starts. Waiting for real frames first keeps that gap to a
+		// process swap instead of the encoder's whole startup — which is what a
+		// save used to cost the program.
+		if (input.rendererReady && !(await input.rendererReady())) {
+			await stopProcess(nextRenderer);
+			throw new Error("Studio renderer produced no frames");
 		}
 
 		if (input.transitionArgs && previousRenderer) {

@@ -1,11 +1,14 @@
+import { fastestRelay } from "@VISP/api/relay-probe";
 import * as Device from "expo-device";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useState } from "react";
 import { apiClient } from "./backend";
 import {
+	claimNativeDevice,
 	describeProvisionError,
 	syncNativePublishUrl,
 } from "./native-publish-url";
+import { confirmDestructive } from "./platform";
 import { deleteStreamUrl, saveStreamUrl, selectPublishUrl } from "./stream-url";
 
 export type ProvisionPhase = "idle" | "pending" | "done";
@@ -31,6 +34,58 @@ export function usePublishProvisioning({
 }) {
 	const [provisionPhase, setProvisionPhase] = useState<ProvisionPhase>("idle");
 	const [provisioning, setProvisioning] = useState(false);
+	const optimizeRelay = async () => {
+		if (!userId || !installationId || provisioning) return;
+		setProvisioning(true);
+		try {
+			const devices = await apiClient.paths.list.query();
+			const device = devices.find(
+				(path) => path.nativeInstallationId === installationId,
+			);
+			if (!device) throw new Error("Refresh this device's destination first.");
+			const fastest = await fastestRelay(await apiClient.relays.list.query());
+			if (!fastest)
+				throw new Error(
+					"No relay responded. Check your connection and try again.",
+				);
+			if (fastest.id === device.relay.id) {
+				await provisionDestination(true);
+				setMessage(`Already on the fastest relay: ${device.relay.region}.`);
+				return;
+			}
+			confirmDestructive(
+				"Change relay region?",
+				"Stop all sources, OBS readers and Direct/BRB outputs first. Your sending and receiving URLs will change. Update OBS afterward. Devices used for Direct handover must use the same relay.",
+				"Change region",
+				async () => {
+					setProvisioning(true);
+					try {
+						const moved = await apiClient.paths.moveRelay.mutate({
+							pathId: device.id,
+							relayId: fastest.id,
+						});
+						if (!moved)
+							throw new Error("Could not load the updated destination.");
+						const url = selectPublishUrl([moved.urls]);
+						await saveStreamUrl(url, userId);
+						setStreamUrl(url);
+						await refreshPublishDevices();
+						setMessage(
+							`Relay changed to ${moved.path.relay.region}. Update your OBS receiving URL.`,
+						);
+					} catch (error) {
+						setMessage(describeProvisionError(error));
+					} finally {
+						setProvisioning(false);
+					}
+				},
+			);
+		} catch (error) {
+			setMessage(describeProvisionError(error));
+		} finally {
+			setProvisioning(false);
+		}
+	};
 
 	useEffect(() => {
 		if (!sessionPending && streamOwner) setProvisionPhase("idle");
@@ -64,7 +119,7 @@ export function usePublishProvisioning({
 					});
 				} else {
 					const claimDevice = (legacyUrl?: string) =>
-						apiClient.paths.claimNative.mutate({
+						claimNativeDevice(apiClient, {
 							installationId,
 							label,
 							...(legacyUrl ? { legacyUrl } : {}),
@@ -110,6 +165,7 @@ export function usePublishProvisioning({
 	}, [awaitingAutoProvision, provisionDestination]);
 
 	return {
+		optimizeRelay,
 		awaitingAutoProvision,
 		provisionDestination,
 		provisionPhase,

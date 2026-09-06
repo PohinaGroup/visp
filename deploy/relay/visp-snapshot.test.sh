@@ -268,8 +268,8 @@ forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"
 test "$forwards" -eq 3 || fail "expected 3 forwarders, started $forwards"
 test "$(grep -- '-f flv' "$FAKE_FFMPEG_LOG" | grep -c '@127.0.0.1:8554/path-1')" -eq 3 ||
 	fail "startup did not use raw ingest before compositor health"
-grep -- '-frames:v' "$FAKE_FFMPEG_LOG" | grep -q 'rtsp://studio%3Apath-1:' ||
-	fail "snapshot reader did not URL-encode its scoped Studio identity"
+grep -- '-frames:v' "$FAKE_FFMPEG_LOG" | grep -q 'rtsp://studio-path-1:' ||
+	fail "snapshot reader did not use its Basic-auth-safe scoped Studio identity"
 
 printf 'program path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
 wait_for_count '@127.0.0.1:8554/studio/path-1' 3 ||

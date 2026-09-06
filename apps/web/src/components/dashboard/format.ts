@@ -39,6 +39,13 @@ export function obsStatusMessage(
 	if (!status?.configured) {
 		return "OBS is not paired yet. Open plugin pairing below to connect it.";
 	}
+	// A disconnected plugin never acknowledges, so "not acknowledged yet" would
+	// sit there forever and read like OBS is thinking about it.
+	if (!status.connected) {
+		return status.pending
+			? "OBS is offline, so your last command has not been delivered. It is applied when OBS reconnects."
+			: "OBS is paired but not connected. Start OBS with the VISP plugin.";
+	}
 	if (status.pending) {
 		return "OBS has not acknowledged the latest command yet.";
 	}

@@ -48,3 +48,26 @@ describe("dashboard home readiness", () => {
 		).toBe("stop-obs");
 	});
 });
+
+test("camera connection is not a live platform output", () => {
+	const connected = input({ paths: [{ publishing: true, stale: false }] });
+	expect(dashboardHomeState(connected).status).toBe("source-connected");
+	expect(dashboardHomeState({ ...connected, startingOutputs: 1 }).status).toBe(
+		"starting",
+	);
+	expect(dashboardHomeState({ ...connected, failedOutputs: 1 }).status).toBe(
+		"failed",
+	);
+	expect(dashboardHomeState({ ...connected, holding: true }).status).toBe(
+		"brb",
+	);
+	expect(dashboardHomeState({ ...connected, liveOutputs: 1 }).status).toBe(
+		"live",
+	);
+});
+
+test("failed outputs without a connected source lead to output settings", () => {
+	expect(dashboardHomeState(input({ failedOutputs: 1 })).primaryAction).toBe(
+		"inspect-output",
+	);
+});

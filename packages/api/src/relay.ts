@@ -379,10 +379,25 @@ export async function authenticateMedia(input: {
 				throw error;
 			}
 		}
-		await db
-			.update(relayPath)
-			.set({ publishLastConnectedAt: new Date() })
-			.where(eq(relayPath.id, credential.pathId));
+		return db.transaction(async (tx) => {
+			// Serialize admission with offline moves and reject an old address
+			// even if credential verification started before the move committed.
+			await tx.execute(
+				sql`select pg_advisory_xact_lock(hashtext(${credential.userId}))`,
+			);
+			const [accepted] = await tx
+				.update(relayPath)
+				.set({ publishLastConnectedAt: new Date() })
+				.where(
+					and(
+						eq(relayPath.id, credential.pathId),
+						eq(relayPath.slug, slug),
+						isNull(relayPath.revokedAt),
+					),
+				)
+				.returning({ id: relayPath.id });
+			return Boolean(accepted);
+		});
 	}
 	return true;
 }
@@ -744,6 +759,7 @@ export async function claimNativePublishDevice(input: {
 	installationId: string;
 	label: string;
 	legacyUrl?: string;
+	relayId?: number;
 	userId: string;
 }) {
 	const existing = await db.query.relayPath.findFirst({
@@ -808,13 +824,48 @@ export async function claimNativePublishDevice(input: {
 					isNull(relayPath.revokedAt),
 				),
 			});
-	path ??= await createPath(input.userId, input.label);
+	path ??= await createPath(input.userId, input.label, input.relayId);
+	if (input.relayId && !owner?.publishSecretHash) {
+		await assignUnusedPath(input.userId, path.id, input.relayId);
+	}
 	return storePublishSecret({
 		installationId: input.installationId,
 		origin: "native",
 		pathId: path.id,
 		plaintext: secret(),
 		userId: input.userId,
+	});
+}
+
+async function assignUnusedPath(
+	userId: string,
+	pathId: number,
+	relayId: number,
+) {
+	await db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+		const path = await tx.query.relayPath.findFirst({
+			where: and(
+				eq(relayPath.id, pathId),
+				eq(relayPath.userId, userId),
+				isNull(relayPath.publishSecretHash),
+				isNull(relayPath.revokedAt),
+				isNull(relayPath.nativeInstallationId),
+			),
+		});
+		if (!path) return;
+		const selected = await chooseRelay(userId, relayId, tx, pathId);
+		if (!selected) throw new Error("Relay capacity reached");
+		await tx
+			.update(relayPath)
+			.set({ relayId: selected.id })
+			.where(
+				and(
+					eq(relayPath.id, pathId),
+					isNull(relayPath.publishSecretHash),
+					isNull(relayPath.nativeInstallationId),
+				),
+			);
 	});
 }
 
@@ -1010,6 +1061,7 @@ export async function completeOnboarding(
 		youtubeTitle?: string;
 		prepareObs: boolean;
 		createDevice?: boolean;
+		relayId?: number;
 		redoMode?: OnboardingRedoMode;
 	},
 ) {
@@ -1053,11 +1105,14 @@ export async function completeOnboarding(
 
 	let paths = await listPaths(userId);
 	if (createDevice && paths.length === 0) {
-		await createPath(userId, "main");
+		await createPath(userId, "main", input.relayId);
 		paths = await listPaths(userId);
 	}
 
 	const primary = paths[0];
+	if (createDevice && primary && input.relayId && !owner.publishSecretHash) {
+		await assignUnusedPath(userId, primary.id, input.relayId);
+	}
 	const device = createDevice
 		? input.redoMode === "wipe" || !primary?.publishRevealable
 			? primary && (await rotatePublishPath(userId, primary.id))
