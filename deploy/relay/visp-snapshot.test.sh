@@ -246,7 +246,7 @@ wait_for_hold_cleanup() {
 wait_for_live_children() {
 	local expected="$1"
 	for _ in {1..40}; do
-		test "$(live_children)" -ne "$expected" || return 0
+		test "$(live_children)" -eq "$expected" && return 0
 		sleep 0.25
 	done
 	return 1

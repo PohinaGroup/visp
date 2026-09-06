@@ -111,7 +111,7 @@
     },
     "apps/native": {
       "name": "@VISP/native",
-      "version": "1.7.9",
+      "version": "1.7.10",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@bacons/apple-targets": "^5.0.0",
@@ -159,7 +159,7 @@
     },
     "apps/obs-remote": {
       "name": "@VISP/obs-remote",
-      "version": "1.7.9",
+      "version": "1.7.10",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@better-auth/expo": "catalog:",
