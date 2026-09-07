@@ -1,0 +1,293 @@
+---
+title: "Näin yhdistät Twitch-, Kick- ja TikTok-chatit OBS:ään"
+description: "Yhdistä Twitch-, Kick- ja TikTok LIVE -chatit yhteen OBS:n Browser Sourceen, suojaa overlay-URL, testaa lähteet ja huomioi Twitchin simulcast-säännöt."
+publishedAt: 2026-09-07
+coverAlt: "Violetti, vihreä ja korallinpunainen chat-virta yhdistyvät kotistudion näytöllä yhdeksi läpikuultavaksi paneeliksi yöllisen kaupunkilähetyksen päälle"
+---
+
+Yhdistät Twitch-, Kick- ja TikTok LIVE -chatit OBS:ään näin: **avaa VISP
+Multi-chat, tallenna julkisten kanavien käyttäjänimet, luo yksityinen
+overlay-URL ja liitä URL OBS:n Browser Source -lähteeseen**. VISP merkitsee
+jokaisen viestin alustatunnisteella ja näyttää samassa näkymässä kahdeksan uusinta
+viestiä.
+
+Sama näkymä voi jäädä tuottajan yksityiseksi työkaluksi tai näkyä katsojille.
+Valinnalla on väliä. Twitch sallii eri alustojen chatit yhdistävät työkalut
+henkilökohtaisessa käytössä, mutta sen nykyiset simulcast-säännöt rajoittavat
+muiden alustojen toiminnan näyttämistä Twitch-lähetyksessä. Päätä näkymän paikka
+ennen kuin lisäät sen live-sceneen.
+
+![Kolme julkista chat-virtaa yhdistyy VISPin kautta yhteen suojattuun OBS-selainoverlayhin](./multi-chat-flow.svg)
+
+## Valitse yksityinen seuranta tai lähetyksessä näkyvä overlay
+
+OBS voi avata saman verkkosivun kahteen eri paikkaan:
+
+| Tavoite | Lisää Multi-chat-URL tähän | Kenelle se näkyy? |
+| --- | --- | --- |
+| Lue kaikki chatit lähetyksen aikana | **Docks > Custom Browser Docks** | Vain OBS-käyttäjälle |
+| Näytä chat valmiissa ohjelmakuvassa | Scenen **Sources > Browser** | Katsojille, tallenteisiin ja klippeihin |
+| Tarkista yhteys ennen OBS:ää | Tavalliseen selaimeen | Testin tekijälle |
+
+Aloita yksityisestä dockista. Tuottaja voi lukea Twitch-, Kick- ja TikTok LIVE
+-viestejä ilman, että moderoimaton teksti päätyy kuvaan. Se on myös turvallinen
+lähtökohta Twitch-simulcastille. Twitchin virallinen
+[Simulcasting Guidelines FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines)
+sallii muiden palvelujen chatit yhdistävät työkalut henkilökohtaiseen käyttöön.
+Varsinainen sääntö rajoittaa silti muiden alustojen toiminnan yhdistämistä
+Twitch-lähetykseen.
+
+Älä lähetä kolmen alustan yhdistelmänäkymää Twitch-ohjelmakuvassa, jos haluat
+katsojille näkyvän chat-laatikon simulcastin aikana. VISP tallentaa tällä
+hetkellä yhden käytössä olevien lähteiden listan käyttäjätiliä kohti. Eri
+overlay-URL:eille ei voi luoda omia alustasuodattimia. Pidä yhdistelmänäkymä
+yksityisenä tai ota käyttöön vain Twitch-lähde siksi ajaksi, kun overlay näkyy
+Twitch-ohjelmassa.
+
+Kick-sisällöntuottajien pitää tarkistaa myös nykyinen
+[Kick Partner -ohjelman multistreaming-ohje](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program),
+jos ohjelma koskee heidän kanavaansa. Chat-overlay ei ota monilähetystä
+käyttöön, muuta alustan asetusta tai lähetä videota mihinkään. Se vain lukee
+uusia liveviestejä.
+
+## Tiedä, mitä VISP Multi-chat tekee
+
+Multi-chat on tarkoituksella moderointinäkymää suppeampi. Nykyinen versio:
+
+- lukee uudet viestit yhdeltä julkiselta Twitch-kanavalta, yhdeltä julkiselta
+  Kick-kanavalta ja yhdeltä julkiselta TikTok LIVE -kanavalta;
+- näyttää alustan tunnisteen, lähettäjän nimen ja viestin tekstinä;
+- säilyttää enintään kahdeksan uusinta viestiä overlay-yhteyden ajan;
+- yrittää yhdistää Twitchiin ja TikTokiin uudelleen tilapäisen katkoksen jälkeen;
+- käyttää yksityistä overlay-URL:ia, jonka voi vaihtaa hallintanäkymässä.
+
+Se ei lataa chat-historiaa. Se ei piirrä tunnuksia, emote-kuvia, lahjoja,
+seuraamisia tai tilaushälytyksiä. Sillä ei voi vastata, poistaa viestiä, antaa
+aikalisää tai estää käyttäjää. Multi-chat-sivulla ei ole YouTube-chatia.
+
+Nämä rajat tekevät työkalusta ennakoitavan, mutta alustojen omat
+moderointityökalut ovat silti välttämättömiä. Pidä Twitch Mod View, Kickin
+hallintapaneeli tai TikTok LIVE Studio moderaattorin saatavilla. Overlay on
+yhteinen lukunäkymä eikä korvaa niitä.
+
+Multi-chat eroaa myös VISPin kahdesta aiemmasta chat-polusta.
+[Puhelimen chat-opas](/fi/blog/twitch-kick-chat-phone-obs) käsittelee
+kenttäpuhelimen yksityistä kelluvaa näkymää.
+[VISPin chat-botin ohje](https://docs.visp-stream.com/fi/docs/chat-bot)
+käsittelee automaattisia lähetyshälytyksiä ja esimerkiksi `!bitrate`-komentoa.
+Multi-chat ei tee kumpaakaan. Se antaa OBS:lle yhden reaaliaikaisen ja vain
+lukemiseen tarkoitetun verkkosivun.
+
+## 1. Tallenna kolmen kanavan käyttäjänimet
+
+Avaa [VISP Multi-chat](https://visp-stream.com/chat) ja kirjaudu VISP-tilillesi.
+Voit käyttää VISP-kirjautumiseen Twitchiä, Kickiä tai Googlea.
+Kirjautumistapa ei ratkaise sitä, mitkä chatit tulevat näkyviin.
+
+Kirjoita **Channels**-osioon jokaisen luettavan kanavan julkinen käyttäjänimi.
+Käytä kanavan URL:ssa näkyvää nimeä. Voit jättää nimen alkuun `@`-merkin tai
+poistaa sen. Kirjoita siis osa, joka tulee osoitteessa `twitch.tv/`,
+`kick.com/` tai `tiktok.com/@` jälkeen. Kytke jokaisen valmiin rivin valintaruutu
+päälle ja valitse **Save channels**.
+
+Syötetyt kanavat eivät linkity VISP-tilisi palveluntarjoajatileihin. VISPin
+palvelinpuolen yhdistimet lukevat kanavien julkisia liveviestejä. Voit siis
+kirjautua VISPiin Googlella ja määrittää silti Twitch-, Kick- ja TikTok LIVE
+-käyttäjänimet.
+
+Käytä omia kanaviasi. Julkinen käyttäjänimi ei ole lupa julkaista toisen
+yhteisön viestejä uudelleen. Jos chat näkyy lähetyskuvassa, kerro
+moderaattoreille, mitkä yhteisöt voivat tulla näkyviin. Poista tarpeeton lähde
+käytöstä heti lähetyksen jälkeen.
+
+### Twitch tarvitsee botin käyttöoikeuden
+
+VISP vastaanottaa Twitch-viestit virallisella
+[`channel.chat.message`-EventSub-tilauksella](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message).
+Palvelu yhdistää kanavaan VISP Twitch -botin käyttäjätilillä. Twitchin nykyinen
+[chatbotin tunnistautumisohje](https://dev.twitch.tv/docs/chat/authenticating/)
+vaatii kanavan omistajaa myöntämään botille käyttöoikeuden tai antamaan sille
+moderaattorin roolin.
+
+Jos Twitch-lähde ilmoittaa käyttöoikeusvirheestä, avaa VISPin varsinainen
+hallintapaneeli ja valtuuta VISP-chat-botti kyseiselle Twitch-kanavalle. Palaa
+sen jälkeen Multi-chat-sivulle ja tallenna lähde uudelleen. Sekä väärä
+käyttäjänimi että puuttuva botin lupa voivat estää tilauksen.
+
+### Kick käyttää allekirjoitettuja chat-webhookeja
+
+VISP ratkaisee Kick-käyttäjänimen ja tilaa Kickin virallisen
+[`chat.message.sent`-tapahtuman](https://github.com/KickEngineering/KickDevDocs/blob/main/events/event-types.md).
+Kick lähettää jokaisen tapahtuman VISPille webhookina. Sovelluspalvelin tarkistaa
+allekirjoituksen, aikaleiman ja tapahtumatunnisteen Kickin
+[webhook-turvamallin](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+mukaan ennen viestin hyväksymistä.
+
+Kickin lähetysavainta ei liitetä Multi-chatiin. Chat-tilaus ja videon
+lähetyskohde ovat eri asioita.
+
+### TikTok LIVE on lähteistä epävarmin
+
+TikTok ei tarjoa julkista virallista API:a LIVE-chat-tapahtumien lukemiseen.
+VISP käyttää siksi avoimen lähdekoodin
+[TikTok-Live-Connectoria](https://github.com/zerodytrash/TikTok-Live-Connector).
+Se lukee julkista Webcast-dataa kanavan käyttäjänimellä ilman katsojan
+kirjautumista. Projekti kertoo itse olevansa epävirallinen
+takaisinmallinnusprojekti eikä tuotantovalmis API.
+
+Käsittele TikTokia valinnaisena syötteenä. Älä jätä kriittisen lähetyksen
+seurantaa vain sen varaan. TikTok voi muuttaa Webcast-protokollaa
+varoittamatta. Kanavan pitää myös olla live-tilassa, kun yhdistin käynnistyy.
+Pidä tärkeässä lähetyksessä TikTok LIVE Studio tai TikTok-sovellus valmiina.
+
+## 2. Luo ja suojaa overlay-URL
+
+Kun kanavat on tallennettu, valitse **Generate browser-source URL**. VISP näyttää
+overlay-tunnuksen sisältävän URL:n. Kopioi koko arvo, myös `#t=`-osan jälkeinen
+merkkijono.
+
+Käsittele URL:ia salasanana:
+
+- älä näytä sitä striimausohjevideolla, kuvakaappauksessa tai tukilokissa;
+- älä liitä sitä julkiseen chatiin;
+- säilytä se vain OBS:ssä tai muussa luotetussa paikallisessa selaimessa;
+- vaihda se heti, jos joku muu näkee sen.
+
+VISP tallentaa salaisuudesta tiivisteen eikä uudelleen käytettävää
+selväkielistä arvoa. Overlay pyytää salaisuudella lyhytikäisen yhteystiketin
+ja vastaanottaa viestit WebSocketilla. **Rotate browser-source URL** luo uuden
+salaisuuden ja sulkee vanhaa käyttävät overlayt. Korvaa vaihdon jälkeen koko
+URL OBS:ssä.
+
+Yhdellä VISP-tilillä on yksi aktiivinen Multi-chat-tunnus. Uuden luominen
+vaihtaa vanhan eikä tee toista erillistä overlay-määritystä.
+
+## 3. Lisää näkymä OBS:n Browser Sourceen
+
+Lisää näkymä sceneen näin:
+
+1. Valitse **Sources > + > Browser**.
+2. Nimeä lähde `VISP Multi-chat`.
+3. Jätä **Local file** pois päältä ja liitä koko yksityinen URL.
+4. Aseta leveydeksi `720` ja korkeudeksi `900`.
+5. Lisää alla oleva läpinäkyvyystyylitys **Custom CSS** -kenttään.
+6. Valitse **OK** ja siirrä sekä skaalaa lähde esikatselussa.
+7. Säilytä myös chatiton puhdas scene.
+
+```css
+html, body { background: transparent !important; overflow: hidden; }
+```
+
+Multi-chat-sivu käyttää hallintanäkymässä tummaa taustaa. CSS poistaa sivun
+taustan OBS-lähteestä mutta jättää viestikortit luettaviksi. OBS:n virallinen
+[Browser Source -ohje](https://obsproject.com/kb/browser-source) käsittelee
+URL-lähteitä, näkymän mittoja, omaa CSS:ää ja lähteen päivittämistä.
+
+Siirrä lähde Sources-listassa kameran tai muun ohjelmakuvan yläpuolelle. Jätä
+pitkille nimille ja rivittyville viesteille tilaa. Näkymä kasvaa ylhäältä alas
+ja näyttää enintään kahdeksan riviä. Korkea ja melko kapea paneeli toimii siksi
+paremmin kuin matala kaistale.
+
+Jos näkymä kuuluu vain tuottajalle, lisää sama URL kohtaan **Docks > Custom
+Browser Docks**. Älä lisää sitä lisäksi näkyvään sceneen. Dock ei päädy
+ohjelmakuvaan vain siksi, että se on osa OBS-ikkunaa.
+
+## 4. Testaa jokainen alusta erikseen
+
+Älä lähetä kolmea testiviestiä yhtä aikaa. Yhdistelmäpaneelista on muuten vaikea
+nähdä, mikä yhteys epäonnistui.
+
+1. Avaa Browser Source tai oma dock ja odota, että tila vaihtuu yhdistämisestä.
+2. Lähetä uusi Twitch-viesti toiselta käyttäjätililtä.
+3. Tarkista Twitch-tunniste, lähettäjä ja viestin teksti.
+4. Tee sama Kickissä.
+5. Käynnistä TikTok LIVE -kanava, lähetä TikTok-kommentti ja varmista sen tulo.
+6. Lähetä pitkä viesti jokaisella alustalla ja tarkista rivittyminen.
+7. Lähetä alustan oma emote ja varmista, että tekstimuotoinen tulos kelpaa.
+8. Piilota lähde, tuo se takaisin ja tarkista uusien viestien saapuminen.
+9. Tee lyhyt OBS-tallenne ja varmista, että chat näkyy vain tarkoitetuissa
+   kohdissa.
+10. Vaihda URL, päivitä OBS-lähde ja varmista, että vanha URL lakkaa toimimasta.
+
+Aiempia viestejä ei näytetä sivun päivityksen jälkeen. Alustayhdistimet
+käynnistyvät, kun vähintään yksi kelvollinen overlay on yhteydessä. Ne pysähtyvät,
+kun yhtään overlayta ei ole jäljellä. Tarpeeseen perustuva toiminta säästää
+turhia chat-yhteyksiä, mutta samalla sivu ei ole chat-arkisto.
+
+## Korjaa hiljainen chat-lähde
+
+### Overlay jää Connecting-tilaan
+
+Varmista, että kopioit koko URL:n sekä `#t=`-osan jälkeisen salaisuuden. Jos URL
+on vaihdettu, vanha lähde ei voi palautua. Liitä uusin URL ja päivitä Browser
+Source.
+
+### Twitch näyttää virheen
+
+Tarkista ensin kanavan käyttäjänimi. Varmista sitten, että kanava on myöntänyt
+VISP-botille Twitchin vaatiman luvan. Tallenna lähde korjauksen jälkeen
+uudelleen.
+
+### Kick-viestejä ei tule
+
+Varmista, että käyttäjänimi ratkaistaan oikeaksi julkiseksi kanavaksi. Poista
+Kick-lähde käytöstä ja ota se takaisin käyttöön, jotta VISP tekee uuden
+webhook-tilauksen. Jos Twitch tai TikTok toimii, selaimen overlay-tunnus on
+kunnossa.
+
+### TikTok ilmoittaa kanavan olevan offline
+
+Käynnistä TikTok LIVE ennen yhdistimen testausta. Jos kanava on jo live-tilassa,
+poista TikTok-lähde käytöstä ja ota se uudelleen käyttöön. Pidä TikTokin oma
+seuranta auki, sillä epävirallinen yhdistin ei voi luvata katkottomuutta.
+
+### OBS näyttää tumman suorakulmion
+
+Lisää vaiheen 3 `html, body` -läpinäkyvyyssääntö. Jos suorakulmio jää näkyviin,
+tarkista muut värisuodattimet ja chat-lähteen alla olevat lähteet. Testaa URL
+uudessa Browser Sourcessa ennen live-scenen muuttamista.
+
+### Viestit katoavat päivityksen jälkeen
+
+Tämä on odotettua. Multi-chat välittää uudet liveviestit ja säilyttää vain
+kahdeksan nykyisen sivun vastaanottamaa viestiä. Se ei toista tallennettua
+historiaa.
+
+## Tee lopullinen ennakkotarkistus
+
+Varmista ennen lähetystä nämä asiat:
+
+- jokainen käytössä oleva käyttäjänimi osoittaa oikeaan kanavaan;
+- Twitch-botin valtuutus toimii Twitch-lähteessä;
+- TikTok on epävirallinen ja parhaansa mukaan toimiva yhteys;
+- overlay-URL ei näy kuvakaappauksissa tai tallenteissa;
+- tuottaja pääsee alustojen omiin moderointityökaluihin;
+- puhdas OBS-scene on yhden toiminnon päässä;
+- yhdistetty chat pysyy yksityisenä Twitch-simulcastissa;
+- paikallinen tallenne todistaa, näkyykö lähde halutussa kohdassa.
+
+Multi-chat ei muuta puhelimen ja OBS:n välistä videoreittiä. VISP välittää sen
+edelleen ilman transkoodausta, eikä chat-overlay yhdistä mobiiliyhteyksien
+kapasiteettia. Jos tarvitset lisäksi yhden puhelimen lähetyksen useaan
+palveluun, käytä erillistä
+[puhelimen monilähetysopasta](/fi/blog/multistream-phone-twitch-kick-custom-rtmp).
+
+## Lähteet ja seuraavat vaiheet
+
+- [VISP Multi-chat](https://visp-stream.com/chat)
+- [VISPin itseylläpidon ohje](https://docs.visp-stream.com/fi/docs/self-hosting)
+- [VISP Multi-chat -käyttöliittymän lähdekoodi](https://github.com/PohinaGroup/visp/blob/main/apps/multichat/src/App.tsx)
+- [VISPin alustayhdistimien lähdekoodi](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/multichat/connectors.ts)
+- [VISPin overlay-tunnuksen lähdekoodi](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/multichat/overlay-token.ts)
+- [OBS Browser Source](https://obsproject.com/kb/browser-source)
+- [Twitch EventSub -chatviestit](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message)
+- [Twitch-chatbotin tunnistautuminen](https://dev.twitch.tv/docs/chat/authenticating/)
+- [Twitch Simulcasting Guidelines FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines)
+- [Kickin tapahtumatyypit](https://github.com/KickEngineering/KickDevDocs/blob/main/events/event-types.md)
+- [Kickin webhook-turvallisuus](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+- [TikTok-Live-Connector](https://github.com/zerodytrash/TikTok-Live-Connector)
+
+Jos erilliset Twitch-, Kick- ja TikTok LIVE -ikkunat täyttävät OBS-työtilan,
+[kokeile VISP Multi-chatia](https://visp-stream.com/chat) ensin yksityisenä
+dockina. Kun jokainen lähde läpäisee harjoituksen, päätä kuuluuko sama näkymä
+ohjelmakuvaan vai jääkö se tuottajalle.
