@@ -83,13 +83,12 @@ export default function App() {
 	const [exportUrl, setExportUrl] = useState<string | null>(null);
 
 	const selected = words.find((word) => word.id === selectedId) ?? words[0];
-	const active = words.find(
-		(word) => playhead >= word.start && playhead <= word.end,
-	);
+	// Hold the current word through timing gaps until the next word starts.
+	const active = words.findLast((word) => playhead >= word.start);
 	const visible = useMemo(() => {
-		const group = (active ?? selected).group;
+		const group = (active ?? words[0])?.group;
 		return words.filter((word) => word.group === group);
-	}, [active, selected, words]);
+	}, [active, words]);
 
 	useEffect(() => {
 		return () => {

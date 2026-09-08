@@ -62,8 +62,7 @@
 .safe-bottom span { position: relative; bottom: -13px; }
 .caption-preview { position: absolute; z-index: 3; right: 6%; left: 6%; display: flex; flex-wrap: wrap; justify-content: center; gap: 0 .16em; color: white; font-weight: 950; font-size: clamp(18px, 2.5vw, 32px); line-height: .98; text-align: center; text-transform: uppercase; text-shadow: 2px 2px 0 #080808, -1px -1px 0 #080808, 1px -1px 0 #080808, -1px 1px 0 #080808; transform: translateY(-50%); }
 .caption-preview span { display: inline-block; }
-.caption-preview .emphasized { color: #bcff3d; transform: scale(1.12); }
-.caption-preview .active { color: #fff; }
+.caption-preview .emphasized { color: #bcff3d; font-size: 1.12em; }
 .style-karaoke .caption-preview .active { color: #bcff3d; background: #101010cc; }
 .style-minimal .caption-preview { top: auto !important; bottom: 12%; font-size: 17px; font-weight: 650; text-shadow: 0 1px 3px #000; }
 .style-tiktok-basic .caption-preview { font-size: 23px; }
