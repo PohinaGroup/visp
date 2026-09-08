@@ -3,6 +3,7 @@ import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
 import { reconcileKickSubscriptions } from "@VISP/api/chat/kick";
 import { startMultiChatSources } from "@VISP/api/multichat/connectors";
+import { deleteExpiredTypographyProjects } from "@VISP/api/typography";
 import { applyInvalidation } from "@VISP/api/relay";
 import { ensureDefaultRelay } from "@VISP/api/relays";
 import { env } from "@VISP/env/server";
@@ -25,6 +26,15 @@ subscribeInvalidations(applyInvalidation);
 startChatFanout();
 startMultiChatSources();
 startChatBots();
+const cleanupTypography = async () => {
+	try {
+		await deleteExpiredTypographyProjects();
+	} catch (error) {
+		console.error("Typography cleanup failed", error);
+	}
+};
+void cleanupTypography();
+setInterval(() => void cleanupTypography(), 60 * 60_000);
 const reconcileKick = async () => {
 	try {
 		if (!(await reconcileKickSubscriptions())) {

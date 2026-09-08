@@ -38,7 +38,7 @@ Restarting MediaMTX disconnects every relay stream. Restarting `srtla_rec` or
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,
-native web app, OBS Remote web app, and documentation; and attaches the OBS
+native web app, OBS Remote web app, Typography, and documentation; and attaches the OBS
 packages to the same GitHub Release. Mobile builds and store submissions run
 separately: `.github/workflows/mobile.yml` builds and submits whichever of the
 two mobile apps changed on every push to `main` touching `apps/native` or
@@ -63,6 +63,7 @@ Create these root-owned, mode `0600` files:
 - `/etc/visp/app.env`, including
   `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com`,
   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com`,
+  `TYPOGRAPHY_ORIGIN=https://typography.visp-stream.com`,
   `ADMIN_ORIGIN=https://admin.visp-stream.com`,
   `MULTICHAT_ORIGIN=https://multichat.visp-stream.com`, and comma-separated
   `ADMIN_USER_IDS`.
@@ -72,11 +73,14 @@ Create these root-owned, mode `0600` files:
   `EXPO_PUBLIC_RELAY_WEBRTC_URL=https://RELAY_DOMAIN`.
 - `/etc/visp/obs-remote-web.env`, containing
   `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN`.
+- `/etc/visp/typography-web.env`, containing
+  `VITE_API_URL=https://api.visp-stream.com`.
 - `/etc/visp/caddy.env`, containing `APP_DOMAIN`,
   `ADMIN_DOMAIN=admin.visp-stream.com`,
   `MULTICHAT_DOMAIN=multichat.visp-stream.com`,
   `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
   `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
+  `TYPOGRAPHY_DOMAIN=typography.visp-stream.com`,
   `DOCS_DOMAIN=docs.visp-stream.com`, and the existing relay values.
 
 Install the app Caddyfile and ensure the two systemd services already exist:
@@ -86,10 +90,10 @@ sudo install -m 0644 deploy/app/Caddyfile /etc/caddy/Caddyfile
 sudo systemctl enable --now visp-server visp-web caddy
 ```
 
-The admin app, multi-chat app, native web app, OBS Remote web app, and Fumadocs are static
+The admin app, multi-chat app, native web app, OBS Remote web app, Typography, and Fumadocs are static
 files. They do not have systemd services. Caddy serves
 `/opt/visp/apps/admin/dist`, `/opt/visp/apps/multichat/dist`, `/opt/visp/apps/native/dist`, and
-`/opt/visp/apps/obs-remote/dist` with an `index.html` SPA fallback and
+`/opt/visp/apps/obs-remote/dist`, and `/opt/visp/apps/typography/dist` with an `index.html` SPA fallback and
 `/opt/visp/apps/fumadocs/.output/public` with `_shell.html` as its fallback.
 
 Use `root` as the SSH deployment account; no separate deployment account or
@@ -106,6 +110,7 @@ Configure these environment variables:
 - `APP_URL`: public portal origin, including `https://`.
 - `ADMIN_URL`: `https://admin.visp-stream.com`.
 - `MULTICHAT_URL`: `https://multichat.visp-stream.com`.
+- `TYPOGRAPHY_URL`: `https://typography.visp-stream.com`.
 - `RELAY_WEBRTC_URL`: public relay WebRTC origin.
 - `NATIVE_WEB_URL`: `https://stream.visp-stream.com`.
 - `OBS_REMOTE_WEB_URL`: `https://remote.visp-stream.com`.
@@ -131,7 +136,7 @@ workflow is also reusable:
 
 Create DNS records for `admin.visp-stream.com`, `multichat.visp-stream.com`,
 `stream.visp-stream.com`,
-`remote.visp-stream.com`, and `docs.visp-stream.com` before the first release so
+`remote.visp-stream.com`, `typography.visp-stream.com`, and `docs.visp-stream.com` before the first release so
 Caddy can obtain their certificates.
 
 ## Publish a release

@@ -33,6 +33,7 @@ Add these A records for `visp-stream.com`:
 | multichat.staging | 87.58.145.161 |
 | stream.staging | 87.58.145.161 |
 | remote.staging | 87.58.145.161 |
+| typography.staging | 87.58.145.161 |
 | docs.staging | 87.58.145.161 |
 | relay-staging | 87.58.146.41 |
 
@@ -41,8 +42,11 @@ each URL answers with a valid certificate. Caddy retries issuance
 automatically once records exist.
 
 In `/etc/visp-staging/app.env` set
-`MULTICHAT_ORIGIN=https://multichat.staging.visp-stream.com`. The next staging
-release will fail schema validation until that origin is present.
+`MULTICHAT_ORIGIN=https://multichat.staging.visp-stream.com` and
+`TYPOGRAPHY_ORIGIN=https://typography.staging.visp-stream.com`. Create
+`/etc/visp-staging/typography-web.env` with
+`VITE_API_URL=https://staging.visp-stream.com`. The next staging release will
+fail until the web environment file is present.
 
 ## 2. UpCloud: staging snapshot bucket
 

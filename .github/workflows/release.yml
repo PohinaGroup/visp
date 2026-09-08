@@ -146,11 +146,12 @@ jobs:
           bun x playwright install --with-deps chromium
           bun run test:e2e --project portal
 
-      - name: Build API, portal, admin, and multi-chat
+      - name: Build API, portal, admin, multi-chat, and Typography
         run: |
-          bun x turbo run build -F server -F web -F admin -F multichat
+          bun x turbo run build -F server -F web -F admin -F multichat -F typography
           test -f apps/admin/dist/index.html
           test -f apps/multichat/dist/index.html
+          test -f apps/typography/dist/index.html
 
       - name: Build browser broadcaster
         env:
@@ -228,6 +229,7 @@ jobs:
           ADMIN_URL: ${{ vars.ADMIN_URL }}
           APP_URL: ${{ vars.APP_URL }}
           MULTICHAT_URL: ${{ vars.MULTICHAT_URL }}
+          TYPOGRAPHY_URL: ${{ vars.TYPOGRAPHY_URL }}
           NATIVE_WEB_URL: ${{ vars.NATIVE_WEB_URL }}
           OBS_REMOTE_WEB_URL: ${{ vars.OBS_REMOTE_WEB_URL }}
           DOCS_URL: ${{ vars.DOCS_URL }}
@@ -238,6 +240,7 @@ jobs:
             "$ADMIN_URL" \
             "$APP_URL" \
             "$MULTICHAT_URL" \
+            "$TYPOGRAPHY_URL" \
             "$NATIVE_WEB_URL" \
             "$OBS_REMOTE_WEB_URL" \
             "$DOCS_URL/docs" \

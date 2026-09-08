@@ -55,6 +55,7 @@ export const serverEnvSchema = {
 	MEDIAMTX_API_URL: z.url(),
 	NATIVE_WEB_ORIGIN: z.url(),
 	OBS_REMOTE_WEB_ORIGIN: z.url(),
+	TYPOGRAPHY_ORIGIN: z.url().optional(),
 	NODE_ENV: z
 		.enum(["development", "production", "test"])
 		.default("development"),

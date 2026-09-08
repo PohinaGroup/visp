@@ -7,6 +7,7 @@ readonly app_env=/etc/visp-staging/app.env
 readonly web_env=/etc/visp-staging/web.env
 readonly native_web_env=/etc/visp-staging/native-web.env
 readonly obs_remote_web_env=/etc/visp-staging/obs-remote-web.env
+readonly typography_web_env=/etc/visp-staging/typography-web.env
 readonly caddy_staging_dir=/etc/caddy/staging
 
 fail() {
@@ -17,7 +18,7 @@ fail() {
 [[ $EUID -eq 0 ]] || fail "run as root"
 
 for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
-	"$obs_remote_web_env" "$caddy_staging_dir/app.caddy"; do
+	"$obs_remote_web_env" "$typography_web_env" "$caddy_staging_dir/app.caddy"; do
 	[[ -e $path ]] || fail "missing prerequisite: $path"
 done
 command -v node >/dev/null 2>&1 || fail "node is required to run visp-server"
@@ -63,14 +64,17 @@ run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
 )
 run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
 run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" build:web
+run_with_env "$typography_web_env" "$bun" run --cwd "$repo/apps/typography" build
 "$bun" run --cwd "$repo/apps/fumadocs" build
 
 for output in \
 	apps/server/dist/index.mjs \
+	apps/server/dist/typography-worker.mjs \
 	apps/admin/dist/index.html \
 	apps/multichat/dist/index.html \
 	apps/native/dist/index.html \
 	apps/obs-remote/dist/index.html \
+	apps/typography/dist/index.html \
 	apps/fumadocs/.output/public/_shell.html \
 	apps/fumadocs/.output/public/docs/index.html \
 	apps/fumadocs/.output/public/docs/get-started/index.html \
@@ -89,10 +93,13 @@ install -m 0644 "$repo/deploy/systemd/visp-server-staging.service" \
 	/etc/systemd/system/visp-server-staging.service
 install -m 0644 "$repo/deploy/systemd/visp-web-staging.service" \
 	/etc/systemd/system/visp-web-staging.service
+install -m 0644 "$repo/deploy/systemd/visp-typography-worker-staging.service" \
+	/etc/systemd/system/visp-typography-worker-staging.service
 systemctl daemon-reload
+systemctl enable visp-typography-worker-staging
 
-systemctl restart visp-server-staging visp-web-staging
-systemctl is-active --quiet visp-server-staging visp-web-staging
+systemctl restart visp-server-staging visp-web-staging visp-typography-worker-staging
+systemctl is-active --quiet visp-server-staging visp-web-staging visp-typography-worker-staging
 
 if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
 	--fail --silent --show-error http://127.0.0.1:3100/ >/dev/null; then
@@ -115,6 +122,7 @@ systemctl is-active --quiet caddy
 	stream.staging.visp-stream.com \
 	admin.staging.visp-stream.com \
 	remote.staging.visp-stream.com \
-	multichat.staging.visp-stream.com
+	multichat.staging.visp-stream.com \
+	typography.staging.visp-stream.com
 
 echo "VISP staging $(git -C "$repo" rev-parse --short HEAD) deployed"
