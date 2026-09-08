@@ -42,6 +42,9 @@
 		handle /api/subtitles/token {
 			reverse_proxy 127.0.0.1:3000
 		}
+		handle /api/typography/* {
+			reverse_proxy 127.0.0.1:3000
+		}
 		handle /api/tts {
 			reverse_proxy 127.0.0.1:3000
 		}
