@@ -20,6 +20,7 @@ import { obsLiveRoutes } from "./obs-live";
 import { seppoRoutes } from "./seppo";
 import { subtitlesRoutes } from "./subtitles";
 import { ttsRoutes } from "./tts";
+import { typographyRoutes } from "./typography";
 
 initLogger({ env: { service: "VISP-server" } });
 
@@ -80,12 +81,14 @@ export function createApp() {
 			cors({
 				origin: [
 					env.CORS_ORIGIN,
+					env.TYPOGRAPHY_ORIGIN ?? "https://typography.visp-stream.com",
+					"https://typography.visp.localhost",
 					env.ADMIN_ORIGIN,
 					env.MULTICHAT_ORIGIN,
 					env.NATIVE_WEB_ORIGIN,
 					env.OBS_REMOTE_WEB_ORIGIN,
 				],
-				methods: ["GET", "POST", "OPTIONS"],
+				methods: ["GET", "POST", "PUT", "OPTIONS"],
 				allowedHeaders: ["Content-Type", "Authorization", "X-Hook-Secret"],
 				credentials: true,
 			}),
@@ -98,6 +101,7 @@ export function createApp() {
 		.use(ttsRoutes)
 		.use(audioIsolationRoutes)
 		.use(subtitlesRoutes)
+		.use(typographyRoutes)
 		.get("/api/auth/google-local-callback", ({ request }) => {
 			const incoming = new URL(request.url);
 			const callback = new URL(

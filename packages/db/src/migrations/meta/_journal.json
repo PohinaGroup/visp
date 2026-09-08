@@ -127,6 +127,20 @@
       "when": 1788726581978,
       "tag": "0017_studio_alert_appearance",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788780000000,
+      "tag": "0018_typography_projects",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1788780000001,
+      "tag": "0019_typography_jobs",
+      "breakpoints": true
     }
   ]
 }

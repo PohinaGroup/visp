@@ -73,6 +73,13 @@ admin.staging.visp-stream.com {
 	file_server
 }
 
+typography.staging.visp-stream.com {
+	root * /opt/visp-staging/apps/typography/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
 multichat.staging.visp-stream.com {
 	root * /opt/visp-staging/apps/multichat/dist
 	encode zstd gzip

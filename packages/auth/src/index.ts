@@ -131,6 +131,8 @@ export function createAuth() {
 		}),
 		trustedOrigins: [
 			env.CORS_ORIGIN,
+			env.TYPOGRAPHY_ORIGIN ?? "https://typography.visp-stream.com",
+			"https://typography.visp.localhost",
 			env.ADMIN_ORIGIN,
 			env.MULTICHAT_ORIGIN,
 			env.NATIVE_WEB_ORIGIN,

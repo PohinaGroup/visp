@@ -7,6 +7,7 @@ readonly app_env=/etc/visp/app.env
 readonly web_env=/etc/visp/web.env
 readonly native_web_env=/etc/visp/native-web.env
 readonly obs_remote_web_env=/etc/visp/obs-remote-web.env
+readonly typography_web_env=/etc/visp/typography-web.env
 readonly caddy_env=/etc/visp/caddy.env
 
 fail() {
@@ -24,7 +25,7 @@ readonly expected_sha=$2
 [[ $expected_sha =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
 
 for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
-	"$obs_remote_web_env" "$caddy_env"; do
+	"$obs_remote_web_env" "$typography_web_env" "$caddy_env"; do
 	[[ -e $path ]] || fail "missing prerequisite: $path"
 done
 command -v node >/dev/null 2>&1 || fail "node is required to run visp-server"
@@ -62,14 +63,17 @@ run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
 )
 run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
 run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" build:web
+run_with_env "$typography_web_env" "$bun" run --cwd "$repo/apps/typography" build
 "$bun" run --cwd "$repo/apps/fumadocs" build
 
 for output in \
 	apps/server/dist/index.mjs \
+	apps/server/dist/typography-worker.mjs \
 	apps/admin/dist/index.html \
 	apps/multichat/dist/index.html \
 	apps/native/dist/index.html \
 	apps/obs-remote/dist/index.html \
+	apps/typography/dist/index.html \
 	apps/fumadocs/.output/public/_shell.html \
 	apps/fumadocs/.output/public/docs/index.html \
 	apps/fumadocs/.output/public/docs/broadcaster-setup/index.html \
@@ -97,10 +101,13 @@ install -m 0644 "$repo/deploy/systemd/visp-server.service" \
 	/etc/systemd/system/visp-server.service
 install -m 0644 "$repo/deploy/systemd/visp-web.service" \
 	/etc/systemd/system/visp-web.service
+install -m 0644 "$repo/deploy/systemd/visp-typography-worker.service" \
+	/etc/systemd/system/visp-typography-worker.service
 systemctl daemon-reload
+systemctl enable visp-typography-worker
 
-systemctl restart visp-server visp-web
-systemctl is-active --quiet visp-server visp-web
+systemctl restart visp-server visp-web visp-typography-worker
+systemctl is-active --quiet visp-server visp-web visp-typography-worker
 
 if ! curl --retry 30 --retry-delay 1 --retry-max-time 30 --retry-connrefused \
 	--fail --silent --show-error http://127.0.0.1:3000/ >/dev/null; then
@@ -129,7 +136,7 @@ systemctl is-active --quiet caddy
 	set +a
 	"$repo/deploy/visp-caddy-static-smoke.sh" \
 		"$NATIVE_WEB_DOMAIN" "$ADMIN_DOMAIN" "$OBS_REMOTE_WEB_DOMAIN" \
-		"$MULTICHAT_DOMAIN"
+		"$MULTICHAT_DOMAIN" "$TYPOGRAPHY_DOMAIN"
 )
 
 echo "VISP $tag ($expected_sha) deployed"

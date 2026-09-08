@@ -1,0 +1,18 @@
+[Unit]
+Description=VISP Typography worker (staging)
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+Group=root
+WorkingDirectory=/opt/visp-staging/apps/server
+EnvironmentFile=/etc/visp-staging/app.env
+ExecStart=/usr/bin/node dist/typography-worker.mjs
+Restart=always
+RestartSec=2
+StartLimitInterval=0
+
+[Install]
+WantedBy=multi-user.target

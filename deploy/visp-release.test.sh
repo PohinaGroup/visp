@@ -5,19 +5,21 @@ root="$(cd "$(dirname "$0")" && pwd)"
 
 # Upstreams must be ready before Caddy reload so reverse_proxy routes do not 502.
 release=$(
-	awk '/systemctl restart visp-server visp-web/,/echo "VISP /' \
+	awk '/systemctl restart visp-server visp-web visp-typography-worker/,/echo "VISP /' \
 		"$root/visp-release"
 )
-printf '%s\n' "$release" | grep -q 'systemctl restart visp-server visp-web'
+printf '%s\n' "$release" | grep -q 'systemctl restart visp-server visp-web visp-typography-worker'
+grep -q 'systemctl enable visp-typography-worker' "$root/visp-release"
 printf '%s\n' "$release" | grep -q 'systemctl reload caddy'
 test "$(printf '%s\n' "$release" | grep -n 'systemctl reload caddy' | head -1 | cut -d: -f1)" \
 	-gt "$(printf '%s\n' "$release" | grep -n '127.0.0.1:3001' | head -1 | cut -d: -f1)"
 printf '%s\n' "$release" | grep -q 'visp-caddy-static-smoke.sh'
 printf '%s\n' "$release" | grep -q '\$NATIVE_WEB_DOMAIN'
 printf '%s\n' "$release" | grep -q '\$MULTICHAT_DOMAIN'
+printf '%s\n' "$release" | grep -q '\$TYPOGRAPHY_DOMAIN'
 
 staging=$(
-	awk '/systemctl restart visp-server-staging/,/echo "VISP staging/' \
+	awk '/systemctl restart visp-server-staging visp-web-staging visp-typography-worker-staging/,/echo "VISP staging/' \
 		"$root/visp-staging-release"
 )
 printf '%s\n' "$staging" | grep -q 'systemctl reload caddy'
@@ -25,6 +27,7 @@ test "$(printf '%s\n' "$staging" | grep -n 'systemctl reload caddy' | head -1 | 
 	-gt "$(printf '%s\n' "$staging" | grep -n '127.0.0.1:3101' | head -1 | cut -d: -f1)"
 printf '%s\n' "$staging" | grep -q 'stream.staging.visp-stream.com'
 printf '%s\n' "$staging" | grep -q 'multichat.staging.visp-stream.com'
+printf '%s\n' "$staging" | grep -q 'typography.staging.visp-stream.com'
 
 test -f "$root/visp-caddy-static-smoke.sh"
 grep -q -- '--resolve' "$root/visp-caddy-static-smoke.sh"

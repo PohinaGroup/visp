@@ -215,7 +215,7 @@ pprof stay disabled.
 
 ## 3. App box
 
-1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, and Caddy; clone `PohinaGroup/visp` as
+1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, Caddy, FFmpeg, and DejaVu fonts; clone `PohinaGroup/visp` as
    `root` into `/opt/visp`. The API runs under Node (`dist/index.mjs`); the portal
    and release tooling use Bun. Both services run as `root`.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`, including the
@@ -246,6 +246,12 @@ pprof stay disabled.
    ```text
    EXPO_PUBLIC_SERVER_URL=https://app.example.com
    ```
+
+   Put Typography's public API origin in `/etc/visp/typography-web.env`:
+
+   ```text
+   VITE_API_URL=https://api.visp-stream.com
+   ```
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,
@@ -253,14 +259,16 @@ pprof stay disabled.
    `MULTICHAT_DOMAIN=multichat.visp-stream.com`,
    `NATIVE_WEB_DOMAIN=stream.visp-stream.com`,
    `OBS_REMOTE_WEB_DOMAIN=remote.visp-stream.com`,
+   `TYPOGRAPHY_DOMAIN=typography.visp-stream.com`,
    `DOCS_DOMAIN=docs.visp-stream.com`, and `RELAY_PUBLIC_IPS` in
    `/etc/visp/caddy.env`. `RELAY_PUBLIC_IPS` is the space-separated list of
    every relay's public IP. Caddy serves `apps/admin/dist`, `apps/multichat/dist`,
    `apps/native/dist`,
-   `apps/obs-remote/dist`, and `apps/fumadocs/.output/public` directly; these
+   `apps/obs-remote/dist`, `apps/typography/dist`, and `apps/fumadocs/.output/public` directly; these
    static sites need no runtime service. Add
    `NATIVE_WEB_ORIGIN=https://stream.visp-stream.com`,
-   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com`, and
+   `OBS_REMOTE_WEB_ORIGIN=https://remote.visp-stream.com`,
+   `TYPOGRAPHY_ORIGIN=https://typography.visp-stream.com`, and
    `MULTICHAT_ORIGIN=https://multichat.visp-stream.com` to
    `/etc/visp/app.env`.
 5. Register `https://APP_DOMAIN/api/auth/callback/twitch` in the Twitch developer
@@ -271,12 +279,56 @@ pprof stay disabled.
    `chat.message.sent` webhook subscriptions. Expose only public TCP 443; allow
    SSH only over Tailscale. Mirror the rules in UpCloud. Add DNS for
    `admin.visp-stream.com`, `multichat.visp-stream.com`, `stream.visp-stream.com`,
-   `remote.visp-stream.com`, and `docs.visp-stream.com` before Caddy obtains
+   `remote.visp-stream.com`, `typography.visp-stream.com`, and `docs.visp-stream.com` before Caddy obtains
    their certificates.
 6. Install the stable release bootstrap as a root-owned executable:
 
    ```bash
    sudo install -m 0755 deploy/visp-release-bootstrap /usr/local/sbin/visp-release
+   ```
+
+### Typography prerequisites
+
+1. On the app box, install FFmpeg and DejaVu fonts, then confirm FFmpeg has
+   `drawtext` available:
+
+   ```bash
+   sudo apt-get update
+   sudo apt-get install -y ffmpeg fonts-dejavu-core
+   ffmpeg -hide_banner -filters | grep drawtext
+   ```
+
+2. Add these values to the root-owned `/etc/visp/app.env`:
+
+   ```text
+   TYPOGRAPHY_ORIGIN=https://typography.visp-stream.com
+   ELEVENLABS_API_KEY=...
+   AI_GATEWAY_API_KEY=...
+   ```
+
+3. The browser uploads directly to the signed object-storage URL. Set
+   `S3_UPLOAD_ENDPOINT` to a public HTTPS S3 endpoint, then allow this bucket
+   CORS policy (replace the origin only if the deployed domain differs):
+
+   ```json
+   [{
+     "AllowedOrigins": ["https://typography.visp-stream.com"],
+     "AllowedMethods": ["PUT", "GET", "HEAD"],
+     "AllowedHeaders": ["Content-Type"],
+     "ExposeHeaders": ["ETag"],
+     "MaxAgeSeconds": 3600
+   }]
+   ```
+
+   Keep `S3_ENDPOINT` reachable from the app host. It may be an internal
+   endpoint; only `S3_UPLOAD_ENDPOINT` must be reachable from the browser.
+
+4. The release helper installs and enables `visp-typography-worker`. Check it
+   after the first release with:
+
+   ```bash
+   sudo systemctl status visp-typography-worker
+   sudo journalctl -u visp-typography-worker -f
    ```
 
    Configure root key authentication over Tailscale and the GitHub production

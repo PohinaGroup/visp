@@ -118,6 +118,7 @@ async function main() {
 		MULTICHAT_ORIGIN: "https://multichat.visp.localhost",
 		NATIVE_WEB_ORIGIN: "http://127.0.0.1:8081",
 		OBS_REMOTE_WEB_ORIGIN: "http://localhost:8083",
+		TYPOGRAPHY_ORIGIN: "https://typography.visp.localhost",
 		NODE_ENV: "development",
 		RELAY_HOST: "relay.visp.localhost",
 		RELAY_PING_URL: "https://relay.visp.localhost/ping",
@@ -136,6 +137,7 @@ async function main() {
 	const localWeb = {
 		...webFile,
 		VITE_SERVER_URL: "https://api.visp.localhost",
+		VITE_API_URL: "https://api.visp.localhost",
 	};
 	validate("Server", z.object(serverEnvSchema), localServer);
 	validate("Web", z.object(webEnvSchema), localWeb);
@@ -160,6 +162,7 @@ async function main() {
 	console.log("  API:           https://api.visp.localhost");
 	console.log("  Admin:         https://admin.visp.localhost");
 	console.log("  Multi-chat:    https://multichat.visp.localhost");
+	console.log("  Typography:    https://typography.visp.localhost");
 	console.log("  Docs:          https://docs.visp.localhost");
 	console.log("  OBS Remote:    http://localhost:8083");
 	console.log("  Relay:         https://relay.visp.localhost");
@@ -181,6 +184,8 @@ async function main() {
 			"multichat",
 			"--filter",
 			"@VISP/obs-remote",
+			"--filter",
+			"typography",
 			"--parallel",
 			"dev",
 		],

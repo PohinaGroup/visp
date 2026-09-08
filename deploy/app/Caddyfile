@@ -64,6 +64,13 @@
 	file_server
 }
 
+{$TYPOGRAPHY_DOMAIN} {
+	root * /opt/visp/apps/typography/dist
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
 {$MULTICHAT_DOMAIN} {
 	root * /opt/visp/apps/multichat/dist
 	encode zstd gzip

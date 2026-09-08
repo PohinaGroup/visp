@@ -301,6 +301,8 @@ function xfadeArgs(oldInputUrl: string, nextInputUrl: string) {
 		process.env.STUDIO_VIDEO_ENCODER ?? "libx264",
 		"-preset",
 		"veryfast",
+		"-bf",
+		"0",
 		"-c:a",
 		"aac",
 		"-f",
@@ -320,8 +322,13 @@ async function ensurePublisher() {
 		"+genpts",
 		"-i",
 		publisherInputUrl,
-		"-c",
+		"-c:v",
 		"copy",
+		// RTSP needs AAC global headers; the MPEG-TS input carries ADTS audio.
+		"-c:a",
+		"aac",
+		"-flags:a",
+		"+global_header",
 		"-f",
 		"rtsp",
 		programUrls.publishUrl,
@@ -348,7 +355,7 @@ async function waitForProgramPublisher() {
 			stdout: "ignore",
 			stderr: "ignore",
 		});
-		const timeout = setTimeout(() => probe.kill(), 500);
+		const timeout = setTimeout(() => probe.kill(), 3000);
 		const exitCode = await probe.exited;
 		clearTimeout(timeout);
 		if (exitCode === 0) return true;
@@ -520,6 +527,8 @@ async function apply(desired: Desired, crossfade: boolean) {
 		process.env.STUDIO_VIDEO_ENCODER ?? "libx264",
 		"-preset",
 		"veryfast",
+		"-bf",
+		"0",
 		"-pix_fmt",
 		"yuv420p",
 		"-r",
@@ -549,6 +558,24 @@ async function apply(desired: Desired, crossfade: boolean) {
 	});
 	activeFeedSlot = nextSlot;
 }
+
+// Rendering browser layers can exceed the five-second heartbeat window.
+let healthPending = false;
+const healthTimer = setInterval(() => {
+	if (!applied || healthPending) return;
+	const healthy = compositorHasPublisher(
+		"program",
+		pipeline.publisherExitCode,
+		pipeline.rendererExitCode,
+		pipeline.outputExitCode,
+	);
+	healthPending = true;
+	void hook("health", {
+		path,
+		healthy,
+		...(healthy ? { programUrl: programUrls.readUrl } : {}),
+	}).catch(() => undefined).finally(() => { healthPending = false; });
+}, 1000);
 
 try {
 	while (true) {
@@ -641,6 +668,7 @@ try {
 		await Bun.sleep(1_000);
 	}
 } finally {
+	clearInterval(healthTimer);
 	await pipeline.stop();
 	await rm(work, { recursive: true, force: true });
 }
