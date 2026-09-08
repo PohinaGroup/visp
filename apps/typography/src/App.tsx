@@ -18,7 +18,7 @@ type Word = {
 	group: number;
 };
 
-const apiUrl = import.meta.env.VITE_API_URL ?? "https://api.visp-stream.com";
+const apiUrl = import.meta.env.VITE_API_URL ?? "https://visp-stream.com";
 
 const seedWords: Word[] = [
 	{ id: 1, text: "I", start: 3.02, end: 3.18, emphasis: 0, group: 0 },

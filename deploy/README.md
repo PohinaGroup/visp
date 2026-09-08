@@ -250,7 +250,7 @@ pprof stay disabled.
    Put Typography's public API origin in `/etc/visp/typography-web.env`:
 
    ```text
-   VITE_API_URL=https://api.visp-stream.com
+   VITE_API_URL=https://visp-stream.com
    ```
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its

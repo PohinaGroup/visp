@@ -51,6 +51,9 @@ staging.visp-stream.com {
 		handle /api/subtitles/token {
 			reverse_proxy 127.0.0.1:3100
 		}
+		handle /api/typography/* {
+			reverse_proxy 127.0.0.1:3100
+		}
 		handle /api/tts {
 			reverse_proxy 127.0.0.1:3100
 		}

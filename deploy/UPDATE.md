@@ -74,7 +74,7 @@ Create these root-owned, mode `0600` files:
 - `/etc/visp/obs-remote-web.env`, containing
   `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN`.
 - `/etc/visp/typography-web.env`, containing
-  `VITE_API_URL=https://api.visp-stream.com`.
+  `VITE_API_URL=https://visp-stream.com`.
 - `/etc/visp/caddy.env`, containing `APP_DOMAIN`,
   `ADMIN_DOMAIN=admin.visp-stream.com`,
   `MULTICHAT_DOMAIN=multichat.visp-stream.com`,
