@@ -105,8 +105,12 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 		const project = projectId.safeParse(params);
 		if (!project.success) return status(400, { error: "Invalid project" });
 		try {
-			return { url: await typographyExportUrl(id, project.data.id) };
-		} catch {
-			return status(404, { error: "Export not found" });
+			const url = await typographyExportUrl(id, project.data.id);
+			return url ? { url } : status(202, { url: null });
+		} catch (error) {
+			const message = error instanceof Error ? error.message : "Export failed";
+			if (message === "Project not found" || message === "Export not found")
+				return status(404, { error: message });
+			return status(500, { error: "Export failed. Please try again." });
 		}
 	});

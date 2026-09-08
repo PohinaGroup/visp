@@ -6,9 +6,25 @@ const browser = await chromium.launch();
 try {
 	const page = await browser.newPage();
 	await page.route("**/api/typography/**", (route) => route.fulfill({ json: [] }));
+	const projectUrl = "**/api/typography/projects";
+	await page.route(projectUrl, (route) => route.fulfill({ json: [{
+		id: "delayed-speech", title: "delayed-speech.mp4", language: "en", state: "ready",
+		document: { style: "Hormozi", intensity: 68, hook: "", captionY: 61, words: [
+			{ id: "1", text: "The", start: 5.69, end: 5.77, emphasis: 0, group: 0 },
+			{ id: "2", text: "future", start: 5.8, end: 6.2, emphasis: 0.96, group: 0 },
+		] },
+	}] }));
 	await page.goto(process.env.TYPOGRAPHY_URL ?? "http://127.0.0.1:5175");
 	const playhead = page.getByRole("slider", { name: "Playhead", exact: true });
 	const caption = page.locator(".caption-preview");
+	await page.getByRole("button", { name: "delayed-speech", exact: true }).waitFor();
+	for (const time of [5.12, 5.68, 5.69, 5.8, 5.12]) {
+		await playhead.fill(String(time));
+		assert.equal((await caption.locator("span").allTextContents()).join(" "),
+			time < 5.69 ? "" : "The future", `Delayed speech caption at ${time}s`);
+	}
+	await page.unroute(projectUrl);
+	await page.reload();
 	await caption.waitFor();
 	const phrases = [
 		[302, "I think the"],
@@ -45,7 +61,7 @@ try {
 		});
 		assert.ok(fits, `Enlarged captions must fit without overlapping at ${width}x${height}`);
 	}
-	console.log("PASS: captions stay stable through every timing gap and backward seek; emphasis does not blink.");
+	console.log("PASS: captions wait for speech, stay stable through timing gaps and backward seeks; emphasis does not blink.");
 } finally {
 	await browser.close();
 }
