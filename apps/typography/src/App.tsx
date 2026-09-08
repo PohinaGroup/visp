@@ -86,7 +86,7 @@ export default function App() {
 	// Hold the current word through timing gaps until the next word starts.
 	const active = words.findLast((word) => playhead >= word.start);
 	const visible = useMemo(() => {
-		const group = (active ?? words[0])?.group;
+		const group = active?.group;
 		return words.filter((word) => word.group === group);
 	}, [active, words]);
 
@@ -138,6 +138,11 @@ export default function App() {
 					document: { words: Array<Omit<Word, "id" | "emphasis"> & { id: string; emphasis: number }>; style: CaptionStyle; intensity: number; hook: string; captionY: number };
 				}>;
 				if (!project) return;
+				if (project.state === "uploading") {
+					setNotice("Your previous upload did not finish. Choose the video again to retry.");
+					setShowUpload(true);
+					return;
+				}
 				setProjectId(project.id);
 				setSourceName(project.title);
 				setLanguage(project.language === "fi" ? "Finnish" : "English");
@@ -307,7 +312,7 @@ export default function App() {
 			.then((response) => {
 				if (!response.ok) throw new Error("Export could not start.");
 				setNotice("Export started. Your MP4 will appear when rendering finishes.");
-				void waitForExport(projectId);
+				return waitForExport(projectId);
 			})
 			.catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Export failed."))
 			.finally(() => setExporting(false));
@@ -319,7 +324,11 @@ export default function App() {
 			const response = await fetch(apiUrl + "/api/typography/projects/" + id + "/export", {
 				credentials: "include",
 			});
-			if (!response.ok) continue;
+			if (response.status === 202) continue;
+			if (!response.ok) {
+				const result = (await response.json()) as { error?: string };
+				throw new Error(result.error ?? "Export failed. Please try again.");
+			}
 			const result = (await response.json()) as { url: string };
 			setExportUrl(result.url);
 			setNotice("Your H.264 MP4 is ready.");
@@ -403,7 +412,6 @@ export default function App() {
 									ref={videoRef}
 									className="source-video"
 									src={sourceUrl}
-									muted
 									playsInline
 									onPlay={() => setPlaying(true)}
 									onPause={() => setPlaying(false)}

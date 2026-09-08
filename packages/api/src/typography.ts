@@ -400,7 +400,13 @@ export async function runTypographyWorker() {
 
 export async function typographyExportUrl(userId: string, projectId: string) {
 	const project = await requireProject(userId, projectId);
-	if (!project?.exportKey) throw new Error("Export not found");
+	if (!project) throw new Error("Project not found");
+	const job = await db.query.typographyJob.findFirst({
+		where: and(eq(typographyJob.projectId, projectId), eq(typographyJob.kind, "export")),
+	});
+	if (job?.state === "queued" || job?.state === "processing") return null;
+	if (job?.state === "failed") throw new Error("Export failed. Please try again.");
+	if (!project.exportKey) throw new Error("Export not found");
 	return await objects.presign(project.exportKey, { method: "GET", expiresIn: 15 * 60 });
 }
 

@@ -314,7 +314,7 @@ pprof stay disabled.
    [{
      "AllowedOrigins": ["https://typography.visp-stream.com"],
      "AllowedMethods": ["PUT", "GET", "HEAD"],
-     "AllowedHeaders": ["Content-Type"],
+     "AllowedHeaders": ["Content-Type", "content-type"],
      "ExposeHeaders": ["ETag"],
      "MaxAgeSeconds": 3600
    }]
