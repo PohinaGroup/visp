@@ -57,6 +57,10 @@
 .phone-preview { position: relative; height: min(calc(100vh - 354px), 570px); max-height: 100%; aspect-ratio: 9 / 16; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .source-video, .demo-video { width: 100%; height: 100%; object-fit: cover; }
 .source-video { display: block; }
+.preview-start { position: absolute; z-index: 9; inset: 0; display: flex; align-items: flex-end; justify-content: center; border: 0; padding: 24px 12px; color: var(--bg); background: transparent; }
+.preview-start span { border-radius: var(--radius); padding: 10px 14px; background: var(--fg); font-size: 14px; font-weight: 600; }
+.preview-start:hover { background: #ffffff0d; }
+.preview-start:focus-visible { outline-offset: -3px; }
 .demo-video { position: relative; overflow: hidden; background: linear-gradient(136deg, #7c7e84 0 30%, #c9a689 30% 52%, #25282c 52%); }
 .preview-vignette { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(0deg, #0008, transparent 38%, #0003); }
 .window-light { position: absolute; top: 7%; width: 35%; height: 31%; background: #d9d7c5; opacity: .7; }
