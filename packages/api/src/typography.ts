@@ -248,10 +248,9 @@ export async function typographyVideoUrl(userId: string, projectId: string) {
 
 function filterEscape(value: string) {
 	return value
-		.replaceAll("\\", "\\\\")
-		.replaceAll(":", "\\:")
-		.replaceAll("'", "\\'")
-		.replaceAll(",", "\\,");
+		// Escape the drawtext option, then the surrounding filtergraph.
+		.replace(/[\\':]/g, "\\$&")
+		.replace(/[\\'\[\],;]/g, "\\$&");
 }
 
 export function captionFilter(document: TypographyDocument) {
@@ -266,7 +265,7 @@ export function captionFilter(document: TypographyDocument) {
 			const text = filterEscape(group.map((word) => word.text).join(" ").toUpperCase());
 			const start = group[0]?.start ?? 0;
 			const end = group.at(-1)?.end ?? start;
-			return "drawtext=fontcolor=white:fontsize=64:borderw=4:bordercolor=black:x=(w-text_w)/2:y=h*0.62:text='" + text + "':enable='between(t," + start + "," + end + ")'";
+			return "drawtext=fontcolor=white:fontsize=64:borderw=4:bordercolor=black:x=(w-text_w)/2:y=h*0.62:expansion=none:text=" + text + ":enable='between(t," + start + "," + end + ")'";
 		})
 		.join(",");
 }
