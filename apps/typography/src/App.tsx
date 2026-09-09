@@ -1,4 +1,5 @@
 import {
+	Fragment,
 	useEffect,
 	useMemo,
 	useRef,
@@ -343,8 +344,9 @@ export default function App() {
 		<main className="app-shell">
 			<header className="topbar">
 				<a className="brand" href="/" aria-label="VISP Typography home">
-					<span className="brand-mark">V</span>
-					<span>Typography</span>
+					<MeterMark />
+					<span className="brand-name">VISP</span>
+					<span className="brand-sub">Typography</span>
 				</a>
 				<div className="project-title">
 					<button className="project-name" type="button">
@@ -368,6 +370,13 @@ export default function App() {
 					)}
 				</div>
 			</header>
+
+			<ChainStrip
+				source={sourceUrl ? "on" : "off"}
+				transcribe={processing ? "live" : projectId ? "on" : "off"}
+				style={projectId && !processing ? "on" : "off"}
+				export={exportUrl ? "on" : exporting ? "live" : "off"}
+			/>
 
 			<section className="workspace">
 				<aside className="transcript-panel panel">
@@ -566,6 +575,39 @@ export default function App() {
 			)}
 			{notice && <button className="notice" type="button" onClick={() => setNotice(null)}>{notice}<span>×</span></button>}
 		</main>
+	);
+}
+
+// Monochrome level-meter mark — the VISP brand mark.
+function MeterMark() {
+	return (
+		<span className="meter-mark" aria-hidden="true">
+			{[6, 12, 9, 16, 11, 7].map((height, index) => (
+				<i key={String(index)} style={{ height }} />
+			))}
+		</span>
+	);
+}
+
+type NodeState = "off" | "on" | "live";
+
+// The signal chain: pipeline stages carrying their own state.
+function ChainStrip(props: Record<"source" | "transcribe" | "style" | "export", NodeState>) {
+	const nodes: Array<[string, NodeState]> = [
+		["Source", props.source],
+		["Transcribe", props.transcribe],
+		["Style", props.style],
+		["Export", props.export],
+	];
+	return (
+		<div className="chain-strip">
+			{nodes.map(([label, state], index) => (
+				<Fragment key={label}>
+					{index > 0 && <span className="chain-link" />}
+					<span className={classNames("chain-node", state !== "off" && state)}>{label}</span>
+				</Fragment>
+			))}
+		</div>
 	);
 }
 
