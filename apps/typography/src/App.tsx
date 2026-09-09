@@ -254,8 +254,8 @@ export default function App() {
 			setNotice("Choose an MP4, MOV, or WebM video.");
 			return;
 		}
-		if (file.size > 500 * 1024 * 1024) {
-			setNotice("Videos must be 500 MB or smaller.");
+		if (file.size > 1024 * 1024 * 1024) {
+			setNotice("Videos must be 1 GB or smaller.");
 			return;
 		}
 		setSourceUrl(URL.createObjectURL(file));
@@ -567,7 +567,7 @@ export default function App() {
 						<button className="close-button" type="button" onClick={() => setShowUpload(false)} aria-label="Close upload">×</button>
 						<p className="eyebrow">New project</p>
 						<h2 id="upload-heading">Turn speech into typography.</h2>
-						<p className="modal-copy">Upload a video up to 500 MB. Your project and media stay available for 14 days.</p>
+						<p className="modal-copy">Upload a video up to 1 GB. Your project and media stay available for 14 days.</p>
 						<button className="dropzone" type="button" onClick={() => inputRef.current?.click()}>
 							<span className="upload-icon">↑</span><strong>Choose a video</strong><span>MP4, MOV, or WebM</span>
 						</button>

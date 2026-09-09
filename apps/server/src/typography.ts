@@ -17,7 +17,7 @@ const createInput = z.object({
 	filename: z.string().trim().min(1).max(255),
 	language: z.enum(["en", "fi"]),
 	contentType: z.enum(["video/mp4", "video/quicktime", "video/webm"]),
-	byteSize: z.number().int().positive().max(500 * 1024 * 1024),
+	byteSize: z.number().int().positive().max(1024 * 1024 * 1024),
 });
 const saveInput = z.object({ document: typographyDocumentSchema });
 
