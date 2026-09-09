@@ -11,7 +11,7 @@ import { promisify } from "node:util";
 import { and, desc, eq, gt, lte } from "drizzle-orm";
 import { z } from "zod";
 
-const MAX_UPLOAD_BYTES = 500 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 const RETENTION_MS = 14 * 24 * 60 * 60_000;
 const videoTypes = new Set(["video/mp4", "video/quicktime", "video/webm"]);
 const AI_MODEL = "openai/gpt-4.1-mini";
@@ -90,7 +90,7 @@ export async function createTypographyProject(
 ) {
 	if (!videoTypes.has(input.contentType)) throw new Error("Unsupported video type");
 	if (input.byteSize < 1 || input.byteSize > MAX_UPLOAD_BYTES)
-		throw new Error("Video must be 500 MB or smaller");
+		throw new Error("Video must be 1 GB or smaller");
 	const id = randomUUID();
 	const sourceKey = "typography/" + userId + "/" + id + "/source";
 	const expiresAt = new Date(Date.now() + RETENTION_MS);
