@@ -178,6 +178,7 @@ export default function App() {
 		function handleKeyDown(event: KeyboardEvent) {
 			if (
 				event.target instanceof HTMLInputElement ||
+				event.target instanceof HTMLButtonElement ||
 				event.target instanceof HTMLTextAreaElement
 			)
 				return;
@@ -441,6 +442,11 @@ export default function App() {
 								))}
 							</div>
 							{processing && <ProcessingOverlay />}
+							{!projectId && !sourceUrl && (
+								<button className="preview-start" type="button" onClick={() => setShowUpload(true)}>
+									<span>Upload a video to start</span>
+								</button>
+							)}
 						</div>
 					</div>
 					<div className="playback-row">
