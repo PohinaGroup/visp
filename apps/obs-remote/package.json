@@ -1,7 +1,7 @@
 {
   "name": "@VISP/obs-remote",
   "main": "expo-router/entry",
-  "version": "1.7.22",
+  "version": "1.7.23",
   "dependencies": {
     "@VISP/api": "workspace:*",
     "@better-auth/expo": "catalog:",
