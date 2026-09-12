@@ -167,6 +167,7 @@ final class VispSrtView: ExpoView {
   private var intentionalStop = true
   private var imageStabilizationEnabled = true
   private var lastPktSndLossTotal: Int32 = 0
+  private var lastPktSndDropTotal: Int32 = 0
   private var lastPktSentTotal: Int64 = 0
   private var lastLinkDegraded: Bool?
   private var lockedOrientation: AVCaptureVideoOrientation?
@@ -1470,6 +1471,7 @@ final class VispSrtView: ExpoView {
   private func startStatsLoop() {
     stopStatsLoop()
     lastPktSndLossTotal = 0
+    lastPktSndDropTotal = 0
     lastPktSentTotal = 0
     lastLinkDegraded = nil
     statsTask = Task { @MainActor [weak self] in
@@ -1494,6 +1496,8 @@ final class VispSrtView: ExpoView {
     }
     let sentDelta = max(0, performance.pktSentTotal - lastPktSentTotal)
     let lossDelta = max(0, Int64(performance.pktSndLossTotal) - Int64(lastPktSndLossTotal))
+    let dropDelta = max(0, Int64(performance.pktSndDropTotal) - Int64(lastPktSndDropTotal))
+    lastPktSndDropTotal = performance.pktSndDropTotal
     lastPktSentTotal = performance.pktSentTotal
     lastPktSndLossTotal = performance.pktSndLossTotal
     let packetLossPct: Double
@@ -1532,6 +1536,9 @@ final class VispSrtView: ExpoView {
       "targetBitrateKbps": targetBitrateKbps,
       "rttMs": rttMs,
       "packetLossPct": packetLossPct,
+      "packetDropPct": sentDelta + dropDelta > 0
+        ? 100.0 * Double(dropDelta) / Double(sentDelta + dropDelta) : 0,
+      "sendQueueCongested": performance.msSndBuf >= 250,
       "links": links,
     ])
   }

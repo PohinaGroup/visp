@@ -30,9 +30,9 @@
 .chain-link { flex: 1; height: 1px; background: var(--border); }
 @keyframes tally { 50% { opacity: .25; } }
 
-.workspace { height: calc(100vh - 175px); min-height: 640px; display: grid; grid-template-columns: 248px minmax(520px, 1fr) 284px; }
+.workspace { height: calc(100vh - 175px); min-height: 640px; display: grid; grid-template-columns: 248px minmax(520px, 1fr) 284px; grid-template-rows: minmax(0, 1fr); }
 .transcript-panel, .inspector { background: var(--surface); }
-.transcript-panel { position: relative; padding: 19px 16px 0; border-right: 1px solid var(--border); }
+.transcript-panel { display: flex; flex-direction: column; min-height: 0; padding: 19px 16px 0; border-right: 1px solid var(--border); }
 .inspector { border-left: 1px solid var(--border); overflow-y: auto; }
 .panel-header { display: flex; justify-content: space-between; align-items: flex-start; }
 .eyebrow { margin: 0 0 5px; color: var(--faint-fg); font-family: var(--font-mono); font-size: 9px; text-transform: uppercase; letter-spacing: .2em; }
@@ -41,12 +41,12 @@
 .icon-button:hover { color: var(--fg); }
 .language-row { display: flex; gap: 8px; align-items: center; margin: 20px 0; color: var(--muted-fg); font-size: 11px; }
 .language-badge { padding: 3px 5px; border: 1px solid var(--border-strong); border-radius: var(--radius); color: var(--fg); font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; }
-.transcript-copy { line-height: 2.2; }
+.transcript-copy { flex: 1; overflow-y: auto; min-height: 0; line-height: 2.2; }
 .word-chip { display: inline; border: 0; border-radius: var(--radius); padding: 3px; color: var(--muted-fg); background: transparent; font-size: 16px; text-align: left; }
 .word-chip:hover { color: var(--fg); }
 .word-chip.important { color: var(--fg); font-weight: 600; }
 .word-chip.selected { color: var(--bg); background: var(--fg); font-weight: 600; }
-.panel-footer { position: absolute; right: 16px; bottom: 17px; left: 16px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--faint-fg); font-size: 11px; line-height: 1.45; }
+.panel-footer { flex-shrink: 0; margin: 14px 0 17px; padding-top: 14px; border-top: 1px solid var(--border); color: var(--faint-fg); font-size: 11px; line-height: 1.45; }
 
 .editor-stage { display: grid; grid-template-rows: 42px minmax(0, 1fr) 45px 105px; min-width: 0; padding: 0 26px 16px; background: var(--bg); }
 .stage-toolbar { display: flex; align-items: center; justify-content: center; gap: 7px; }

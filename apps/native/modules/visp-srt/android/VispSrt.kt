@@ -1773,6 +1773,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
           "targetBitrateKbps" to (targetBitrateBps / 1_000).coerceAtLeast(0),
           "rttMs" to stats.rttMs,
           "packetLossPct" to stats.packetLossPct.coerceIn(0.0, 100.0),
+          "sendQueueCongested" to (stats.sendQueueCongested ||
+            (stream?.getStreamClient()?.hasCongestion() == true)),
           "links" to stats.links,
         ),
       )
@@ -1800,6 +1802,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
         "targetBitrateKbps" to (targetBitrateBps / 1_000).coerceAtLeast(0),
         "rttMs" to rttMs,
         "packetLossPct" to packetLossPct,
+        "sendQueueCongested" to client.hasCongestion(),
       ),
     )
   }

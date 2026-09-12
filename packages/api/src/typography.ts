@@ -4,12 +4,13 @@ import { env } from "@VISP/env/server";
 import { createObjectStore } from "@VISP/object-store";
 import { randomUUID } from "node:crypto";
 import { execFile } from "node:child_process";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { and, desc, eq, gt, lte } from "drizzle-orm";
 import { z } from "zod";
+import { captionSubtitles } from "./typography-captions";
 
 const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 const RETENTION_MS = 14 * 24 * 60 * 60_000;
@@ -246,30 +247,6 @@ export async function typographyVideoUrl(userId: string, projectId: string) {
 	return await objects.presign(project.sourceKey, { method: "GET", expiresIn: 15 * 60 });
 }
 
-function filterEscape(value: string) {
-	return value
-		// Escape the drawtext option, then the surrounding filtergraph.
-		.replace(/[\\':]/g, "\\$&")
-		.replace(/[\\'\[\],;]/g, "\\$&");
-}
-
-export function captionFilter(document: TypographyDocument) {
-	const groups = new Map<number, TypographyDocument["words"]>();
-	for (const word of document.words) {
-		const group = groups.get(word.group) ?? [];
-		group.push(word);
-		groups.set(word.group, group);
-	}
-	return [...groups.values()]
-		.map((group) => {
-			const text = filterEscape(group.map((word) => word.text).join(" ").toUpperCase());
-			const start = group[0]?.start ?? 0;
-			const end = group.at(-1)?.end ?? start;
-			return "drawtext=fontcolor=white:fontsize=64:borderw=4:bordercolor=black:x=(w-text_w)/2:y=h*0.62:expansion=none:text=" + text + ":enable='between(t," + start + "," + end + ")'";
-		})
-		.join(",");
-}
-
 function runFfmpeg(args: string[]) {
 	return promisify(execFile)("ffmpeg", args, { maxBuffer: 1024 * 1024 })
 		.then(() => undefined)
@@ -295,12 +272,16 @@ async function renderTypographyExport(
 	const output = join(directory, "export.mp4");
 	try {
 		const sourceUrl = await objects.presign(sourceKey, { method: "GET", expiresIn: 60 * 60 });
-		const filter = captionFilter(document);
+		const subtitles = join(directory, "captions.ass");
+		await writeFile(subtitles, captionSubtitles(document));
+		const fonts = join(process.cwd(), "../typography/dist/assets");
 		const args = [
 			"-y",
+			"-loglevel", "error",
 			"-i",
 			sourceUrl,
-			...(filter ? ["-vf", filter] : []),
+			"-vf",
+			`scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,ass=filename=${subtitles}:fontsdir=${fonts}`,
 			"-c:v",
 			"libx264",
 			"-preset",

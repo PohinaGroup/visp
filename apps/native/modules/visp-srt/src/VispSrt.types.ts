@@ -1,4 +1,4 @@
-import type { LinkMetrics } from "@VISP/api/link-stats";
+import type { LinkMetrics, SrtCongestionMetrics } from "@VISP/api/link-stats";
 import type { ColorValue, StyleProp, ViewStyle } from "react-native";
 
 export type StreamState =
@@ -34,9 +34,10 @@ export type AudioLevelEvent = {
 };
 
 /** Live outbound link / ABR sample (~1 Hz while publishing). */
-export type StreamStatsEvent = LinkMetrics & {
-	links?: BondedLinkStats[];
-};
+export type StreamStatsEvent = LinkMetrics &
+	SrtCongestionMetrics & {
+		links?: BondedLinkStats[];
+	};
 
 export type VideoFormatCapability = {
 	fps: number[];

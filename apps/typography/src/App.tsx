@@ -72,6 +72,7 @@ export default function App() {
 	const [playing, setPlaying] = useState(false);
 	const [safeArea, setSafeArea] = useState(true);
 	const [sourceUrl, setSourceUrl] = useState<string | null>(null);
+	const [duration, setDuration] = useState(0);
 	const [sourceName, setSourceName] = useState("founder-advice.mp4");
 	const [language, setLanguage] = useState<Language>("English");
 	const [showUpload, setShowUpload] = useState(false);
@@ -82,6 +83,11 @@ export default function App() {
 	const [notice, setNotice] = useState<string | null>(null);
 	const [projectId, setProjectId] = useState<string | null>(null);
 	const [exportUrl, setExportUrl] = useState<string | null>(null);
+	const timelineStart = sourceUrl || projectId ? 0 : 3.02;
+	const timelineEnd = sourceUrl || projectId
+		? duration || words.reduce((end, word) => Math.max(end, word.end), 1)
+		: 7.04;
+	const timelineDuration = timelineEnd - timelineStart;
 
 	const selected = words.find((word) => word.id === selectedId) ?? words[0];
 	// Hold the current word through timing gaps until the next word starts.
@@ -161,6 +167,17 @@ export default function App() {
 				if (project.state === "processing") {
 					setProcessing(true);
 					void waitForProject(project.id);
+				}
+				const exported = await fetch(apiUrl + "/api/typography/projects/" + project.id + "/export", {
+					credentials: "include",
+				});
+				if (exported.status === 202) {
+					setExporting(true);
+					void waitForExport(project.id)
+						.catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Export failed."))
+						.finally(() => setExporting(false));
+				} else if (exported.ok) {
+					setExportUrl(((await exported.json()) as { url: string }).url);
 				}
 			})
 			.catch(() => undefined);
@@ -258,6 +275,8 @@ export default function App() {
 			setNotice("Videos must be 1 GB or smaller.");
 			return;
 		}
+		setDuration(0);
+		setPlayhead(0);
 		setSourceUrl(URL.createObjectURL(file));
 		setSourceName(file.name);
 		setProcessing(true);
@@ -307,6 +326,7 @@ export default function App() {
 			return;
 		}
 		setExporting(true);
+		setExportUrl(null);
 		void fetch(apiUrl + "/api/typography/projects/" + projectId + "/export", {
 			method: "POST",
 			credentials: "include",
@@ -321,7 +341,7 @@ export default function App() {
 	}
 
 	async function waitForExport(id: string) {
-		for (let attempt = 0; attempt < 80; attempt++) {
+		for (;;) {
 			await new Promise((resolve) => window.setTimeout(resolve, 3_000));
 			const response = await fetch(apiUrl + "/api/typography/projects/" + id + "/export", {
 				credentials: "include",
@@ -336,7 +356,6 @@ export default function App() {
 			setNotice("Your H.264 MP4 is ready.");
 			return;
 		}
-		setNotice("Export is taking longer than expected. Keep this project open and try again.");
 	}
 
 	const previewClass = "phone-preview style-" + style.toLowerCase().replaceAll(" ", "-");
@@ -362,13 +381,12 @@ export default function App() {
 					<button className="quiet-button" type="button" onClick={() => setShowUpload(true)}>
 						New project
 					</button>
-					{exportUrl ? (
+					{exportUrl && (
 						<a className="export-button" href={exportUrl}>Download MP4</a>
-					) : (
-						<button className="export-button" type="button" onClick={exportProject} disabled={exporting}>
-							{exporting ? "Preparing export..." : "Export"}
-						</button>
 					)}
+					<button className="export-button" type="button" onClick={exportProject} disabled={exporting}>
+						{exporting ? "Preparing export..." : exportUrl ? "Export again" : "Export"}
+					</button>
 				</div>
 			</header>
 
@@ -413,7 +431,7 @@ export default function App() {
 						<button className="tool-button" type="button" onClick={() => setSafeArea((value) => !value)}>
 							{safeArea ? "Safe areas on" : "Safe areas off"}
 						</button>
-						<span className="duration">00:07</span>
+						<span className="duration">{formatTime(timelineEnd).slice(0, -3)}</span>
 					</div>
 					<div className="preview-wrap">
 						<div className={previewClass}>
@@ -423,6 +441,11 @@ export default function App() {
 									className="source-video"
 									src={sourceUrl}
 									playsInline
+									onLoadedMetadata={(event) => setPlayhead(event.currentTarget.currentTime)}
+									onDurationChange={(event) => {
+										const value = event.currentTarget.duration;
+										setDuration(Number.isFinite(value) && value > 0 ? value : 0);
+									}}
 									onPlay={() => setPlaying(true)}
 									onPause={() => setPlaying(false)}
 									onTimeUpdate={(event) => setPlayhead(event.currentTarget.currentTime)}
@@ -457,8 +480,8 @@ export default function App() {
 						<input
 							aria-label="Playhead"
 							type="range"
-							min="3.02"
-							max="7.04"
+							min={timelineStart}
+							max={timelineEnd}
 							step="0.01"
 							value={playhead}
 							onChange={(event) => {
@@ -467,7 +490,7 @@ export default function App() {
 								if (videoRef.current) videoRef.current.currentTime = value;
 							}}
 						/>
-						<span className="timecode">00:07.04</span>
+						<span className="timecode">{formatTime(timelineEnd)}</span>
 					</div>
 					<section className="timeline panel">
 						<div className="timeline-header">
@@ -475,10 +498,10 @@ export default function App() {
 							<span>{formatTime(selected.start)} — {formatTime(selected.end)}</span>
 						</div>
 						<div className="timeline-track">
-							<div className="playhead" style={{ left: String(((playhead - 3.02) / 4.02) * 100) + "%" }} />
+							<div className="playhead" style={{ left: String(((playhead - timelineStart) / timelineDuration) * 100) + "%" }} />
 							{words.map((word) => {
-								const left = ((word.start - 3.02) / 4.02) * 100;
-								const width = Math.max(((word.end - word.start) / 4.02) * 100, 4);
+								const left = ((word.start - timelineStart) / timelineDuration) * 100;
+								const width = ((word.end - word.start) / timelineDuration) * 100;
 								return (
 									<button
 										className={classNames("timeline-word", word.id === selected.id && "selected", word.emphasis > 75 && "important")}
