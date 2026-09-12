@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -116,7 +116,7 @@ function authProvider(provider: DirectProvider): AuthProvider {
 const defaultDependencies: DirectDependencies = {
 	fetch: (...args) => globalThis.fetch(...args),
 	getAccessToken: (providerId, userId) =>
-		auth.api.getAccessToken({ body: { providerId, userId } }),
+		getProviderAccessToken(providerId, userId),
 	resolveHost,
 };
 

@@ -1,6 +1,5 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
-import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 export const serverUrl = (
@@ -10,7 +9,7 @@ export const serverUrl = (
 export const authClient = createAuthClient({
 	baseURL: `${serverUrl}/api/auth`,
 	fetchOptions: { credentials: "include" },
-	plugins: [genericOAuthClient()],
+	plugins: [],
 });
 
 export const trpc = createTRPCClient<AppRouter>({

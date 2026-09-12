@@ -83,8 +83,8 @@ function SignIn() {
 		const result =
 			provider !== "kick"
 				? await authClient.signIn.social({ provider, callbackURL })
-				: await authClient.signIn.oauth2({
-						providerId: provider,
+				: await authClient.signIn.social({
+						provider: provider,
 						callbackURL,
 					});
 		if (result.error) {

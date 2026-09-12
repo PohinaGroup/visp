@@ -141,6 +141,13 @@
       "when": 1788780000001,
       "tag": "0019_typography_jobs",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1789228278432,
+      "tag": "0020_agent_auth",
+      "breakpoints": true
     }
   ]
 }

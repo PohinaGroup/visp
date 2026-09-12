@@ -15,6 +15,14 @@ fail() {
 	exit 1
 }
 
+# Names the offending files: a bare "has tracked changes" is undebuggable
+# without SSH access to the box.
+assert_clean() {
+	git -C "$repo" diff --quiet && git -C "$repo" diff --cached --quiet && return
+	git -C "$repo" status --porcelain --untracked-files=no >&2
+	fail "$*"
+}
+
 [[ $EUID -eq 0 ]] || fail "run as root"
 
 for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
@@ -31,15 +39,11 @@ exec 8>/run/lock/visp-release.lock
 flock -w 1800 8 || fail "a production release is still running"
 
 git -C "$repo" fetch --force --prune origin main
-if ! git -C "$repo" diff --quiet ||
-	! git -C "$repo" diff --cached --quiet; then
-	fail "$repo has tracked changes"
-fi
+assert_clean "$repo has tracked changes before checkout; run" \
+	"'git -C $repo checkout -- .' on the host after reviewing them"
 git -C "$repo" checkout --detach FETCH_HEAD
-if ! git -C "$repo" diff --quiet ||
-	! git -C "$repo" diff --cached --quiet; then
-	fail "$repo checkout left tracked changes; repair its ownership and permissions"
-fi
+assert_clean "$repo checkout left tracked changes;" \
+	"repair its ownership and permissions"
 
 run_with_env() (
 	local env_file=$1

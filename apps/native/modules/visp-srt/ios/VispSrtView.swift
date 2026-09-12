@@ -981,6 +981,29 @@ final class VispSrtView: ExpoView {
     try await stream.setVideoSettings(settings)
   }
 
+  /// SRT throws away a packet that is still missing once it is older than the
+  /// negotiated latency, and the 120 ms protocol default is less than a phone
+  /// uplink needs to retransmit a burst. Those drops cost picture twice: the
+  /// relay never gets the data, and ABR reads the drops as congestion and winds
+  /// the encoder down. Two seconds of glass-to-glass buys back both.
+  private static let srtLatencyMilliseconds = 2_000
+
+  /// SRTHaishinKit turns recognised query items into socket options, so this is
+  /// how SRTO_LATENCY (milliseconds) gets set. The relay honours it without any
+  /// change of its own: SRT negotiates the larger of the two sides' latencies.
+  private func withSrtLatency(_ url: URL) -> URL {
+    guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+      return url
+    }
+    let query = components.percentEncodedQuery ?? ""
+    guard !query.contains("latency=") else {
+      return url
+    }
+    let latency = "latency=\(Self.srtLatencyMilliseconds)"
+    components.percentEncodedQuery = query.isEmpty ? latency : "\(query)&\(latency)"
+    return components.url ?? url
+  }
+
   func start(_ value: String) async throws {
     var url = try validatedURL(value)
     if bondingMode != "off",
@@ -990,6 +1013,7 @@ final class VispSrtView: ExpoView {
         url = bondedURL
       }
     }
+    url = withSrtLatency(url)
     try await prepare()
     guard currentState != .live, currentState != .connecting, currentState != .reconnecting else {
       return

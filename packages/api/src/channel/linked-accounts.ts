@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import { account } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
@@ -51,9 +51,7 @@ type Dependencies = {
 const defaultDependencies: Dependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (provider, userId) =>
-		auth.api.getAccessToken({
-			body: { providerId: authProviderId(provider), userId },
-		}),
+		getProviderAccessToken(authProviderId(provider), userId),
 	loadAccounts: (userId) =>
 		db
 			.select({

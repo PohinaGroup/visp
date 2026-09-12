@@ -32,12 +32,14 @@ export function useAudioIsolation(
 			better: betterEnabled,
 			betterAvailable,
 		});
-		void camera
-			.setAudioIsolation(mode, serverOrigin(), sessionCookie())
+		let cancelled = false;
+		void Promise.resolve(sessionCookie())
+			.then((cookie) => { if (!cancelled) return camera.setAudioIsolation(mode, serverOrigin(), cookie); })
 			.catch(() => {
 				if (mode === "better") {
 					onErrorRef.current?.("Better audio isolation could not start");
 				}
 			});
+		return () => { cancelled = true; };
 	}, [betterAvailable, betterEnabled, camera, configuration, enabled]);
 }

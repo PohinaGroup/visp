@@ -1,4 +1,5 @@
 import * as UI from "@expo/ui";
+import { nativeApplicationVersion, nativeBuildVersion } from "expo-application";
 import type { BondingMode } from "../../modules/visp-srt";
 import { SettingsPicker } from "./settings-picker";
 import {
@@ -129,6 +130,15 @@ export function StreamSettingsSheet({
 					onToggleAdvanced={onToggleAdvanced}
 					settingsDisabled={camera.settingsDisabled}
 				/>
+				{!IS_WEB ? (
+					<UI.FieldGroup.Section title="VISP">
+						<SettingRow label="Version">
+							<UI.Text textStyle={SUBTLE_TEXT}>
+								{`${nativeApplicationVersion ?? "Unknown"} (${nativeBuildVersion ?? "Unknown"})`}
+							</UI.Text>
+						</SettingRow>
+					</UI.FieldGroup.Section>
+				) : null}
 			</UI.FieldGroup>
 		</UI.BottomSheet>
 	);

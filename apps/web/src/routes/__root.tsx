@@ -39,6 +39,7 @@ function rybbitHeadScripts() {
 			src: "https://analytics.huikaton.online/api/script.js",
 			async: true,
 			"data-site-id": siteId,
+			"data-skip-patterns": '["/auth/**", "/login"]',
 			// Keep publish URLs and similar secrets out of session replay.
 			"data-replay-block-selector": ".rr-block, [data-rybbit-block]",
 			"data-replay-mask-text-selectors": '["[data-pii]"]',

@@ -5,9 +5,9 @@ export function normalizeServerOrigin(
 	return value?.replace(/\/$/, "");
 }
 
-export function sessionCookie(
-	getCookie: (() => string | undefined) | undefined,
-): string | undefined {
+export async function sessionCookie(
+	getCookie: (() => string | undefined | Promise<string | undefined>) | undefined,
+): Promise<string | undefined> {
 	return typeof getCookie === "function" ? getCookie() : undefined;
 }
 

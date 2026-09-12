@@ -20,7 +20,8 @@
 		"better-auth": "catalog:",
 		"dotenv": "catalog:",
 		"drizzle-orm": "^0.45.2",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@better-auth/agent-auth": "0.6.2"
 	},
 	"devDependencies": {
 		"@VISP/config": "workspace:*",

@@ -12,6 +12,8 @@ import {
 } from "evlog/better-auth";
 import { evlog } from "evlog/elysia";
 import { audioIsolationRoutes } from "./audio-isolation";
+import { agentRoutes } from "./agent";
+import { handleAuthRequest } from "./auth-handler";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
 import { multiChatRoutes } from "./multichat";
@@ -29,6 +31,10 @@ initLogger({ env: { service: "VISP-server" } });
 // the Node adapter (srvx/crossws) for listen + WebSocket.
 
 export const LOG_REDACTION_PATHS = [
+	"**.code",
+	"**.user_code",
+	"**.enrollmentToken",
+	"**.enrollment_token",
 	"**.password",
 	"**.accessToken",
 	"**.access_token",
@@ -56,6 +62,7 @@ export const LOG_REDACTION_PATHS = [
 
 const identifyUser = createAuthMiddleware(auth as BetterAuthInstance, {
 	exclude: [
+		"/api/agent/**",
 		"/api/auth/**",
 		"/api/chat/**",
 		"/api/mediamtx/**",
@@ -94,6 +101,7 @@ export function createApp() {
 			}),
 		)
 		.use(chatRoutes)
+		.use(agentRoutes)
 		.use(multiChatRoutes)
 		.use(machineRoutes)
 		.use(obsLiveRoutes)
@@ -113,17 +121,22 @@ export function createApp() {
 		})
 		.all("/api/auth/*", async ({ request, status: responseStatus }) => {
 			if (["POST", "GET"].includes(request.method)) {
-				return auth.handler(request);
+				return handleAuthRequest(request);
 			}
 			return responseStatus(405);
 		})
 		.all("/trpc/*", async (context) => {
-			return fetchRequestHandler({
+			const response = await fetchRequestHandler({
 				endpoint: "/trpc",
 				router: appRouter,
 				req: context.request,
 				createContext: () => createContext({ context }),
 			});
+			// evlog logs `set.status || 200`, and a handler that returns a Response
+			// never touches `set`, so every failing tRPC call was logged as 200 —
+			// which hid a client retrying a 404 once a second for a whole stream.
+			context.set.status = response.status;
+			return response;
 		})
 		.get("/", () => "OK");
 }

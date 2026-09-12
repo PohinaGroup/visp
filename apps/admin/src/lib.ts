@@ -1,7 +1,7 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { adminAccess, adminRoles } from "@VISP/auth/permissions";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
-import { adminClient, genericOAuthClient } from "better-auth/client/plugins";
+import { adminClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 const serverUrl = (
@@ -13,7 +13,6 @@ export const authClient = createAuthClient({
 	fetchOptions: { credentials: "include" },
 	plugins: [
 		adminClient({ ac: adminAccess, roles: adminRoles }),
-		genericOAuthClient(),
 	],
 });
 

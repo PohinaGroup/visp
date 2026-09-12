@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import { account, type chatBotSenderModes } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
@@ -49,7 +49,7 @@ export type SendDependencies = {
 const defaultDependencies: SendDependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (providerId, userId) =>
-		auth.api.getAccessToken({ body: { providerId, userId } }),
+		getProviderAccessToken(providerId, userId),
 	loadAccount: async (providerId, userId) =>
 		db.query.account.findFirst({
 			columns: { accountId: true, scope: true },

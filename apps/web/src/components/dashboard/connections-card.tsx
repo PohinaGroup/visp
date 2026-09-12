@@ -236,9 +236,10 @@ export function ConnectionsCard() {
 
 	const unlink = async (provider: ChatProvider, enabled: boolean) => {
 		if (enabled) await disable.mutateAsync({ provider });
-		const result = await authClient.unlinkAccount({
-			providerId: chatAuthProvider(provider),
-		});
+		const accounts = await authClient.listAccounts();
+		const linked = accounts.data?.find((account) => account.providerId === chatAuthProvider(provider));
+		if (!linked) { toast.error("Could not find the linked account"); return; }
+		const result = await authClient.unlinkAccount({ accountId: linked.id });
 		if (result.error) {
 			toast.error(result.error.message ?? `Could not unlink ${provider}`);
 			return;

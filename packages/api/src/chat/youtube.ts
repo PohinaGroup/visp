@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { and, eq } from "drizzle-orm";
@@ -19,7 +19,7 @@ type YoutubeChatDependencies = {
 const defaultDependencies: YoutubeChatDependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (userId) =>
-		auth.api.getAccessToken({ body: { providerId: "google", userId } }),
+		getProviderAccessToken("google", userId),
 };
 
 type YoutubeChatPage = {

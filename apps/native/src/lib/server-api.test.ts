@@ -12,9 +12,9 @@ describe("server-api", () => {
 		);
 	});
 
-	test("sessionCookie reads from getCookie when present", () => {
-		expect(sessionCookie(() => "session=abc")).toBe("session=abc");
-		expect(sessionCookie(undefined)).toBeUndefined();
+	test("sessionCookie awaits getCookie when present", async () => {
+		expect(await sessionCookie(async () => "session=abc")).toBe("session=abc");
+		expect(await sessionCookie(undefined)).toBeUndefined();
 	});
 
 	test("authenticatedPost sends JSON with the session cookie", async () => {

@@ -500,6 +500,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var imageStabilizationEnabled = true
   private var lastPacketsLost = 0
   private var lastBytesSent = 0L
+  private var lastDroppedFrames = 0L
+  private var lastSentFrames = 0L
   private var lastLinkDegraded: Boolean? = null
   private var measuredBitrateBps = 0L
   private var preparedRotation: Int? = null
@@ -1054,6 +1056,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
         targetBitrateBps = videoBitrateCeilingBps
         lastPacketsLost = (stream as? SrtStream)?.getStreamClient()?.getPacketsLost() ?: 0
         lastBytesSent = stream?.getStreamClient()?.getBytesSend() ?: 0L
+        lastDroppedFrames = stream?.getStreamClient()?.let {
+          it.getDroppedVideoFrames() + it.getDroppedAudioFrames()
+        } ?: 0L
+        lastSentFrames = stream?.getStreamClient()?.let {
+          it.getSentVideoFrames() + it.getSentAudioFrames()
+        } ?: 0L
         lastLinkDegraded = null
         startStatsLoop()
         emit(StreamState.LIVE)
@@ -1169,7 +1177,13 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
     val next =
       (if (bondingMode == "off") {
-        SrtStream(context, this, cameraSource, microphoneSource)
+        SrtStream(context, this, cameraSource, microphoneSource).apply {
+          // SRT drops a packet that is still missing once it is older than the
+          // negotiated latency, and the 120 ms default is less than a phone
+          // uplink needs to retransmit a burst. RootEncoder ignores a latency
+          // query parameter, so it has to be set on the client.
+          getStreamClient().setLatency(SRT_LATENCY_MS)
+        }
       } else {
         UdpStream(context, this, cameraSource, microphoneSource)
       }).apply {
@@ -1789,6 +1803,21 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val sentDelta = ((bytesSent - lastBytesSent).coerceAtLeast(0L) / SRT_PAYLOAD_SIZE)
     lastPacketsLost = packetsLost
     lastBytesSent = bytesSent
+    // Frames the sender gave up on, which is the only local signal that data
+    // never reached the relay. Loss counts include retransmissions that did
+    // arrive, so ABR cannot use them.
+    val droppedFrames = client.getDroppedVideoFrames() + client.getDroppedAudioFrames()
+    val sentFrames = client.getSentVideoFrames() + client.getSentAudioFrames()
+    val droppedDelta = (droppedFrames - lastDroppedFrames).coerceAtLeast(0L)
+    val sentFramesDelta = (sentFrames - lastSentFrames).coerceAtLeast(0L)
+    lastDroppedFrames = droppedFrames
+    lastSentFrames = sentFrames
+    val packetDropPct =
+      if (sentFramesDelta + droppedDelta > 0L) {
+        (100.0 * droppedDelta / (sentFramesDelta + droppedDelta)).coerceIn(0.0, 100.0)
+      } else {
+        0.0
+      }
     val packetLossPct =
       if (sentDelta + lostDelta > 0) {
         (100.0 * lostDelta / (sentDelta + lostDelta)).coerceIn(0.0, 100.0)
@@ -1802,6 +1831,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
         "targetBitrateKbps" to (targetBitrateBps / 1_000).coerceAtLeast(0),
         "rttMs" to rttMs,
         "packetLossPct" to packetLossPct,
+        "packetDropPct" to packetDropPct,
         "sendQueueCongested" to client.hasCongestion(),
       ),
     )
@@ -1820,6 +1850,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     // RootEncoder documents 8/16/22.5/32/44.1 kHz; 48 kHz is not listed.
     const val AUDIO_SAMPLE_RATE = 44_100
     const val KEYFRAME_INTERVAL = 2
+    const val SRT_LATENCY_MS = 2_000
     const val VIDEO_BITRATE = 3_500_000
     const val CAMERA_UNAVAILABLE = "The camera or microphone is unavailable."
     const val CONFIGURATION_UNAVAILABLE = "That camera setting is not available on this device."

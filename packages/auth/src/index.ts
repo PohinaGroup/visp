@@ -17,6 +17,7 @@ import { eq, sql } from "drizzle-orm";
 import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { adminAccess, adminRoles } from "./permissions";
+import { agentAuthPlugin } from "./agent";
 
 /**
  * Audience for Apple identity tokens. A public identifier rather than a secret,
@@ -223,6 +224,7 @@ export function createAuth() {
 			},
 		},
 		plugins: [
+			agentAuthPlugin,
 			adminPlugin({
 				ac: adminAccess,
 				adminRoles: ["admin"],
@@ -239,6 +241,7 @@ export function createAuth() {
 				config: [
 					{
 						providerId: "kick",
+						redirectURI: new URL("/api/auth/oauth2/callback/kick", env.BETTER_AUTH_URL).href,
 						clientId: env.KICK_CLIENT_ID,
 						clientSecret: env.KICK_CLIENT_SECRET,
 						authorizationUrl: "https://id.kick.com/oauth/authorize",
@@ -258,4 +261,4 @@ export function createAuth() {
 	});
 }
 
-export const auth = createAuth();
+export const auth: ReturnType<typeof createAuth> = createAuth();

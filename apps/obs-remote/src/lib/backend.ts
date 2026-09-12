@@ -1,7 +1,6 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { expoClient } from "@better-auth/expo/client";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
-import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as SecureStore from "expo-secure-store";
 
@@ -17,7 +16,6 @@ export const authClient = createAuthClient({
 			storage: SecureStore,
 			storagePrefix: "obsremote",
 		}),
-		genericOAuthClient(),
 	],
 });
 
@@ -28,8 +26,8 @@ export function authCallbackURL(): string {
 export const apiClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
-			headers() {
-				const cookie = authClient.getCookie();
+			async headers() {
+				const cookie = await authClient.getCookie();
 				return cookie ? { Cookie: cookie } : {};
 			},
 			url: `${serverUrl}/trpc`,

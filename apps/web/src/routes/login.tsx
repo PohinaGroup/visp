@@ -23,7 +23,7 @@ const FIELD =
 	"h-11 rounded-[var(--radius)] border border-border bg-transparent px-3 text-base text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
 
 function safeReturnPath(value: string | undefined) {
-	return value?.startsWith("/") && !value.startsWith("//") ? value : "/setup";
+	return value?.startsWith("/") && !value.startsWith("//") && !/[\\\u0000-\u0020]/.test(value) ? value : "/setup";
 }
 
 const en = {
@@ -173,8 +173,8 @@ function RouteComponent() {
 						callbackURL,
 						errorCallbackURL: authRedirectURL(errorReturnPath),
 					})
-				: await authClient.signIn.oauth2({
-						providerId: provider,
+				: await authClient.signIn.social({
+						provider: provider,
 						callbackURL,
 						errorCallbackURL: authRedirectURL(errorReturnPath),
 					});

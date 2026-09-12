@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { env } from "@VISP/env/server";
 
 const TTL_MS = 60 * 60_000;
@@ -27,7 +27,7 @@ export async function loadTwitchBadges(
 	dependencies: TwitchBadgeDependencies = {
 		fetch: globalThis.fetch,
 		getAccessToken: (id) =>
-			auth.api.getAccessToken({ body: { providerId: "twitch", userId: id } }),
+			getProviderAccessToken("twitch", id),
 	},
 ) {
 	const now = dependencies.now?.() ?? Date.now();

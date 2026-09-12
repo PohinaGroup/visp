@@ -431,8 +431,8 @@ export function useStreamAccount({
 								errorCallbackURL: authCallbackURL(),
 								scopes,
 							})
-						: await authClient.oauth2.link({
-								providerId: provider,
+						: await authClient.linkSocial({
+								provider: provider,
 								callbackURL: authCallbackURL(),
 								errorCallbackURL: authCallbackURL(),
 								scopes,
@@ -556,10 +556,11 @@ export function useStreamAccount({
 						provider: connection.provider,
 					});
 				}
-				const result = await authClient.unlinkAccount({
-					providerId:
-						connection.provider === "youtube" ? "google" : connection.provider,
-				});
+				const accounts = await authClient.listAccounts();
+				const provider = connection.provider === "youtube" ? "google" : connection.provider;
+				const linked = accounts.data?.find((account) => account.providerId === provider);
+				if (!linked) throw new Error("Could not find the linked account");
+				const result = await authClient.unlinkAccount({ accountId: linked.id });
 				if (result.error)
 					throw new Error(
 						result.error.message ?? "Provider could not be unlinked",
