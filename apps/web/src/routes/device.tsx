@@ -14,10 +14,13 @@ export const Route = createFileRoute("/device")({
 	}),
 	beforeLoad: async ({ location }) => {
 		const session = await authClient.getSession();
+		// ponytail: ssr:false means the server shipped this route's pending fallback;
+		// a soft redirect would hydrate /login over it and blow up hydration.
 		if (!session.data) {
 			throw redirect({
 				to: "/login",
 				search: { redirect: location.href },
+				reloadDocument: true,
 			});
 		}
 	},
