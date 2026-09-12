@@ -574,10 +574,10 @@ export default function Index() {
 							errorCallbackURL: authCallbackURL(),
 							provider,
 						})
-					: await authClient.signIn.oauth2({
+					: await authClient.signIn.social({
 							callbackURL: authCallbackURL(),
 							errorCallbackURL: authCallbackURL(),
-							providerId: provider,
+							provider: provider,
 						});
 			if (result.error) {
 				setMessage(result.error.message ?? `${provider} sign-in failed.`);

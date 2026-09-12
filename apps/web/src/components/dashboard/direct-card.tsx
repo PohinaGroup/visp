@@ -201,8 +201,8 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 						callbackURL,
 						scopes,
 					})
-				: await authClient.oauth2.link({
-						providerId: provider,
+				: await authClient.linkSocial({
+						provider: provider,
 						callbackURL,
 						scopes,
 					});

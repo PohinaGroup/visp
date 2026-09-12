@@ -30,7 +30,7 @@ function Login() {
 		const callbackURL = window.location.href;
 		const result =
 			provider === "kick"
-				? await authClient.signIn.oauth2({ providerId: "kick", callbackURL })
+				? await authClient.signIn.social({ provider: "kick", callbackURL })
 				: await authClient.signIn.social({ provider, callbackURL });
 		if (result.error) {
 			alert(result.error.message ?? "Sign in failed");

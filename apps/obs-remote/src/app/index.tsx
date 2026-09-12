@@ -86,15 +86,15 @@ function SignIn() {
 							callbackURL,
 							provider,
 						})
-					: await authClient.signIn.oauth2({
+					: await authClient.signIn.social({
 							callbackURL,
-							providerId: provider,
+							provider: provider,
 						});
 			if (result.error) {
 				setError(result.error.message ?? `${provider} sign-in failed`);
 				return;
 			}
-			const hasCookie = Boolean(authClient.getCookie());
+			const hasCookie = Boolean(await authClient.getCookie());
 			const session = await authClient.getSession();
 			if (!hasCookie && !session.data?.user) {
 				setError(`${provider} sign-in did not establish a session. Try again.`);

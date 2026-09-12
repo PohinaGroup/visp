@@ -655,8 +655,8 @@ function AuthorizeDirectStep({
 							callbackURL,
 							scopes,
 						})
-					: await authClient.oauth2.link({
-							providerId: destination,
+					: await authClient.linkSocial({
+							provider: destination,
 							callbackURL,
 							scopes,
 						});

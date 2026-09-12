@@ -15,6 +15,14 @@ fail() {
 	exit 1
 }
 
+# Names the offending files: a bare "has tracked changes" is undebuggable
+# without SSH access to the box.
+assert_clean() {
+	git -C "$repo" diff --quiet && git -C "$repo" diff --cached --quiet && return
+	git -C "$repo" status --porcelain --untracked-files=no >&2
+	fail "$*"
+}
+
 [[ $EUID -eq 0 ]] || fail "run as root"
 [[ $# -eq 2 ]] || fail "usage: visp-release <vX.Y.Z> <40-character-commit-sha>"
 
@@ -44,10 +52,7 @@ run_with_env() (
 readonly actual_sha=$(git -C "$repo" rev-parse HEAD)
 [[ $actual_sha == "$expected_sha" ]] ||
 	fail "$repo is at $actual_sha, expected $expected_sha"
-if ! git -C "$repo" diff --quiet ||
-	! git -C "$repo" diff --cached --quiet; then
-	fail "$repo has tracked changes"
-fi
+assert_clean "$repo has tracked changes"
 
 "$bun" install --cwd "$repo" --frozen-lockfile
 

@@ -6,7 +6,6 @@ import {
 	storageAdapter,
 } from "@better-auth/expo/client";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
-import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import * as Linking from "expo-linking";
 import * as SecureStore from "expo-secure-store";
@@ -36,7 +35,6 @@ export const authClient = createAuthClient({
 			storage: SecureStore,
 			storagePrefix: "visp",
 		}),
-		genericOAuthClient(),
 	],
 });
 
@@ -46,7 +44,7 @@ async function consumeAuthCallback(url: string): Promise<void> {
 	const cookie = authCookieFromCallback(url, "visp");
 	if (!cookie || !hasBetterAuthCookies(cookie, "better-auth")) return;
 
-	const previous = authStorage.getItem("visp_cookie") ?? undefined;
+	const previous = await authStorage.getItem("visp_cookie") ?? undefined;
 	await authStorage.setItem("visp_cookie", getSetCookie(cookie, previous));
 	authClient.$store.notify("$sessionSignal");
 }
@@ -67,29 +65,29 @@ export function serverOrigin(): string {
 	return serverUrl;
 }
 
-export function sessionCookie(): string | undefined {
+export function sessionCookie(): Promise<string | undefined> {
 	return readSessionCookie(authClient.getCookie);
 }
 
-export function authenticatedFetch(
+export async function authenticatedFetch(
 	path: string,
 	init: RequestInit = {},
 ): Promise<Response> {
-	return postAuthenticatedFetch(serverUrl, path, init, sessionCookie());
+	return postAuthenticatedFetch(serverUrl, path, init, await sessionCookie());
 }
 
-export function authenticatedPost(
+export async function authenticatedPost(
 	path: string,
 	body: unknown,
 ): Promise<Response> {
-	return postAuthenticatedPost(serverUrl, path, body, sessionCookie());
+	return postAuthenticatedPost(serverUrl, path, body, await sessionCookie());
 }
 
 export const apiClient = createTRPCClient<AppRouter>({
 	links: [
 		httpBatchLink({
-			headers() {
-				const cookie = authClient.getCookie();
+			async headers() {
+				const cookie = await authClient.getCookie();
 				return cookie ? { Cookie: cookie } : {};
 			},
 			url: `${serverUrl}/trpc`,

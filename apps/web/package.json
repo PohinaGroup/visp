@@ -48,7 +48,10 @@
 		"sonner": "catalog:",
 		"streamdown": "^2.5.0",
 		"tailwindcss": "catalog:",
-		"zod": "catalog:"
+		"zod": "catalog:",
+		"@better-auth/agent-auth": "0.6.2",
+		"@better-auth-ui/core": "1.7.23",
+		"@better-auth-ui/react": "1.7.23"
 	},
 	"devDependencies": {
 		"@VISP/config": "workspace:*",

@@ -56,8 +56,8 @@ function RequestDelete() {
 							`/request-delete${fi ? "?lang=fi" : ""}`,
 						),
 					})
-				: await authClient.signIn.oauth2({
-						providerId: provider,
+				: await authClient.signIn.social({
+						provider: provider,
 						callbackURL: authRedirectURL(
 							`/request-delete${fi ? "?lang=fi" : ""}`,
 						),

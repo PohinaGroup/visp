@@ -24,6 +24,7 @@ import { useTRPC } from "@/utils/trpc";
 import { BrbCard } from "./brb-card";
 import { ChatBotCard } from "./chat-bot-card";
 import { ConnectionsCard } from "./connections-card";
+import { AgentsCard } from "@/components/auth/agent-auth/agents-card";
 import { CredentialsCard } from "./credentials-card";
 import { DetailSection } from "./detail-section";
 import { DirectCard } from "./direct-card";
@@ -438,6 +439,7 @@ export function DashboardPage() {
 								<ConnectionsCard />
 							</div>
 							<ChatBotCard />
+							<AgentsCard />
 						</VStack>
 					)}
 				</VStack>

@@ -36,7 +36,16 @@ export async function reportLinkStats(input: LinkStatsInput) {
 		)
 		.where(eq(pathState.pathId, input.pathId))
 		.limit(1);
-	if (!row) return null;
+	if (!row) {
+		// A publisher reporting for a path it does not own, or one that has no
+		// state row yet, gets a 404 it has no way to act on. Say which path, so
+		// a silent telemetry blackout is one log line to diagnose.
+		console.warn("reportLinkStats: no path state", {
+			pathId: input.pathId,
+			userId: input.userId,
+		});
+		return null;
+	}
 
 	if (
 		row.linkStatsAt &&

@@ -183,9 +183,17 @@ export function videoBitrateCeilingKbps(
 	return mode === "direct" ? 4000 : 4500;
 }
 
-/** Lowest ABR target (kbps) for a given ceiling. */
+/**
+ * Lowest ABR target (kbps) for a given ceiling.
+ *
+ * A tenth of the ceiling is below the point where the picture survives motion:
+ * 1080p30 at 600 kbps looks fine on a static shot and turns to mush the moment
+ * anything moves. Contribution quality is worth more than the last megabit, so
+ * the floor stays high enough to stay watchable and a link that genuinely
+ * cannot carry it should drop capture resolution instead.
+ */
 export function videoBitrateFloorKbps(ceilingKbps: number): number {
-	return Math.max(500, Math.floor(ceilingKbps / 10));
+	return Math.max(1500, Math.round(ceilingKbps / 3));
 }
 
 /** Clamp a target bitrate into [floor, ceiling]. */
@@ -226,7 +234,10 @@ export function nextVideoBitrateKbps(input: {
 		packetLossPct < LINK_HEALTHY_LOSS_PCT &&
 		rttMs < LINK_HEALTHY_RTT_MS
 	) {
-		next += Math.round(step / 2);
+		// Recovery matches the step down. Climbing at half the rate it falls let
+		// one congested sample in three ratchet the target to the floor and keep
+		// it there for the rest of the stream.
+		next += step;
 	}
 
 	return clampVideoBitrateKbps(next, ceilingKbps);

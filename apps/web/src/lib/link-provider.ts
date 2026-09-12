@@ -23,8 +23,8 @@ export async function linkProvider(input: {
 				callbackURL,
 				scopes,
 			})
-		: authClient.oauth2.link({
-				providerId: input.provider,
+		: authClient.linkSocial({
+				provider: input.provider,
 				callbackURL,
 				errorCallbackURL: authRedirectURL(
 					`/dashboard?error=kick_link_failed${input.fi ? "&lang=fi" : ""}`,

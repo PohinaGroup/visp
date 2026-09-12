@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import { account, appUser } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
@@ -47,9 +47,7 @@ type UpdateDependencies = StreamInfoDependencies & {
 const defaultDependencies: UpdateDependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (providerId, userId) =>
-		auth.api.getAccessToken({
-			body: { providerId: authProviderId(providerId), userId },
-		}),
+		getProviderAccessToken(authProviderId(providerId), userId),
 	saveYoutubeTitle: async (userId, title) => {
 		await db
 			.update(appUser)

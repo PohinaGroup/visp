@@ -1,7 +1,7 @@
 {
   "name": "@VISP/native",
   "main": "expo-router/entry",
-  "version": "1.7.21",
+  "version": "1.7.22",
   "dependencies": {
     "@VISP/api": "workspace:*",
     "@bacons/apple-targets": "^5.0.0",
@@ -12,6 +12,7 @@
     "better-auth": "catalog:",
     "expo": "~57.0.6",
     "expo-apple-authentication": "~57.0.1",
+    "expo-application": "~57.0.3",
     "expo-audio": "~57.0.3",
     "expo-constants": "~57.0.5",
     "expo-crypto": "~57.0.1",

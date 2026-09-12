@@ -31,6 +31,7 @@ import { Route as FiCookiesRouteImport } from './routes/fi/cookies'
 import { Route as FiContactRouteImport } from './routes/fi/contact'
 import { Route as FiAffiliateRouteImport } from './routes/fi/affiliate'
 import { Route as BlogSlugRouteImport } from './routes/blog.$slug'
+import { Route as AuthAgentApprovalRouteImport } from './routes/auth.agent-approval'
 import { Route as AuthStudioRouteImport } from './routes/_auth/studio'
 import { Route as AuthSetupRouteImport } from './routes/_auth/setup'
 import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
@@ -146,6 +147,11 @@ const BlogSlugRoute = BlogSlugRouteImport.update({
   path: '/blog/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthAgentApprovalRoute = AuthAgentApprovalRouteImport.update({
+  id: '/auth/agent-approval',
+  path: '/auth/agent-approval',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthStudioRoute = AuthStudioRouteImport.update({
   id: '/studio',
   path: '/studio',
@@ -189,6 +195,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
   '/studio': typeof AuthStudioRoute
+  '/auth/agent-approval': typeof AuthAgentApprovalRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
@@ -217,6 +224,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
   '/studio': typeof AuthStudioRoute
+  '/auth/agent-approval': typeof AuthAgentApprovalRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
@@ -247,6 +255,7 @@ export interface FileRoutesById {
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/setup': typeof AuthSetupRoute
   '/_auth/studio': typeof AuthStudioRoute
+  '/auth/agent-approval': typeof AuthAgentApprovalRoute
   '/blog/$slug': typeof BlogSlugRoute
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
@@ -277,6 +286,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/setup'
     | '/studio'
+    | '/auth/agent-approval'
     | '/blog/$slug'
     | '/fi/affiliate'
     | '/fi/contact'
@@ -305,6 +315,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/setup'
     | '/studio'
+    | '/auth/agent-approval'
     | '/blog/$slug'
     | '/fi/affiliate'
     | '/fi/contact'
@@ -334,6 +345,7 @@ export interface FileRouteTypes {
     | '/_auth/dashboard'
     | '/_auth/setup'
     | '/_auth/studio'
+    | '/auth/agent-approval'
     | '/blog/$slug'
     | '/fi/affiliate'
     | '/fi/contact'
@@ -361,6 +373,7 @@ export interface RootRouteChildren {
   RequestDeleteRoute: typeof RequestDeleteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
+  AuthAgentApprovalRoute: typeof AuthAgentApprovalRoute
   BlogSlugRoute: typeof BlogSlugRoute
   FiAffiliateRoute: typeof FiAffiliateRoute
   FiContactRoute: typeof FiContactRoute
@@ -529,6 +542,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth/agent-approval': {
+      id: '/auth/agent-approval'
+      path: '/auth/agent-approval'
+      fullPath: '/auth/agent-approval'
+      preLoaderRoute: typeof AuthAgentApprovalRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/_auth/studio': {
       id: '/_auth/studio'
       path: '/studio'
@@ -598,6 +618,7 @@ const rootRouteChildren: RootRouteChildren = {
   RequestDeleteRoute: RequestDeleteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
+  AuthAgentApprovalRoute: AuthAgentApprovalRoute,
   BlogSlugRoute: BlogSlugRoute,
   FiAffiliateRoute: FiAffiliateRoute,
   FiContactRoute: FiContactRoute,

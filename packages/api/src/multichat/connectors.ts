@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import { account, multiChatSource } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
@@ -49,9 +49,7 @@ async function twitchBot() {
 		),
 	});
 	if (!bot) throw new Error("VISP Twitch bot is not linked");
-	const token = await auth.api.getAccessToken({
-		body: { providerId: "twitch", userId: env.VISP_CHAT_BOT_USER_ID },
-	});
+	const token = await getProviderAccessToken("twitch", env.VISP_CHAT_BOT_USER_ID);
 	return { accountId: bot.accountId, accessToken: token.accessToken };
 }
 

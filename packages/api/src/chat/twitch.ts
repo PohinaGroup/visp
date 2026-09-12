@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getProviderAccessToken } from "@VISP/auth/provider-token";
 import { db } from "@VISP/db";
 import { account, chatConnection } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
@@ -40,7 +40,7 @@ export async function createTwitchChatSubscription(
 	dependencies: TwitchSubscriptionDependencies = {
 		fetch: globalThis.fetch,
 		getAccessToken: (userId) =>
-			auth.api.getAccessToken({ body: { providerId: "twitch", userId } }),
+			getProviderAccessToken("twitch", userId),
 	},
 ) {
 	const token = await dependencies.getAccessToken(input.userId);

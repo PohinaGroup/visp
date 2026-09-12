@@ -146,15 +146,15 @@ describe("formatBondedBitrates", () => {
 });
 
 describe("videoBitrateFloorKbps", () => {
-	test("floors at max(500, ceiling/10)", () => {
-		expect(videoBitrateFloorKbps(3500)).toBe(500);
-		expect(videoBitrateFloorKbps(8000)).toBe(800);
+	test("floors high enough to survive motion", () => {
+		expect(videoBitrateFloorKbps(3500)).toBe(1500);
+		expect(videoBitrateFloorKbps(8000)).toBe(2667);
 	});
 });
 
 describe("clampVideoBitrateKbps", () => {
 	test("clamps into the ABR window", () => {
-		expect(clampVideoBitrateKbps(100, 3500)).toBe(500);
+		expect(clampVideoBitrateKbps(100, 3500)).toBe(1500);
 		expect(clampVideoBitrateKbps(9000, 3500)).toBe(3500);
 		expect(clampVideoBitrateKbps(2100.4, 3500)).toBe(2100);
 	});
@@ -195,7 +195,23 @@ describe("nextVideoBitrateKbps", () => {
 		).toBe(5400);
 	});
 
-	test("steps down on congestion and up when healthy", () => {
+	test("recovers from occasional congestion instead of ratcheting down", () => {
+		// One congested sample in three used to cancel out two half-steps up, so
+		// a link with chronic small drops walked to the floor and stayed there.
+		let target = 3000;
+		for (let tick = 0; tick < 30; tick++) {
+			target = nextVideoBitrateKbps({
+				ceilingKbps: 6000,
+				currentTargetKbps: target,
+				packetLossPct: 0,
+				rttMs: 8,
+				srt: { packetDropPct: tick % 3 === 0 ? 5 : 0 },
+			});
+		}
+		expect(target).toBeGreaterThan(3000);
+	});
+
+	test("steps down on congestion and back up at the same rate", () => {
 		expect(
 			nextVideoBitrateKbps({
 				ceilingKbps: 3500,
@@ -212,7 +228,7 @@ describe("nextVideoBitrateKbps", () => {
 				packetLossPct: 0,
 				rttMs: 40,
 			}),
-		).toBe(2175);
+		).toBe(2350);
 	});
 });
 
