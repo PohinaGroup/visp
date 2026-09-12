@@ -197,18 +197,28 @@ export function clampVideoBitrateKbps(
 	return Math.min(ceilingKbps, Math.max(floor, Math.round(targetKbps)));
 }
 
+/** SRT retransmissions include recovered loss and reordering, not delivery failure. */
+export type SrtCongestionMetrics = {
+	packetDropPct?: number;
+	sendQueueCongested?: boolean;
+};
+
 /** Step a publisher's ABR target from measured link health. */
 export function nextVideoBitrateKbps(input: {
 	ceilingKbps: number;
 	currentTargetKbps: number;
 	packetLossPct: number;
 	rttMs: number;
+	srt?: SrtCongestionMetrics;
 }): number {
-	const { ceilingKbps, packetLossPct, rttMs } = input;
+	const { ceilingKbps, rttMs, srt } = input;
+	// ponytail: older native builds use RTT only; rebuild for drop/queue signals.
+	// NAK counts include recovered packets, so they cannot drive SRT adaptation.
+	const packetLossPct = srt ? (srt.packetDropPct ?? 0) : input.packetLossPct;
 	let next = input.currentTargetKbps;
 	const step = Math.max(250, Math.round(ceilingKbps / 10));
 
-	if (isLinkCongested(packetLossPct, rttMs)) {
+	if (srt?.sendQueueCongested || isLinkCongested(packetLossPct, rttMs)) {
 		next -= step;
 	} else if (packetLossPct >= LINK_SOFT_LOSS_PCT || rttMs >= LINK_SOFT_RTT_MS) {
 		next -= Math.round(step / 2);

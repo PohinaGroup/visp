@@ -25,6 +25,7 @@ internal object BondedSrtNative {
     val links: List<Map<String, Any>>,
     val packetLossPct: Double,
     val rttMs: Int,
+    val sendQueueCongested: Boolean,
   )
 
   fun start(context: Context, url: String, mode: String): Int {
@@ -127,6 +128,7 @@ internal object BondedSrtNative {
       links = links,
       packetLossPct = json.getDouble("packetLossPct"),
       rttMs = json.getInt("rttMs"),
+      sendQueueCongested = json.optBoolean("sendQueueCongested", false),
     )
   }
 

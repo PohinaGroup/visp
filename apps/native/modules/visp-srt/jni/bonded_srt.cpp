@@ -287,10 +287,12 @@ Java_com_visp_mobile_srt_BondedSrtNative_nativeStats(JNIEnv *env, jobject) {
     return nullptr;
   }
   CBytePerfMon aggregate{};
-  srt_bstats(state.group, &aggregate, 0);
+  srt_bstats(state.group, &aggregate, 1);
   std::ostringstream json;
   json << "{\"bitrateKbps\":" << static_cast<int>(aggregate.mbpsSendRate * 1000)
        << ",\"rttMs\":" << static_cast<int>(aggregate.msRTT)
+       << ",\"sendQueueCongested\":"
+       << ((aggregate.msSndBuf >= 250 || aggregate.pktSndDrop > 0) ? "true" : "false")
        << ",\"packetLossPct\":";
   const int64_t aggregate_packets = aggregate.pktSent + aggregate.pktSndLoss;
   json << (aggregate_packets > 0

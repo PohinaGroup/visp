@@ -56,6 +56,7 @@ export function useLinkStatsReporter(options: {
 					currentTargetKbps: nativeEvent.targetBitrateKbps,
 					packetLossPct: nativeEvent.packetLossPct,
 					rttMs: nativeEvent.rttMs,
+					srt: nativeEvent,
 				});
 				if (next !== nativeEvent.targetBitrateKbps) {
 					void setVideoBitrate(next)?.catch(() => undefined);

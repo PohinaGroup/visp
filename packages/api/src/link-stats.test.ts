@@ -161,6 +161,40 @@ describe("clampVideoBitrateKbps", () => {
 });
 
 describe("nextVideoBitrateKbps", () => {
+	test("SRT reordering does not collapse bitrate; actual congestion still does", () => {
+		const sample = {
+			ceilingKbps: 6000,
+			packetLossPct: 21,
+			rttMs: 8,
+			srt: { sendQueueCongested: false, packetDropPct: 0 },
+		};
+		let target = 6000;
+		for (let tick = 0; tick < 30; tick++) {
+			target = nextVideoBitrateKbps({ ...sample, currentTargetKbps: target });
+		}
+		expect(target).toBe(6000);
+		// A stream already throttled by an older controller must recover.
+		target = 600;
+		for (let tick = 0; tick < 18; tick++) {
+			target = nextVideoBitrateKbps({ ...sample, currentTargetKbps: target });
+		}
+		expect(target).toBe(6000);
+		for (const srt of [
+			{ sendQueueCongested: true, packetDropPct: 0 },
+			{ sendQueueCongested: false, packetDropPct: 5 },
+		]) {
+			expect(
+				nextVideoBitrateKbps({ ...sample, srt, currentTargetKbps: target }),
+			).toBe(5400);
+		}
+		expect(
+			nextVideoBitrateKbps({ ...sample, srt: {}, currentTargetKbps: 6000 }),
+		).toBe(6000);
+		expect(
+			nextVideoBitrateKbps({ ...sample, rttMs: 450, currentTargetKbps: 6000 }),
+		).toBe(5400);
+	});
+
 	test("steps down on congestion and up when healthy", () => {
 		expect(
 			nextVideoBitrateKbps({
