@@ -1,4 +1,4 @@
-import { type LinkMetrics, nextVideoBitrateKbps } from "@VISP/api/link-stats";
+import type { LinkMetrics } from "@VISP/api/link-stats";
 
 export type WebRtcStatsSample = {
 	bytesSent: number;
@@ -64,12 +64,9 @@ export function deriveWebStats(input: {
 	const packetLossPct =
 		sentDelta + lostDelta > 0 ? (100 * lostDelta) / (sentDelta + lostDelta) : 0;
 	const rttMs = Math.round(sample.rttMs);
-	const nextTargetKbps = nextVideoBitrateKbps({
-		ceilingKbps,
-		currentTargetKbps: targetBitrateKbps,
-		packetLossPct,
-		rttMs,
-	});
+	// WebRTC adapts the actual bitrate itself. A second controller would keep
+	// lowering its ceiling on healthy high-RTT routes and prevent recovery.
+	const nextTargetKbps = Math.min(targetBitrateKbps, ceilingKbps);
 	return {
 		nextTargetKbps,
 		stats: {

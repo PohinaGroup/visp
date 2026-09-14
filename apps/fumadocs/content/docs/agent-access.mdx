@@ -1,0 +1,85 @@
+---
+title: Agent access
+description: Connect an approved AI agent to read broadcast status.
+icon: Bot
+---
+
+## What it is
+
+Agent access connects an AI agent running on your computer or service to your
+VISP account through Better Auth's Agent Auth protocol. The agent receives its
+own identity and only the permissions you approve. It is separate from your
+VISP browser session and does not receive your password, provider tokens,
+stream keys, or Direct destination URLs.
+
+After connection, an agent can answer operational questions from your actual
+VISP data, such as whether a source is publishing, whether its connection is
+healthy, whether Direct outputs have errors, and whether OBS is connected.
+It can also submit a precise title, category, or OBS request for you to review.
+
+## Why use it
+
+Use agent access when you want an assistant to check a broadcast or prepare a
+small update without handing it broad account access. Permissions are separate
+for streams, connection health, Direct, OBS, metadata, and each disruptive OBS
+operation. You can see every successful capability call in **Recent activity**
+and remove any permission immediately.
+
+An approved agent can read only the permissions it was granted. Proposed
+changes still require a second confirmation in the dashboard, so approval to
+inspect OBS does not let an agent switch scenes or stop a broadcast.
+
+## Connect an agent
+
+1. Sign in to the VISP dashboard and open **Settings → Agent access**.
+2. Choose **Connect an agent**.
+3. Give the enrollment code to an Agent Auth Protocol-compatible client.
+4. Review the requested permissions in VISP and approve only the reads you want.
+
+The enrollment code expires. Create another if it expires before the agent connects.
+
+## Use it
+
+Start with the four read permissions if you want an agent to answer “Am I
+ready to go live?”: `streams:read`, `stream-health:read`, `direct:read`, and
+`obs:read`. The agent can identify a stopped source, stale connection report,
+failed Direct destination, or disconnected OBS instance without receiving
+credentials or playback URLs.
+
+For a title or category change, grant `channel:update`. The agent creates a
+proposal containing the exact values and affected platforms. Review it in
+**Action requests** and approve or reject it. OBS scene, start, and stop
+requests work the same way and each requires its own permission.
+
+Open **Settings → Agent access** to review **Recent activity**, pending action
+requests, and current permissions. Revoking a permission blocks the next call,
+including calls made with a token issued before you revoked it.
+
+## Verified client example
+
+VISP includes a smoke test using Better Auth's `@auth/agent` SDK. Create an enrollment code in the dashboard, then run this on the agent host:
+
+```sh
+VISP_URL=https://api.visp.localhost \\
+VISP_ENROLLMENT_TOKEN=the-dashboard-code \\
+bun --filter server agent:smoke
+```
+
+The client enrolls the host, prints the browser approval URL, reads `streams:read`, and pauses. Revoke `streams:read` in **Settings → Agent access**, then press Enter. The second read must be blocked.
+
+## Available permissions
+
+| Permission | What the agent receives |
+| --- | --- |
+| `streams:read` | Stream names, whether each device is publishing, reader count, and last event time. |
+| `stream-health:read` | Recent bitrate, RTT, packet loss, link count, and whether the report is stale. |
+| `direct:read` | Direct mode and output states or errors, without destination URLs or stream keys. |
+| `obs:read` | OBS configuration, connection, stream state, pending command state, and active scene. |
+| `channel:update` | Propose an exact title or Twitch/Kick category update. |
+| `obs:scene:set` | Propose switching to a scene reported by the paired OBS instance. |
+| `obs:stream:start` / `obs:stream:stop` | Propose starting or stopping the paired OBS stream. |
+| `agent-actions:read` | Read whether a proposed action was approved, rejected, expired, or completed. |
+
+## Proposed changes
+
+An agent may request a title or category update, an OBS scene switch, or an OBS start or stop. VISP shows the exact request under **Action requests**. It expires after five minutes unless you approve or reject it. Approval executes that one stored request; it does not give the agent permission to make another change without asking again.

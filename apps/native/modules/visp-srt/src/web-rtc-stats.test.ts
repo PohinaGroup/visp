@@ -34,7 +34,7 @@ describe("readOutboundStats", () => {
 });
 
 describe("deriveWebStats", () => {
-	test("computes bitrate and steps ABR on congestion", () => {
+	test("reports congestion without lowering WebRTC's configured ceiling", () => {
 		const result = deriveWebStats({
 			ceilingKbps: 3500,
 			elapsedMs: 1000,
@@ -53,6 +53,6 @@ describe("deriveWebStats", () => {
 			targetBitrateKbps: 3500,
 		});
 		expect(result.stats.bitrateKbps).toBe(3500);
-		expect(result.nextTargetKbps).toBeLessThan(3500);
+		expect(result.nextTargetKbps).toBe(3500);
 	});
 });

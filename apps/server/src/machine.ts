@@ -250,12 +250,18 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				body.protocol === "rtsp" &&
 				(body.ip === "127.0.0.1" || body.ip === "::1");
 			if (localRtsp) {
-				const path = body.path.startsWith("studio/")
-					? body.path.slice("studio/".length)
-					: body.path;
+				const distribution = /^direct\/([A-Za-z0-9_-]+)\/[a-f0-9]{64}$/.exec(
+					body.path,
+				);
+				const path =
+					distribution?.[1] ??
+					(body.path.startsWith("studio/")
+						? body.path.slice("studio/".length)
+						: body.path);
 				const allowedAction =
 					body.action === "read" ||
-					(body.action === "publish" && body.path === `studio/${path}`);
+					(body.action === "publish" &&
+						(body.path === `studio/${path}` || !!distribution));
 				if (
 					path &&
 					allowedAction &&

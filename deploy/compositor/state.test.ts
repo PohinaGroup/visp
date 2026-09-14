@@ -8,8 +8,19 @@ import {
 	publisherProbeArgs,
 	rendererProgressFrames,
 	shouldCrossfadeScenes,
+	studioReceiveUrl,
 	studioXfadeFilter,
 } from "./state";
+
+test("bounds live UDP queues and restarts on overflow", () => {
+	expect(studioReceiveUrl("udp://127.0.0.1:1234?pkt_size=1316", "8192")).toBe(
+		"udp://127.0.0.1:1234?pkt_size=1316&fifo_size=8192&overrun_nonfatal=0",
+	);
+	for (const value of ["0", "-1", "1000000", "8192&overrun_nonfatal=1"])
+		expect(() =>
+			studioReceiveUrl("udp://localhost:1234?pkt_size=1316", value),
+		).toThrow();
+});
 
 test("only a completed compositor process triggers failure fallback", () => {
 	expect(compositorExited(undefined)).toBe(false);

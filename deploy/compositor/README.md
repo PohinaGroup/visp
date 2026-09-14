@@ -48,6 +48,26 @@ The shipped unit caps each worker at 2 GiB, three CPU cores, and 256 tasks.
 Calibrate those values using a systemd drop-in after measuring the largest
 accepted 1080p graph; do not remove the caps.
 
+Browser layers keep their Chromium process and page alive. Every five seconds,
+the worker atomically replaces the PNG read by FFmpeg's image2 demuxer. A refresh
+does not replace the renderer. Scene and graph changes still replace it.
+
+The intermediate x264 encode uses CRF 18, zero-latency tuning, a 12 Mbps maximum,
+and a 12 Mbit rate-control buffer. Set `STUDIO_CRF`, `STUDIO_MAXRATE`, and
+`STUDIO_BUFSIZE` in a systemd drop-in to calibrate quality and CPU use.
+`STUDIO_FIFO_PACKETS` defaults to 8192 units of 188 bytes, about 1.5 MiB per UDP
+receiver, and accepts 128 to 65536. Overflow terminates the receiver so the
+worker recovers instead of continuing through an old backlog.
+
+The stable RTSP publisher retains its AAC encode. An `aac_adtstoasc` stream-copy
+experiment failed because RTSP needs the AAC configuration before writing its
+SDP, while that filter discovers it in the first packet.
+
+Run `bun deploy/relay/distribution.check.ts` with Docker and FFmpeg to verify
+shared distribution encoding and Studio RTSP decoding. Run
+`CHROMIUM_BIN=/path/to/chromium bun deploy/compositor/browser.check.ts` to verify
+that changing browser pixels reach FFmpeg without restarting either process.
+
 PNG assets are accepted only after complete CRC, zlib, decoded scanline, and
 filter validation. Standard non-interlaced grayscale, RGB, indexed,
 grayscale-alpha, and RGBA PNG bit-depth combinations are supported; interlaced

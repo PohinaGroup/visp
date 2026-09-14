@@ -8,11 +8,10 @@ import {
 	customOutputsForPath,
 } from "../lib/custom-direct-output";
 import { nativeDirectText } from "../lib/native-direct-i18n";
+import { DEFAULT_PORTRAIT_CROP, type PortraitCrop } from "../lib/portrait-crop";
 import { studioEditUrl } from "../lib/studio-link";
 import {
-	DEFAULT_PORTRAIT_CROP,
 	DirectPortraitFraming,
-	type PortraitCrop,
 	type PortraitFramingDraft,
 } from "./stream-settings-direct-framing";
 import {

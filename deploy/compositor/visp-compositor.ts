@@ -1,19 +1,14 @@
 #!/usr/bin/env bun
 
 import { createHash } from "node:crypto";
-import { lookup } from "node:dns/promises";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import type { StudioAlertAppearance } from "../../packages/api/src/studio-alert";
 import {
 	studioAlertAppearance,
 	studioAlertEvents,
 } from "../../packages/api/src/studio-alert";
-import {
-	isPublicAddress,
-	validateBrowserSourceUrl,
-} from "../../packages/api/src/studio-browser-url";
 import { renderStudioAlertPng, studioAlertFilters } from "./alert";
-import { validateBrowserRequest } from "./browser-security";
+import { openBrowser } from "./browser";
 import { CompositorPipeline } from "./pipeline";
 import {
 	authenticatedProgramUrls,
@@ -23,7 +18,11 @@ import {
 	compositorHasPublisher,
 	publisherProbeArgs,
 	rendererProgressFrames,
+	STUDIO_AUDIO_PUBLISH_ARGS,
 	shouldCrossfadeScenes,
+	studioImageArgs,
+	studioReceiveUrl,
+	studioVideoArgs,
 	studioXfadeFilter,
 } from "./state";
 
@@ -95,145 +94,34 @@ async function hook(route: string, body: object) {
 	});
 }
 
+const browsers = new Map<
+	string,
+	{ key: string; session: Awaited<ReturnType<typeof openBrowser>> }
+>();
+
 async function browserPng(layer: Layer) {
-	const url = new URL(validateBrowserSourceUrl(layer.url ?? ""));
-	const addresses = await lookup(url.hostname, { all: true, verbatim: true });
-	if (
-		!addresses.length ||
-		addresses.some(({ address }) => !isPublicAddress(address))
-	)
-		throw new Error("browser hostname did not resolve publicly");
-	const id = safeId(layer.id);
-	const file = `${work}/${id}.png`;
-	const profile = `${work}/chrome-${id}`;
-	await rm(profile, { recursive: true, force: true });
-	await mkdir(profile, { mode: 0o700 });
-	const chrome = Bun.spawn(
-		[
-			process.env.CHROMIUM_BIN ?? "chromium",
-			"--headless",
-			"--disable-background-networking",
-			"--disable-extensions",
-			"--disable-sync",
-			"--enable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests",
-			`--host-resolver-rules=MAP ${url.hostname} ${addresses[0]?.address}, MAP * ~NOTFOUND`,
-			"--remote-debugging-port=0",
-			`--user-data-dir=${profile}`,
-			"about:blank",
-		],
-		{ stdout: "ignore", stderr: "ignore" },
-	);
+	const key = JSON.stringify([layer.url, layer.width, layer.height]);
+	let browser = browsers.get(layer.id);
 	try {
-		let port = "";
-		for (let attempt = 0; attempt < 40; attempt++) {
-			try {
-				port =
-					(await readFile(`${profile}/DevToolsActivePort`, "utf8")).split(
-						"\n",
-					)[0] ?? "";
-				if (port) break;
-			} catch {}
-			await Bun.sleep(50);
+		if (!browser || browser.key !== key) {
+			await browser?.session.close();
+			browsers.delete(layer.id);
+			browser = { key, session: await openBrowser(work, layer) };
+			browsers.set(layer.id, browser);
 		}
-		if (!port) throw new Error("browser debugging endpoint unavailable");
-		const targetResponse = await fetch(
-			`http://127.0.0.1:${port}/json/new?about:blank`,
-			{ method: "PUT" },
-		);
-		if (!targetResponse.ok) throw new Error("browser target unavailable");
-		const target = (await targetResponse.json()) as {
-			webSocketDebuggerUrl: string;
-		};
-		const socket = new WebSocket(target.webSocketDebuggerUrl);
-		await new Promise<void>((resolve, reject) => {
-			socket.addEventListener("open", () => resolve(), { once: true });
-			socket.addEventListener(
-				"error",
-				() => reject(new Error("browser CDP unavailable")),
-				{ once: true },
-			);
-		});
-		let commandId = 0;
-		const pending = new Map<
-			number,
-			{
-				resolve: (value: unknown) => void;
-				reject: (error: Error) => void;
-				timer: ReturnType<typeof setTimeout>;
-			}
-		>();
-		let blocked: Error | undefined;
-		const command = (method: string, params: object = {}) =>
-			new Promise<unknown>((resolve, reject) => {
-				const id = ++commandId;
-				const timer = setTimeout(() => {
-					pending.delete(id);
-					reject(new Error(`browser CDP command timed out: ${method}`));
-				}, 5_000);
-				pending.set(id, { resolve, reject, timer });
-				socket.send(JSON.stringify({ id, method, params }));
-			});
-		const rejectPending = () => {
-			for (const { reject, timer } of pending.values()) {
-				clearTimeout(timer);
-				reject(new Error("browser CDP disconnected"));
-			}
-			pending.clear();
-		};
-		socket.addEventListener("error", rejectPending);
-		socket.addEventListener("close", rejectPending);
-		socket.addEventListener("message", (message) => {
-			const payload = JSON.parse(String(message.data)) as {
-				id?: number;
-				method?: string;
-				params?: { requestId: string; request: { url: string } };
-				result?: unknown;
-			};
-			if (payload.id) {
-				const command = pending.get(payload.id);
-				if (command) {
-					clearTimeout(command.timer);
-					command.resolve(payload.result);
-				}
-				pending.delete(payload.id);
-			}
-			if (payload.method === "Fetch.requestPaused" && payload.params) {
-				const { requestId, request } = payload.params;
-				void validateBrowserRequest(request.url, url.hostname)
-					.then(() => command("Fetch.continueRequest", { requestId }))
-					.catch((error) => {
-						blocked =
-							error instanceof Error
-								? error
-								: new Error("browser request blocked");
-						return command("Fetch.failRequest", {
-							requestId,
-							errorReason: "BlockedByClient",
-						});
-					});
-			}
-		});
-		await command("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
-		await command("Page.enable");
-		await command("Emulation.setDeviceMetricsOverride", {
-			width: layer.width,
-			height: layer.height,
-			deviceScaleFactor: 1,
-			mobile: false,
-		});
-		await command("Page.navigate", { url: url.toString() });
-		await Bun.sleep(1_500);
-		if (blocked) throw blocked;
-		const capture = (await command("Page.captureScreenshot", {
-			format: "png",
-		})) as { data?: string };
-		if (!capture.data) throw new Error("browser capture unavailable");
-		await writeFile(file, Buffer.from(capture.data, "base64"), { mode: 0o600 });
-		socket.close();
-		return file;
-	} finally {
-		chrome.kill();
-		await chrome.exited;
+		return await browser.session.capture();
+	} catch (error) {
+		await browser?.session.close();
+		browsers.delete(layer.id);
+		throw error;
+	}
+}
+
+async function retainBrowsers(ids: Set<string>) {
+	for (const [id, browser] of browsers) {
+		if (ids.has(id)) continue;
+		await browser.session.close();
+		browsers.delete(id);
 	}
 }
 
@@ -249,12 +137,14 @@ const programPort = 20_000 + (pathHash.readUInt16BE(0) % 20_000);
 const feedPort = 40_000 + (pathHash.readUInt16BE(2) % 10_000) * 2;
 const feedHost = "127.0.0.1";
 const programOutputUrl = `udp://127.0.0.1:${programPort}?pkt_size=1316`;
-const publisherInputUrl = `${programOutputUrl}&fifo_size=1000000&overrun_nonfatal=1`;
+const publisherInputUrl = studioReceiveUrl(programOutputUrl);
 
 function rendererFeed(slot: 0 | 1) {
 	const port = feedPort + slot;
 	return {
-		input: `udp://${feedHost}:${port}?localaddr=127.0.0.1&reuse=1&fifo_size=1000000&overrun_nonfatal=1`,
+		input: studioReceiveUrl(
+			`udp://${feedHost}:${port}?localaddr=127.0.0.1&reuse=1`,
+		),
 		output: `udp://${feedHost}:${port}?localaddr=127.0.0.1&pkt_size=1316`,
 	};
 }
@@ -297,14 +187,11 @@ function xfadeArgs(oldInputUrl: string, nextInputUrl: string) {
 		"[video]",
 		"-map",
 		"[audio]",
-		"-c:v",
-		process.env.STUDIO_VIDEO_ENCODER ?? "libx264",
-		"-preset",
-		"veryfast",
-		"-bf",
-		"0",
+		...studioVideoArgs(),
 		"-c:a",
 		"aac",
+		"-b:a",
+		"192k",
 		"-f",
 		"mpegts",
 		programOutputUrl,
@@ -324,11 +211,8 @@ async function ensurePublisher() {
 		publisherInputUrl,
 		"-c:v",
 		"copy",
-		// RTSP needs AAC global headers; the MPEG-TS input carries ADTS audio.
-		"-c:a",
-		"aac",
-		"-flags:a",
-		"+global_header",
+		// AAC global headers must exist before RTSP writes its SDP.
+		...STUDIO_AUDIO_PUBLISH_ARGS,
 		"-f",
 		"rtsp",
 		programUrls.publishUrl,
@@ -497,7 +381,13 @@ async function apply(desired: Desired, crossfade: boolean) {
 			const source =
 				layer.type === "browser" ? await browserPng(layer) : layer.url;
 			if (!source) throw new Error("asset unavailable");
-			args.push("-loop", "1", "-i", source);
+			// Only live browser files need reopening. Reopening a remote PNG
+			// would download the static asset again for every frame.
+			args.push(
+				...(layer.type === "browser"
+					? studioImageArgs(source)
+					: ["-loop", "1", "-i", source]),
+			);
 			filters.push(
 				`[${++inputs}:v]scale=${layer.width}:${layer.height}[${output}source]`,
 			);
@@ -523,20 +413,11 @@ async function apply(desired: Desired, crossfade: boolean) {
 	args.push(
 		"-map",
 		"0:a?",
-		"-c:v",
-		process.env.STUDIO_VIDEO_ENCODER ?? "libx264",
-		"-preset",
-		"veryfast",
-		"-bf",
-		"0",
-		"-pix_fmt",
-		"yuv420p",
-		"-r",
-		process.env.STUDIO_FPS ?? "30",
-		"-g",
-		process.env.STUDIO_GOP ?? "60",
+		...studioVideoArgs(),
 		"-c:a",
 		"aac",
+		"-b:a",
+		"192k",
 		"-ac",
 		"2",
 		"-ar",
@@ -574,7 +455,11 @@ const healthTimer = setInterval(() => {
 		path,
 		healthy,
 		...(healthy ? { programUrl: programUrls.readUrl } : {}),
-	}).catch(() => undefined).finally(() => { healthPending = false; });
+	})
+		.catch(() => undefined)
+		.finally(() => {
+			healthPending = false;
+		});
 }, 1000);
 
 try {
@@ -611,10 +496,7 @@ try {
 				lastBrowserRefresh,
 				Date.now(),
 			);
-			if (
-				desired.requestedMode === "program" &&
-				(revision !== applied || refreshBrowser)
-			) {
+			if (desired.requestedMode === "program" && revision !== applied) {
 				await ensurePublisher();
 				await apply(
 					desired,
@@ -629,6 +511,23 @@ try {
 				applied = revision;
 				appliedSceneId = desired.graph.activeSceneId ?? undefined;
 				if (browserLayers.length) lastBrowserRefresh = Date.now();
+			} else if (desired.requestedMode === "program" && refreshBrowser) {
+				for (const layer of browserLayers.filter(
+					(layer) => !layer.runtimeDisabled,
+				)) {
+					try {
+						await browserPng(layer);
+					} catch {
+						const response = await hook("browser-failure", {
+							path,
+							layerId: layer.id,
+						});
+						if (!response.ok)
+							throw new Error("browser failure was not recorded");
+						applied = "";
+					}
+				}
+				lastBrowserRefresh = Date.now();
 			} else if (
 				desired.requestedMode === "passthrough" &&
 				pipeline.publisherPid
@@ -638,6 +537,15 @@ try {
 				appliedSceneId = undefined;
 				activeFeedSlot = undefined;
 			}
+			await retainBrowsers(
+				new Set(
+					desired.requestedMode === "program"
+						? browserLayers
+								.filter((layer) => !layer.runtimeDisabled)
+								.map((layer) => layer.id)
+						: [],
+				),
+			);
 			const healthy = compositorHasPublisher(
 				desired.requestedMode,
 				pipeline.publisherExitCode,
@@ -669,6 +577,7 @@ try {
 	}
 } finally {
 	clearInterval(healthTimer);
+	await retainBrowsers(new Set());
 	await pipeline.stop();
 	await rm(work, { recursive: true, force: true });
 }

@@ -111,7 +111,7 @@
     },
     "apps/native": {
       "name": "@VISP/native",
-      "version": "1.7.23",
+      "version": "1.8.0",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@bacons/apple-targets": "^5.0.0",
@@ -160,7 +160,7 @@
     },
     "apps/obs-remote": {
       "name": "@VISP/obs-remote",
-      "version": "1.7.23",
+      "version": "1.8.0",
       "dependencies": {
         "@VISP/api": "workspace:*",
         "@better-auth/expo": "catalog:",
@@ -213,6 +213,7 @@
       },
       "devDependencies": {
         "@VISP/config": "workspace:*",
+        "@auth/agent": "0.6.2",
         "@types/bun": "catalog:",
         "drizzle-orm": "^0.45.2",
         "tsdown": "^0.22.3",
@@ -483,6 +484,8 @@
     "@astryxdesign/core": ["@astryxdesign/core@0.1.6", "", { "peerDependencies": { "@stylexjs/stylex": "^0.19.0", "react": ">=19.0.0", "react-dom": ">=19.0.0" } }, "sha512-htHYq+tlhIoM+HA9bGR1IPMswX/UZCWTduH2V30XB21hA2nf32zufI+v9aPpWhgPdjccIY11sFI8m2NPM8a4JA=="],
 
     "@astryxdesign/theme-neutral": ["@astryxdesign/theme-neutral@0.1.6", "", { "dependencies": { "lucide-react": "^1.18.0" }, "peerDependencies": { "@astryxdesign/core": "0.1.6", "react": ">=19" } }, "sha512-sgjAIYXsT/BkkzNZ8cCdfMfxY18zYlLl8z0RNkQefuV4yN/PSfkMSrjiG0S6BfJLvP84xjxW39fx500Q4wLjtA=="],
+
+    "@auth/agent": ["@auth/agent@0.6.2", "", { "dependencies": { "jose": "^6.0.0" }, "peerDependencies": { "ai": ">=3.0.0" }, "optionalPeers": ["ai"] }, "sha512-jEhQEVSYZv819oCmyekVNWRGZiReL/UUb2ydKAzZQukGZ3M096FQv+YDwOWrbCF+oz2qKFVvXKleSAxNIFWx7w=="],
 
     "@babel/code-frame": ["@babel/code-frame@7.29.7", "", { "dependencies": { "@babel/helper-validator-identifier": "^7.29.7", "js-tokens": "^4.0.0", "picocolors": "^1.1.1" } }, "sha512-Aup7aUOfpbAUg2ROOJN6Iw5f9DMBlzu0mIkm/malLQFN/YQgO48wCj0Kxa3sEHJvPVFg7siR+qRInwXd2qhQKw=="],
 

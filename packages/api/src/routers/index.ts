@@ -1,6 +1,7 @@
 import { protectedProcedure, publicProcedure, router } from "../index";
 import { adminRouter } from "./admin";
 import { affiliateRouter } from "./affiliate";
+import { agentRouter } from "./agent";
 import { brbRouter } from "./brb";
 import { channelRouter } from "./channel";
 import { chatRouter } from "./chat";
@@ -10,6 +11,7 @@ import { studioRouter } from "./studio";
 
 export const appRouter = router({
 	admin: adminRouter,
+	agent: agentRouter,
 	affiliate: affiliateRouter,
 	healthCheck: publicProcedure.query(() => {
 		return "OK";

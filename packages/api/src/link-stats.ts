@@ -219,8 +219,12 @@ export function nextVideoBitrateKbps(input: {
 	rttMs: number;
 	srt?: SrtCongestionMetrics;
 }): number {
-	const { ceilingKbps, rttMs, srt } = input;
-	// ponytail: older native builds use RTT only; rebuild for drop/queue signals.
+	const { ceilingKbps, srt } = input;
+	// Distance is not congestion. Delivery signals supersede absolute RTT;
+	// older native builds without either signal retain the conservative fallback.
+	const hasDeliverySignals =
+		srt?.sendQueueCongested !== undefined || srt?.packetDropPct !== undefined;
+	const rttMs = hasDeliverySignals ? 0 : input.rttMs;
 	// NAK counts include recovered packets, so they cannot drive SRT adaptation.
 	const packetLossPct = srt ? (srt.packetDropPct ?? 0) : input.packetLossPct;
 	let next = input.currentTargetKbps;
