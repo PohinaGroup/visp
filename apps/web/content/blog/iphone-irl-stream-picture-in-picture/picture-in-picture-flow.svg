@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Picture in Picture IRL streaming flow</title>
+  <desc id="desc">An iPhone camera stays active in a floating window while another app is open, then the feed travels through a relay to OBS and the final live platform.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#111d30"/>
+    </linearGradient>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#48d7ff"/>
+    </marker>
+  </defs>
+  <rect width="1600" height="900" rx="48" fill="url(#bg)"/>
+  <path d="M430 450H660M940 450h220M1390 450h90" fill="none" stroke="#48d7ff" stroke-width="16" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <g transform="translate(90 160)">
+    <rect width="340" height="580" rx="54" fill="#05080d" stroke="#718099" stroke-width="8"/>
+    <rect x="28" y="42" width="284" height="496" rx="28" fill="#1a3550"/>
+    <path d="M50 430C120 350 115 280 190 210S250 105 295 80" fill="none" stroke="#6f8ca4" stroke-width="10"/>
+    <circle cx="180" cy="260" r="18" fill="#48d7ff" stroke="#dff9ff" stroke-width="7"/>
+    <rect x="158" y="70" width="132" height="190" rx="22" fill="#d9eef7" stroke="#48d7ff" stroke-width="8"/>
+    <path d="M175 210l35-48 25 23 38-62" fill="none" stroke="#25516e" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="245" cy="120" r="14" fill="#48d7ff"/>
+  </g>
+  <g transform="translate(660 265)">
+    <rect width="280" height="370" rx="44" fill="#12243a" stroke="#48d7ff" stroke-width="8"/>
+    <path d="M55 110h170M55 170h130M55 230h150" stroke="#7a93a8" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="220" cy="300" r="28" fill="#48d7ff"/>
+  </g>
+  <g transform="translate(1160 235)">
+    <rect width="230" height="320" rx="30" fill="#0a0f18" stroke="#718099" stroke-width="8"/>
+    <rect x="24" y="28" width="182" height="224" rx="16" fill="#1f4763"/>
+    <path d="M42 210l42-58 38 30 52-88" fill="none" stroke="#48d7ff" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <rect x="75" y="275" width="80" height="18" rx="9" fill="#718099"/>
+  </g>
+  <g transform="translate(1480 365)">
+    <circle cx="60" cy="85" r="60" fill="#48d7ff" opacity=".18"/>
+    <path d="M30 85h60M60 55v60" stroke="#48d7ff" stroke-width="14" stroke-linecap="round"/>
+  </g>
+</svg>
