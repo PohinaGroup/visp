@@ -1,0 +1,224 @@
+---
+title: "Näin vaihdat Twitch- ja Kick-striimin otsikon ja kategorian puhelimella"
+description: "Vaihda Twitch- ja Kick-striimin otsikko ja kategoria puhelimesta, pidä molemmat kanavat ajan tasalla IRL-lähetyksessä ja tarkista päivitys."
+publishedAt: 2026-08-16
+coverAlt: "IRL-striimaaja napauttaa tekstitöntä lähetystietonäkymää puhelimessa, joka on kiinnitetty käsivakaajaan kaupunkiaukiolla"
+---
+
+IRL-lähetys pysyy harvoin koko ajan yhdessä siistissä kategoriassa. Striimi voi
+alkaa keskusteluna junassa, jatkua messuhallissa ja päättyä pelaamiseen ystävän
+luona. Kamera voi olla suorana koko matkan, mutta ensimmäiseen etappiin tehty
+otsikko ja kategoria vanhenevat nopeasti.
+
+Vaikeinta ei yleensä ole uuden otsikon keksiminen. Hankalaa on vaihtaa oikeat
+tiedot samalla, kun toinen käsi pitelee vakaajaa ja sama puhelin toimii
+kamerana, chattina, yhteysmittarina ja OBS-kaukosäätimenä. Tässä oppaassa käydään
+ensin läpi Twitchin ja Kickin omat reitit ja sen jälkeen lyhyempi VISP-reitti,
+jolla linkitettyjen kanavien tiedot voi päivittää kuvaavasta puhelimesta.
+
+![Lähetystiedot kulkevat puhelimesta erillistä hallintareittiä Twitchiin ja Kickiin samalla, kun kamerakuva jatkaa valittua mediareittiään](./stream-info-control-path.svg)
+
+## Lyhyt vastaus
+
+Jos lähetät vain yhdelle alustalle, sen oma sisällöntuottajan hallintanäkymä on
+usein yksinkertaisin työkalu. Twitchissä kategorian voi vaihtaa lähetyksen
+aikana, ja Kickin Streamer Dashboardissa on **Edit Stream Info**. Käytä alustan
+omaa toimintoa silloin, kun se sopii työnkulkuusi jo valmiiksi.
+
+Ongelma syntyy, kun mobiilienkooderi hallitsee kameraa mutta ei alustan
+lähetystietoja. Kickin nykyisen
+[mobiilistriimausoppaan](https://help.kick.com/en/articles/7135289-streaming-on-kick-from-your-mobile-phone)
+mukaan Custom RTMP -yhteyttä käyttävän Streamlabs Mobilen otsikko ja kategoria
+on asetettava Kickin verkkosivulla, ei Streamlabs Mobilessa. Twitchiin ja
+Kickiin samanaikaisesti lähettävällä tekijällä voi siis olla kaksi eri
+hallintanäkymää avattavana.
+
+VISP tuo kirjautuneen puhelinsovelluksen **Stream info** -näkymään yhden
+työnkulun. Kirjoita yhteinen otsikko, hae molempien alustojen kategorioista,
+valitse tulos ja lähetä muutos. VISP lähettää otsikon jokaiselle linkitetylle
+alustalle, jolle on annettu lupa. Kategoria lähetetään alustalle vain, jos sen
+oma katalogi palautti kyseisen kategorian tunnisteen. Kameran lähetys jatkuu
+koko ajan samalla mediareitillä.
+
+## Kategorian pitää vastata tämänhetkistä sisältöä
+
+Kategoria ei ole pelkkä koriste. Se on selaushylly, jolle alusta sijoittaa
+suoran kanavan. Twitch kuvaa kategoriat sisällön laajoiksi luokituksiksi ja
+sanoo, että tekijä voi
+[vaihtaa kategoriaa milloin tahansa lähetyksen aikana](https://help.twitch.tv/s/article/about-twitch-categories?language=en_US).
+Myös Kick kehottaa päivittämään otsikon lähetyksen muuttuessa ja varoittaa
+pitämästä sisältöä harhaanjohtavassa kategoriassa virallisessa
+[otsikko-, esitystapa- ja ajoitusoppaassaan](https://help.kick.com/en/articles/14994710-how-to-attract-new-viewers-titles-presentation-and-timing).
+
+Tästä seuraa käytännöllinen IRL-sääntö: kirjoita otsikko ja kategoria sen
+mukaan, mitä uusi katsoja näkee **nyt**, ei tuntikausia sitten tehdyn
+reittisuunnitelman mukaan. Aseta tiedot ennen aloitusta ja vaihda niitä vasta,
+kun ohjelman sisältö oikeasti vaihtuu. Jatkuva muokkaaminen lisää työtä
+tekemättä lähetyksestä selkeämpää.
+
+Esimerkkejä:
+
+| Mitä katsoja näkee nyt | Järkevä toimi |
+| --- | --- |
+| Kävelykierros ja keskustelua | Valitse tämänhetkinen IRL- tai keskustelukategoria ja nimeä paikka tai tekeminen paljastamatta yksityisiä sijaintitietoja. |
+| Aikataulutettu tapahtuma alkaa | Päivitä tapahtuma otsikkoon ja valitse sille parhaiten sopiva kategoria. |
+| Pitkä siirtymä tai BRB-kuva | Pidä nykyinen kategoria, ellei ohjelma oikeasti vaihdu. Selitä tauko kuvassa tai chatissa. |
+| Lähetys siirtyy peliin | Vaihda sekä otsikko että kategoria, kun peli alkaa olla varsinainen ohjelma. |
+
+## Aseta ensimmäinen otsikko ennen lähtöä
+
+Tee ensimmäinen muutos vakaalla yhteydellä. Kick suosittelee nimenomaisesti,
+että otsikko ja kategoria asetetaan ennen suoran lähetyksen aloitusta. Samalla
+ehdit tarkistaa oikeinkirjoituksen, välttää tarkan reitin tai hotellin
+paljastamisen ja varmistaa, että sama kategoria löytyy molemmilta alustoilta.
+
+Hyvä otsikko vastaa yhteen konkreettiseen kysymykseen: mitä tapahtuu?
+"Lauantain IRL" kertoo vähän. "Iltatorilla chatin kanssa" auttaa ymmärtämään
+myös pikkukuvaa. Pidä lupaus kirjaimellisena. Älä nosta otsikkoon vierasta,
+tapahtumapaikkaa tai tekemistä, joka ei ole vielä alkanut.
+
+VISPin yhteiseen otsikkokenttään mahtuu enintään 140 merkkiä. Se vastaa
+Twitchin dokumentoitua 140 merkin rajaa
+[Modify Channel Information -rajapinnassa](https://dev.twitch.tv/docs/api/reference#modify-channel-information),
+mutta lyhyempi otsikko on helpompi lukea puhelimesta. Älä lisää julkiseen
+otsikkoon bittinopeutta, välityspalvelimen nimeä tai muuta tuotantotietoa,
+ellei katsojan oikeasti tarvitse nähdä sitä.
+
+## Linkitä Twitch ja Kick rajatulla luvalla
+
+Kirjaudu VISP-sovellukseen ja linkitä kanavat, joiden tietoja haluat hallita.
+Chatin lukemiseen linkitetty tili ei välttämättä vielä salli lähetystietojen
+muokkaamista. Jos linkitetyltä alustalta puuttuu lupa, **Info**-näkymässä näkyy
+**Allow VISP to edit stream info**. Napauta **Authorize** ja hyväksy lupa alustan
+omassa suostumusnäkymässä.
+
+Luvat ovat tarkasti rajattuja:
+
+- Twitch käyttää lupaa `channel:manage:broadcast`. Twitch dokumentoi sen
+  kanavan ominaisuuksien, kuten `title`- ja `game_id`-kenttien, muuttamiseen.
+- Kick käyttää lupaa `channel:write`. Kick dokumentoi sen suoran lähetyksen
+  metatietojen päivittämiseen
+  [Channels-rajapinnassa](https://docs.kick.com/apis/channels).
+
+Kumpikaan lupa ei ole striimiavain. Tavallisessa puhelimesta OBS:ään kulkevassa
+työnkulussa Twitch- tai Kick-kohde ja avain pysyvät OBS:ssä. VISPin välitys
+siirtää H.264/AAC-syötteen edelleen transkoodaamatta. Kun käytössä on
+[VISP Direct](/blog/what-is-visp-direct), välitys hallitsee alustalle menevää
+lähetystä, mutta lähetystiedon muutos on silti erillinen todennettu
+rajapintapyyntö eikä videoyhteyden muutos.
+
+Jos lupapyyntö ilmestyy uudelleen, vaikka hyväksyit sen aiemmin, hyväksy
+nykyinen lupa äläkä ala korjata kameraa. Alustan suostumus ja median julkaisu
+ovat eri asioita. Puuttuva muokkauslupa voi estää otsikon päivityksen samalla,
+kun videolähetys jatkuu normaalisti.
+
+## Päivitä molemmat kanavat VISP-puhelinsovelluksesta
+
+Samat vaiheet toimivat ennen puhelinlähetystä ja sen aikana:
+
+1. Avaa VISP ja napauta kameranäkymän yläreunan **Info**-painiketta.
+2. Kirjoita uusi **Stream title**.
+3. Kirjoita vähintään kaksi merkkiä **Search categories** -kenttään.
+4. Valitse tulos vasta tarkistettuasi sen alustamerkinnät.
+5. Napauta **Update stream info**.
+6. Lue tulosviesti. Se kertoo, mitkä alustat päivittyivät ja mikä alusta
+   tarvitsee luvan tai epäonnistui.
+
+VISP hakee Twitchin ja Kickin kategorioista rinnakkain. Twitchin virallinen
+[Search Categories -rajapinta](https://dev.twitch.tv/docs/api/reference#search-categories)
+palauttaa kategorioiden nimet ja tunnisteet. Kick tarjoaa vastaavat tunnisteet
+[Categories-rajapinnassaan](https://docs.kick.com/apis/categories). VISP pitää
+tunnisteet erillään, sillä sama nimi ei tarkoita samaa tunnistenumeroa.
+
+Valitussa tuloksessa näkyy **Twitch**, **Kick** tai molemmat. Merkintä on tärkeä
+lupaus:
+
+- **Twitch · Kick** tarkoittaa, että täsmälleen samanniminen kategoria löytyi
+  molemmista katalogeista ja valinta voidaan päivittää molempiin.
+- **Twitch** tarkoittaa, että kategoria vaihtuu vain Twitchissä. Kick säilyttää
+  nykyisen kategoriansa.
+- **Kick** tarkoittaa, että kategoria vaihtuu vain Kickissä. Twitch säilyttää
+  nykyisen kategoriansa.
+
+Otsikko toimii toisin: sama ei-tyhjä otsikko lähetetään kaikille linkitetyille
+ja valtuutetuille alustoille. Jos haluat tarkoituksella eri otsikot tai
+kategoriat, käytä alustojen omia hallintanäkymiä. VISP-näkymä on tehty saman
+simulcast-lähetyksen yhteistä kuvausta varten, ei kahden eri ohjelman
+hallintaan.
+
+## Mitä tapahtuu kameran pysyessä suorana
+
+Päivitys ei pysäytä eikä käynnistä kuvausta uudelleen. VISP lähettää Twitchille
+kanavapäivityksen, jossa on otsikko ja valittaessa Twitchin `game_id`. Kickille
+lähetetään sama otsikko ja valittaessa Kickin `category_id`. Molemmat alustat
+dokumentoivat nämä päivitysrajapintansa metatietotoiminnoiksi.
+
+Video jatkaa samaan aikaan valitsemaasi tuotantoreittiä:
+
+- [Twitchin puhelimesta OBS:ään kulkevassa työnkulussa](/blog/twitch-phone-through-obs)
+  puhelimen syöte jatkaa VISP-välityksen kautta koti-OBS:ään, ja OBS lähettää
+  valmiin ohjelman Twitchiin.
+- Vastaavassa [Kickin puhelin–OBS-työnkulussa](/blog/kick-phone-through-obs)
+  OBS säilyttää skenet, hälytykset, varakuvan ja Kick-kohteen.
+- Directissä VISP jatkaa jo käynnissä olevia kohde-enkoodauksia. Otsikon muutos
+  ei lisää enkoodausta eikä siirrä syötettä.
+
+Erottelu on tärkeä vianhaussa. Jos uusi otsikko epäonnistuu mutta video toimii,
+älä muuta SRT-latenssia, bittinopeutta tai OBS:n Media Sourcea. Tarkista
+linkitetty tili ja kirjoituslupa. Jos video katkeaa mutta otsikko päivittyy,
+metatietorajapinnan toiminta ei todista puhelin–välitys-reittiä terveeksi.
+
+## Tarkista julkinen tulos, älä vain painiketta
+
+"Updated"-viesti todistaa, että alusta hyväksyi pyynnön. Viimeinen tarkistus
+kannattaa silti tehdä julkiselta kanavasivulta toisella laitteella tai tilillä.
+Varmista nämä:
+
+1. Twitch näyttää tarkoitetun otsikon.
+2. Kick näyttää tarkoitetun otsikon.
+3. Kumpikin alusta näyttää tarkoitetun kategorian.
+4. Suora esikatselu vastaa edelleen otsikon lupausta.
+5. OBS tai Direct lähettää yhä oikeaa ohjelmaa.
+
+Jos yksi alusta epäonnistui, jätä video suoraksi ja yritä uudelleen vain
+hallintareittiä. Avaa **Info**, valtuuta nimetty alusta tarvittaessa, hae
+kategoria uudelleen ja lähetä muutos. Vain yhden alustan merkinnällä näkyvä
+kategoria ei ole osittainen virhe. Se tarkoittaa, ettei toinen katalogi
+palauttanut samannimistä kategoriaa.
+
+Tuottajan tai moderaattorin avustamassa lähetyksessä VISPin välityksessä toimiva
+chat-botti tarjoaa vielä yhden rajatun työkalun: lähettäjä tai moderaattori voi
+käyttää komentoa `!title <teksti>` yhteisen otsikon vaihtamiseen. Komento ei
+valitse kategoriaa, joten käytä sitä nopeaan otsikointiin ja pidä **Info**
+katalogimuutoksia varten. Asetukset ja rajat löytyvät
+[IRL-chat-bottioppaasta](/blog/irl-chat-bot-alerts-without-a-pc).
+
+## Kenttäkelpoinen tarkistuslista otsikon vaihtoon
+
+Ennen lähetystä:
+
+- linkitä Twitch ja Kick;
+- salli lähetystietojen muokkaus molemmille;
+- valitse tarvittaessa yhteinen kategoria, jossa näkyvät molemmat merkinnät;
+- aseta ensimmäinen otsikko vakaalla yhteydellä;
+- tarkista molemmat julkiset kanavasivut.
+
+Kun ohjelma vaihtuu:
+
+- odota, että uusi tekeminen on oikeasti kuvassa;
+- avaa **Info** pysäyttämättä lähetystä;
+- vaihda otsikko ja kategoria kerran;
+- lue alustakohtainen tulos;
+- tarkista julkiset sivut ja palaa kuvaamiseen.
+
+Jos käytät vain yhtä alustaa, sen oma hallintanäkymä voi edelleen olla lyhin
+reitti. Kun Twitch ja Kick välittävät samaa IRL-ohjelmaa, yksi huolellisesti
+tarkistettu VISP-päivitys poistaa ylimääräisen hallintakierroksen ja pitää
+alustatilit, mediareitin sekä OBS-tuotannon oikeilla paikoillaan.
+
+Nykyiset kamera-, chat-, lähetystieto- ja OBS-ohjaimet on kuvattu
+[VISP-puhelinsovelluksen dokumentaatiossa](https://docs.visp-stream.com/docs/phone-app).
+Kun haluat harjoitella koko työnkulun, [kokeile VISPiä](https://visp-stream.com):
+linkitä molemmat kanavat, tee yksityinen testi, vaihda otsikko kerran suoran
+lähetyksen aikana ja tarkista tulos katsojan ruudulta ennen seuraavaa oikeaa
+IRL-striimiä.
