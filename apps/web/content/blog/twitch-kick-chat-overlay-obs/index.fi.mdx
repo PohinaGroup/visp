@@ -1,0 +1,284 @@
+---
+title: "Näin lisäät Twitch- ja Kick-chatin OBS:ään Browser Source -lähteenä"
+description: "Lisää Twitch- tai Kick-chat OBS:ään yhdellä peruttavalla Browser Source -URL:lla, läpinäkyvällä asettelulla ja turvallisilla asetuksilla."
+publishedAt: 2026-08-09
+updatedAt: 2026-08-09
+coverAlt: "Kotistudion näytöllä näkyy IRL-kaupunkikuvan päällä violetteja ja vihreitä tekstittömiä chat-rivejä"
+---
+
+Saat Twitch- tai Kick-chatin näkyviin OBS-ohjelmaan VISPin kautta näin: **ota
+haluamasi chat-yhteys käyttöön, luo VISPin hallintapaneelissa OBS-chat-overlayn
+URL ja liitä se koko canvasin kokoiseen Browser Source -lähteeseen**. Sivu on
+ilman viestejä täysin läpinäkyvä. Uusi viesti tuo kuvaan kompaktin
+chat-paneelin.
+
+URL on tunnus, ei julkinen linkki. VISP näyttää selväkielisen tunnuksen kerran,
+jotta voit viedä sen OBS:ään. Palveluun tallennetaan vain salaisuuden tiiviste.
+Voit vaihtaa tai perua URL:n muuttamatta medialähdettä tai alustan
+lähetysavainta.
+
+![Twitchin ja Kickin chat-yhteydet syöttävät viestit peruttavalla tunnuksella suojattuun läpinäkyvään overlayhin, jonka OBS sijoittaa kameralähteen päälle](./chat-browser-source-flow.svg)
+
+Tämä ei ole sama asia kuin chatin lukeminen OBS-dockissa tai kenttäpuhelimessa.
+**Dock** näkyy vain tuottajalle. **Browser Source** on osa sceneä, joten se voi
+näkyä katsojille, VOD-tallenteissa ja klipeissä. Erilliset puhelimen Floating-
+ja Embedded-tilat selitetään
+[VISPin puhelimen chat-oppaassa](/fi/blog/twitch-kick-chat-phone-obs).
+
+## Päätä, kenelle overlay näkyy
+
+Tee päätös ennen kuin otat kaikki saatavilla olevat chat-yhteydet käyttöön:
+
+| Lähetys | Turvallinen lähtökohta |
+| --- | --- |
+| Vain Twitch | Ota Twitch-chat käyttöön ja lisää overlay Twitch-ohjelmaan |
+| Vain Kick | Ota Kick-chat käyttöön ja lisää overlay Kick-ohjelmaan |
+| Twitch ja Kick ovat live-tilassa eri aikoina | Pidä käytössä vain parhaillaan lähetettävän alustan chat |
+| Sama OBS-ohjelma lähetetään yhtä aikaa Twitchiin ja Kickiin | Älä näytä yhdistettyä chatia Twitch-ohjelmassa |
+| Tuottajan pitää nähdä molemmat chatit yksityisesti | Käytä yksityistä seurantaa äläkä vie yhdistettyä Browser Sourcea ohjelmaan |
+
+Kaksi viimeistä riviä ovat tärkeitä. Twitchin nykyinen
+[simulcasting-ehto](https://www.twitch.tv/p/terms-of-service)
+kieltää muiden alustojen toiminnan, kuten chatin, yhdistämisen kolmannen
+osapuolen palvelulla Twitch-lähetykseen simulcastin aikana. Twitchin
+[Simulcasting FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines)
+sallii yhdistävät työkalut henkilökohtaiseen käyttöön, mutta ohjelmassa näkyvä
+Browser Source ei ole henkilökohtaista käyttöä.
+
+VISPin nykyinen overlay näyttää kaikki käyttäjätilillä käyttöön otetut
+chat-yhteydet. URL:ssa ei ole alustakohtaista suodatinta. Jos sekä Twitch että
+Kick ovat käytössä, käsittele URL:ia yhdistettynä overlayna. Kun sama
+OBS-ohjelma lähtee molemmille alustoille, pidä overlay pois lähetyskuvasta tai
+poista muu kuin Twitch-chat käytöstä ennen simulcastia. Pelkkään
+alustatunnuksen rajaamiseen ei voi luottaa, sillä seuraava viesti voi tulla
+toisesta palvelusta.
+
+Jos kuulut Kick Partner Programiin ja lähetät yhtä aikaa toiselle pitkän
+formaatin livealustalle, noudata myös Kickin nykyistä
+[Multistreaming-ohjetta](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
+ja sen hallintapaneelin kytkintä. Alustojen ehdot voivat muuttua OBS:stä ja
+VISPistä riippumatta, joten tarkista ne ennen tärkeää lähetystä.
+
+## Mitä tarvitset
+
+- VISP-tilin, johon Twitch- tai Kick-kanava on linkitetty;
+- vain lukemiseen tarkoitetun chat-yhteyden erikseen käyttöön alustalle, jonka
+  haluat näyttää;
+- OBS-skenen, jonka sommittelussa on tilaa chat-paneelille;
+- toisen käyttäjätilin tai moderaattorin testiviestin lähettämiseen;
+- moderointi- ja fallback-suunnitelman suorassa lähetyksessä näkyvälle
+  tekstille.
+
+Twitchin tai Kickin lähetysavainta ei kopioida overlayhin. Chat, puhelimen
+kamerasyöte ja lopullinen alustalähtö pysyvät eri reitteinä. Overlay ei myöskään
+tee OBS:stä monilähetintä. Se näyttää vain käyttöön ottamiesi chat-yhteyksien
+uudet viestit.
+
+## 1. Linkitä ja ota käyttöön oikea chat-yhteys
+
+Avaa VISPin hallintapaneelin **Chat connections**. Jokaisella alustalla on kaksi
+erillistä päätöstä:
+
+1. **Link** liittää kanavan VISP-tiliisi.
+2. **Authorize chat** tai **Enable chat** ottaa vain lukemiseen tarkoitetut
+   liveviestit käyttöön.
+
+Twitchiä varten VISP pyytää
+[`channel.chat.message`-EventSub-tilauksen](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message)
+tarvitseman chat-luvan. Twitch luettelee taustalla olevat oikeudet virallisessa
+[scope-viitteessään](https://dev.twitch.tv/docs/authentication/scopes/). Jos
+hallintapaneelissa lukee **Authorize chat**, tee suostumusvaihe uudelleen. Älä
+oleta tavallisen sisäänkirjautumisen antaneen chat-lupaa.
+
+Kickissä chatin käyttöönotto luo tilauksen
+[`chat.message.sent`-tapahtumaan](https://github.com/KickEngineering/KickDevDocs/blob/main/events/event-types.md).
+Kick toimittaa viestit VISPin sovelluspalvelimelle allekirjoitetulla webhookilla.
+VISP välittää hyväksytyt liveviestit tunnistetuille asiakkaille, myös OBS:n
+overlaylle.
+
+Ota käyttöön vain ne alustat, joiden kuuluu näkyä tässä ohjelmassa. Lähetä uusi
+viesti toiselta käyttäjätililtä ja varmista chat-yhteyden toiminta ennen
+overlay-URL:n luomista. Overlay vastaanottaa live-tapahtumia eikä lataa
+aiempaa viestihistoriaa.
+
+## 2. Luo ja suojaa Browser Source -URL
+
+Avaa yhteyslistan alta **OBS chat overlay** ja valitse **Generate overlay URL**.
+Kopioi koko URL heti ja vie se salasananhallintaan tai suoraan OBS:ään.
+Hallintapaneeli ei näytä samaa selväkielistä tunnusta uudelleen sivun tilan
+kadottua.
+
+Käsittele URL:ia scene-tunnuksena:
+
+- älä näytä sitä käyttöönottokuvissa, näytönjaossa, videoilla tai tukilokeissa;
+- älä liitä sitä julkiseen chatiin tai jaetun scene collectionin kuvaukseen;
+- vaihda URL vahingossa tapahtuneen paljastumisen jälkeen;
+- peru URL, kun kyseisellä OBS-asennuksella ei enää saa olla chat-yhteyttä.
+
+**Rotate overlay URL** korvaa nykyisen salaisuuden. Vanha Browser Source näyttää
+seuraavan uudelleenlatauksen tai -yhdistämisen jälkeen perutun URL:n virheen,
+kunnes liität OBS:ään uuden URL:n. **Revoke overlay URL** estää uusien
+overlay-yhteystunnusten luonnin irrottamatta Twitch- tai Kick-tiliä ja
+muuttamatta puhelimen tai OBS-medialähteen tunnuksia. Jos overlay on jo
+yhteydessä, peru URL ja päivitä tai poista Browser Source yhteyden
+katkaisemiseksi.
+
+## 3. Lisää OBS:ään yksi koko canvasin Browser Source
+
+Tee chatia näyttävässä scenessä näin:
+
+1. Valitse **Sources → + → Browser**.
+2. Nimeä lähde esimerkiksi `VISP chat overlay`.
+3. Jätä **Local file** pois käytöstä ja liitä luotu URL.
+4. Aseta **Width** ja **Height** OBS:n peruscanvasin kokoisiksi, esimerkiksi
+   1920×1080.
+5. Sijoita lähde kohtaan 0,0, jolloin läpinäkyvä sivu peittää koko canvasin.
+6. Siirrä lähde Sources-listassa kameran ja muiden sisältölähteiden yläpuolelle.
+7. Jätä ensimmäisessä harjoituksessa **Shutdown source when not visible** pois
+   käytöstä.
+
+OBS:n virallinen
+[Browser Source -ohje](https://obsproject.com/kb/browser-source)
+kuvaa URL-lähteet, näkymän mitat, läpinäkyvän CSS:n sekä sammutus- ja
+päivitysasetukset. VISP tuottaa valmiiksi läpinäkyvän sivun, joten oletusasettelu
+ei tarvitse omaa CSS:ää.
+
+Koko canvasin Browser Source tekee overlayn kulma-asetuksesta yksiselitteisen.
+Kompaktin viestipaneelin ulkopuolella lähde on läpinäkyvä. Jos käytät sen
+sijaan pientä 400×700-näkymää, sijoita lähde käsin. Muista silloin, että
+`top-right` tarkoittaa pienen lähteen, ei koko lähetyscanvasin, oikeaa
+yläkulmaa.
+
+Pidä overlay sellaisten pysyvien turvallisuus- tai yhteistyöilmoitusten alla,
+joita ei saa peittää. Älä sijoita sitä tekstitysten, kasvojen, puhelinkameran
+tärkeän kuva-alueen tai pelin välttämättömien HUD-tietojen päälle.
+
+## 4. Valitse kulma, rivimäärä ja häivytys
+
+Luotu URL toimii sellaisenaan. Nykyiset oletukset ovat:
+
+- vasen alakulma;
+- enintään kahdeksan viimeisintä viestiä;
+- viestit säilyvät, kunnes uudemmat rivit työntävät ne pois.
+
+Muuta vain nykyisen overlayn tukemia ominaisuuksia lisäämällä URL:iin
+kyselyparametreja:
+
+| Tavoite | Lisää URL:n loppuun |
+| --- | --- |
+| Siirrä oikeaan yläkulmaan | `&corner=top-right` |
+| Näytä kolme riviä | `&rows=3` |
+| Häivytä viestit noin 12 sekunnissa | `&fade=1` |
+| Yhdistä kaikki kolme | `&corner=top-right&rows=3&fade=1` |
+
+Sallitut kulmat ovat `bottom-left`, `bottom-right`, `top-left` ja `top-right`.
+Rivimäärä voi olla 1–20. Virheellinen kulma tai rivimäärä palautuu oletukseen
+sen sijaan, että lähetyssivu rikkoutuisi.
+
+Käytä puhelimelle suunnatussa pystysommittelussa vähän rivejä. Lisää rivejä
+vain, jos paneelille on jätetty tarkoituksella tilaa. Häivytys sopii
+IRL-sceneen, jossa kuvan pitää vapautua keskustelujen välissä. Ilman häivytystä
+hiljaisen kanavan konteksti säilyy, mutta uudet viestit korvaavat silti
+vanhimmat rivit.
+
+## 5. Harjoittele sisältö, moderointi ja scenevaihdot
+
+Overlay näyttää alustatunnuksen, lähettäjän nimen, tuetut badget, tekstin ja
+emotet. Se on näyttöpinta, ei vastaus- tai moderointityökalu. Viesti voi tulla
+näkyviin ennen moderaattorin toimintaa, joten riski on sama kuin muissa
+live-chat-laatikoissa.
+
+Tee paikallisella tallennuksella tai muuten vähäriskisessä tilanteessa lyhyt
+harjoitus:
+
+1. Lähetä tunnistettava Twitch- tai Kick-testiviesti toiselta tililtä.
+2. Varmista, että paneeli ilmestyy oikeaan kulmaan ja on luettava.
+3. Lähetä emote ja pitkä viesti ja tarkista rivitys sekä paneelin leveys.
+4. Vaihda scenestä pois ja takaisin päivittämättä sivua.
+5. Tee paikallinen tallenne ja varmista, että chat näkyy vain tarkoitetuissa
+   sceneissä.
+6. Piilota lähde ja varmista, että puhdas kamerakuva on edelleen käytettävissä.
+7. Vaihda URL, päivitä lähde, katso vanhan lähteen virhe ja vie OBS:ään uusi
+   URL.
+8. Peru URL, päivitä lähde ja varmista, ettei se enää vastaanota viestejä.
+
+Jos sama chat tarvitaan useaan sceneen, lisää niihin olemassa oleva Browser
+Source. Älä tee monta uutta lähdettä kopioiduilla tunnuksilla. Yksi lähde on
+helpompi vaihtaa, piilottaa ja tarkistaa. Jos tarvitset puhtaan tallenteen,
+pidä overlay vain ohjelmascenessä tai käytä OBS:n tallennus- ja
+lähdetyönkulkua, joka säilyttää kameran erikseen.
+
+## Vianmääritys
+
+### Browser Source on täysin tyhjä
+
+Se on normaali lepotila. Sivu on täysin läpinäkyvä, kunnes uusi liveviesti
+saapuu. Varmista, että oikea alusta on linkitetty ja chat käytössä. Lähetä uusi
+viesti vasta lähteen latauduttua. Aiempia viestejä ei toisteta.
+
+### Toinen alusta näkyy ja toinen ei
+
+Tarkista **Chat connections**. Hiljaisen alustan pitää olla linkitetty,
+valtuutettu ja käytössä. Jos simulcastaat Twitchiin, pysähdy ennen molempien
+käyttöönottoa: Twitchin nykyiset simulcasting-ehdot rajoittavat yhdistetyn
+chatin näyttämistä ohjelmassa.
+
+### Overlay ilmoittaa, että URL on peruttu
+
+Joku on vaihtanut tai perunut tunnuksen. Luo uusi URL ja korvaa OBS:n Browser
+Sourcessa koko vanha osoite. Vanhan sivun päivittäminen ei palauta tunnusta,
+joka ei enää kelpaa.
+
+### Paneeli ei siirry lähetyksen valittuun kulmaan
+
+Tarkista Browser Sourcen mitat ja transformaatio. Aseta näkymä peruscanvasin
+kokoiseksi ja kohtaan 0,0 tai sijoita pienempi lähde tarkoituksella. URL:n
+kulma on suhteessa Browser Sourcen näkymään.
+
+### Viestit katoavat odottamatta
+
+Poista `&fade=1`, jos haluat rivien säilyvän, kunnes uudemmat viestit korvaavat
+ne. Tarkista myös, purkaako OBS lähteen muistista sen ollessa piilossa. Overlay
+on vain livekäyttöön eikä palauta viestihistoriaa uudelleenlatauksen jälkeen.
+
+## Esitarkistuslista
+
+Tee nämä ennen julkista lähetystä:
+
+1. päätä, onko chat yksityinen vai katsojille näkyvä;
+2. ota käyttöön vain nykyisessä ohjelmassa sallittu alustachat;
+3. tarkista Twitchin ja Kickin ehdot uudelleen, jos simulcastaat;
+4. luo overlay-URL ja säilytä sitä tunnuksena;
+5. lisää kameran yläpuolelle yksi koko canvasin Browser Source;
+6. valitse kulma, rivit ja häivytys URL-parametreilla;
+7. testaa viestit, emotet, pitkät nimet ja scenevaihdot;
+8. tarkista overlay paikallisesta tallenteesta;
+9. varmista moderaattorit ja yhden painalluksen päässä oleva puhdas scene;
+10. vaihda tai peru URL, jos se paljastui käyttöönotossa.
+
+VISP pitää työnkulun tarkoituksella pienenä. Alustachat saapuu peruttavalla
+URL-tunnuksella, OBS päättää läpinäkyvän kerroksen näkymisestä ja alla oleva
+kameralähde pysyy uudelleenkäytettävänä. VISPin tavallinen relay-to-OBS-reitti
+ei edelleenkään transkoodaa puhelinsyötettä eikä yhdistä verkkoyhteyksien
+kapasiteettia.
+
+Jos käytät jo VISP-puhelinta IRL-kamerana, tee ensin
+[puhelin-OBS-opas](/fi/blog/use-phone-as-remote-camera-obs) ja testaa sitten
+yhtä overlay-URL:ia scenen kopiossa. Kokeile VISPiä ensin vain Twitch- tai vain
+Kick-chatilla, varmista sekä puhdas että katsojille näkyvä scene ja lisää
+kerros varsinaiseen tuotantoon vasta sääntö- ja moderointitarkistusten jälkeen.
+
+## Lähteet
+
+- [VISPin puhelin- ja selainsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [VISPin chat- ja media-arkkitehtuuri](https://docs.visp-stream.com/fi/docs/architecture)
+- [OBS Browser Source](https://obsproject.com/kb/browser-source)
+- [OBS:n chat-overlayn FAQ](https://obsproject.com/kb/faq-stream-chat)
+- [Twitch EventSubin kanavachattiviestit](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message)
+- [Twitchin access token -oikeudet](https://dev.twitch.tv/docs/authentication/scopes/)
+- [Twitchin käyttöehdot: Simulcasting](https://www.twitch.tv/p/terms-of-service)
+- [Twitch Simulcasting Guidelines FAQ](https://help.twitch.tv/s/article/simulcasting-guidelines)
+- [Kick-kehittäjädokumentaation tapahtumatyypit](https://github.com/KickEngineering/KickDevDocs/blob/main/events/event-types.md)
+- [Kick-tapahtumatilaukset](https://github.com/KickEngineering/KickDevDocs/blob/main/events/subscribe-to-events.md)
+- [Kick-webhookien turvallisuus](https://github.com/KickEngineering/KickDevDocs/blob/main/events/webhook-security.md)
+- [Kick Partner -monilähetys](https://help.kick.com/en/articles/11091744-multistreaming-on-the-kick-partner-program)
