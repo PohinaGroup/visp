@@ -1,0 +1,156 @@
+---
+title: "Näin lisäät puhelimen IRL-lähetykseen BRB-kuvan ilman OBS:ää"
+description: "Lisää puhelimen IRL-lähetykseen BRB-kuva ilman OBS:ää, pidä Twitch- tai Kick-lähtö käynnissä katkon ajan ja testaa palautuminen."
+publishedAt: 2026-08-13
+coverAlt: "Ulkoilmalähettäjä kuvaa puhelimella, kun katkennut syaaninsininen signaaliviiva yhdistyy ja jatkuu kohti etäistä katsojaa"
+---
+
+**BRB-kuva** antaa katsojille tarkoituksellisen väliaikakuvan, jos puhelimen
+IRL-lähetys menettää mobiiliyhteyden. Tavallisesti kuva tehdään kotona tai
+pilvessä jatkuvasti käyvällä OBS:llä. VISP Direct voi nyt pitää Twitch- tai
+Kick-lähdön käynnissä relay-palvelimella ja korvata kadonneen puhelinsyötteen
+palaamme pian -kortilla.
+
+Ero on olennainen: puhelin voi olla offline-tilassa, mutta alustaan yhdistetty
+enkooderi toimii edelleen. Kun puhelin yhdistää uudelleen, livekuva korvaa
+kortin automaattisesti. Saat tämän palautumiskerroksen jättämättä tietokonetta
+päälle, mutta kortti ei korjaa puhelimen yhteyttä eikä tee huonosta reitistä
+luotettavaa.
+
+![Puhelimen kuvalähde katkeaa, VISP-relay vaihtaa BRB-korttiin ja pitää kaksi alustalähtöä käynnissä](./brb-direct-flow.svg)
+
+## Miksi puhelimen katkos voi päättää julkisen lähetyksen?
+
+Twitch kuvaa
+[videojulkaisun dokumentaatiossaan](https://dev.twitch.tv/docs/video-broadcast/),
+kuinka enkooderi lähettää RTMP-videota Twitchin ingest-palvelimelle. Kun
+puhelin julkaisee suoraan alustaan, puhelimen datayhteyden katoaminen vie
+samalla alustaan yhdistetyn enkooderin.
+
+Katkon näkyvä seuraus riippuu alustasta ja katkon pituudesta. Twitchin oma
+[Disconnect Protection](https://help.twitch.tv/s/article/Disconnect-Protection?language=en_US)
+voi näyttää väliaikaisen viestin enintään 90 sekunnin ajan ja pitää tallennetun
+VODin yhtenäisenä, jos enkooderi palaa ajoissa. Kickin virallinen
+[puuttuvan VODin ohje](https://help.kick.com/en/articles/14994284-my-vod-is-missing-or-not-appearing-after-my-stream)
+kertoo, että lähetyksen katkeaminen ja uudelleenyhdistyminen voivat jakaa yhden
+lähetyksen useaksi VODiksi.
+
+Palvelimella tehty BRB-kuva muuttaa reittiä. Puhelin tuo yhden syötteen
+VISPille, kun taas Direct omistaa lähtevän Twitch- tai Kick-yhteyden. Jos
+kuvalähde katoaa Directin jo ollessa live-tilassa, relay vaihtaa jakelukoodauksen
+korttiin eikä katkaise kohdeyhteyttä. Alusta saa edelleen H.264-videota ja
+hiljaista stereo-AAC-ääntä.
+
+## Mitä VISP näyttää puhelimen ollessa offline-tilassa?
+
+Avaa VISP-hallintapaneelista **Never drop again** ja valitse yksi kolmesta
+BRB-taustasta:
+
+- **Latest snapshot** käyttää puhelinlähetyksen tuoretta ruutukaappausta ja
+  pehmentää sen, jotta pysähtynyt tila näyttää tarkoitukselliselta.
+- **Custom image** hyväksyy enintään 5 megatavun PNG- tai JPEG-kuvan. Käytä
+  selkeää 16:9-kuvaa, jonka tärkeät yksityiskohdat eivät ole aivan reunoilla.
+- **Solid black** on turvallisin valinta, kun yksityisyys on tärkeää tai kameran
+  viimeistä kuvaa ei pidä jättää näkyviin.
+
+VISP piirtää taustan päälle lyhyen viestisi. Kirjoita teksti, joka kertoo
+tilanteen yhdellä silmäyksellä. Esimerkiksi “Yhteys katkesi — yhdistetään
+uudelleen” on hyödyllisempi kuin vitsi, joka ei enää aukea viiden minuutin
+kuluttua.
+
+Kortissa ei ole ohjelmaääntä. Jos musiikin, juontajamikrofonin, hälytysten tai
+kokonaisen varakohtauksen pitää jatkua, käytä OBS:ää. Directin kortti on valmiin
+puhelinohjelman jatkuvuuskerros, ei etäkäytettävä kohtausmuokkain.
+
+## Ota BRB-kuva käyttöön ilman OBS:ää
+
+Tee ensin tavallinen
+[VISP Directin käyttöönotto](https://docs.visp-stream.com/docs/direct-output).
+Direct pitää valtuuttaa ja ottaa käyttöön Twitchille, Kickille tai molemmille,
+kun julkaisulaite on offline-tilassa.
+
+Määritä sitten kortti:
+
+1. Kirjaudu VISP-hallintapaneeliin ja etsi **Never drop again**.
+2. Ota **Show a BRB card when my stream drops** käyttöön.
+3. Kirjoita lyhyt viesti odottamatonta katkosta varten.
+4. Valitse **Latest snapshot**, **Custom image** tai **Solid black**.
+5. Jos käytät omaa kuvaa, lataa PNG tai JPEG ja tarkista esikatselu.
+6. Käynnistä puhelinlähetys ja varmista, että jokainen Direct-kohde saavuttaa
+   live-tilan.
+
+Kytkimen täytyy olla päällä ennen kuvalähteen katoamista. Kortti voi pitää
+käynnissä vain jo toimivaa Direct-välittäjää. Se ei pelasta kohdetta, joka ei
+koskaan käynnistynyt epäonnistuneen valtuutuksen tai täyden relay-kapasiteetin
+vuoksi.
+
+VISP käyttää jokaiselle kohteelle omaa välittäjää. Twitch- ja Kick-kortit
+kuluttavat siksi samat Direct-enkooderipaikat kuin niiden live-lähdöt. Yhden
+kohteen pysähtyminen tai vika ei pakota toista alas.
+
+## Testaa katkos ennen oikeaa IRL-lähetystä
+
+Älä jätä ensimmäistä uudelleenyhdistymistestiä tapahtumapäivään. Käynnistä
+matalan riskin testilähetys ja katso sitä toisella laitteella ääni mykistettynä.
+
+1. Käynnistä puhelinsyöte ja odota, että Twitch tai Kick näkyy live-tilassa.
+2. Tarkista julkiselta kanavalta oikea kamera ja ääni.
+3. Poista julkaisupuhelimesta sekä Wi-Fi että mobiilidata käytöstä tai siirrä se
+   tarkoituksella estettyyn testiverkkoon.
+4. Varmista, että julkinen video vaihtuu valittuun BRB-korttiin ja että
+   VISP-hallintapaneeli näyttää pidossa olevan tilan.
+5. Palauta puhelimen yhteys ja käynnistä julkaisu uudelleen, jos sovellus ei
+   yhdistä automaattisesti.
+6. Tarkista, että kamera korvaa kortin, ääni palaa ja julkinen lähetys jatkuu
+   samana istuntona.
+7. Pysäytä lähtö hallintapaneelista, jos puhelin ei palaa. BRB-kortti on
+   väliaikainen palautumistila, ei valvomaton kanava.
+
+Toista testi jokaiselle valitulle alustalle. Puhelimen oma kameraesikatselu
+todistaa vain kuvaamisen toimivan. Julkisen kanavan tarkistus kattaa koko
+puhelin–relay–alusta-reitin.
+
+## Mitä BRB-kortti ei ratkaise?
+
+**Se ei luo mobiilikaistaa.** Kortti tulee näkyviin vasta kuvalähteen jo
+petettyä. Maltillinen bittinopeus, reitin testaaminen ja sopiva
+yhteysredundanssi vähentävät edelleen tilanteita, joissa katsojat näkevät sen.
+[Huonon mobiiliverkon oppaassa](/blog/keep-stream-live-bad-mobile-network)
+käydään läpi nämä aikaisemmat suojakerrokset.
+
+**Se ei korvaa pakettien palautusta.** SRT voi palauttaa paketteja niin kauan
+kuin yhteyttä on riittävästi jäljellä. BRB-kortti käsittelee suuremman katkon,
+jossa julkaisija ei enää toimita käyttökelpoista syötettä.
+
+**Se koskee Direct-lähtöä.** Jos OBS omistaa Twitch- tai Kick-lähetyksen, VISP
+tarjoaa puhelimen edelleen OBS-lähteeksi ja varakohtaus kuuluu OBS:lle. Älä ota
+Directiä käyttöön ja lähetä OBS:stä samaan kohteeseen yhtä aikaa.
+
+**Se ei säilytä puhelimen liveääntä.** Kortti lähettää hiljaisuutta. Etäjuontaja,
+soittolista tai kuulutukset tarvitsevat lähtöreitin, jolla nämä lähteet ovat
+edelleen käytössä. Tavallisesti se tarkoittaa OBS:ää.
+
+**Se ei piilota jokaista häiriötä.** Katsojat näkevät kortin, ja vaihto edellyttää
+relayn, VISP-sovelluspalvelimen ja alustayhteyden pysyvän kunnossa. Relayn
+uudelleenkäynnistys tai kohdeyhteyden vika on eri häiriö kuin puhelinsyötteen
+katoaminen.
+
+## Milloin Direct on oikea palautumiskerros?
+
+Käytä Directin BRB-korttia, kun yksi puhelin sisältää jo koko ohjelman ja haluat
+mahdollisimman vähän liikkuvia osia. Se sopii kävelylähetykseen, yhden kameran
+tapahtumaan tai Twitch–Kick-simulcastiin, jonka ei pidä riippua
+kotitietokoneesta. [Ilman PC:tä lähettämisen opas](/blog/stream-to-twitch-without-a-pc)
+avaa tämän kokonaisuuden muut osat.
+
+Pidä OBS käytössä, kun varakuva on itsessään osa tuotantoa: juontajan pitää
+jatkaa puhetta, musiikin soida, sponsorin saada oma kohtaus tai muiden kameroiden
+pysyä käytettävissä.
+
+Käytännön valinta on yksinkertainen. Tee varakohtaus siinä osassa, joka omistaa
+alustalähdön puhelimen kadotessa. VISP Directissä se on relay. Kotistudion
+työnkulussa se on OBS.
+
+Jos ilman PC:tä toimiva BRB-kuva sopii IRL-lähetykseesi,
+[kokeile VISPiä](https://visp-stream.com), ota **Never drop again** käyttöön ja
+harjoittele yksi oikea yhteyskatko ennen seuraavaa Twitch- tai Kick-lähetystä.
