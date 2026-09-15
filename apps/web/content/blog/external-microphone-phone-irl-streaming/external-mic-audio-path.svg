@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">External microphone signal path</title>
+  <desc id="desc">An external microphone feeds a selected phone input. VISP carries the contribution to either a home OBS production or a Direct streaming destination.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#071421"/>
+      <stop offset="1" stop-color="#132b3f"/>
+    </linearGradient>
+    <linearGradient id="signal" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#58e4ef"/>
+      <stop offset="1" stop-color="#60a5fa"/>
+    </linearGradient>
+    <filter id="glow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+      <path d="M0 0 10 5 0 10Z" fill="#63d9ef"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="40" fill="url(#background)"/>
+  <circle cx="190" cy="140" r="280" fill="#0ea5e9" opacity=".06"/>
+  <circle cx="1430" cy="760" r="300" fill="#f59e0b" opacity=".05"/>
+
+  <g transform="translate(120 270)">
+    <rect x="115" y="0" width="120" height="245" rx="60" fill="#14263a" stroke="#f3c27a" stroke-width="8"/>
+    <path d="M145 42h60M145 78h60M145 114h60" stroke="#f3c27a" stroke-width="10" stroke-linecap="round" opacity=".75"/>
+    <path d="M85 145v54a90 90 0 0 0 180 0v-54M175 289v76M118 365h114" fill="none" stroke="#f3c27a" stroke-width="15" stroke-linecap="round"/>
+    <circle cx="175" cy="420" r="18" fill="#58e4ef" filter="url(#glow)"/>
+  </g>
+
+  <path d="M448 690C540 690 510 450 605 450" fill="none" stroke="url(#signal)" stroke-width="12" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+
+  <g transform="translate(640 190)">
+    <rect width="300" height="520" rx="58" fill="#0b1522" stroke="#8da6bd" stroke-width="8"/>
+    <rect x="25" y="62" width="250" height="375" rx="32" fill="#173752"/>
+    <path d="M58 251h28l19-55 31 118 30-170 31 137 19-58h26" fill="none" stroke="#58e4ef" stroke-width="10" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)"/>
+    <circle cx="150" cy="475" r="17" fill="#718ba3"/>
+    <rect x="106" y="25" width="88" height="10" rx="5" fill="#718ba3"/>
+    <rect x="-30" y="340" width="72" height="112" rx="20" fill="#1b2e42" stroke="#f3c27a" stroke-width="6"/>
+    <circle cx="6" cy="400" r="12" fill="#58e4ef"/>
+  </g>
+
+  <path d="M980 450h150" fill="none" stroke="url(#signal)" stroke-width="12" stroke-linecap="round" marker-end="url(#arrow)" filter="url(#glow)"/>
+
+  <g transform="translate(1160 337)">
+    <path d="M20 72 150 5l130 67v150l-130 67-130-67Z" fill="#132e43" stroke="#63d9ef" stroke-width="7"/>
+    <path d="m20 72 130 68 130-68M150 140v149" fill="none" stroke="#63d9ef" stroke-width="5" opacity=".65"/>
+    <circle cx="150" cy="140" r="23" fill="#63d9ef" filter="url(#glow)"/>
+  </g>
+
+  <path d="M1460 450c70 0 50-190 50-245" fill="none" stroke="#63d9ef" stroke-width="10" stroke-linecap="round" marker-end="url(#arrow)"/>
+  <path d="M1460 450c70 0 50 190 50 245" fill="none" stroke="#f3c27a" stroke-width="10" stroke-linecap="round" marker-end="url(#arrow)"/>
+
+  <g transform="translate(1375 55)">
+    <rect width="175" height="125" rx="18" fill="#101d2c" stroke="#8da6bd" stroke-width="6"/>
+    <rect x="18" y="17" width="139" height="83" rx="9" fill="#1a415b"/>
+    <path d="m69 38 45 21-45 21Z" fill="#63d9ef"/>
+    <path d="M65 146h45M87 125v21" stroke="#8da6bd" stroke-width="8" stroke-linecap="round"/>
+  </g>
+
+  <g transform="translate(1375 700)">
+    <rect width="175" height="125" rx="18" fill="#101d2c" stroke="#8da6bd" stroke-width="6"/>
+    <path d="M45 76h14l11-34 18 66 18-92 18 77 9-25h12" fill="none" stroke="#f3c27a" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
