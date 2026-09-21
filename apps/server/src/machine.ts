@@ -20,6 +20,10 @@ import {
 	customDirectOutputActive,
 } from "@VISP/api/direct-custom";
 import {
+	getObsBackupUploadUrl,
+	OBS_BACKUP_FILE_MAX_BYTES,
+} from "@VISP/api/obs-backup";
+import {
 	authenticateObsControlToken,
 	pollObsControl,
 	revokeObsControlToken,
@@ -47,7 +51,7 @@ import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import { session as authSession } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 import {
@@ -215,6 +219,47 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			return status(503, "disconnect unavailable");
 		}
 	})
+	.post("/api/obs/backups", async ({ headers }) => {
+		try {
+			const owner = await authenticateObsControlToken(headers.authorization);
+			if (!owner) return status(401, "unauthorized");
+			return { id: randomUUID() };
+		} catch {
+			return status(503, "backup unavailable");
+		}
+	})
+	.post(
+		"/api/obs/backups/:backupId/files",
+		async ({ body, headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				if (body.byteSize > OBS_BACKUP_FILE_MAX_BYTES)
+					return status(413, "Backup files must be 4 GB or smaller");
+				return {
+					uploadUrl: await getObsBackupUploadUrl(
+						owner.id,
+						params.backupId,
+						body.path,
+					),
+				};
+			} catch (error) {
+				return status(
+					error instanceof Error && error.message === "Invalid backup file path"
+						? 400
+						: 503,
+					error instanceof Error ? error.message : "backup unavailable",
+				);
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1, maxLength: 512 }),
+				byteSize: t.Integer({ minimum: 1, maximum: OBS_BACKUP_FILE_MAX_BYTES }),
+			}),
+			params: t.Object({ backupId: t.String({ format: "uuid" }) }),
+		},
+	)
 	.post(
 		"/api/obs/control",
 		async ({ body, headers }) => {

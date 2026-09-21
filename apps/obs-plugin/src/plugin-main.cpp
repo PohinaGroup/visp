@@ -664,15 +664,20 @@ int main(void)
 #include <QNetworkRequest>
 #include <QRandomGenerator>
 #include <QSslSocket>
+#include <QDir>
+#include <QDirIterator>
 #include <QDesktopServices>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QFileDialog>
+#include <QFile>
+#include <QFileInfo>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
+#include <QLocale>
 #include <QMessageBox>
 #include <QObject>
 #include <QPushButton>
@@ -701,6 +706,11 @@ struct plugin_config {
 	qint64 output_path_id = 0;
 };
 
+struct backup_file {
+	QString source_path;
+	QString archive_path;
+};
+
 static control_connection_state current_control_state = control_connection_state::inactive;
 
 static bool secure_url(const QString &value)
@@ -709,6 +719,28 @@ static bool secure_url(const QString &value)
 	const bool local_http = url.scheme() == "http" &&
 				(url.host() == "localhost" || url.host() == "127.0.0.1" || url.host() == "::1");
 	return url.isValid() && !url.host().isEmpty() && (url.scheme() == "https" || local_http);
+}
+
+static void collect_referenced_files(const QJsonValue &value, const QDir &base,
+					     QSet<QString> *files)
+{
+	if (value.isArray()) {
+		for (const QJsonValue item : value.toArray())
+			collect_referenced_files(item, base, files);
+		return;
+	}
+	if (value.isObject()) {
+		for (const QJsonValue item : value.toObject())
+			collect_referenced_files(item, base, files);
+		return;
+	}
+	if (!value.isString())
+		return;
+	QFileInfo file(value.toString());
+	if (file.isRelative())
+		file.setFile(base.absoluteFilePath(file.filePath()));
+	if (file.isFile())
+		files->insert(file.canonicalFilePath());
 }
 
 static plugin_config load_config()
@@ -999,6 +1031,15 @@ public:
 		auto *output_group = new QGroupBox("This OBS profile output");
 		output_group->setLayout(output_layout);
 
+		backup_status.setWordWrap(true);
+		backup_button = new QPushButton("Back up to VISP");
+		connect(backup_button, &QPushButton::clicked, this, [this]() { start_backup(); });
+		auto *backup_layout = new QVBoxLayout;
+		backup_layout->addWidget(&backup_status);
+		backup_layout->addWidget(backup_button, 0, Qt::AlignLeft);
+		auto *backup_group = new QGroupBox("VISP OBS backup");
+		backup_group->setLayout(backup_layout);
+
 		devices_layout = new QVBoxLayout(&devices_widget);
 		devices_layout->setContentsMargins(0, 0, 0, 0);
 		auto *scroll = new QScrollArea;
@@ -1028,6 +1069,7 @@ public:
 		connect(&health_timer, &QTimer::timeout, this, [this]() {
 			refresh_account_presentation();
 			refresh_output_presentation();
+			refresh_backup_presentation();
 		});
 		health_timer.start(250);
 
@@ -1038,6 +1080,7 @@ public:
 		layout->addWidget(intro);
 		layout->addWidget(account_group);
 		layout->addWidget(output_group);
+		layout->addWidget(backup_group);
 		layout->addWidget(new QLabel("Publishing devices"));
 		layout->addWidget(scroll);
 		layout->addSpacing(8);
@@ -1046,6 +1089,7 @@ public:
 		layout->addWidget(buttons);
 		refresh_account_presentation();
 		refresh_output_presentation();
+		refresh_backup_presentation();
 
 		if (!settings.token.isEmpty())
 			QTimer::singleShot(0, this, [this]() { load_devices(); });
@@ -1098,6 +1142,18 @@ private:
 						  : "This replaces the current profile's streaming destination.");
 	}
 
+	void refresh_backup_presentation()
+	{
+		if (backup_in_progress)
+			return;
+		const bool connected = !token.text().trimmed().isEmpty() && secure_url(url.text().trimmed());
+		backup_button->setEnabled(connected);
+		if (backup_status.text().isEmpty() || backup_status.text() == "Sign in to back up this OBS setup.")
+			backup_status.setText(connected
+						? "Back up scene collections, profile settings, and linked local media. Stream keys and VISP credentials stay on this computer."
+						: "Sign in to back up this OBS setup.");
+	}
+
 	void retry_connection()
 	{
 		const plugin_config saved = load_config();
@@ -1125,6 +1181,202 @@ private:
 			handler(status, response);
 			reply->deleteLater();
 		});
+	}
+
+	bool collect_backup_files(QString *error)
+	{
+		backup_files.clear();
+		obs_frontend_save();
+		char *profile_path = obs_frontend_get_current_profile_path();
+		if (!profile_path) {
+			*error = "OBS could not find the current profile.";
+			return false;
+		}
+		QDir config_root(QString::fromUtf8(profile_path));
+		bfree(profile_path);
+		if (!config_root.cdUp() || !config_root.cdUp() || !config_root.cdUp()) {
+			*error = "OBS returned an unexpected profile path.";
+			return false;
+		}
+		const QString root_path = QFileInfo(config_root.absolutePath()).canonicalFilePath();
+		QDir scenes(config_root.filePath("basic/scenes"));
+		QDir profiles(config_root.filePath("basic/profiles"));
+		if (root_path.isEmpty() || !scenes.exists() || !profiles.exists()) {
+			*error = "OBS scene or profile data is unavailable.";
+			return false;
+		}
+		auto inside_config_root = [&root_path](const QFileInfo &file) {
+			const QString path = file.canonicalFilePath();
+			return path.startsWith(root_path + QDir::separator());
+		};
+		QSet<QString> media_files;
+		for (const QFileInfo &scene : scenes.entryInfoList({"*.json"}, QDir::Files)) {
+			if (!inside_config_root(scene))
+				continue;
+			backup_files.append({scene.canonicalFilePath(), "scenes/" + scene.fileName()});
+			QFile scene_file(scene.filePath());
+			if (scene_file.open(QIODevice::ReadOnly)) {
+				const QJsonDocument scene_document = QJsonDocument::fromJson(scene_file.readAll());
+				if (scene_document.isArray())
+					collect_referenced_files(scene_document.array(), scenes, &media_files);
+				else if (scene_document.isObject())
+					collect_referenced_files(scene_document.object(), scenes, &media_files);
+			}
+		}
+		QDirIterator profiles_iterator(profiles.absolutePath(), {"basic.ini"}, QDir::Files,
+						       QDirIterator::Subdirectories);
+		while (profiles_iterator.hasNext()) {
+			profiles_iterator.next();
+			const QFileInfo profile(profiles_iterator.fileInfo());
+			if (inside_config_root(profile))
+				backup_files.append({profile.canonicalFilePath(),
+							     "profiles/" + profiles.relativeFilePath(profile.filePath())});
+		}
+		int media_index = 0;
+		for (const QString &path : media_files) {
+			const QFileInfo media(path);
+			if (media.size() > 4LL * 1024 * 1024 * 1024) {
+				*error = QString("%1 is larger than the 4 GB per-file backup limit.").arg(media.fileName());
+				backup_files.clear();
+				return false;
+			}
+			backup_files.append({path, QString("media/%1").arg(++media_index, 6, 10, QChar('0'))});
+		}
+		if (backup_files.isEmpty()) {
+			*error = "No OBS scene or profile files were found.";
+			return false;
+		}
+		return true;
+	}
+
+	void start_backup()
+	{
+		const plugin_config value = settings();
+		if (value.token.isEmpty() || !secure_url(value.control_url)) {
+			QMessageBox::warning(this, "VISP OBS backup", "Sign in before backing up OBS.");
+			return;
+		}
+		QString error;
+		if (!collect_backup_files(&error)) {
+			QMessageBox::warning(this, "VISP OBS backup", error);
+			return;
+		}
+		qint64 bytes = 0;
+		for (const backup_file &file : backup_files)
+			bytes += QFileInfo(file.source_path).size();
+		if (QMessageBox::question(
+				this, "Back up to VISP",
+				QString("Upload %1 files (%2) to VISP? This includes scene collections, profile settings, and linked local media. Stream keys and VISP credentials are excluded.")
+					.arg(backup_files.size())
+					.arg(QLocale().formattedDataSize(bytes))) != QMessageBox::Yes)
+			return;
+		backup_in_progress = true;
+		backup_button->setEnabled(false);
+		backup_status.setText("Creating VISP backup...");
+		send(endpoint_url(value.control_url, "/api/obs/backups"), true, {}, value.token,
+		     [this](int status, const QByteArray &body) {
+			     const QJsonDocument document = QJsonDocument::fromJson(body);
+			     const QString id = document.object().value("id").toString();
+			     if (status < 200 || status >= 300 || id.isEmpty()) {
+				     finish_backup(response_error(body, "VISP could not create the backup."));
+				     return;
+			     }
+			     backup_id = id;
+			     backup_index = 0;
+			     upload_next_backup_file();
+		     });
+	}
+
+	void request_backup_upload_url(const QString &archive_path, qint64 bytes,
+				       std::function<void(const QUrl &)> handler)
+	{
+		const plugin_config value = settings();
+		send(endpoint_url(value.control_url, QString("/api/obs/backups/%1/files").arg(backup_id)), true,
+		     {{"path", archive_path}, {"byteSize", bytes}}, value.token,
+		     [this, handler = std::move(handler)](int status, const QByteArray &body) {
+			     const QUrl upload_url(QJsonDocument::fromJson(body).object().value("uploadUrl").toString());
+			     if (status < 200 || status >= 300 || !secure_url(upload_url.toString())) {
+				     finish_backup(response_error(body, "VISP could not prepare a backup upload."));
+				     return;
+			     }
+			     handler(upload_url);
+		     });
+	}
+
+	void upload_next_backup_file()
+	{
+		if (backup_index >= backup_files.size()) {
+			upload_backup_manifest();
+			return;
+		}
+		const backup_file file = backup_files.at(backup_index);
+		const QFileInfo info(file.source_path);
+		backup_status.setText(QString("Uploading %1 of %2...").arg(backup_index + 1).arg(backup_files.size()));
+		request_backup_upload_url(file.archive_path, info.size(), [this, file](const QUrl &upload_url) {
+			backup_upload_file.setFileName(file.source_path);
+			if (!backup_upload_file.open(QIODevice::ReadOnly)) {
+				finish_backup(QString("Could not read %1.").arg(QFileInfo(file.source_path).fileName()));
+				return;
+			}
+			QNetworkRequest request(upload_url);
+			request.setHeader(QNetworkRequest::ContentTypeHeader, "application/octet-stream");
+			request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+			QNetworkReply *reply = network.put(request, &backup_upload_file);
+			connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+				const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+				const bool uploaded = reply->error() == QNetworkReply::NoError && status >= 200 && status < 300;
+				const QByteArray body = reply->readAll();
+				backup_upload_file.close();
+				reply->deleteLater();
+				if (!uploaded) {
+					finish_backup(response_error(body, "A file upload failed."));
+					return;
+				}
+				backup_index++;
+				upload_next_backup_file();
+			});
+		});
+	}
+
+	void upload_backup_manifest()
+	{
+		QJsonArray files;
+		for (const backup_file &file : backup_files) {
+			const QFileInfo info(file.source_path);
+			files.append(QJsonObject{{"path", file.archive_path}, {"originalPath", file.source_path},
+						      {"byteSize", info.size()}});
+		}
+		const QByteArray manifest = QJsonDocument(QJsonObject{{"version", 1},
+			{"createdAt", QDateTime::currentDateTimeUtc().toString(Qt::ISODate)}, {"files", files}})
+										.toJson(QJsonDocument::Compact);
+		backup_status.setText("Saving backup manifest...");
+		request_backup_upload_url("manifest.json", manifest.size(), [this, manifest](const QUrl &upload_url) {
+			QNetworkRequest request(upload_url);
+			request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+			request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+			QNetworkReply *reply = network.put(request, manifest);
+			connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+				const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+				const QByteArray body = reply->readAll();
+				const bool uploaded = reply->error() == QNetworkReply::NoError && status >= 200 && status < 300;
+				reply->deleteLater();
+				finish_backup(uploaded ? QString() : response_error(body, "Could not save the backup manifest."));
+			});
+		});
+	}
+
+	void finish_backup(const QString &error)
+	{
+		backup_upload_file.close();
+		backup_in_progress = false;
+		backup_button->setEnabled(!token.text().trimmed().isEmpty() && secure_url(url.text().trimmed()));
+		if (error.isEmpty()) {
+			backup_status.setText("VISP backup complete.");
+			QMessageBox::information(this, "VISP OBS backup", "Your OBS scenes, profile settings, and linked media are backed up to VISP.");
+			return;
+		}
+		backup_status.setText("Backup failed: " + error);
+		QMessageBox::warning(this, "VISP OBS backup", error);
 	}
 
 	void clear_devices()
@@ -1455,6 +1707,13 @@ private:
 	QLabel output_guidance;
 	QLineEdit device_label;
 	QPushButton *configure_output_button = nullptr;
+	QLabel backup_status;
+	QPushButton *backup_button = nullptr;
+	QList<backup_file> backup_files;
+	QFile backup_upload_file;
+	QString backup_id;
+	int backup_index = 0;
+	bool backup_in_progress = false;
 	QList<publishing_device> loaded_devices;
 	bool devices_loaded = false;
 	QNetworkAccessManager network;
