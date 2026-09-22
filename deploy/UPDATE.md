@@ -181,6 +181,7 @@ In Expo, confirm Android reached Google Play production and iOS reached the
 the GitHub Release, confirm Windows, macOS, and Ubuntu OBS packages are present,
 the macOS package is notarized, and every package matches `SHA256SUMS.txt`.
 
-OBS Remote native store distribution, store promotion, OBS installation, OTA
-updates, automatic database rollback, and relay-server restarts are outside this
-release workflow.
+OBS Remote native store distribution, store promotion, OBS installation,
+automatic database rollback, and relay-server restarts are outside this release
+workflow. Compatible VISP native OTA updates are published manually through
+`.github/workflows/native-update.yml` to XPRem.
