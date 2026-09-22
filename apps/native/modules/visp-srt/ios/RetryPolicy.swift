@@ -1,5 +1,7 @@
 struct RetryPolicy {
-  private static let delays: [UInt64] = [1, 2, 4]
+  // A phone can pass through a tunnel or change cells for longer than seven
+  // seconds. Keep retrying for half a minute, then return control to the user.
+  private static let delays: [UInt64] = [1, 2, 4, 8, 15]
 
   private(set) var isCancelled = false
   private var index = 0

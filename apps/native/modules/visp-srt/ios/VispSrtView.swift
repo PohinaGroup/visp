@@ -186,12 +186,14 @@ final class VispSrtView: ExpoView {
   private var statsTask: Task<Void, Never>?
   private var stream: SRTStream?
   private var videoBitrateCeiling = 3_500_000
+  private var targetVideoBitrate = 3_500_000
   private var bondingMode = "off"
   private var videoDevice: AVCaptureDevice?
   private let audioIsolation = AudioIsolationProcessor()
   private let liveCaptions = LiveCaptionsController()
   private var audioInputTask: Task<Void, Never>?
   private var audioIsolationMode: AudioIsolationMode = .off
+  private var audioMuted = false
   private var voiceProcessingEngine: AVAudioEngine?
   private lazy var pictureInPicture: PictureInPictureCoordinator = {
     let coordinator = PictureInPictureCoordinator()
@@ -225,6 +227,12 @@ final class VispSrtView: ExpoView {
       self,
       selector: #selector(didEnterBackground),
       name: UIApplication.didEnterBackgroundNotification,
+      object: nil
+    )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(thermalStateDidChange),
+      name: ProcessInfo.thermalStateDidChangeNotification,
       object: nil
     )
   }
@@ -307,6 +315,7 @@ final class VispSrtView: ExpoView {
       }
       try await attachVideo(camera, to: mixer, configuration: configuration)
       try await mixer.attachAudio(microphone)
+      await setMuted(audioMuted)
       try await mixer.setFrameRate(Double(configuration.frameRate))
       let orientation = currentOrientation()
       await mixer.setVideoOrientation(orientation)
@@ -857,6 +866,7 @@ final class VispSrtView: ExpoView {
         try await mixer.setFrameRate(Double(frameRate))
         configuration = nextConfiguration
         videoBitrateCeiling = nextVideoBitrateCeiling
+        targetVideoBitrate = nextVideoBitrateCeiling
         self.bondingMode = nextBondingMode
         return
       } catch {
@@ -873,6 +883,7 @@ final class VispSrtView: ExpoView {
     }
     configuration = nextConfiguration
     videoBitrateCeiling = nextVideoBitrateCeiling
+    targetVideoBitrate = nextVideoBitrateCeiling
     self.bondingMode = nextBondingMode
     await suspend()
     try await prepare()
@@ -972,12 +983,63 @@ final class VispSrtView: ExpoView {
     }
   }
 
+  func setMuted(_ muted: Bool) async {
+    audioMuted = muted
+    guard let mixer else {
+      return
+    }
+    var settings = await mixer.audioMixerSettings
+    settings.isMuted = muted
+    await mixer.setAudioMixerSettings(settings)
+  }
+
+  func setFocusPoint(x: Double, y: Double) throws {
+    guard let device = videoDevice, x.isFinite, y.isFinite else {
+      throw VispSrtFailure.configurationUnavailable
+    }
+    try device.lockForConfiguration()
+    defer { device.unlockForConfiguration() }
+    let point = CGPoint(x: min(1, max(0, x)), y: min(1, max(0, y)))
+    if device.isFocusPointOfInterestSupported { device.focusPointOfInterest = point }
+    if device.isFocusModeSupported(.autoFocus) { device.focusMode = .autoFocus }
+    if device.isExposurePointOfInterestSupported { device.exposurePointOfInterest = point }
+    if device.isExposureModeSupported(.continuousAutoExposure) {
+      device.exposureMode = .continuousAutoExposure
+    }
+  }
+
+  func setFocusExposureLocked(_ locked: Bool) throws {
+    guard let device = videoDevice else { throw VispSrtFailure.configurationUnavailable }
+    try device.lockForConfiguration()
+    defer { device.unlockForConfiguration() }
+    if locked {
+      if device.isFocusModeSupported(.locked) { device.focusMode = .locked }
+      if device.isExposureModeSupported(.locked) { device.exposureMode = .locked }
+    } else {
+      if device.isFocusModeSupported(.continuousAutoFocus) { device.focusMode = .continuousAutoFocus }
+      if device.isExposureModeSupported(.continuousAutoExposure) { device.exposureMode = .continuousAutoExposure }
+    }
+  }
+
+  func setExposureBias(_ bias: Double) throws {
+    guard let device = videoDevice, bias.isFinite else {
+      throw VispSrtFailure.configurationUnavailable
+    }
+    try device.lockForConfiguration()
+    defer { device.unlockForConfiguration() }
+    device.setExposureTargetBias(
+      min(device.maxExposureTargetBias, max(device.minExposureTargetBias, Float(bias))),
+      completionHandler: nil
+    )
+  }
+
   func setVideoBitrate(_ bitrateKbps: Int) async throws {
     guard let stream else {
       throw VispSrtFailure.configurationUnavailable
     }
     var settings = await stream.videoSettings
-    settings.bitRate = min(videoBitrateCeiling, max(500_000, bitrateKbps * 1_000))
+    targetVideoBitrate = min(videoBitrateCeiling, max(500_000, bitrateKbps * 1_000))
+    settings.bitRate = targetVideoBitrate
     try await stream.setVideoSettings(settings)
   }
 
@@ -1085,7 +1147,9 @@ final class VispSrtView: ExpoView {
       try await stream.setVideoSettings(
         VideoCodecSettings(
           videoSize: size,
-          bitRate: videoBitrateCeiling,
+          // Keep the ABR target through reconnects. Starting again at the
+          // ceiling can immediately overload the same weak uplink.
+          bitRate: targetVideoBitrate,
           profileLevel: kVTProfileLevel_H264_Main_AutoLevel as String,
           maxKeyFrameIntervalDuration: 2,
           allowFrameReordering: false,
@@ -1569,6 +1633,24 @@ final class VispSrtView: ExpoView {
 
   @objc private func orientationDidChange() {
     applyVideoOrientationIfNeeded()
+  }
+
+  @objc private func thermalStateDidChange() {
+    guard currentState == .live else {
+      return
+    }
+    switch ProcessInfo.processInfo.thermalState {
+    case .serious, .critical:
+      emit(
+        .live,
+        code: "thermal-warning",
+        message: "Phone is too hot. Stop and choose Reliable 720p30 if heat persists."
+      )
+    case .fair, .nominal:
+      emit(.live, code: "thermal-restored")
+    @unknown default:
+      break
+    }
   }
 
   @objc private func didEnterBackground() {

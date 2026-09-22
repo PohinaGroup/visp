@@ -93,6 +93,31 @@ export function linkHealth(packetLossPct: number, rttMs: number): LinkHealth {
 	return "good";
 }
 
+/**
+ * Health of the picture reaching the relay. SRT retransmits many lost packets,
+ * so raw loss and RTT describe the network but do not by themselves mean that
+ * viewers are seeing damaged video. Prefer the delivery signals when a native
+ * publisher supplies them.
+ */
+export function deliveryHealth(input: {
+	packetDropPct?: number;
+	packetLossPct: number;
+	rttMs: number;
+	sendQueueCongested?: boolean;
+}): LinkHealth {
+	if (input.sendQueueCongested || (input.packetDropPct ?? 0) >= 2) {
+		return "congested";
+	}
+	if ((input.packetDropPct ?? 0) >= LINK_SOFT_LOSS_PCT) return "soft";
+	if (
+		input.packetDropPct === undefined &&
+		input.sendQueueCongested === undefined
+	) {
+		return linkHealth(input.packetLossPct, input.rttMs);
+	}
+	return "good";
+}
+
 export function formatLinkStats(
 	stats: Pick<LinkMetrics, "bitrateKbps" | "packetLossPct" | "rttMs">,
 ): string {

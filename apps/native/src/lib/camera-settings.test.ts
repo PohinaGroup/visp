@@ -8,6 +8,8 @@ import {
 	formatLabel,
 	formatZoomLevel,
 	parseImageStabilizationPreference,
+	qualityPresets,
+	qualityPresetValue,
 	supportsImageStabilization,
 } from "./camera-settings";
 
@@ -86,5 +88,29 @@ describe("camera settings", () => {
 		expect(parseImageStabilizationPreference("invalid")).toBe(true);
 		expect(parseImageStabilizationPreference("true")).toBe(true);
 		expect(parseImageStabilizationPreference("false")).toBe(false);
+	});
+
+	test("offers only capture presets that the camera supports", () => {
+		expect(qualityPresets(camera).map(({ value }) => value)).toEqual([
+			"reliable",
+			"balanced",
+			"motion",
+		]);
+		expect(
+			qualityPresetValue({
+				cameraId: "back",
+				fps: 30,
+				height: 720,
+				width: 1280,
+			}),
+		).toBe("reliable");
+		expect(
+			qualityPresetValue({
+				cameraId: "back",
+				fps: 24,
+				height: 1080,
+				width: 1920,
+			}),
+		).toBe("custom");
 	});
 });

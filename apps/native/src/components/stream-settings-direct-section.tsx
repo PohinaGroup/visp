@@ -90,6 +90,19 @@ export function directStateSummary(path: DirectPath) {
 	return parts.length > 0 ? parts.join(" · ") : "No direct output";
 }
 
+/** Direct's error is the destination state we can act on from the phone. */
+export function directFailureSummary(path: DirectPath): string | undefined {
+	const failures = DIRECT_PROVIDERS.flatMap((provider) => {
+		if (!path[provider]) return [];
+		const state = path.state[provider];
+		const error = path.error[provider];
+		return error || state === "failed"
+			? [`${providerLabel(provider)} ${error ?? "failed"}`]
+			: [];
+	});
+	return failures.length > 0 ? failures.join(" · ") : undefined;
+}
+
 export function directWarning(outputs: DirectOutputs) {
 	const lines = [
 		"OBS can still read this feed, but do not let it stream to a provider Direct already owns. What OBS reads is your device's contribution feed, not the encode the platform receives.",
