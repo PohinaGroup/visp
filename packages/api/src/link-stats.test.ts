@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	clampVideoBitrateKbps,
+	deliveryHealth,
 	formatBondedBitrates,
 	formatBondedLinks,
 	formatLinkStats,
@@ -130,6 +131,35 @@ describe("linkHealth", () => {
 		expect(linkHealth(0.1, 250)).toBe("soft");
 		expect(linkHealth(2, 40)).toBe("congested");
 		expect(linkHealth(0.1, 400)).toBe("congested");
+	});
+});
+
+describe("deliveryHealth", () => {
+	test("does not mistake recovered SRT loss for damaged video", () => {
+		expect(
+			deliveryHealth({
+				packetDropPct: 0,
+				packetLossPct: 8,
+				rttMs: 900,
+				sendQueueCongested: false,
+			}),
+		).toBe("good");
+		expect(
+			deliveryHealth({
+				packetDropPct: 0.5,
+				packetLossPct: 0,
+				rttMs: 30,
+				sendQueueCongested: false,
+			}),
+		).toBe("soft");
+		expect(
+			deliveryHealth({
+				packetDropPct: 0,
+				packetLossPct: 0,
+				rttMs: 30,
+				sendQueueCongested: true,
+			}),
+		).toBe("congested");
 	});
 });
 

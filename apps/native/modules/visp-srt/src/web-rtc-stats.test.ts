@@ -8,6 +8,8 @@ describe("readOutboundStats", () => {
 				"out",
 				{
 					bytesSent: 125_000,
+					framesDropped: 3,
+					framesEncoded: 30,
 					kind: "video",
 					packetsLost: 2,
 					packetsSent: 100,
@@ -26,6 +28,8 @@ describe("readOutboundStats", () => {
 
 		expect(readOutboundStats(report)).toEqual({
 			bytesSent: 125_000,
+			framesDropped: 3,
+			framesEncoded: 30,
 			packetsLost: 2,
 			packetsSent: 100,
 			rttMs: 48,
@@ -40,12 +44,16 @@ describe("deriveWebStats", () => {
 			elapsedMs: 1000,
 			previous: {
 				bytesSent: 0,
+				framesDropped: 0,
+				framesEncoded: 0,
 				packetsLost: 0,
 				packetsSent: 0,
 				rttMs: 40,
 			},
 			sample: {
 				bytesSent: 437_500,
+				framesDropped: 2,
+				framesEncoded: 30,
 				packetsLost: 5,
 				packetsSent: 100,
 				rttMs: 420,
@@ -53,6 +61,8 @@ describe("deriveWebStats", () => {
 			targetBitrateKbps: 3500,
 		});
 		expect(result.stats.bitrateKbps).toBe(3500);
+		expect(result.stats.encodedFps).toBe(30);
+		expect(result.stats.droppedVideoFrames).toBe(2);
 		expect(result.nextTargetKbps).toBe(3500);
 	});
 });

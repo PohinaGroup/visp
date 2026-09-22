@@ -115,6 +115,22 @@ final class VispSrtModule: Module {
         try await view.setImageStabilization(enabled)
       }
 
+      AsyncFunction("setMuted") { (view: VispSrtView, muted: Bool) in
+        await view.setMuted(muted)
+      }
+
+      AsyncFunction("setFocusPoint") { (view: VispSrtView, x: Double, y: Double) in
+        try view.setFocusPoint(x: x, y: y)
+      }
+
+      AsyncFunction("setFocusExposureLocked") { (view: VispSrtView, locked: Bool) in
+        try view.setFocusExposureLocked(locked)
+      }
+
+      AsyncFunction("setExposureBias") { (view: VispSrtView, bias: Double) in
+        try view.setExposureBias(bias)
+      }
+
       AsyncFunction("setVideoBitrate") { (view: VispSrtView, bitrateKbps: Int) in
         try await view.setVideoBitrate(bitrateKbps)
       }

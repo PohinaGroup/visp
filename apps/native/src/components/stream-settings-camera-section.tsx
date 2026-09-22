@@ -7,6 +7,8 @@ import type {
 } from "../../modules/visp-srt";
 import {
 	configurationForFormat,
+	qualityPresets,
+	qualityPresetValue,
 	supportsImageStabilization,
 } from "../lib/camera-settings";
 import { SettingsPicker } from "./settings-picker";
@@ -74,6 +76,8 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 		);
 	}
 
+	const presets = qualityPresets(currentCamera);
+
 	return (
 		<UI.FieldGroup.Section title="Camera">
 			{camera.cameras.length > 1 ? (
@@ -89,6 +93,33 @@ export function CameraSection({ camera }: { camera: CameraSettings }) {
 						{camera.cameras.map(({ id, name }) => (
 							<SettingsPicker.Item key={id} label={name} value={id} />
 						))}
+					</SettingsPicker>
+				</SettingRow>
+			) : null}
+			{presets.length > 0 ? (
+				<SettingRow label="Stream quality">
+					<SettingsPicker
+						enabled={!camera.settingsDisabled}
+						onValueChange={(value) => {
+							const preset = presets.find(({ value: id }) => id === value);
+							if (!preset) return;
+							camera.onApplyConfiguration({
+								cameraId: currentCamera.id,
+								fps: preset.fps,
+								height: preset.height,
+								width: preset.width,
+							});
+						}}
+						selectedValue={qualityPresetValue(camera.configuration)}
+					>
+						{presets.map((preset) => (
+							<SettingsPicker.Item
+								key={preset.value}
+								label={preset.label}
+								value={preset.value}
+							/>
+						))}
+						<SettingsPicker.Item label="Custom" value="custom" />
 					</SettingsPicker>
 				</SettingRow>
 			) : null}

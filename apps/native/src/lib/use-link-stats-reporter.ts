@@ -1,11 +1,14 @@
 import {
+	deliveryHealth,
 	formatBondedLinks,
 	formatLiveLinkHud,
+	LINK_STATS_FRESH_MS,
 	LINK_STATS_MIN_INTERVAL_MS,
 	nextTelemetryBackoffMs,
 	nextVideoBitrateKbps,
+	videoBitrateFloorKbps,
 } from "@VISP/api/link-stats";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { StreamStatsEvent } from "../../modules/visp-srt";
 import { apiClient } from "./backend";
 
@@ -26,6 +29,11 @@ export function useLinkStatsReporter(options: {
 	const { live, pathId, setVideoBitrate, userId, videoBitrateCeilingKbps } =
 		options;
 	const [linkStats, setLinkStats] = useState<StreamStatsEvent>();
+	const [linkStatsFresh, setLinkStatsFresh] = useState(false);
+	const [qualityFallbackRecommended, setQualityFallbackRecommended] =
+		useState(false);
+	const lastStatsAtRef = useRef(0);
+	const congestedAtFloorSinceRef = useRef<number | undefined>(undefined);
 	const lastAbrAtRef = useRef(0);
 	const lastSentAtRef = useRef(0);
 	const inFlightRef = useRef(false);
@@ -34,16 +42,51 @@ export function useLinkStatsReporter(options: {
 
 	const clearLinkStats = useCallback(() => {
 		setLinkStats(undefined);
+		setLinkStatsFresh(false);
+		setQualityFallbackRecommended(false);
+		lastStatsAtRef.current = 0;
+		congestedAtFloorSinceRef.current = undefined;
 	}, []);
+
+	useEffect(() => {
+		if (!live) {
+			setLinkStatsFresh(false);
+			return;
+		}
+		const updateFreshness = () => {
+			const fresh = Date.now() - lastStatsAtRef.current < LINK_STATS_FRESH_MS;
+			setLinkStatsFresh((current) => (current === fresh ? current : fresh));
+		};
+		updateFreshness();
+		const interval = setInterval(updateFreshness, 1_000);
+		return () => clearInterval(interval);
+	}, [live]);
 
 	const onStats = useCallback(
 		({ nativeEvent }: { nativeEvent: StreamStatsEvent }) => {
+			lastStatsAtRef.current = Date.now();
+			setLinkStatsFresh(true);
 			setLinkStats((current) =>
 				current && linkHudLabel(current) === linkHudLabel(nativeEvent)
 					? current
 					: nativeEvent,
 			);
 			const now = Date.now();
+			if (live && videoBitrateCeilingKbps) {
+				const strugglingAtFloor =
+					nativeEvent.targetBitrateKbps <=
+						videoBitrateFloorKbps(videoBitrateCeilingKbps) &&
+					deliveryHealth(nativeEvent) === "congested";
+				if (strugglingAtFloor) {
+					congestedAtFloorSinceRef.current ??= now;
+					if (now - congestedAtFloorSinceRef.current >= 15_000) {
+						setQualityFallbackRecommended(true);
+					}
+				} else {
+					congestedAtFloorSinceRef.current = undefined;
+					setQualityFallbackRecommended(false);
+				}
+			}
 			if (
 				live &&
 				setVideoBitrate &&
@@ -95,5 +138,11 @@ export function useLinkStatsReporter(options: {
 		[live, pathId, setVideoBitrate, userId, videoBitrateCeilingKbps],
 	);
 
-	return { clearLinkStats, linkStats, onStats };
+	return {
+		clearLinkStats,
+		linkStats,
+		linkStatsFresh,
+		onStats,
+		qualityFallbackRecommended,
+	};
 }

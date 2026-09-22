@@ -39,7 +39,11 @@ import type { ObsStatus } from "../components/obs-control-button";
 import { StreamCameraControls } from "../components/stream-camera-controls";
 import { StreamInfoSheet } from "../components/stream-info-sheet";
 import { streamScreenStyles as styles } from "../components/stream-screen.styles";
-import { brbHoldingProviders } from "../components/stream-settings-direct-section";
+import {
+	brbHoldingProviders,
+	directFailureSummary,
+	directStateSummary,
+} from "../components/stream-settings-direct-section";
 import { StreamSettingsSheet } from "../components/stream-settings-sheet";
 import {
 	type SignInProvider,
@@ -231,6 +235,8 @@ export default function Index() {
 		setCameraNode(node);
 	}, []);
 	const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+	const lastAudibleAt = useRef(Date.now());
+	const clippingSince = useRef<number | undefined>(undefined);
 	const { data: session, isPending: sessionPending } = authClient.useSession();
 	const userId = session?.user.id;
 	const streamOwner = streamOwnerId(userId);
@@ -238,6 +244,10 @@ export default function Index() {
 		AppState.currentState,
 	);
 	const [audioTier, setAudioTier] = useState<AudioTier>(0);
+	const [audioMuted, setAudioMuted] = useState(false);
+	const [audioWarning, setAudioWarning] = useState<string>();
+	const [exposureBias, setExposureBias] = useState(0);
+	const [focusExposureLocked, setFocusExposureLocked] = useState(false);
 	const [bondingMode, setBondingMode] = useState<BondingMode>();
 	const [audioInputs, setAudioInputs] = useState<AudioInputCapability[]>([]);
 	const [cameras, setCameras] = useState<CameraCapability[]>([]);
@@ -265,6 +275,7 @@ export default function Index() {
 	const [state, setState] = useState<StreamState>("idle");
 	const [preflighting, setPreflighting] = useState(false);
 	const [reconnectAttempt, setReconnectAttempt] = useState<number>();
+	const [reconnectStartedAt, setReconnectStartedAt] = useState<number>();
 	const [toast, setToast] = useState<{ spinning: boolean; text: string }>();
 	const showToast = useCallback((text: string, spinning = false) => {
 		clearTimeout(toastTimer.current);
@@ -359,6 +370,18 @@ export default function Index() {
 		refreshDirectOutputs,
 	);
 	const contributionMode = directContribution ? "direct" : "full";
+	const videoBitrateCeiling = useMemo(
+		() =>
+			configuration
+				? videoBitrateCeilingKbps(
+						configuration.width,
+						configuration.height,
+						configuration.fps,
+						contributionMode,
+					)
+				: undefined,
+		[configuration, contributionMode],
+	);
 	const speechFeatures = useStreamSpeechFeatures(cameraNode, {
 		appState,
 		chatPreferences,
@@ -370,7 +393,9 @@ export default function Index() {
 	const {
 		clearLinkStats,
 		linkStats,
+		linkStatsFresh,
 		onStats: onStatsRaw,
+		qualityFallbackRecommended,
 	} = useLinkStatsReporter({
 		live: state === "live",
 		pathId: publishPathId,
@@ -378,14 +403,7 @@ export default function Index() {
 			? undefined
 			: (bitrateKbps) => cameraRef.current?.setVideoBitrate(bitrateKbps),
 		userId,
-		videoBitrateCeilingKbps: configuration
-			? videoBitrateCeilingKbps(
-					configuration.width,
-					configuration.height,
-					configuration.fps,
-					contributionMode,
-				)
-			: undefined,
+		videoBitrateCeilingKbps: videoBitrateCeiling,
 	});
 	const liveChat = useLiveChat(
 		userId,
@@ -489,10 +507,64 @@ export default function Index() {
 
 	const onAudioLevelRaw = useCallback(
 		({ nativeEvent }: { nativeEvent: AudioLevelEvent }) => {
+			const now = Date.now();
+			if (nativeEvent.level >= 0.02) {
+				lastAudibleAt.current = now;
+				setAudioWarning((warning) =>
+					warning === "No microphone signal" ? undefined : warning,
+				);
+			}
+			if (nativeEvent.level >= 0.98) {
+				clippingSince.current ??= now;
+				if (now - clippingSince.current >= 2_000) {
+					setAudioWarning("Microphone may be clipping");
+				}
+			} else {
+				clippingSince.current = undefined;
+			}
 			setAudioTier(audioTierForLevel(nativeEvent.level));
 		},
 		[],
 	);
+
+	useEffect(() => {
+		if (state !== "live" || audioMuted) {
+			setAudioWarning(undefined);
+			lastAudibleAt.current = Date.now();
+			return;
+		}
+		const interval = setInterval(() => {
+			if (Date.now() - lastAudibleAt.current >= 15_000) {
+				setAudioWarning("No microphone signal");
+			}
+		}, 1_000);
+		return () => clearInterval(interval);
+	}, [audioMuted, state]);
+
+	useEffect(() => {
+		if (state !== "live" || selectedAudioInputId === "default") return;
+		let cancelled = false;
+		const checkInput = async () => {
+			const capabilities = await cameraRef.current
+				?.getCapabilities()
+				.catch(() => undefined);
+			if (
+				!cancelled &&
+				capabilities &&
+				!capabilities.audioInputs.some(({ id }) => id === selectedAudioInputId)
+			) {
+				setAudioWarning(
+					"Selected microphone disconnected. The phone may have switched audio routes.",
+				);
+			}
+		};
+		void checkInput();
+		const interval = setInterval(() => void checkInput(), 5_000);
+		return () => {
+			cancelled = true;
+			clearInterval(interval);
+		};
+	}, [selectedAudioInputId, state]);
 
 	const onStateChangeRaw = useCallback(
 		({ nativeEvent }: { nativeEvent: StreamStateEvent }) => {
@@ -500,6 +572,11 @@ export default function Index() {
 			setErrorCode(nativeEvent.code);
 			setReconnectAttempt(
 				nativeEvent.state === "reconnecting" ? nativeEvent.attempt : undefined,
+			);
+			setReconnectStartedAt((current) =>
+				nativeEvent.state === "reconnecting"
+					? (current ?? Date.now())
+					: undefined,
 			);
 			setLiveStartedAt((current) => {
 				if (nativeEvent.state === "live") return current ?? Date.now();
@@ -520,14 +597,14 @@ export default function Index() {
 				showToast("Both bonded network links are active");
 			} else if (nativeEvent.state === "live") {
 				showToast(
-					"You're live. The stream usually appears at the destination after about 30 seconds of warm-up.",
+					"Relay connected. Direct destinations report live separately.",
 				);
 			} else if (nativeEvent.state === "error") {
 				setToast(undefined);
 			}
 			setMessage(
 				nativeEvent.state === "reconnecting" && nativeEvent.attempt
-					? `Reconnect attempt ${nativeEvent.attempt} of 3`
+					? `Reconnect attempt ${nativeEvent.attempt}`
 					: nativeEvent.message,
 			);
 		},
@@ -873,6 +950,57 @@ export default function Index() {
 		[showToast],
 	);
 
+	const toggleMute = useCallback(async () => {
+		const next = !audioMuted;
+		try {
+			await cameraRef.current?.setMuted(next);
+			setAudioMuted(next);
+			setAudioWarning(undefined);
+		} catch {
+			showToast("Microphone could not be muted");
+		}
+	}, [audioMuted, showToast]);
+
+	const focusAt = useCallback(
+		async (x: number, y: number) => {
+			try {
+				await cameraRef.current?.setFocusPoint(x, y);
+				setFocusExposureLocked(false);
+			} catch {
+				showToast("Tap focus is unavailable on this camera");
+			}
+		},
+		[showToast],
+	);
+
+	const setCameraExposureBias = useCallback(
+		async (bias: number) => {
+			setExposureBias(bias);
+			try {
+				await cameraRef.current?.setExposureBias(bias);
+			} catch {
+				showToast("Exposure control is unavailable on this camera");
+			}
+		},
+		[showToast],
+	);
+
+	const toggleFocusExposureLock = useCallback(async () => {
+		const next = !focusExposureLocked;
+		try {
+			await cameraRef.current?.setFocusExposureLocked(next);
+			setFocusExposureLocked(next);
+		} catch {
+			showToast("Focus and exposure lock are unavailable on this camera");
+		}
+	}, [focusExposureLocked, showToast]);
+
+	const selectedAudioInputName =
+		selectedAudioInputId === "default"
+			? "System default microphone"
+			: (audioInputs.find(({ id }) => id === selectedAudioInputId)?.name ??
+				"Selected microphone");
+
 	const updateImageStabilization = useCallback(
 		async (enabled: boolean) => {
 			try {
@@ -1068,34 +1196,59 @@ export default function Index() {
 			/>
 			<StreamCameraControls
 				actionPending={preflighting}
+				audioMuted={audioMuted}
+				activeMicrophoneName={selectedAudioInputName}
 				audioTier={audioTier}
+				audioWarning={audioWarning}
 				bondingMode={bondingMode}
 				cameraSwitchDisabled={cameraSwitchDisabled}
 				cameras={cameras}
 				chatVisible={Boolean(session && chatOverlayMode !== "hidden")}
 				configuration={configuration}
+				destinationError={
+					directPath ? directFailureSummary(directPath) : undefined
+				}
+				destinationStatus={
+					state === "live"
+						? directPath &&
+							directStateSummary(directPath) !== "No direct output"
+							? directStateSummary(directPath)
+							: "Relay connected. Destination status unavailable."
+						: undefined
+				}
 				errorCode={errorCode}
+				exposureBias={exposureBias}
+				focusExposureLocked={focusExposureLocked}
 				imageStabilizationActive={imageStabilizationEnabled}
 				linkStats={linkStats}
+				linkStatsFresh={linkStatsFresh}
 				message={message}
 				onEditUrl={() => {
 					setDraft("");
 					setEditing(true);
 				}}
 				onExitPreview={() => setPreviewing(false)}
+				onFocusAt={(x, y) => void focusAt(x, y)}
 				onFlipCamera={flipCamera}
 				onOpenInfo={() => setStreamInfoOpen(true)}
 				onOpenSettings={openSettings}
 				onSelectZoom={(level) => void selectZoom(level)}
+				onSetExposureBias={(bias) => void setCameraExposureBias(bias)}
+				onToggleFocusExposureLock={() => void toggleFocusExposureLock()}
 				onSetObsStatus={onSetObsStatus}
+				onToggleMute={() => void toggleMute()}
 				onToggleOrientation={() => void toggleOrientation()}
 				onToggleStream={() => void toggleStream()}
+				qualityFallbackRecommended={qualityFallbackRecommended}
+				reconnectStartedAt={reconnectStartedAt}
 				selectedZoom={selectedZoom}
 				showToast={showToast}
 				signedIn={Boolean(session)}
 				state={state}
 				streaming={streaming}
 				streamUrl={streamUrl}
+				streamStartedAt={liveStartedAt}
+				videoBitrateCeilingKbps={videoBitrateCeiling}
 			/>
 			<DirectViewerOverlay
 				active={viewerActive}
