@@ -5,20 +5,31 @@
 // unchanged. iOS TEST builds prebuild in a git worktree — see
 // apps/native/scripts/build-staging.sh.
 const base = require("./app.json").expo;
+const updateChannel =
+	process.env.EAS_BUILD_PROFILE ||
+	process.env.RELEASE_CHANNEL ||
+	(process.env.VISP_ENV === "staging" ? "staging" : "development");
 
-if (process.env.VISP_ENV !== "staging") {
-	module.exports = base;
-} else {
-	module.exports = {
-		...base,
-		name: "VISP (TEST)",
-		ios: {
-			...base.ios,
-			bundleIdentifier: "com.pohinagroup.visp.test",
+module.exports = {
+	...base,
+	runtimeVersion: { policy: "fingerprint" },
+	updates: {
+		url: "https://ota.arvoitus.com",
+		checkAutomatically: "ON_LOAD",
+		fallbackToCacheTimeout: 0,
+		useEmbeddedUpdate: true,
+		requestHeaders: {
+			"expo-channel-name": updateChannel,
+			"expo-app-id": base.extra.eas.projectId,
+			"xprem-branch": "",
 		},
-		android: {
-			...base.android,
-			package: "com.pohinagroup.visp.test",
-		},
-	};
-}
+	},
+	plugins: [...base.plugins, "expo-updates"],
+	...(process.env.VISP_ENV === "staging"
+		? {
+				name: "VISP (TEST)",
+				ios: { ...base.ios, bundleIdentifier: "com.pohinagroup.visp.test" },
+				android: { ...base.android, package: "com.pohinagroup.visp.test" },
+			}
+		: {}),
+};

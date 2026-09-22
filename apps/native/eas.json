@@ -6,13 +6,15 @@
 	"build": {
 		"development": {
 			"developmentClient": true,
-			"distribution": "internal"
+			"distribution": "internal",
+			"channel": "development"
 		},
 		"preview": {
 			"distribution": "internal"
 		},
 		"staging": {
 			"distribution": "internal",
+			"channel": "staging",
 			"android": {
 				"buildType": "apk"
 			},
@@ -26,6 +28,7 @@
 		"production": {
 			"autoIncrement": true,
 			"environment": "production",
+			"channel": "production",
 			"ios": {
 				"scheme": "VISP"
 			}

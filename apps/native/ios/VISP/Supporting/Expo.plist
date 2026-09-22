@@ -7,8 +7,21 @@
     <key>EXUpdatesEnableBsdiffPatchSupport</key>
     <true/>
     <key>EXUpdatesEnabled</key>
-    <false/>
+    <true/>
     <key>EXUpdatesLaunchWaitMs</key>
     <integer>0</integer>
+    <key>EXUpdatesRequestHeaders</key>
+    <dict>
+      <key>expo-channel-name</key>
+      <string>development</string>
+      <key>expo-app-id</key>
+      <string>cfc5fe91-4281-4ff4-b567-d629bf01637d</string>
+      <key>xprem-branch</key>
+      <string/>
+    </dict>
+    <key>EXUpdatesRuntimeVersion</key>
+    <string>file:fingerprint</string>
+    <key>EXUpdatesURL</key>
+    <string>https://ota.arvoitus.com</string>
   </dict>
 </plist>
