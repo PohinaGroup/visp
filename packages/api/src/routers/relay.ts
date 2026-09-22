@@ -1,5 +1,8 @@
 import { auth } from "@VISP/auth";
+import { db } from "@VISP/db";
+import { session as authSession } from "@VISP/db/schema/index";
 import { TRPCError } from "@trpc/server";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import {
 	DIRECT_PROVIDERS,
@@ -715,6 +718,18 @@ export const relayRoutes = {
 					const result = await completeOnboarding(ctx.relayUser.id, input);
 					if (input.redoMode === "wipe") {
 						await auth.api.revokeOtherSessions({ headers: ctx.headers });
+						// revokeOtherSessions only sees the secondary-storage
+						// session list. Rows that live only in the session table
+						// (created before that cache, or never written to it)
+						// would keep working.
+						await db
+							.delete(authSession)
+							.where(
+								and(
+									eq(authSession.userId, ctx.relayUser.id),
+									ne(authSession.token, ctx.session.session.token),
+								),
+							);
 					}
 					return result;
 				} catch (error) {
