@@ -108,6 +108,7 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 		const wakeLockRef = useRef<WakeLockSentinelLike | undefined>(undefined);
 		const activeRef = useRef(false);
 		const selectedAudioRef = useRef("default");
+		const mutedRef = useRef(false);
 		const configurationRef = useRef<VideoConfiguration>({
 			cameraId: "",
 			fps: 30,
@@ -264,6 +265,8 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 			});
 			stopMedia();
 			streamRef.current = stream;
+			for (const track of stream.getAudioTracks())
+				track.enabled = !mutedRef.current;
 			if (videoRef.current) {
 				videoRef.current.srcObject = stream;
 				await videoRef.current.play().catch(() => undefined);
@@ -387,6 +390,15 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 				},
 				prepare,
 				async setImageStabilization() {},
+				async setMuted(muted) {
+					mutedRef.current = muted;
+					for (const track of streamRef.current?.getAudioTracks() ?? []) {
+						track.enabled = !muted;
+					}
+				},
+				async setFocusPoint() {},
+				async setFocusExposureLocked() {},
+				async setExposureBias() {},
 				async setVideoBitrate(bitrateKbps) {
 					targetBitrateRef.current = bitrateKbps;
 					const pc = peerConnectionRef.current;

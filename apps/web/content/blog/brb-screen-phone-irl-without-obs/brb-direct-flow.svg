@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">VISP Direct BRB recovery path</title>
+  <desc id="desc">A disconnected phone feed reaches a VISP relay, which replaces it with a BRB card while two platform outputs continue to viewer screens.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07121f"/>
+      <stop offset=".55" stop-color="#10283a"/>
+      <stop offset="1" stop-color="#180e32"/>
+    </linearGradient>
+    <linearGradient id="screen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1b5d74"/>
+      <stop offset="1" stop-color="#17203f"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+    <marker id="cyan-arrow" markerWidth="12" markerHeight="12" refX="9" refY="5" orient="auto">
+      <path d="M0 0 10 5 0 10Z" fill="#58e1ff"/>
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" rx="48" fill="url(#bg)"/>
+  <circle cx="180" cy="160" r="210" fill="#ff9c52" opacity=".08"/>
+  <circle cx="1390" cy="740" r="260" fill="#a775ff" opacity=".1"/>
+
+  <path d="M365 450h105" fill="none" stroke="#ffad64" stroke-width="12" stroke-linecap="round"/>
+  <path d="M500 450h45" fill="none" stroke="#ffad64" stroke-width="12" stroke-linecap="round" stroke-dasharray="3 24"/>
+  <path d="M575 450h70" fill="none" stroke="#ffad64" stroke-width="12" stroke-linecap="round" stroke-dasharray="3 24" opacity=".4"/>
+  <path d="M528 411 568 489M568 411l-40 78" stroke="#ff7a62" stroke-width="12" stroke-linecap="round" filter="url(#glow)"/>
+
+  <path d="M970 390c95 0 95-120 205-120h95" fill="none" stroke="#58e1ff" stroke-width="12" stroke-linecap="round" marker-end="url(#cyan-arrow)" filter="url(#glow)"/>
+  <path d="M970 510c95 0 95 120 205 120h95" fill="none" stroke="#58e1ff" stroke-width="12" stroke-linecap="round" marker-end="url(#cyan-arrow)" filter="url(#glow)"/>
+
+  <g transform="translate(105 200)">
+    <rect width="260" height="500" rx="44" fill="#08111c" stroke="#ffbb79" stroke-width="8"/>
+    <rect x="22" y="58" width="216" height="360" rx="24" fill="url(#screen)"/>
+    <circle cx="130" cy="224" r="70" fill="#ffad64" opacity=".2"/>
+    <circle cx="130" cy="207" r="43" fill="none" stroke="#ffd0a5" stroke-width="14"/>
+    <path d="M72 292c24-70 92-70 116 0" fill="none" stroke="#ffd0a5" stroke-width="14" stroke-linecap="round"/>
+    <circle cx="130" cy="460" r="12" fill="#80624d"/>
+  </g>
+
+  <g transform="translate(645 225)">
+    <path d="m165 0 165 96v358l-165 96L0 454V96Z" fill="#102b3d" stroke="#58e1ff" stroke-width="8"/>
+    <path d="m0 96 165 96 165-96M165 192v358" fill="none" stroke="#58e1ff" stroke-width="5" opacity=".55"/>
+    <rect x="67" y="235" width="196" height="118" rx="20" fill="#080d17" stroke="#a982ff" stroke-width="6"/>
+    <rect x="86" y="254" width="158" height="80" rx="12" fill="#291b47"/>
+    <circle cx="132" cy="294" r="9" fill="#c6a8ff"/>
+    <circle cx="165" cy="294" r="9" fill="#c6a8ff"/>
+    <circle cx="198" cy="294" r="9" fill="#c6a8ff"/>
+  </g>
+
+  <g transform="translate(1270 118)">
+    <rect width="250" height="304" rx="28" fill="#080d17" stroke="#70e7ff" stroke-width="8"/>
+    <rect x="24" y="26" width="202" height="202" rx="14" fill="url(#screen)"/>
+    <path d="M55 161c34-62 61 51 94-7s49 46 70-3" fill="none" stroke="#70e7ff" stroke-width="10" stroke-linecap="round"/>
+    <rect x="91" y="304" width="68" height="44" rx="7" fill="#31475c"/>
+    <rect x="54" y="342" width="142" height="18" rx="9" fill="#47627c"/>
+  </g>
+
+  <g transform="translate(1270 478)">
+    <rect width="250" height="304" rx="28" fill="#0c0b18" stroke="#b793ff" stroke-width="8"/>
+    <rect x="24" y="26" width="202" height="202" rx="14" fill="#251842"/>
+    <circle cx="125" cy="127" r="61" fill="#a775ff" opacity=".18"/>
+    <path d="M70 164c27-82 83-82 110 0" fill="none" stroke="#c7adff" stroke-width="13" stroke-linecap="round"/>
+    <circle cx="125" cy="111" r="38" fill="none" stroke="#c7adff" stroke-width="13"/>
+    <rect x="91" y="304" width="68" height="44" rx="7" fill="#3c315e"/>
+    <rect x="54" y="342" width="142" height="18" rx="9" fill="#5c4c84"/>
+  </g>
+</svg>

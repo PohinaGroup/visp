@@ -70,6 +70,7 @@ Two rules follow from this design:
   notarized, and every file matches `SHA256SUMS.txt`.
 
 OBS Remote native store distribution, native store promotion, OBS plugin
-installation on broadcaster machines, OTA updates, automatic database rollback,
-and relay restarts are intentionally outside the workflow. Operator-side
-prerequisites are documented in the repository's `deploy/UPDATE.md`.
+installation on broadcaster machines, automatic database rollback, and relay
+restarts are intentionally outside the workflow. A merge to `main` publishes
+compatible VISP native OTA updates to XPRem's staging branch through
+`native-update.yml`.

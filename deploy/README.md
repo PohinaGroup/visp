@@ -78,6 +78,16 @@ disconnecting either side behaves as expected. Only then install
 	   DIRECT_VIDEO_FPS=30
 	   ```
 
+	Matching live outputs share one distribution encode through a local
+	`direct/<path>/<rendition-hash>` RTSP path. MediaMTX starts the encoder on
+	the first read and stops it five seconds after the final reader leaves.
+	Destination retries and BRB output remain independent. Deploy the app's
+	scoped Direct RTSP authentication before the relay; an older app or an
+	unavailable local Control API causes fallback to dedicated encoding.
+	Set `DIRECT_SHARED_ENCODING=0` in `relay.env` to disable sharing.
+	The hook removes rendition configurations when ingest ends; after a hard
+	process kill, unused configurations can remain until MediaMTX restarts.
+
 	   Leave `STUDIO_COMPOSITOR_UNIT` unset while Cloud Studio is disabled.
 	   Install the worker and hardened systemd template from
 	   [`compositor/README.md`](compositor/README.md) before setting it. The relay

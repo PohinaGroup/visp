@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
 	clampVideoBitrateKbps,
+	deliveryHealth,
 	formatBondedBitrates,
 	formatBondedLinks,
 	formatLinkStats,
@@ -133,6 +134,35 @@ describe("linkHealth", () => {
 	});
 });
 
+describe("deliveryHealth", () => {
+	test("does not mistake recovered SRT loss for damaged video", () => {
+		expect(
+			deliveryHealth({
+				packetDropPct: 0,
+				packetLossPct: 8,
+				rttMs: 900,
+				sendQueueCongested: false,
+			}),
+		).toBe("good");
+		expect(
+			deliveryHealth({
+				packetDropPct: 0.5,
+				packetLossPct: 0,
+				rttMs: 30,
+				sendQueueCongested: false,
+			}),
+		).toBe("soft");
+		expect(
+			deliveryHealth({
+				packetDropPct: 0,
+				packetLossPct: 0,
+				rttMs: 30,
+				sendQueueCongested: true,
+			}),
+		).toBe("congested");
+	});
+});
+
 describe("formatBondedBitrates", () => {
 	test("shows bitrate per link and falls back to link state", () => {
 		expect(formatBondedBitrates(undefined)).toBe("");
@@ -161,6 +191,31 @@ describe("clampVideoBitrateKbps", () => {
 });
 
 describe("nextVideoBitrateKbps", () => {
+	test("healthy SRT links retain and recover quality regardless of distance", () => {
+		for (const rttMs of [80, 300, 450, 800]) {
+			let target = 2000;
+			for (let tick = 0; tick < 30; tick++) {
+				target = nextVideoBitrateKbps({
+					ceilingKbps: 6000,
+					currentTargetKbps: target,
+					packetLossPct: 10,
+					rttMs,
+					srt: { packetDropPct: 0, sendQueueCongested: false },
+				});
+			}
+			expect(target).toBe(6000);
+		}
+		// Older clients without delivery signals retain the RTT fallback.
+		expect(
+			nextVideoBitrateKbps({
+				ceilingKbps: 6000,
+				currentTargetKbps: 6000,
+				packetLossPct: 0,
+				rttMs: 450,
+				srt: {},
+			}),
+		).toBe(5400);
+	});
 	test("SRT reordering does not collapse bitrate; actual congestion still does", () => {
 		const sample = {
 			ceilingKbps: 6000,
@@ -192,7 +247,7 @@ describe("nextVideoBitrateKbps", () => {
 		).toBe(6000);
 		expect(
 			nextVideoBitrateKbps({ ...sample, rttMs: 450, currentTargetKbps: 6000 }),
-		).toBe(5400);
+		).toBe(6000);
 	});
 
 	test("recovers from occasional congestion instead of ratcheting down", () => {

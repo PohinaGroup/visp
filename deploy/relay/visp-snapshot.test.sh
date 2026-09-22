@@ -30,6 +30,7 @@ while [ $# -gt 0 ]; do
 	esac
 done
 case "$url" in
+	*/mediamtx/auth) exit 22 ;; # Older apps force the dedicated-encode fallback.
 	*/direct-destinations-v3)
 		printf 'v3 %s\n' "$data" >>"$FAKE_DESTINATIONS_LOG"
 		test "${FAKE_SERVER_VERSION:-new}" = v3 || exit 22

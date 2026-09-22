@@ -160,6 +160,33 @@ describe("machine endpoints", () => {
 		}
 	});
 
+	test("scopes shared distribution credentials to a local rendition namespace", async () => {
+		const request = {
+			action: "publish",
+			ip: "127.0.0.1",
+			protocol: "rtsp",
+			path: `direct/streamer-1/${"a".repeat(64)}`,
+			user: "studio-streamer-1",
+			password: studioScopedCredential(
+				"test-studio-media-password-at-least-32-chars",
+				"streamer-1",
+				"media",
+			),
+		};
+		for (const action of ["publish", "read"])
+			expect((await authRequest({ ...request, action })).status).toBe(200);
+		for (const overrides of [
+			{ ip: "203.0.113.10" },
+			{ password: "wrong" },
+			{ path: `direct/streamer-2/${"a".repeat(64)}` },
+			{ path: "direct/streamer-1/invalid" },
+			{ path: `direct/streamer-1/${"a".repeat(64)}/extra` },
+		])
+			expect((await authRequest({ ...request, ...overrides })).status).not.toBe(
+				200,
+			);
+	});
+
 	test("binds every Studio worker hook token to its body path", async () => {
 		const token = studioScopedCredential(
 			"test-hook-secret-that-is-at-least-32-characters",

@@ -1,0 +1,225 @@
+---
+title: "Ulkoisen mikrofonin käyttö puhelimen IRL-lähetyksessä"
+description: "Kytke ja varmista ulkoinen puhelinmikrofoni Twitch- tai Kick-IRL-lähetykseen ja ehkäise väärä äänitulo, särö sekä reitityksen häiriöt."
+publishedAt: 2026-08-14
+coverAlt: "IRL-sisällöntuottajalla on pieni ulkoinen mikrofoni, ja puhdas ääniaalto kulkee puhelimesta kohti kotistudiota"
+---
+
+Ulkoinen mikrofoni voi tehdä IRL-lähetyksen puheesta huomattavasti
+selkeämpää. Pelkkä mikrofonin kytkeminen puhelimeen ei silti todista, että
+suoratoistosovellus todella käyttää sitä. Puhelin voi jatkaa oman mikrofoninsa
+käyttöä, langaton vastaanotin voi vaihtaa myös toistoäänen reittiä ja liian
+voimakas lähettimen taso voi säröytyä jo ennen OBS:ää.
+
+Luotettava työnkulku on lyhyt: **kytke mikrofoni ennen kaappausta, valitse
+nimetty äänitulo VISPissä, varmista se puhelimen mittarilla ja kuuntele oikea
+tallenne tai alustatesti.** Ohje toimii sekä kodin OBS-studion että suoraan
+Twitchiin tai Kickiin lähettävän VISP Directin kanssa.
+
+![Ulkoinen mikrofoni syöttää puhelimen valittua äänituloa, jonka VISP kuljettaa joko kodin OBS-miksaukseen tai Directin kautta suoratoistokohteeseen](./external-mic-audio-path.svg)
+
+## Lyhyt vastaus: varmista äänireitti, älä pelkkää liitintä
+
+Tarkista nämä kohdat järjestyksessä:
+
+1. Pysäytä VISP-lähde, jos se on käynnissä.
+2. Kytke mikrofoni, vastaanotin tai ääniliitäntä ja laita siihen virta.
+3. Avaa VISP-puhelinsovelluksessa **Settings → Audio → Microphone**.
+4. Valitse nimetty äänitulo. Älä oleta, että **System default** vaihtui oikein.
+5. Puhu lähellä valittua mikrofonia ja seuraa puhelimen äänimittaria.
+6. Käynnistä testi ja tallenna se OBS:ssä tai kuuntele Direct-lähetystä
+   toisella laitteella kuulokkeiden kautta.
+7. Irrota ja kytke lisälaite kerran ennen oikeaa lähetystä. Tarkista valinta
+   uudelleen.
+
+Älä jätä lopullista varmistusta katsojien tehtäväksi. Liitin voi sopia ja
+vastaanottimen merkkivalo palaa vihreänä, vaikka käytössä olisi väärä
+mikrofoni.
+
+## Valitse käyttötarkoitukseen riittävän yksinkertainen äänireitti
+
+Mikään liitäntätapa ei ole automaattisesti paras kaikkiin IRL-lähetyksiin.
+Valitse ratkaisu liikkumisen, sään, kuuntelun ja tallennettavan äänen mukaan.
+
+| Äänitulo | Sopii hyvin | Tarkista ennen lähetystä |
+| --- | --- | --- |
+| Puhelimen oma mikrofoni | Nopea testi tai ympäristöääni, kun puhelin pysyy lähellä puhujaa | Tuuli, käsittelyäänet ja muuttuva etäisyys |
+| Langallinen nappi- tai puhelinmikrofoni | Yksi lähellä oleva puhuja ja mahdollisimman vähän laitteita | Oikea sovitin, kaapelin hankaus, vedonpoisto ja näkyykö tulo nimellä |
+| USB-ääniliitäntä tai liittimeen kytkettävä langaton vastaanotin | Oma vahvistuksensäätö tai tapahtumapaikan mikserisyöttö | Virrankulutus, sovittimen pysyvyys, tulotaso, mono/stereo ja kaapelin liikkuminen |
+| Bluetooth-kuulokemikrofoni | Johdoton puhe, kun puhelin tarjoaa kuulokkeen äänituloksi | Todellinen valittu tulo, paluuäänen reitti, akku, kantama ja uudelleenkytkentä |
+
+Noudata lisälaitteen valmistajan yhteensopivuusohjeita juuri oman puhelimesi
+kanssa. USB-C-, Lightning-, TRRS- tai Bluetooth-merkintä ei yksin takaa, että
+tietty puhelimen, sovittimen ja mikrofonin yhdistelmä näkyy kolmannen osapuolen
+kaappaussovellukselle.
+
+Ulkona mikrofonin sijoitus ja tuulisuoja ovat yleensä tärkeämpiä kuin voimakas
+jälkikäsittely. Erillinen
+[iPhonen tuuli- ja taustameluohje](/blog/reduce-wind-noise-iphone-irl-streaming)
+käsittelee tätä ongelmaa tarkemmin.
+
+## 1. Kytke mikrofoni ennen kaappausistunnon käynnistämistä
+
+Kiinnitä mikrofoni ja varmista kaikki sovittimet ennen VISP-lähetyksen
+aloittamista. Jos lisälaitteessa on vastaanotin tai ääniliitäntä, laita se
+päälle ja odota, että puhelin tunnistaa sen. Avaa vasta sitten VISPin asetukset.
+
+VISP näyttää iOS:n tai Androidin sillä hetkellä ilmoittamat äänitulot.
+iPhonessa sovellus lukee `AVAudioSession.availableInputs`-listan ja pyytää
+järjestelmää käyttämään valittua porttia. Applen
+[setPreferredInput-dokumentaatio](https://developer.apple.com/documentation/avfaudio/avaudiosession/setpreferredinput%28_%3A%29)
+tekee tärkeän eron: kutsu pyytää äänireitin vaihtoa, mutta toteutunut reitti
+pitää tarkistaa erikseen.
+
+Sama varoitus pätee Androidiin. VISP lukee käytettävissä olevat äänitulot ja
+pyytää mikrofonikaappausta käyttämään valittua laitetta. Androidin
+[AudioRouting-dokumentaatio](https://developer.android.com/reference/android/media/AudioRouting.html)
+muistuttaa, ettei ensisijaiseksi pyydetty laite ole välttämättä sama kuin
+tallennukseen todella käytetty laite. Siksi mittari ja kuuntelutesti kuuluvat
+asennukseen eivätkä vain vianhakuun.
+
+Pidä lähetys pysäytettynä mikrofonia vaihtaessasi. VISP estää valitsimen
+käytön aktiivisen lähteen aikana, jotta kaappausistunto ei vaihdu kesken
+Twitch- tai Kick-lähetyksen.
+
+## 2. Valitse nimetty tulo ja todista, että se on käytössä
+
+Valitse **Settings → Audio → Microphone** -kohdasta lisälaitteen nimi, kun se
+on tarjolla. Käytä **System default** -valintaa vain silloin, kun haluat
+puhelimen päättävän reitin.
+
+Tee sitten väärän äänitulon testi:
+
+1. Pidä ulkoista mikrofonia oikealla lähetyspaikallaan.
+2. Sano tavallinen lause ja sen jälkeen yksi selvästi kovempi lause.
+3. Siirrä ulkoista mikrofonia kauemmas mutta pidä puhelin paikallaan.
+4. Peitä hetkeksi puhelimen oman mikrofonin alue koskematta ulkoiseen
+   mikrofoniin.
+5. Seuraa, miten VISPin äänimittari reagoi.
+
+Mittarin pitäisi seurata valitsemaasi mikrofonia. Jos se käyttäytyy kuin
+puhelin kuuntelisi edelleen itseään, pysäytä ja valitse äänitulo uudelleen.
+Jos nimetty laite on kadonnut, kytke se uudelleen, avaa asetukset ja tarkista
+vielä kerran.
+
+Mittari todistaa äänen pääsyn kaappausreitille, mutta se ei paljasta säröä,
+radiohäiriötä, kaapeliääntä tai onttoa Bluetooth-ääntä. Kuuntele tallenne ennen
+kuin hyväksyt kokoonpanon.
+
+## 3. Säädä vahvistus ennen OBS-liukusäädintä
+
+Puhu tapahtuman kovimmalla realistisella äänenvoimakkuudella. Testaa myös
+huutaminen, pään kääntäminen, kävely ja vaatteiden liike. Jos vastaanottimessa
+tai ääniliitännässä on tulovahvistuksen säätö, pienennä sitä, kun kovat sanat
+rahisevat tai litistyvät. Jos säätöä ei ole, muuta mikrofonin etäisyyttä tai
+käytä paremmin sopivaa tuloa. OBS:n liukusäädin ei korjaa jo kaappauksessa
+säröytynyttä ääntä.
+
+VISPin mikrofonivalitsin valitsee äänitulon, mutta ei korvaa lisälaitteen omaa
+vahvistuksensäätöä. Tavallinen välitysreitti siirtää puhelimen lähteen OBS:ään
+normalisoimatta tai korjaamatta sen ääntä.
+
+Varmista OBS:ssä, että täsmälleen yksi puhelinlähde liikuttaa Audio Mixer
+-mittaria, ja tee paikallinen tallenne. OBS:n virallinen
+[Audio Mixer Guide](https://obsproject.com/kb/audio-mixer-guide) suosittelee
+tason tarkistamista ensin alkuperäiseltä laitteelta ja uudelleen OBS:ssä sekä
+tallenteen kuuntelemista ennen lähetystä. OBS-liukusäätimen laskeminen tekee
+säröytyneestä signaalista hiljaisemman, ei puhtaampaa.
+
+Jos tuloksena on hiljaisuus, kaiku, kiinteä viive tai vain toinen kanava, jatka
+[puhelinkameran äänen vianhakuohjeeseen](/blog/fix-phone-audio-obs).
+
+## 4. Tarkista paluuääni äänitulon vaihdon jälkeen
+
+Ulkoinen äänilaite voi vaikuttaa muuhunkin kuin kaappaukseen. Kuulokkeen,
+vastaanottimen tai ääniliitännän kytkeminen ja irrottaminen voi vaihtaa myös
+chatin tekstistä puheeksi -äänen, ilmoitusten, monitoroinnin tai muiden
+sovellusten äänten toistoreittiä. Apple käsittelee kytkentää, irrotusta ja
+asetusten muutoksia
+[äänireitin muutoksina](https://developer.apple.com/documentation/avfaudio/avaudiosession/routechangenotification).
+Androidin äänikaappaus tarjoaa vastaavasti ilmoitukset reitin muutoksista
+AudioRouting-rajapinnan kautta.
+
+Testaa koko kenttäkokemus tarvittaessa kuulokkeilla:
+
+- varmista, että oikea mikrofoni liikuttaa edelleen VISPin mittaria;
+- toista yksi chatin tekstistä puheeksi -viesti, jos käytät ominaisuutta;
+- tarkista, ettei paluuääni vuoda kaiuttimesta takaisin mikrofoniin;
+- kiinnitä kaapeli ja vastaanotin niin, ettei kävely vedä niitä irti;
+- varmista lisälaitteen akku ja käytännön kantama;
+- toista testi yhden irrotuksen ja uudelleenkytkennän jälkeen.
+
+Onnistunut pöytätallenne ei vielä todista liikkuvaa kokoonpanoa. Kehon asento,
+taskussa oleva vastaanotin, lähellä olevat radiolaitteet, tuuli ja kaapelin
+liike näkyvät vasta realistisessa kävelytestissä.
+
+## 5. Varmista juuri se reitti, jolla aiot lähettää
+
+Lopputarkistus eroaa hieman OBS- ja Direct-työnkuluissa.
+
+### Puhelin → VISP → OBS → Twitch tai Kick
+
+Käynnistä puhelinlähde, valitse vastaava VISP Media Source OBS:ssä ja varmista,
+että sen Audio Mixer -mittari liikkuu. Tallenna vähintään 30 sekuntia
+normaalia puhetta, yksi kova lause, hiljaisuutta, liikettä ja käsien taputus.
+Kuuntele kuulokkeilla ja tavallisilla kaiuttimilla. Tarkista sen jälkeen
+yksityinen tai julkinen alustalähetys toisella laitteella kuulokkeiden kautta.
+
+OBS hallitsee tämän reitin lopullista miksausta. Siellä puhelin tasapainotetaan
+musiikin, ilmoitusten, studiojuontajan ja muiden kameroiden kanssa. Ulkoisen
+mikrofonin ääni on jo koodattu puhelimen videon rinnalle ennen lähteen saapumista
+OBS:ään.
+
+### Puhelin → VISP Direct → Twitch tai Kick
+
+OBS ei ole toimitusreitillä, joten sen suodatin tai liukusäädin ei muuta
+Direct-katsojien kuulemaa ääntä. Tee lyhyt alustatesti ja kuuntele toisella
+laitteella kuulokkeiden kautta. Varmista sekä puhe että haluttu ympäristöääni
+ennen testin lopettamista.
+
+[VISP-puhelinsovelluksen dokumentaatio](https://docs.visp-stream.com/docs/phone-app)
+kuvaa molemmat lähdereitit. VISP voi kuljettaa valitun mikrofonin puhelinkuvan
+mukana, mutta se ei pysty palauttamaan lisälaitteessa säröytynyttä ääntä eikä
+takaa, että irronnut äänitulo vaihtuisi siististi kesken suoran lähetyksen.
+
+## Varaudu mikrofonin irtoamiseen
+
+Pidä irronnut vastaanotin tai sammunut langaton lähetin lähetysvirheenä, älä
+saumattomana tulonvaihtona. Kun VISP päivittää asetukset eikä tallennettua
+äänituloa enää löydy, se poistaa kadonneen valinnan ja palaa kohti järjestelmän
+oletusta. Käyttöjärjestelmä määrää edelleen toteutuneen reitin. Pysäytä, kytke,
+valitse ja varmista siis uudelleen aina, kun tuotanto sallii sen.
+
+Pidä OBS-tuotannossa paikallinen varakohtaus valmiina kenttäoperaattorin
+korjauksen ajaksi. Directissä kodin OBS ei peitä korjausta, joten testattu
+puhelimen oman mikrofonin varareitti on vielä tärkeämpi.
+
+Harjoittele palautuminen kerran ennen lähtöä:
+
+1. pysäytä puhelinlähde;
+2. irrota ulkoinen mikrofoni;
+3. valitse ja testaa **System default**;
+4. kytke lisälaite takaisin;
+5. valitse se uudelleen nimellä;
+6. tee vielä yksi tallenne tai alustatarkistus.
+
+## Ulkoisen mikrofonin IRL-tarkistuslista
+
+Ennen jokaista Twitch- tai Kick-lähetystä:
+
+1. lataa mikrofoni, lähetin, vastaanotin ja puhelin;
+2. varmista tuulisuoja, kaapeli, sovitin ja vedonpoisto;
+3. kytke lisälaite ennen kaappauksen käynnistämistä;
+4. valitse nimetty mikrofoni VISPissä lähteen ollessa pysäytetty;
+5. todista valinta puhelimen mittarilla ja väärän tulon testillä;
+6. testaa tavallinen ja kova puhe ilman säröä;
+7. varmista chatin puheäänen ja muun paluuäänen oikea reitti;
+8. tallenna ja kuuntele todellinen OBS- tai Direct-reitti;
+9. valmistele puhelimen oma mikrofoni tai varalaite palautumista varten;
+10. tee lyhyt uusintatarkistus oikeassa lähetyspaikassa.
+
+Ulkoisesta mikrofonista on hyötyä vain, kun puhelin todella kaappaa sitä.
+Aloita [VISPin käyttöönotto-ohjeesta](https://docs.visp-stream.com/docs/get-started),
+kytke yksi mikrofoni ja tee lyhyt yksityinen testi ennen muun tuotannon
+rakentamista. Kun reitti kestää liikkeen, kovan lauseen ja yhden
+uudelleenkytkennän, kokoonpano on valmis oikeaan IRL-harjoitukseen.

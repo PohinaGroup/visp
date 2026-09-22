@@ -85,6 +85,17 @@ export const verification = pgTable(
 	(table) => [index("verification_identifier_idx").on(table.identifier)],
 );
 
+/** Shared, expiring values used by Better Auth plugins across API workers. */
+export const authCache = pgTable(
+	"auth_cache",
+	{
+		key: text("key").primaryKey(),
+		value: text("value").notNull(),
+		expiresAt: timestamp("expires_at").notNull(),
+	},
+	(table) => [index("auth_cache_expires_at_idx").on(table.expiresAt)],
+);
+
 export const deviceCode = pgTable(
 	"device_code",
 	{

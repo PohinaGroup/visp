@@ -73,17 +73,21 @@ bun run --cwd apps/native check-types
 The production application identifier is `com.pohinagroup.visp` on both
 platforms. The EAS workflow at `.eas/workflows/release.yml` can build both
 production binaries, submit Android to Google Play production, and distribute
-iOS to the `VISP Internal` TestFlight group. The stable GitHub Release workflow
-does not currently invoke it; mobile releases are started separately until the
-commented EAS job in `.github/workflows/release.yml` is enabled. It does not
-publish an OTA update.
+iOS to the `VISP Internal` TestFlight group. A merge to `main` publishes a
+compatible OTA update to XPRem's staging branch through
+`.github/workflows/native-update.yml`; it requires `EXPO_TOKEN` and
+`EOO_TOKEN` in the staging GitHub environment. Native changes require a new
+build because updates use the fingerprint runtime policy.
 
 Before the first release, link this directory to the correct EAS project with
 `eas init`, connect the GitHub repository in Expo, and configure production
 build environment values and store credentials. Create the app records using
 `com.pohinagroup.visp`, complete Google's required first upload manually if the
 Play app is new, and create the `VISP Internal` TestFlight group. GitHub needs
-an `EXPO_TOKEN` secret in its `production` environment.
+an `EXPO_TOKEN` secret in its `production` environment. The staging OTA
+environment also needs an `EOO_TOKEN` authorized for VISP's XPRem app.
+The public signing certificate is `certs/certificate.pem`; its matching private
+key belongs only in XPRem's secure configuration.
 
 For every release, keep the version in `app.json`, `package.json`, and every
 committed iOS `MARKETING_VERSION` setting equal to the GitHub tag without its

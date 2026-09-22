@@ -25,6 +25,7 @@ import android.media.MediaRecorder
 import android.net.Uri
 import android.os.Bundle
 import android.os.Build
+import android.os.PowerManager
 import android.os.SystemClock
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
@@ -38,6 +39,7 @@ import android.text.style.ImageSpan
 import android.util.Size
 import android.util.LruCache
 import android.view.SurfaceView
+import android.view.MotionEvent
 import android.view.ViewGroup.LayoutParams
 import com.pedro.common.AudioCodec
 import com.pedro.common.ConnectChecker
@@ -72,6 +74,7 @@ import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
 import kotlin.math.round
+import kotlin.math.roundToInt
 
 /**
  * Peak mic amplitude on the encoder audio thread (0-100), without Pedro's AmplitudeEffect
@@ -83,6 +86,7 @@ private class PeakAmplitudeEffect(
   private val onPcm: ((ByteArray) -> Unit)? = null,
 ) : CustomAudioEffect() {
   @Volatile private var running = true
+  @Volatile private var muted = false
 
   override fun process(pcmBuffer: ByteArray): ByteArray {
     if (!running || pcmBuffer.size < 2) return pcmBuffer
@@ -97,6 +101,7 @@ private class PeakAmplitudeEffect(
     }
     onAmplitude((peak / Short.MAX_VALUE.toFloat()) * 100f)
     onPcm?.invoke(pcmBuffer)
+    if (muted) pcmBuffer.fill(0)
     return pcmBuffer
   }
 
@@ -106,6 +111,10 @@ private class PeakAmplitudeEffect(
 
   fun stop() {
     running = false
+  }
+
+  fun setMuted(muted: Boolean) {
+    this.muted = muted
   }
 }
 
@@ -215,6 +224,30 @@ class VispSrt : Module() {
         ->
         remember(view)
         view.setImageStabilization(enabled, promise)
+      }
+
+      AsyncFunction("setMuted") {
+          view: VispSrtView,
+          muted: Boolean,
+          promise: Promise,
+        ->
+        remember(view)
+        view.setMuted(muted, promise)
+      }
+
+      AsyncFunction("setFocusPoint") { view: VispSrtView, x: Float, y: Float, promise: Promise ->
+        remember(view)
+        view.setFocusPoint(x, y, promise)
+      }
+
+      AsyncFunction("setFocusExposureLocked") { view: VispSrtView, locked: Boolean, promise: Promise ->
+        remember(view)
+        view.setFocusExposureLocked(locked, promise)
+      }
+
+      AsyncFunction("setExposureBias") { view: VispSrtView, bias: Float, promise: Promise ->
+        remember(view)
+        view.setExposureBias(bias, promise)
       }
 
       AsyncFunction("setVideoBitrate") {
@@ -501,7 +534,11 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var lastPacketsLost = 0
   private var lastBytesSent = 0L
   private var lastDroppedFrames = 0L
+
+  private var lastDroppedVideoFrames = 0L
   private var lastSentFrames = 0L
+
+  private var lastSentVideoFrames = 0L
   private var lastLinkDegraded: Boolean? = null
   private var measuredBitrateBps = 0L
   private var preparedRotation: Int? = null
@@ -523,8 +560,21 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var captionsBitmap: Bitmap? = null
   private var overlayFilter: ImageObjectFilterRender? = null
   private var amplitudeEffect: PeakAmplitudeEffect? = null
+  private var audioMuted = false
   private var lastAudioLevelAt = 0L
   private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
+  private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+  private val thermalListener = PowerManager.OnThermalStatusChangedListener { status ->
+    if (status >= PowerManager.THERMAL_STATUS_SEVERE && state == StreamState.LIVE) {
+      post {
+        emit(
+          StreamState.LIVE,
+          code = "thermal-warning",
+          message = "Phone is too hot. Stop and choose Reliable 720p30 if heat persists.",
+        )
+      }
+    }
+  }
   private val displayListener =
     object : DisplayManager.DisplayListener {
       override fun onDisplayAdded(displayId: Int) = Unit
@@ -972,6 +1022,71 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
   }
 
+  fun setMuted(muted: Boolean, promise: Promise) {
+    audioMuted = muted
+    amplitudeEffect?.setMuted(muted)
+    promise.resolve()
+  }
+
+  fun setFocusPoint(x: Float, y: Float, promise: Promise) {
+    val source = stream?.videoSource as? Camera2Source
+    if (source == null || !x.isFinite() || !y.isFinite()) {
+      promise.reject("configuration-unavailable", CONFIGURATION_UNAVAILABLE, null)
+      return
+    }
+    val now = SystemClock.uptimeMillis()
+    val event = MotionEvent.obtain(
+      now,
+      now,
+      MotionEvent.ACTION_UP,
+      x.coerceIn(0f, 1f) * preview.width,
+      y.coerceIn(0f, 1f) * preview.height,
+      0,
+    )
+    try {
+      if (!source.tapToFocus(preview, event)) throw IllegalStateException()
+      promise.resolve()
+    } catch (error: Throwable) {
+      promise.reject("focus-unavailable", CONFIGURATION_UNAVAILABLE, error)
+    } finally {
+      event.recycle()
+    }
+  }
+
+  fun setFocusExposureLocked(locked: Boolean, promise: Promise) {
+    val source = stream?.videoSource as? Camera2Source
+    if (source == null) {
+      promise.reject("configuration-unavailable", CONFIGURATION_UNAVAILABLE, null)
+      return
+    }
+    try {
+      if (locked) {
+        source.disableAutoFocus()
+        source.disableAutoExposure()
+      } else {
+        source.enableAutoFocus()
+        source.enableAutoExposure()
+      }
+      promise.resolve()
+    } catch (error: Throwable) {
+      promise.reject("focus-unavailable", CONFIGURATION_UNAVAILABLE, error)
+    }
+  }
+
+  fun setExposureBias(bias: Float, promise: Promise) {
+    val source = stream?.videoSource as? Camera2Source
+    if (source == null || !bias.isFinite()) {
+      promise.reject("configuration-unavailable", CONFIGURATION_UNAVAILABLE, null)
+      return
+    }
+    try {
+      source.setExposure(bias.coerceIn(-3f, 3f).roundToInt())
+      promise.resolve()
+    } catch (error: Throwable) {
+      promise.reject("exposure-unavailable", CONFIGURATION_UNAVAILABLE, error)
+    }
+  }
+
   fun setVideoBitrate(bitrateKbps: Int, promise: Promise) {
     val current = stream
     if (current == null) {
@@ -1038,10 +1153,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     displayManager.registerDisplayListener(displayListener, null)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      powerManager.addThermalStatusListener(thermalListener)
+    }
   }
 
   override fun onDetachedFromWindow() {
     displayManager.unregisterDisplayListener(displayListener)
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+      powerManager.removeThermalStatusListener(thermalListener)
+    }
     cleanup()
     super.onDetachedFromWindow()
   }
@@ -1053,7 +1174,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
       if (!intentionalStop) {
         retryAttempt = 0
         keepScreenOn = true
-        targetBitrateBps = videoBitrateCeilingBps
+        // Keep the ABR target through reconnects. Starting again at the
+        // ceiling can immediately overload the same weak uplink.
         lastPacketsLost = (stream as? SrtStream)?.getStreamClient()?.getPacketsLost() ?: 0
         lastBytesSent = stream?.getStreamClient()?.getBytesSend() ?: 0L
         lastDroppedFrames = stream?.getStreamClient()?.let {
@@ -1062,6 +1184,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
         lastSentFrames = stream?.getStreamClient()?.let {
           it.getSentVideoFrames() + it.getSentAudioFrames()
         } ?: 0L
+        lastDroppedVideoFrames = stream?.getStreamClient()?.getDroppedVideoFrames() ?: 0L
+        lastSentVideoFrames = stream?.getStreamClient()?.getSentVideoFrames() ?: 0L
         lastLinkDegraded = null
         startStatsLoop()
         emit(StreamState.LIVE)
@@ -1077,6 +1201,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
     if (
       current is SrtStream &&
+      retryableConnectionFailure(reason) &&
       delay != null &&
       current.getStreamClient().reTry(delay, reason, null)
     ) {
@@ -1164,6 +1289,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
         },
         onPcm = { buffer -> liveCaptions.onPcm(buffer) },
       )
+    effect.setMuted(audioMuted)
     microphoneSource.setAudioEffect(effect)
     effect.start()
     amplitudeEffect = effect
@@ -1808,10 +1934,17 @@ class VispSrtView(context: Context, appContext: AppContext) :
     // arrive, so ABR cannot use them.
     val droppedFrames = client.getDroppedVideoFrames() + client.getDroppedAudioFrames()
     val sentFrames = client.getSentVideoFrames() + client.getSentAudioFrames()
+
+    val droppedVideoFrames = client.getDroppedVideoFrames()
+    val sentVideoFrames = client.getSentVideoFrames()
     val droppedDelta = (droppedFrames - lastDroppedFrames).coerceAtLeast(0L)
     val sentFramesDelta = (sentFrames - lastSentFrames).coerceAtLeast(0L)
     lastDroppedFrames = droppedFrames
     lastSentFrames = sentFrames
+    val droppedVideoFramesDelta = (droppedVideoFrames - lastDroppedVideoFrames).coerceAtLeast(0L)
+    val sentVideoFramesDelta = (sentVideoFrames - lastSentVideoFrames).coerceAtLeast(0L)
+    lastDroppedVideoFrames = droppedVideoFrames
+    lastSentVideoFrames = sentVideoFrames
     val packetDropPct =
       if (sentFramesDelta + droppedDelta > 0L) {
         (100.0 * droppedDelta / (sentFramesDelta + droppedDelta)).coerceIn(0.0, 100.0)
@@ -1828,6 +1961,10 @@ class VispSrtView(context: Context, appContext: AppContext) :
     onStats(
       mapOf(
         "bitrateKbps" to (measuredBitrateBps / 1_000L).toInt().coerceAtLeast(0),
+
+        "droppedVideoFrames" to droppedVideoFramesDelta,
+
+        "encodedFps" to sentVideoFramesDelta,
         "targetBitrateKbps" to (targetBitrateBps / 1_000).coerceAtLeast(0),
         "rttMs" to rttMs,
         "packetLossPct" to packetLossPct,
@@ -1842,7 +1979,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
       Manifest.permission.CAMERA,
       Manifest.permission.RECORD_AUDIO,
     )
-    val RETRY_DELAYS = listOf(1_000L, 2_000L, 4_000L)
+    // Coverage handoffs often outlast the old seven-second window.
+    val RETRY_DELAYS = listOf(1_000L, 2_000L, 4_000L, 8_000L, 15_000L)
     val COMMON_FRAME_RATES = listOf(15, 24, 25, 30, 50, 60, 120)
     const val AUDIO_BITRATE = 96_000
     const val SRT_PAYLOAD_SIZE = 1_316
@@ -1859,6 +1997,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
     const val INVALID_URL = "Paste the SRT publish URL supplied by VISP."
     const val PERMISSION_DENIED = "Camera and microphone access is required."
     const val STABILIZATION_UNAVAILABLE = "Image stabilization is not available for this camera setting."
+  }
+
+  private fun retryableConnectionFailure(reason: String): Boolean {
+    val normalized = reason.lowercase(Locale.ROOT)
+    return listOf("authentication", "unauthorized", "forbidden", "rejected", "stream key")
+      .none(normalized::contains)
   }
 }
 

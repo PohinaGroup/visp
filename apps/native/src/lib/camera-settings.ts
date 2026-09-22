@@ -6,6 +6,61 @@ import type {
 
 export const DEFAULT_IMAGE_STABILIZATION = true;
 
+export type QualityPreset = {
+	fps: number;
+	height: number;
+	label: string;
+	value: string;
+	width: number;
+};
+
+const QUALITY_PRESETS: QualityPreset[] = [
+	{
+		fps: 30,
+		height: 720,
+		label: "Reliable · 720p30",
+		value: "reliable",
+		width: 1280,
+	},
+	{
+		fps: 30,
+		height: 1080,
+		label: "Balanced · 1080p30",
+		value: "balanced",
+		width: 1920,
+	},
+	{
+		fps: 60,
+		height: 1080,
+		label: "Motion · 1080p60",
+		value: "motion",
+		width: 1920,
+	},
+];
+
+/** Presets that the selected camera can capture without coercing the format. */
+export function qualityPresets(camera: CameraCapability): QualityPreset[] {
+	return QUALITY_PRESETS.filter((preset) =>
+		camera.formats.some(
+			(format) =>
+				format.width === preset.width &&
+				format.height === preset.height &&
+				format.fps.includes(preset.fps),
+		),
+	);
+}
+
+export function qualityPresetValue(configuration: VideoConfiguration): string {
+	return (
+		QUALITY_PRESETS.find(
+			(preset) =>
+				preset.width === configuration.width &&
+				preset.height === configuration.height &&
+				preset.fps === configuration.fps,
+		)?.value ?? "custom"
+	);
+}
+
 const preferredFormat = (camera: CameraCapability) =>
 	camera.formats.find(
 		({ width, height }) => width === 1920 && height === 1080,

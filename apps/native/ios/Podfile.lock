@@ -5,12 +5,14 @@ PODS:
   - AppAuth/Core (2.1.0)
   - AppAuth/ExternalUserAgent (2.1.0):
     - AppAuth/Core
-  - AppCheckCore (11.3.1):
+  - AppCheckCore (11.3.2):
     - GoogleUtilities/Environment (~> 8.0)
     - GoogleUtilities/UserDefaults (~> 8.0)
     - PromisesObjC (~> 2.4)
     - PromisesSwift (~> 2.4)
     - RecaptchaInterop (~> 101.0)
+  - EASClient (57.0.4):
+    - ExpoModulesCore
   - EXApplication (57.0.3):
     - ExpoModulesCore
   - EXConstants (57.0.7):
@@ -304,8 +306,37 @@ PODS:
     - React-RCTFabric
   - ExpoWebBrowser (57.0.2):
     - ExpoModulesCore
+  - EXStructuredHeaders (57.0.1)
   - ExtensionStorage (1.0.0):
     - ExpoModulesCore
+  - EXUpdates (57.0.23):
+    - EASClient
+    - EXManifests
+    - ExpoModulesCore
+    - EXStructuredHeaders
+    - EXUpdatesInterface
+    - hermes-engine
+    - RCTRequired
+    - RCTTypeSafety
+    - ReachabilitySwift
+    - React-Core
+    - React-Core-prebuilt
+    - React-debug
+    - React-Fabric
+    - React-featureflags
+    - React-graphics
+    - React-ImageManager
+    - React-jsi
+    - React-NativeModulesApple
+    - React-RCTFabric
+    - React-renderercss
+    - React-rendererdebug
+    - React-utils
+    - ReactCodegen
+    - ReactCommon/turbomodule/bridging
+    - ReactCommon/turbomodule/core
+    - ReactNativeDependencies
+    - Yoga
   - EXUpdatesInterface (57.0.1):
     - ExpoModulesCore
   - FBLazyVector (0.86.0)
@@ -314,13 +345,13 @@ PODS:
     - AppCheckCore (~> 11.0)
     - GTMAppAuth (~> 5.0)
     - GTMSessionFetcher/Core (~> 3.3)
-  - GoogleUtilities/Environment (8.1.2):
+  - GoogleUtilities/Environment (8.1.3):
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Logger (8.1.2):
+  - GoogleUtilities/Logger (8.1.3):
     - GoogleUtilities/Environment
     - GoogleUtilities/Privacy
-  - GoogleUtilities/Privacy (8.1.2)
-  - GoogleUtilities/UserDefaults (8.1.2):
+  - GoogleUtilities/Privacy (8.1.3)
+  - GoogleUtilities/UserDefaults (8.1.3):
     - GoogleUtilities/Logger
     - GoogleUtilities/Privacy
   - GTMAppAuth (5.0.0):
@@ -342,6 +373,7 @@ PODS:
     - FBLazyVector (= 0.86.0)
     - RCTRequired (= 0.86.0)
     - React-Core (= 0.86.0)
+  - ReachabilitySwift (5.2.4)
   - React (0.86.0):
     - React-Core (= 0.86.0)
     - React-Core/DevSupport (= 0.86.0)
@@ -2510,6 +2542,7 @@ PODS:
   - Yoga (0.0.0)
 
 DEPENDENCIES:
+  - "EASClient (from `../../../node_modules/.bun/expo-eas-client@57.0.4/node_modules/expo-eas-client/ios`)"
   - "EXApplication (from `../../../node_modules/.bun/expo-application@57.0.3+4bf9364f40e7cafa/node_modules/expo-application/ios`)"
   - "EXConstants (from `../../../node_modules/.bun/expo-constants@57.0.7+4bf9364f40e7cafa/node_modules/expo-constants/ios`)"
   - "EXJSONUtils (from `../../../node_modules/.bun/expo-json-utils@57.0.1/node_modules/expo-json-utils/ios`)"
@@ -2547,7 +2580,9 @@ DEPENDENCIES:
   - "ExpoSystemUI (from `../../../node_modules/.bun/expo-system-ui@57.0.1+4bf9364f40e7cafa/node_modules/expo-system-ui/ios`)"
   - "ExpoUI (from `../../../node_modules/.bun/@expo+ui@57.0.7+4bf9364f40e7cafa/node_modules/@expo/ui/ios`)"
   - "ExpoWebBrowser (from `../../../node_modules/.bun/expo-web-browser@57.0.2+4bf9364f40e7cafa/node_modules/expo-web-browser/ios`)"
+  - "EXStructuredHeaders (from `../../../node_modules/.bun/expo-structured-headers@57.0.1/node_modules/expo-structured-headers/ios`)"
   - "ExtensionStorage (from `../../../node_modules/.bun/@bacons+apple-targets@5.0.0+4bf9364f40e7cafa/node_modules/@bacons/apple-targets/ios`)"
+  - "EXUpdates (from `../../../node_modules/.bun/expo-updates@57.0.23+928d4adef8b5d14b/node_modules/expo-updates/ios`)"
   - "EXUpdatesInterface (from `../../../node_modules/.bun/expo-updates-interface@57.0.1+4bf9364f40e7cafa/node_modules/expo-updates-interface/ios`)"
   - "FBLazyVector (from `../../../node_modules/.bun/react-native@0.86.0+11ef22841f9ab217/node_modules/react-native/Libraries/FBLazyVector`)"
   - "hermes-engine (from `../../../node_modules/.bun/react-native@0.86.0+11ef22841f9ab217/node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)"
@@ -2643,9 +2678,12 @@ SPEC REPOS:
     - GTMSessionFetcher
     - PromisesObjC
     - PromisesSwift
+    - ReachabilitySwift
     - RecaptchaInterop
 
 EXTERNAL SOURCES:
+  EASClient:
+    :path: "../../../node_modules/.bun/expo-eas-client@57.0.4/node_modules/expo-eas-client/ios"
   EXApplication:
     :path: "../../../node_modules/.bun/expo-application@57.0.3+4bf9364f40e7cafa/node_modules/expo-application/ios"
   EXConstants:
@@ -2720,8 +2758,12 @@ EXTERNAL SOURCES:
     :path: "../../../node_modules/.bun/@expo+ui@57.0.7+4bf9364f40e7cafa/node_modules/@expo/ui/ios"
   ExpoWebBrowser:
     :path: "../../../node_modules/.bun/expo-web-browser@57.0.2+4bf9364f40e7cafa/node_modules/expo-web-browser/ios"
+  EXStructuredHeaders:
+    :path: "../../../node_modules/.bun/expo-structured-headers@57.0.1/node_modules/expo-structured-headers/ios"
   ExtensionStorage:
     :path: "../../../node_modules/.bun/@bacons+apple-targets@5.0.0+4bf9364f40e7cafa/node_modules/@bacons/apple-targets/ios"
+  EXUpdates:
+    :path: "../../../node_modules/.bun/expo-updates@57.0.23+928d4adef8b5d14b/node_modules/expo-updates/ios"
   EXUpdatesInterface:
     :path: "../../../node_modules/.bun/expo-updates-interface@57.0.1+4bf9364f40e7cafa/node_modules/expo-updates-interface/ios"
   FBLazyVector:
@@ -2892,7 +2934,8 @@ EXTERNAL SOURCES:
 
 SPEC CHECKSUMS:
   AppAuth: ef4da5a3fc2e10b90c09a0a94a9baeaedc0341d5
-  AppCheckCore: e215d35177a9cf469927863e69c13e220df32a8b
+  AppCheckCore: be8fce5469f68d7f6a29aa94b25f097409ff7fdc
+  EASClient: 0a37063ccb7acd90d4a490e804b16c9bf709d34a
   EXApplication: a727f05eb8592f0bc764f6ab8d51eacc158652ec
   EXConstants: fa5647482320b7bde855057f8b86580456d4b9f0
   EXJSONUtils: 7a1683cfa2cbe6d11fca97097d51a496755b0287
@@ -2930,11 +2973,13 @@ SPEC CHECKSUMS:
   ExpoSystemUI: 6f2ce8968292aaa91f4aa553c23bdd8cee5cdc85
   ExpoUI: 19f2ca6e82d91240530ee9762dedccc31fc6f429
   ExpoWebBrowser: 9b98d939d5f1c5dd8f523f0a0683056fb1204434
+  EXStructuredHeaders: 07c88ee9f7dfcbafeaaab0e78ea276dfe0eb332e
   ExtensionStorage: b1b89518395d9d556e00a1b1f299172e49be3dbe
+  EXUpdates: 0b001ff17e727d89c7dc832b080a2a675268eb9c
   EXUpdatesInterface: 92d2aa5194b6fb93ca8ab749db75665cb28b2e60
   FBLazyVector: b3e7ad108f0d882e30445c5527d774e3fd432f3d
   GoogleSignIn: e449a40a92e9f2eea56e98b5214d13725dc5a00a
-  GoogleUtilities: 766ace00c6b10d8148408f329d10c4f051931850
+  GoogleUtilities: 4e0c2ad9fa0d0d18b5c4df8bf57b461cba35b0bb
   GTMAppAuth: 217a876b249c3c585a54fd6f73e6b58c4f5c4238
   GTMSessionFetcher: 5aea5ba6bd522a239e236100971f10cb71b96ab6
   hermes-engine: 43687adc926c4231fe63e1477fcc520ba980686a
@@ -2945,6 +2990,7 @@ SPEC CHECKSUMS:
   RCTSwiftUI: 5aaf0b07e747ba749dc6acc94d8bd41eea4b570f
   RCTSwiftUIWrapper: ab2ca548be15d63afa95103afc8685a7c3eab78b
   RCTTypeSafety: 3eaed17dbddb0b989208b062ea14c44d412b9780
+  ReachabilitySwift: 32793e867593cfc1177f5d16491e3a197d2fccda
   React: 2574546f2d017abd14d0c9b48cf2b6a0547c2591
   React-callinvoker: 03cd4b931d1d583d87aae99b8f7b6fe26bf571ee
   React-Core: 1c824d9c7dd8aa760b5f1b50d5a54c2a3f598f87

@@ -14,10 +14,11 @@ import {
 	genericOAuth,
 } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
+import { agentAuthPlugin } from "./agent";
 import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { adminAccess, adminRoles } from "./permissions";
-import { agentAuthPlugin } from "./agent";
+import { createDatabaseSecondaryStorage } from "./secondary-storage";
 
 /**
  * Audience for Apple identity tokens. A public identifier rather than a secret,
@@ -87,6 +88,9 @@ export function createAuth() {
 	const db = createDb();
 
 	return betterAuth({
+		secondaryStorage: createDatabaseSecondaryStorage(db),
+		session: { storeSessionInDatabase: true },
+		verification: { storeInDatabase: true },
 		account: {
 			// Direct fetches provider stream keys with these tokens, so they stop
 			// being ordinary session state. Better Auth encrypts only on write:
@@ -241,7 +245,10 @@ export function createAuth() {
 				config: [
 					{
 						providerId: "kick",
-						redirectURI: new URL("/api/auth/oauth2/callback/kick", env.BETTER_AUTH_URL).href,
+						redirectURI: new URL(
+							"/api/auth/oauth2/callback/kick",
+							env.BETTER_AUTH_URL,
+						).href,
 						clientId: env.KICK_CLIENT_ID,
 						clientSecret: env.KICK_CLIENT_SECRET,
 						authorizationUrl: "https://id.kick.com/oauth/authorize",

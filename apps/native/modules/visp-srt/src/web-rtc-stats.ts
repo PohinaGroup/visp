@@ -1,7 +1,9 @@
-import { type LinkMetrics, nextVideoBitrateKbps } from "@VISP/api/link-stats";
+import type { LinkMetrics } from "@VISP/api/link-stats";
 
 export type WebRtcStatsSample = {
 	bytesSent: number;
+	framesDropped: number;
+	framesEncoded: number;
 	packetsLost: number;
 	packetsSent: number;
 	rttMs: number;
@@ -11,6 +13,8 @@ export function readOutboundStats(
 	report: RTCStatsReport,
 ): WebRtcStatsSample | null {
 	let bytesSent = 0;
+	let framesDropped = 0;
+	let framesEncoded = 0;
 	let packetsLost = 0;
 	let packetsSent = 0;
 	let rttMs = 0;
@@ -20,6 +24,8 @@ export function readOutboundStats(
 		if (stat.type === "outbound-rtp" && stat.kind === "video") {
 			foundOutbound = true;
 			bytesSent = Number(stat.bytesSent ?? 0);
+			framesDropped = Number(stat.framesDropped ?? 0);
+			framesEncoded = Number(stat.framesEncoded ?? 0);
 			packetsSent = Number(stat.packetsSent ?? 0);
 			packetsLost = Number(stat.packetsLost ?? 0);
 		}
@@ -37,7 +43,14 @@ export function readOutboundStats(
 	}
 
 	if (!foundOutbound) return null;
-	return { bytesSent, packetsLost, packetsSent, rttMs };
+	return {
+		bytesSent,
+		framesDropped,
+		framesEncoded,
+		packetsLost,
+		packetsSent,
+		rttMs,
+	};
 }
 
 export function deriveWebStats(input: {
@@ -46,7 +59,10 @@ export function deriveWebStats(input: {
 	previous: WebRtcStatsSample | null;
 	sample: WebRtcStatsSample;
 	targetBitrateKbps: number;
-}): { nextTargetKbps: number; stats: LinkMetrics } {
+}): {
+	nextTargetKbps: number;
+	stats: LinkMetrics & { droppedVideoFrames: number; encodedFps: number };
+} {
 	const { ceilingKbps, elapsedMs, previous, sample, targetBitrateKbps } = input;
 	const seconds = Math.max(elapsedMs, 1) / 1000;
 	const bytesDelta = previous
@@ -61,19 +77,26 @@ export function deriveWebStats(input: {
 	const lostDelta = previous
 		? Math.max(0, sample.packetsLost - previous.packetsLost)
 		: 0;
+	const encodedFps = previous
+		? Math.round(
+				Math.max(0, sample.framesEncoded - previous.framesEncoded) / seconds,
+			)
+		: 0;
+	const droppedVideoFrames = previous
+		? Math.max(0, sample.framesDropped - previous.framesDropped)
+		: 0;
 	const packetLossPct =
 		sentDelta + lostDelta > 0 ? (100 * lostDelta) / (sentDelta + lostDelta) : 0;
 	const rttMs = Math.round(sample.rttMs);
-	const nextTargetKbps = nextVideoBitrateKbps({
-		ceilingKbps,
-		currentTargetKbps: targetBitrateKbps,
-		packetLossPct,
-		rttMs,
-	});
+	// WebRTC adapts the actual bitrate itself. A second controller would keep
+	// lowering its ceiling on healthy high-RTT routes and prevent recovery.
+	const nextTargetKbps = Math.min(targetBitrateKbps, ceilingKbps);
 	return {
 		nextTargetKbps,
 		stats: {
 			bitrateKbps,
+			droppedVideoFrames,
+			encodedFps,
 			packetLossPct,
 			rttMs,
 			targetBitrateKbps: nextTargetKbps,

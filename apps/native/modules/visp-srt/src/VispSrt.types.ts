@@ -36,6 +36,8 @@ export type AudioLevelEvent = {
 /** Live outbound link / ABR sample (~1 Hz while publishing). */
 export type StreamStatsEvent = LinkMetrics &
 	SrtCongestionMetrics & {
+		droppedVideoFrames?: number;
+		encodedFps?: number;
 		links?: BondedLinkStats[];
 	};
 
@@ -125,6 +127,10 @@ export type VispSrtViewRef = {
 	): Promise<void>;
 	switchCamera(cameraId: CameraCapability["id"]): Promise<void>;
 	setImageStabilization(enabled: boolean): Promise<void>;
+	setMuted(muted: boolean): Promise<void>;
+	setFocusPoint(x: number, y: number): Promise<void>;
+	setFocusExposureLocked(locked: boolean): Promise<void>;
+	setExposureBias(bias: number): Promise<void>;
 	setVideoBitrate(bitrateKbps: number): Promise<void>;
 	setZoom(level: number): Promise<void>;
 	getCapabilities(): Promise<VideoCapabilities>;

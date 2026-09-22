@@ -8,11 +8,10 @@ import {
 	customOutputsForPath,
 } from "../lib/custom-direct-output";
 import { nativeDirectText } from "../lib/native-direct-i18n";
+import { DEFAULT_PORTRAIT_CROP, type PortraitCrop } from "../lib/portrait-crop";
 import { studioEditUrl } from "../lib/studio-link";
 import {
-	DEFAULT_PORTRAIT_CROP,
 	DirectPortraitFraming,
-	type PortraitCrop,
 	type PortraitFramingDraft,
 } from "./stream-settings-direct-framing";
 import {
@@ -89,6 +88,19 @@ export function directStateSummary(path: DirectPath) {
 		return [`${providerLabel(provider)} ${path.error[provider] ?? state}`];
 	});
 	return parts.length > 0 ? parts.join(" · ") : "No direct output";
+}
+
+/** Direct's error is the destination state we can act on from the phone. */
+export function directFailureSummary(path: DirectPath): string | undefined {
+	const failures = DIRECT_PROVIDERS.flatMap((provider) => {
+		if (!path[provider]) return [];
+		const state = path.state[provider];
+		const error = path.error[provider];
+		return error || state === "failed"
+			? [`${providerLabel(provider)} ${error ?? "failed"}`]
+			: [];
+	});
+	return failures.length > 0 ? failures.join(" · ") : undefined;
 }
 
 export function directWarning(outputs: DirectOutputs) {

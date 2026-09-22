@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Remote OBS recording flow</title>
+  <desc id="desc">A field phone sends a camera feed and an authenticated recording command through VISP. A home OBS computer receives both and writes a local video file.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#07111f" />
+      <stop offset="0.55" stop-color="#0d1830" />
+      <stop offset="1" stop-color="#21111d" />
+    </linearGradient>
+    <linearGradient id="media" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#38d9ff" />
+      <stop offset="1" stop-color="#a7f3d0" />
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="9" result="blur" />
+      <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+    </filter>
+    <marker id="media-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#a7f3d0" />
+    </marker>
+    <marker id="control-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0 0 12 6 0 12Z" fill="#fb7185" />
+    </marker>
+  </defs>
+
+  <rect width="1600" height="900" fill="url(#background)" />
+  <circle cx="205" cy="170" r="240" fill="#0d3151" opacity="0.32" />
+  <circle cx="1390" cy="760" r="300" fill="#4a1839" opacity="0.25" />
+  <g opacity="0.12" stroke="#8bb9dc">
+    <path d="M0 180H1600M0 450H1600M0 720H1600" />
+    <path d="M250 0V900M800 0V900M1350 0V900" />
+  </g>
+
+  <path d="M385 350 C520 260 620 260 735 340 S955 420 1115 340" fill="none" stroke="#153c54" stroke-width="28" stroke-linecap="round" />
+  <path d="M385 350 C520 260 620 260 735 340 S955 420 1115 340" fill="none" stroke="url(#media)" stroke-width="8" stroke-linecap="round" marker-end="url(#media-arrow)" filter="url(#glow)" />
+  <path d="M385 555 C530 670 675 660 790 560 S1000 470 1125 555" fill="none" stroke="#fb7185" stroke-width="7" stroke-linecap="round" stroke-dasharray="18 16" marker-end="url(#control-arrow)" />
+
+  <g transform="translate(130 180)">
+    <rect width="255" height="530" rx="42" fill="#08101c" stroke="#67e8f9" stroke-width="7" />
+    <rect x="22" y="55" width="211" height="316" rx="20" fill="#12324a" />
+    <path d="M22 292 L86 232 L125 264 L170 196 L233 258 L233 371 L22 371 Z" fill="#1c6c7d" />
+    <circle cx="178" cy="125" r="36" fill="#fbbf24" opacity="0.85" />
+    <rect x="48" y="404" width="159" height="74" rx="16" fill="#291720" stroke="#fb7185" stroke-width="5" />
+    <circle cx="86" cy="441" r="18" fill="#ef4444" filter="url(#glow)" />
+    <path d="M121 427 H178 M121 449 H164" stroke="#fda4af" stroke-width="9" stroke-linecap="round" />
+    <circle cx="127" cy="505" r="12" fill="#23344d" />
+  </g>
+
+  <g transform="translate(650 285)">
+    <path d="M115 245 H35 C-35 245 -55 152 8 120 C13 28 128 -10 190 53 C268 0 372 57 363 153 C428 179 402 245 341 245Z" fill="#132841" stroke="#6177ff" stroke-width="7" />
+    <circle cx="188" cy="132" r="55" fill="#0b1728" stroke="#a7f3d0" stroke-width="6" />
+    <rect x="163" y="126" width="50" height="42" rx="8" fill="none" stroke="#a7f3d0" stroke-width="9" />
+    <path d="M174 126 V108 C174 88 202 88 202 108 V126" fill="none" stroke="#a7f3d0" stroke-width="9" stroke-linecap="round" />
+    <circle cx="188" cy="146" r="6" fill="#a7f3d0" />
+  </g>
+
+  <g transform="translate(1125 180)">
+    <rect width="350" height="285" rx="25" fill="#080f1a" stroke="#a7f3d0" stroke-width="7" />
+    <rect x="25" y="25" width="300" height="205" rx="13" fill="#143248" />
+    <path d="M25 174 L100 117 L148 151 L207 94 L325 160 L325 230 L25 230 Z" fill="#23667b" />
+    <circle cx="277" cy="72" r="25" fill="#ef4444" filter="url(#glow)" />
+    <path d="M175 285 V342 M108 342 H242" stroke="#a7f3d0" stroke-width="12" stroke-linecap="round" />
+
+    <g transform="translate(45 395)">
+      <path d="M0 0 H210 L260 50 V205 H0Z" fill="#111c2b" stroke="#fb7185" stroke-width="7" stroke-linejoin="round" />
+      <path d="M210 0 V50 H260" fill="#28151f" stroke="#fb7185" stroke-width="7" stroke-linejoin="round" />
+      <circle cx="72" cy="105" r="31" fill="#ef4444" />
+      <path d="M122 85 H210 M122 112 H195 M55 163 H210" stroke="#75859d" stroke-width="11" stroke-linecap="round" />
+    </g>
+  </g>
+
+  <g fill="#a7f3d0" filter="url(#glow)">
+    <circle cx="520" cy="300" r="12" />
+    <circle cx="1015" cy="370" r="12" />
+  </g>
+  <g fill="#fb7185" filter="url(#glow)">
+    <circle cx="520" cy="620" r="12" />
+    <circle cx="1010" cy="500" r="12" />
+  </g>
+</svg>

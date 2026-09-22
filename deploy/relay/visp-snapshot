@@ -40,7 +40,7 @@ studio_media_user_url="studio-$path"
 # then reach nothing.
 #
 # The snapshot file outlives us on purpose: it is the BRB card's background.
-trap 'trap - INT TERM EXIT; rm -f "$live_marker"; test -z "$compositor_env" || rm -f "$compositor_env"; test -z "$compositor_service" || systemctl stop --no-block "$compositor_service" 2>/dev/null; kill 0 2>/dev/null; exit 0' \
+trap 'trap - INT TERM EXIT; rm -f "$live_marker"; cleanup_distribution; test -z "$compositor_env" || rm -f "$compositor_env"; test -z "$compositor_service" || systemctl stop --no-block "$compositor_service" 2>/dev/null; kill 0 2>/dev/null; exit 0' \
 	INT TERM EXIT
 
 printf '%s\n' "$$" >"$live_marker"
@@ -50,6 +50,18 @@ printf '%s\n' "$$" >"$live_marker"
 video_encoder="${DIRECT_VIDEO_ENCODER:-libx264}"
 video_bitrate_kbps="${DIRECT_VIDEO_BITRATE_KBPS:-6000}"
 video_fps="${DIRECT_VIDEO_FPS:-30}"
+relay_api="http://${MTX_APIADDRESS:-127.0.0.1:9997}/v3/config/paths"
+
+cleanup_distribution() {
+	local file name
+	for file in "$run_dir/direct-$safe_path-"*.path; do
+		test -f "$file" || continue
+		name="$(cat "$file")"
+		curl --fail --silent --max-time 2 --request DELETE \
+			"$relay_api/delete/$name" >/dev/null || true
+		rm -f "$file"
+	done
+}
 
 # The optional template keeps Chromium out of this root-owned hook. Starting it
 # for every ingest is cheap: OBS-mode workers never launch FFmpeg, while a cloud
@@ -133,12 +145,8 @@ ingest_live() {
 	test -n "$owner" && kill -0 "$owner" 2>/dev/null
 }
 
-# Always distribution-encode. Never "-c:v copy": stream-copying would ship the
-# phone's contribution bitstream to the platform and skip the encode Direct
-# exists to own. RTMP/FLV also carries only H.264 + AAC, and both native
-# encoders currently emit mono at different sample rates, so this fixed audio
-# encode is what makes Kick's stereo requirement hold for every client version
-# without a store release.
+# Encode contribution once per rendition. Only the resulting distribution
+# stream may be copied to platforms. BRB and legacy fallback still encode here.
 #
 # ponytail: the destination sits in argv because FFmpeg has no non-argv form for
 # an output URL. /proc/PID/cmdline is world-readable, so the relay must run as a
@@ -149,11 +157,10 @@ ingest_live() {
 # is a shell with FFmpeg as its foreground child, and a shell sits on SIGTERM
 # until that child returns — so the BRB card would outlive the reconnect and
 # double-publish against the same stream key.
-encode_to() {
-	local mode="$1" destination="$2" log="$3"
+encode_command() {
+	local destination="$1"
 	local muxer="${output_muxer:-flv}"
-	local -a command
-	shift 3
+	shift
 	command=(ffmpeg -nostdin -hide_banner -loglevel error \
 		"$@" \
 		-c:v "$video_encoder" -preset veryfast -profile:v main \
@@ -163,11 +170,50 @@ encode_to() {
 		-g "$((video_fps * 2))" -keyint_min "$((video_fps * 2))" \
 		-c:a aac -ac 2 -b:a 128k -ar 48000 \
 		-f "$muxer" "$destination")
+}
+
+encode_to() {
+	local mode="$1" destination="$2" log="$3"
+	local -a command
+	shift 3
+	encode_command "$destination" "$@"
 	if test -n "$mode"; then
 		exec "${command[@]}" 2>"$log"
 	else
 		"${command[@]}" 2>"$log"
 	fi
+}
+
+# MediaMTX owns the shared encoder and stops it after its final reader leaves.
+# Each destination retains its existing independent retry and BRB loop.
+distribution_source() {
+	local source="$1" role="$2" filter="$3" digest name output config command_text
+	local -a command input
+	test "${DIRECT_SHARED_ENCODING:-1}" = 1 || return 1
+	digest="$(printf '%s\n' "$source" "$role" "$filter" "$video_encoder" "$video_bitrate_kbps" "$video_fps" | openssl dgst -sha256 | awk '{print $NF}')"
+	name="direct/$safe_path/$digest"
+	output="rtsp://$studio_media_user_url:$studio_media_password@127.0.0.1:$RTSP_PORT/$name"
+	# Older app deployments cannot authenticate this namespace. Fall back to
+	# the existing dedicated encode until the app has been upgraded.
+	curl --fail --silent --max-time 2 --request POST \
+		--header 'Content-Type: application/json' \
+		--data "$(jq -n --arg path "$name" --arg user "$studio_media_user" --arg password "$studio_media_password" \
+			'{path:$path,user:$user,password:$password,protocol:"rtsp",ip:"127.0.0.1",action:"publish",id:"",query:""}')" \
+		"$app_url/api/mediamtx/auth" >/dev/null || return 1
+	input=(-rtsp_transport tcp -timeout 5000000 -i "$source")
+	test "$role" != portrait || input+=(-vf "$filter")
+	output_muxer=rtsp encode_command "$output" "${input[@]}" -rtsp_transport tcp
+	printf -v command_text '%q ' "${command[@]}"
+	config="$(jq -n --arg command "$command_text" \
+		'{source:"publisher",overridePublisher:false,runOnDemand:$command,runOnDemandRestart:true,runOnDemandStartTimeout:"15s",runOnDemandCloseAfter:"5s",runOnAvailable:"",runOnUnavailable:"",runOnRead:"",runOnUnread:""}')"
+	if ! curl --fail --silent --max-time 2 --request POST \
+		--header 'Content-Type: application/json' --data "$config" \
+		"$relay_api/add/$name" >/dev/null; then
+		# Concurrent destinations may have created the same immutable rendition.
+		curl --fail --silent --max-time 2 "$relay_api/get/$name" >/dev/null || return 1
+	fi
+	printf '%s' "$name" >"$run_dir/direct-$safe_path-$digest.path"
+	printf '%s' "$output"
 }
 
 cleanup_forward() {
@@ -238,7 +284,7 @@ studio_source() {
 # hosts and the VOD survive what used to end the stream.
 forward() {
 	local output_id="$1" kind="$2" role="$3" filter="$4" protocol="$5" muxer="$6" destination="$7" desired_state="$8" provider="${9:-$1}"
-	local backoff started reason source_url source_slug next_source switched
+	local backoff started reason source_url source_slug next_source switched distribution_url
 	output_muxer="$muxer"
 	# log and lock are deliberately not local: the signal handler and final
 	# cleanup share them after the current encode attempt has returned.
@@ -311,7 +357,11 @@ forward() {
 		# a rejected stream key fails well inside this window.
 		( sleep 10; report_state "$output_id" live "" "$role" "$kind" "$provider" ) &
 		watcher="$!"
-		if test "$role" = portrait; then
+		if distribution_url="$(distribution_source "$source_url" "$role" "$filter")"; then
+			ffmpeg -nostdin -hide_banner -loglevel error \
+				-rtsp_transport tcp -timeout 15000000 -i "$distribution_url" \
+				-map 0:v:0 -map '0:a:0?' -c copy -f "$muxer" "$destination" 2>"$log" &
+		elif test "$role" = portrait; then
 			encode_to exec "$destination" "$log" \
 				-rtsp_transport tcp -i "$source_url" \
 				-vf "$filter" &

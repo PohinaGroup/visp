@@ -8,6 +8,7 @@
 		"compile": "bun build --compile --minify --sourcemap --bytecode ./src/index.ts --outfile server",
 		"dev": "portless run --force",
 		"dev:app": "tsdown --watch --on-success \"node dist/index.mjs\"",
+		"agent:smoke": "bun src/agent-smoke.ts",
 		"start": "node dist/index.mjs"
 	},
 	"portless": {
@@ -38,6 +39,7 @@
 	},
 	"devDependencies": {
 		"@VISP/config": "workspace:*",
+		"@auth/agent": "0.6.2",
 		"@types/bun": "catalog:",
 		"drizzle-orm": "^0.45.2",
 		"tsdown": "^0.22.3",
