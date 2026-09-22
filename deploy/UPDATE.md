@@ -183,5 +183,5 @@ the macOS package is notarized, and every package matches `SHA256SUMS.txt`.
 
 OBS Remote native store distribution, store promotion, OBS installation,
 automatic database rollback, and relay-server restarts are outside this release
-workflow. Compatible VISP native OTA updates are published manually through
-`.github/workflows/native-update.yml` to XPRem.
+workflow. A merge to `main` publishes compatible VISP native OTA updates to
+XPRem's staging branch through `.github/workflows/native-update.yml`.

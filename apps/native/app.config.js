@@ -15,6 +15,11 @@ module.exports = {
 	runtimeVersion: { policy: "fingerprint" },
 	updates: {
 		url: "https://ota.arvoitus.com",
+		codeSigningCertificate: "./certs/certificate.pem",
+		codeSigningMetadata: {
+			keyid: "main",
+			alg: "rsa-v1_5-sha256",
+		},
 		checkAutomatically: "ON_LOAD",
 		fallbackToCacheTimeout: 0,
 		useEmbeddedUpdate: true,
