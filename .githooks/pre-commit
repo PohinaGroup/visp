@@ -22,6 +22,7 @@ if [[ "$native_version" != "$version" || "$obs_version" != "$version" || "$ios_v
 fi
 
 bun install --frozen-lockfile
+bun run check
 bun test
 bun run check-types
 bun run build

@@ -71,25 +71,9 @@ run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" buil
 run_with_env "$typography_web_env" "$bun" run --cwd "$repo/apps/typography" build
 "$bun" run --cwd "$repo/apps/fumadocs" build
 
-for output in \
-	apps/server/dist/index.mjs \
-	apps/server/dist/typography-worker.mjs \
-	apps/admin/dist/index.html \
-	apps/multichat/dist/index.html \
-	apps/native/dist/index.html \
-	apps/obs-remote/dist/index.html \
-	apps/typography/dist/index.html \
-	apps/fumadocs/.output/public/_shell.html \
-	apps/fumadocs/.output/public/docs/index.html \
-	apps/fumadocs/.output/public/docs/get-started/index.html \
-	apps/fumadocs/.output/public/docs/broadcaster-setup/index.html \
-	apps/fumadocs/.output/public/docs/self-hosting/index.html \
-	apps/fumadocs/.output/public/docs/development/index.html \
-	apps/fumadocs/.output/public/api/search \
-	apps/fumadocs/.output/public/llms.txt \
-	apps/fumadocs/.output/public/llms-full.txt; do
+while IFS= read -r output; do
 	[[ -f "$repo/$output" ]] || fail "build did not produce $output"
-done
+done < "$repo/deploy/visp-build-outputs"
 
 caddy validate --config "$caddy_staging_dir/app.caddy" --adapter caddyfile ||
 	fail "staging Caddy configuration is invalid"
@@ -128,5 +112,7 @@ systemctl is-active --quiet caddy
 	remote.staging.visp-stream.com \
 	multichat.staging.visp-stream.com \
 	typography.staging.visp-stream.com
+run_with_env "$app_env" bash "$repo/deploy/visp-typography-smoke.sh" \
+	staging.visp-stream.com typography.staging.visp-stream.com
 
 echo "VISP staging $(git -C "$repo" rev-parse --short HEAD) deployed"

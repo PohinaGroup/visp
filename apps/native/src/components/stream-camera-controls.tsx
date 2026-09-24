@@ -1,6 +1,6 @@
 import * as UI from "@expo/ui";
 import { useEffect, useState } from "react";
-import { Linking, Pressable, Text, View } from "react-native";
+import { Linking, Pressable, ScrollView, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type {
 	BondingMode,
@@ -240,110 +240,122 @@ export function StreamCameraControls({
 					</View>
 				</View>
 
-				<View style={styles.bottomPanel}>
-					{message ? <Text style={styles.message}>{message}</Text> : null}
-					{destinationStatus ? (
-						<Text style={styles.destinationStatus}>{destinationStatus}</Text>
-					) : null}
-					{destinationError ? (
-						<Pressable
-							accessibilityHint="Open destination settings to repair this output"
-							accessibilityRole="button"
-							onPress={onOpenSettings}
-							style={styles.destinationError}
-						>
-							<Text style={styles.destinationErrorText}>
-								Destination problem: {destinationError}. Stop, then open
-								settings.
-							</Text>
-						</Pressable>
-					) : null}
-					{audioWarning ? (
-						<Text style={styles.audioWarning}>{audioWarning}</Text>
-					) : null}
-					{qualityFallbackRecommended ? (
-						<Pressable
-							accessibilityRole="button"
-							onPress={onOpenSettings}
-							style={styles.qualityRecommendation}
-						>
-							<Text style={styles.qualityRecommendationText}>
-								Connection cannot sustain this quality. Stop, then choose
-								Reliable 720p30.
-							</Text>
-						</Pressable>
-					) : null}
-					{errorCode === "permission-denied" && !IS_WEB ? (
-						<Pressable
-							onPress={() => void Linking.openSettings()}
-							style={styles.settingsLink}
-						>
-							<Text style={styles.settingsLinkText}>Open Settings</Text>
-						</Pressable>
-					) : null}
-					{configuration ? (
-						<Pressable
-							accessibilityHint="Change camera, resolution, and frame rate"
-							accessibilityRole="button"
-							onPress={onOpenSettings}
-						>
-							<Text style={styles.format}>
-								{currentCamera?.name ?? "Camera"} · {formatLabel(configuration)}{" "}
-								· {configuration.fps} fps · {IS_WEB ? "WebRTC" : "SRT"}
-							</Text>
-						</Pressable>
-					) : null}
-					{state === "live" || state === "reconnecting" ? (
-						<Text style={styles.streamDuration}>
-							{elapsed ? `Stream ${elapsed}` : "Starting stream"}
-							{reconnectElapsed ? ` · Reconnecting ${reconnectElapsed}` : ""}
-						</Text>
-					) : (
-						<Text style={styles.microphoneName}>{activeMicrophoneName}</Text>
-					)}
-					{!IS_WEB && configuration ? (
-						<View style={styles.exposureControls}>
+				<View style={styles.bottomArea}>
+					<ScrollView
+						contentContainerStyle={styles.bottomPanel}
+						showsVerticalScrollIndicator={false}
+						style={styles.detailsScroll}
+					>
+						{message ? <Text style={styles.message}>{message}</Text> : null}
+						{destinationStatus ? (
+							<Text style={styles.destinationStatus}>{destinationStatus}</Text>
+						) : null}
+						{destinationError ? (
 							<Pressable
+								accessibilityHint="Open destination settings to repair this output"
 								accessibilityRole="button"
-								onPress={onToggleFocusExposureLock}
-								style={styles.focusLockButton}
+								onPress={onOpenSettings}
+								style={styles.destinationError}
 							>
-								<Text style={styles.focusLockText}>
-									{focusExposureLocked ? "AE/AF LOCK" : "LOCK AE/AF"}
+								<Text style={styles.destinationErrorText}>
+									Destination problem: {destinationError}. Stop, then open
+									settings.
 								</Text>
 							</Pressable>
-							<UI.Slider
-								max={3}
-								min={-3}
-								step={0.1}
-								value={exposureBias}
-								onValueChange={onSetExposureBias}
-							/>
-							<Text style={styles.exposureLabel}>
-								Exposure {exposureBias > 0 ? "+" : ""}
-								{exposureBias.toFixed(1)}
+						) : null}
+						{audioWarning ? (
+							<Text style={styles.audioWarning}>{audioWarning}</Text>
+						) : null}
+						{qualityFallbackRecommended ? (
+							<Pressable
+								accessibilityRole="button"
+								onPress={onOpenSettings}
+								style={styles.qualityRecommendation}
+							>
+								<Text style={styles.qualityRecommendationText}>
+									Connection cannot sustain this quality. Stop, then choose
+									Reliable 720p30.
+								</Text>
+							</Pressable>
+						) : null}
+						{errorCode === "permission-denied" && !IS_WEB ? (
+							<Pressable
+								onPress={() => void Linking.openSettings()}
+								style={styles.settingsLink}
+							>
+								<Text style={styles.settingsLinkText}>Open Settings</Text>
+							</Pressable>
+						) : null}
+						{configuration ? (
+							<Pressable
+								accessibilityHint="Change camera, resolution, and frame rate"
+								accessibilityRole="button"
+								onPress={onOpenSettings}
+							>
+								<Text style={styles.format}>
+									{currentCamera?.name ?? "Camera"} ·{" "}
+									{formatLabel(configuration)} · {configuration.fps} fps ·{" "}
+									{IS_WEB ? "WebRTC" : "SRT"}
+								</Text>
+							</Pressable>
+						) : null}
+						{state === "live" || state === "reconnecting" ? (
+							<Text style={styles.streamDuration}>
+								{elapsed ? `Stream ${elapsed}` : "Starting stream"}
+								{reconnectElapsed ? ` · Reconnecting ${reconnectElapsed}` : ""}
 							</Text>
-						</View>
-					) : null}
-					<LinkStatsHud
-						linkStats={linkStats}
-						linkStatsFresh={linkStatsFresh}
-						live={state === "live"}
-						videoBitrateCeilingKbps={videoBitrateCeilingKbps}
-					/>
-					{currentCamera && !IS_WEB ? (
-						<View accessibilityRole="toolbar" style={styles.zoomControls}>
-							{currentCamera.zoomLevels.map((level) => (
-								<ZoomButton
-									disabled={cameraSwitchDisabled}
-									key={level}
-									level={level}
-									onPress={() => onSelectZoom(level)}
-									selected={Math.abs(level - selectedZoom) < 0.051}
-								/>
-							))}
-						</View>
-					) : null}
+						) : (
+							<Text style={styles.microphoneName}>{activeMicrophoneName}</Text>
+						)}
+						{!IS_WEB && configuration ? (
+							<View style={styles.exposureControls}>
+								<Pressable
+									accessibilityRole="button"
+									onPress={onToggleFocusExposureLock}
+									style={styles.focusLockButton}
+								>
+									<Text style={styles.focusLockText}>
+										{focusExposureLocked ? "AE/AF LOCK" : "LOCK AE/AF"}
+									</Text>
+								</Pressable>
+								<UI.Host
+									matchContents={{ vertical: true }}
+									style={{ width: "100%" }}
+								>
+									<UI.Slider
+										max={3}
+										min={-3}
+										step={0.1}
+										value={exposureBias}
+										onValueChange={onSetExposureBias}
+									/>
+								</UI.Host>
+								<Text style={styles.exposureLabel}>
+									Exposure {exposureBias > 0 ? "+" : ""}
+									{exposureBias.toFixed(1)}
+								</Text>
+							</View>
+						) : null}
+						<LinkStatsHud
+							linkStats={linkStats}
+							linkStatsFresh={linkStatsFresh}
+							live={state === "live"}
+							videoBitrateCeilingKbps={videoBitrateCeilingKbps}
+						/>
+						{currentCamera && !IS_WEB ? (
+							<View accessibilityRole="toolbar" style={styles.zoomControls}>
+								{currentCamera.zoomLevels.map((level) => (
+									<ZoomButton
+										disabled={cameraSwitchDisabled}
+										key={level}
+										level={level}
+										onPress={() => onSelectZoom(level)}
+										selected={Math.abs(level - selectedZoom) < 0.051}
+									/>
+								))}
+							</View>
+						) : null}
+					</ScrollView>
 					<View style={styles.mainActions}>
 						{cameras.length > 1 ? (
 							<Pressable

@@ -1,6 +1,5 @@
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { type AnyColumn, and, eq, lte, sql } from "drizzle-orm";
 import type {
 	ObsCommand,
@@ -9,23 +8,13 @@ import type {
 	ObsToggle,
 } from "./obs-live";
 import { obsLiveHub } from "./obs-live";
+import { createToken, parseToken, tokenMatches } from "./token-secret";
 
 const CONNECTED_FOR_MS = 10_000;
-const TOKEN_ID_BYTES = 12;
-const TOKEN_SECRET_BYTES = 32;
-
-function hashToken(secret: string) {
-	return createHash("sha256").update(secret).digest("hex");
-}
 
 export function parseObsControlToken(value: string | undefined) {
 	if (!value?.startsWith("Bearer ")) return null;
-	const [id, secret, extra] = value.slice(7).split(".");
-	return !extra &&
-		/^[a-f0-9]{24}$/.test(id ?? "") &&
-		/^[a-f0-9]{64}$/.test(secret ?? "")
-		? { id: id as string, secret: secret as string }
-		: null;
+	return parseToken(value.slice(7));
 }
 
 type ObsControlRow = Pick<
@@ -132,14 +121,12 @@ export async function getObsControlCommand(userId: string, tokenId: string) {
 }
 
 export async function rotateObsControlToken(userId: string) {
-	const id = randomBytes(TOKEN_ID_BYTES).toString("hex");
-	const secret = randomBytes(TOKEN_SECRET_BYTES).toString("hex");
-	const hash = hashToken(secret);
+	const token = createToken();
 	const [owner] = await db
 		.update(appUser)
 		.set({
-			obsControlTokenId: id,
-			obsControlTokenHash: hash,
+			obsControlTokenId: token.id,
+			obsControlTokenHash: token.hash,
 			obsDesiredStreaming: false,
 			obsStreaming: false,
 			...TOGGLE_RESET,
@@ -155,7 +142,7 @@ export async function rotateObsControlToken(userId: string) {
 	if (!owner) throw new Error("Relay user not found");
 	const status = obsControlStatus(owner);
 	obsLiveHub.publishStatus(userId, status);
-	return { token: `${id}.${secret}`, status };
+	return { token: token.value, status };
 }
 
 export async function authenticateObsControlToken(
@@ -167,12 +154,7 @@ export async function authenticateObsControlToken(
 		where: eq(appUser.obsControlTokenId, token.id),
 	});
 	if (!owner?.obsControlTokenHash) return null;
-	const providedHash = Buffer.from(hashToken(token.secret), "hex");
-	const storedHash = Buffer.from(owner.obsControlTokenHash, "hex");
-	return storedHash.length === providedHash.length &&
-		timingSafeEqual(providedHash, storedHash)
-		? owner
-		: null;
+	return tokenMatches(token.secret, owner.obsControlTokenHash) ? owner : null;
 }
 
 export async function revokeObsControlToken(userId: string) {
