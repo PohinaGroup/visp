@@ -120,15 +120,15 @@ final class VispSrtModule: Module {
       }
 
       AsyncFunction("setFocusPoint") { (view: VispSrtView, x: Double, y: Double) in
-        try view.setFocusPoint(x: x, y: y)
+        try await view.setFocusPoint(x: x, y: y)
       }
 
       AsyncFunction("setFocusExposureLocked") { (view: VispSrtView, locked: Bool) in
-        try view.setFocusExposureLocked(locked)
+        try await view.setFocusExposureLocked(locked)
       }
 
       AsyncFunction("setExposureBias") { (view: VispSrtView, bias: Double) in
-        try view.setExposureBias(bias)
+        try await view.setExposureBias(bias)
       }
 
       AsyncFunction("setVideoBitrate") { (view: VispSrtView, bitrateKbps: Int) in

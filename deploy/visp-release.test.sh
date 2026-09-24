@@ -28,6 +28,10 @@ test "$(printf '%s\n' "$staging" | grep -n 'systemctl reload caddy' | head -1 | 
 printf '%s\n' "$staging" | grep -q 'stream.staging.visp-stream.com'
 printf '%s\n' "$staging" | grep -q 'multichat.staging.visp-stream.com'
 printf '%s\n' "$staging" | grep -q 'typography.staging.visp-stream.com'
+printf '%s\n' "$staging" | grep -q 'visp-typography-smoke.sh'
+grep -q 'docs/get-started/index.html' "$root/visp-build-outputs"
+grep -q 'visp-build-outputs' "$root/visp-release"
+grep -q 'visp-build-outputs' "$root/visp-staging-release"
 
 test -f "$root/visp-caddy-static-smoke.sh"
 grep -q -- '--resolve' "$root/visp-caddy-static-smoke.sh"

@@ -1,38 +1,24 @@
 import { db } from "@VISP/db";
 import { multiChatOverlay } from "@VISP/db/schema/index";
-import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { createToken, parseToken, tokenMatches } from "../token-secret";
 import { multiChatHub } from "./hub";
 
-const TOKEN_ID_BYTES = 12;
-const TOKEN_SECRET_BYTES = 32;
-
-function hashToken(secret: string) {
-	return createHash("sha256").update(secret).digest("hex");
-}
-
 export function parseMultiChatOverlayToken(value: string | undefined) {
-	if (!value) return null;
-	const [id, secret, extra] = value.split(".");
-	return !extra &&
-		/^[a-f0-9]{24}$/.test(id ?? "") &&
-		/^[a-f0-9]{64}$/.test(secret ?? "")
-		? { id: id as string, secret: secret as string }
-		: null;
+	return parseToken(value);
 }
 
 export async function issueMultiChatOverlayToken(userId: string) {
-	const id = randomBytes(TOKEN_ID_BYTES).toString("hex");
-	const secret = randomBytes(TOKEN_SECRET_BYTES).toString("hex");
+	const token = createToken();
 	await db
 		.insert(multiChatOverlay)
-		.values({ userId, tokenId: id, tokenHash: hashToken(secret) })
+		.values({ userId, tokenId: token.id, tokenHash: token.hash })
 		.onConflictDoUpdate({
 			target: multiChatOverlay.userId,
-			set: { tokenId: id, tokenHash: hashToken(secret), updatedAt: new Date() },
+			set: { tokenId: token.id, tokenHash: token.hash, updatedAt: new Date() },
 		});
 	multiChatHub.revoke(userId);
-	return { token: `${id}.${secret}` };
+	return { token: token.value };
 }
 
 export async function multiChatOverlayTokenStatus(userId: string) {
@@ -61,9 +47,5 @@ export async function authenticateMultiChatOverlayToken(
 		where: eq(multiChatOverlay.tokenId, token.id),
 	});
 	if (!row?.tokenHash) return null;
-	const given = Buffer.from(hashToken(token.secret), "hex");
-	const stored = Buffer.from(row.tokenHash, "hex");
-	return stored.length === given.length && timingSafeEqual(stored, given)
-		? row.userId
-		: null;
+	return tokenMatches(token.secret, row.tokenHash) ? row.userId : null;
 }

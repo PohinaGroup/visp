@@ -8,6 +8,7 @@ export const METER_BARS = [6, 12, 9, 16, 11, 7];
 
 export const streamScreenStyles = StyleSheet.create({
 	actionDisabled: { opacity: 0.35 },
+	bottomArea: { alignItems: "center", flexShrink: 1, gap: 12 },
 	bottomPanel: { alignItems: "center", gap: 12 },
 	brandRow: {
 		alignItems: "center",
@@ -22,6 +23,7 @@ export const streamScreenStyles = StyleSheet.create({
 	buttonPressed: { transform: [{ scale: 0.98 }] },
 	container: { backgroundColor: "#07090d", flex: 1 },
 	controls: { flex: 1, justifyContent: "space-between", paddingHorizontal: 20 },
+	detailsScroll: { alignSelf: "stretch", flexShrink: 1 },
 	focusSurface: {
 		bottom: 0,
 		left: 0,

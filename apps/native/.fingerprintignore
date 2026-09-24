@@ -1,0 +1,11 @@
+**/project.xcworkspace/**/*
+**/ios/**/*.xcworkspace/**/*
+**/ios/Podfile.lock
+**/ios/**/Expo.plist
+**/ios/SourcePackages/**/*
+**/Package.resolved
+**/.build-libsrt/**/*
+**/libsrt.xcframework/**/*
+**/vendor/ios/**/*
+**/vendor/android/**/*
+**/vendor/include/**/*

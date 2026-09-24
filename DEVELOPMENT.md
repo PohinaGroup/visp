@@ -240,7 +240,7 @@ bun test
 # PostgreSQL-backed machine/auth/hook tests; manages compose.test.yml itself
 bun run test:integration
 
-# Browser smoke tests against the local stack (portal, docs, admin)
+# Browser smoke tests against the local stack
 bun run test:e2e
 
 # TypeScript across all workspaces
@@ -249,8 +249,11 @@ bun run check-types
 # Production builds across all workspaces
 bun run build
 
-# Apply Biome formatting and safe fixes
+# Check staged files without modifying them
 bun run check
+
+# Apply Biome formatting and safe fixes to staged files
+bun run fix
 ```
 
 The integration suite binds PostgreSQL to `127.0.0.1:55432`, uses a tmpfs data

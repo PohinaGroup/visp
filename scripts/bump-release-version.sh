@@ -100,6 +100,7 @@ set_version() {
 	mv "$tmp" "$obs_remote_pkg"
 
 	bun install --lockfile-only
+	bunx biome format --write -- "$app_json" "$native_pkg" "$obs_remote_app_json" "$obs_remote_pkg"
 
 	sed -i.bak -E "s/^([[:space:]]*MARKETING_VERSION = )[^;]+;/\1${version};/" "$pbxproj"
 	rm -f "${pbxproj}.bak"

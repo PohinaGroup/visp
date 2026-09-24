@@ -1,10 +1,10 @@
 import {
+	type ChangeEvent,
 	Fragment,
 	useEffect,
 	useMemo,
 	useRef,
 	useState,
-	type ChangeEvent,
 } from "react";
 import "./App.css";
 
@@ -33,7 +33,14 @@ const seedWords: Word[] = [
 	{ id: 9, text: "trying", start: 5.47, end: 5.79, emphasis: 0, group: 2 },
 	{ id: 10, text: "to", start: 5.81, end: 5.92, emphasis: 0, group: 2 },
 	{ id: 11, text: "automate", start: 5.96, end: 6.47, emphasis: 98, group: 3 },
-	{ id: 12, text: "everything.", start: 6.5, end: 7.04, emphasis: 36, group: 3 },
+	{
+		id: 12,
+		text: "everything.",
+		start: 6.5,
+		end: 7.04,
+		emphasis: 36,
+		group: 3,
+	},
 ];
 
 const styleDescriptions: Record<CaptionStyle, string> = {
@@ -51,18 +58,13 @@ function formatTime(seconds: number) {
 	const minutes = Math.floor(seconds / 60);
 	const remainder = Math.floor(seconds % 60);
 	const hundredths = Math.floor((seconds % 1) * 100);
-	return (
-		String(minutes).padStart(2, "0") +
-		":" +
-		String(remainder).padStart(2, "0") +
-		"." +
-		String(hundredths).padStart(2, "0")
-	);
+	return `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}.${String(hundredths).padStart(2, "0")}`;
 }
 
 export default function App() {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const videoRef = useRef<HTMLVideoElement>(null);
+	const saveQueue = useRef<Promise<void>>(Promise.resolve());
 	const [words, setWords] = useState(seedWords);
 	const [selectedId, setSelectedId] = useState(4);
 	const [style, setStyle] = useState<CaptionStyle>("Hormozi");
@@ -78,15 +80,18 @@ export default function App() {
 	const [showUpload, setShowUpload] = useState(false);
 	const [processing, setProcessing] = useState(false);
 	const [saved, setSaved] = useState(true);
+	const [saveError, setSaveError] = useState(false);
+	const [editRevision, setEditRevision] = useState(0);
 	const [hook, setHook] = useState("");
 	const [exporting, setExporting] = useState(false);
 	const [notice, setNotice] = useState<string | null>(null);
 	const [projectId, setProjectId] = useState<string | null>(null);
 	const [exportUrl, setExportUrl] = useState<string | null>(null);
 	const timelineStart = sourceUrl || projectId ? 0 : 3.02;
-	const timelineEnd = sourceUrl || projectId
-		? duration || words.reduce((end, word) => Math.max(end, word.end), 1)
-		: 7.04;
+	const timelineEnd =
+		sourceUrl || projectId
+			? duration || words.reduce((end, word) => Math.max(end, word.end), 1)
+			: 7.04;
 	const timelineDuration = timelineEnd - timelineStart;
 
 	const selected = words.find((word) => word.id === selectedId) ?? words[0];
@@ -106,13 +111,21 @@ export default function App() {
 	async function waitForProject(id: string) {
 		for (let attempt = 0; attempt < 120; attempt++) {
 			await new Promise((resolve) => window.setTimeout(resolve, 2_000));
-			const response = await fetch(apiUrl + "/api/typography/projects/" + id, {
+			const response = await fetch(`${apiUrl}/api/typography/projects/${id}`, {
 				credentials: "include",
 			});
 			if (!response.ok) continue;
 			const project = (await response.json()) as {
 				state: "processing" | "ready" | "failed";
-				document: { words: Array<Omit<Word, "id" | "emphasis"> & { id: string; emphasis: number }>; style: CaptionStyle; intensity: number; hook: string; captionY: number };
+				document: {
+					words: Array<
+						Omit<Word, "id" | "emphasis"> & { id: string; emphasis: number }
+					>;
+					style: CaptionStyle;
+					intensity: number;
+					hook: string;
+					captionY: number;
+				};
 			};
 			if (project.state === "failed") {
 				setProcessing(false);
@@ -120,7 +133,13 @@ export default function App() {
 				return;
 			}
 			if (project.state !== "ready") continue;
-			setWords(project.document.words.map((word) => ({ ...word, id: Number(word.id), emphasis: word.emphasis * 100 })));
+			setWords(
+				project.document.words.map((word) => ({
+					...word,
+					id: Number(word.id),
+					emphasis: word.emphasis * 100,
+				})),
+			);
 			setStyle(project.document.style);
 			setIntensity(project.document.intensity);
 			setHook(project.document.hook);
@@ -130,11 +149,13 @@ export default function App() {
 			return;
 		}
 		setProcessing(false);
-		setNotice("Transcription is taking longer than expected. Refresh this project shortly.");
+		setNotice(
+			"Transcription is taking longer than expected. Refresh this project shortly.",
+		);
 	}
 
 	useEffect(() => {
-		void fetch(apiUrl + "/api/typography/projects", { credentials: "include" })
+		void fetch(`${apiUrl}/api/typography/projects`, { credentials: "include" })
 			.then(async (response) => {
 				if (!response.ok) return;
 				const [project] = (await response.json()) as Array<{
@@ -142,11 +163,21 @@ export default function App() {
 					title: string;
 					language: "en" | "fi";
 					state: "uploading" | "processing" | "ready" | "failed";
-					document: { words: Array<Omit<Word, "id" | "emphasis"> & { id: string; emphasis: number }>; style: CaptionStyle; intensity: number; hook: string; captionY: number };
+					document: {
+						words: Array<
+							Omit<Word, "id" | "emphasis"> & { id: string; emphasis: number }
+						>;
+						style: CaptionStyle;
+						intensity: number;
+						hook: string;
+						captionY: number;
+					};
 				}>;
 				if (!project) return;
 				if (project.state === "uploading") {
-					setNotice("Your previous upload did not finish. Choose the video again to retry.");
+					setNotice(
+						"Your previous upload did not finish. Choose the video again to retry.",
+					);
 					setShowUpload(true);
 					return;
 				}
@@ -154,27 +185,44 @@ export default function App() {
 				setSourceName(project.title);
 				setLanguage(project.language === "fi" ? "Finnish" : "English");
 				if (project.document.words.length) {
-					setWords(project.document.words.map((word) => ({ ...word, id: Number(word.id), emphasis: word.emphasis * 100 })));
+					setWords(
+						project.document.words.map((word) => ({
+							...word,
+							id: Number(word.id),
+							emphasis: word.emphasis * 100,
+						})),
+					);
 					setStyle(project.document.style);
 					setIntensity(project.document.intensity);
 					setHook(project.document.hook);
 					setCaptionY(project.document.captionY);
 				}
-				const video = await fetch(apiUrl + "/api/typography/projects/" + project.id + "/video", {
-					credentials: "include",
-				});
-				if (video.ok) setSourceUrl(((await video.json()) as { url: string }).url);
+				const video = await fetch(
+					`${apiUrl}/api/typography/projects/${project.id}/video`,
+					{
+						credentials: "include",
+					},
+				);
+				if (video.ok)
+					setSourceUrl(((await video.json()) as { url: string }).url);
 				if (project.state === "processing") {
 					setProcessing(true);
 					void waitForProject(project.id);
 				}
-				const exported = await fetch(apiUrl + "/api/typography/projects/" + project.id + "/export", {
-					credentials: "include",
-				});
+				const exported = await fetch(
+					`${apiUrl}/api/typography/projects/${project.id}/export`,
+					{
+						credentials: "include",
+					},
+				);
 				if (exported.status === 202) {
 					setExporting(true);
 					void waitForExport(project.id)
-						.catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Export failed."))
+						.catch((error: unknown) =>
+							setNotice(
+								error instanceof Error ? error.message : "Export failed.",
+							),
+						)
 						.finally(() => setExporting(false));
 				} else if (exported.ok) {
 					setExportUrl(((await exported.json()) as { url: string }).url);
@@ -214,30 +262,60 @@ export default function App() {
 	}, []);
 
 	useEffect(() => {
-		if (!projectId) return;
+		if (!projectId || !editRevision) return;
+		let stale = false;
 		const timer = window.setTimeout(() => {
-			void fetch(apiUrl + "/api/typography/projects/" + projectId, {
-				method: "PUT",
-				credentials: "include",
-				headers: { "content-type": "application/json" },
-				body: JSON.stringify({
-					document: {
-						version: 1,
-						words: words.map((word) => ({ ...word, id: String(word.id), emphasis: word.emphasis / 100 })),
-						style,
-						intensity,
-						hook,
-						captionY,
-					},
-				}),
-			}).catch(() => setNotice("Could not save this edit. Check your connection."));
+			saveQueue.current = saveQueue.current
+				.then(async () => {
+					const response = await fetch(
+						`${apiUrl}/api/typography/projects/${projectId}`,
+						{
+							method: "PUT",
+							credentials: "include",
+							headers: { "content-type": "application/json" },
+							body: JSON.stringify({
+								document: {
+									version: 1,
+									words: words.map((word) => ({
+										...word,
+										id: String(word.id),
+										emphasis: word.emphasis / 100,
+									})),
+									style,
+									intensity,
+									hook,
+									captionY,
+								},
+							}),
+						},
+					);
+					if (!response.ok) throw new Error("Save failed");
+				})
+				.then(() => {
+					if (!stale) {
+						setSaved(true);
+						setSaveError(false);
+					}
+				})
+				.catch(() => {
+					if (!stale) {
+						setSaveError(true);
+						setNotice("Could not save this edit. Check your connection.");
+					}
+				});
 		}, 600);
-		return () => window.clearTimeout(timer);
-	}, [captionY, hook, intensity, projectId, style, words]);
+		return () => {
+			stale = true;
+			window.clearTimeout(timer);
+		};
+	}, [captionY, editRevision, hook, intensity, projectId, style, words]);
 
 	function changeSaved() {
-		setSaved(false);
-		window.setTimeout(() => setSaved(true), 600);
+		if (projectId && !processing) {
+			setSaved(false);
+			setSaveError(false);
+			setEditRevision((current) => current + 1);
+		}
 	}
 
 	function updateSelected(change: Partial<Word>) {
@@ -280,9 +358,12 @@ export default function App() {
 		setSourceUrl(URL.createObjectURL(file));
 		setSourceName(file.name);
 		setProcessing(true);
+		setSaved(true);
+		setSaveError(false);
+		setEditRevision(0);
 		setShowUpload(false);
 		try {
-			const projectResponse = await fetch(apiUrl + "/api/typography/projects", {
+			const projectResponse = await fetch(`${apiUrl}/api/typography/projects`, {
 				method: "POST",
 				credentials: "include",
 				headers: { "content-type": "application/json" },
@@ -307,7 +388,7 @@ export default function App() {
 			});
 			if (!upload.ok) throw new Error("Could not upload the video.");
 			const finalized = await fetch(
-				apiUrl + "/api/typography/projects/" + created.project.id + "/finalize",
+				`${apiUrl}/api/typography/projects/${created.project.id}/finalize`,
 				{ method: "POST", credentials: "include" },
 			);
 			if (!finalized.ok) throw new Error("Could not start transcription.");
@@ -315,7 +396,9 @@ export default function App() {
 			setNotice("Video uploaded. VISP is creating word-level captions.");
 			void waitForProject(created.project.id);
 		} catch (error) {
-			setNotice(error instanceof Error ? error.message : "Video upload failed.");
+			setNotice(
+				error instanceof Error ? error.message : "Video upload failed.",
+			);
 			setProcessing(false);
 		}
 	}
@@ -327,25 +410,32 @@ export default function App() {
 		}
 		setExporting(true);
 		setExportUrl(null);
-		void fetch(apiUrl + "/api/typography/projects/" + projectId + "/export", {
+		void fetch(`${apiUrl}/api/typography/projects/${projectId}/export`, {
 			method: "POST",
 			credentials: "include",
 		})
 			.then((response) => {
 				if (!response.ok) throw new Error("Export could not start.");
-				setNotice("Export started. Your MP4 will appear when rendering finishes.");
+				setNotice(
+					"Export started. Your MP4 will appear when rendering finishes.",
+				);
 				return waitForExport(projectId);
 			})
-			.catch((error: unknown) => setNotice(error instanceof Error ? error.message : "Export failed."))
+			.catch((error: unknown) =>
+				setNotice(error instanceof Error ? error.message : "Export failed."),
+			)
 			.finally(() => setExporting(false));
 	}
 
 	async function waitForExport(id: string) {
 		for (;;) {
 			await new Promise((resolve) => window.setTimeout(resolve, 3_000));
-			const response = await fetch(apiUrl + "/api/typography/projects/" + id + "/export", {
-				credentials: "include",
-			});
+			const response = await fetch(
+				`${apiUrl}/api/typography/projects/${id}/export`,
+				{
+					credentials: "include",
+				},
+			);
 			if (response.status === 202) continue;
 			if (!response.ok) {
 				const result = (await response.json()) as { error?: string };
@@ -358,7 +448,7 @@ export default function App() {
 		}
 	}
 
-	const previewClass = "phone-preview style-" + style.toLowerCase().replaceAll(" ", "-");
+	const previewClass = `phone-preview style-${style.toLowerCase().replaceAll(" ", "-")}`;
 
 	return (
 		<main className="app-shell">
@@ -369,23 +459,60 @@ export default function App() {
 					<span className="brand-sub">Typography</span>
 				</a>
 				<div className="project-title">
-					<button className="project-name" type="button">
+					<span className="project-name">
 						{sourceName.replace(/\.[^/.]+$/, "")}
-					</button>
-					<span className={classNames("save-state", !saved && "saving")}>
-						<span className="status-dot" />
-						{saved ? "Saved" : "Saving"}
 					</span>
+					<span
+						className={classNames(
+							"save-state",
+							!saved && "saving",
+							saveError && "failed",
+						)}
+						role="status"
+					>
+						<span className="status-dot" />
+						{projectId
+							? saved
+								? "Saved"
+								: saveError
+									? "Save failed"
+									: "Saving"
+							: "Preview"}
+					</span>
+					{saveError && (
+						<button
+							className="quiet-button"
+							type="button"
+							onClick={changeSaved}
+						>
+							Retry save
+						</button>
+					)}
 				</div>
 				<div className="topbar-actions">
-					<button className="quiet-button" type="button" onClick={() => setShowUpload(true)}>
+					<button
+						className="quiet-button"
+						type="button"
+						onClick={() => setShowUpload(true)}
+					>
 						New project
 					</button>
 					{exportUrl && (
-						<a className="export-button" href={exportUrl}>Download MP4</a>
+						<a className="export-button" href={exportUrl}>
+							Download MP4
+						</a>
 					)}
-					<button className="export-button" type="button" onClick={exportProject} disabled={exporting}>
-						{exporting ? "Preparing export..." : exportUrl ? "Export again" : "Export"}
+					<button
+						className="export-button"
+						type="button"
+						onClick={exportProject}
+						disabled={exporting || !saved}
+					>
+						{exporting
+							? "Preparing export..."
+							: exportUrl
+								? "Export again"
+								: "Export"}
 					</button>
 				</div>
 			</header>
@@ -404,16 +531,21 @@ export default function App() {
 							<p className="eyebrow">Transcript</p>
 							<h1>Words</h1>
 						</div>
-						<button className="icon-button" type="button" aria-label="Transcript settings">•••</button>
 					</div>
 					<div className="language-row">
-						<span className="language-badge">{language === "English" ? "EN" : "FI"}</span>
+						<span className="language-badge">
+							{language === "English" ? "EN" : "FI"}
+						</span>
 						<span>{language} transcription</span>
 					</div>
 					<div className="transcript-copy">
 						{words.map((word) => (
 							<button
-								className={classNames("word-chip", word.id === selected.id && "selected", word.emphasis > 75 && "important")}
+								className={classNames(
+									"word-chip",
+									word.id === selected.id && "selected",
+									word.emphasis > 75 && "important",
+								)}
 								type="button"
 								key={word.id}
 								onClick={() => selectWord(word)}
@@ -422,43 +554,69 @@ export default function App() {
 							</button>
 						))}
 					</div>
-					<div className="panel-footer">Click a word to edit its timing, style, and emphasis.</div>
+					<div className="panel-footer">
+						Click a word to edit its timing, style, and emphasis.
+					</div>
 				</aside>
 
 				<section className="editor-stage">
 					<div className="stage-toolbar">
-						<button className="tool-button active" type="button">9:16</button>
-						<button className="tool-button" type="button" onClick={() => setSafeArea((value) => !value)}>
+						<span className="tool-button active">9:16</span>
+						<button
+							className="tool-button"
+							type="button"
+							onClick={() => setSafeArea((value) => !value)}
+						>
 							{safeArea ? "Safe areas on" : "Safe areas off"}
 						</button>
-						<span className="duration">{formatTime(timelineEnd).slice(0, -3)}</span>
+						<span className="duration">
+							{formatTime(timelineEnd).slice(0, -3)}
+						</span>
 					</div>
 					<div className="preview-wrap">
 						<div className={previewClass}>
 							{sourceUrl ? (
+								// Captions are the editor overlay, not a sidecar VTT track.
+								// biome-ignore lint/a11y/useMediaCaption: source being captioned
 								<video
 									ref={videoRef}
 									className="source-video"
 									src={sourceUrl}
 									playsInline
-									onLoadedMetadata={(event) => setPlayhead(event.currentTarget.currentTime)}
+									onLoadedMetadata={(event) =>
+										setPlayhead(event.currentTarget.currentTime)
+									}
 									onDurationChange={(event) => {
 										const value = event.currentTarget.duration;
-										setDuration(Number.isFinite(value) && value > 0 ? value : 0);
+										setDuration(
+											Number.isFinite(value) && value > 0 ? value : 0,
+										);
 									}}
 									onPlay={() => setPlaying(true)}
 									onPause={() => setPlaying(false)}
-									onTimeUpdate={(event) => setPlayhead(event.currentTarget.currentTime)}
+									onTimeUpdate={(event) =>
+										setPlayhead(event.currentTarget.currentTime)
+									}
 								/>
-							) : <PreviewBackdrop />}
+							) : (
+								<PreviewBackdrop />
+							)}
 							<div className="preview-vignette" />
 							{safeArea && <SafeArea />}
 							{hook && <div className="hook-overlay">{hook}</div>}
-							<div className="caption-preview" style={{ top: String(captionY) + "%" }}>
+							<div
+								className="caption-preview"
+								style={
+									style === "Minimal" ? undefined : { top: `${captionY}%` }
+								}
+							>
 								{visible.map((word) => (
 									<span
 										key={word.id}
-										className={classNames(word.id === active?.id && "active", word.emphasis >= intensity && "emphasized")}
+										className={classNames(
+											word.id === active?.id && "active",
+											word.emphasis >= intensity && "emphasized",
+										)}
 									>
 										{word.text}
 									</span>
@@ -466,14 +624,23 @@ export default function App() {
 							</div>
 							{processing && <ProcessingOverlay />}
 							{!projectId && !sourceUrl && (
-								<button className="preview-start" type="button" onClick={() => setShowUpload(true)}>
+								<button
+									className="preview-start"
+									type="button"
+									onClick={() => setShowUpload(true)}
+								>
 									<span>Upload a video to start</span>
 								</button>
 							)}
 						</div>
 					</div>
 					<div className="playback-row">
-						<button className="play-button" type="button" onClick={togglePlayback} aria-label={playing ? "Pause" : "Play"}>
+						<button
+							className="play-button"
+							type="button"
+							onClick={togglePlayback}
+							aria-label={playing ? "Pause" : "Play"}
+						>
 							{playing ? "Ⅱ" : "▶"}
 						</button>
 						<span className="timecode">{formatTime(playhead)}</span>
@@ -495,19 +662,35 @@ export default function App() {
 					<section className="timeline panel">
 						<div className="timeline-header">
 							<span>Caption timeline</span>
-							<span>{formatTime(selected.start)} — {formatTime(selected.end)}</span>
+							<span>
+								{formatTime(selected.start)} — {formatTime(selected.end)}
+							</span>
 						</div>
 						<div className="timeline-track">
-							<div className="playhead" style={{ left: String(((playhead - timelineStart) / timelineDuration) * 100) + "%" }} />
+							<div
+								className="playhead"
+								style={{
+									left: `${String(((playhead - timelineStart) / timelineDuration) * 100)}%`,
+								}}
+							/>
 							{words.map((word) => {
-								const left = ((word.start - timelineStart) / timelineDuration) * 100;
-								const width = ((word.end - word.start) / timelineDuration) * 100;
+								const left =
+									((word.start - timelineStart) / timelineDuration) * 100;
+								const width =
+									((word.end - word.start) / timelineDuration) * 100;
 								return (
 									<button
-										className={classNames("timeline-word", word.id === selected.id && "selected", word.emphasis > 75 && "important")}
+										className={classNames(
+											"timeline-word",
+											word.id === selected.id && "selected",
+											word.emphasis > 75 && "important",
+										)}
 										type="button"
 										key={word.id}
-										style={{ left: String(left) + "%", width: String(width) + "%" }}
+										style={{
+											left: `${String(left)}%`,
+											width: `${String(width)}%`,
+										}}
 										onClick={() => selectWord(word)}
 									>
 										{word.text}
@@ -520,89 +703,201 @@ export default function App() {
 
 				<aside className="inspector panel">
 					<div className="inspector-tabs">
-						<button className="tab active" type="button">Word</button>
-						<button className="tab" type="button">Style</button>
+						<span className="tab active">Word</span>
 					</div>
 					<div className="inspector-body">
 						<p className="eyebrow">Selected word</p>
-						<input className="word-input" aria-label="Selected word" value={selected.text} onChange={(event) => updateSelected({ text: event.target.value })} />
+						<input
+							className="word-input"
+							aria-label="Selected word"
+							value={selected.text}
+							onChange={(event) => updateSelected({ text: event.target.value })}
+						/>
 						<label className="switch-row">
-							<span><strong>Supersize</strong><small>Make this word larger</small></span>
+							<span>
+								<strong>Supersize</strong>
+								<small>Make this word larger</small>
+							</span>
 							<input
 								type="checkbox"
 								checked={selected.emphasis > 75}
-								onChange={(event) => updateSelected({ emphasis: event.target.checked ? 96 : 18 })}
+								onChange={(event) =>
+									updateSelected({ emphasis: event.target.checked ? 96 : 18 })
+								}
 							/>
 							<span className="switch" />
 						</label>
-						<label className="field-label">
-							Color
-							<span className="select-wrap"><span className="color-swatch" /><select defaultValue="Yellow"><option>Yellow</option><option>White</option><option>Red</option></select></span>
-						</label>
-						<label className="field-label">
-							Animation
-							<select defaultValue="Spring pop"><option>Spring pop</option><option>Pop</option><option>Scale</option><option>Fade</option></select>
-						</label>
 						<div className="two-fields">
-							<label className="field-label">Start<input type="number" step="0.01" value={selected.start} onChange={(event) => updateSelected({ start: Number(event.target.value) })} /></label>
-							<label className="field-label">End<input type="number" step="0.01" value={selected.end} onChange={(event) => updateSelected({ end: Number(event.target.value) })} /></label>
+							<label className="field-label">
+								Start
+								<input
+									type="number"
+									step="0.01"
+									value={selected.start}
+									onChange={(event) =>
+										updateSelected({ start: Number(event.target.value) })
+									}
+								/>
+							</label>
+							<label className="field-label">
+								End
+								<input
+									type="number"
+									step="0.01"
+									value={selected.end}
+									onChange={(event) =>
+										updateSelected({ end: Number(event.target.value) })
+									}
+								/>
+							</label>
 						</div>
 						<div className="divider" />
 						<label className="field-label">
 							AI intensity <span className="value">{intensity}%</span>
-							<input type="range" min="0" max="100" value={intensity} onChange={(event) => { setIntensity(Number(event.target.value)); changeSaved(); }} />
+							<input
+								type="range"
+								min="0"
+								max="100"
+								value={intensity}
+								onChange={(event) => {
+									setIntensity(Number(event.target.value));
+									changeSaved();
+								}}
+							/>
 						</label>
-						<p className="hint">Controls how often the AI uses bold words, scale, and motion. Your edits stay in place.</p>
+						<p className="hint">
+							Controls how often the AI uses bold words, scale, and motion. Your
+							edits stay in place.
+						</p>
 						<div className="divider" />
 						<label className="field-label">
 							Caption position <span className="value">{captionY}%</span>
-							<input type="range" min="25" max="80" value={captionY} onChange={(event) => { setCaptionY(Number(event.target.value)); changeSaved(); }} />
+							<input
+								type="range"
+								min="25"
+								max="80"
+								value={captionY}
+								onChange={(event) => {
+									setCaptionY(Number(event.target.value));
+									changeSaved();
+								}}
+							/>
 						</label>
 						<label className="field-label">
 							Hook or CTA
-							<textarea value={hook} maxLength={80} onChange={(event) => { setHook(event.target.value); changeSaved(); }} placeholder="WAIT FOR #3" />
+							<textarea
+								value={hook}
+								maxLength={80}
+								onChange={(event) => {
+									setHook(event.target.value);
+									changeSaved();
+								}}
+								placeholder="WAIT FOR #3"
+							/>
 						</label>
 					</div>
 				</aside>
 			</section>
 
 			<section className="style-dock">
-				<div className="style-dock-label"><span className="eyebrow">Caption style</span><strong>{style}</strong></div>
+				<div className="style-dock-label">
+					<span className="eyebrow">Caption style</span>
+					<strong>{style}</strong>
+				</div>
 				<div className="style-list">
 					{(Object.keys(styleDescriptions) as CaptionStyle[]).map((item) => (
 						<button
 							className={classNames("style-card", style === item && "selected")}
 							type="button"
 							key={item}
-							onClick={() => { setStyle(item); changeSaved(); }}
+							onClick={() => {
+								setStyle(item);
+								changeSaved();
+							}}
 						>
-							<span className={"style-sample sample-" + item.toLowerCase().replaceAll(" ", "-")}>Aa</span>
-							<span><strong>{item}</strong><small>{styleDescriptions[item]}</small></span>
+							<span
+								className={`style-sample sample-${item.toLowerCase().replaceAll(" ", "-")}`}
+							>
+								Aa
+							</span>
+							<span>
+								<strong>{item}</strong>
+								<small>{styleDescriptions[item]}</small>
+							</span>
 						</button>
 					))}
 				</div>
-				<button className="text-button" type="button" onClick={() => setNotice("Style saved to your VISP account.")}>Save as style</button>
 			</section>
 
 			{showUpload && (
-				<div className="modal-backdrop" role="presentation" onMouseDown={() => setShowUpload(false)}>
-					<section className="upload-modal" role="dialog" aria-modal="true" aria-labelledby="upload-heading" onMouseDown={(event) => event.stopPropagation()}>
-						<button className="close-button" type="button" onClick={() => setShowUpload(false)} aria-label="Close upload">×</button>
+				<div className="modal-backdrop">
+					<button
+						type="button"
+						className="modal-dismiss"
+						aria-label="Close upload"
+						onClick={() => setShowUpload(false)}
+					/>
+					<section
+						className="upload-modal"
+						role="dialog"
+						aria-modal="true"
+						aria-labelledby="upload-heading"
+					>
+						<button
+							className="close-button"
+							type="button"
+							onClick={() => setShowUpload(false)}
+							aria-label="Close upload"
+						>
+							×
+						</button>
 						<p className="eyebrow">New project</p>
 						<h2 id="upload-heading">Turn speech into typography.</h2>
-						<p className="modal-copy">Upload a video up to 1 GB. Your project and media stay available for 14 days.</p>
-						<button className="dropzone" type="button" onClick={() => inputRef.current?.click()}>
-							<span className="upload-icon">↑</span><strong>Choose a video</strong><span>MP4, MOV, or WebM</span>
+						<p className="modal-copy">
+							Upload a video up to 1 GB. Your project and media stay available
+							for 14 days.
+						</p>
+						<button
+							className="dropzone"
+							type="button"
+							onClick={() => inputRef.current?.click()}
+						>
+							<span className="upload-icon">↑</span>
+							<strong>Choose a video</strong>
+							<span>MP4, MOV, or WebM</span>
 						</button>
 						<label className="field-label">
 							Spoken language
-							<select value={language} onChange={(event) => setLanguage(event.target.value as Language)}><option>English</option><option>Finnish</option></select>
+							<select
+								value={language}
+								onChange={(event) =>
+									setLanguage(event.target.value as Language)
+								}
+							>
+								<option>English</option>
+								<option>Finnish</option>
+							</select>
 						</label>
-						<input ref={inputRef} className="visually-hidden" type="file" accept="video/mp4,video/quicktime,video/webm,video/*" onChange={selectFile} />
+						<input
+							ref={inputRef}
+							className="visually-hidden"
+							type="file"
+							accept="video/mp4,video/quicktime,video/webm,video/*"
+							onChange={selectFile}
+						/>
 					</section>
 				</div>
 			)}
-			{notice && <button className="notice" type="button" onClick={() => setNotice(null)}>{notice}<span>×</span></button>}
+			{notice && (
+				<button
+					className="notice"
+					type="button"
+					onClick={() => setNotice(null)}
+				>
+					{notice}
+					<span>×</span>
+				</button>
+			)}
 		</main>
 	);
 }
@@ -621,7 +916,9 @@ function MeterMark() {
 type NodeState = "off" | "on" | "live";
 
 // The signal chain: pipeline stages carrying their own state.
-function ChainStrip(props: Record<"source" | "transcribe" | "style" | "export", NodeState>) {
+function ChainStrip(
+	props: Record<"source" | "transcribe" | "style" | "export", NodeState>,
+) {
 	const nodes: Array<[string, NodeState]> = [
 		["Source", props.source],
 		["Transcribe", props.transcribe],
@@ -633,7 +930,9 @@ function ChainStrip(props: Record<"source" | "transcribe" | "style" | "export", 
 			{nodes.map(([label, state], index) => (
 				<Fragment key={label}>
 					{index > 0 && <span className="chain-link" />}
-					<span className={classNames("chain-node", state !== "off" && state)}>{label}</span>
+					<span className={classNames("chain-node", state !== "off" && state)}>
+						{label}
+					</span>
 				</Fragment>
 			))}
 		</div>
@@ -642,18 +941,42 @@ function ChainStrip(props: Record<"source" | "transcribe" | "style" | "export", 
 
 function PreviewBackdrop() {
 	return (
-		<div className="demo-video" aria-label="Video preview">
-			<div className="window-light one" /><div className="window-light two" />
-			<div className="person"><div className="hair" /><div className="face" /><div className="shirt" /></div>
-			<div className="desk" /><div className="plant"><i /><i /><i /></div>
+		<div className="demo-video" role="img" aria-label="Video preview">
+			<div className="window-light one" />
+			<div className="window-light two" />
+			<div className="person">
+				<div className="hair" />
+				<div className="face" />
+				<div className="shirt" />
+			</div>
+			<div className="desk" />
+			<div className="plant">
+				<i />
+				<i />
+				<i />
+			</div>
 		</div>
 	);
 }
 
 function SafeArea() {
-	return <><div className="safe-top"><span>Safe area</span></div><div className="safe-bottom"><span>TikTok controls</span></div></>;
+	return (
+		<>
+			<div className="safe-top">
+				<span>Safe area</span>
+			</div>
+			<div className="safe-bottom">
+				<span>TikTok controls</span>
+			</div>
+		</>
+	);
 }
 
 function ProcessingOverlay() {
-	return <div className="processing"><span className="spinner" />Creating word-level captions…</div>;
+	return (
+		<div className="processing">
+			<span className="spinner" />
+			Creating word-level captions…
+		</div>
+	);
 }

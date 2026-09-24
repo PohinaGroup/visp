@@ -13,6 +13,8 @@ const updateChannel =
 module.exports = {
 	...base,
 	runtimeVersion: { policy: "fingerprint" },
+	// OTA headers are profile-specific. fingerprint.config.js strips `updates`
+	// from the runtime hash so local publishes match EAS binaries.
 	updates: {
 		url: "https://ota.arvoitus.com",
 		codeSigningCertificate: "./certs/certificate.pem",
@@ -29,7 +31,11 @@ module.exports = {
 			"xprem-branch": "",
 		},
 	},
-	plugins: [...base.plugins, "expo-updates"],
+	plugins: [
+		...base.plugins,
+		"expo-updates",
+		["expo-build-properties", { ios: { enableSceneSupport: true } }],
+	],
 	...(process.env.VISP_ENV === "staging"
 		? {
 				name: "VISP (TEST)",
