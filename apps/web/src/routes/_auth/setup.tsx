@@ -10,10 +10,6 @@ import { Grid } from "@astryxdesign/core/Grid";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { List, ListItem } from "@astryxdesign/core/List";
-import {
-	SegmentedControl,
-	SegmentedControlItem,
-} from "@astryxdesign/core/SegmentedControl";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
@@ -62,8 +58,12 @@ export const Route = createFileRoute("/_auth/setup")({
 				: undefined;
 		return {
 			lang: search.lang === "fi" ? ("fi" as const) : undefined,
+			// The router parses ?redo=1 (the OAuth return URL) as the number 1.
 			redo:
-				search.redo === true || search.redo === "true" || search.redo === "1",
+				search.redo === true ||
+				search.redo === 1 ||
+				search.redo === "true" ||
+				search.redo === "1",
 			...(direct ? { direct } : {}),
 			...(redoMode ? { redoMode } : {}),
 		};
@@ -99,20 +99,16 @@ type WizardStep =
 	| "destination"
 	| "publisher"
 	| "authorize"
-	| "credentials"
-	| "test"
-	| "obs";
+	| "credentials";
 
 type StreamingSoftware = "obs" | "visp" | "larix" | "moblin" | "other";
 
-const QUESTION_STEPS: WizardStep[] = [
-	"destination",
-	"publisher",
-	"authorize",
-	"credentials",
-	"test",
-	"obs",
-];
+// "Somewhere else" goes through OBS, so it has no platform to authorize.
+function questionSteps(destination: Destination): WizardStep[] {
+	return destination === "other"
+		? ["destination", "publisher", "credentials"]
+		: ["destination", "publisher", "authorize", "credentials"];
+}
 
 const SEPPO_WELCOME =
 	"Hi, I'm Seppo. Choose Twitch, Kick, or YouTube for Direct output, then publish with the VISP app or browser. You can add the same relay feed to OBS afterward if you need monitoring, recording, or scenes.";
@@ -157,7 +153,7 @@ const PUBLISHER_OPTIONS: {
 		value: "visp",
 		title: "VISP mobile app",
 		description:
-			"Recommended. Install, sign in, and VISP links the device automatically — no URL paste.",
+			"Install, sign in, and VISP links the device automatically — no URL paste.",
 		recommended: true,
 	},
 	{
@@ -277,8 +273,6 @@ const STEP_LABELS: Record<WizardStep, string> = {
 	publisher: "publisher",
 	authorize: "authorization",
 	credentials: "stream links",
-	test: "connection test",
-	obs: "optional OBS source",
 };
 
 function optionTitle(
@@ -315,8 +309,8 @@ function publisherToSoftware(publisher: Publisher): StreamingSoftware {
 	return publisher;
 }
 
-function stepIndex(step: WizardStep): number {
-	const index = QUESTION_STEPS.indexOf(step);
+function stepIndex(step: WizardStep, destination: Destination): number {
+	const index = questionSteps(destination).indexOf(step);
 	return index === -1 ? 0 : index;
 }
 
@@ -446,30 +440,19 @@ function RedoStep({
 			<OptionCard
 				description={
 					fi
-						? "Älä muuta laitteita, tunnuksia tai nykyistä OBS-lähetyspolkua."
-						: "Leave devices, credentials, and the current OBS workflow unchanged."
-				}
-				title={fi ? "Jatka OBS:n käyttöä" : "Keep using OBS"}
-				onClick={onKeep}
-			/>
-			<OptionCard
-				description={
-					fi
-						? "Peru kaikkien laitepolkujen oikeudet ja vaihda OBS-lukutunnukset. Valittu julkaisija luo tarvittaessa uuden laitteen."
-						: "Revoke every device path and rotate OBS read credentials. Your chosen publisher creates a fresh device when needed."
+						? "Peru kaikkien laitepolkujen oikeudet ja vaihda OBS-lukutunnukset. Sovellusten sidokset ja vanhat julkaisuosoitteet lakkaavat toimimasta. Tätä ei voi perua."
+						: "Revoke every device path and rotate OBS read credentials. App bindings and old publish URLs stop working. This cannot be undone."
 				}
 				title={fi ? "Tyhjennä ja aloita alusta" : "Wipe and start over"}
 				onClick={onWipe}
 			/>
-			<Banner
-				description={
-					fi
-						? "Tyhjentäminen katkaisee sovellusten sidokset ja mitätöi vanhat julkaisuosoitteet."
-						: "Wipe disconnects native app bindings and invalidates old publish URLs."
-				}
-				status="warning"
-				title={fi ? "Tyhjentämistä ei voi perua" : "Wipe cannot be undone"}
-			/>
+			<HStack>
+				<Button
+					label={fi ? "Peruuta" : "Cancel"}
+					variant="ghost"
+					onClick={onKeep}
+				/>
+			</HStack>
 		</VStack>
 	);
 }
@@ -488,7 +471,7 @@ function PublisherStep({
 					value: "visp" as const,
 					title: "VISP-mobiilisovellus",
 					description:
-						"Suositus. Asenna ja kirjaudu; VISP yhdistää laitteen automaattisesti ilman osoitteen liittämistä.",
+						"Asenna ja kirjaudu; VISP yhdistää laitteen automaattisesti ilman osoitteen liittämistä.",
 					recommended: true,
 				},
 				{
@@ -505,27 +488,42 @@ function PublisherStep({
 				},
 			]
 		: SIMPLE_PUBLISHER_OPTIONS;
+	const [recommended, ...others] = options;
 	return (
 		<VStack gap={4}>
 			<StepIntro
 				description={
 					fi
-						? "Valitse ohjattuun käyttöönottoon VISP-sovellus tai selain. Seuraavaksi tuot syötteen OBS:ään VISP-lisäosalla."
-						: "Choose the VISP app or browser for guided setup. Next you'll pull the feed into OBS with the VISP OBS plugin."
+						? "VISP-sovellus on helpoin tapa: se yhdistää puhelimen itse, kun kirjaudut sisään."
+						: "The VISP app is the easiest way: it links your phone by itself when you sign in."
 				}
 				title={fi ? "Miten lähetät videon?" : "How will you send video?"}
 			/>
-			{options.map((option) => (
-				<OptionCard
-					key={option.value}
-					badge={
-						option.recommended ? (fi ? "Suositus" : "Recommended") : undefined
-					}
-					description={option.description}
-					title={option.title}
-					onClick={() => onPick(option.value)}
-				/>
-			))}
+			<OptionCard
+				badge={fi ? "Suositus" : "Recommended"}
+				description={recommended.description}
+				title={recommended.title}
+				onClick={() => onPick(recommended.value)}
+			/>
+			<Collapsible
+				defaultIsOpen={false}
+				trigger={
+					<Text color="secondary" type="supporting">
+						{fi ? "Käytä jotain muuta" : "Use something else"}
+					</Text>
+				}
+			>
+				<VStack gap={3} paddingBlock={2}>
+					{others.map((option) => (
+						<OptionCard
+							key={option.value}
+							description={option.description}
+							title={option.title}
+							onClick={() => onPick(option.value)}
+						/>
+					))}
+				</VStack>
+			</Collapsible>
 			<HStack>
 				<BackButton onBack={onBack} />
 			</HStack>
@@ -884,7 +882,15 @@ function TestStreamStep({
 					status="success"
 					title={t("Connection looks good")}
 				/>
-			) : (
+			) : null}
+			{ready && provider ? (
+				<Text color="secondary" type="supporting">
+					{fi
+						? "Haluatko myös OBS:n? Lisää syöte myöhemmin: Hallintapaneeli → Kohteet → OBS-lukutunnukset."
+						: "Want OBS too? Add this feed later from Dashboard → Destinations → OBS read credentials."}
+				</Text>
+			) : null}
+			{ready ? null : (
 				<Banner
 					description={
 						fi
@@ -900,8 +906,8 @@ function TestStreamStep({
 					label={
 						ready
 							? fi
-								? "Jatka"
-								: "Continue"
+								? "Valmis"
+								: "Finish"
 							: fi
 								? "Ohita testi — käyttöönottoa ei vahvisteta"
 								: "Skip test — leave setup unverified"
@@ -909,89 +915,6 @@ function TestStreamStep({
 					variant="primary"
 					onClick={onDone}
 				/>
-				<BackButton onBack={onBack} />
-			</HStack>
-		</VStack>
-	);
-}
-
-function OptionalObsStep({
-	obsRelease,
-	onBack,
-	onDone,
-}: {
-	obsRelease: ObsPluginRelease | null;
-	onBack: () => void;
-	onDone: () => void;
-}) {
-	const fi = useLocale() === "fi";
-	const trpc = useTRPC();
-	const [bundle, setBundle] = useState<Outputs["secrets"]["rotate"]>();
-	const rotate = useMutation(
-		trpc.secrets.rotate.mutationOptions({
-			onSuccess: setBundle,
-			onError: (error) => toast.error(error.message),
-		}),
-	);
-	const readUrl = bundle?.urls.read[0]?.srt as string | undefined;
-
-	return (
-		<VStack gap={4}>
-			<StepIntro
-				description={
-					fi
-						? "Direct on jo ensisijainen lähetyspolkusi. OBS voi lisäksi lukea saman alkuperäisen syötteen valvontaa, tallennusta ja kohtauksia varten."
-						: "Direct is already your primary output. OBS can additionally read the original feed for monitoring, recording, and scenes."
-				}
-				title={fi ? "Lisätäänkö syöte OBS:ään?" : "Add this feed to OBS?"}
-			/>
-			{bundle ? (
-				<VStack gap={3}>
-					<ObsPluginPromo
-						destinationLabel="Direct"
-						downloadHref={fi ? "/download?lang=fi" : "/download"}
-						release={obsRelease}
-					/>
-					{readUrl ? (
-						<RevealedValue
-							docsHref={docs.getStarted}
-							docsLabel="See how to import this into OBS"
-							label="OBS SRT Media Source URL"
-							value={readUrl}
-						/>
-					) : null}
-					{bundle.sceneCollection ? (
-						<Button
-							label={
-								fi ? "Lataa OBS-kohtaustiedosto" : "Download OBS scene file"
-							}
-							onClick={() => downloadSceneCollection(bundle.sceneCollection)}
-						/>
-					) : null}
-				</VStack>
-			) : null}
-			<HStack gap={2} wrap="wrap">
-				{bundle ? (
-					<Button
-						label={fi ? "Valmis" : "Finish"}
-						variant="primary"
-						onClick={onDone}
-					/>
-				) : (
-					<>
-						<Button
-							isLoading={rotate.isPending}
-							label={fi ? "Lisää OBS-lähde" : "Add OBS source"}
-							variant="primary"
-							onClick={() => rotate.mutate({ kind: "read" })}
-						/>
-						<Button
-							label={fi ? "Valmis ilman OBS:ää" : "Finish without OBS"}
-							variant="secondary"
-							onClick={onDone}
-						/>
-					</>
-				)}
 				<BackButton onBack={onBack} />
 			</HStack>
 		</VStack>
@@ -1098,7 +1021,12 @@ function SetupWizard() {
 	const goToStep = useCallback(
 		(next: WizardStep) => {
 			if (next === "redo" && !redo) return;
-			setStep(next);
+			// Test and OBS were folded into the links screen.
+			setStep(
+				(next as string) === "test" || (next as string) === "obs"
+					? "credentials"
+					: next,
+			);
 		},
 		[redo],
 	);
@@ -1168,54 +1096,28 @@ function SetupWizard() {
 		}
 	};
 
-	const questionNumber = step === "redo" ? 0 : stepIndex(step) + 1;
-	const questionTotal = QUESTION_STEPS.length;
+	const questionNumber = step === "redo" ? 0 : stepIndex(step, destination) + 1;
+	const questionTotal = questionSteps(destination).length;
 
 	return (
 		<>
-			<Center axis="horizontal">
+			{/* minWidth 0: without it long list lines widen the page past a phone screen. */}
+			<Center axis="horizontal" style={{ minWidth: 0 }}>
 				<VStack
 					className="pb-24"
 					gap={6}
 					maxWidth={720}
 					padding={4}
+					style={{ minWidth: 0 }}
 					width="100%"
 				>
 					<PageHeader
-						actions={
-							<VStack gap={1} hAlign="end">
-								<SegmentedControl
-									isDisabled={openingAdvanced || !status.data}
-									label={t("Setup mode")}
-									value={openingAdvanced ? "advanced" : "simple"}
-									onChange={(value) => setSetupMode(value === "advanced")}
-								>
-									<SegmentedControlItem label={t("Simple")} value="simple" />
-									<SegmentedControlItem
-										label={t("Advanced")}
-										value="advanced"
-									/>
-								</SegmentedControl>
-								{openingAdvanced ? (
-									<Text color="secondary" type="supporting">
-										{fi
-											? "Avataan edistynyttä hallintapaneelia…"
-											: "Opening advanced dashboard…"}
-									</Text>
-								) : null}
-							</VStack>
-						}
 						eyebrow={
 							step === "redo"
 								? t("Redo setup")
 								: `${fi ? "Vaihe" : "Step"} ${String(questionNumber).padStart(2, "0")} / ${String(
 										questionTotal,
 									).padStart(2, "0")}`
-						}
-						subtitle={
-							fi
-								? "Valitse kohde ja videolähde. Direct lähettää suoraan Twitchiin, Kickiin tai YouTubeen; OBS on valinnainen lisälähde."
-								: "Choose a destination and video source. Direct streams to Twitch, Kick, or YouTube; OBS is an optional secondary source."
 						}
 						title={t("Let's get you streaming")}
 					/>
@@ -1245,6 +1147,21 @@ function SetupWizard() {
 									setStep("publisher");
 								}}
 							/>
+						) : null}
+						{step === "destination" && !redo ? (
+							<HStack>
+								<Button
+									isDisabled={!status.data}
+									isLoading={openingAdvanced}
+									label={
+										fi
+											? "Ohita käyttöönotto ja siirry hallintapaneeliin"
+											: "Skip setup, go to dashboard"
+									}
+									variant="ghost"
+									onClick={() => setSetupMode(true)}
+								/>
+							</HStack>
 						) : null}
 						{step === "publisher" ? (
 							<PublisherStep
@@ -1279,31 +1196,10 @@ function SetupWizard() {
 									setStep(destination === "other" ? "publisher" : "authorize")
 								}
 								onBundle={setBundle}
-								onContinueToTest={() => setStep("test")}
-								onPendingCreateHandled={() => setPendingCreate(false)}
-							/>
-						) : null}
-						{step === "test" ? (
-							<TestStreamStep
-								destination={destination}
-								onBack={() => setStep("credentials")}
-								onDone={() =>
-									destination === "other"
-										? navigate({
-												to: "/dashboard",
-												search: localeSearch(locale),
-											})
-										: setStep("obs")
-								}
-							/>
-						) : null}
-						{step === "obs" ? (
-							<OptionalObsStep
-								obsRelease={obsRelease}
-								onBack={() => setStep("test")}
 								onDone={() =>
 									navigate({ to: "/dashboard", search: localeSearch(locale) })
 								}
+								onPendingCreateHandled={() => setPendingCreate(false)}
 							/>
 						) : null}
 					</VStack>
@@ -1352,7 +1248,7 @@ function CredentialsStepWithCreateRef({
 	useCase,
 	onBack,
 	onBundle,
-	onContinueToTest,
+	onDone,
 	onPendingCreateHandled,
 }: {
 	bundle: SecretBundle | null;
@@ -1364,9 +1260,10 @@ function CredentialsStepWithCreateRef({
 	useCase: SetupUseCase;
 	onBack: () => void;
 	onBundle: (bundle: SecretBundle) => void;
-	onContinueToTest: () => void;
+	onDone: () => void;
 	onPendingCreateHandled: () => void;
 }) {
+	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const complete = useMutation(
@@ -1428,15 +1325,28 @@ function CredentialsStepWithCreateRef({
 
 	useEffect(() => {
 		if (!pendingCreate || bundle || complete.isPending) return;
-		createLinks();
 		onPendingCreateHandled();
+		// Wipe revokes every device, so only the user's own click may start it.
+		if (redoMode === "wipe") return;
+		createLinks();
 	}, [
 		bundle,
 		complete.isPending,
 		createLinks,
 		onPendingCreateHandled,
 		pendingCreate,
+		redoMode,
 	]);
+
+	// Nothing to decide here unless the user chose wipe, so create the links as
+	// soon as the step opens. The ref keeps StrictMode's double mount from
+	// creating them twice.
+	const autoCreated = useRef(false);
+	useEffect(() => {
+		if (bundle || redoMode === "wipe" || autoCreated.current) return;
+		autoCreated.current = true;
+		void createLinks();
+	}, [bundle, createLinks, redoMode]);
 
 	if (bundle) {
 		return (
@@ -1445,8 +1355,42 @@ function CredentialsStepWithCreateRef({
 				destination={destination}
 				obsRelease={obsRelease}
 				publisher={publisher}
-				onContinue={onContinueToTest}
+				onBack={onBack}
+				onDone={onDone}
 			/>
+		);
+	}
+
+	if (redoMode !== "wipe") {
+		// Before the effect runs the ref is still false, so this reads as busy.
+		const busy = complete.isPending || probing || !autoCreated.current;
+		return (
+			<VStack gap={4}>
+				<StepIntro
+					description={
+						busy
+							? fi
+								? "Tämä kestää hetken."
+								: "This takes a moment."
+							: fi
+								? "Linkkien luonti epäonnistui. Yritä uudelleen."
+								: "Could not create your links. Try again."
+					}
+					title={
+						fi ? "Luodaan lähetyslinkkejäsi…" : "Creating your stream links…"
+					}
+				/>
+				<HStack gap={2} wrap="wrap">
+					{busy ? null : (
+						<Button
+							label={fi ? "Yritä uudelleen" : "Try again"}
+							variant="primary"
+							onClick={() => void createLinks()}
+						/>
+					)}
+					<BackButton onBack={onBack} />
+				</HStack>
+			</VStack>
 		);
 	}
 
@@ -1539,21 +1483,6 @@ function CredentialsPrompt({
 					}
 				/>
 			) : null}
-			{redoMode === "additive" ? (
-				<Banner
-					status="info"
-					title={
-						fi
-							? "Nykyiset laitteet säilyvät yhdistettyinä"
-							: "Existing devices stay linked"
-					}
-					description={
-						publisher === "visp"
-							? "The mobile app links its own device; existing paths keep their URLs."
-							: "Primary-device credentials are refreshed; other paths keep their URLs."
-					}
-				/>
-			) : null}
 			<HStack gap={2} wrap="wrap">
 				<Button
 					isLoading={isLoading}
@@ -1584,13 +1513,15 @@ function CredentialsReady({
 	destination,
 	obsRelease,
 	publisher,
-	onContinue,
+	onBack,
+	onDone,
 }: {
 	bundle: SecretBundle;
 	destination: Destination;
 	obsRelease: ObsPluginRelease | null;
 	publisher: Publisher;
-	onContinue: () => void;
+	onBack: () => void;
+	onDone: () => void;
 }) {
 	const fi = useLocale() === "fi";
 	const t = useT();
@@ -1848,13 +1779,11 @@ function CredentialsReady({
 				</VStack>
 			) : null}
 
-			<HStack gap={2} wrap="wrap">
-				<Button
-					label={t("Check for a live connection")}
-					variant="primary"
-					onClick={onContinue}
-				/>
-			</HStack>
+			<TestStreamStep
+				destination={destination}
+				onBack={onBack}
+				onDone={onDone}
+			/>
 		</VStack>
 	);
 }
