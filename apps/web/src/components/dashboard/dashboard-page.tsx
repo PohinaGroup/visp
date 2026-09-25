@@ -450,7 +450,13 @@ export function DashboardPage() {
 									</Card>
 								</>
 							) : (
-								<DirectCard advanced />
+								<>
+									<DirectCard advanced />
+									{/* OBS can still read the Direct feed for monitoring or recording. */}
+									<Card>
+										<CredentialsCard {...section("obs-read")} />
+									</Card>
+								</>
 							)}
 						</VStack>
 					) : null}
