@@ -11,8 +11,8 @@ import {
 	createAuthMiddleware,
 } from "evlog/better-auth";
 import { evlog } from "evlog/elysia";
-import { audioIsolationRoutes } from "./audio-isolation";
 import { agentRoutes } from "./agent";
+import { audioIsolationRoutes } from "./audio-isolation";
 import { handleAuthRequest } from "./auth-handler";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
@@ -28,7 +28,7 @@ initLogger({ env: { service: "VISP-server" } });
 
 // Production runs under Node (`node dist/index.mjs`). Bun's native adapter is
 // unavailable there, and Bun itself segfaults on Postgres TLS, so always use
-// the Node adapter (srvx/crossws) for listen + WebSocket.
+// the Node adapter (srvx/crossws) for listen + WebSocket. yes
 
 export const LOG_REDACTION_PATHS = [
 	"**.code",
