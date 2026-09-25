@@ -197,7 +197,7 @@ test("signed-in setup and dashboard distinguish failed output and unavailable st
 	outputState = "stopped";
 	await page.reload();
 	await page.getByRole("button", { name: "Necessary only" }).click();
-	await page.getByRole("button", { name: "Settings", exact: true }).click();
+	await page.getByRole("button", { name: "Devices", exact: true }).click();
 	await page.getByText("Phone", { exact: true }).first().click();
 	const move = page.getByRole("button", { name: "Move to Finland · default" });
 	await expect(move).toBeVisible();
