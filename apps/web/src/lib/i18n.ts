@@ -25,6 +25,20 @@ export function localeSearch(locale: Locale) {
 }
 
 export const finnishUi: Record<string, string> = {
+	"Mode: Direct": "Tila: Suora",
+	"Mode: OBS": "Tila: OBS",
+	"Mode: not set": "Tila: valitsematta",
+	change: "vaihda",
+	Home: "Etusivu",
+	Devices: "Laitteet",
+	BRB: "BRB",
+	Manage: "Hallitse",
+	"Platform rules": "Alustojen säännöt",
+	"No platform connected yet.": "Yhtään alustaa ei ole vielä yhdistetty.",
+	"Your phone streams straight to Twitch, Kick, or YouTube.":
+		"Puhelimesi striimaa suoraan Twitchiin, Kickiin tai YouTubeen.",
+	"Your phone sends video to OBS on your computer.":
+		"Puhelimesi lähettää videon tietokoneesi OBS:ään.",
 	"Add a layer to start building your overlay":
 		"Aloita sommittelu lisäämällä taso",
 	"Add layer": "Lisää taso",

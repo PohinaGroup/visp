@@ -4,16 +4,18 @@ import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
 import { Center } from "@astryxdesign/core/Center";
 import { Divider } from "@astryxdesign/core/Divider";
-import { HStack, VStack } from "@astryxdesign/core/Layout";
 import {
-	SegmentedControl,
-	SegmentedControlItem,
-} from "@astryxdesign/core/SegmentedControl";
+	DropdownMenu,
+	DropdownMenuItem,
+} from "@astryxdesign/core/DropdownMenu";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { AgentsCard } from "@/components/auth/agent-auth/agents-card";
 import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
 import { WhepPreview } from "@/components/studio/whep-preview";
@@ -24,15 +26,17 @@ import { useTRPC } from "@/utils/trpc";
 import { BrbCard } from "./brb-card";
 import { ChatBotCard } from "./chat-bot-card";
 import { ConnectionsCard } from "./connections-card";
-import { AgentsCard } from "@/components/auth/agent-auth/agents-card";
 import { CredentialsCard } from "./credentials-card";
-import { DetailSection } from "./detail-section";
-import { DirectCard } from "./direct-card";
+import { DestinationsSummary, DirectCard } from "./direct-card";
 import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
 import { SetupCard } from "./setup-card";
-import type { DashboardView, DetailSectionId } from "./types";
+import {
+	DASHBOARD_VIEWS,
+	type DashboardView,
+	type DetailSectionId,
+} from "./types";
 import {
 	seppoToolActivityLabel,
 	useDashboardSeppo,
@@ -40,7 +44,10 @@ import {
 
 function viewFromHash(): DashboardView {
 	if (typeof window === "undefined") return "home";
-	return window.location.hash === "#settings" ? "settings" : "home";
+	const hash = window.location.hash.slice(1);
+	// Old bookmarks and emails point at the single #settings page.
+	if (hash === "settings") return "destinations";
+	return DASHBOARD_VIEWS.find((view) => view === hash) ?? "home";
 }
 
 export function DashboardPage() {
@@ -101,14 +108,15 @@ export function DashboardPage() {
 	const [view, setView] = useState<DashboardView>(viewFromHash);
 	const selectView = (next: DashboardView) => {
 		setView(next);
-		window.history.replaceState(
-			null,
-			"",
-			next === "settings" ? "#settings" : "#",
-		);
+		window.history.replaceState(null, "", next === "home" ? "#" : `#${next}`);
 	};
-	const openSettings = (target?: string) => {
-		selectView("settings");
+	useEffect(() => {
+		const sync = () => setView(viewFromHash());
+		window.addEventListener("hashchange", sync);
+		return () => window.removeEventListener("hashchange", sync);
+	}, []);
+	const openTab = (next: DashboardView, target?: string) => {
+		selectView(next);
 		if (target) {
 			window.setTimeout(
 				() =>
@@ -199,14 +207,12 @@ export function DashboardPage() {
 		switch (home.primaryAction) {
 			case "inspect-output":
 			case "connect-platform":
-			case "pair-obs": {
-				const target =
-					home.primaryAction === "pair-obs"
-						? "obs-control"
-						: "dashboard-direct";
-				openSettings(target);
+			case "pair-obs":
+				openTab(
+					"destinations",
+					home.primaryAction === "pair-obs" ? "obs-control" : undefined,
+				);
 				break;
-			}
 			case "get-app":
 			case "open-app":
 				navigate({ to: "/download", search: fi ? { lang: "fi" } : {} });
@@ -284,14 +290,77 @@ export function DashboardPage() {
 			</Card>
 		);
 
+	const mode = direct?.mode ?? "unconfigured";
+	const modeLabel = {
+		direct: t("Mode: Direct"),
+		obs: t("Mode: OBS"),
+		unconfigured: t("Mode: not set"),
+	}[mode];
+	const modeMenu = (
+		<DropdownMenu
+			button={{
+				label: `${modeLabel} · ${t("change")}`,
+				size: "sm",
+				variant: "ghost",
+				isDisabled: setOperationalMode.isPending,
+			}}
+			placement="below"
+		>
+			<DropdownMenuItem
+				description={t(
+					"Your phone streams straight to Twitch, Kick, or YouTube.",
+				)}
+				isDisabled={mode === "direct"}
+				label={t("Phone to platform")}
+				onClick={() => chooseOperationalMode("direct")}
+			/>
+			<DropdownMenuItem
+				description={t("Your phone sends video to OBS on your computer.")}
+				isDisabled={mode === "obs"}
+				label={t("Phone to your OBS")}
+				onClick={() => chooseOperationalMode("obs")}
+			/>
+		</DropdownMenu>
+	);
+	const tabs: Array<{ value: DashboardView; label: string }> = [
+		{ value: "home", label: t("Home") },
+		{
+			value: "destinations",
+			label: mode === "obs" ? "OBS" : t("Destinations"),
+		},
+		{ value: "devices", label: t("Devices") },
+		{ value: "safety", label: t("BRB") },
+		{ value: "chat", label: t("Chat") },
+		{ value: "advanced", label: t("Advanced") },
+	];
+
 	return (
 		<>
-			<Center axis="horizontal">
-				<VStack gap={5} maxWidth={960} padding={4} width="100%">
+			<Center axis="horizontal" style={{ minWidth: 0 }}>
+				<VStack
+					gap={5}
+					maxWidth={960}
+					padding={4}
+					style={{ minWidth: 0 }}
+					width="100%"
+				>
 					<PageHeader
-						eyebrow={t(view === "settings" ? "Setup and controls" : "Show day")}
-						title={t(view === "settings" ? "Settings" : "Dashboard")}
+						actions={modeMenu}
+						eyebrow={t("Show day")}
+						title={t("Dashboard")}
 					/>
+					{/* ponytail: TabList has no overflow handling; scroll the strip on narrow phones. */}
+					<div className="w-full min-w-0 overflow-x-auto">
+						<TabList
+							hasDivider
+							value={view}
+							onChange={(next) => selectView(next as DashboardView)}
+						>
+							{tabs.map((tab) => (
+								<Tab key={tab.value} label={tab.label} value={tab.value} />
+							))}
+						</TabList>
+					</div>
 					{statusError ? (
 						<Banner
 							status="warning"
@@ -314,6 +383,34 @@ export function DashboardPage() {
 									) : null}
 								</VStack>
 							</Card>
+							{!statusError && home.nextStep ? (
+								<Banner
+									description={t(
+										home.nextStep === "connect-platform"
+											? "Authorize Twitch, Kick, or YouTube before show day."
+											: home.nextStep === "get-app"
+												? "Install VISP and add this phone as a publishing device."
+												: "Pair the VISP plugin with OBS before you stream.",
+									)}
+									status="info"
+									title={t("Next step")}
+								/>
+							) : null}
+							<HStack gap={2} wrap="wrap">
+								<Button
+									isDisabled={statusError}
+									isLoading={stopDirect.isPending || setObsStreaming.isPending}
+									label={actionLabel}
+									variant="primary"
+									onClick={primaryAction}
+								/>
+								{studioQuery.data?.settings.available ? (
+									<Button
+										href={`/studio${fi ? "?lang=fi" : ""}`}
+										label={t("Cloud Studio")}
+									/>
+								) : null}
+							</HStack>
 							<Card>
 								<VStack gap={2}>
 									<Heading level={2}>{t("Preview")}</Heading>
@@ -332,65 +429,16 @@ export function DashboardPage() {
 									)}
 								</VStack>
 							</Card>
-							{direct?.mode !== "obs" ? <DirectCard /> : null}
-							{!statusError && home.nextStep ? (
-								<Banner
-									description={t(
-										home.nextStep === "connect-platform"
-											? "Authorize Twitch, Kick, or YouTube before show day."
-											: home.nextStep === "get-app"
-												? "Install VISP and add this phone as a publishing device."
-												: "Pair the VISP plugin with OBS before you stream.",
-									)}
-									status="info"
-									title={t("Next step")}
+							{mode !== "obs" ? (
+								<DestinationsSummary
+									onManage={() => selectView("destinations")}
 								/>
 							) : null}
-							<Button
-								isDisabled={statusError}
-								isLoading={stopDirect.isPending || setObsStreaming.isPending}
-								label={actionLabel}
-								variant="primary"
-								onClick={primaryAction}
-							/>
-							<HStack gap={2} wrap="wrap">
-								<Button
-									label={t("Chat")}
-									onClick={() => openSettings("dashboard-connections")}
-								/>
-								{home.status === "live" && direct?.mode !== "obs" ? (
-									<Button
-										label={t("BRB screen")}
-										onClick={() => openSettings("dashboard-brb")}
-									/>
-								) : null}
-								{studioQuery.data?.settings.available ? (
-									<Button
-										href={`/studio${fi ? "?lang=fi" : ""}`}
-										label={t("Cloud Studio")}
-									/>
-								) : null}
-								<Button label={t("Settings")} onClick={() => openSettings()} />
-							</HStack>
 						</VStack>
-					) : (
+					) : null}
+					{view === "destinations" ? (
 						<VStack gap={4} width="100%">
-							<Button
-								label={t("Back to dashboard")}
-								onClick={() => selectView("home")}
-							/>
-							<PublishingDevicesCard
-								onRedoSetup={() =>
-									navigate({
-										to: "/setup",
-										search: { lang: fi ? "fi" : undefined, redo: true },
-									})
-								}
-							/>
-							<Card>
-								<GuidanceCard {...section("tuning")} />
-							</Card>
-							{direct?.mode === "obs" ? (
+							{mode === "obs" ? (
 								<>
 									<ObsControlCard />
 									<Card>
@@ -404,44 +452,35 @@ export function DashboardPage() {
 							) : (
 								<DirectCard advanced />
 							)}
-							<Card>
-								<DetailSection
-									{...section("mode")}
-									id="dashboard-mode"
-									tag={t("Publishing path")}
-									title={t("Where your phone sends video")}
-									value="mode"
-								>
-									<SegmentedControl
-										isDisabled={!direct?.mode || setOperationalMode.isPending}
-										label={t("Primary operational mode")}
-										layout="fill"
-										value={
-											direct?.mode === "unconfigured"
-												? ""
-												: (direct?.mode ?? "")
-										}
-										onChange={chooseOperationalMode}
-									>
-										<SegmentedControlItem
-											label={t("Phone to platform")}
-											value="direct"
-										/>
-										<SegmentedControlItem
-											label={t("Phone to your OBS")}
-											value="obs"
-										/>
-									</SegmentedControl>
-								</DetailSection>
-							</Card>
-							<BrbCard />
+						</VStack>
+					) : null}
+					{view === "devices" ? (
+						<PublishingDevicesCard
+							onRedoSetup={() =>
+								navigate({
+									to: "/setup",
+									search: { lang: fi ? "fi" : undefined, redo: true },
+								})
+							}
+						/>
+					) : null}
+					{view === "safety" ? <BrbCard /> : null}
+					{view === "chat" ? (
+						<VStack gap={4} width="100%">
 							<div id="dashboard-connections">
 								<ConnectionsCard />
 							</div>
 							<ChatBotCard />
+						</VStack>
+					) : null}
+					{view === "advanced" ? (
+						<VStack gap={4} width="100%">
+							<Card>
+								<GuidanceCard {...section("tuning")} />
+							</Card>
 							<AgentsCard />
 						</VStack>
-					)}
+					) : null}
 				</VStack>
 			</Center>
 			<SeppoWidget
