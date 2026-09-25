@@ -316,13 +316,20 @@ pprof stay disabled.
    AI_GATEWAY_API_KEY=...
    ```
 
-3. The browser uploads directly to the signed object-storage URL. Set
+3. The browser uploads directly to the signed object-storage URL: Typography
+   source files, plus the dashboard's BRB images and Studio assets. Set
    `S3_UPLOAD_ENDPOINT` to a public HTTPS S3 endpoint, then allow this bucket
-   CORS policy (replace the origin only if the deployed domain differs):
+   CORS policy. Staging shares the production bucket, so its origins are
+   listed too (replace them only if the deployed domains differ):
 
    ```json
    [{
-     "AllowedOrigins": ["https://typography.visp-stream.com"],
+     "AllowedOrigins": [
+       "https://visp-stream.com",
+       "https://typography.visp-stream.com",
+       "https://staging.visp-stream.com",
+       "https://typography.staging.visp-stream.com"
+     ],
      "AllowedMethods": ["PUT", "GET", "HEAD"],
      "AllowedHeaders": ["Content-Type", "content-type"],
      "ExposeHeaders": ["ETag"],
