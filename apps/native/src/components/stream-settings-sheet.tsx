@@ -1,5 +1,6 @@
 import * as UI from "@expo/ui";
 import { nativeApplicationVersion, nativeBuildVersion } from "expo-application";
+import type { ReactNode } from "react";
 import type { BondingMode } from "../../modules/visp-srt";
 import { SettingsPicker } from "./settings-picker";
 import {
@@ -48,6 +49,16 @@ export type StreamSettingsSheetProps = {
 	speech: SpeechSettings;
 };
 
+function SettingsContent({ children }: { children: ReactNode }) {
+	if (IS_IOS || IS_WEB) return <UI.FieldGroup>{children}</UI.FieldGroup>;
+
+	return (
+		<UI.ScrollView style={{ padding: 16 }}>
+			<UI.Column spacing={24}>{children}</UI.Column>
+		</UI.ScrollView>
+	);
+}
+
 export function StreamSettingsSheet({
 	account,
 	advanced,
@@ -71,7 +82,7 @@ export function StreamSettingsSheet({
 			onDismiss={onDismiss}
 			snapPoints={IS_IOS || IS_WEB ? ["half", "full"] : ["full"]}
 		>
-			<UI.FieldGroup>
+			<SettingsContent>
 				<CameraSection camera={camera} />
 				<AudioSection camera={camera} speech={speech} />
 				{!IS_WEB ? (
@@ -139,7 +150,7 @@ export function StreamSettingsSheet({
 						</SettingRow>
 					</UI.FieldGroup.Section>
 				) : null}
-			</UI.FieldGroup>
+			</SettingsContent>
 		</UI.BottomSheet>
 	);
 }
