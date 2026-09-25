@@ -38,6 +38,7 @@ import android.text.style.DynamicDrawableSpan
 import android.text.style.ImageSpan
 import android.util.Size
 import android.util.LruCache
+import android.view.SurfaceHolder
 import android.view.SurfaceView
 import android.view.MotionEvent
 import android.view.ViewGroup.LayoutParams
@@ -48,7 +49,9 @@ import com.pedro.encoder.utils.CodecUtil
 import com.pedro.encoder.input.audio.CustomAudioEffect
 import com.pedro.encoder.input.sources.audio.MicrophoneSource
 import com.pedro.encoder.input.sources.video.Camera2Source
+import com.pedro.encoder.input.video.CameraCallbacks
 import com.pedro.encoder.input.video.CameraHelper
+import com.pedro.library.view.RenderErrorCallback
 import com.pedro.encoder.input.gl.render.filters.NoFilterRender
 import com.pedro.encoder.input.gl.render.filters.`object`.ImageObjectFilterRender
 import com.pedro.encoder.utils.gl.TranslateTo
@@ -330,7 +333,7 @@ class VispSrt : Module() {
     }
 
     OnActivityEntersBackground {
-      currentView?.get()?.let { if (!it.isStreaming()) it.cleanup() }
+      currentView?.get()?.let { if (!it.isStreaming()) it.cleanup() else it.noteBackgrounded() }
     }
 
     OnActivityDestroys {
@@ -520,8 +523,30 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private val onStateChange by EventDispatcher()
   private val onAudioLevel by EventDispatcher()
   private val onStats by EventDispatcher()
-  private val preview = SurfaceView(context).also {
-    addView(it, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
+  private val preview = SurfaceView(context).also { surface ->
+    surface.holder.addCallback(
+      object : SurfaceHolder.Callback {
+        override fun surfaceCreated(holder: SurfaceHolder) {
+          attachPreview()
+        }
+
+        override fun surfaceChanged(
+          holder: SurfaceHolder,
+          format: Int,
+          width: Int,
+          height: Int,
+        ) {
+          if (width > 0 && height > 0) {
+            stream?.getGlInterface()?.setPreviewResolution(width, height)
+          }
+        }
+
+        override fun surfaceDestroyed(holder: SurfaceHolder) {
+          detachPreview()
+        }
+      },
+    )
+    addView(surface, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
   }
 
   @Volatile private var intentionalStop = true
@@ -562,6 +587,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var amplitudeEffect: PeakAmplitudeEffect? = null
   private var audioMuted = false
   private var lastAudioLevelAt = 0L
+  @Volatile private var cameraDisconnected = false
+  @Volatile private var needsCaptureResume = false
   private val displayManager = context.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
   private val powerManager = context.getSystemService(Context.POWER_SERVICE) as PowerManager
   private val thermalListener = PowerManager.OnThermalStatusChangedListener { status ->
@@ -616,6 +643,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
   fun prepare(promise: Promise) {
     if (stream != null) {
+      resumeCapture()
       promise.resolve(false)
       return
     }
@@ -1139,6 +1167,8 @@ class VispSrtView(context: Context, appContext: AppContext) :
     stream = null
     overlayFilter = null
     preparedRotation = null
+    cameraDisconnected = false
+    needsCaptureResume = false
     keepScreenOn = false
     state = StreamState.IDLE
   }
@@ -1150,12 +1180,73 @@ class VispSrtView(context: Context, appContext: AppContext) :
           state == StreamState.LIVE ||
           state == StreamState.RECONNECTING))
 
+  fun noteBackgrounded() {
+    needsCaptureResume = true
+  }
+
+  fun resumeCapture() {
+    val current = stream ?: return
+    val camera = current.videoSource as? Camera2Source
+    try {
+      if (
+        needsCaptureResume ||
+        cameraDisconnected ||
+        camera?.isRunning() != true ||
+        !current.getGlInterface().isRunning()
+      ) {
+        reopenCamera(current, camera)
+      }
+      attachPreview()
+      if (camera != null) {
+        camera.setZoom(selectedZoom)
+        applyImageStabilization(camera, imageStabilizationEnabled)
+      }
+      needsCaptureResume = false
+      cameraDisconnected = false
+    } catch (_: Throwable) {
+    }
+  }
+
+  private fun attachPreview() {
+    val current = stream ?: return
+    val surface = preview.holder.surface
+    if (!surface.isValid) return
+    val width = preview.width
+    val height = preview.height
+    if (width <= 0 || height <= 0) return
+    try {
+      if (current.isOnPreview) current.stopPreview(false)
+      current.startPreview(surface, width, height)
+    } catch (_: Throwable) {
+    }
+  }
+
+  private fun detachPreview() {
+    val current = stream ?: return
+    if (!current.isOnPreview) return
+    try {
+      current.stopPreview(false)
+    } catch (_: Throwable) {
+    }
+  }
+
+  private fun reopenCamera(current: StreamBase, camera: Camera2Source?) {
+    if (camera == null) return
+    if (camera.isRunning()) {
+      camera.restart()
+      return
+    }
+    if (!current.getGlInterface().isRunning()) return
+    camera.start(current.getGlInterface().surfaceTexture)
+  }
+
   override fun onAttachedToWindow() {
     super.onAttachedToWindow()
     displayManager.registerDisplayListener(displayListener, null)
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       powerManager.addThermalStatusListener(thermalListener)
     }
+    resumeCapture()
   }
 
   override fun onDetachedFromWindow() {
@@ -1163,7 +1254,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       powerManager.removeThermalStatusListener(thermalListener)
     }
-    cleanup()
+    if (!isStreaming()) cleanup()
     super.onDetachedFromWindow()
   }
 
@@ -1269,6 +1360,24 @@ class VispSrtView(context: Context, appContext: AppContext) :
       ?: defaultZoom(zoomLevels)
     val cameraSource = Camera2Source(context).apply {
       if (selected.cameraId == "front") switchCamera()
+      setCameraCallback(
+        object : CameraCallbacks {
+          override fun onCameraChanged(facing: CameraHelper.Facing) = Unit
+
+          override fun onCameraError(error: String) = Unit
+
+          override fun onCameraOpened() {
+            cameraDisconnected = false
+          }
+
+          override fun onCameraDisconnected() {
+            cameraDisconnected = true
+            if (isAttachedToWindow) {
+              post { resumeCapture() }
+            }
+          }
+        },
+      )
     }
     val microphoneSource =
       if (audioIsolationEnabled) {
@@ -1323,6 +1432,16 @@ class VispSrtView(context: Context, appContext: AppContext) :
       getStreamClient().setLogs(false)
       getStreamClient().setReTries(RETRY_DELAYS.size)
       getGlInterface().autoHandleOrientation = true
+      getGlInterface().setRenderErrorCallback(
+        object : RenderErrorCallback {
+          override fun onRenderError(error: RuntimeException) {
+            post {
+              detachPreview()
+              if (isAttachedToWindow) attachPreview()
+            }
+          }
+        },
+      )
     }
 
     val videoReady = next.prepareVideo(
@@ -1348,7 +1467,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
     stream = next
     preparedRotation = rotation
-    next.startPreview(preview, true)
+    attachPreview()
     cameraSource.setZoom(selectedZoom)
     applyImageStabilization(cameraSource, imageStabilizationEnabled)
     applyOverlays()
