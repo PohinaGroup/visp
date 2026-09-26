@@ -1,10 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 
-import { MeterMark } from "@/components/meter-mark";
+import Header from "@/components/header";
 import { SeppoWidget } from "@/components/seppo-widget";
+import { TryCta } from "@/components/try-cta";
 import { trackEvent } from "@/lib/analytics";
-import { authClient } from "@/lib/auth-client";
 import {
 	COMPARISON_CHECKED,
 	comparisonProducts,
@@ -23,34 +23,6 @@ export const Route = createFileRoute("/")({
 		),
 	component: () => <HomeComponent locale="en" />,
 });
-
-function TryCta({
-	locale,
-	size = "sm",
-}: {
-	locale: Locale;
-	size?: "sm" | "lg";
-}) {
-	const { data: session } = authClient.useSession();
-	const navigate = useNavigate();
-	const lg = size === "lg";
-	return (
-		<button
-			type="button"
-			onClick={() => {
-				trackEvent("lander_cta", { action: "try_free", locale });
-				return session
-					? navigate({ to: "/dashboard", search: localeSearch(locale) })
-					: navigate({ to: "/login", search: localeSearch(locale) });
-			}}
-			className={`inline-flex items-center justify-center rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
-				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
-			}`}
-		>
-			{locale === "fi" ? "Kokeile VISPiä ilmaiseksi" : "Try VISP free"}
-		</button>
-	);
-}
 
 // Features as channel strips: the mono tag is the signal-path capability,
 // not decoration. No 01/02/03 — these are channels, not a sequence.
@@ -402,60 +374,9 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 
 	return (
 		<>
+			<Header landing />
 			<main className="min-h-screen bg-background text-foreground">
 				<div className="mx-auto max-w-[1100px] px-6">
-					{/* Top nav */}
-					<header className="flex items-center justify-between border-border border-b py-5">
-						<Link to={fi ? "/fi" : "/"} className="flex items-center gap-3">
-							<span className="font-bold font-display text-xl uppercase leading-none tracking-[0.28em]">
-								VISP
-							</span>
-							<MeterMark />
-						</Link>
-						<nav className="flex items-center gap-4 text-sm sm:gap-7">
-							<span className="flex items-center gap-4 sm:gap-7">
-								{localizedNavLinks.map((l) =>
-									l.external ? (
-										<a
-											key={l.label}
-											href={l.href}
-											target="_blank"
-											rel="noreferrer"
-											className="hidden text-muted-foreground transition-colors hover:text-foreground sm:inline"
-										>
-											{l.label}
-										</a>
-									) : (
-										<Link
-											key={l.label}
-											to={l.href}
-											search={l.search}
-											onClick={() =>
-												l.href === "/download"
-													? trackEvent("lander_cta", {
-															action: "download",
-															locale,
-														})
-													: undefined
-											}
-											className="text-muted-foreground transition-colors hover:text-foreground"
-										>
-											{l.label}
-										</Link>
-									),
-								)}
-							</span>
-							<a
-								href={fi ? "/" : "/fi"}
-								hrefLang={fi ? "en" : "fi"}
-								className="text-muted-foreground hover:text-foreground"
-							>
-								{fi ? "EN" : "FI"}
-							</a>
-							<TryCta locale={locale} />
-						</nav>
-					</header>
-
 					{/* Hero */}
 					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-28">
 						<div className="flex flex-col gap-7">

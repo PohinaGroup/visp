@@ -8,7 +8,7 @@ import {
 } from "@VISP/ui/components/card";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-
+import { PageHeader } from "@/components/page-header";
 import { getObsPluginRelease } from "@/functions/get-obs-releases";
 import { docs } from "@/lib/docs";
 import { localeSearch, useLocale } from "@/lib/i18n";
@@ -78,20 +78,15 @@ function DownloadPage() {
 
 	return (
 		<main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-12 sm:py-16">
-			<header className="flex flex-col gap-4">
-				<div aria-hidden className="smpte-bars h-1.5 w-28" />
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					{fi ? "Aloita" : "Get started"}
-				</p>
-				<h1 className="font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{fi ? "Aloita striimaus" : "Start streaming"}
-				</h1>
-				<p className="max-w-prose text-muted-foreground">
-					{fi
+			<PageHeader
+				eyebrow={fi ? "Aloita" : "Get started"}
+				title={fi ? "Aloita striimaus" : "Start streaming"}
+				subtitle={
+					fi
 						? "Kirjaudu sisään, valitse Twitch, Kick tai YouTube ja lähetä puhelimesta tai selaimesta VISP Directillä. OBS on saatavilla valinnaisena lähteenä."
-						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS is optional — add the same feed as a Media Source when you want scenes, overlays, or local recording. Self-hosting is available for operators who want to run their own relay."}
-				</p>
-			</header>
+						: "Sign in, choose Twitch, Kick, or YouTube, and publish from your phone or browser with VISP Direct. OBS is optional — add the same feed as a Media Source when you want scenes, overlays, or local recording. Self-hosting is available for operators who want to run their own relay."
+				}
+			/>
 
 			<Card>
 				<CardHeader>

@@ -12,6 +12,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
+import { PageHeader } from "@/components/page-header";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { useLocale } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
@@ -94,20 +95,15 @@ function RequestDelete() {
 
 	return (
 		<main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-4 py-12 sm:py-16">
-			<header className="flex flex-col gap-4">
-				<div aria-hidden className="smpte-bars h-1.5 w-28" />
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					{fi ? "VISP-tilin hallinta" : "VISP account management"}
-				</p>
-				<h1 className="font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{fi ? "Poista tilisi" : "Delete your account"}
-				</h1>
-				<p className="max-w-prose text-muted-foreground">
-					{fi
+			<PageHeader
+				eyebrow={fi ? "VISP-tilin hallinta" : "VISP account management"}
+				title={fi ? "Poista tilisi" : "Delete your account"}
+				subtitle={
+					fi
 						? "Tällä sivulla voit poistaa VISP-tilisi ja siihen liittyvät tiedot pysyvästi. VISP-sovellusta ei tarvitse poistaa ensin."
-						: "Use this page to permanently delete your VISP account and the data associated with it. You do not need to uninstall the VISP app first."}
-				</p>
-			</header>
+						: "Use this page to permanently delete your VISP account and the data associated with it. You do not need to uninstall the VISP app first."
+				}
+			/>
 
 			{deleted ? (
 				<p className="border border-border bg-card p-4" role="status">

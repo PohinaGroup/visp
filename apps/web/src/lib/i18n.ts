@@ -24,6 +24,24 @@ export function localeSearch(locale: Locale) {
 	return locale === "fi" ? { lang: "fi" as const } : {};
 }
 
+// Pages with a /fi/… twin. Posts map to the other blog index: slugs differ per locale.
+const FI_TWIN = /^\/(affiliate|blog|contact|cookies|privacy|terms)?(\/.*)?$/;
+
+// Same page in the other language: the /fi/ twin when there is one, else
+// the current URL with ?lang toggled (other params, e.g. device codes, kept).
+export function otherLocaleHref(pathname: string, searchStr: string) {
+	if (pathname === "/fi" || pathname.startsWith("/fi/"))
+		return pathname.replace(/^\/fi\/blog\/.+/, "/fi/blog").slice(3) || "/";
+	const params = new URLSearchParams(searchStr);
+	const twin = pathname.match(FI_TWIN);
+	if (twin && params.get("lang") !== "fi")
+		return twin[1] ? `/fi/${twin[1]}` : "/fi";
+	if (params.get("lang") === "fi") params.delete("lang");
+	else params.set("lang", "fi");
+	const query = params.toString();
+	return query ? `${pathname}?${query}` : pathname;
+}
+
 export const finnishUi: Record<string, string> = {
 	"Mode: Direct": "Tila: Suora",
 	"Mode: OBS": "Tila: OBS",
