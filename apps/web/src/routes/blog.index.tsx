@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { createServerFn } from "@tanstack/react-start";
 
+import { PageHeader } from "@/components/page-header";
 import { absoluteSiteUrl, formatBlogDate } from "@/lib/blog";
 import { listBlogPosts } from "@/lib/blog.server";
 import { type Locale, localizedHead } from "@/lib/i18n";
@@ -47,14 +48,17 @@ export function BlogIndex({
 	return (
 		<main className="min-h-full bg-background px-6 py-14 text-foreground">
 			<div className="mx-auto max-w-[1100px]">
-				<h1 className="mt-4 max-w-3xl font-display font-semibold text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{fi ? "blogit, oppaat ja vertailut" : "IRL streaming & OBS guides"}
-				</h1>
-				<p className="mt-6 max-w-2xl text-lg text-muted-foreground leading-relaxed">
-					{fi
-						? "Rakenna luotettava IRL striimisetuppi luopumatta tutusta OBSista, skeneistä, alerteista tai kontrolleista."
-						: "Build reliable IRL stream setup without giving up the OBS studio, scenes, alerts, and controls you already know."}
-				</p>
+				<PageHeader
+					eyebrow={fi ? "Blogi" : "Blog"}
+					title={
+						fi ? "blogit, oppaat ja vertailut" : "IRL streaming & OBS guides"
+					}
+					subtitle={
+						fi
+							? "Rakenna luotettava IRL striimisetuppi luopumatta tutusta OBSista, skeneistä, alerteista tai kontrolleista."
+							: "Build reliable IRL stream setup without giving up the OBS studio, scenes, alerts, and controls you already know."
+					}
+				/>
 
 				<ul className="mt-14 grid gap-8 md:grid-cols-2">
 					{posts.map((post) => (

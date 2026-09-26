@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { finnishUi, localizedHead } from "./i18n";
+import { finnishUi, localizedHead, otherLocaleHref } from "./i18n";
 import { studioStreamCopy } from "./studio-model";
 
 describe("localizedHead", () => {
@@ -40,4 +40,20 @@ describe("Finnish coverage", () => {
 			"Changes weren't saved. Try again in {seconds} seconds. Your edits are still here.";
 		expect(finnishUi[english]).toContain("{seconds}");
 	});
+});
+
+test("otherLocaleHref", () => {
+	expect(otherLocaleHref("/", "")).toBe("/fi");
+	expect(otherLocaleHref("/fi", "")).toBe("/");
+	expect(otherLocaleHref("/fi/privacy", "")).toBe("/privacy");
+	expect(otherLocaleHref("/privacy", "")).toBe("/fi/privacy");
+	expect(otherLocaleHref("/blog/some-post", "")).toBe("/fi/blog");
+	expect(otherLocaleHref("/fi/blog/joku", "")).toBe("/blog");
+	expect(otherLocaleHref("/dashboard", "")).toBe("/dashboard?lang=fi");
+	expect(otherLocaleHref("/dashboard", "?lang=fi")).toBe("/dashboard");
+	expect(otherLocaleHref("/device", "?user_code=AB&lang=fi")).toBe(
+		"/device?user_code=AB",
+	);
+	expect(otherLocaleHref("/download", "?lang=fi")).toBe("/download");
+	expect(otherLocaleHref("/privacy", "?lang=fi")).toBe("/privacy");
 });
