@@ -3,6 +3,7 @@ import { createServerFn } from "@tanstack/react-start";
 import browserCollections from "collections/browser";
 import { Suspense } from "react";
 
+import { PageHeader } from "@/components/page-header";
 import {
 	absoluteSiteUrl,
 	BLOG_AUTHOR,
@@ -111,44 +112,35 @@ export function BlogPostPage({
 	return (
 		<main className="min-h-full bg-background px-6 py-10 text-foreground sm:py-14">
 			<article className="mx-auto max-w-[820px]">
-				<nav
-					aria-label={fi ? "Sivupolku" : "Breadcrumb"}
-					className="text-muted-foreground text-sm"
+				<PageHeader
+					eyebrow={
+						<nav aria-label={fi ? "Sivupolku" : "Breadcrumb"}>
+							<Link
+								to={fi ? "/fi/blog" : "/blog"}
+								className="hover:text-foreground hover:underline"
+							>
+								{fi ? "Blogi" : "Blog"}
+							</Link>
+						</nav>
+					}
+					title={post.title}
+					subtitle={post.description}
 				>
-					<Link
-						to={fi ? "/fi/blog" : "/blog"}
-						className="hover:text-foreground hover:underline"
-					>
-						{fi ? "Blogi" : "Blog"}
-					</Link>
-					<span aria-hidden className="px-2">
-						/
-					</span>
-					<span>{post.title}</span>
-				</nav>
-
-				<header className="mt-8">
-					<h1 className="font-display font-semibold text-4xl uppercase leading-[1.02] tracking-tight sm:text-6xl">
-						{post.title}
-					</h1>
-					<p className="mt-6 text-lg text-muted-foreground leading-relaxed">
-						{post.description}
-					</p>
-					<p className="mt-5 font-mono text-muted-foreground text-xs uppercase tracking-wider">
+					<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
 						{fi ? "Kirjoittaja" : "By"} {BLOG_AUTHOR} ·{" "}
 						<time dateTime={post.publishedAt}>
 							{formatBlogDate(post.publishedAt, locale)}
 						</time>
 					</p>
-					<img
-						src={post.coverUrl}
-						alt={post.coverAlt}
-						width={1200}
-						height={630}
-						fetchPriority="high"
-						className="mt-9 aspect-[40/21] w-full border border-border object-cover"
-					/>
-				</header>
+				</PageHeader>
+				<img
+					src={post.coverUrl}
+					alt={post.coverAlt}
+					width={1200}
+					height={630}
+					fetchPriority="high"
+					className="mt-9 aspect-[40/21] w-full border border-border object-cover"
+				/>
 
 				<div className="mt-10">
 					<Suspense>{clientLoader.useContent(post.path)}</Suspense>

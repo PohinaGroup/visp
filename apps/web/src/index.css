@@ -194,28 +194,6 @@ html[data-theme="dark"][data-astryx-theme="neutral"] {
 	--color-signal: oklch(0.72 0.15 155);
 }
 
-/* SMPTE 75% color bars — the brand mark. */
-.smpte-bars {
-	background: linear-gradient(
-		90deg,
-		#c0c0c0 0 14.29%,
-		#c0c000 0 28.57%,
-		#00c0c0 0 42.86%,
-		#00c000 0 57.14%,
-		#c000c0 0 71.43%,
-		#c00000 0 85.71%,
-		#0000c0 0 100%
-	);
-	transform-origin: left;
-	animation: signal-in 0.5s ease-out;
-}
-
-@keyframes signal-in {
-	from {
-		transform: scaleX(0);
-	}
-}
-
 .tally-pulse {
 	animation: tally 1.6s ease-in-out infinite;
 }
@@ -288,7 +266,6 @@ html[data-overlay] body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-	.smpte-bars,
 	.tally-pulse,
 	.chain-packet,
 	.lander-rise {
