@@ -14,7 +14,22 @@ export type DirectOutputs = Outputs["direct"]["list"];
 
 export type NetworkProfile = "wired" | "wifi" | "cellular";
 export type DashboardMode = "simple" | "advanced";
-export type DashboardView = "home" | "settings";
+export type DashboardView =
+	| "home"
+	| "destinations"
+	| "devices"
+	| "safety"
+	| "chat"
+	| "advanced";
+
+export const DASHBOARD_VIEWS = [
+	"home",
+	"destinations",
+	"devices",
+	"safety",
+	"chat",
+	"advanced",
+] as const satisfies ReadonlyArray<DashboardView>;
 
 export type DashboardArea =
 	| "devices"
@@ -24,17 +39,17 @@ export type DashboardArea =
 	| "tuning"
 	| "setup";
 
-export type DetailSectionId = "obs-read" | "tuning" | "reference" | "mode";
+export type DetailSectionId = "obs-read" | "tuning" | "reference";
 
-// Setup controls now share one settings view. Seppo still opens the relevant
-// disclosure and scrolls to the exact control.
+// Each setup area lives on its own tab. Seppo switches to the tab, opens the
+// relevant disclosure and scrolls to the exact control.
 export const DASHBOARD_AREA_TARGETS = {
-	devices: { view: "settings", id: "devices" },
-	obs: { view: "settings", id: "obs-control" },
-	relay: { view: "settings", id: "obs-read", section: "obs-read" },
-	connections: { view: "settings", id: "dashboard-connections" },
-	tuning: { view: "settings", id: "dashboard-tuning", section: "tuning" },
-	setup: { view: "settings", id: "dashboard-setup", section: "reference" },
+	devices: { view: "devices", id: "devices" },
+	obs: { view: "destinations", id: "obs-control" },
+	relay: { view: "destinations", id: "obs-read", section: "obs-read" },
+	connections: { view: "chat", id: "dashboard-connections" },
+	tuning: { view: "advanced", id: "dashboard-tuning", section: "tuning" },
+	setup: { view: "destinations", id: "dashboard-setup", section: "reference" },
 } as const satisfies Record<
 	DashboardArea,
 	{ view: DashboardView; id: string; section?: DetailSectionId }

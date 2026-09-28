@@ -443,30 +443,47 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 						))}
 
 						{advanced && anyYoutube ? (
-							<>
-								<YoutubeTitle
-									saving={setYoutubeSettings.isPending}
-									title={direct.data.youtubeTitle}
-									onSave={(title) => setYoutubeSettings.mutate({ title })}
-								/>
-								<Banner
-									description={t(
-										"VISP creates a new public YouTube broadcast when this device starts publishing.",
-									)}
-									status="warning"
-									title={t("YouTube broadcasts are public")}
-								/>
-							</>
+							<YoutubeTitle
+								saving={setYoutubeSettings.isPending}
+								title={direct.data.youtubeTitle}
+								onSave={(title) => setYoutubeSettings.mutate({ title })}
+							/>
 						) : null}
 
 						{advanced ? (
 							<Collapsible
 								defaultIsOpen={false}
-								trigger={
-									<Text type="label">{t("Using OBS alongside Direct")}</Text>
-								}
+								trigger={<Text type="label">{t("Platform rules")}</Text>}
 							>
-								<VStack paddingBlock={2}>
+								<VStack gap={3} paddingBlock={2}>
+									{anyYoutube ? (
+										<Banner
+											description={t(
+												"VISP creates a new public YouTube broadcast when this device starts publishing.",
+											)}
+											status="warning"
+											title={t("YouTube broadcasts are public")}
+										/>
+									) : null}
+									{anyTwitch ? (
+										<Banner
+											description={t(
+												"Twitch's simulcasting terms prohibit showing activity from another platform on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
+											)}
+											status="warning"
+											title={t("Do not put Kick chat on the Twitch stream")}
+										/>
+									) : null}
+									{anyBoth ? (
+										<Banner
+											description={t(
+												"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout for the duration of a multistreaming session.",
+											)}
+											status="warning"
+											title={t("Kick Partners: enable Multistreaming")}
+										/>
+									) : null}
+									<Text type="label">{t("Using OBS alongside Direct")}</Text>
 									<Text color="secondary" type="supporting">
 										{t(
 											"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
@@ -474,26 +491,6 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 									</Text>
 								</VStack>
 							</Collapsible>
-						) : null}
-
-						{advanced && anyTwitch ? (
-							<Banner
-								description={t(
-									"Twitch's simulcasting terms prohibit showing activity from another platform on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
-								)}
-								status="warning"
-								title={t("Do not put Kick chat on the Twitch stream")}
-							/>
-						) : null}
-
-						{advanced && anyBoth ? (
-							<Banner
-								description={t(
-									"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout for the duration of a multistreaming session.",
-								)}
-								status="warning"
-								title={t("Kick Partners: enable Multistreaming")}
-							/>
 						) : null}
 					</>
 				) : null}
@@ -518,6 +515,71 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 					}
 				/>
 			) : null}
+		</Card>
+	);
+}
+
+// Read-only glance for the home tab: where each device is sending and whether
+// it is on air. Changing anything happens on the Destinations tab.
+export function DestinationsSummary({ onManage }: { onManage: () => void }) {
+	const t = useT();
+	const trpc = useTRPC();
+	const direct = useQuery(trpc.direct.list.queryOptions());
+	const providers = ["twitch", "kick", "youtube"] as const;
+	const rows =
+		direct.data?.paths.flatMap((path) =>
+			providers
+				.filter((provider) => path[provider])
+				.map((provider) => ({ path, provider })),
+		) ?? [];
+	const custom = direct.data?.customOutputs ?? [];
+	return (
+		<Card>
+			<VStack gap={2}>
+				<HStack gap={2} hAlign="between" vAlign="center" wrap="wrap">
+					<Heading level={2}>{t("Destinations")}</Heading>
+					<Button label={t("Manage")} variant="ghost" onClick={onManage} />
+				</HStack>
+				{rows.length === 0 && custom.length === 0 ? (
+					<Text color="secondary">{t("No platform connected yet.")}</Text>
+				) : null}
+				{rows.map(({ path, provider }) => {
+					const state = path.state[provider] ?? "stopped";
+					return (
+						<HStack
+							key={`${path.id}-${provider}`}
+							gap={2}
+							vAlign="center"
+							wrap="wrap"
+						>
+							<StatusDot
+								isPulsing={state === "live"}
+								label={`${providerLabel(provider)} ${state}`}
+								variant={STATE_TONE[state]}
+							/>
+							<Text type="supporting">
+								{providerLabel(provider)} · {path.label}:{" "}
+								{t(state === "brb" ? "showing BRB card" : state)}
+							</Text>
+						</HStack>
+					);
+				})}
+				{custom.map((output) => {
+					const state = output.state ?? "stopped";
+					return (
+						<HStack key={output.id} gap={2} vAlign="center" wrap="wrap">
+							<StatusDot
+								isPulsing={state === "live"}
+								label={`${output.name} ${state}`}
+								variant={STATE_TONE[state]}
+							/>
+							<Text type="supporting">
+								{output.name}: {t(state === "brb" ? "showing BRB card" : state)}
+							</Text>
+						</HStack>
+					);
+				})}
+			</VStack>
 		</Card>
 	);
 }

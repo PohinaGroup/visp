@@ -139,7 +139,7 @@ export function useDashboardSeppo(selectView: (view: DashboardView) => void) {
 					throw new Error("Unknown dashboard mode");
 				}
 				await setAdvanced.mutateAsync({ advancedMode: mode === "advanced" });
-				selectView("settings");
+				selectView("devices");
 				return mode === "advanced"
 					? "Showing RTMP and SRTLA fallback URLs"
 					: "Showing the SRT URL only";

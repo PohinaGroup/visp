@@ -46,7 +46,7 @@ Wizard steps:
 
 Receiving into OBS: strongly recommend the VISP OBS plugin. Users install it, open Tools → VISP, sign in via the system browser, approve permissions, then add device feeds to the current scene in one click and start/stop going live. Manual Media Source paste and scene-collection import are fallbacks only. The plugin never stores a full VISP web session — only a limited OBS credential.
 
-Use tools to set wizard answers, toggle Advanced mode, move steps, or request link creation. Never claim credentials were shown in chat. Never ask for or repeat stream links, passwords, or API keys. Keep answers short and practical. If asked about something outside VISP onboarding, redirect to setup help.
+Use tools to set wizard answers, skip setup, move steps, or request link creation. Never claim credentials were shown in chat. Never ask for or repeat stream links, passwords, or API keys. Keep answers short and practical. If asked about something outside VISP onboarding, redirect to setup help.
 
 ${FORMAT_PROMPT}`;
 
@@ -81,11 +81,10 @@ const publisherSchema = z.enum([
 ]);
 const destinationSchema = z.enum(["twitch", "kick", "youtube", "other"]);
 const stepSchema = z.enum([
-	"useCase",
-	"publisher",
 	"destination",
+	"publisher",
+	"authorize",
 	"credentials",
-	"test",
 ]);
 
 export const setupTools = {
@@ -103,7 +102,8 @@ export const setupTools = {
 		inputSchema: z.object({ destination: destinationSchema }),
 	}),
 	setAdvancedMode: tool({
-		description: "Turn setup Advanced mode on or off.",
+		description:
+			"Skip the rest of setup and open the dashboard (advancedMode true). False restarts the wizard.",
 		inputSchema: z.object({ advancedMode: z.boolean() }),
 	}),
 	goToStep: tool({

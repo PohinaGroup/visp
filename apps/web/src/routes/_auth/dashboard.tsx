@@ -4,7 +4,7 @@ import { shouldEnterStudio } from "@/lib/studio-model";
 
 export const Route = createFileRoute("/_auth/dashboard")({
 	beforeLoad: async ({ context, location }) => {
-		const [status, paths, studio] = await Promise.all([
+		const [status, paths, studio, direct] = await Promise.all([
 			context.queryClient.ensureQueryData(
 				context.trpc.secrets.status.queryOptions(),
 			),
@@ -13,6 +13,9 @@ export const Route = createFileRoute("/_auth/dashboard")({
 			),
 			context.queryClient.ensureQueryData(
 				context.trpc.studio.get.queryOptions(),
+			),
+			context.queryClient.ensureQueryData(
+				context.trpc.direct.list.queryOptions(),
 			),
 		]);
 		if (!status.onboardedAt && !paths.some((path) => path.publishRevealable)) {
@@ -27,7 +30,13 @@ export const Route = createFileRoute("/_auth/dashboard")({
 				},
 			});
 		}
-		if (shouldEnterStudio(studio.settings)) {
+		// ponytail: one-shot per tab session, or Studio's Dashboard button loops back here.
+		if (
+			direct.mode === "direct" &&
+			shouldEnterStudio(studio.settings) &&
+			!sessionStorage.getItem("visp:studio-entered")
+		) {
+			sessionStorage.setItem("visp:studio-entered", "1");
 			throw redirect({
 				to: "/studio",
 				search: {

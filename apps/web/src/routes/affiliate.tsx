@@ -12,6 +12,7 @@ import { useMutation } from "@tanstack/react-query";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { type FormEvent, useState } from "react";
 
+import { PageHeader } from "@/components/page-header";
 import { type Locale, localizedHead } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import { useTRPC } from "@/utils/trpc";
@@ -282,21 +283,19 @@ export function AffiliatePage({ locale }: { locale: Locale }) {
 	const text = copy[locale];
 	return (
 		<main className="mx-auto flex w-full max-w-5xl flex-col gap-16 px-4 py-12 sm:py-16">
-			<header className="flex flex-col items-start gap-5">
-				<div aria-hidden className="smpte-bars h-1.5 w-28" />
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					{text.eyebrow}
-				</p>
-				<h1 className="max-w-4xl font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-7xl">
-					{text.heading}
-				</h1>
-				<p className="max-w-2xl text-lg text-muted-foreground leading-relaxed">
-					{text.intro}
-				</p>
-				<a className={buttonVariants({ size: "lg" })} href="#apply">
+			<PageHeader
+				hero
+				eyebrow={text.eyebrow}
+				title={text.heading}
+				subtitle={text.intro}
+			>
+				<a
+					className={`self-start ${buttonVariants({ size: "lg" })}`}
+					href="#apply"
+				>
 					{text.cta}
 				</a>
-			</header>
+			</PageHeader>
 
 			<section aria-labelledby="offer-title" className="flex flex-col gap-6">
 				<div>

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
 import type { ReactNode } from "react";
 
+import { PageHeader } from "@/components/page-header";
 import { legalEntity } from "@/lib/legal";
 
 type LegalDocProps = {
@@ -20,19 +21,11 @@ export function LegalDoc({
 }: LegalDocProps) {
 	return (
 		<main className="mx-auto flex w-full max-w-3xl flex-col gap-10 px-4 py-12 sm:py-16">
-			<header className="flex flex-col gap-4">
-				<div aria-hidden className="smpte-bars h-1.5 w-28" />
-				<p className="font-mono text-muted-foreground text-xs uppercase tracking-[0.3em]">
-					{eyebrow}
-				</p>
-				<h1 className="font-bold font-display text-5xl uppercase leading-none tracking-tight sm:text-6xl">
-					{title}
-				</h1>
-				<p className="max-w-prose text-muted-foreground">{description}</p>
+			<PageHeader eyebrow={eyebrow} title={title} subtitle={description}>
 				<p className="font-mono text-muted-foreground text-xs">
 					Last updated {updated} · {legalEntity.companyName}
 				</p>
-			</header>
+			</PageHeader>
 
 			<article className="flex flex-col gap-8 text-sm leading-relaxed [&_a]:text-foreground [&_a]:underline [&_a]:underline-offset-4 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:uppercase [&_h2]:tracking-tight [&_li]:mt-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:text-muted-foreground [&_strong]:font-medium [&_strong]:text-foreground [&_ul]:list-disc [&_ul]:pl-5">
 				{children}

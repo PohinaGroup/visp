@@ -1,0 +1,12 @@
+[Unit]
+Description=VISP relay health report
+
+[Timer]
+OnBootSec=30s
+# Admin reads "now" from the last sample, so the sample must be younger than a
+# person's patience. Raise it if the app host ever minds the request volume.
+OnUnitActiveSec=30s
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target
