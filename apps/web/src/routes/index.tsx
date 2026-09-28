@@ -1,10 +1,10 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Fragment, useState } from "react";
 
-import { MeterMark } from "@/components/meter-mark";
+import Header from "@/components/header";
 import { SeppoWidget } from "@/components/seppo-widget";
+import { TryCta } from "@/components/try-cta";
 import { trackEvent } from "@/lib/analytics";
-import { authClient } from "@/lib/auth-client";
 import {
 	COMPARISON_CHECKED,
 	comparisonProducts,
@@ -36,34 +36,6 @@ const h2 =
 	"mt-5 max-w-2xl font-display font-semibold text-4xl uppercase leading-none tracking-tight sm:text-5xl";
 const h3 =
 	"font-display font-semibold text-2xl uppercase leading-tight tracking-tight";
-
-function TryCta({
-	locale,
-	size = "sm",
-}: {
-	locale: Locale;
-	size?: "sm" | "lg";
-}) {
-	const { data: session } = authClient.useSession();
-	const navigate = useNavigate();
-	const lg = size === "lg";
-	return (
-		<button
-			type="button"
-			onClick={() => {
-				trackEvent("lander_cta", { action: "try_free", locale });
-				return session
-					? navigate({ to: "/dashboard", search: localeSearch(locale) })
-					: navigate({ to: "/login", search: localeSearch(locale) });
-			}}
-			className={`inline-flex items-center justify-center rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
-				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
-			}`}
-		>
-			{landingCopy[locale].tryCta}
-		</button>
-	);
-}
 
 function LinkList({
 	links,
@@ -295,37 +267,9 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 
 	return (
 		<>
+			<Header landing />
 			<main className="min-h-screen bg-background text-foreground">
 				<div className="mx-auto max-w-[1100px] px-6">
-					{/* Top nav */}
-					<header className="flex items-center justify-between border-border border-b py-5">
-						<Link
-							to={locale === "fi" ? "/fi" : "/"}
-							className="flex items-center gap-3"
-						>
-							<span className="font-bold font-display text-xl uppercase leading-none tracking-[0.28em]">
-								VISP
-							</span>
-							<MeterMark />
-						</Link>
-						<nav className="flex items-center gap-4 text-sm sm:gap-7">
-							<LinkList
-								links={t.nav}
-								locale={locale}
-								className={navLink}
-								externalClassName={`${navLink} hidden sm:inline`}
-							/>
-							<a
-								href={t.langSwitch.href}
-								hrefLang={t.langSwitch.hrefLang}
-								className={navLink}
-							>
-								{t.langSwitch.label}
-							</a>
-							<TryCta locale={locale} />
-						</nav>
-					</header>
-
 					{/* Hero: the cost argument leads. */}
 					<section className="lander-rise grid gap-10 py-20 md:grid-cols-[1.1fr_0.9fr] md:items-center md:py-24">
 						<div className="flex flex-col gap-7">

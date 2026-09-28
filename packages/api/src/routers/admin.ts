@@ -5,16 +5,19 @@ import {
 	chatConnection,
 	pathState,
 	relay,
+	relayHealth,
 	relayPath,
 	relayStreamSession,
 	session,
 	user,
 } from "@VISP/db/schema/index";
+import { cpus, freemem, loadavg, totalmem, uptime } from "node:os";
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
+import { probeRelayApi } from "../relay-health";
 
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -103,12 +106,27 @@ export const adminRouter = router({
 				message: "Could not load admin overview",
 			});
 		}
-		return result;
+		const rss = process.memoryUsage().rss;
+		const [load1, load5, load15] = loadavg();
+		return {
+			...result,
+			appHost: {
+				cpuCount: cpus().length,
+				load1,
+				load5,
+				load15,
+				memTotalBytes: totalmem(),
+				memFreeBytes: freemem(),
+				processRssBytes: rss,
+				uptimeSeconds: Math.round(uptime()),
+				processUptimeSeconds: Math.round(process.uptime()),
+			},
+		};
 	}),
 
 	relays: router({
-		list: adminProcedure.query(() =>
-			db
+		list: adminProcedure.query(async () => {
+			const rows = await db
 				.select({
 					id: relay.id,
 					name: relay.name,
@@ -121,6 +139,18 @@ export const adminRouter = router({
 					publicIp: relay.publicIp,
 					enabled: relay.enabled,
 					drainedAt: relay.drainedAt,
+					health: {
+						reportedAt: relayHealth.reportedAt,
+						cpuCount: relayHealth.cpuCount,
+						load1: relayHealth.load1,
+						load5: relayHealth.load5,
+						load15: relayHealth.load15,
+						memTotalKb: relayHealth.memTotalKb,
+						memAvailableKb: relayHealth.memAvailableKb,
+						diskTotalKb: relayHealth.diskTotalKb,
+						diskAvailableKb: relayHealth.diskAvailableKb,
+						uptimeSeconds: relayHealth.uptimeSeconds,
+					},
 					assignedPaths: sql<number>`(
 						select count(*)::int from "path" admin_relay_path
 						where admin_relay_path.relay_id = ${relay.id}
@@ -164,8 +194,26 @@ export const adminRouter = router({
 					)`,
 				})
 				.from(relay)
-				.orderBy(relay.name),
-		),
+				.leftJoin(relayHealth, eq(relayHealth.relayId, relay.id))
+				.orderBy(relay.name);
+
+			// Probed on read, not cached: admin is low-traffic and a stale
+			// "reachable" is worse than a slow page.
+			const probes = await Promise.all(
+				rows.map((row) => probeRelayApi(row.apiUrl)),
+			);
+			return rows.map((row, index) => ({
+				...row,
+				health: row.health?.reportedAt
+					? { ...row.health, reportedAt: row.health.reportedAt.toISOString() }
+					: null,
+				probe: probes[index] ?? {
+					reachable: false,
+					responseMs: null,
+					livePaths: null,
+				},
+			}));
+		}),
 		create: adminProcedure
 			.input(relayFields.extend({ enabled: z.boolean().default(false) }))
 			.mutation(async ({ ctx, input }) => {

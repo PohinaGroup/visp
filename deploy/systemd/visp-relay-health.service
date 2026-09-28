@@ -1,0 +1,9 @@
+[Unit]
+Description=VISP relay health report
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+EnvironmentFile=/etc/visp/relay.env
+ExecStart=/usr/local/libexec/visp-relay-health

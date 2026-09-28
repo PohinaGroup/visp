@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Pushes this relay's host metrics to the app. Everything it reads is already
+# on the box: procfs and df. No agent, no exporter, no extra open port.
+set -Eeuo pipefail
+
+: "${APP_ORIGIN:?APP_ORIGIN is required}"
+: "${HOOK_SECRET:?HOOK_SECRET is required}"
+: "${RELAY_NAME:?RELAY_NAME must match the relay name registered in VISP Admin}"
+
+read -r load1 load5 load15 _ </proc/loadavg
+read -r uptime_seconds _ </proc/uptime
+cpu_count=$(nproc)
+mem_total_kb=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+# MemAvailable, not MemFree: page cache is reclaimable, and a relay's cache is
+# large enough that MemFree always reads like the box is about to die.
+mem_available_kb=$(awk '/^MemAvailable:/ {print $2}' /proc/meminfo)
+read -r disk_total_kb disk_available_kb < <(df -Pk / | awk 'NR==2 {print $2, $4}')
+
+curl --fail --silent --show-error --max-time 5 --request POST \
+	--header "Content-Type: application/json" \
+	--header "X-Hook-Secret: $HOOK_SECRET" \
+	--data "$(printf '{"relay":"%s","cpuCount":%d,"load1":%s,"load5":%s,"load15":%s,"memTotalKb":%d,"memAvailableKb":%d,"diskTotalKb":%d,"diskAvailableKb":%d,"uptimeSeconds":%d}' \
+		"$RELAY_NAME" "$cpu_count" "$load1" "$load5" "$load15" \
+		"$mem_total_kb" "$mem_available_kb" "$disk_total_kb" "$disk_available_kb" \
+		"${uptime_seconds%.*}")" \
+	"$APP_ORIGIN/api/hooks/relay-health"
