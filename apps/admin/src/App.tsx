@@ -57,6 +57,31 @@ function formatDuration(seconds: number) {
 	return `${rounded}s`;
 }
 
+function formatAge(iso: string) {
+	return formatDuration((Date.now() - new Date(iso).getTime()) / 1000);
+}
+
+function percent(used: number, total: number) {
+	return total > 0 ? Math.round((used / total) * 100) : 0;
+}
+
+function formatGiB(kb: number) {
+	return `${(kb / 1024 / 1024).toFixed(1)} GiB`;
+}
+
+/** Load is only readable against the core count it is competing for. */
+function loadTone(load: number, cpuCount: number) {
+	if (load >= cpuCount) return "text-destructive";
+	if (load >= cpuCount * 0.7) return "text-amber-500";
+	return "text-muted-foreground";
+}
+
+function usageTone(usedPct: number) {
+	if (usedPct >= 90) return "text-destructive";
+	if (usedPct >= 75) return "text-amber-500";
+	return "text-muted-foreground";
+}
+
 function localDateTimeInput(value: string | null) {
 	if (!value) return "";
 	const date = new Date(value);
@@ -825,11 +850,145 @@ function UserDetailPanel({
 	);
 }
 
+type AppHost = NonNullable<
+	Awaited<ReturnType<typeof trpc.admin.overview.query>>["appHost"]
+>;
+
+/** The app host reports itself: no agent needed, the process is already here. */
+function AppHostCard({ host }: { host: AppHost | undefined }) {
+	const memUsedPct = host
+		? percent(host.memTotalBytes - host.memFreeBytes, host.memTotalBytes)
+		: 0;
+	return (
+		<Card className="border border-border/60">
+			<CardHeader>
+				<CardTitle className="text-lg">App server</CardTitle>
+				<CardDescription>
+					The host answering this request. Relay hosts are below.
+				</CardDescription>
+			</CardHeader>
+			<CardContent className="grid gap-2 text-sm sm:grid-cols-4">
+				{host ? (
+					<>
+						<div>
+							<p className="text-muted-foreground text-xs uppercase tracking-wider">
+								CPU load
+							</p>
+							<p className={`font-mono ${loadTone(host.load1, host.cpuCount)}`}>
+								{host.load1.toFixed(2)} / {host.cpuCount}
+							</p>
+							<p className="text-muted-foreground text-xs">
+								{host.load5.toFixed(2)}, {host.load15.toFixed(2)} avg
+							</p>
+						</div>
+						<div>
+							<p className="text-muted-foreground text-xs uppercase tracking-wider">
+								RAM
+							</p>
+							<p className={`font-mono ${usageTone(memUsedPct)}`}>
+								{memUsedPct}%
+							</p>
+							<p className="text-muted-foreground text-xs">
+								{formatGiB((host.memTotalBytes - host.memFreeBytes) / 1024)} of{" "}
+								{formatGiB(host.memTotalBytes / 1024)}
+							</p>
+						</div>
+						<div>
+							<p className="text-muted-foreground text-xs uppercase tracking-wider">
+								Server process
+							</p>
+							<p className="font-mono">
+								{formatGiB(host.processRssBytes / 1024)}
+							</p>
+							<p className="text-muted-foreground text-xs">
+								up {formatDuration(host.processUptimeSeconds)}
+							</p>
+						</div>
+						<div>
+							<p className="text-muted-foreground text-xs uppercase tracking-wider">
+								Host uptime
+							</p>
+							<p className="font-mono">{formatDuration(host.uptimeSeconds)}</p>
+						</div>
+					</>
+				) : (
+					<p className="text-muted-foreground">Loading host metrics…</p>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
+
+type RelayRow = Awaited<
+	ReturnType<typeof trpc.admin.relays.list.query>
+>[number];
+
+/**
+ * Two independent signals, deliberately not merged into one "healthy" light:
+ * the control API answering says MediaMTX is up, the pushed sample says the
+ * box underneath it is not out of CPU, RAM, or disk. Either can fail alone.
+ */
+function RelayHealth({ relay }: { relay: RelayRow }) {
+	const { probe, health } = relay;
+	// A sample older than four timer intervals means the relay stopped talking.
+	const stale = health
+		? Date.now() - new Date(health.reportedAt).getTime() > 120_000
+		: false;
+	const memUsedPct = health
+		? percent(health.memTotalKb - health.memAvailableKb, health.memTotalKb)
+		: 0;
+	const diskUsedPct = health
+		? percent(health.diskTotalKb - health.diskAvailableKb, health.diskTotalKb)
+		: 0;
+	return (
+		<div className="grid gap-1 text-xs">
+			<div className="flex items-center gap-1.5">
+				{probe.reachable ? (
+					<Badge variant="secondary">API up</Badge>
+				) : (
+					<Badge variant="destructive">API down</Badge>
+				)}
+				{probe.reachable ? (
+					<span className="text-muted-foreground">
+						{probe.responseMs}ms · {probe.livePaths ?? "?"} live
+					</span>
+				) : null}
+			</div>
+			{health ? (
+				<>
+					<p className={loadTone(health.load1, health.cpuCount)}>
+						CPU {health.load1.toFixed(2)} / {health.cpuCount} cores
+						<span className="text-muted-foreground">
+							{" "}
+							({health.load5.toFixed(2)}, {health.load15.toFixed(2)})
+						</span>
+					</p>
+					<p className={usageTone(memUsedPct)}>
+						RAM {memUsedPct}% ·{" "}
+						{formatGiB(health.memTotalKb - health.memAvailableKb)} of{" "}
+						{formatGiB(health.memTotalKb)}
+					</p>
+					<p className={usageTone(diskUsedPct)}>
+						Disk {diskUsedPct}% · {formatGiB(health.diskAvailableKb)} free
+					</p>
+					<p className={stale ? "text-destructive" : "text-muted-foreground"}>
+						Up {formatDuration(health.uptimeSeconds)} · reported{" "}
+						{formatAge(health.reportedAt)} ago
+					</p>
+				</>
+			) : (
+				<p className="text-muted-foreground">No host metrics reported</p>
+			)}
+		</div>
+	);
+}
+
 function RelayAdmin() {
 	const queryClient = useQueryClient();
 	const relays = useQuery({
 		queryKey: ["admin-relays"],
 		queryFn: () => trpc.admin.relays.list.query(),
+		refetchInterval: 15_000,
 	});
 	const [draft, setDraft] = useState({
 		name: "",
@@ -858,7 +1017,8 @@ function RelayAdmin() {
 			<CardHeader>
 				<CardTitle className="text-lg">Relays</CardTitle>
 				<CardDescription>
-					Register capacity and drain nodes without production SQL.
+					Live control-API reachability and host metrics, plus capacity and
+					draining without production SQL.
 				</CardDescription>
 			</CardHeader>
 			<CardContent className="grid gap-4">
@@ -868,6 +1028,7 @@ function RelayAdmin() {
 							<tr>
 								<th>Relay</th>
 								<th>Region</th>
+								<th>Health</th>
 								<th>Load</th>
 								<th>Forwarders</th>
 								<th>Status</th>
@@ -884,6 +1045,9 @@ function RelayAdmin() {
 										</p>
 									</td>
 									<td>{relay.region}</td>
+									<td>
+										<RelayHealth relay={relay} />
+									</td>
 									<td>
 										<Input
 											aria-label={`${relay.name} path capacity`}
@@ -1066,6 +1230,7 @@ function Console({
 	const overview = useQuery({
 		queryKey: ["admin-overview"],
 		queryFn: () => trpc.admin.overview.query(),
+		refetchInterval: 15_000,
 	});
 	const users = useQuery({
 		queryKey: ["admin-users", search, role, status, usage, cursor],
@@ -1189,6 +1354,10 @@ function Console({
 							value={overview.data?.liveNow ?? 0}
 						/>
 					</div>
+				</section>
+
+				<section>
+					<AppHostCard host={overview.data?.appHost} />
 				</section>
 
 				<section>

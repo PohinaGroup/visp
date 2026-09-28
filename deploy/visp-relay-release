@@ -135,6 +135,16 @@ if $mediamtx; then
 		"/etc/mediamtx/$mediamtx_config"
 	install -m 0644 "$repo/deploy/systemd/mediamtx${suffix}.service" \
 		"/etc/systemd/system/mediamtx${suffix}.service"
+	# Host metrics for VISP Admin. Production only: a staging relay would need
+	# its own RELAY_NAME registered before the report has anywhere to land.
+	if [[ $environment == production ]]; then
+		install -D -m 0755 "$repo/deploy/relay/visp-relay-health" \
+			/usr/local/libexec/visp-relay-health
+		install -m 0644 "$repo/deploy/systemd/visp-relay-health.service" \
+			/etc/systemd/system/visp-relay-health.service
+		install -m 0644 "$repo/deploy/systemd/visp-relay-health.timer" \
+			/etc/systemd/system/visp-relay-health.timer
+	fi
 fi
 if $srtla; then
 	install -m 0755 "$work/srtla/srtla_rec" /usr/local/bin/srtla_rec
@@ -150,6 +160,9 @@ if $bond; then
 fi
 
 systemctl daemon-reload
+if $mediamtx && [[ $environment == production ]]; then
+	systemctl enable --now visp-relay-health.timer
+fi
 if $mediamtx; then
 	systemctl restart "mediamtx${suffix}"
 	systemctl restart "srtla-rec${suffix}" "visp-bond${suffix}"
