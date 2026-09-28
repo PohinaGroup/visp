@@ -3,6 +3,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { trackEvent } from "@/lib/analytics";
 import { authClient } from "@/lib/auth-client";
 import { type Locale, localeSearch } from "@/lib/i18n";
+import { landingCopy } from "@/lib/landing-copy";
 
 export function TryCta({
 	locale,
@@ -27,7 +28,7 @@ export function TryCta({
 				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
 			}`}
 		>
-			{locale === "fi" ? "Kokeile VISPiä ilmaiseksi" : "Try VISP free"}
+			{landingCopy[locale].tryCta}
 		</button>
 	);
 }
