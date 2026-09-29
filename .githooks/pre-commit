@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Ask whether to bump the shared release version, then verify the commit.
+
 set -euo pipefail
 
 root="$(git rev-parse --show-toplevel)"
