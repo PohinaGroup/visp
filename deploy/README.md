@@ -55,6 +55,7 @@ disconnecting either side behaves as expected. Only then install
 
    ```text
    HOOK_SECRET=replace-with-a-random-secret
+   STUDIO_MEDIA_PASSWORD=same-value-as-app-env
    APP_ORIGIN=https://app.example.com
    RELAY_NAME=relay-fi-1
    MTX_AUTHHTTPADDRESS=https://app.example.com/api/mediamtx/auth
@@ -62,7 +63,9 @@ disconnecting either side behaves as expected. Only then install
    MTX_WEBRTCALLOWORIGINS=https://visp-stream.com,https://stream.visp-stream.com
    ```
 
-   Replace the example origin and Tailscale address. `RELAY_NAME` must match
+   Replace the example origin and Tailscale address. `HOOK_SECRET` and
+   `STUDIO_MEDIA_PASSWORD` must equal the app's values; the hook derives scoped
+   local RTSP credentials from the latter. `RELAY_NAME` must match
    the relay name registered in VISP Admin: it is how the health report finds
    its row, and a mismatch shows the relay as reporting no host metrics. Set
 	`MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
@@ -70,7 +73,7 @@ disconnecting either side behaves as expected. Only then install
 	origins so authenticated WHEP previews can signal directly to the relay.
    MediaMTX maps the `MTX_*` variables to the matching YAML settings.
 
-	VISP Direct is the default Twitch/Kick output and uses distribution-encode
+	VISP Direct is the default Twitch/Kick/YouTube output and uses distribution-encode
 	knobs from the same file.
    Defaults are `libx264` at 6000 kbps and 30 fps; set them from a measured
    CPU-per-forwarder number on this box, not from a guess:
@@ -228,7 +231,7 @@ pprof stay disabled.
 
 ## 3. App box
 
-1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, Caddy, FFmpeg, and DejaVu fonts; clone `PohinaGroup/visp` as
+1. Install PostgreSQL (or use a managed PostgreSQL database), Bun, Node.js 20+, Tailscale, Caddy, FFmpeg, and DejaVu fonts; clone `PohinaGroup/visp` as
    `root` into `/opt/visp`. The API runs under Node (`dist/index.mjs`); the portal
    and release tooling use Bun. Both services run as `root`.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`, including the
@@ -460,7 +463,8 @@ its own process, on the Overview card above the relay list.
 
 Use a private UpCloud Managed Object Storage bucket with its public HTTPS S3
 endpoint. The app credential needs GET, HEAD, PUT, and DELETE access only to the
-`snapshots/` and `brb/` object prefixes, plus bucket listing restricted to
+`snapshots/`, `brb/`, `obs-backups/`, `typography/`, and (with Cloud Studio)
+`studio-staging/` and `studio-verified/` object prefixes, plus bucket listing restricted to
 `brb/*/highlights/uploads/` so account deletion can remove abandoned uploads.
 Keep bucket versioning disabled so overwrites do not retain history.
 
@@ -506,7 +510,10 @@ If versioning was previously enabled, suspend it and add
 the rule and keep the bucket private before enabling the relay hook. The relay
 receives only 60-second presigned PUT URLs; S3 access keys remain on the app box.
 
-## 5. Install and pair the OBS plugin
+## 5. Install and pair the OBS plugin (optional)
+
+Skip this section if nobody controls OBS through VISP; Direct output does not
+need OBS.
 
 Deploy the updated `app/Caddyfile` and apply the database migrations before
 pairing OBS. `/api/obs/*` and `/api/auth/*` must be publicly reachable over
@@ -567,8 +574,8 @@ other users.
 ## 6. Maintenance and acceptance
 
 Normal releases are published as stable `vX.Y.Z` GitHub Releases. The unified
-workflow deploys the exact tag to this app box, starts EAS distribution, and
-attaches OBS packages. See [`UPDATE.md`](UPDATE.md) for configuration and the
+workflow deploys the exact tag to this app box and relays, and attaches OBS
+packages when the plugin changed. Mobile builds run from `.github/workflows/mobile.yml`. See [`UPDATE.md`](UPDATE.md) for configuration and the
 release checklist.
 
 Restart the API or portal at any time. Restart MediaMTX only in a maintenance

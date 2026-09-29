@@ -1,8 +1,8 @@
 ---
 title: "Näin niputat mobiili- ja Wi-Fi-yhteyden VISP-puhelinlähetykseen Speedifyllä"
-description: "Vertaa VISP Nativen kahden linkin pakettimonistusta Speedifyn Wi-Fi- ja mobiilibondingiin ja opi, milloin kumpikin auttaa."
+description: "Vertaa VISP-sovelluksen omaa Wi-Fi- ja mobiiliyhteyksien niputusta Speedifyn tunneliin minkä tahansa enkooderin alla ja opi, milloin kumpikin auttaa."
 publishedAt: 2026-07-25
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Kenttäpuhelimen Wi-Fi- ja mobiiliyhteydet niputetaan Speedifyllä yhdeksi tunneliksi, joka syöttää yhden SRT-virran VISP-releen kautta kotistudion OBS:ään"
 ---
 
@@ -11,50 +11,64 @@ kentällä olevalla laitteella
 [Speedifyn](https://speedify.com/irl-streaming-connection-bonding-software/)
 niputettu tunneli ja julkaise VISP:iin tavallisella SRT:llä kuten ennenkin.**
 Speedify yhdistää puhelimen Wi-Fi- ja mobiiliyhteyden yhdeksi vakaaksi
-tunneliksi enkooderin alla, VISP autentikoi ja välittää yhden syötteen, ja OBS
-pitää valmiin Twitch- tai Kick-lähetyksen hallinnassaan.
+tunneliksi enkooderin alla, ja VISP autentikoi yhden syötteen ja lähettää sen
+Directillä Twitchiin, Kickiin tai YouTubeen tai omaan OBS:ääsi, jos tuotat
+lähetyksen siellä.
 
-Työkalut ratkaisevat eri ongelmia: **VISP Native voi monistaa paketit Wi-Fiin ja
-mobiiliin, kun taas Speedify voi aggregoida linkkien kapasiteettia.** VISP on itse ylläpidettävä
-SRT/RTMP-rele ja ohjaustaso. Se antaa jokaiselle julkaisevalle laitteelle
-peruutettavan pääsyn ja tuo sen syötteen OBS:ään, mutta se kuljettaa juuri sen
-yhden virran, jonka enkooderi lähettää. Jos ongelmasi on epävakaa yhteys eikä
-studion työnkulku, niputus kuuluu VISP:n alapuoliseen kerrokseen — ja Speedify
-on yksi tapa lisätä se.
+Speedifyä ei välttämättä tarvita lainkaan. **VISP-puhelinsovelluksessa on oma
+Wi-Fi- ja mobiiliyhteyksien niputus, ja VISP-rele ottaa vastaan SRTLA:ta
+esimerkiksi Moblinista tai BELABOXista.** Speedify on vaihtoehto kaikkeen
+muuhun: järjestelmänlaajuinen tunneli, joka niputtaa uplinkin mille tahansa
+enkooderille, myös sellaiselle, joka ei osaa niputtaa itse. VISP on itse
+ylläpidettävä SRT/RTMP-rele ja ohjaustaso. Se antaa jokaiselle julkaisevalle
+laitteelle peruutettavan pääsyn ja kuljettaa vastaanottamansa syötteen;
+Speedify toimii kerrosta alempana.
 
-## Nativen monistus vai Speedifyn bonding
+## VISP-sovelluksen niputus vai Speedifyn niputus
 
-[VISP-rele](https://docs.visp-stream.com/docs/architecture) sijaitsee
-julkaisevien laitteiden ja OBS:n välissä. Puhelin ottaa yhteyden ulospäin
-VISP:iin, OBS ottaa yhteyden ulospäin VISP:iin, eikä kotiverkko tarvitse
-sisääntulevaa porttia. Tämä rakenne pitää Twitch- tai Kick-avaimen OBS:ssä ja
-antaa peruuttaa jokaisen laitteen erikseen. Sitä se **ei** tee, että
-yhdistäisi kaksi internetyhteyttä suuremman kapasiteetin linkiksi. VISP Native
-lähettää sen sijaan samat paketit Wi-Fiin ja mobiiliin, jotta kumpi tahansa kopio
-voi saapua. Se parantaa vikasietoisuutta summaamatta kaistoja.
+[VISP-rele](https://docs.visp-stream.com/fi/docs/architecture) sijaitsee
+julkaisevien laitteiden ja alustojen tai oman OBS:si välissä. Puhelin ottaa
+yhteyden ulospäin VISP:iin, ja Directissä rele tekee oman koodauksen jokaiselle
+kohteelle, joten puhelimessa ei ole stream-avainta. Jokaisen laitteen voi
+peruuttaa erikseen.
 
-Todellista niputusta voi lisätä kolmella yleisellä tavalla, ja ne elävät eri
+VISPin iOS- ja Android-sovelluksessa **Settings → Network → Network bonding**
+käyttää Wi-Fiä ja mobiiliyhteyttä yhtä aikaa. **Mode**-valinnassa on **SRTLA
+(aggregating)**, joka jakaa lähetyksen molemmille linkeille; **Broadcast**, joka
+lähettää jokaisen paketin molempia linkkejä pitkin ja käyttää ensin saapuvan
+kopion (enemmän varmuutta, noin kaksinkertainen mobiilidatan kulutus); sekä
+**Main + backup**, joka suosii yhtä linkkiä ja siirtyy tarvittaessa toiseen.
+Niputus on pois päältä, kunnes kytket sen päälle.
+
+Niputusta voi tehdä neljällä yleisellä tavalla, ja ne elävät eri
 kerroksissa:
 
-- **Enkooderissa** SRTLA:n kautta. Sovellukset kuten
-  [Moblin](/blog/moblin-remote-camera-obs-srt) ja BELABOX voivat levittää yhden
-  SRT-virran useaan linkkiin, mutta
+- **VISP-sovelluksessa** yllä kuvatulla Network bonding -asetuksella. Mitään
+  ei tarvitse asentaa, mutta se kattaa vain puhelimen oman Wi-Fin ja
+  mobiiliyhteyden.
+- **Kolmannen osapuolen enkooderissa** SRTLA:n kautta. Sovellukset kuten
+  [Moblin](/fi/blog/moblin-remote-camera-obs-srt) ja BELABOX voivat levittää
+  yhden SRT-virran useaan linkkiin.
   [BELABOXin SRTLA-projektin](https://github.com/BELABOX/srtla) mukaan tämä
-  vaatii vastaanottavan `srtla_rec`-pään, joka kokoaa linkit takaisin yhteen.
-  VISP ei ole tuo vastaanotin.
+  vaatii vastaanottavan `srtla_rec`-pään, ja VISP-rele ajaa sellaista. Ota
+  hallintapaneelin **Laitteet**-välilehdellä käyttöön **Näytä RTMP- ja
+  SRTLA-vara-osoitteet**, niin näet laitteen SRTLA-osoitteen.
 - **Erillisessä laitteistossa**, kuten
   [LiveU Solossa](https://solohelp.liveu.tv/hc/en-us/articles/16672822061339-Overview-of-the-Solo-PRO),
   joka yhdistää enkooderin ja kaupallisen niputuspalvelun. Tämä valinta
   käsitellään artikkelissa
-  [VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
+  [VISP vs BELABOX vs LiveU Solo](/fi/blog/visp-vs-belabox-vs-liveu-solo).
 - **Kaikkien sovellusten alla**, järjestelmätason niputus-VPN:n kuten Speedifyn
   kautta. Juuri tämä tapa antaa pitää nykyisen VISP-enkooderin
   ennallaan ja silti niputtaa uplinkin.
 
-Speedify on houkutteleva juuri siksi, että se on sovellusriippumaton. Sinun ei
-tarvitse vaihtaa enkooderia tai ajaa erillistä vastaanotinta; asennat sen
-kenttälaitteeseen, ja jokainen puhelimesta lähtevä virta — VISP-SRT-syöte mukaan
-lukien — kulkee niputetun tunnelin läpi.
+Speedify on houkutteleva siksi, että se on sovellusriippumaton. Sinun ei
+tarvitse vaihtaa enkooderia; asennat sen kenttälaitteeseen, ja jokainen
+puhelimesta lähtevä virta — VISP-SRT-syöte mukaan lukien — kulkee niputetun
+tunnelin läpi. Se voi niputtaa myös linkkejä, joita puhelinsovellus ei näe,
+kuten kannettavan enkooderin Ethernetin tai satelliittiyhteyden. Jos käytät
+Speedifyä, pidä VISPin Network bonding pois päältä, jotta testaat yhtä
+niputuskerrosta kerrallaan.
 
 ## Miten Speedify paikkaa aukon
 
@@ -83,11 +97,12 @@ voi ajaa samalla puhelimella, joka julkaisee VISP:iin.
 
 - VISP-tili kirjautuneena Twitchiin, Kickiin tai Googleen
 - Tavallinen VISP-julkaisijasi puhelimessa: natiivisovellus tai enkooderi kuten
-  [Larix Broadcaster](/blog/larix-broadcaster-obs-srt) tai Moblin
+  [Larix Broadcaster](/fi/blog/larix-broadcaster-obs-srt) tai Moblin
 - Speedify asennettuna samaan kenttälaitteeseen, vähintään kaksi toimivaa
   yhteyttä (esimerkiksi Wi-Fi ja mobiili, tai kaksi mobiilimodeemia)
-- OBS Studio tuotantokoneella
-- Paikallinen OBS-varascene kenttäkatkoja varten
+- Suunnitelma täyskatkoon: valinnainen BRB-kortti Directin kanssa tai
+  paikallinen OBS-varascene, jos tuotat OBS:ssä
+- Valinnaisesti OBS Studio tuotantokoneella
 - Kuulokkeet äänen tarkistukseen ilman paluutien kaikua
 
 Harjoittele samalla puhelimella, operaattoreilla, reitillä ja vuorokaudenajalla,
@@ -114,18 +129,21 @@ joten testaa se oikealla reitillä sillä bittinopeudella, jota todella lähetä
 
 ## 3. Julkaise VISP:iin tavallisella SRT:llä
 
-Mikään ei muutu VISP-asetuksissasi. Kirjaudu VISP:iin, avaa **Video sources**,
-valitse **Add device** ja anna sille käytännöllinen nimi kuten "roaming phone".
-Kopioi `srt://`-julkaisu-URL ja liitä se enkooderiisi, aivan kuten
-[puhelin etäkamerana -oppaassa](/blog/use-phone-as-remote-camera-obs). Käsittele
-koko URL:ää salasanana. Pidä SRT valittuna, ellei verkko estä UDP:tä; VISP
-tarjoaa RTMP-varan **Advanced**-tilassa, ja
-[videolähteen dokumentaatio](https://docs.visp-stream.com/docs/video-source)
+Mikään ei muutu VISP-asetuksissasi. VISP-sovelluksella kirjaudu sisään ja
+aloita lähetys tavalliseen tapaan; sovellus luo laitteensa itse. Kolmannen
+osapuolen enkooderilla avaa hallintapaneelin **Laitteet**-välilehti, valitse
+**Videolähteet**-kohdassa **Lisää laite** ja anna sille käytännöllinen nimi
+kuten "roaming phone". Kopioi `srt://`-lähetysosoite ja liitä se enkooderiisi,
+kuten [puhelin etäkamerana -oppaassa](/fi/blog/use-phone-as-remote-camera-obs).
+Käsittele koko URL:ää salasanana. Pidä SRT valittuna, ellei verkko estä UDP:tä;
+RTMP-osoitteen saat esiin asetuksella **Näytä RTMP- ja SRTLA-vara-osoitteet**,
+ja [videolähteen dokumentaatio](https://docs.visp-stream.com/fi/docs/video-source)
 näyttää tarkan kulun.
 
-Käytä H.264-videota ja AAC-ääntä, koska **VISP ei transkoodaa**: koodekki,
-resoluutio, ruutunopeus ja bittinopeus, jotka enkooderi lähettää, ovat juuri ne,
-jotka rele välittää OBS:ään. Valitse bittinopeus, jonka niputettu yhteys jaksaa
+Käytä H.264-videota ja AAC-ääntä. Directissä rele koodaa videon uudelleen
+jokaiselle alustalle mutta voi käyttää vain saapuvaa kuvaa; valinnaisella
+relay–OBS-polulla se ei transkoodaa lainkaan, joten enkooderin lähettämät
+koodekki, resoluutio, ruutunopeus ja bittinopeus ovat juuri ne, jotka OBS saa. Valitse bittinopeus, jonka niputettu yhteys jaksaa
 marginaalilla, älä yksittäisen nopeustestin huippua. Vakaa 720p30 voittaa
 nimellisen 1080p-syötteen, joka jatkuvasti jonottaa.
 
@@ -138,8 +156,10 @@ uudelleenlähetyksen, ja
 [SRT Alliancen yleiskatsaus](https://www.srtalliance.org/about-srt-technology/)
 selittää, miksi viiveikkuna on sidottu edestakaiseen viiveeseen. Speedify lisää
 Speed Server -hypyn ja oman kokoamisensa, joten todellinen edestakainen viive voi
-olla hieman pidempi kuin suoralla mobiilipolulla. Aja VISP:n viivemittaus sillä
-yhteydellä, jota todella käytät, valitse mobiiliprofiili ja jätä hieman
+olla hieman pidempi kuin suoralla mobiilipolulla. Kolmannen osapuolen
+enkooderit ottavat SRT-viiveen omista asetuksistaan (VISP-sovellus käyttää
+kiinteää ikkunaa). Aja VISP:n viivemittaus hallintapaneelin
+**Edistynyt**-välilehdeltä sillä yhteydellä, jota todella käytät, valitse mobiiliprofiili ja jätä hieman
 ylimääräistä pelivaraa sen sijaan, että pienentäisit arvoa pienemmän viiveen
 mainostamiseksi. VISP muuttaa seitsemän edestakaisen mittauksen mediaanin
 lähtösuosituksiksi:
@@ -155,53 +175,56 @@ viivettä samalla tavalla; VISP vain soveltaa varovaisempia alarajoja
 mobiilisyötteelle. Enkooderin puolen asetuksiin katso
 [broadcaster-dokumentaatio](https://docs.visp-stream.com/docs/broadcaster-setup).
 
-## 5. Tuo syöte OBS:ään ja harjoittele palautumista
+## 5. Tarkista lähtö ja harjoittele palautumista
 
-Enkooderisi käyttää **julkaisu-URL:ää**; OBS käyttää erillistä **luku-URL:ää**.
-Nopein OBS-asetus on parittaa VISP-liitännäinen, valita laite ja lisätä se
+Directillä seuraa hallintapaneelin **Etusivu**-välilehden esikatselua tai
+yksityistä testiä alustalla. Jos tuotat lisäksi OBS:ssä (valinnainen),
+enkooderisi käyttää **lähetysosoitetta** ja OBS erillistä **OBS-lukuosoitetta**
+**Kohteet**-välilehdeltä. Nopein OBS-asetus on parittaa VISP-liitännäinen, valita laite ja lisätä se
 nykyiseen sceneen, kuten kuvattu
 [VISP:n OBS-etähallinnassa](https://docs.visp-stream.com/docs/obs-remote-control).
 Se luo autentikoidun Media Sourcen paljastamatta julkista ohjausporttia. Voit
-myös tuoda valmiin scene-kokoelman, joka sisältää varascenen ja yhden
+myös ladata valmiin scene-kokoelman, joka sisältää varascenen ja yhden
 uudelleenyhdistyvän Media Sourcen laitetta kohden.
 
-Aja sitten lyhyt vikaharjoitus kohde vielä offline-tilassa:
+Aja sitten lyhyt vikaharjoitus ennen oikeaa lähetystä:
 
-1. Vahvista liike ja ääni OBS:ssä usean minuutin ajan.
+1. Vahvista liike ja ääni usean minuutin ajan.
 2. Katkaise toinen puhelimen yhteyksistä (pudota Wi-Fi, pidä mobiili).
 3. Katso, että syöte jatkuu jäljellä olevalla niputetulla linkillä.
 4. Palauta yhteys ja vahvista, että Speedify lisää sen takaisin.
-5. Katkaise nyt molemmat yhteydet ja vahvista, että OBS näyttää varascenen.
+5. Katkaise nyt molemmat yhteydet ja vahvista, että BRB-kortti (Direct) tai
+   OBS-varascene tulee näkyviin.
 6. Palauta verkko ja odota vakaata toistoa ennen kuin leikkaat takaisin.
 
 Vaiheet 2–4 todistavat, että niputus tekee tehtävänsä; vaiheet 5–6 todistavat,
-ettei niputuskaan voita täyskatkoa — juuri siksi pidät OBS-varascenen.
+ettei niputuskaan voita täyskatkoa — juuri siksi varasuunnitelma tarvitaan.
 Tuotantoon, jonka pitää viihdyttää katsojia minkä tahansa katkon aikana, seuraa
-[mobiiliverkon kestävyysopasta](/blog/keep-stream-live-bad-mobile-network).
+[mobiiliverkon kestävyysopasta](/fi/blog/keep-stream-live-bad-mobile-network).
 
 ## Speedify vs enkooderiniputus vs laitteisto
 
 Speedify on vähiten tunkeileva vaihtoehto: se kulkee minkä tahansa
 VISP-enkooderin alla ja niputtaa laitteen linkit. Sen kompromissit ovat
 tilausmaksu, ylimääräinen Speed Server -hyppy ja riippuvuus Speedifyn
-palvelimista kokoamisessa. Enkooderin **SRTLA** Moblinin tai BELABOXin kautta
-niputtaa itse SRT-virran ilman kolmannen osapuolen relettä, mutta se tarvitsee
-vastaavan SRTLA-vastaanottimen, jota VISP ei ole, joten päättäisit SRTLA:n
-muualla ja välittäisit tavallisen SRT:n VISP:iin. Erillinen laitteisto kuten
+palvelimista kokoamisessa. VISPin oma Network bonding ja enkooderin **SRTLA**
+Moblinin tai BELABOXin kautta niputtavat itse SRT-virran ilman kolmannen
+osapuolen palvelua; VISP-rele on SRTLA-vastaanotin. Ne niputtavat vain linkit,
+joihin kyseinen enkooderi pääsee. Erillinen laitteisto kuten
 LiveU Solo yhdistää enkooderin ja niputuspalvelun yhdeksi tuetuksi laitteeksi
 korkeammalla hinnalla. Valitse Speedify, kun haluat pitää nykyisen
-puhelintyönkulun ja vain kovettaa uplinkin; valitse SRTLA tai laitteisto, kun
+enkooderin ja vain kovettaa uplinkin; valitse VISPin niputus, SRTLA tai
+laitteisto, kun
 tarvitset niputuksen, joka ei riipu kuluttajan VPN-palvelusta.
 
 ## Mitä tämä kokoonpano ei tee
 
-VISPin relay-to-OBS-polku ei transkoodaa. Native monistaa paketteja ja Speedify
-voi aggregoida yhteyksiä, mutta kumpikaan ei voi keksiä kaistaa: jos molemmat linkit
-ovat samassa kohdassa kyllästyneet tai kuolleet, mikään niputustila ei pidä
-lähetystä hengissä — ja silloin OBS-varascene ansaitsee paikkansa. Vain yksi
-julkaisija voi omistaa VISP-laitepolun kerrallaan, joten anna jokaiselle
-puhelimelle oma laite ja OBS-lähde;
-[monen puhelimen IRL-opas](/blog/multi-phone-irl-stream-obs) näyttää, miten nuo
+Mikään niputuskerros ei voi keksiä kaistaa: jos molemmat linkit ovat samassa
+kohdassa kyllästyneet tai kuolleet, mikään niputustila ei pidä lähetystä
+hengissä — ja silloin BRB-kortti tai OBS-varascene ansaitsee paikkansa. Vain
+yksi julkaisija voi omistaa VISP-laitepolun kerrallaan, joten anna jokaiselle
+puhelimelle oma laite;
+[monen puhelimen IRL-opas](/fi/blog/multi-phone-irl-stream-obs) näyttää, miten nuo
 itsenäiset lähteet asettuvat OBS:ään. Speedify ei myöskään ole osa VISP:iä, ei
 ole VISP:lle pakollinen eikä VISP:n suosittelema — se on yksi kolmannen osapuolen
 kerros, joka sattuu sopimaan releen alle.
@@ -223,7 +246,8 @@ kierrätetty, korvaa vanha URL. Tämä ei liity Speedifyyn.
 
 ### VISP on Live, mutta OBS on tyhjä
 
-Varmista, että OBS:llä on luku-URL eikä julkaisu-URL, että **Local File** on pois
+Tämä koskee vain OBS:n käyttäjiä. Varmista, että OBS:llä on OBS-lukuosoite
+eikä lähetysosoite, että **Local File** on pois
 päältä, ja odota keyframea. Jos OBS:n luku-tunnus on kierrätetty, päivitä lähde.
 
 ### Viive tuntuu suurelta
@@ -235,19 +259,22 @@ että niputettu, koottu polku vaihtaa hieman viivettä kestävyyteen.
 ## Tarkistuslista ennen lähetystä
 
 - Speedify näyttää kaksi tai useampia aktiivisia yhteyksiä ja halutun tilan.
+- VISPin oma Network bonding on pois päältä Speedifyn ollessa käytössä.
 - Enkooderi julkaisee nykyisen VISP `srt://` -URL:n tavallisella SRT:llä.
 - H.264, AAC, orientaatio, keyframe-väli ja bittinopeus on testattu reitillä.
 - SRT-viive tulee mittauksesta oikealla niputetulla yhteydellä.
-- OBS käyttää erillistä luku-URL:ää ja saa kuvan ja äänen.
-- Yhden linkin pudotus pitää syötteen elossa; molempien pudotus näyttää varascenen.
-- Kohteen stream-avain pysyy vain OBS:ssä.
+- Direct-lähtö näyttää Live-tilan, tai OBS (jos käytössä) saa kuvan ja äänen.
+- Yhden linkin pudotus pitää syötteen elossa; molempien pudotus näyttää
+  BRB-kortin tai varascenen.
+- Puhelimeen ei kirjoiteta stream-avainta.
 
 ## Usein kysytyt kysymykset
 
 ### Korvaako Speedify VISP:n?
 
 Ei. Speedify on verkkokerros, joka niputtaa yhteyksiä; VISP on rele ja
-ohjaustaso, joka autentikoi laitteet ja syöttää OBS:ää. Ne ratkaisevat eri
+ohjaustaso, joka autentikoi laitteet ja lähettää syötteen alustoille tai
+omaan OBS:ääsi. Ne ratkaisevat eri
 ongelmia ja toimivat yhdessä — Speedify kovettaa uplinkin, VISP hallitsee
 syötettä.
 
@@ -259,15 +286,16 @@ ilman sitä.
 
 ### Onko Speedify ainoa tapa niputtaa VISP:lle?
 
-Ei. Voit niputtaa enkooderissa SRTLA:lla Moblinin tai BELABOXin kautta ja
-välittää tavallisen SRT:n VISP:iin, tai käyttää erillistä niputuslaitteistoa.
-Speedify on vaihtoehto, joka jättää nykyisen puhelintyönkulun ennalleen.
+Ei. VISP-sovelluksessa on oma Network bonding, Moblin tai BELABOX voi
+lähettää SRTLA:ta VISP-releen SRTLA-osoitteeseen, ja erillinen
+niputuslaitteisto on yksi vaihtoehto lisää. Speedify toimii minkä tahansa
+enkooderin alla muuttamatta sitä.
 
 ### Estääkö niputus lähetystäni koskaan putoamasta?
 
 Ei. Niputus ja SRT-palautuminen selviävät lyhyistä katkoista ja yksittäisen
-linkin vioista, mutta kumpikaan ei luo kaistaa. Pidä OBS-varascene täyskatkoa
-varten.
+linkin vioista, mutta kumpikaan ei luo kaistaa. Pidä BRB-kortti tai OBS-varascene
+täyskatkoa varten.
 
 ## Lähteet ja seuraavat askeleet
 
@@ -280,7 +308,7 @@ varten.
 - [VISP: lisää videolähde](https://docs.visp-stream.com/docs/video-source)
 - [VISP: enkooderit, SRT-viive ja vara](https://docs.visp-stream.com/docs/broadcaster-setup)
 
-Jos tuotat jo OBS:ssä ja haluat, ettei epävakaa kenttäyhteys enää lopeta
-lähetystäsi, [kokeile VISP:iä](https://visp-stream.com): luo yksi laite, julkaise
-SRT:llä, lisää sen alle niputuskerros kuten Speedify ja aja vikaharjoitus ennen
-seuraavaa livelähetystä.
+Jos epävakaa kenttäyhteys katkaisee lähetyksesi, [kokeile
+VISP:iä](https://visp-stream.com): aloita lähetys sovelluksesta, testaa sen
+Network bonding, lisää Speedify, jos tarvitset tunnelin toisen enkooderin alle,
+ja aja vikaharjoitus ennen seuraavaa livelähetystä.

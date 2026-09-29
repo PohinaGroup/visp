@@ -2,21 +2,21 @@
 title: "VISP vs BELABOX vs LiveU Solo: Choosing an IRL Streaming Setup"
 description: "Compare VISP, BELABOX, and LiveU Solo for IRL streaming, network bonding, hardware, OBS production, resilience, and setup complexity."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "Decision paths compare VISP, BELABOX, and LiveU Solo for IRL streaming"
 ---
 
 VISP, BELABOX, and LiveU Solo can all carry a field camera toward a live
 production, but they are not equivalent products. **Choose VISP when you want a
-phone to feed an existing home OBS studio. Choose BELABOX when you want a
+phone to go live directly or feed an existing home OBS studio. Choose BELABOX when you want a
 configurable bonded IRL encoder ecosystem. Choose LiveU Solo when dedicated
 commercial hardware and a managed bonding workflow justify the investment.**
 
-The decisive question is whether you need true bandwidth aggregation. VISP's
-native app can duplicate packets over Wi-Fi and cellular, but does not combine
-their capacity; its relay-to-OBS path does not transcode. BELABOX and LiveU are designed
-to combine multiple connections so the encoder can keep sending when one link
-degrades.
+The decisive question is how many independent links you need. VISP's native
+app has optional network bonding: its SRTLA mode combines the phone's Wi-Fi and
+cellular, and the relay also accepts SRTLA from BELABOX or Moblin. A phone still
+has only those two links. BELABOX and LiveU are designed around several modems
+or interfaces so the encoder can keep sending when one link degrades.
 
 ![Decision tree for selecting VISP, BELABOX, or LiveU Solo](./decision-tree.svg)
 
@@ -24,9 +24,10 @@ degrades.
 
 VISP is a self-hosted SRT/RTMP relay and control plane with phone and browser
 publishers. It authenticates remote cameras, brings their feeds into OBS, and
-lets the field operator send commands to the home OBS plugin. It assumes OBS
-continues to own scenes, graphics, alerts, encoding to the destination, and the
-Twitch or Kick stream key.
+lets the field operator send commands to the home OBS plugin. By default, VISP
+Direct encodes the feed on the relay for Twitch, Kick, or YouTube with no OBS in
+the path. In the optional relay-to-OBS workflow, OBS continues to own scenes,
+graphics, alerts, encoding to the destination, and the stream key.
 
 [BELABOX](https://belabox.net/) is an IRL encoding system for supported
 single-board computers and dedicated hardware. Its defining capabilities are
@@ -47,13 +48,13 @@ uplink.
 | Question | VISP | BELABOX | LiveU Solo |
 | --- | --- | --- | --- |
 | Primary field device | iOS/Android phone, browser, or compatible encoder | Supported DIY board or BELABOX hardware | Dedicated LiveU appliance |
-| Multiple-network behavior | Native dual-link packet duplication; no capacity aggregation | SRTLA bonding | LiveU managed bonding |
+| Multiple-network behavior | Optional phone Wi-Fi + cellular bonding (SRTLA or duplicate packets); relay accepts SRTLA senders | SRTLA bonding across several modems | LiveU managed bonding |
 | Dynamic bitrate | Depends on publishing app; supported by encoders such as Larix | Core feature | Managed by the LiveU workflow |
 | Feed into OBS | SRT/RTMP media source or VISP plugin | SRT from relay to OBS | Cloud workflow to configured destination |
-| Existing OBS production stays home | Yes | Yes, when relaying to OBS | Possible, depending on chosen destination workflow |
+| Existing OBS production stays home | Yes, optionally; Direct needs no OBS | Yes, when relaying to OBS | Possible, depending on chosen destination workflow |
 | Remote scene/start controls | VISP OBS plugin | Usually paired with separate production automation | Not VISP-style OBS control |
 | Self-hosting | VISP application and relay can be self-hosted | Encoder software is available; cloud capabilities have their own service model | Commercial service |
-| Transcoding in VISP path | No | Encoder handles encoding; cloud capabilities vary | Hardware encoder handles encoding |
+| Transcoding in VISP path | Direct: one relay encode per destination; relay-to-OBS: none | Encoder handles encoding; cloud capabilities vary | Hardware encoder handles encoding |
 
 This table describes product roles, not a reliability ranking. A phone on one
 carrier and a dedicated encoder using several independent carriers are not
@@ -88,15 +89,16 @@ publisher is available when installing a native app is not practical.
 
 That is a smaller field kit. It works well for city walks, venue coverage,
 remote guests, second cameras, and events where one mobile connection is
-usually adequate. The home studio continues streaming if a brief field drop
-occurs, so viewers can see a fallback scene rather than the destination stream
-ending.
+usually adequate. If a brief field drop occurs, the home studio can show a
+fallback scene, or Direct can hold the platform output on the optional
+**Never drop again** BRB card, rather than the destination stream ending.
 
 The limitation is equally simple: the field feed itself can still disappear
-until the phone reconnects. Native dual-link publishing can survive one path
-failing by duplicating packets, but VISP does not aggregate link capacity,
-transcode the relay-to-OBS feed, or host the final OBS production. If those are requirements,
-add the appropriate layer instead of expecting a relay to imitate it.
+until the phone reconnects. Optional bonding in the app can combine or
+duplicate the phone's Wi-Fi and cellular, but a phone offers at most those two
+links and no external modems. VISP also does not transcode the relay-to-OBS
+feed or host the final OBS production. If those are requirements, add the
+appropriate layer instead of expecting a relay to imitate it.
 
 ## Where BELABOX fits
 
@@ -157,14 +159,18 @@ field encoder and support path, evaluate LiveU Solo.
 
 ### Can VISP bond cellular and Wi-Fi?
 
-VISP Native can duplicate packets over Wi-Fi and cellular for failover. It does
-not aggregate their capacity; use a bonding service or encoder when both links
-must contribute bandwidth to one uplink.
+Yes, as an option. Under **Settings → Network → Network bonding** in the VISP
+app, the default **SRTLA (aggregating)** mode combines both links,
+**Broadcast** duplicates every packet over both for failover at roughly double
+the data use, and **Main + backup** prefers Wi-Fi. The relay also accepts SRTLA
+from BELABOX or Moblin. For more than two links, external modems, or a managed
+bonding service, BELABOX or LiveU remain the stronger fit.
 
 ### Can BELABOX send video into OBS?
 
 Yes. BELABOX documents cloud relays that receive bonded SRTLA and provide SRT
-for OBS or other software.
+for OBS or other software. A BELABOX can also send SRTLA to a VISP relay on UDP
+5000, which then feeds OBS or Direct.
 
 ### Does LiveU Solo replace OBS?
 

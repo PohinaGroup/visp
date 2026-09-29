@@ -14,9 +14,10 @@ export const Route = createFileRoute("/_auth/dashboard")({
 			context.queryClient.ensureQueryData(
 				context.trpc.studio.get.queryOptions(),
 			),
-			context.queryClient.ensureQueryData(
-				context.trpc.direct.list.queryOptions(),
-			),
+			// ponytail: status outage must not block the dashboard; the page shows it.
+			context.queryClient
+				.ensureQueryData(context.trpc.direct.list.queryOptions())
+				.catch(() => null),
 		]);
 		if (!status.onboardedAt && !paths.some((path) => path.publishRevealable)) {
 			throw redirect({
@@ -32,7 +33,7 @@ export const Route = createFileRoute("/_auth/dashboard")({
 		}
 		// ponytail: one-shot per tab session, or Studio's Dashboard button loops back here.
 		if (
-			direct.mode === "direct" &&
+			direct?.mode === "direct" &&
 			shouldEnterStudio(studio.settings) &&
 			!sessionStorage.getItem("visp:studio-entered")
 		) {

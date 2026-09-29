@@ -2,7 +2,7 @@
 title: "Kaveri tai muu vieras OBS:ään ilman lähetysavaimen jakamista"
 description: "Tuo kaverin tai muun vieraan kamera OBS:ään VISP-jakolinkillä ja pidä Twitch- tai Kick-tunnukset sekä lopullinen tuotanto kotona."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Suojausraja pitää suoratoistopalvelun lähetysavaimen OBS:ssä vieraan julkaistessa VISPin kautta"
 ---
 
@@ -15,17 +15,25 @@ hänen julkaista siihen selaimella ja peruuta laitteen tunnus striimin jälkeen.
 ## Erota vieraan feedi striimin lähetyksestä
 
 Vieraan selain lähettää kameran ja mikrofonin VISP-relaylle. OBS lukee suojatun
-syötteen, yhdistää sen kohtauksiin ja striimaa valmiin videon Twitchiin, Kickiin, Youtubeen Tiktokkiin jnejnejne.
+syötteen, yhdistää sen kohtauksiin ja striimaa valmiin videon Twitchiin, Kickiin, YouTubeen tai muuhun palveluun.
 Vieraan ei tarvitse nähdä OBS:n tunnuksia, muita scenejä tai muita kameroita.
 
 Tämä pienimmän oikeuden malli rajaa virheen tai vuodon yhteen vieraaseen. Sen
 tunnus voidaan vaihtaa vaikuttamatta muuhun tuotantoon.
 
+Malli olettaa, että lähetyksen tekee OBS. VISPin oletusulostulo on Suora, jossa
+relay lähettää laitteen syötteen suoraan yhdistettyihin palveluihin ja uusin
+julkaiseva laite voi ottaa ulostulon itselleen. Avaa ennen vieraan kutsumista
+hallintapaneelin **Tila**-valikko ja valitse **Puhelimesta omaan OBS:ään**,
+jotta vieraan syöte päätyy vain OBS:ään.
+
 ## Luo vieraalle julkaiseva laite
 
-Luo VISP-hallintapaneelissa uusi laite ja nimeä se vieraan tai striimiosuuden
-mukaan. Älä käytä vakituisen kuvaajan polkua tilapäiselle vieraalle. Lähetä
-vieraille vain selainjulkaisijan kutsu tai kyseisen laitteen julkaisuosoite.
+Avaa VISP-hallintapaneelin **Laitteet**-välilehti, kirjoita **Videolähteet**-kohdan
+**Laitteen nimi** -kenttään vieraan tai striimiosuuden mukainen nimi ja valitse
+**Lisää laite**. Älä käytä vakituisen kuvaajan polkua tilapäiselle vieraalle.
+Lähetä vieraalle vain kyseisen laitteen julkaisuosoite kohdasta **Lisää tämä
+videolähteeseen**.
 
 Sovi samalla käyttöaika ja kerro, että oikeus poistetaan esiintymisen jälkeen.
 Älä lähetä salaisia osoitteita julkisessa chatissa tai kalenterikutsun avoimessa
@@ -34,8 +42,11 @@ kuvauksessa.
 ## Käytä selainsovellusta
 
 Selain on vieraalle helpoin vaihtoehto, koska asennusta ei tarvita. Vieras avaa
-kutsun, kirjautuu tarvittaessa, sallii kameran ja mikrofonin, valitsee oikeat
-laitteet ja aloittaa lähetyksen.
+selainsovelluksen osoitteessa `stream.visp-stream.com`, liittää saamansa
+osoitteen käsin kirjautumatta, sallii kameran ja mikrofonin, valitsee oikeat
+laitteet ja aloittaa lähetyksen. Älä pyydä vierasta kirjautumaan omalla
+Twitch-, Kick- tai Google-tilillään: silloin laitteet syntyvät hänen tililleen,
+eivät sinun.
 
 Pyydä vierasta käyttämään kuulokkeita ja sulkemaan muut kameraa käyttävät
 sovellukset. Tee tekninen testi samalla laitteella ja verkolla, jota vieras
@@ -44,7 +55,9 @@ on SRT:tä tukeva sovellus.
 
 ## Lisää vieras OBS:ään
 
-Lisää vieraan laite VISP OBS -lisäosalla tai käsin medialähteenä. Tee oma
+Lisää vieraan laite valinnaisella VISP OBS -lisäosalla (**Tools → VISP Remote
+Control** ja **Add to scene**) tai käsin medialähteenä hallintapaneelin
+OBS-lukuosoitteella. Tee oma
 skene, jossa rajaus, värikorjaus, äänenvoimakkuus ja viive säädetään.
 Käytä sitä striimin varsinaisissa skeneissä lähteenä.
 
@@ -57,32 +70,34 @@ striimikuvaan.
 
 ## Pidä myös OBS-ohjaus erillisenä
 
-Useimmat vieraat tarvitsevat vain julkaisu-oikeuden. Jos vieras toimii samalla
-etäohjaajana, anna hänelle erikseen rajattu OBS-ohjaus VISP-lisäosan kautta.
-Älä jaa OBS WebSocket -salasanaa tai avaa ohjausporttia julkiseen internetiin.
+Vieras tarvitsee vain julkaisuoikeuden. Julkaisuosoite ei anna OBS-ohjausta:
+etäkomennot tulevat vain sovelluksista, jotka on kirjattu sinun VISP-tiliisi.
+VISPissä ei ole erillistä vierasohjaajan roolia, joten älä jaa tilisi
+kirjautumista sellaisen luomiseksi. Älä myöskään jaa OBS WebSocket -salasanaa tai
+avaa ohjausporttia julkiseen internetiin.
 
 ## Peru oikeus esiintymisen jälkeen
 
-Kierrätä tai poista vieraan julkaisutunnus heti striimin jälkeen verkkosivuilta. Poista myös
-mahdollinen OBS-ohjausoikeus ja varmista, ettei kutsua voi käyttää uudelleen.
+Kierrätä tai poista vieraan julkaisutunnus heti striimin jälkeen
+hallintapaneelin **Laitteet**-välilehdellä. Näin vanhaa osoitetta ei voi käyttää
+uudelleen.
 
 ## Tuottajan tarkistuslista
 
 ### Ennen striimiä
 
-- Luo vieraalle oma nimetty laite ja lähetä rajattu kutsu.
+- Luo vieraalle oma nimetty laite ja lähetä sen julkaisuosoite yksityisesti.
 - Testaa kamera, mikrofoni, kuulokkeet, verkko ja selaimen oikeudet.
-- Rakenna OBS-skene ja mahdollinne fallback skene.
+- Rakenna OBS-skene ja mahdollinen fallback-skene.
 - Sovi puhelu esimerkiksi Discordiin ja toimintatapa katkon varalle.
 
-### striimin aikana
+### Striimin aikana
 
 - Seuraa vieraan syötettä ja ääntä.
 
-### striimin jälkeen
+### Striimin jälkeen
 
 - Kierrätä vieraan julkaisutunnus.
-- Poista mahdollinen etäohjausoikeus.
 - Kirjaa havaitut verkko- ja viiveongelmat seuraavaa kertaa varten.
 
 ## Usein kysyttyä
@@ -90,7 +105,7 @@ mahdollinen OBS-ohjausoikeus ja varmista, ettei kutsua voi käyttää uudelleen.
 ### Tarvitseeko vieras Twitch- tai Kick-tunnukseni tai oman tunnuksensa?
 
 Ei. Vieras saa vain oman kameransa julkaisu-oikeuden. OBS säilyttää kohdepalvelun
-lähetysavaimen. Vieras voi syöttää sinun antaman linkin käsin VISP mobiili- tai selainsovellukseen
+lähetysavaimen. Vieras voi syöttää antamasi osoitteen käsin VISPin mobiili- tai selainsovellukseen.
 
 ### Voiko vieras liittyä asentamatta sovellusta?
 

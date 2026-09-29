@@ -2,6 +2,7 @@
 title: "How to Multistream From Your Phone to Twitch, Kick, and Custom RTMP"
 description: "Send one phone IRL feed to Twitch, Kick, YouTube, and a custom RTMP, RTMPS, or SRT endpoint with VISP Direct and no OBS output."
 publishedAt: 2026-08-30
+updatedAt: 2026-09-29
 coverAlt: "An IRL creator sends one phone feed through a relay to landscape, vertical, and custom server destinations"
 ---
 
@@ -24,8 +25,9 @@ or a producer who needs to change the program before it goes public.
 ## What the custom output changes
 
 The phone sends one H.264 and AAC contribution to VISP. Direct decodes that
-contribution and creates a separate H.264 and stereo AAC distribution encode
-for every enabled output. RTMP and RTMPS destinations use an FLV container.
+contribution and re-encodes it as H.264 and stereo AAC for distribution, then
+runs a separate forwarder for every enabled output. Outputs with the same
+framing can share one relay encode; a portrait output gets its own. RTMP and RTMPS destinations use an FLV container.
 SRT destinations use MPEG-TS.
 
 This distinction matters for capacity planning:
@@ -39,7 +41,7 @@ This distinction matters for capacity planning:
 
 VISP Direct therefore differs from a service that copies an already
 platform-ready stream unchanged. The phone still encodes its contribution, and
-the relay performs one distribution encode per destination. The [VISP Direct
+the relay re-encodes before forwarding to each destination. The [VISP Direct
 guide](https://docs.visp-stream.com/docs/direct-output) explains that boundary
 and the relay capacity check that runs before publishing starts.
 
@@ -102,7 +104,7 @@ stopped while the device remains live.
 2. Get the complete publisher URL from the receiving service. If the service
    shows a server and key separately, follow its documentation to construct the
    final URL.
-3. Open **Direct output** in the VISP dashboard.
+3. Open the **Destinations** tab in the VISP dashboard.
 4. Under **Custom destinations**, choose **Add custom destination**.
 5. Enter a short name and the complete RTMP, RTMPS, or SRT URL.
 6. Save the destination, then enable it for the correct publishing device.
@@ -147,8 +149,8 @@ Set that metadata at the receiving service and verify its public page there.
 
 Every Direct output uses one forwarder slot. Twitch plus Kick plus one custom
 RTMPS endpoint needs three slots. A separate portrait output needs another
-slot. The phone still sends one contribution, but the relay performs more
-encoding and sends more outbound data.
+slot. The phone still sends one contribution, but the relay does more work and
+sends more outbound data.
 
 If the relay cannot reserve all required slots, VISP blocks the new publish or
 marks an individual output unavailable rather than pretending that every

@@ -2,6 +2,7 @@
 title: "How to Stream to Twitch Without a PC at Home"
 description: "Go live on Twitch, Kick, or YouTube from a phone or browser with no computer running at home, and learn what you give up by leaving OBS out of the path."
 publishedAt: 2026-08-09
+updatedAt: 2026-09-29
 coverAlt: "The VISP signal chain showing a phone publishing through the relay and Direct to a streaming platform with no home computer"
 ---
 
@@ -25,8 +26,8 @@ AAC stream. There are exactly three places that can happen:
 2. **In a cloud OBS.** Services like IRLToolkit and Streamable.run run OBS on a
    server for you, from $120–180 a month. You get scenes and overlays with it.
 3. **In the relay itself.** The phone sends one contribution feed; the relay
-   decodes it and creates a separate distribution encode per platform. This is
-   what VISP calls Direct, and it is what this guide uses.
+   decodes it, re-encodes it for distribution, and runs a separate forwarder per
+   platform. This is what VISP calls Direct, and it is VISP's default output.
 
 The third option is the cheapest way to get the home computer out of the picture,
 because you are not paying to rent an OBS you were not going to use.
@@ -38,8 +39,9 @@ Three steps, and none of them involve a stream key.
 ### 1. Authorize the destination
 
 Sign in and connect Twitch, Kick, or YouTube once. VISP stores the *destination*,
-not a key you carry around. You can connect more than one account and choose
-where to send at the moment you go live.
+not a key you carry around. You can connect more than one account and enable
+any combination of them as outputs from the dashboard **Destinations** tab or the
+phone app's settings.
 
 This matters more than it sounds. VISP resolves the authorized platform
 credentials on the server while the output starts, and never returns them to the
@@ -73,10 +75,10 @@ before you rely on this:
 - **Multi-camera cuts.** You can hand off between devices — the newest offline
   device takes ownership when it goes live — but that is a handoff, not a
   vision mix.
-- **Bandwidth aggregation.** The native app can duplicate packets across Wi-Fi and
-  cellular so one link dropping does not kill the stream. It does not aggregate
-  them. For true bonding, see
-  [VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
+- **Multi-modem bonding.** The native app's optional network bonding can
+  combine one phone's Wi-Fi and cellular with SRTLA, or duplicate packets over
+  both for failover. It cannot add more modems or SIMs. For bigger bonded rigs,
+  see [VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
 
 ## Adding OBS back later, for the sessions that need it
 
@@ -87,7 +89,9 @@ like:
 
 - Tuesday walk-and-talk: phone straight out, no computer.
 - Saturday show with graphics and a second camera: same phone, same relay, but
-  OBS at home reads the feed and builds the production.
+  OBS at home reads the feed and builds the production. Switch the dashboard
+  **Mode** menu to **Phone to your OBS** for that session so OBS, not Direct,
+  sends to Twitch; two senders on one stream key conflict.
 
 Setup for the second case is the
 [phone as a remote camera in OBS](/blog/use-phone-as-remote-camera-obs) guide, and
@@ -124,9 +128,11 @@ leave.
 ## What happens when the connection drops
 
 A relay cannot create bandwidth where none exists. If the phone loses every
-usable route, new video stops arriving. VISP can duplicate packets across Wi-Fi
-and cellular in the native app, allowing either path to deliver the same stream,
-but duplication is not aggregation. The full bitrate must fit through each path.
+usable route, new video stops arriving. The native app's optional network
+bonding helps when at least one route survives: the default **SRTLA
+(aggregating)** mode spreads the stream across Wi-Fi and cellular, while
+**Broadcast** sends every packet over both so either can carry it alone, at
+roughly double the mobile data.
 
 Tune the stream before buying more networking equipment. Lower the bitrate, test
 720p instead of 1080p, and compare carriers along the real route. If no single
@@ -135,7 +141,9 @@ appropriate next step. Our [bad-network guide](/blog/keep-stream-live-bad-mobile
 explains how to distinguish encoder overload, relay trouble, and field upload
 loss.
 
-Plan a visible fallback as well. Tell viewers how long you will try to reconnect,
+Plan a visible fallback as well. Direct can hold the broadcast on an optional
+BRB card (dashboard **BRB** tab, off by default) while the phone reconnects.
+Tell viewers how long you will try to reconnect,
 keep chat accessible on another device if possible, and have a moderator post an
 update. A no-PC stream has fewer machines to monitor, but it still benefits from
 a simple failure plan.

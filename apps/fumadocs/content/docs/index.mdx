@@ -12,9 +12,11 @@ Direct resolves the selected destination with OAuth consent only while forwardin
 runs. Twitch and Kick keys are held in memory; YouTube uses a newly created public
 broadcast and its ingest destination. Relay encoder capacity is reserved before Go Live.
 The optional relay-to-OBS workflow never uses the provider stream key.
-The dashboard starts in **Simple** mode with labeled copyable URLs; switch to
-**Advanced** for RTMP fallbacks, read credentials, and latency tuning. If you
-get stuck during setup or on the dashboard, ask **Seppo** for help.
+The dashboard is split into **Home**, **Destinations**, **Devices**, **BRB**,
+**Chat**, and **Advanced** tabs. Home shows only status and the next step; RTMP
+and SRTLA fallback URLs, OBS read credentials, and latency tuning stay in their
+own tabs until you need them. If you get stuck during setup or on the
+dashboard, ask **Seppo** for help.
 
 ## Start here
 
@@ -24,12 +26,12 @@ get stuck during setup or on the dashboard, ask **Seppo** for help.
   the Apple Watch companion.
 - [Add a video source](/docs/video-source) — paste a device sending URL into
   OBS, Larix, Moblin, or another encoder.
-- [Chat bot](/docs/chat-bot) — live, BRB, and back alerts in chat, plus
+- [Chat bot](/docs/chat-bot) — optional live, BRB, and back alerts in chat, plus
   commands like `!bitrate`.
-- [OBS remote control](/docs/obs-remote-control) — install and pair the plugin
-  for start, stop, and scene switching.
-- [Encoders and fallback](/docs/broadcaster-setup) — Larix/Moblin, SRT latency
-  tuning, and Advanced Scene Switcher.
+- [OBS remote control](/docs/obs-remote-control) — optional: install and pair
+  the plugin for start, stop, and scene switching.
+- [Encoders and fallback](/docs/broadcaster-setup) — Larix/Moblin, SRTLA
+  bonding, SRT latency tuning, and optional Advanced Scene Switcher macros.
 
 ## Operators
 
@@ -44,7 +46,5 @@ get stuck during setup or on the dashboard, ask **Seppo** for help.
 
 ## What VISP does not do
 
-The ordinary relay-to-OBS path does not transcode. VISP Native can duplicate SRT
-packets over Wi-Fi and cellular for resilience, but it does not combine their
-bandwidth. VISP does not host OBS. MediaMTX accepts one publisher per path: the
+The optional relay-to-OBS path does not transcode. VISP does not host OBS. MediaMTX accepts one publisher per path: the
 first wins until it disconnects.

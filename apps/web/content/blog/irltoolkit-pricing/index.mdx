@@ -2,11 +2,11 @@
 title: "IRLToolkit Pricing Explained: What $129 or $179 a Month Buys"
 description: "See IRLToolkit's current Standard and Advanced pricing, what each cloud OBS plan includes, and when a simpler VISP workflow fits."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-28
 coverAlt: "Cloud production tiers are weighed against a simpler phone relay and home studio workflow"
 ---
 
-As of August 23, 2026, IRLToolkit lists its Standard cloud OBS plan at **$129
+As of September 28, 2026, IRLToolkit lists its Standard cloud OBS plan at **$129
 per month** and Advanced at **$179 per month**. Standard includes a dedicated
 cloud OBS environment, one generic ingest and multistreaming to two
 destinations. Advanced removes the listed resolution and output-bitrate caps,
@@ -35,7 +35,7 @@ GPU resources, RTMP/SRT output, scenes, text, images, media files and browser
 sources. That is why comparing the subscription with a bare relay is misleading:
 IRLToolkit is selling a hosted production environment, not only transport.
 
-Prices and included limits above were checked on the publication date. They are
+Prices and included limits above were last checked on September 28, 2026. They are
 not a promise that a future invoice will match this article. Taxes, payment
 terms, data plans and any separately purchased encoder hardware are outside
 this table.
@@ -107,14 +107,14 @@ is free.
 
 VISP is not a hosted copy of full cloud OBS. It is a self-hosted SRT/RTMP relay
 and control plane. A phone, browser or third-party encoder publishes to an
-authenticated device path. Existing OBS at home reads that feed, keeps the
-Twitch or Kick key, and continues to own scenes, alerts, recording and final
-encoding.
+authenticated device path. By default, Direct then encodes that feed on the
+relay for each selected Twitch, Kick, or YouTube destination, with no computer
+at home. Optionally, existing OBS at home reads the feed instead, keeps the
+Twitch or Kick key, and owns scenes, alerts, recording and final encoding.
 
-VISP is free during beta. That makes it appealing for a creator who already owns
-the phone and home computer and does not need a managed cloud production
-environment. It can also use Direct delivery for a smaller phone-to-platform
-show, with one encode per destination, when home OBS is unnecessary.
+VISP is free during beta. That makes it appealing for a phone-to-platform show
+that does not need a managed cloud production environment, or for a creator who
+already owns a home computer running OBS.
 
 The tradeoffs are real:
 
@@ -125,9 +125,9 @@ The tradeoffs are real:
 | VISP Direct | No home OBS for a simple output | Relay configuration, destination setup and a simpler production ceiling |
 
 VISP relay-to-OBS does not transcode the contribution feed. VISP Native's
-dual-link mode sends duplicate packets and does not add network capacities.
-Third-party SRTLA encoders can use the current SRTLA ingest when true multipath
-transport is needed. None of these paths includes a remote cloud OBS operator
+optional network bonding defaults to SRTLA, which combines Wi-Fi and cellular
+capacity through the relay's SRTLA ingest; third-party SRTLA encoders can use
+the same ingest. None of these paths includes a remote cloud OBS operator
 or replaces the support model in a paid service.
 
 The full [IRLToolkit alternative guide](/blog/irltoolkit-alternative) compares
@@ -187,6 +187,6 @@ and test the complete route before moving a live show.
 The headline answer remains simple: IRLToolkit currently lists $129 and $179
 monthly plans, but those prices buy cloud production, not merely a video pipe.
 If that production is the missing part of your show, compare the tiers. If it
-is not, [try VISP](https://app.visp-stream.com) with the OBS setup you already
+is not, [try VISP](https://visp-stream.com) with the OBS setup you already
 own and pay for additional infrastructure only when a measured requirement
 appears.

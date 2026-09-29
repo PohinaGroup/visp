@@ -73,7 +73,7 @@ Open the camera preview, then go to **Settings → Camera**. The **Image
 stabilization** switch appears only when the selected camera, resolution, and
 frame rate report a supported stabilization path. VISP checks that combination
 on the device instead of promising one setting for every iPhone or Android
-phone.
+phone. The switch is on by default wherever it appears.
 
 When enabled, VISP requests the native platform's supported stabilization
 before the phone encodes the H.264 contribution. On iOS it requests Apple's
@@ -100,15 +100,16 @@ that combination did not report stabilization support. Return to a simpler
 baseline rather than assuming the app is broken:
 
 1. select the rear camera;
-2. choose 1280×720;
-3. choose 30 fps;
+2. choose **Stream quality → Reliable · 720p30**, or 1280×720 and 30 fps;
+3. keep the other settings unchanged;
 4. confirm that **Image stabilization** appears;
-5. enable it and start the preview;
+5. check that it is on and start the preview;
 6. move upward one setting at a time only if the stream needs it.
 
-VISP prefers 720p when available and prefers 30 fps for the selected format.
-That is a practical starting point for mobile IRL production, not a claim that
-every phone stabilizes 720p30 equally well. The app uses the capabilities
+VISP starts at 1080p when the camera offers it, otherwise 720p, and prefers
+30 fps for the selected format. For a stabilization test, 720p30 is a practical
+starting point for mobile IRL production, not a claim that every phone
+stabilizes it equally well. The app uses the capabilities
 reported by the actual camera and encoder.
 
 Android's official

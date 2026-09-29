@@ -85,6 +85,10 @@ procedure is in the
 Lowering a cellular value below its recommendation may make a clean desk test
 look faster while leaving too little time to repair loss outdoors.
 
+The probe value is for encoders where you set SRT latency yourself, such as
+Larix, Moblin, or OBS. The VISP native app currently uses a fixed 2,000 ms SRT
+latency, which already sits above the cellular floor.
+
 Treat SRT latency as a reliability budget, not as the final viewer delay. It
 does not include phone capture, video encoding, OBS decoding and compositing,
 the final OBS encode, platform processing, or the viewer's player. Haivision's
@@ -112,10 +116,11 @@ encode; OBS receives the same H.264/AAC program the publisher sent.
 
 ### Redundancy is not a low-latency switch
 
-VISP Native can send duplicate SRT packets over Wi-Fi and cellular, while SRTLA
-senders can distribute packets across more than one link. Either approach can
-reduce the effect of one bad path. Neither makes propagation instant, and the
-native duplicate mode does not combine both links into one larger upload.
+The VISP app's optional network bonding can send over Wi-Fi and cellular at
+once: its default SRTLA mode spreads packets across both links, and its
+**Broadcast** mode sends duplicate packets over each. Moblin, BELABOX, and other
+SRTLA senders work the same way against VISP's relay. Either approach can
+reduce the effect of one bad path. Neither makes propagation instant.
 
 Set latency for the weakest link that may carry the stream. Turning on a second
 connection and then cutting the SRT window assumes both networks will always be

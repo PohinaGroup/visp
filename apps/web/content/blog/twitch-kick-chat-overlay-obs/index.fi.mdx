@@ -2,7 +2,7 @@
 title: "Näin lisäät Twitch- ja Kick-chatin OBS:ään Browser Source -lähteenä"
 description: "Lisää Twitch- tai Kick-chat OBS:ään yhdellä peruttavalla Browser Source -URL:lla, läpinäkyvällä asettelulla ja turvallisilla asetuksilla."
 publishedAt: 2026-08-09
-updatedAt: 2026-08-09
+updatedAt: 2026-09-29
 coverAlt: "Kotistudion näytöllä näkyy IRL-kaupunkikuvan päällä violetteja ja vihreitä tekstittömiä chat-rivejä"
 ---
 
@@ -18,6 +18,12 @@ Voit vaihtaa tai perua URL:n muuttamatta medialähdettä tai alustan
 lähetysavainta.
 
 ![Twitchin ja Kickin chat-yhteydet syöttävät viestit peruttavalla tunnuksella suojattuun läpinäkyvään overlayhin, jonka OBS sijoittaa kameralähteen päälle](./chat-browser-source-flow.svg)
+
+Päällys näkyy katsojille vain, kun OBS lähettää lopullisen ohjelman, joten tämä
+opas käyttää hallintapaneelin **Tila**-valikon valinnaista tilaa
+**Puhelimesta omaan OBS:ään**. VISPin oletusulostulossa Suorassa relay lähettää
+puhelimen syötteen palveluun, eikä OBS:n Browser Source kuulu siihen
+lähetykseen.
 
 Tämä ei ole sama asia kuin chatin lukeminen OBS-dockissa tai kenttäpuhelimessa.
 **Dock** näkyy vain tuottajalle. **Browser Source** on osa sceneä, joten se voi
@@ -46,7 +52,7 @@ sallii yhdistävät työkalut henkilökohtaiseen käyttöön, mutta ohjelmassa n
 Browser Source ei ole henkilökohtaista käyttöä.
 
 VISPin nykyinen overlay näyttää kaikki käyttäjätilillä käyttöön otetut
-chat-yhteydet. URL:ssa ei ole alustakohtaista suodatinta. Jos sekä Twitch että
+chat-yhteydet, myös YouTuben, jos olet ottanut sen käyttöön. URL:ssa ei ole alustakohtaista suodatinta. Jos sekä Twitch että
 Kick ovat käytössä, käsittele URL:ia yhdistettynä overlayna. Kun sama
 OBS-ohjelma lähtee molemmille alustoille, pidä overlay pois lähetyskuvasta tai
 poista muu kuin Twitch-chat käytöstä ennen simulcastia. Pelkkään
@@ -76,18 +82,18 @@ uudet viestit.
 
 ## 1. Linkitä ja ota käyttöön oikea chat-yhteys
 
-Avaa VISPin hallintapaneelin **Chat connections**. Jokaisella alustalla on kaksi
+Avaa VISPin hallintapaneelin **Chat**-välilehdeltä **Chat-yhteydet**. Jokaisella alustalla on kaksi
 erillistä päätöstä:
 
-1. **Link** liittää kanavan VISP-tiliisi.
-2. **Authorize chat** tai **Enable chat** ottaa vain lukemiseen tarkoitetut
+1. **Yhdistä** liittää kanavan VISP-tiliisi.
+2. **Valtuuta chat** tai **Ota chat käyttöön** ottaa vain lukemiseen tarkoitetut
    liveviestit käyttöön.
 
 Twitchiä varten VISP pyytää
 [`channel.chat.message`-EventSub-tilauksen](https://dev.twitch.tv/docs/eventsub/eventsub-subscription-types/#channel-chat-message)
 tarvitseman chat-luvan. Twitch luettelee taustalla olevat oikeudet virallisessa
 [scope-viitteessään](https://dev.twitch.tv/docs/authentication/scopes/). Jos
-hallintapaneelissa lukee **Authorize chat**, tee suostumusvaihe uudelleen. Älä
+hallintapaneelissa lukee **Valtuuta chat**, tee suostumusvaihe uudelleen. Älä
 oleta tavallisen sisäänkirjautumisen antaneen chat-lupaa.
 
 Kickissä chatin käyttöönotto luo tilauksen
@@ -103,7 +109,7 @@ aiempaa viestihistoriaa.
 
 ## 2. Luo ja suojaa Browser Source -URL
 
-Avaa yhteyslistan alta **OBS chat overlay** ja valitse **Generate overlay URL**.
+Avaa yhteyslistan alta **OBS-chatpäällys** ja valitse **Luo päällysosoite**.
 Kopioi koko URL heti ja vie se salasananhallintaan tai suoraan OBS:ään.
 Hallintapaneeli ei näytä samaa selväkielistä tunnusta uudelleen sivun tilan
 kadottua.
@@ -115,9 +121,9 @@ Käsittele URL:ia scene-tunnuksena:
 - vaihda URL vahingossa tapahtuneen paljastumisen jälkeen;
 - peru URL, kun kyseisellä OBS-asennuksella ei enää saa olla chat-yhteyttä.
 
-**Rotate overlay URL** korvaa nykyisen salaisuuden. Vanha Browser Source näyttää
+**Vaihda päällysosoite** korvaa nykyisen salaisuuden. Vanha Browser Source näyttää
 seuraavan uudelleenlatauksen tai -yhdistämisen jälkeen perutun URL:n virheen,
-kunnes liität OBS:ään uuden URL:n. **Revoke overlay URL** estää uusien
+kunnes liität OBS:ään uuden URL:n. **Mitätöi päällysosoite** estää uusien
 overlay-yhteystunnusten luonnin irrottamatta Twitch- tai Kick-tiliä ja
 muuttamatta puhelimen tai OBS-medialähteen tunnuksia. Jos overlay on jo
 yhteydessä, peru URL ja päivitä tai poista Browser Source yhteyden
@@ -213,12 +219,13 @@ lähdetyönkulkua, joka säilyttää kameran erikseen.
 ### Browser Source on täysin tyhjä
 
 Se on normaali lepotila. Sivu on täysin läpinäkyvä, kunnes uusi liveviesti
-saapuu. Varmista, että oikea alusta on linkitetty ja chat käytössä. Lähetä uusi
+saapuu. Lisää vianetsinnän ajaksi URL:n loppuun `&debug=1`, niin sivu näyttää
+yhteyden tilan. Varmista, että oikea alusta on linkitetty ja chat käytössä. Lähetä uusi
 viesti vasta lähteen latauduttua. Aiempia viestejä ei toisteta.
 
 ### Toinen alusta näkyy ja toinen ei
 
-Tarkista **Chat connections**. Hiljaisen alustan pitää olla linkitetty,
+Tarkista **Chat-yhteydet**. Hiljaisen alustan pitää olla linkitetty,
 valtuutettu ja käytössä. Jos simulcastaat Twitchiin, pysähdy ennen molempien
 käyttöönottoa: Twitchin nykyiset simulcasting-ehdot rajoittavat yhdistetyn
 chatin näyttämistä ohjelmassa.
@@ -258,9 +265,8 @@ Tee nämä ennen julkista lähetystä:
 
 VISP pitää työnkulun tarkoituksella pienenä. Alustachat saapuu peruttavalla
 URL-tunnuksella, OBS päättää läpinäkyvän kerroksen näkymisestä ja alla oleva
-kameralähde pysyy uudelleenkäytettävänä. VISPin tavallinen relay-to-OBS-reitti
-ei edelleenkään transkoodaa puhelinsyötettä eikä yhdistä verkkoyhteyksien
-kapasiteettia.
+kameralähde pysyy uudelleenkäytettävänä. VISPin relay-to-OBS-reitti
+ei edelleenkään transkoodaa puhelinsyötettä.
 
 Jos käytät jo VISP-puhelinta IRL-kamerana, tee ensin
 [puhelin-OBS-opas](/fi/blog/use-phone-as-remote-camera-obs) ja testaa sitten

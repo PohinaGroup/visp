@@ -2,6 +2,7 @@
 title: "Ulkoisen mikrofonin käyttö puhelimen IRL-lähetyksessä"
 description: "Kytke ja varmista ulkoinen puhelinmikrofoni Twitch- tai Kick-IRL-lähetykseen ja ehkäise väärä äänitulo, särö sekä reitityksen häiriöt."
 publishedAt: 2026-08-14
+updatedAt: 2026-09-28
 coverAlt: "IRL-sisällöntuottajalla on pieni ulkoinen mikrofoni, ja puhdas ääniaalto kulkee puhelimesta kohti kotistudiota"
 ---
 
@@ -187,7 +188,9 @@ takaa, että irronnut äänitulo vaihtuisi siististi kesken suoran lähetyksen.
 Pidä irronnut vastaanotin tai sammunut langaton lähetin lähetysvirheenä, älä
 saumattomana tulonvaihtona. Kun VISP päivittää asetukset eikä tallennettua
 äänituloa enää löydy, se poistaa kadonneen valinnan ja palaa kohti järjestelmän
-oletusta. Käyttöjärjestelmä määrää edelleen toteutuneen reitin. Pysäytä, kytke,
+oletusta. Livenä sovellus tarkistaa valitun tulon muutaman sekunnin välein ja
+näyttää varoituksen "Selected microphone disconnected", jos tulo katoaa.
+Käyttöjärjestelmä määrää edelleen toteutuneen reitin. Pysäytä, kytke,
 valitse ja varmista siis uudelleen aina, kun tuotanto sallii sen.
 
 Pidä OBS-tuotannossa paikallinen varakohtaus valmiina kenttäoperaattorin

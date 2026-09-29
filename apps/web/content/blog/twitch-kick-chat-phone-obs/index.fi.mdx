@@ -2,7 +2,7 @@
 title: "Twitch- ja Kick-chatin seuraaminen puhelimella OBS-lähetyksen aikana"
 description: "Seuraa Twitchin ja Kickin chatteja yhdellä puhelimella OBS-lähetyksen aikana ja valitse yksityinen kelluva näkymä tai kuvaan upotettu chat."
 publishedAt: 2026-07-25
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Sisällöntuottaja pitää puhelinta, jossa näkyy tyhjiä sinisiä ja vihreitä chat-kuplia kotistudion tuotantopöydän vieressä"
 ---
 
@@ -15,6 +15,7 @@ esikatselun päällä, vaikka varsinainen tuotanto pyörii kotikoneen OBS:ssä.
 Kelluva näkymä on vain kuvaajan apuväline. Se ei näy kameralähteessä eikä
 valmiissa lähetyksessä. VISPin Embedded-tila voi haluttaessa piirtää chatin
 pysyvästi puhelimen lähettämään kuvaan, mutta kyseessä on eri tuotantovalinta.
+Myös yhdistetty YouTube-chat voi näkyä samassa näkymässä.
 
 ![Twitch- ja Kick-chat kulkevat VISPin kautta puhelimeen erillään SRT-kamerasyötteestä, jonka OBS vastaanottaa](./chat-video-paths.svg)
 
@@ -27,7 +28,7 @@ muuttamista.
 | --- | --- | --- |
 | Seuraa molempia chatteja käyttäessäsi puhelinta kamerana | VISPin **Floating**-tila | Vain kenttäkuvaaja |
 | Pidä kameran esikatselu täysin puhtaana | VISPin **Hidden**-tila | Ei kukaan puhelimella |
-| Liitä uusimmat viestit pysyvästi puhelimen kuvasignaaliin | VISPin **Embedded in stream** -tila | OBS ja katsojat aina lähteen ollessa lähetyksessä |
+| Liitä uusimmat viestit pysyvästi puhelimen kuvasignaaliin | VISPin **Embedded**-tila | OBS ja katsojat aina lähteen ollessa lähetyksessä |
 | Seuraa Kick-chattia tuotantokoneella | Kickin oma selainpaneeli OBS:ssä | Vain OBS-operaattori |
 | Rakenna lähetykseen muokattava chat-grafiikka | Erillinen OBS Browser Source | Katsojat, erillisenä OBS-lähteenä |
 
@@ -53,14 +54,16 @@ tuottajalle; lähde voi päätyä lähetykseen.
 - kuulokkeet ja testatun varakohtauksen kenttäsyötteelle
 
 Kummankaan palvelun lähetysavainta ei tarvitse siirtää puhelimeen. Tässä
-työnkulussa puhelin julkaisee kenttäsyötteen, VISP välittää sen ja OBS hallitsee
-lopullista Twitch- tai Kick-kohdetta. Kahden chatin lukeminen ei myöskään
+työnkulussa (hallintapaneelin **Tila** on **Puhelimesta omaan OBS:ään**) puhelin
+julkaisee kenttäsyötteen, VISP välittää sen ja OBS hallitsee lopullista Twitch-
+tai Kick-kohdetta. Sama chat-näkymä toimii myös oletuksena olevassa Directissä,
+jossa relay lähettää puhelimen kuvan alustoille. Kahden chatin lukeminen ei myöskään
 määritä OBS:ää monilähetykseen; kohdepalvelut pysyvät OBS:n vastuulla.
 
 ## 1. Yhdistä Twitch ja Kick muuttamatta lähetyskohdetta
 
 Kirjaudu VISPiin tuotannon nykyisellä tunnuksella. Avaa puhelinsovelluksen
-asetukset, laajenna **Advanced** ja etsi kohta **Connections**. Twitch ja Kick
+asetukset ja etsi **Chat**-osio. Twitch ja Kick
 näyttävät jonkin seuraavista tiloista:
 
 - **Not linked**: palvelua ei ole yhdistetty tähän VISP-tiliin;
@@ -91,7 +94,7 @@ lähetä viestejä, anna aikakatkaisuja, estä käyttäjiä tai korvaa
 moderointinäkymää. Erillinen lupa on tarkoituksellinen: pelkkä VISPiin
 kirjautuminen ei ota chatin lukemista huomaamatta käyttöön.
 
-Palaa hyväksynnän jälkeen **Connections**-kohtaan ja kytke Twitch-chat päälle.
+Palaa hyväksynnän jälkeen **Chat**-osioon ja kytke Twitch-chat päälle.
 Odota connected-tilaa ja lähetä vaaraton testiviesti toisella tunnuksella.
 Tee testi ennen julkista lähetystä, jotta vanhentunut tai vaihtunut oikeus ei
 paljastu vasta kentällä.
@@ -139,8 +142,8 @@ uudelleen ilman viestitekstiä.
 
 ## 5. Käytä Embedded-tilaa vain, jos chat kuuluu videokuvaan
 
-iOS- ja Android-sovelluksissa on myös **Embedded in stream** -vaihtoehto sekä
-kulman valinta. Tässä tilassa puhelin piirtää uusimmat viestit enkoodattuihin
+iOS- ja Android-sovelluksissa on myös **Embedded**-vaihtoehto sekä
+**Corner**-valinta. Tässä tilassa puhelin piirtää uusimmat viestit enkoodattuihin
 kameraruutuihin ennen SRT-julkaisua. VISP välittää ruudut muuttamatta, eikä OBS
 voi poistaa chattia jälkikäteen.
 
@@ -152,7 +155,9 @@ koska:
 - overlay tallentuu ohjelmasta tehtyihin tallenteisiin ja klippeihin;
 - asiaton viesti voi näkyä ennen moderaattorin toimia;
 - kuvan rajaus voi leikata viestipaneelin;
-- tuottaja ei voi muotoilla, piilottaa tai siirtää yksittäisiä viestejä OBS:ssä.
+- tuottaja ei voi muotoilla, piilottaa tai siirtää yksittäisiä viestejä OBS:ssä;
+- jos sama kuva menee simulcastissa myös Twitchiin, Twitchin säännöt rajoittavat
+  muiden alustojen chatin näyttämistä siinä.
 
 Jos valmis ohjelma tarvitsee suunnitellun chat-paneelin, pidä VISP **Floating**-
 tai **Hidden**-tilassa ja rakenna katsojille näkyvä kerros erillisenä OBS Browser
@@ -175,19 +180,19 @@ Puhelin vastaanottaa chatin ja julkaisee median eri reittejä pitkin:
 4. Erikseen puhelin enkoodaa H.264-videon ja AAC-äänen ja julkaisee ne SRT:llä
    VISP-relaylle.
 5. OBS lukee mediapolun ja lähettää valmiin ohjelman määritettyyn
-   kohdepalveluun.
+   kohdepalveluun (tai Directissä relay koodaa sen jokaiselle alustalle).
 
 VISP ei tallenna tässä työnkulussa chat-historia-arkistoa. Uusimpia viestejä
 pidetään vain aktiivisen asiakasnäkymän tarpeisiin. Siksi chat-yhteyden virhe ei
 pysäytä SRT-julkaisua eikä mediayhteyden uudelleenmuodostus muuta palvelujen
 käyttöoikeuksia.
 
-Erottelu tekee myös rajat näkyviksi: VISP **ei transkoodaa** kamerasyötettä eikä
-**bondaa verkkoyhteyksiä**. Floating-chat ei lisää pikseleitä lähtevään
+Erottelu tekee myös rajat näkyviksi: relaysta OBS:ään kulkevalla polulla VISP
+**ei transkoodaa** kamerasyötettä. Floating-chat ei lisää pikseleitä lähtevään
 videoon. Embedded-chat sommitellaan puhelimessa, ei relaylla. Jos kenttäyhteys
 katkeaa kokonaan, chat ja puhelinkamera eivät voi käyttää sitä ennen yhteyden
 palautumista. Suunnittele bittinopeus, SRT-palautus, varakohtaukset ja tarvittaessa
-oikea bonding [mobiiliverkon kestävyysoppaan](/fi/blog/keep-stream-live-bad-mobile-network)
+sovelluksen valinnainen Network bonding [mobiiliverkon kestävyysoppaan](/fi/blog/keep-stream-live-bad-mobile-network)
 avulla.
 
 ## Testaa koko OBS-työnkulku
@@ -223,7 +228,7 @@ sovellukseen, ota Twitch-chat käyttöön ja odota connected-tilaa.
 
 ### Toinen palvelu toimii ja toinen on hiljaa
 
-Tarkista ensin **Connections**, älä overlay-tilaa. Hiljaisen palvelun pitää olla
+Tarkista ensin **Chat**-osio, älä overlay-tilaa. Hiljaisen palvelun pitää olla
 sekä yhdistetty että käytössä. Lähetä uusi viesti vasta connected-tilan jälkeen,
 sillä näkymä välittää live-viestejä eikä vanhaa historiaa.
 

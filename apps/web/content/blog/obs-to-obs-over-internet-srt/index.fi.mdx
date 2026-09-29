@@ -2,7 +2,7 @@
 title: "OBS-kuvan lähettäminen toiseen OBS:ään internetin yli SRT:llä"
 description: "Lähetä OBS-tuotanto toiseen OBS:ään internetin yli SRT:llä VISPin kautta ilman porttiohjausta tai lopullisen lähetysavaimen siirtämistä."
 publishedAt: 2026-07-23
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Kaksi erillistä suoratoistotyöpistettä vaihtaa yhden ohjelmasyötteen internet-relayn kautta"
 ---
 
@@ -45,7 +45,10 @@ selainpuhelu voi sopia paremmin. Vaihtoehtoja käsitellään oppaassa
 ## Mitä tarvitset?
 
 - OBS Studion lähettävälle ja vastaanottavalle tietokoneelle
-- Twitch- tai Kick-tunnuksella luodun VISP-tilin
+- Twitch-, Kick- tai Google-tunnuksella luodun VISP-tilin, jonka
+  hallintapaneelin **Tila**-valikossa on valittuna **Puhelimesta omaan
+  OBS:ään** (oletuksena olevassa Direct-tilassa relay lähettäisi lähettäjän
+  syötteen myös alustoillesi)
 - VISP OBS -lisäosan molemmille tietokoneille tai hallintapaneelin osoitteet
   manuaalista määritystä varten
 - riittävän tasaisen lähetyskaistan etäkohteen syötteelle
@@ -64,8 +67,9 @@ käynnistä OBS uudelleen ja avaa lähettävällä koneella **Tools → VISP Rem
 Control**. Valitse **Sign in with browser**, hyväksy selaimessa näkyvä koodi ja
 palaa OBS:ään.
 
-Anna laitteelle käytännöllinen nimi, kuten ”tapahtumapaikan OBS” tai
-”pelitarkkailija”, ja valitse **Create and use as OBS output**. Hyväksy varoitus.
+Vaihda kohdassa **This OBS profile output** oletusnimi `OBS` käytännölliseksi,
+kuten ”tapahtumapaikan OBS” tai ”pelitarkkailija”, ja valitse **Use this OBS as
+an output**. Hyväksy **Replace OBS stream destination** -varoitus.
 Lisäosa luo erikseen peruutettavan julkaisulaitteen ja korvaa nykyisen
 OBS-profiilin suoratoistopalvelun sekä avaimen sen SRT-julkaisuosoitteella.
 
@@ -81,8 +85,9 @@ Lisäosan toiminta ja yhdistämisen suojausmalli kuvataan tarkemmin
 
 Jos et käytä lisäosaa lähettävällä koneella:
 
-1. Avaa VISPin hallintapaneeli ja luo tälle OBS-asennukselle oma laite.
-2. Kopioi **Add this to video source** -osoite. Käsittele koko arvoa salasanana.
+1. Avaa VISPin hallintapaneelin **Laitteet**-välilehti ja luo tälle
+   OBS-asennukselle oma laite valinnalla **Lisää laite**.
+2. Kopioi **Lisää tämä videolähteeseen** -osoite. Käsittele koko arvoa salasanana.
 3. Avaa lähettävässä OBS:ssä **Settings → Stream**.
 4. Valitse **Service**-kenttään **Custom**.
 5. Liitä SRT-julkaisuosoite **Server**-kenttään.
@@ -108,7 +113,7 @@ enkoodaa myöhemmin koko ohjelmansa Twitchiä tai Kickiä varten. Etäsyötettä
 kannata tehdä tarpeettomasti lopullista lähetystä raskaammaksi, mutta tekstin,
 peliliikkeen ja pienten yksityiskohtien pitää säilyä studion käyttöön.
 
-VISP **ei transkoodaa** syötettä. Se ei muuta kuvan kokoa tai koodekkia, korjaa
+Tällä relay–OBS-polulla VISP **ei transkoodaa** syötettä. Se ei muuta kuvan kokoa tai koodekkia, korjaa
 ylikuormittunutta enkooderia eikä rakenna eri laatutasoja. Jos vastaanottava OBS
 ei dekoodaa syötettä luotettavasti, korjaa lähettävän OBS:n asetukset.
 
@@ -138,7 +143,8 @@ Lisäosa luo tunnistetun medialähteen valittuna olevaan kohtaukseen.
 
 Manuaalinen määritys:
 
-1. Näytä tai kopioi laitteen OBS-lukuosoite VISPistä.
+1. Näytä tai kopioi laitteen OBS-lukuosoite VISPistä (hallintapaneelin
+   **OBS**-välilehti Puhelimesta omaan OBS:ään -tilassa).
 2. Lisää vastaanottavaan OBS:ään **Media Source**.
 3. Poista **Local File** käytöstä.
 4. Liitä lukuosoite **Input**-kenttään.
@@ -181,7 +187,7 @@ ole paras. [SRT-projekti](https://github.com/Haivision/srt) dokumentoi
 uudelleenlähetykset ja viiveohjatun toimituksen. OBS:n SRT-ohjeessa osoitteen
 viiveasetukset annetaan mikrosekunteina.
 
-Suorita VISPin hallintapaneelin viivemittaus lähettävästä verkosta ja aloita
+Suorita VISPin hallintapaneelin viivemittaus (**Edistynyt**-välilehti) lähettävästä verkosta ja aloita
 kaapeli-, Wi-Fi- tai mobiiliprofiilin suosituksesta. Testaa oikea reitti siinä
 paikassa ja kellonaikana, jossa sitä käytetään. Suurempi viive voi sietää
 lyhyitä pakettihäviö- ja jitteripiikkejä, mutta se ei korvaa jatkuvasti
@@ -211,11 +217,12 @@ viivästää vaihtoa, jotta lyhyt dekooderin tilamuutos ei sahaa kohtausten väl
 ## Mitä VISP ei lisää OBS:stä OBS:ään -yhteyteen?
 
 VISP toimii tässä työnkulussa tunnistettuna relay-palvelimena ja ohjaustasona.
-Tämä kolmannen osapuolen OBS-polku ei transkoodaa syötettä eikä summaa
-verkkoyhteyksien kapasiteettia. SRT:n
+Relay–OBS-polku ei transkoodaa syötettä, ja lähettävä OBS julkaisee yhden
+yhteyden yli. SRT:n
 uudelleenlähetys voi palauttaa osan kadonneista paketeista, mutta se ei yhdistä
 kahta internetliittymää tai jatka lähetystä täydellisen katkon läpi. Käytä
-oikeaa bonding-kerrosta, jos yhden yhteyden pitää voida vikaantua katkaisematta
+bonding-kerrosta, esimerkiksi laitteen SRTLA-osoitteeseen lähettävää
+SRTLA-lähetintä tai järjestelmätason niputustyökalua, jos yhden yhteyden pitää voida vikaantua katkaisematta
 etäsyötettä.
 
 VISP ei myöskään tee yksisuuntaisesta ohjelmasyötteestä videopuhelua, rakenna
@@ -266,7 +273,9 @@ sijaan, että käytät normaalisti suoraan kohdepalveluun lähettävää profiil
 - Twitchin tai Kickin avain on vain vastaanottavan OBS:n profiilissa.
 - Paikallinen varakohtaus toimii lähettäjän ollessa offline-tilassa.
 - Pakotettu katko palautuu samaan medialähteeseen.
-- Tiimi tietää, ettei relay transkoodaa tai summaa yhteyksien kapasiteettia.
+- Hallintapaneelin tila on **Puhelimesta omaan OBS:ään**, joten vain
+  vastaanottava OBS lähettää Twitchiin tai Kickiin.
+- Tiimi tietää, että relay välittää syötteen koskematta siihen.
 
 ## Usein kysyttyä
 
@@ -288,7 +297,8 @@ painike lähettää valmiin ohjelman Twitchiin tai Kickiin.
 ### Kannattaako käyttää SRT:tä vai RTMP-varavaihtoehtoa?
 
 Käytä tällä internetin yli kulkevalla etäreitillä oletuksena SRT:tä. Käytä
-VISPin RTMP-varavaihtoehtoa, jos lähettävä verkko estää UDP:n. Kumpikaan
+VISPin RTMP-varavaihtoehtoa (ota **Laitteet**-välilehdellä käyttöön **Näytä
+RTMP- ja SRTLA-vara-osoitteet**), jos lähettävä verkko estää UDP:n. Kumpikaan
 vaihtoehto ei transkoodaa syötettä, luo kaistaa tai aggregoi yhteyksiä.
 
 ## Lähteet ja seuraavat vaiheet

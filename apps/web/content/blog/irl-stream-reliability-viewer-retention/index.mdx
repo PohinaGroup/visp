@@ -2,6 +2,7 @@
 title: "IRL Stream Reliability: Why Buffering Costs You Viewers"
 description: "Learn why buffering and ingest drops lose IRL viewers, and design BRB, reconnect, chat, bitrate, and bonding behavior that keeps the show coherent."
 publishedAt: 2026-08-15
+updatedAt: 2026-09-28
 coverAlt: "An IRL stream moves from live video to a clear BRB state and back without ending the viewer-facing broadcast"
 ---
 
@@ -98,7 +99,8 @@ Use silence or an owned, tested fallback track, and confirm what the final
 platform player actually receives.
 
 VISP Direct can keep the destination output in the relay and show a BRB card when
-the publisher drops. A home OBS workflow can do the same with a local fallback
+the publisher drops. The card is optional and off by default: turn on **Show a
+BRB card when my stream drops** on the dashboard **BRB** tab. A home OBS workflow can do the same with a local fallback
 scene. The [BRB screen without OBS guide](/blog/brb-screen-phone-irl-without-obs)
 compares those paths.
 
@@ -164,6 +166,9 @@ race finish, breaking news, a paid performance, or another unrepeatable moment,
 live field video may need to survive one connection failing.
 
 That is when independent links and true bonding become operational requirements.
+The VISP phone app's optional **Network bonding** can combine Wi-Fi and cellular
+or send every packet over both; dedicated bonding encoders and services are
+the next step up.
 Several links can reduce dependence on one carrier, although shared coverage,
 congestion, hardware, power, and the relay remain possible failures. Bonding is
 another resilience layer, not a guarantee.

@@ -6,8 +6,8 @@ icon: Video
 
 The fastest path for most streamers is the phone or browser app — see
 [Get started](/docs/get-started). This page covers third-party encoders, the
-dashboard latency probe, and Advanced Scene Switcher macros that keep the show
-on a fallback scene while a remote feed reconnects.
+dashboard latency probe, and, if you use OBS, Advanced Scene Switcher macros
+that keep the show on a fallback scene while a remote feed reconnects.
 
 ## Third-party encoders
 
@@ -15,11 +15,12 @@ If you publish with Larix, Moblin, or another SRT/RTMP encoder instead of the
 VISP app:
 
 1. Sign in to the portal with Twitch, Kick, or Google.
-2. Open **Video sources** and choose **Add device**.
+2. Open the **Devices** tab, enter a **Device name** under **Video sources**,
+   and choose **Add device**.
 3. Choose **Copy** next to **Add this to video source** and paste the URL into
    the sending encoder.
-4. To use RTMP instead of the default SRT URL, switch the dashboard to
-   **Advanced**.
+4. Optional: to use RTMP instead of the default SRT URL, turn on **Show RTMP
+   and SRTLA fallback URLs** on the same tab.
 
 Each device has an independent publish credential, so rotating or revoking one
 does not interrupt the others. OBS read credentials are managed separately.
@@ -39,8 +40,9 @@ sending the same feed twice, SRTLA sends each packet once and moves traffic to
 whichever link is coping best, so two connections give you more headroom rather
 than a doubled data bill.
 
-Switch the dashboard to **Advanced**, open your device, and choose **Bonding two
-connections with BELABOX or Moblin? Show the SRTLA URL**. The link carries the
+On the **Devices** tab, turn on **Show RTMP and SRTLA fallback URLs**, open
+your device, and choose **Bonding two connections with BELABOX or Moblin? Show
+the SRTLA URL**. The link carries the
 same credentials as the SRT one — only the scheme and port differ:
 
 ```
@@ -57,9 +59,10 @@ on, the plain SRT URL on 8890 still works, without bonding.
 
 ## Tune SRT latency
 
-Run the dashboard probe on the same network the encoder will use. It sends seven
-sequential requests to the relay and uses the median RTT. Select the real network
-profile and keep the rounded recommendation:
+Open the dashboard **Advanced** tab and choose **Measure relay RTT** on the same
+network the encoder will use. It times seven sequential requests to the relay
+and uses the median RTT. Select the real **Network profile** and keep the
+rounded recommendation:
 
 | Profile | Multiplier | Minimum |
 | --- | ---: | ---: |
@@ -69,9 +72,13 @@ profile and keep the rounded recommendation:
 
 Cellular jitter is bursty; do not tune below the recommendation.
 
-## OBS scene collection
+## OBS scene collection (optional)
 
-In OBS, choose **Scene Collection → Import** and select the downloaded JSON. It
+Only needed if OBS reads your feed. On the dashboard **Destinations** tab
+(named **OBS** in OBS mode), open **OBS read credentials**, choose **Reveal read
+URLs** (or **Generate OBS credentials** the first time), then **Download OBS
+collection**. In OBS, choose **Scene Collection →
+Import** and select the downloaded JSON. It
 contains a fallback scene and one Media Source scene per active relay path. The
 sources use `ffmpeg_source`, MPEG-TS, low buffering, and automatic reconnects.
 
@@ -79,15 +86,15 @@ sources use `ffmpeg_source`, MPEG-TS, low buffering, and automatic reconnects.
 
 ![Imported Scene, Fallback, and Media source](./images/obs-scenes.png)
 
-After creating a path, open **Advanced → OBS read credentials**, choose
+After creating a device, open **OBS read credentials** again, choose
 **Reveal read URLs**, and either copy the new path's OBS URL or download a fresh
 scene collection. You do not need to rotate the read credential. **Rotate
 read** invalidates every existing OBS Media Source, so use it only when you
 intend to replace them.
 
-## Advanced Scene Switcher
+## Advanced Scene Switcher (optional)
 
-Create a **Media** condition for each generated Media Source. A Source condition
+This applies only when OBS is live to your platform. Create a **Media** condition for each generated Media Source. A Source condition
 checks scene visibility and can deadlock the switch; Media checks playback state.
 
 For every macro:

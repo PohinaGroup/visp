@@ -35,7 +35,7 @@ Add these A records for `visp-stream.com`:
 | remote.staging | 87.58.145.161 |
 | typography.staging | 87.58.145.161 |
 | docs.staging | 87.58.145.161 |
-| relay-staging | 87.58.146.41 |
+| relay-staging | 87.58.145.161 |
 
 Wait for propagation (`dig +short staging.visp-stream.com`), then confirm
 each URL answers with a valid certificate. Caddy retries issuance
@@ -89,11 +89,6 @@ Reuse the production applications; add staging callbacks:
   origin `https://staging.visp-stream.com`, redirect URI
   `https://staging.visp-stream.com/api/auth/callback/google`. Add the
   staging domains under Branding if the consent screen restricts domains.
-- **Google iOS client** for the TEST app: create an **iOS** OAuth client with
-  bundle ID `com.pohinagroup.visp.test`. Put its client ID into the EAS
-  staging profile (`EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` in
-  `apps/native/eas.json` → `build.staging.env`) — iOS TEST builds cannot
-  sign in with Google until this exists.
 - **Apple**: in the Apple Developer portal, register App ID
   `com.pohinagroup.visp.test` with **Sign In with Apple** enabled. EAS
   auto-registers the App ID during the first iOS build; verify the
@@ -190,7 +185,7 @@ all three components.
 
 - **Deploy staging**: push to `main` (automatic) or run
   `sudo /usr/local/sbin/visp-staging-release` on the app box.
-- **Logs**: `journalctl -u visp-server-staging -u visp-web-staging -f`;
+- **Logs**: `journalctl -u visp-server-staging -u visp-web-staging -u visp-typography-worker-staging -f`;
   relay: `journalctl -u mediamtx-staging -u srtla-rec-staging -u visp-bond-staging -f`.
 - **Shared with production**: host resources, Caddy process (staging vhosts
   live in `/etc/caddy/staging/*.caddy`, imported by the tracked Caddyfile),

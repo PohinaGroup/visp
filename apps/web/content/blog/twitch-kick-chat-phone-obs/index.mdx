@@ -2,7 +2,7 @@
 title: "How to Read Twitch and Kick Chat on Your Phone While Streaming With OBS"
 description: "Read Twitch and Kick chat on one phone while OBS runs the show, choose a private floating view or embedded overlay, and test the setup before live."
 publishedAt: 2026-07-25
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "A creator holds a phone with blank blue and green chat bubbles beside a home streaming production desk"
 ---
 
@@ -15,7 +15,7 @@ at home.
 The floating view is private to the operator. It does not appear in the camera
 feed or the finished broadcast. VISP also offers an Embedded mode when you
 deliberately want chat burned into the phone's outgoing video, but that is a
-different production choice.
+different production choice. A linked YouTube chat can join the same view.
 
 ![Twitch and Kick chat travel through VISP to the phone separately from the SRT camera path into OBS](./chat-video-paths.svg)
 
@@ -28,7 +28,7 @@ messages before changing any setting.
 | --- | --- | --- |
 | Read both chats while operating the phone camera | VISP **Floating** mode | Field operator only |
 | Keep chat available but clear the camera preview | VISP **Hidden** mode | Nobody on the phone |
-| Permanently include recent messages in the phone feed | VISP **Embedded in stream** mode | OBS and viewers whenever that source is on air |
+| Permanently include recent messages in the phone feed | VISP **Embedded** mode | OBS and viewers whenever that source is on air |
 | Read Kick chat at the production computer | Kick custom browser dock in OBS | OBS operator only |
 | Design a reusable on-stream chat layout | A dedicated OBS Browser Source | Viewers, controlled as a separate OBS source |
 
@@ -54,15 +54,17 @@ dock is for the producer; a source can become part of the broadcast.
 - Headphones and a tested fallback scene for the field feed
 
 You do not need to move either platform's stream key to the phone. In this
-workflow the phone publishes a contribution feed, VISP relays it, and OBS owns
-the final Twitch or Kick destination. Reading both chats also does not configure
+workflow (dashboard **Mode** set to **Phone to your OBS**) the phone publishes a
+contribution feed, VISP relays it, and OBS owns the final Twitch or Kick
+destination. The same chat view works with Direct, the default, where the relay
+sends the phone to the platforms instead. Reading both chats also does not configure
 OBS to multistream; destinations remain an OBS concern.
 
 ## 1. Link Twitch and Kick without changing the destination
 
 Sign in to VISP with the account already used for the production. Open the
-phone app's settings, expand **Advanced**, and find **Connections**. Twitch and
-Kick each show one of these states:
+phone app's settings and find the **Chat** section. Twitch and Kick each show
+one of these states:
 
 - **Not linked**: the provider is not attached to this VISP account;
 - **Linked · chat off**: sign-in is available, but live chat delivery is off;
@@ -91,7 +93,7 @@ does not send messages, time out users, ban users, or replace a moderation
 dashboard. The separate authorization is intentional: signing in to VISP does
 not silently opt the account into chat access.
 
-After authorization, return to **Connections** and turn Twitch chat on. Wait
+After authorization, return to the **Chat** section and turn Twitch chat on. Wait
 for its status to become connected, then send a harmless test message from
 another account. Test before the public broadcast so an expired or replaced
 permission is not discovered in the field.
@@ -139,8 +141,7 @@ without chat text attached.
 
 ## 5. Use Embedded mode only when chat should be in the video
 
-The iOS and Android apps also offer **Embedded in stream** with a corner
-selector. In this mode the phone composites recent messages into its encoded
+The iOS and Android apps also offer **Embedded** with a **Corner** selector. In this mode the phone composites recent messages into its encoded
 camera frames before publishing them over SRT. VISP then relays those frames
 unchanged, and OBS cannot remove the chat later.
 
@@ -151,7 +152,9 @@ the field camera. It is a poor default for a reusable camera source because:
 - the overlay is included in recordings and clips made from the program;
 - an offensive message can appear before a moderator acts;
 - cropping the feed can cut through the message panel;
-- the producer cannot restyle, hide, or reposition individual messages in OBS.
+- the producer cannot restyle, hide, or reposition individual messages in OBS;
+- if the same picture also goes to Twitch while you simulcast, Twitch's
+  simulcasting rules restrict showing other platforms' chat in it.
 
 If the finished show needs a designed chat panel, keep VISP on **Floating** or
 **Hidden** and build the viewer-facing layer as a separate OBS Browser Source.
@@ -173,21 +176,22 @@ The phone receives chat and publishes media through different paths:
 4. Separately, the phone encodes H.264 video and AAC audio and publishes them
    over SRT to the VISP relay.
 5. OBS reads that media path and sends the finished program to the configured
-   platform destination.
+   platform destination (or, with Direct, the relay encodes it for each
+   platform).
 
 VISP does not store a chat-history archive in this flow. Recent messages live
 only long enough to support the active client view. A chat connection error
 therefore does not stop the SRT publisher, and a media reconnect does not
 change the provider authorizations.
 
-The separation also sets an honest boundary: VISP does **not transcode** the
-camera feed and does **not bond network connections**. Floating chat adds no
-pixels to the outgoing video. Embedded chat is composited on the phone, not at
+The separation also sets an honest boundary: on the relay-to-OBS path VISP
+does **not transcode** the camera feed. Floating chat adds no pixels to the
+outgoing video. Embedded chat is composited on the phone, not at
 the relay. If the field network fails completely, neither chat nor the phone
 camera can use that path until connectivity returns. Use the
 [mobile-network resilience guide](/blog/keep-stream-live-bad-mobile-network)
-to plan bitrate, SRT recovery, fallback scenes, and real bonding when one link
-must be allowed to fail.
+to plan bitrate, SRT recovery, fallback scenes, and the app's optional
+Network bonding when one link must be allowed to fail.
 
 ## Test the complete OBS workflow
 
@@ -222,7 +226,7 @@ enable Twitch chat, and wait for connected status.
 
 ### One platform works and the other is silent
 
-Check **Connections** rather than the overlay mode first. The silent provider
+Check the **Chat** section rather than the overlay mode first. The silent provider
 must be both linked and enabled. Send a new message after the status becomes
 connected; the view is for live delivery, not earlier chat history.
 

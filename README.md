@@ -4,7 +4,8 @@ VISP is a self-hosted SRT/SRTLA/RTMP relay and control plane for remote live
 streaming. Broadcasters sign in with Twitch, Kick, or Google, create independently
 revocable publishing devices, and send one H.264/AAC feed to MediaMTX. Direct
 then distribution-encodes that feed to Twitch, Kick, or YouTube — one FFmpeg
-forwarder per destination, against a per-relay encoder cap. OBS can optionally
+forwarder per destination (outputs with the same framing share one encode),
+against a per-relay encoder cap. OBS can optionally
 read the original contribution feed for monitoring, recording, and scenes.
 
 ## Architecture
@@ -38,14 +39,15 @@ bun run dev:local
 
 The launcher creates missing env files, generates local secrets, validates all
 values, starts PostgreSQL 18, MinIO, MediaMTX, and Caddy through Compose, applies
-migrations, and starts the API, portal, admin console, OBS Remote web app, and
-docs. Missing Twitch, Kick, or Google credentials are reported without preventing
+migrations, and starts the API, portal, admin console, multi-chat, Typography,
+OBS Remote web app, and docs. Missing Twitch, Kick, or Google credentials are reported without preventing
 unrelated local work.
 
 Open the portal at <https://visp.localhost>, the API at
 <https://api.visp.localhost>, admin console at
 <https://admin.visp.localhost>, multi-chat at
-<https://multichat.visp.localhost>, docs at <https://docs.visp.localhost>, and
+<https://multichat.visp.localhost>, Typography at
+<https://typography.visp.localhost>, docs at <https://docs.visp.localhost>, and
 OBS Remote at <http://localhost:8083>. MinIO is available at
 <https://minio.visp.localhost>.
 Stop the application with Ctrl+C; infrastructure stays available for quick
@@ -60,16 +62,19 @@ apps/server       Elysia API, machine endpoints, hooks, and reconciliation
 apps/web          TanStack Start portal
 apps/admin        Internal support console
 apps/multichat    Combined Twitch/Kick/TikTok chat overlay
+apps/typography   Caption editor and MP4 export (static site)
 apps/native       Expo development-build client and native SRT module
 apps/obs-remote   Dedicated Expo OBS control surface
 apps/obs-plugin   OBS Studio remote-control plugin
 apps/fumadocs     Broadcaster and operator documentation site
 packages/api      Relay, chat, snapshots, OBS, and tRPC domain logic
-packages/auth     Better Auth and Twitch/Kick/Google OAuth configuration
+packages/auth     Better Auth and Twitch/Kick/Google/Apple OAuth configuration
+packages/config   Shared TypeScript configuration
 packages/db       Drizzle schema and forward migrations
 packages/env      Validated server and browser environments
+packages/object-store  S3-compatible object storage client
 packages/ui       Shared UI components
-deploy            MediaMTX, Caddy, systemd, and multi-relay deployment templates
+deploy            MediaMTX, Caddy, systemd, compositor, and multi-relay deployment templates
 ```
 
 ## Verification

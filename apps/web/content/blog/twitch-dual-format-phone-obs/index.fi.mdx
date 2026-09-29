@@ -2,7 +2,7 @@
 title: "Näin lähetät Twitchiin pysty- ja vaakakuvan puhelimesta"
 description: "Lähetä yksi puhelimen IRL-syöte OBS:ään, rakenna linkitetyt vaaka- ja pystyscenet ja julkaise molemmat Twitchin Dual Formatilla."
 publishedAt: 2026-08-05
-updatedAt: 2026-08-05
+updatedAt: 2026-09-29
 coverAlt: "IRL-kuvaaja lähettää yhden puhelinkameran syötteen kotistudioon, jossa se rajataan vaaka- ja pystykatsojille"
 ---
 
@@ -82,7 +82,8 @@ Tarvitset:
 Älä pidä VISP Directin Twitch-lähtöä käytössä tällä julkaisulaitteella, jos OBS
 lähettää ohjelman Twitchiin. Direct ja OBS olisivat silloin
 kaksi samaan kohteeseen pyrkivää julkaisijaa. Tässä työnkulussa puhelin tuottaa
-syötteen OBS:ään ja OBS omistaa Twitch-lähetyksen.
+syötteen OBS:ään ja OBS omistaa Twitch-lähetyksen, joten valitse hallintapaneelin
+tilavalikosta **Puhelimesta omaan OBS:ään**.
 
 ## 1. Valmistele yksi puhdas vaakasuuntainen puhelinlähde
 
@@ -117,7 +118,8 @@ ja lisää toinen canvas vasta toimivan perusreitin päälle.
 
 ## 2. Lisää VISP-syöte OBS:ään monistamatta tunnuksia
 
-Avaa VISPin hallintapaneelissa **Advanced → OBS read credentials** ja lataa
+Avaa VISPin hallintapaneelissa **OBS**-välilehti (Direct-tilassa **Kohteet**),
+etsi **OBS-lukutunnukset** ja lataa
 tuore scene collection tai paljasta lukemiseen tarkoitettu URL ja lisää reitti
 OBS:ään käsin Media Source -lähteenä. Luotu scene collection käyttää valmiiksi
 OBS:n `ffmpeg_source`-lähdettä, MPEG-TS:ää, pientä puskurointia ja automaattista
@@ -173,7 +175,7 @@ pääasia.
 
 Twitchin mukaan pystycanvasille ei tarvita erillistä chat-overlayta, koska
 mobiilisoitin voi näyttää chatin videon päällä. VISPin **Floating**-chat pysyy
-yksityisenä käyttäjän puhelimessa. **Embedded in stream** puolestaan poltetaan
+yksityisenä käyttäjän puhelimessa. **Embedded**-chattitila puolestaan poltetaan
 kamerakuvaan jo ennen OBS:ää, joten tiukka pystyrajaus voi leikata sen pois.
 Ero selitetään tarkemmin
 [puhelimen chat-oppaassa](/fi/blog/twitch-kick-chat-phone-obs).
@@ -289,6 +291,12 @@ hallittavan ja erikseen peruttavilla tunnuksilla suojatun puhelinsyötteen
 studioon. OBS säilyttää alustayhteyden, Aitum tuottaa lisäcanvasin ja Twitch
 toimittaa kaksi katsojamuotoa. Työnjako sopii IRL-tuotantoon, koska mobiililaite
 voi hoitaa pienimmän luotettavan tehtävän: kaapata kerran ja lähettää kerran.
+
+VISPin oma [pysty-Direct-lähtö](https://docs.visp-stream.com/fi/docs/portrait-direct-output)
+ratkaisee, kun se on tilillä käytössä, eri ongelman: se lähettää releellä
+rajatun 9:16-version toiselle alustalle, esimerkiksi YouTubeen, kun vaakakuva
+menee Twitchiin. Se ei syötä molempia muotoja samaan Twitch-lähetykseen, koska
+pystylähdön on käytettävä eri palvelua kuin vaakalähdön.
 
 Jos puhelinlähde ei ole vielä vakaa, aloita
 [puhelin-OBS-oppaasta](/fi/blog/use-phone-as-remote-camera-obs) ja

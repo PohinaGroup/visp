@@ -11,11 +11,11 @@ Itse ylläpito on tarkoitettu operaattorille, joka hallitsee DNS:ää, TLS-varme
 
 - julkinen web/API-palvelin HTTPS-yhteydellä
 - yksi tai useampi mediarelay, joilla on tarvittavat UDP/TCP-portit
-- PostgreSQL-tietokanta ja pysyvä tallennus
-- Twitch- tai Kick-OAuth-sovellus oikeilla paluuosoitteilla
-- DNS-nimet portaalille, API:lle ja medialle
+- PostgreSQL-tietokanta ja yksityinen S3-yhteensopiva tallennus
+- Twitch- ja Kick-sovellukset sekä Google OAuth -asiakas oikeilla paluuosoitteilla
+- DNS-nimet portaalille, API:lle, medialle ja staattisille sovelluksille
 
-Käytä julkaisuun repositoryn versionhallittuja Docker Compose -malleja ja saman version ympäristömuuttujaesimerkkiä. Luo salaisuudet erikseen tuotantoon, rajoita tietokannan ja hallintaporttien verkkoyhteydet ja ota varmuuskopio ennen päivitystä.
+Käytä julkaisuun repositoryn `deploy/`-hakemiston versionhallittuja MediaMTX-, Caddy- ja systemd-malleja sekä saman version ympäristömuuttujaesimerkkiä. Docker Compose on vain paikallista kehitystä varten. Luo salaisuudet erikseen tuotantoon, rajoita tietokannan ja hallintaporttien verkkoyhteydet ja ota varmuuskopio ennen päivitystä.
 
 Uusi relay provisioidaan samalla MediaMTX-, Caddy-, palomuuri- ja
 Tailscale-mallilla kuin ensimmäinen. Anna sille oma julkinen verkkotunnus,
@@ -27,7 +27,7 @@ Tyhjennystila estää uudet polut siirtämättä olemassa olevia.
 
 1. Lue version julkaisutiedot ja tietokantamuutokset.
 2. Ota varmuuskopio.
-3. Vedä kaikki palvelukuvat samasta versiosta.
+3. Ota käyttöön sama versio kaikilla palvelimilla.
 4. Suorita migraatiot kerran.
 5. Tarkista kirjautuminen, laitteen julkaisu, OBS-luku ja etäohjaus.
 

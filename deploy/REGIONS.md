@@ -40,6 +40,7 @@ No database migration is required for regional selection.
 
    ```dotenv
    APP_ORIGIN=https://visp-stream.com
+   RELAY_NAME=us-1
    HOOK_SECRET=<same value as the app and Finland relay>
    STUDIO_MEDIA_PASSWORD=<same value as the app and Finland relay>
    MTX_AUTHHTTPADDRESS=https://visp-stream.com/api/mediamtx/auth
@@ -51,7 +52,8 @@ No database migration is required for regional selection.
    DIRECT_VIDEO_FPS=30
    ```
 
-   Preserve any additional Direct/BRB settings your Finland relay requires.
+   `RELAY_NAME` must equal the relay name registered in step 9, or Admin shows
+   no host metrics. Preserve any additional Direct/BRB settings your Finland relay requires.
    If Cloud Studio is enabled, install the compositor and its firewall from
    [compositor/README.md](compositor/README.md), then set
    `STUDIO_COMPOSITOR_UNIT=visp-compositor@`. The relay release helper does not

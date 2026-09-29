@@ -2,7 +2,7 @@
 title: "How to Stream Vertical and Horizontal on Twitch From Your Phone"
 description: "Send one phone IRL feed into OBS, build linked horizontal and vertical scenes, and publish both with Twitch Dual Format Streaming."
 publishedAt: 2026-08-05
-updatedAt: 2026-08-05
+updatedAt: 2026-09-29
 coverAlt: "An IRL creator sends one phone camera feed to a home studio that frames it for horizontal and vertical viewers"
 ---
 
@@ -78,7 +78,8 @@ You need:
 Do not enable VISP Direct to Twitch for this publishing device while OBS is
 also sending the Twitch program. Direct and OBS would then compete as two
 publishers for the same destination. In this workflow, the phone contributes
-to OBS and OBS owns the Twitch broadcast.
+to OBS and OBS owns the Twitch broadcast, so set the dashboard **Mode** menu to
+**Phone to your OBS**.
 
 ## 1. Prepare one clean landscape phone source
 
@@ -112,7 +113,8 @@ before adding a second canvas.
 
 ## 2. Add the VISP feed to OBS without duplicating credentials
 
-On the VISP dashboard, open **Advanced → OBS read credentials** and download a
+On the VISP dashboard, open the **OBS** tab (called **Destinations** in Direct
+mode), find **OBS read credentials**, and download a
 fresh scene collection, or reveal the read URL and add the path as a Media
 Source manually. The generated scene collection already uses OBS's
 `ffmpeg_source`, MPEG-TS, low buffering, and automatic reconnection settings.
@@ -167,8 +169,8 @@ story.
 
 Twitch says a separate chat overlay is unnecessary on the vertical canvas
 because its mobile player can place chat over the video. VISP's **Floating**
-chat remains private on the operator's phone. VISP's **Embedded in stream**
-mode becomes part of the camera picture before OBS, so a tight vertical crop
+chat remains private on the operator's phone. VISP's **Embedded**
+chat mode becomes part of the camera picture before OBS, so a tight vertical crop
 can cut it off. The
 [phone chat guide](/blog/twitch-kick-chat-phone-obs) explains that distinction.
 
@@ -276,6 +278,12 @@ revocable phone contribution to the studio. OBS keeps the platform connection,
 Aitum supplies the additional canvas, and Twitch delivers the two viewer
 formats. That division is useful for IRL creators because the mobile device can
 keep doing the smallest reliable job: capture once and upload once.
+
+VISP's own [portrait Direct output](https://docs.visp-stream.com/docs/portrait-direct-output),
+where enabled, solves a different problem: it sends a relay-cropped 9:16 copy
+to a second platform, such as YouTube, while landscape goes to Twitch. It cannot
+feed both formats into one Twitch broadcast, because portrait must use a
+different provider from the landscape destination.
 
 If your phone source is not yet stable, start with the
 [phone-to-OBS guide](/blog/use-phone-as-remote-camera-obs) and the

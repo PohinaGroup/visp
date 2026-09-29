@@ -40,7 +40,13 @@ dedicated audio source remains live.
 
 ## Create one VISP device per phone
 
-Sign in to VISP and create a publishing device for each camera. Give devices
+Multi-phone production runs in OBS mode. VISP starts in Direct mode, which
+forwards one device at a time, so first open the dashboard's **Mode: Direct ·
+change** menu and choose **Phone to your OBS**.
+
+Then create a publishing device for each camera: sign in to the VISP app on
+each phone, which creates that phone's device automatically, or use **Add
+device** on the dashboard's **Devices** tab for a third-party encoder. Give devices
 names that make sense to both the field operators and OBS producer, such as
 “roaming,” “stage wide,” and “green room.” Do not call them “phone 1” and
 “phone 2” if their roles may be swapped later.
@@ -60,8 +66,8 @@ publisher is rejected. A standby camera needs its own device and OBS source.
 
 Pair the VISP Remote Control plugin through **Tools → VISP Remote Control → Sign
 in with browser**. The plugin lists the publishing devices and can add each one
-to the selected scene. Alternatively, download the generated OBS scene
-collection, then import it through **Scene Collection → Import**.
+to the selected scene. Alternatively, choose **Download OBS collection** on the
+dashboard's **OBS** tab, then import it through **Scene Collection → Import**.
 
 The generated collection includes one scene per active relay path plus a
 fallback scene. The sources use authenticated read URLs, low buffering, and
@@ -156,8 +162,8 @@ downloads each feed it uses. Adding a second 4 Mbps camera means another 4 Mbps
 of field upload from its network and roughly another 4 Mbps into the OBS
 location, before protocol overhead.
 
-VISP does not transcode, synchronize, or server-side mix the cameras. OBS does
-the composition. If a production needs frame-accurate synchronized cameras,
+The relay-to-OBS path does not transcode, synchronize, or server-side mix the
+cameras. OBS does the composition. If a production needs frame-accurate synchronized cameras,
 central transcoding, contribution monitoring across dozens of feeds, or
 broadcast-grade intercom, it has moved beyond VISP's current scope.
 
@@ -207,7 +213,9 @@ create a separate device and source.
 
 ### Do multiple phones bond their connections?
 
-No. Each feed uses its own connection. Read the [resilient mobile streaming
+No. Each feed uses its own connection. Each phone can turn on the VISP app's
+optional network bonding for its own Wi-Fi and cellular links, but phones do not
+pool their connections. Read the [resilient mobile streaming
 guide](/blog/keep-stream-live-bad-mobile-network) for bonding options.
 
 ## Sources and further reading

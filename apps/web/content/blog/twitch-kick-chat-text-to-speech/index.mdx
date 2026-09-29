@@ -26,7 +26,7 @@ to hear it too.
 | --- | --- | --- |
 | Hear ordinary Twitch and Kick messages while operating the phone camera | VISP **Speak messages** with headphones | The normal camera and microphone mix |
 | Glance at recent messages without speech | VISP **Floating** chat | A clean camera feed; Floating stays on the operator screen |
-| Put recent chat text in the phone video | VISP **Embedded in stream** | Chat is permanently composited into that camera source |
+| Put recent chat text in the phone video | VISP **Embedded** | Chat is permanently composited into that camera source |
 | Play selected alerts or paid TTS to the audience | A moderated OBS-side alert or TTS workflow | Audio intentionally added to the program mix |
 
 This guide covers the first row. Speech and the visible chat position are
@@ -58,8 +58,8 @@ multistreaming, or give the phone ownership of the finished broadcast.
 
 ## 1. Connect the chat providers
 
-Open the VISP phone app, sign in, and expand **Settings → Advanced →
-Connections**. Each provider must be linked and have chat enabled before its
+Open the VISP phone app, sign in, and open **Settings → Chat**. Each provider
+must be linked and have chat enabled before its
 messages can reach the phone.
 
 For Twitch, select **Authorize** if the app asks for chat access. VISP uses
@@ -112,7 +112,8 @@ chat can remain audible.
 Use headphones before the first spoken message. If speech plays through the
 phone speaker, the same phone’s microphone can capture it and send it to OBS.
 Viewers may then hear a delayed copy of chat even though VISP did not add a TTS
-source to the media stream.
+source to the media stream. Once a language is selected, **Speak to** lets you
+pick the output, such as a connected Bluetooth earpiece.
 
 Start at a low listening volume and make sure the earpiece does not prevent
 you from hearing traffic, venue staff, or people nearby. The safest hardware
@@ -191,10 +192,10 @@ The two paths meet on the phone screen but serve different jobs:
 6. The VISP relay forwards that feed to OBS, where the home producer owns
    scenes, alerts, recording, and the final Twitch or Kick destination.
 
-The normal VISP relay path **does not transcode** this camera feed and **does
-not bond network connections**. The native app’s optional multi-link
-redundancy sends duplicate SRT packets over Wi-Fi and cellular; it does not add
-their bandwidth together. Chat text-to-speech changes neither behavior.
+The relay-to-OBS path **does not transcode** this camera feed. The native
+app’s optional network bonding can combine Wi-Fi and cellular with SRTLA or
+send duplicate packets over both. Chat text-to-speech changes neither
+behavior.
 
 The phone’s speech output is also not a separate OBS audio source. It reaches
 the broadcast only if the field microphone captures it acoustically or if you
@@ -234,7 +235,7 @@ are not replayed when speech is enabled.
 
 ### One platform speaks and the other does not
 
-Open **Connections**. The silent provider must be linked, chat-enabled, and
+Open **Settings → Chat**. The silent provider must be linked, chat-enabled, and
 connected. Twitch may need its chat authorization renewed. Test with a new
 message after the status recovers.
 

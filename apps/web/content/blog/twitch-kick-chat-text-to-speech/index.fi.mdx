@@ -27,7 +27,7 @@ tuotantoratkaisua:
 | --- | --- | --- |
 | Kuuntele tavallisia Twitch- ja Kick-viestejä käyttäessäsi puhelinta kamerana | VISPin **Speak messages** ja kuulokkeet | Normaali kamera- ja mikrofonimiksaus |
 | Vilkaise uusimpia viestejä ilman puhetta | VISPin **Floating**-chat | Puhdas kameralähde; Floating näkyy vain kuvaajan näytössä |
-| Liitä uusimmat chat-tekstit puhelimen videoon | VISPin **Embedded in stream** | Chat sommitellaan pysyvästi kameralähteeseen |
+| Liitä uusimmat chat-tekstit puhelimen videoon | VISPin **Embedded** | Chat sommitellaan pysyvästi kameralähteeseen |
 | Toista valitut hälytykset tai maksullinen TTS yleisölle | Moderoitu OBS-hälytys tai TTS-ratkaisu | Ohjelmamiksiin tarkoituksella lisätty ääni |
 
 Tämä opas käsittelee ensimmäistä vaihtoehtoa. Puhe ja näkyvän chatin sijainti
@@ -61,8 +61,8 @@ käynnistä monilähetystä eikä anna puhelimelle valmiin ohjelman hallintaa.
 
 ## 1. Yhdistä chat-palvelut
 
-Avaa VISPin puhelinsovellus, kirjaudu sisään ja laajenna **Settings → Advanced
-→ Connections**. Palvelutilin pitää olla yhdistetty ja chatin käytössä, ennen
+Avaa VISPin puhelinsovellus, kirjaudu sisään ja avaa **Settings → Chat**.
+Palvelutilin pitää olla yhdistetty ja chatin käytössä, ennen
 kuin viestit voivat saapua puhelimeen.
 
 Valitse Twitchin kohdalla **Authorize**, jos sovellus pyytää chat-oikeutta.
@@ -114,7 +114,8 @@ VISP palaa laitteen omaan ääneen, jotta chat voi jatkua kuultavana.
 Laita kuulokkeet päähän ennen ensimmäistä viestiä. Jos puhe tulee puhelimen
 kaiuttimesta, saman puhelimen mikrofoni voi poimia sen ja lähettää sen OBS:ään.
 Katsojat voivat silloin kuulla chatista viivästyneen kopion, vaikka VISP ei ole
-lisännyt mediavirtaan erillistä TTS-lähdettä.
+lisännyt mediavirtaan erillistä TTS-lähdettä. Kun kieli on valittu, **Speak to**
+-asetuksella voit valita äänilähdön, esimerkiksi yhdistetyn Bluetooth-kuulokkeen.
 
 Aloita pienellä kuunteluvoimakkuudella. Varmista myös, ettei kuuloke estä
 liikenteen, tapahtumahenkilökunnan tai lähellä olevien ihmisten kuulemista.
@@ -195,10 +196,9 @@ Polut kohtaavat puhelimen käyttöliittymässä, mutta niillä on eri tehtävät
 6. VISP-relay välittää syötteen OBS:ään, jossa kotituottaja hallitsee
    kohtauksia, hälytyksiä, tallennusta sekä lopullista Twitch- tai Kick-kohdetta.
 
-VISPin tavallinen relay-polku **ei transkoodaa** kameralähdettä eikä **bondaa
-verkkoyhteyksiä**. Natiivisovelluksen valinnainen monen yhteyden redundanssi
-lähettää samat SRT-paketit Wi-Fi- ja mobiiliyhteydellä; se ei laske yhteyksien
-kaistanleveyksiä yhteen. Chatin puheeksi muuttaminen ei muuta kumpaakaan
+Relay–OBS-polku **ei transkoodaa** kameralähdettä. Natiivisovelluksen
+valinnainen verkkobonding voi yhdistää Wi-Fin ja mobiilidatan SRTLA:lla tai
+lähettää samat paketit molempia yhteyksiä pitkin. Chatin puheeksi muuttaminen ei muuta kumpaakaan
 ominaisuutta.
 
 Puhelimen puheääni ei myöskään ole OBS:n erillinen digitaalinen äänilähde. Se
@@ -240,7 +240,7 @@ viestejä ei toisteta, kun puhe otetaan käyttöön.
 
 ### Toinen palvelu kuuluu, mutta toinen ei
 
-Avaa **Connections**. Hiljaisen palvelun pitää olla yhdistetty, chatin käytössä
+Avaa **Settings → Chat**. Hiljaisen palvelun pitää olla yhdistetty, chatin käytössä
 ja connected-tilassa. Twitch voi pyytää uusimaan chat-oikeuden. Testaa uudella
 viestillä vasta tilan palauduttua.
 

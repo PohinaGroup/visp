@@ -2,6 +2,7 @@
 title: "How to Combine Twitch, Kick, and TikTok Chat in OBS"
 description: "Combine Twitch, Kick, and TikTok LIVE chat in one OBS Browser Source, protect the overlay URL, test each feed, and follow Twitch simulcast rules."
 publishedAt: 2026-09-07
+updatedAt: 2026-09-28
 coverAlt: "Three purple, green, and coral chat feeds converge into one translucent panel over a night city stream in a home studio"
 ---
 
@@ -69,11 +70,14 @@ moderation essential. Keep Twitch Mod View, the Kick dashboard, or TikTok LIVE
 Studio available to the person who moderates. The overlay is a shared reading
 surface, not a replacement for those tools.
 
-This is also separate from two older VISP chat paths. The
+This is also separate from the other VISP chat features. The
 [phone chat guide](/blog/twitch-kick-chat-phone-obs) covers a private floating
-view on the field phone. The [VISP chat bot documentation](https://docs.visp-stream.com/docs/chat-bot)
-covers automatic stream alerts and commands such as `!bitrate`. Multi-chat
-does neither job. It gives OBS one live, read-only web page.
+view on the field phone. The dashboard **Chat** tab has its own **OBS chat
+overlay** for the Twitch, Kick, and YouTube chats you enabled there. The
+[VISP chat bot documentation](https://docs.visp-stream.com/docs/chat-bot)
+covers automatic stream alerts and commands such as `!bitrate`. Multi-chat is
+the page to use when you also want TikTok LIVE. It gives OBS one live,
+read-only web page.
 
 ## 1. Save the three channel nicknames
 
@@ -104,8 +108,8 @@ The service connects with the VISP Twitch bot account. Twitch's current
 [chatbot authentication guide](https://dev.twitch.tv/docs/chat/authenticating/)
 requires the broadcaster to grant bot access or make that bot a moderator.
 
-If the Twitch source reports an authorization error, open the main VISP
-dashboard and authorize the VISP chat bot for that Twitch channel. Then return
+If the Twitch source reports an authorization error, open the **Chat** tab on
+the main VISP dashboard and choose **Authorize chat** for Twitch. Then return
 to Multi-chat and save the source again. A wrong nickname and a channel that
 has not granted the required bot access can both prevent the subscription.
 
@@ -262,10 +266,10 @@ Before going live, confirm all of these facts:
 - the combined chat stays private during a Twitch simulcast;
 - a local recording proves the chosen source is either present or absent.
 
-Multi-chat does not alter the phone-to-OBS video path. VISP still relays that
-contribution without transcoding, and the chat overlay does not combine mobile
-network capacity. If you also need one phone upload sent to several services,
-use the separate [phone multistreaming guide](/blog/multistream-phone-twitch-kick-custom-rtmp).
+Multi-chat does not touch the video path, whether the phone goes to the
+platforms with Direct or into your own OBS. If you also need one phone upload
+sent to several services, use the separate [phone multistreaming
+guide](/blog/multistream-phone-twitch-kick-custom-rtmp).
 
 ## Sources and next steps
 

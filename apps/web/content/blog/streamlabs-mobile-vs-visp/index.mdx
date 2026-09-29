@@ -2,14 +2,15 @@
 title: "Streamlabs Mobile vs VISP: Publish From Your Phone or Feed OBS?"
 description: "Compare Streamlabs Mobile's direct phone broadcasting with VISP's phone-as-an-OBS-source workflow, and pick the right fit for your Twitch or Kick production."
 publishedAt: 2026-07-23
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Two signal paths compare Streamlabs Mobile publishing straight from a phone with VISP feeding a phone into OBS"
 ---
 
 Streamlabs Mobile and VISP both start with a phone, but they end in very
 different places. **Choose Streamlabs Mobile when the phone should be the whole
-studio and broadcast straight to the platform. Choose VISP when the phone should
-feed OBS, or when you want a simpler Direct output to Twitch, Kick, or YouTube.**
+studio, with overlays built on the handset. Choose VISP when you want a simpler
+Direct output to Twitch, Kick, or YouTube from the relay, or when the phone
+should feed an OBS studio.**
 
 Neither tool is a universal replacement for the other. The right pick depends on
 a single question: is the phone your entire show, or a source feeding a show you
@@ -19,23 +20,24 @@ already build in OBS?
 
 | Need | Streamlabs Mobile | VISP |
 | --- | --- | --- |
-| Go live directly from the phone | Core workflow | Yes, with Direct; OBS is also supported |
-| Keep an existing OBS studio as the output | Not its purpose | Core workflow |
-| Overlays, alerts, and themes on the phone | Built in | Handled by OBS, not the phone |
+| Go live directly from the phone | Core workflow | Yes, with Direct (the default); relay encodes each platform |
+| Keep an existing OBS studio as the output | Not its purpose | Optional relay-to-OBS workflow |
+| Overlays, alerts, and themes on the phone | Built in | Not a phone-side scene editor; produce in OBS if you need scenes |
 | Where destination credentials live | Managed by Streamlabs | In OBS for relay-to-OBS; Direct retrieves provider credentials server-side |
-| Multistreaming to several platforms at once | Yes, with a paid Ultra plan | Direct can independently target Twitch, Kick, and YouTube; OBS can use its configured outputs |
+| Multistreaming to several platforms at once | Yes, with a paid Ultra plan | Direct can independently target Twitch, Kick, YouTube, and saved custom destinations |
+| Holding screen when data drops | Disconnect Protection (Ultra) | Optional BRB card with Direct, or an OBS fallback scene |
 | Transport | RTMP (custom RTMP for many destinations) | SRT or RTMP into the relay, plus browser WebRTC |
 | Repeat, revocable device credentials | Account login | Per-device publish access, independently revocable |
 | Remote OBS control | Not applicable | Authenticated start/stop/scene through the VISP OBS plugin |
-| Multi-link resilience | No built-in bonding | Native app can duplicate packets over Wi-Fi and cellular; it does not aggregate their capacity |
+| Multi-link resilience | No built-in bonding | Optional Network bonding in the native app: SRTLA aggregation, packet duplication, or main + backup |
 
-The last row matters for IRL work. VISP's native publisher can duplicate packets
-over Wi-Fi and cellular, but it does not aggregate both links into a larger pipe.
-VISP's relay-to-OBS path does not transcode; Direct does create a distribution
-encode for each selected destination. If you need true capacity aggregation,
-that job belongs to a bonded encoder or network layer,
-as covered in
+The last row matters for IRL work. VISP's native publisher can bond Wi-Fi and
+cellular when you turn on **Network bonding**; it is off by default. Both links
+still ride on one phone, so for heavier bonding needs compare a dedicated
+encoder or network layer, as covered in
 [VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
+VISP's relay-to-OBS path does not transcode; Direct does create a distribution
+encode for each selected destination.
 
 ## How Streamlabs Mobile works
 
@@ -60,13 +62,14 @@ it in one place, and the stream key stays managed by Streamlabs on the phone.
 
 ## How VISP works
 
-VISP can treat the phone as an OBS publishing source or as a complete program
-sent through Direct. The
+VISP can send the phone as a complete program through Direct, the default, or
+treat it as an OBS publishing source. The
 [native VISP app](https://docs.visp-stream.com/docs/phone-app) captures H.264
 video and AAC audio and publishes over SRT to an authenticated relay path;
 the browser publisher uses WebRTC, and third-party encoders such as Larix or
-Moblin can publish over SRT or RTMP. OBS on the home computer then reads that
-path as a media source, exactly like
+Moblin can publish over SRT or RTMP. With Direct, the relay encodes that feed
+for each selected platform. In the optional OBS workflow, OBS on the home
+computer reads that path as a media source, exactly like
 [using a phone as a remote camera in OBS](/blog/use-phone-as-remote-camera-obs).
 
 In the OBS workflow, your scenes, alerts, graphics, recording, and destination
@@ -79,23 +82,23 @@ touching your other cameras. Setup details are in the
 [VISP get-started guide](https://docs.visp-stream.com/docs/get-started) and the
 [video-source documentation](https://docs.visp-stream.com/docs/video-source).
 
-VISP also lets the field operator control the studio. Through the paired OBS
-plugin, an authenticated device can send start, stop, and scene commands over
+If you use OBS, VISP also lets the field operator control the studio. Through
+the optional paired OBS plugin, an authenticated device can send start, stop, and scene commands over
 authenticated outbound WSS, so OBS never exposes an inbound control port. See the
 [OBS remote-control documentation](https://docs.visp-stream.com/docs/obs-remote-control)
 for how that pairing works. The relay-to-OBS path does not transcode: the codec,
 resolution, and bitrate the phone sends are what reach OBS. Direct separately
-encodes each destination. The native app can optionally duplicate packets over
-Wi-Fi and cellular for failover, without aggregating their bandwidth.
+encodes each destination.
 
 ## Where the two models genuinely differ
 
 ### Who owns the output
 
 With Streamlabs Mobile, the phone owns the broadcast. If the phone is the only
-device, the app handles overlays and delivery end to end. With VISP, OBS owns the
-broadcast, and the phone is one input among your scenes, cameras, and audio
-sources. If you have already invested in an OBS layout, alerts, and a produced
+device, the app handles overlays and delivery end to end. With VISP Direct, the
+relay owns the platform connection and the phone only sends its camera. In the
+OBS workflow, OBS owns the broadcast, and the phone is one input among your
+scenes, cameras, and audio sources. If you have already invested in an OBS layout, alerts, and a produced
 look, VISP preserves it; Streamlabs Mobile asks you to rebuild that look inside
 the app.
 
@@ -111,14 +114,12 @@ Direct is intentionally simpler, and the OBS path preserves an existing studio.
 
 Both models have honest limits on a bad connection. Streamlabs Mobile's
 Disconnect Protection keeps the platform stream alive with a holding screen when
-the phone's data drops. VISP moves that continuity to OBS: because the
-destination broadcast runs on the home computer, OBS can hold a fallback scene,
-local content, and audio while the phone reconnects, without ending the
-platform stream. The
+the phone's data drops. VISP keeps the platform connection off the phone: with
+Direct, the optional BRB card (dashboard **BRB** tab, off by default) holds each
+output open while the phone reconnects; in the OBS workflow, OBS can hold a
+fallback scene, local content, and audio. The
 [mobile-network resilience guide](/blog/keep-stream-live-bad-mobile-network)
-walks through configuring that fallback. Neither approach creates bandwidth where
-none exists; VISP's native dual-link mode duplicates packets rather than adding
-the capacity of two networks.
+walks through both. Neither approach creates bandwidth where none exists.
 
 ### One camera vs several
 
@@ -140,6 +141,8 @@ Choose **Streamlabs Mobile** when:
 
 Choose **VISP** when:
 
+- you want a simple phone-to-Twitch, Kick, or YouTube output with the stream
+  keys kept off the phone;
 - you already produce in OBS and want to keep those scenes, alerts, and stream key;
 - a phone should behave like a named, revocable camera that returns each week;
 - you want SRT contribution and latency tuning into an existing production;
@@ -163,14 +166,14 @@ but Direct is not a phone-side scene editor.
 ### Can Streamlabs Mobile feed OBS like VISP does?
 
 That is not its main design. Streamlabs Mobile is oriented around publishing
-directly to platforms from the phone, whereas VISP's entire purpose is delivering
-an authenticated contribution feed into OBS.
+directly to platforms from the phone, whereas VISP's optional OBS workflow is
+built around delivering an authenticated contribution feed into OBS.
 
 ### Does either one bond Wi-Fi and cellular?
 
-Streamlabs Mobile has no built-in bonding. VISP's native app can duplicate packets
-over Wi-Fi and cellular for failover, but it does not combine their capacity; add
-a true bonding layer when aggregation is required.
+Streamlabs Mobile has no built-in bonding. VISP's native app has optional
+**Network bonding**: its default SRTLA mode combines Wi-Fi and cellular, and
+**Broadcast** duplicates every packet over both for failover.
 
 ### Where do destination credentials live?
 
@@ -180,8 +183,9 @@ publishing phone does not receive them.
 
 ### Do I have to rebuild my OBS setup to try VISP?
 
-No. VISP adds the phone as a new media source, so your scenes, alerts, graphics,
-and destination configuration stay exactly as they are.
+No. Direct needs no OBS at all. If you do use OBS, VISP adds the phone as a new
+media source, so your scenes, alerts, graphics, and destination configuration
+stay exactly as they are.
 
 ## Sources and further reading
 
@@ -189,11 +193,12 @@ and destination configuration stay exactly as they are.
 - [Streamlabs Mobile live-streaming guide](https://support.streamlabs.com/hc/en-us/articles/4413175147931-Mobile-Live-Streaming-Guide)
 - [Streamlabs multistreaming on mobile](https://streamlabs.com/multistream)
 - [VISP: get started](https://docs.visp-stream.com/docs/get-started)
+- [VISP: Direct output](https://docs.visp-stream.com/docs/direct-output)
 - [VISP: add a video source](https://docs.visp-stream.com/docs/video-source)
 - [VISP: phone and browser publishing app](https://docs.visp-stream.com/docs/phone-app)
 - [VISP: OBS remote control](https://docs.visp-stream.com/docs/obs-remote-control)
 
-If you already build your show in OBS and want your phone to join it as a managed,
-revocable camera instead of a standalone broadcaster,
-[try VISP](https://visp-stream.com): add one device, read it into OBS as a media
-source, and keep your scenes, alerts, and stream key exactly where they are.
+If you want the phone to go live without holding a stream key, or to join an
+OBS show as a managed, revocable camera, [try VISP](https://visp-stream.com):
+sign in, authorize Direct, and go live, then add OBS later only if the show
+needs it.

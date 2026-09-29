@@ -1,29 +1,36 @@
 ---
 title: "Näin pidät lähetyksen käynnissä mobiiliverkon katketessa"
-description: "Rakenna kestävä IRL-lähetys SRT-palautuksella, mukautuvalla bittinopeudella, automaattisella yhdistämisellä ja OBS-varakohtauksilla."
+description: "Rakenna kestävä IRL-lähetys SRT-palautuksella, mukautuvalla bittinopeudella, automaattisella yhdistämisellä, BRB-kortilla tai OBS-varakohtauksella."
 publishedAt: 2026-07-22
+updatedAt: 2026-09-28
 coverAlt: "Useat suojauskerrokset pitävät OBS-lähetyksen käynnissä mobiiliverkon katkon aikana"
 ---
 
 Luotettava IRL-lähetys ei perustu yhteen taika-asetukseen. Se syntyy kerroksista:
 verkkoon jätetystä kapasiteettimarginaalista, SRT:n pakettipalautuksesta,
-automaattisesta uudelleenyhdistämisestä ja OBS:n paikallisesta varakohtauksesta.
+automaattisesta uudelleenyhdistämisestä ja varatilasta, joka näkyy puhelimen
+ollessa poissa: VISP Directissä relayn valinnaisesta BRB-kortista, omassa
+OBS:ssä paikallisesta varakohtauksesta.
 
 ![Lähetyksen kestävyyden kerrokset](./resilience-layers.svg)
 
 ## Selvitä ensin, mikä yhteys katkeaa
 
-Ketjussa on vähintään puhelimen lähetysyhteys, relay-palvelu, OBS:n lukuyhteys ja
-OBS:n yhteys suoratoistopalveluun. Mittaa niitä erikseen. Puhelimen heikko
-lähetys ei korjaannu muuttamalla OBS:n Twitch-asetuksia, eikä relay-yhteyden
-katko välttämättä tarkoita, että varsinainen OBS-lähetys olisi päättynyt.
+Ketjussa on vähintään puhelimen lähetysyhteys, relay-palvelu ja yhteys
+suoratoistopalveluun. Oletuksena olevassa Directissä relay pitää itse
+alustayhteyden; valinnaisessa OBS-työnkulussa mukana ovat lisäksi OBS:n
+lukuyhteys ja OBS:n oma lähetys. Mittaa niitä erikseen. Puhelimen heikko
+lähetys ei korjaannu muuttamalla alustan asetuksia, eikä puhelimen katko
+välttämättä tarkoita, että varsinainen lähetys olisi päättynyt.
 
 ## Jätä bittinopeudelle hengitysvaraa
 
 Älä aseta videon bittinopeutta nopeustestin parhaaseen tulokseen. Mobiiliverkon
 kapasiteetti vaihtelee sijainnin, solun kuorman ja liikkeen mukaan. Käytä
 tasoa, jonka heikoin odotettu kohta kestää, ja ota mukautuva bittinopeus käyttöön
-enkooderissa, jos se on saatavilla.
+enkooderissa, jos se on saatavilla. VISP-sovellus säätää bittinopeutta
+automaattisesti yhteyden kunnon mukaan ja käyttää kahden sekunnin
+avainruutuväliä.
 
 720p30 kohtuullisella bittinopeudella on usein parempi tuotantovalinta kuin
 epävakaa 1080p60. Vakaa kuva näyttää katsojalle laadukkaammalta kuin suurempi
@@ -33,22 +40,32 @@ tarkkuus, joka pysähtyy jatkuvasti.
 
 SRT voi lähettää kadonneita paketteja uudelleen viiveikkunan sisällä. Suurempi
 viive sietää enemmän vaihtelua mutta lisää kameran ja OBS:n välistä viivettä.
-Mittaa edestakainen viive todellisessa käyttöverkossa ja jätä sille turvamarginaali.
+VISP-sovellus käyttää kiinteää kahden sekunnin SRT-viivettä. Kolmannen osapuolen
+enkooderille mittaa edestakainen viive todellisessa käyttöverkossa
+hallintapaneelin **Edistynyt**-välilehden mittauksella ja jätä sille
+turvamarginaali.
 
 SRT ei luo kaistanleveyttä tyhjästä. Jos yhteys katoaa kokonaan tai kapasiteetti
 alittaa bittinopeuden pitkäksi aikaa, kuva katkeaa viiveasetuksesta riippumatta.
 
 ## Yhdistä molemmat päät automaattisesti
 
-Puhelimen on yritettävä julkaisua uudelleen verkon palatessa, ja OBS:n
-medialähteen on jäätävä valmiiksi odottamaan samaa polkua. Testaa lentotilan
+Puhelimen on yritettävä julkaisua uudelleen verkon palatessa, ja jos käytät
+OBS:ää, sen medialähteen on jäätävä valmiiksi odottamaan samaa polkua. Testaa lentotilan
 käyttö, verkkotyypin vaihtaminen ja sovelluksen paluu taustalta. Palautumisen
 pitää onnistua ilman uuden osoitteen kopiointia tai lähteen luomista.
 
-## Pidä OBS käynnissä varakohtauksella
+## Pidä lähetys käynnissä BRB-kortilla tai varakohtauksella
 
-Kenttäkameran katkos ei saa päättää OBS:n ja Twitchin tai Kickin välistä
-lähetystä. Tee paikallinen varakohtaus, jossa on esimerkiksi kuva, musiikki ja
+Kenttäkameran katkos ei saa päättää Twitch- tai Kick-lähetystä.
+
+Directissä avaa hallintapaneelin **BRB**-välilehti ja ota käyttöön **Näytä
+BRB-kortti, kun lähetys katkeaa**. Se on oletuksena pois päältä. Kun se on
+päällä, katkennut syöte pitää jokaisen Direct-lähdön auki ja näyttää kortin,
+kunnes puhelin palaa tai lopetat lähetyksen. Vaihtoehtoja verrataan
+[BRB-ruutu ilman OBS:ää -oppaassa](/fi/blog/brb-screen-phone-irl-without-obs).
+
+Jos tuotat lähetyksen OBS:ssä, tee paikallinen varakohtaus, jossa on esimerkiksi kuva, musiikki ja
 selkeä ilmoitus yhteyden palautumisesta.
 
 Advanced Scene Switcher voi vaihtaa varakohtaukseen, kun medialähteeseen ei tule
@@ -60,16 +77,28 @@ kohtaus ei vaihdu edestakaisin lyhyen heilahtelun aikana.
 
 ## Seuraa oikeita signaaleja
 
-Seuraa lähettävän laitteen tilaa, relayn vastaanottamia tavuja, OBS-lähteen
-dekoodausta ja suoratoistopalvelun ulosmenevää bittinopeutta erikseen. Yksi
+Seuraa lähettävän laitteen tilaa, relayn vastaanottamia tavuja, Direct-lähdön
+tai OBS-lähteen tilaa ja suoratoistopalvelun ulosmenevää bittinopeutta
+erikseen. Yksi
 vihreä “live”-valo ei todista koko ketjun toimintaa.
 
 ## Tunnista, milloin tarvitset bonding-ratkaisun
 
 Jos reitti kulkee alueilla, joilla yksi yhteys katoaa usein kokonaan, asetukset
 eivät riitä. Verkkobonding jakaa liikenteen usean itsenäisen yhteyden yli ja
-vaatii sitä tukevan lähettimen sekä vastaanottavan palvelun. VISP välittää yhden
-yhteyden liikenteen eikä tee bondingia.
+vaatii sitä tukevan lähettimen sekä vastaanottavan palvelun.
+
+VISPin iOS- ja Android-sovelluksessa tämä on valinnaisena mukana. Ota
+**Settings → Network** -kohdasta käyttöön **Network bonding**; oletustila
+**SRTLA (aggregating)** jakaa lähetyksen Wi-Fille ja mobiiliyhteydelle, ja
+relay kokoaa sen takaisin. **Broadcast** lähettää jokaisen paketin molempia
+linkkejä pitkin (enemmän varmuutta, noin kaksinkertainen mobiilidata), ja
+**Main + backup** pitää toisen linkin varalla. Molemmat linkit jakavat silti
+saman puhelimen, akun ja usein samat katvealueet. Myös Moblin ja BELABOX voivat
+lähettää SRTLA:ta VISP-laitteen SRTLA-osoitteeseen. Muita vaihtoehtoja ovat
+[BELABOX](https://belabox.net/), [LiveU
+Solo](https://solohelp.liveu.tv/hc/en-us/articles/16672822061339-Overview-of-the-Solo-PRO)
+ja [Speedify](https://speedify.com/irl-streaming-connection-bonding-software/).
 
 ## Tarkistuslista ennen lähetystä
 
@@ -77,8 +106,9 @@ yhteyden liikenteen eikä tee bondingia.
 - Jätä bittinopeudelle selvä kapasiteettimarginaali.
 - Aseta kahden sekunnin avainruutuväli.
 - Mittaa SRT-viive ja testaa automaattinen palautuminen.
-- Tee paikallinen OBS-varakohtaus ja harjoittele sen vaihto.
-- Varmista, että OBS:n kohdelähetys jatkuu puhelimen katketessa.
+- Ota BRB-kortti käyttöön tai tee paikallinen OBS-varakohtaus ja harjoittele
+  sen vaihto.
+- Varmista, että alustalähetys jatkuu puhelimen katketessa.
 - Päätä etukäteen, milloin keskeytät tai vaihdat toiseen verkkoon.
 
 ## Usein kysyttyä
@@ -93,12 +123,14 @@ yhteyttä tai pitkäaikaista kapasiteettivajetta.
 Ei. Liian suuri arvo hidastaa ohjausta ja keskustelua. Käytä mittaukseen ja
 käyttötilanteeseen perustuvaa pienintä vakaata arvoa.
 
-### Miksi OBS pysyy live-tilassa puhelimen katketessa?
+### Miksi lähetys pysyy live-tilassa puhelimen katketessa?
 
-Koska puhelin on vain yksi OBS:n lähteistä. OBS:n oma yhteys kohdepalveluun voi
-jatkua ja näyttää paikallista varakohtausta.
+Koska alustayhteys ei ole puhelimessa. Relay (Directissä BRB-kortti päällä) tai
+OBS pysyy yhteydessä kohdepalveluun ja voi näyttää muuta kuin puhelimen kuvaa.
 
 ## Lisätietoja
 
 - [Enkooderit ja varayhteys](https://docs.visp-stream.com/fi/docs/broadcaster-setup)
+- [Puhelinsovelluksen verkkoniputus](https://docs.visp-stream.com/fi/docs/phone-app)
+- [Direct-lähtö ja BRB](https://docs.visp-stream.com/fi/docs/direct-output)
 - [OBS:n reconnecting-ongelmat](https://obsproject.com/kb/stream-connection-troubleshooting)

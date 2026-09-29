@@ -2,6 +2,7 @@
 title: "IRL-lähetyksen tallentaminen OBS:llä puhelimesta käsin"
 description: "Tallenna Twitch- tai Kick-IRL-lähetys kotikoneen OBS:llä kentältä käsin. Määritä turvallinen tiedosto, etäohjaus ja testattu lopetusrutiini."
 publishedAt: 2026-09-06
+updatedAt: 2026-09-28
 coverAlt: "IRL-kuvaaja käyttää puhelinta hämärässä samalla kun kotistudion tietokone tallentaa saapuvaa kamerasyötettä"
 ---
 
@@ -32,6 +33,8 @@ kun haluat varmistaa täsmälleen sen kuvan, jonka katsojat saivat.
 
 VISP ei säilytä jatkuvaa pilvitallennetta. Tiedoston omistaa OBS, ja se jää
 kohtaan **Settings → Output → Recording Path** määritetylle tietokoneelle.
+Lisäosan valinnainen **Back up to VISP** -painike kopioi kohtauskokoelmat,
+profiilit ja niiden käyttämät mediatiedostot, ei tallenteitasi.
 
 ## 1. Määritä tallennus OBS-koneella
 
@@ -62,7 +65,9 @@ ja testaa tiedosto sillä editorilla, jota aiot käyttää.
 ## 2. Tuo puhelinsyöte OBS:ään
 
 Tee [puhelimen ja OBS:n välinen asennus](/fi/blog/use-phone-as-remote-camera-obs)
-ja lisää julkaisulaite oikeaan kohtaukseen VISP-lisäosalla. Relay välittää
+ja lisää julkaisulaite oikeaan kohtaukseen VISP-lisäosalla. Jos OBS vastaa
+julkisesta lähetyksestä, valitse ensin hallintapaneelin **Tila**-valikosta
+**Puhelimesta omaan OBS:ään**; Direct on oletus. Relay välittää
 puhelimen lähetyssyötteen OBS:ään transkoodaamatta sitä.
 
 Tarkista paikallisesta testitallenteesta neljä asiaa:

@@ -2,7 +2,7 @@
 title: "VDO.Ninja vai VISP etäkameran tuomiseen OBS:ään?"
 description: "Vertaa VDO.Ninjaa ja VISPiä etäkameroissa, vieraissa, viiveessä, turvallisuudessa ja toistettavissa puhelimesta OBS:ään -tuotannoissa."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "Kaksi signaalipolkua vertailee VDO.Ninjaa ja VISPiä etäkameroiden tuomisessa OBS:ään"
 ---
 
@@ -20,7 +20,7 @@ polut, SRT-vaihtoehto ja OBS-etäohjaus.**
 | Painotus | Pieni viive ja tilapäiset vieraat | Toistettavat etäkamerat ja OBS-työnkulku |
 | Käyttöoikeus | Huone- ja linkkikohtainen | Käyttäjä- ja laitekohtainen, peruutettava |
 | OBS-ohjaus | Erillinen ratkaisu | VISP OBS -lisäosassa |
-| Usean verkon toiminta | Ei sisäänrakennettua bondingia | Natiivisovellus voi monistaa paketit Wi-Fiin ja mobiiliin; kaistoja ei summata |
+| Usean verkon toiminta | Ei sisäänrakennettua bondingia | Valinnainen natiivisovelluksessa: Wi-Fin ja mobiiliyhteyden SRTLA-bondaus tai pakettien monistus varayhteydeksi |
 
 ## Näin VDO.Ninja toimii
 
@@ -54,8 +54,9 @@ keskustelussa. Se saattaa pudottaa laatua tai ruutuja nopeasti verkon
 heiketessä. VISPin SRT-polku hyväksyy tarkoituksella suuremman viiveen, jotta
 kadonneita paketteja voidaan lähettää uudelleen asetetun ikkunan sisällä.
 
-Kumpikaan ei tee huonosta verkosta hyvää. VISP Native voi monistaa paketit
-Wi-Fiin ja mobiilidataan, mutta ei summaa niiden kapasiteettia.
+Kumpikaan ei tee huonosta verkosta hyvää. VISP Nativen valinnainen bondaus voi
+yhdistää Wi-Fin ja mobiilidatan kapasiteetin SRTLA:lla tai monistaa paketit
+molempiin, mutta se ei auta, jos kumpikin yhteys katkeaa.
 Valitse ratkaisu sen mukaan, onko tärkein tavoite reaaliaikainen keskustelu vai
 kenttäkameran tasainen syöte OBS-tuotantoon.
 
@@ -100,12 +101,17 @@ viivettä pakettihäviöstä palautumiseen.
 
 ### Tekeekö kumpikaan verkkobondingia?
 
-VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin yhden linkin vian varalta.
-Kaistojen aggregointi tarvitsee silti erillisen bonding-ratkaisun.
+VISP Native voi, valinnaisesti. Sen **Network bonding** -asetuksen oletustila on
+**SRTLA (aggregating)**, joka jakaa lähetyksen Wi-Fille ja mobiiliyhteydelle
+niin, että molemmat tuovat kapasiteettia. Lisäksi tarjolla ovat **Broadcast**
+(jokainen paketti molempia reittejä) ja **Main + backup**. Erillistä
+bonding-ratkaisua tarvitaan, kun yhden puhelimen kaksi yhteyttä eivät riitä.
+VDO.Ninjassa ei ole sisäänrakennettua bondingia.
 
 ### Voinko kokeilla VISPiä muuttamatta OBS-tuotantoani?
 
-Kyllä. Lisää VISP-kamera uutena medialähteenä; kohtaukset, grafiikat ja
+Kyllä. Valitse hallintapaneelin tilavalikosta **Puhelimesta omaan OBS:ään** ja
+lisää VISP-kamera uutena medialähteenä; kohtaukset, grafiikat ja
 kohdepalvelun lähetysavain pysyvät ennallaan.
 
 ## Lisätietoja

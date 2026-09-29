@@ -87,6 +87,11 @@ löytyy
 Mobiiliarvon laskeminen alle suosituksen voi nopeuttaa siistiä pöytätestiä mutta
 jättää ulkona liian vähän aikaa hävikin korjaamiseen.
 
+Mittauksen arvo on tarkoitettu enkoodereille, joissa SRT-viiveen asettaa itse,
+kuten Larixille, Moblinille tai OBS:lle. VISP-natiivisovellus käyttää tällä
+hetkellä kiinteää 2 000 ms:n SRT-viivettä, joka on jo mobiiliprofiilin
+alarajan yläpuolella.
+
 Ajattele SRT-viivettä luotettavuusbudjettina, älä lopullisen katsojaviiveen
 ennusteena. Siihen eivät kuulu puhelimen kaappaus, videokoodaus, OBS:n purku ja
 sommittelu, OBS:n lopullinen koodaus, alustan käsittely tai katsojan soitin.
@@ -116,11 +121,12 @@ lähetti.
 
 ### Redundanssi ei ole pienen viiveen kytkin
 
-VISP Native voi lähettää samat SRT-paketit Wi-Fin ja mobiiliyhteyden kautta,
-kun taas SRTLA-lähettäjä voi jakaa paketteja usealle yhteydelle. Kumpikin tapa
-voi vähentää yhden huonon reitin vaikutusta. Kumpikaan ei tee tiedonsiirrosta
-välitöntä, eikä natiivin monistustila yhdistä kahta yhteyttä yhdeksi suuremmaksi
-lähetyskaistaksi.
+VISP-sovelluksen valinnainen verkkobonding voi lähettää Wi-Fin ja
+mobiiliyhteyden kautta yhtä aikaa: oletuksena oleva SRTLA-tila jakaa paketit
+molemmille yhteyksille, ja **Broadcast**-tila lähettää samat paketit kumpaakin
+kautta. Moblin, BELABOX ja muut SRTLA-lähettimet toimivat VISPin relayn kanssa
+samalla tavalla. Kumpikin tapa voi vähentää yhden huonon reitin vaikutusta.
+Kumpikaan ei tee tiedonsiirrosta välitöntä.
 
 Aseta viive heikoimman yhteyden mukaan, joka voi joutua kantamaan lähetystä.
 Toisen yhteyden käyttöönotto ja SRT-ikkunan pienentäminen sen jälkeen olettaa,

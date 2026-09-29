@@ -2,14 +2,15 @@
 title: "Streamlabs Mobile vai VISP: puhelimesta suoraan vai OBS:ään?"
 description: "Vertaa Streamlabs Mobilen suoraa puhelinlähetystä ja VISPin puhelin-OBS-lähdettä ja valitse sopiva tapa Twitch- tai Kick-tuotantoosi."
 publishedAt: 2026-07-23
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Kaksi signaalipolkua vertailee Streamlabs Mobilen suoraa puhelinlähetystä ja VISPin puhelimen tuomista OBS:ään"
 ---
 
 Streamlabs Mobile ja VISP lähtevät molemmat puhelimesta, mutta päätyvät hyvin eri
-paikkoihin. **Valitse Streamlabs Mobile, kun puhelin on koko studio ja lähetys
-menee suoraan alustalle. Valitse VISP, kun puhelin syöttää OBS:ää tai kun haluat
-yksinkertaisen Direct-lähdön Twitchiin, Kickiin tai YouTubeen.**
+paikkoihin. **Valitse Streamlabs Mobile, kun puhelin on koko studio ja grafiikat
+rakennetaan puhelimessa. Valitse VISP, kun haluat yksinkertaisen Direct-lähdön
+relaylta Twitchiin, Kickiin tai YouTubeen tai kun puhelimen pitää syöttää
+OBS-studiota.**
 
 Kumpikaan ei korvaa toista kaikessa. Valinta ratkeaa yhteen kysymykseen: onko
 puhelin koko ohjelmasi vai lähde ohjelmaan, jonka rakennat jo OBS:ssä?
@@ -18,22 +19,25 @@ puhelin koko ohjelmasi vai lähde ohjelmaan, jonka rakennat jo OBS:ssä?
 
 | Tarve | Streamlabs Mobile | VISP |
 | --- | --- | --- |
-| Suora lähetys puhelimesta | Ydintoiminto | Kyllä Directillä; myös OBS-polku on tuettu |
-| Olemassa oleva OBS-studio ulostulona | Ei tarkoitus | Ydintoiminto |
-| Overlayt, hälytykset ja teemat puhelimessa | Sisäänrakennettu | OBS hoitaa, ei puhelin |
-| Missä Twitch/Kick-lähetysavain on | Puhelimessa | OBS:ssä kotona |
-| Multistream monelle alustalle yhtä aikaa | Kyllä, maksullisella Ultralla | Se, minkä OBS on määritetty lähettämään |
+| Suora lähetys puhelimesta | Ydintoiminto | Kyllä Directillä (oletus); relay koodaa jokaiselle alustalle |
+| Olemassa oleva OBS-studio ulostulona | Ei tarkoitus | Valinnainen relay–OBS-työnkulku |
+| Overlayt, hälytykset ja teemat puhelimessa | Sisäänrakennettu | Ei puhelimen kohtauseditoria; tuota OBS:ssä, jos tarvitset kohtauksia |
+| Missä Twitch/Kick-lähetysavain on | Streamlabsin hallinnassa | OBS:ssä relay–OBS-työnkulussa; Direct hakee sen palvelimella |
+| Multistream monelle alustalle yhtä aikaa | Kyllä, maksullisella Ultralla | Direct voi lähettää erikseen Twitchiin, Kickiin, YouTubeen ja tallennettuihin mukautettuihin kohteisiin |
+| Pitokuva datan katketessa | Disconnect Protection (Ultra) | Valinnainen BRB-kortti Directissä tai OBS-varakohtaus |
 | Siirtotapa | RTMP (custom RTMP monelle kohteelle) | SRT tai RTMP relayhin, lisäksi selain-WebRTC |
 | Toistuvat, peruutettavat laitetunnukset | Tilikirjautuminen | Laitekohtainen, peruutettava julkaisuoikeus |
 | OBS-etäohjaus | Ei koske | Tunnistettu käynnistys/pysäytys/kohtaus VISP-lisäosassa |
-| Usean yhteyden kestävyys | Ei sisäänrakennettua bondingia | Natiivisovellus voi monistaa paketit Wi-Fiin ja mobiiliin; kaistoja ei summata |
+| Usean yhteyden kestävyys | Ei sisäänrakennettua bondingia | Natiivisovelluksen valinnainen Network bonding: SRTLA-yhdistäminen, pakettien monistus tai pää- ja varayhteys |
 
-Viimeinen rivi on tärkeä IRL-työssä. VISPin natiivijulkaisija voi monistaa paketit
-Wi-Fiin ja mobiiliin, mutta ei yhdistä linkkien kapasiteettia. Relay-to-OBS-polku
-ei transkoodaa; Direct tekee erillisen jakeluenkoodauksen jokaiselle kohteelle.
-Kun tarvitset todellista kaistojen yhdistämistä, työ kuuluu bondaavalle
-enkooderille tai verkkokerrokselle, kuten artikkelissa
-[VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
+Viimeinen rivi on tärkeä IRL-työssä. VISPin natiivijulkaisija voi niputtaa
+Wi-Fin ja mobiiliyhteyden, kun otat **Network bonding** -asetuksen käyttöön; se
+on oletuksena pois päältä. Molemmat linkit kulkevat silti yhden puhelimen
+kautta, joten raskaampiin tarpeisiin vertaa erillistä enkooderia tai
+verkkokerrosta, kuten artikkelissa
+[VISP vs BELABOX vs LiveU Solo](/fi/blog/visp-vs-belabox-vs-liveu-solo).
+Relay–OBS-polku ei transkoodaa; Direct tekee erillisen jakeluenkoodauksen
+jokaiselle kohteelle.
 
 ## Näin Streamlabs Mobile toimii
 
@@ -55,68 +59,72 @@ puhelimessa.
 
 ## Näin VISP toimii
 
-VISP voi käyttää puhelinta OBS-lähteenä tai Directillä valmiina ohjelmana. VISPin
+VISP voi lähettää puhelimen valmiina ohjelmana Directillä, joka on oletus, tai
+käyttää sitä OBS-lähteenä. VISPin
 [natiivisovellus](https://docs.visp-stream.com/docs/phone-app) kaappaa H.264-videon
 ja AAC-äänen ja julkaisee SRT:llä tunnistettuun relay-polkuun; selainjulkaisija
 käyttää WebRTC:tä, ja kolmannen osapuolen enkooderit kuten Larix tai Moblin voivat
-julkaista SRT:llä tai RTMP:llä. Kotikoneen OBS lukee sitten tuon polun
-medialähteenä, aivan kuten oppaassa
-[puhelin etäkamerana OBS:ssä](/blog/use-phone-as-remote-camera-obs).
+julkaista SRT:llä tai RTMP:llä. Directissä relay koodaa syötteen jokaiselle
+valitulle alustalle. Valinnaisessa OBS-työnkulussa kotikoneen OBS lukee tuon
+polun medialähteenä, aivan kuten oppaassa
+[puhelin etäkamerana OBS:ssä](/fi/blog/use-phone-as-remote-camera-obs).
 
-Tärkeä seuraus on se, missä tuotanto sijaitsee. Kohtaukset, hälytykset, grafiikat,
-tallennus ja Twitchin tai Kickin lähetysavain pysyvät OBS:ssä kotona. Puhelin ei
-koskaan saa kohdelähetysavainta. Jokainen julkaisulaite saa erikseen peruutettavan
+Tärkeä seuraus on se, missä tuotanto sijaitsee. OBS-työnkulussa kohtaukset,
+hälytykset, grafiikat, tallennus ja Twitchin tai Kickin lähetysavain pysyvät
+OBS:ssä kotona. Direct hakee valtuutetut alustatunnukset palvelimella ja
+lähettää puhelimen ohjelman Twitchiin, Kickiin tai YouTubeen. Puhelin ei
+kummassakaan saa kohdelähetysavainta. Jokainen julkaisulaite saa erikseen peruutettavan
 oikeuden, ja OBS:n lukuoikeus on erillään julkaisuoikeudesta, joten vanhan
 puhelimen tai lähteneen vieraan pääsy voidaan katkaista koskematta muihin
 kameroihin. Asetukset löytyvät
 [VISPin aloitusoppaasta](https://docs.visp-stream.com/docs/get-started) ja
 [videolähteen dokumentaatiosta](https://docs.visp-stream.com/docs/video-source).
 
-VISP antaa myös kenttäkuvaajan ohjata studiota. Paritetun OBS-lisäosan kautta
+Jos käytät OBS:ää, VISP antaa myös kenttäkuvaajan ohjata studiota. Valinnaisen
+paritetun OBS-lisäosan kautta
 tunnistettu laite voi lähettää käynnistys-, pysäytys- ja kohtauskomentoja
 todennetun ulospäin suuntautuvan WSS-yhteyden kautta, joten OBS ei avaa sisääntulevaa ohjausporttia. Katso
 [OBS-etäohjauksen dokumentaatio](https://docs.visp-stream.com/docs/obs-remote-control).
 Relay-to-OBS-polku ei transkoodaa: puhelimen lähettämä koodekki, resoluutio ja
 bittinopeus päätyvät OBS:ään. Direct enkoodaa jokaisen kohteen erikseen.
-Natiivisovellus voi lisäksi monistaa paketit Wi-Fiin ja mobiiliin ilman, että
-niiden kaistat summataan.
 
 ## Missä mallit oikeasti eroavat
 
 ### Kuka omistaa ulostulon
 
 Streamlabs Mobilessa puhelin omistaa lähetyksen. Jos puhelin on ainoa laite,
-sovellus hoitaa overlayt ja jakelun päästä päähän. VISPissä OBS omistaa lähetyksen,
-ja puhelin on yksi syöte kohtausten, kameroiden ja äänilähteiden joukossa. Jos olet
+sovellus hoitaa overlayt ja jakelun päästä päähän. VISP Directissä relay omistaa
+alustayhteyden, ja puhelin lähettää vain kameransa. OBS-työnkulussa OBS omistaa
+lähetyksen, ja puhelin on yksi syöte kohtausten, kameroiden ja äänilähteiden joukossa. Jos olet
 jo panostanut OBS-asetteluun, hälytyksiin ja viimeisteltyyn ilmeeseen, VISP
 säilyttää sen; Streamlabs Mobile pyytää rakentamaan ilmeen uudelleen sovellukseen.
 
 ### Multistream vai yksi viimeistelty syöte
 
 Streamlabs Mobilen multistream lähettää puhelimen ulostulon usealle alustalle yhtä
-aikaa maksullisella tilauksella. VISP ei lisää omaa multistream-kerrostaan: se
-tuottaa yhden puhtaan syötteen OBS:ään, ja OBS päättää, minne valmis tuotanto
-menee. Jos yhtäaikainen monen alustan ulostulo on tärkein ja puhelin on studio,
-se puoltaa Streamlabs Mobilea. Jos haluat yhden huolella tuotetun syötteen omilla
-overlayilläsi, OBS-polku sopii paremmin.
+aikaa maksullisella tilauksella. VISP Direct voi lähettää yhden syötteen
+erikseen valituille Twitch-, Kick- ja YouTube-kohteille, kun taas OBS-työnkulku
+jättää jakelun OBS:lle. Streamlabs pitää tuotantotyökalut puhelimessa; VISP
+Direct on tarkoituksella yksinkertaisempi, ja OBS-polku säilyttää olemassa
+olevan studion.
 
 ### Luotettavuus verkon notkahtaessa
 
 Molemmilla malleilla on rehelliset rajansa huonossa verkossa. Streamlabs Mobilen
 Disconnect Protection pitää alustalähetyksen elossa pitokuvalla, kun puhelimen data
-katkeaa. VISP siirtää tuon jatkuvuuden OBS:ään: koska kohdelähetys pyörii
-kotikoneella, OBS voi pitää fallback-kohtausta, paikallista sisältöä ja ääntä,
-kun puhelin yhdistää uudelleen, päättämättä alustalähetystä. Opas
-[striimin pitäminen elossa huonossa mobiiliverkossa](/blog/keep-stream-live-bad-mobile-network)
-käy fallbackin läpi. Kumpikaan ei luo kaistaa tyhjästä; VISPin kahden linkin tila
-monistaa paketit eikä summaa verkkojen kapasiteettia.
+katkeaa. VISP pitää alustayhteyden poissa puhelimesta: Directissä valinnainen
+BRB-kortti (hallintapaneelin **BRB**-välilehti, oletuksena pois päältä) pitää
+jokaisen lähdön auki puhelimen yhdistäessä uudelleen, ja OBS-työnkulussa OBS voi
+pitää fallback-kohtausta, paikallista sisältöä ja ääntä. Opas
+[striimin pitäminen elossa huonossa mobiiliverkossa](/fi/blog/keep-stream-live-bad-mobile-network)
+käy molemmat läpi. Kumpikaan ei luo kaistaa tyhjästä.
 
 ### Yksi kamera vai useampi
 
 Yksi puhelin koko studiona on Streamlabs Mobilen mukavuusalue. Kun tarvitset useita
 itsenäisiä kameroita leikattavaksi yhteen, VISP antaa jokaiselle puhelimelle oman
 laitteen, tunnuksen ja OBS-lähteen, kuten oppaassa
-[monen puhelimen IRL-striimi OBS:ssä](/blog/multi-phone-irl-stream-obs). Streamlabs
+[monen puhelimen IRL-striimi OBS:ssä](/fi/blog/multi-phone-irl-stream-obs). Streamlabs
 Mobile rakentuu käsissäsi olevan yhden puhelimen ympärille, ei tuottajan OBS:ään
 saapuvan syötekimpun.
 
@@ -131,6 +139,8 @@ Valitse **Streamlabs Mobile**, kun:
 
 Valitse **VISP**, kun:
 
+- haluat yksinkertaisen lähdön puhelimesta Twitchiin, Kickiin tai YouTubeen
+  ilman lähetysavainta puhelimessa;
 - tuotat jo OBS:ssä ja haluat pitää kohtaukset, hälytykset ja lähetysavaimen;
 - puhelimen tulee toimia nimettynä, peruutettavana kamerana viikosta toiseen;
 - haluat SRT-syötteen ja viiveen säädön olemassa olevaan tuotantoon;
@@ -141,7 +151,7 @@ Niitä voi käyttää myös rinnakkain eri ohjelmissa: Streamlabs Mobile nopeaan
 yksinäiseen mobiililähetykseen ja VISP, kun sama puhelin tuodaan kameraksi koko
 OBS-tuotantoon. Jos etäosallistuja on kaksisuuntainen keskusteluvieras eikä kamera,
 vertaa myös puheluun sopivaa vaihtoehtoa artikkelissa
-[VDO.Ninja vai VISP](/blog/vdo-ninja-vs-visp).
+[VDO.Ninja vai VISP](/fi/blog/vdo-ninja-vs-visp).
 
 ## Usein kysyttyä
 
@@ -154,23 +164,26 @@ ei ole puhelimen kohtaus-editori.
 ### Voiko Streamlabs Mobile syöttää OBS:ää kuten VISP?
 
 Se ei ole sen pääasiallinen tarkoitus. Streamlabs Mobile on suunnattu suoraan
-puhelimesta alustalle lähettämiseen, kun taas VISPin koko idea on tuoda tunnistettu
-syöte OBS:ään.
+puhelimesta alustalle lähettämiseen, kun taas VISPin valinnainen OBS-työnkulku
+on rakennettu tuomaan tunnistettu syöte OBS:ään.
 
 ### Yhdistääkö kumpikaan Wi-Fin ja mobiilin?
 
-Streamlabs Mobilessa ei ole sisäänrakennettua bondingia. VISPin natiivisovellus
-voi monistaa paketit Wi-Fiin ja mobiiliin, mutta ei yhdistä niiden kapasiteettia.
-Lisää varsinainen bonding-kerros, kun tarvitset kaistojen aggregoinnin.
+Streamlabs Mobilessa ei ole sisäänrakennettua bondingia. VISPin natiivisovelluksessa
+on valinnainen **Network bonding**: oletustila SRTLA yhdistää Wi-Fin ja
+mobiiliyhteyden, ja **Broadcast** monistaa jokaisen paketin molempiin
+varmuuden vuoksi.
 
 ### Missä Twitchin tai Kickin lähetysavain on?
 
-Streamlabs Mobilessa sitä hallitaan puhelimessa. VISPissä se pysyy vain OBS:ssä
-kotona, eikä julkaiseva puhelin koskaan saa sitä.
+Streamlabs hallitsee sitä mobiililähetyksessään. VISPin OBS-työnkulussa se
+pysyy OBS:ssä; Direct hakee valtuutetut alustatunnukset palvelimella. Julkaiseva
+puhelin ei saa sitä.
 
 ### Pitääkö OBS-asetukset rakentaa uudelleen VISPiä kokeillakseen?
 
-Ei. VISP lisää puhelimen uutena medialähteenä, joten kohtaukset, hälytykset,
+Ei. Direct ei tarvitse OBS:ää lainkaan. Jos käytät OBS:ää, VISP lisää puhelimen
+uutena medialähteenä, joten kohtaukset, hälytykset,
 grafiikat ja kohdeasetukset pysyvät ennallaan.
 
 ## Lähteet ja lisälukemista
@@ -178,13 +191,13 @@ grafiikat ja kohdeasetukset pysyvät ennallaan.
 - [Streamlabs Mobile -sovelluksen esittely](https://streamlabs.com/mobile-app)
 - [Streamlabs Mobilen lähetysopas](https://support.streamlabs.com/hc/en-us/articles/4413175147931-Mobile-Live-Streaming-Guide)
 - [Streamlabsin mobiilimultistream](https://streamlabs.com/multistream)
-- [VISP: aloita tästä](https://docs.visp-stream.com/docs/get-started)
+- [VISP: aloita tästä](https://docs.visp-stream.com/fi/docs/get-started)
+- [VISP: Direct-lähtö](https://docs.visp-stream.com/fi/docs/direct-output)
 - [VISP: lisää videolähde](https://docs.visp-stream.com/docs/video-source)
 - [VISP: puhelin- ja selainjulkaisu](https://docs.visp-stream.com/docs/phone-app)
 - [VISP: OBS-etäohjaus](https://docs.visp-stream.com/docs/obs-remote-control)
 
-Jos rakennat ohjelmasi jo OBS:ssä ja haluat puhelimesi liittyvän siihen
-hallittuna, peruutettavana kamerana itsenäisen lähettäjän sijaan,
-[kokeile VISPiä](https://visp-stream.com): lisää yksi laite, lue se OBS:ään
-medialähteenä ja pidä kohtaukset, hälytykset ja lähetysavain juuri siellä missä
-ne ovat.
+Jos haluat puhelimen lähettävän ilman lähetysavainta tai liittyvän
+OBS-ohjelmaan hallittuna, peruutettavana kamerana,
+[kokeile VISPiä](https://visp-stream.com): kirjaudu sisään, valtuuta Direct ja
+aloita lähetys, ja lisää OBS myöhemmin vain, jos ohjelma sitä tarvitsee.

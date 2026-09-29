@@ -2,13 +2,13 @@
 title: "BELABOX-vaihtoehto IRL-striimaukseen: puhelin, SRTLA vai laite?"
 description: "Vertaa käytännöllisiä BELABOX-vaihtoehtoja puhelimesta ja VISPistä SRTLA-sovelluksiin ja hallittuun lähetyslaitteistoon."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-29
 coverAlt: "IRL-striimaaja vertailee puhelinrigia, säädettävää bondausenkooderia ja kotistudioon yhdistettyä lähetyslaitetta"
 ---
 
 Paras BELABOX-vaihtoehto riippuu siitä, mitä olet oikeastaan korvaamassa. Jos
-tarvitset pienen kenttäkameran kotona pyörivään OBS-studioon, puhelin ja VISP
-voivat olla helpoin vastaus. Jos usean yhteyden kapasiteetti pitää yhdistää
+tarvitset pienen kenttäkameran, joka lähettää Twitchiin, Kickiin tai YouTubeen
+tai kotona pyörivään OBS-studioon, puhelin ja VISP voivat olla helpoin vastaus. Jos usean yhteyden kapasiteetti pitää yhdistää
 yhdeksi lähetysyhteydeksi, tarvitset SRTLA-sovelluksen tai muun aidon
 bondausratkaisun. Kun vaatimus on tuettu laite ja hallittu palvelu,
 ammattimainen kenttäenkooderi on läheisempi korvaaja.
@@ -24,8 +24,8 @@ selvittävä, ja valitse pienin työn todella hoitava kokonaisuus.
 
 | Tarve | Vahva lähtökohta | Miksi |
 | --- | --- | --- |
-| Puhelin toistuvaksi kenttäkameraksi koti-OBS:ään | Puhelin + VISP | Vähän lisäosia, pysyvä laitepolku ja striimiavaimet säilyvät OBS:ssä |
-| Wi-Fi- ja mobiilikapasiteetin yhdistäminen | SRTLA-sovellus + yhteensopiva vastaanotin | Aito monitieyhteys voi käyttää molempia linkkejä |
+| Puhelin toistuvaksi kenttäkameraksi | Puhelin + VISP | Vähän lisäosia, pysyvä laitepolku, Direct-lähtö tai oma OBS, ei striimiavainta puhelimessa |
+| Wi-Fi- ja mobiilikapasiteetin yhdistäminen | SRTLA-lähetin (Moblin, IRL Pro, VISP Native) + yhteensopiva vastaanotin | Monitieyhteys voi käyttää molempia linkkejä |
 | Oma säädettävä kenttäenkooderi | BELABOX tai muu DIY-enkooderi | Vaihdettavat osat ja yksityiskohtainen siirron hallinta |
 | Integroitu ja tuettu laite | LiveU Solo tai vastaava | Laitteisto, bondauspalvelu ja tuki samassa paketissa |
 | Vieras selaimella studioon | VDO.Ninja | Nopea selainliittyminen ja vuorovaikutteinen WebRTC sopivat paremmin |
@@ -56,10 +56,12 @@ helpompi testata kuin koko järjestelmän kopioiminen.
 
 ## Vaihtoehto 1: puhelin ja VISP
 
-Jos sinulla on jo hyvä puhelin ja OBS-kone kotona, VISP tekee puhelimesta
-tunnistetun videolähteen. Puhelin julkaisee ulospäin VISP-releelle ja OBS lukee
-erillistä vastaanotto-osoitetta. Twitch- tai Kick-kohde, scenet, alertit,
-tallennus ja lopullinen enkoodaus jäävät OBS:ään.
+Jos sinulla on jo hyvä puhelin, VISP tekee siitä tunnistetun videolähteen.
+Puhelin julkaisee ulospäin VISP-releelle. Oletuksena Direct enkoodaa syötteen
+releellä ja lähettää sen Twitchiin, Kickiin tai YouTubeen, joten tietokonetta ei
+tarvita. Jos käytät kotona OBS:ää, voit ohjata syötteen sinne: OBS lukee
+erillistä vastaanotto-osoitetta, ja kohde, scenet, alertit, tallennus ja
+lopullinen enkoodaus jäävät OBS:ään.
 
 Kentältä poistuvat kaappauskortti, yhden piirilevyn tietokone, USB-modeemihubi
 ja erikoiskotelo. Ratkaisu sopii kaupunkikävelyihin, tapahtumiin ja satunnaisiin
@@ -67,15 +69,17 @@ IRL-lähetyksiin, joissa yksi testattu yhteys kantaa maltillisen bittinopeuden.
 Katso koko polku [videolähteen ohjeesta](https://docs.visp-stream.com/docs/video-source)
 ja [puhelin OBS-kamerana -oppaasta](/blog/use-phone-as-remote-camera-obs).
 
-Raja on tärkeä. VISP Native voi lähettää paketeista kopiot Wi-Fi- ja
-mobiiliyhteydellä vikasietoisuutta varten, mutta se ei laske linkkien
-kapasiteetteja yhteen. Jos kumpikaan yhteys ei yksin kanna lähetystä,
-päällekkäiset paketit eivät muodosta suurempaa putkea.
+Raja on tärkeä. VISP Nativessa on valinnainen Wi-Fi- ja mobiiliyhteyden
+bondaus, joka on oletuksena pois päältä. Sen oletustila **SRTLA (aggregating)**
+jakaa lähetyksen molemmille linkeille, jolloin kumpikin tuo lisää kapasiteettia.
+**Broadcast** lähettää jokaisen paketin molempia reittejä vikasietoisuuden
+vuoksi ja voi noin kaksinkertaistaa mobiilidatan kulutuksen. **Main + backup**
+käyttää ensisijaisesti Wi-Fiä ja siirtyy tarvittaessa mobiiliyhteyteen. Kyse on
+yhden puhelimen kahdesta linkistä, ei monimodeemirigistä: BELABOX-kokoonpano voi
+bondata useita mobiilimodeemeja sekä Wi-Fin tai Ethernetin.
 
-VISPin nykyinen kolmannen osapuolen enkooderipolku tarjoaa myös
-SRTLA-vastaanoton. SRTLA-lähetin voi siis yhdistää puhelimen verkkolinkkejä
-releelle. Tämä ei muuta VISP Nativen pakettien kahdennusta bondaukseksi: kyse on
-kahdesta eri lähettimestä ja eri siirtotavasta.
+Rele ottaa SRTLA:ta vastaan myös muilta lähettimiltä, joten Moblin, IRL Pro tai
+BELABOX voi julkaista samaan laitepolkuun.
 
 ## Vaihtoehto 2: Moblin tai IRL Pro SRTLA:lla
 
@@ -85,8 +89,10 @@ mobiili-, Wi-Fi- ja Ethernet-yhteyksien yhtäaikaisen käytön. IRLToolkit
 dokumentoi IRL Pron SRTLA-mobiilienkooderina. Yhteensopiva vastaanotin voi
 jakaa kuvalähteen liikennettä käytettäville linkeille.
 
-VISP näyttää laitteen Advanced-näkymässä SRTLA-julkaisuosoitteen. Rele kuuntelee
-UDP-porttia 5000, kokoaa lähteen ja tarjoaa normaalin lukuosoitteen OBS:lle.
+Hallintapaneelin **Laitteet**-välilehdellä **Näytä RTMP- ja SRTLA-vara-osoitteet**
+näyttää jokaiselle laitteelle SRTLA-julkaisuosoitteen. Rele kuuntelee
+UDP-porttia 5000, kokoaa lähteen ja käsittelee sen kuten muunkin syötteen:
+Direct-lähtönä tai OBS:n lukuosoitteena.
 Ajantasaiset osoite- ja vastaanotintiedot ovat [enkooderi- ja varakuvauksen dokumentaatiossa](https://docs.visp-stream.com/docs/broadcaster-setup).
 Androidilla jatka [IRL Prosta OBS:ään -ohjeeseen](/blog/irl-pro-obs-srt),
 iPhonella [Moblin-oppaaseen](/blog/moblin-remote-camera-obs-srt).
@@ -150,7 +156,8 @@ Etene tässä järjestyksessä:
 
 1. Laske bittinopeutta, kunnes yhdellä yhteydellä on toistuva marginaali.
 2. Lisää SRT-viivettä niin, että pakettihäviölle ja jitterille jää korjausaikaa.
-3. Pidä OBS käynnissä paikallisella varascenellä lähteen yhdistäessä uudelleen.
+3. Pidä lähetys yllä lähteen yhdistäessä uudelleen: valinnainen BRB-kortti
+   Directin kanssa tai paikallinen varascene OBS:ssä.
 4. Lisää toinen itsenäinen verkko, kun yhden operaattorin katoaminen on mitattu
    vika.
 5. Siirry erilliseen laitteeseen, kun puhelimen lämpö, käyttöaika tai kaappaus on
@@ -158,11 +165,11 @@ Etene tässä järjestyksessä:
 
 ## Käytännön suositus
 
-Valitse puhelin ja VISP, kun sinulla on OBS, haluat pysyvät nimetyt kamerapolut
-ja yksi linkki riittää. Lisää SRTLA-sovellus ja vastaanotin, kun testi todistaa
-yhdistämisen tarpeen. Rakenna BELABOX, kun säädettävä kenttäenkooderi on itse
+Valitse puhelin ja VISP, kun haluat pysyvät nimetyt kamerapolut OBS:n kanssa
+tai ilman ja yksi linkki tai Wi-Fi ja mobiiliyhteys yhdessä riittää. Ota bondaus
+käyttöön tai valitse muu SRTLA-sovellus, kun testi todistaa yhdistämisen tarpeen. Rakenna BELABOX, kun säädettävä kenttäenkooderi on itse
 tavoite. Valitse hallittu laite, kun tuki on osien omistamista tärkeämpää.
 
-Jos puhelin–kotistudio-polku sopii, [kokeile VISPiä](https://app.visp-stream.com)
+Jos puhelinpolku sopii, [kokeile VISPiä](https://visp-stream.com/fi)
 yhdellä lähteellä ja yhdellä realistisella reitillä. Testi kertoo, tarvitsetko
 kevyemmän vaihtoehdon vai ratkaisiko BELABOX oikean ongelman alun perin.

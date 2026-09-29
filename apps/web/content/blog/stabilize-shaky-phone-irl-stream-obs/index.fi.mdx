@@ -74,7 +74,8 @@ käsittelee ulos asennetun kuvauspaketin lämpöpuolen.
 Avaa kameran esikatselu ja siirry kohtaan **Settings → Camera**. **Image
 stabilization** -kytkin näkyy vain, kun valittu kamera, tarkkuus ja kuvataajuus
 ilmoittavat tuetun vakautustavan. VISP tarkistaa yhdistelmän laitteesta eikä
-lupaa samaa asetusta kaikille iPhone- tai Android-puhelimille.
+lupaa samaa asetusta kaikille iPhone- tai Android-puhelimille. Kun kytkin
+näkyy, se on oletuksena päällä.
 
 Kun asetus on päällä, VISP pyytää käyttöjärjestelmän tukemaa kuvanvakautusta
 ennen kuin puhelin enkoodaa H.264-kuvalähteen. iOS:ssä sovellus pyytää Applen
@@ -101,16 +102,17 @@ kyseinen yhdistelmä ei ilmoittanut tukevansa vakautusta. Palaa yksinkertaiseen
 lähtötasoon sen sijaan, että olettaisit sovelluksen olevan rikki:
 
 1. valitse takakamera;
-2. valitse tarkkuudeksi 1280×720;
-3. valitse 30 kuvaa sekunnissa;
+2. valitse **Stream quality → Reliable · 720p30** tai 1280×720 ja 30 kuvaa
+   sekunnissa;
+3. pidä muut asetukset ennallaan;
 4. varmista, että **Image stabilization** tulee näkyviin;
-5. ota se käyttöön ja käynnistä esikatselu;
+5. tarkista, että se on päällä, ja käynnistä esikatselu;
 6. nosta vain yhtä asetusta kerrallaan, jos lähetys todella tarvitsee enemmän.
 
-VISP suosii 720p-tarkkuutta, kun se on saatavilla, ja valitsee kuvamuodolle
-ensisijaisesti 30 kuvaa sekunnissa. Se on käytännöllinen aloituskohta mobiiliin
-IRL-tuotantoon, ei lupaus siitä, että jokainen puhelin vakauttaa 720p30-kuvan
-yhtä hyvin. Sovellus käyttää oikean kameran ja enkooderin ilmoittamia
+VISP aloittaa 1080p-tarkkuudesta, jos kamera tarjoaa sen, muuten 720p:stä, ja
+valitsee kuvamuodolle ensisijaisesti 30 kuvaa sekunnissa. Vakautustestissä
+720p30 on käytännöllinen aloituskohta mobiiliin IRL-tuotantoon, ei lupaus siitä,
+että jokainen puhelin vakauttaa sen yhtä hyvin. Sovellus käyttää oikean kameran ja enkooderin ilmoittamia
 ominaisuuksia.
 
 Androidin virallinen
