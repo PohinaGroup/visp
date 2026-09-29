@@ -119,7 +119,7 @@ jobs:
       - name: Test
         shell: bash
         run: |
-          cmake --build "$PLUGIN_DIR/${{ matrix.build_dir }}" --config Release --target visp-protocol-test
+          cmake --build "$PLUGIN_DIR/${{ matrix.build_dir }}" --config Release
           ctest --test-dir "$PLUGIN_DIR/${{ matrix.build_dir }}" -C Release --output-on-failure
 
       - name: Package Windows
