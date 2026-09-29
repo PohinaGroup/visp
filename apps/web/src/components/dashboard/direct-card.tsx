@@ -310,7 +310,7 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 														key={provider}
 														disabledMessage={t(
 															lastOutput
-																? "Open Advanced setup to turn off Direct output"
+																? "Switch Mode to Phone to your OBS to turn off Direct output"
 																: "Stop this device before changing its Direct outputs",
 														)}
 														isDisabled={

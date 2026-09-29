@@ -31,34 +31,36 @@ relay's WebRTC port.
 1. Sign in with Twitch, Kick, or Google. The app creates a publishing device for this
    phone automatically and stores its publish URL in the platform's secure
    storage — you never copy credentials by hand.
-2. Open settings to pick the camera, resolution, and frame rate, then go live.
-   The stream appears in OBS as the corresponding relay path's Media Source.
+2. Open settings to pick the camera, resolution, and frame rate, then tap
+   **Go Live**. Direct sends the feed to your platform. If you also use OBS,
+   the stream appears there as that device's Media Source.
 3. Stopping releases the publisher and the media devices.
 
 Each phone is its own publishing device: revoking or rotating one phone in the
 portal never disconnects the others. Use two signed-in phones to feed two
 scenes of the same broadcast, each with its own microphone.
 
-A short signal drop does not end the broadcast. The home studio keeps the show
+A short signal drop does not end the broadcast. With Direct, turn on the
+optional BRB card on the dashboard **BRB** tab (off by default) to hold the
+broadcast while the phone reconnects. With OBS, the home studio keeps the show
 alive on its fallback scene (see
-[Encoders and fallback](/docs/broadcaster-setup)) while the phone reconnects.
+[Encoders and fallback](/docs/broadcaster-setup)).
 
 ## Network bonding
 
-The iOS and Android apps can send the same SRT packets over Wi-Fi and cellular
-at the same time. The relay uses the first copy that arrives and discards
-duplicates. This improves redundancy; it does not combine both links into a
-faster connection.
+The iOS and Android apps can send over Wi-Fi and cellular at the same time.
+Bonding is off by default. Open **Settings → Network**, turn on **Network
+bonding**, then pick a **Mode**:
 
-Open **Settings → Network → Network bonding** to enable it. **Broadcast** is
-the default and keeps both links active. Under **Advanced**, choose **Main +
-backup** to prefer Wi-Fi and use cellular when the main link fails. The live
-status shows Wi-Fi and cellular separately and marks the stream degraded when
-only one remains.
+- **SRTLA (aggregating)** is the default. It sends each packet once over
+  whichever link is coping best, so both links add headroom (relay UDP 5000).
+- **Broadcast** sends every packet over both links; the relay uses the first
+  copy and discards duplicates. This improves redundancy but can roughly double
+  mobile data use, and the app warns before the first Broadcast stream.
+- **Main + backup** prefers Wi-Fi and uses cellular when the main link fails.
 
-Bonding can roughly double mobile data use. The app warns before the first
-bonded stream. If bonding is off, publishing continues directly to UDP 8890
-exactly as before.
+The app shows Wi-Fi and cellular separately and warns when bonding is running
+on one link. If bonding is off, publishing continues directly to UDP 8890.
 
 ## While live
 
@@ -79,7 +81,7 @@ exactly as before.
   accounts where it is enabled.
 - **Audio isolation** is available on supported iPhones, with an optional hosted
   mode where enabled. Test it before relying on it live.
-- **OBS control** starts and stops the home OBS stream and switches scenes
+- **OBS control** (optional) starts and stops the home OBS stream and switches scenes
   through the paired [OBS plugin](/docs/obs-remote-control). The control
   reflects whether OBS is currently connected.
 

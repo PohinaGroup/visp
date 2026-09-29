@@ -2,6 +2,7 @@
 title: "IRL-chatbotin ilmoitukset: kerro katkosta ennen kuin chat kysyy"
 description: "Lähetä live-, BRB- ja paluuilmoitukset Twitchin, Kickin ja YouTuben chattiin palvelinpuolelta ilman tietokonetta, ja vastaa komentoihin kuten !bitrate."
 publishedAt: 2026-08-12
+updatedAt: 2026-09-29
 coverAlt: "Chatbotin ilmoituskortti, jossa VISPin signaaliketju kulkee puhelimesta relayn kautta alustalle ja ilmoitus haarautuu katkoskohdasta"
 ---
 
@@ -92,24 +93,29 @@ saa silti tiedon.
 
 ## Käyttöönotto
 
-1. Avaa VISPin hallintapaneeli ja etsi **Chat-botti**.
+Botti on valinnainen ja oletuksena pois päältä.
+
+1. Avaa VISPin hallintapaneelin **Chat**-välilehti ja etsi **Chat-botti**.
 2. Kytke päälle **Anna VISPin kirjoittaa chattiini**.
 3. Valitse alustat: Twitch, Kick, YouTube. Jos kirjoituslupaa ei vielä ole,
    näkyy **Anna kirjoituslupa**, joka avaa alustan oman lupanäkymän.
 4. Paina **Lähetä testiviesti**. Oikea viesti oikeaan chattiin on ainoa todiste
    jolla on merkitystä.
 
-Oikeudet ovat kapeat. Twitch tarvitsee `user:write:chat`, Kick `chat:write` ja
+Oikeudet ovat kapeat. Twitch tarvitsee `channel:bot`, kun VISP-botti kirjoittaa,
+tai `user:write:chat`, kun kirjoitat omalla tililläsi. Kick tarvitsee
+`chat:write` ja
 YouTube käyttää samaa `youtube.force-ssl` -oikeutta jonka annoit jos käytät
 Directiä tai muokkaat otsikkoa VISPistä. VISP pyytää samalla kaikki aiemmin
 myöntämäsi oikeudet, joten botin valtuutus ei hiljaisesti katkaise chatin
 lukemista tai Directiä.
 
-Yksi asia on hyvä tietää etukäteen: **viestit lähetetään omalla tililläsi**, ei
-erillisenä bottikäyttäjänä. Twitchissä ilmoitukset näkyvät siis nimelläsi ja
-merkilläsi. Osa striimaajista pitää siitä — ilmoitus tulee lähettäjältä
-itseltään. Jos haluaisit chattiin erillisen botti-identiteetin, sitä ei ole
-vielä.
+Yksi asia on hyvä tietää etukäteen: kuka viestit lähettää. Twitchissä
+oletuksena kirjoittaa **VISP-botti**-tili, joten ilmoitukset erottuvat omista
+viesteistäsi. Oikeutetut tilit voivat vaihtaa **Twitch sender** -asetukseksi
+**Oma Twitch-tilini**, jos haluavat ilmoituksen näkyvän omalla nimellä ja
+merkillä. Kickissä ja YouTubessa viestit lähtevät aina omalta linkitetyltä
+tililtäsi.
 
 ## Komennot, koska botti kuuntelee jo
 
@@ -154,7 +160,8 @@ olla varovainen. Rajat ovat tarkoituksellisia:
 
 Rehellisyys on halvempaa kuin tukipyyntö:
 
-- **Ei erillistä bottitiliä.** Ilmoitukset tulevat omalta tililtäsi.
+- **Ei omaa bottitiliä Kickissä tai YouTubessa.** Niissä ilmoitukset tulevat
+  omalta tililtäsi; vain Twitchissä on yhteinen VISP-botti.
 - **Ei `!location`-, `!speed`- tai `!battery`-komentoja.** Ne vaatisivat
   telemetriaa jota VISP-sovellus ei vielä raportoi. Kun raportoi, ne ovat pieni
   lisäys.

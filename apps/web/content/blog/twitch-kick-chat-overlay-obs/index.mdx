@@ -2,7 +2,7 @@
 title: "How to Add Twitch and Kick Chat to OBS as a Browser Source"
 description: "Add Twitch or Kick chat to OBS with one revocable Browser Source URL, a transparent layout, safe scene setup, and simulcast policy checks."
 publishedAt: 2026-08-09
-updatedAt: 2026-08-09
+updatedAt: 2026-09-29
 coverAlt: "A home broadcast monitor shows blank purple and green chat rows layered over an IRL city camera feed"
 ---
 
@@ -17,6 +17,11 @@ you can put it in OBS, stores only a hash of its secret, and lets you rotate or
 revoke it without changing your media source or platform stream key.
 
 ![Twitch and Kick chat connections feed a revocable transparent overlay URL that OBS can place above the camera source](./chat-browser-source-flow.svg)
+
+The overlay reaches viewers only when OBS sends the final program, so this
+guide uses the optional **Phone to your OBS** mode from the dashboard **Mode**
+menu. With Direct, VISP's default output, the relay sends the phone feed to the
+platform and an OBS Browser Source is not part of that stream.
 
 This is different from reading chat in an OBS dock or on the field phone. A
 **dock** is private to the producer. A **Browser Source** is part of the scene
@@ -44,9 +49,10 @@ such as chat, into the Twitch stream during a simulcast. Twitch's
 allows combined tools for personal use, but a Browser Source visible in the
 program is not personal use.
 
-VISP's current overlay shows every chat connection enabled for the account. It
-does not offer a per-URL provider filter. If Twitch and Kick are enabled
-together, treat that URL as a combined overlay. For one OBS program sent to
+VISP's current overlay shows every chat connection enabled for the account,
+including YouTube if you enabled it. It does not offer a per-URL provider
+filter. If Twitch and Kick are enabled together, treat that URL as a combined
+overlay. For one OBS program sent to
 both platforms, keep it off air or disable the non-Twitch chat connection
 before the simulcast. Do not rely on cropping away a provider badge; the next
 message can still come from the other service.
@@ -72,8 +78,8 @@ connections you enabled.
 
 ## 1. Link and enable the correct chat connection
 
-Open the VISP dashboard and find **Chat connections**. Each platform has two
-separate decisions:
+Open the VISP dashboard **Chat** tab and find **Chat connections**. Each
+platform has two separate decisions:
 
 1. **Link** identifies the channel under your VISP account.
 2. **Authorize chat** or **Enable chat** opts into read-only live messages.
@@ -205,7 +211,8 @@ the clean camera separately.
 ### The Browser Source is completely blank
 
 That is the normal idle state. The page is fully transparent until a new live
-message arrives. Confirm the intended provider is linked and chat is enabled,
+message arrives. Append `&debug=1` to the URL to show connection status while
+you troubleshoot. Confirm the intended provider is linked and chat is enabled,
 then send a new message after the source has loaded. Earlier messages are not
 replayed.
 
@@ -251,9 +258,8 @@ Before the public stream:
 
 VISP keeps this workflow intentionally small: provider chat arrives through a
 revocable web credential, OBS decides when the transparent layer is on air,
-and the camera source stays reusable underneath it. The normal VISP
-relay-to-OBS path still does not transcode the phone feed or combine network
-capacity.
+and the camera source stays reusable underneath it. The VISP relay-to-OBS path
+still does not transcode the phone feed.
 
 If you already use a VISP phone as an IRL camera, follow the
 [phone-to-OBS guide](/blog/use-phone-as-remote-camera-obs), then generate one

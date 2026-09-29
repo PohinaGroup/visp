@@ -2,6 +2,7 @@
 title: "Best Phone Camera Settings for IRL Streaming at Night"
 description: "Set up a phone for night IRL streaming on Twitch or Kick: choose 30 FPS, the right lens, useful lighting, stable bitrate, and restrained OBS correction."
 publishedAt: 2026-08-31
+updatedAt: 2026-09-29
 coverAlt: "An IRL creator walks on a city street at night with a phone and a small soft light on the same handheld grip"
 ---
 
@@ -28,7 +29,7 @@ Start with these settings in the VISP phone app:
 | Resolution | 720p for uncertain cellular, 1080p for a proven route | The connection or final viewing test supports the higher format |
 | Stabilization | On when VISP shows support and you are walking | Turn it off on a tripod or if the low-light test is cleaner without it |
 | Light | Small diffused light near the phone | Move or soften it if faces clip or glasses reflect it |
-| OBS correction | Small gamma or brightness adjustment | Stop when noise and compression blocks become more visible |
+| OBS correction (optional, OBS only) | Small gamma or brightness adjustment | Stop when noise and compression blocks become more visible |
 
 VISP currently exposes the camera, resolution, frame rate, device-reported
 zoom levels, and supported image stabilization. It does not expose manual
@@ -99,7 +100,9 @@ low-light modes should not be treated as VISP streaming controls.
 Choose 60 FPS only when the subject is fast, the scene is well lit, and the
 complete stream looks better after a long test. The [30 FPS versus 60 FPS
 guide](/blog/30-vs-60-fps-irl-streaming) covers the motion, heat, bandwidth,
-and OBS output tradeoffs in more detail.
+and OBS output tradeoffs in more detail. With VISP Direct, the relay's
+distribution encode defaults to 30 FPS, so a 60 FPS capture adds phone heat and
+upload without reaching viewers at 60.
 
 ## Match resolution and bitrate to the route
 
@@ -232,6 +235,6 @@ Photos and cloud processing. It is not a live third-party camera effect.
 - [Kick mobile stream quality](https://help.kick.com/en/articles/15159752-settings-and-stream-quality-on-the-kick-go-live-app)
 - [OBS Color Correction filter](https://obsproject.com/kb/color-correction-filter)
 
-If you want to test these settings on a repeatable phone-to-studio path, [try
+If you want to test these settings on a repeatable phone path, [try
 VISP](https://visp-stream.com), begin with a little light and 30 FPS, then keep
 only the changes that improve the public Twitch or Kick stream.

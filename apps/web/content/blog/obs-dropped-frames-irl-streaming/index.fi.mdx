@@ -2,6 +2,7 @@
 title: "OBS pudottaa ruutuja IRL-striimissä: mikä yhteys pettää?"
 description: "Selvitä IRL-striimin ruutuhävikki erottamalla puhelimen relay-yhteys, OBS:n vastaanotto, kotistudion lähetys ja enkooderin ylikuorma."
 publishedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "IRL-kuvaaja lähettää puhelinkameran syötteen kolmen hohtavan tarkistuspisteen kautta brändittömälle kotistudion näytölle"
 ---
 
@@ -10,6 +11,11 @@ Puhelimesta OBS:ään kulkevassa tuotannossa on kolme verkko-osuutta: puhelin
 lähettää tuotantosyötteen relaylle, OBS lukee syötteen relaylta ja OBS lähettää
 valmiin ohjelman Twitchiin tai Kickiin. Lisäksi OBS voi menettää ruutuja jo
 ennen verkkoon lähettämistä, jos renderöinti tai enkooderi ylikuormittuu.
+
+Tämä opas käsittelee valinnaista relaylta OBS:ään -työnkulkua. VISPin
+oletusulostulossa Suorassa kotistudion OBS-osuutta ei ole: relay enkoodaa
+syötteen palvelulle, joten vain puhelimen ja relayn välinen tarkistuspiste sekä
+palvelun oma terveysnäkymä ovat käytössä.
 
 Vika löytyy nopeimmin seuraamalla jokaista osuutta lähinnä olevaa mittaria.
 VISPin live-näkymän bittinopeus, kiertoaika ja pakettihäviö kuvaavat julkaisijan
@@ -68,12 +74,15 @@ selittää, että SRT-viive tarkoittaa verkon toimitusviivettä, ei kameran
 kaappausta, enkoodausta, dekoodausta tai näyttämistä. Suurempi puskuri antaa
 myöhäisille paketeille enemmän aikaa, mutta se ei luo puuttuvaa lähetyskaistaa.
 
-VISP merkitsee tällä hetkellä yhteyden **Congested**-tilaan, kun raportoitu
-häviö saavuttaa 2 prosenttia tai RTT 400 millisekuntia. Ne ovat VISPin
+VISP merkitsee tällä hetkellä yhteyden tukkoiseksi ja värjää sen
+hallintapaneelin bittinopeuskäyrän punaiseksi, kun raportoitu häviö saavuttaa
+2 prosenttia tai RTT 400 millisekuntia. Ne ovat VISPin
 tuoterajoja, eivät kaikkien mobiiliverkkojen yleispätevä laki. Sovelluksen
 [avoin adaptiivisen bittinopeuden
 logiikka](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
-alkaa laskea tavoitetta jo ennen varoitusta ja nostaa sitä vasta terveempien
+alkaa laskea tavoitetta jo ennen sitä, käyttää natiivisovelluksen
+raportoimia SRT:n pudotus- ja lähetysjonosignaaleja silloin kun ne ovat
+saatavilla ja nostaa sitä vasta terveempien
 näytteiden jälkeen. Katso usean sekunnin suuntaa yhden täydellisen luvun sijaan.
 
 ## Tarkistuspiste 2: relaylta koti-OBS:ään
@@ -204,10 +213,13 @@ Ei. Suurempi viive antaa uudelleenlähetyksille enemmän aikaa. Se ei saa
 
 ### "WiFi ja mobiilidata kaksinkertaistavat käytettävän bittinopeuden"
 
-Eivät. VISPin valinnainen natiivisovelluksen multi-link-tila lähettää samat
-SRT-paketit molempien yhteyksien kautta redundanssia varten ja hylkää
-duplikaatit relaylla. Se ei laske nopeuksia yhteen suuremmaksi
-bittinopeusbudjetiksi, ja se voi likimain kaksinkertaistaa mobiilidatan käytön.
+Eivät pelkästään molempien radioiden päälle kytkemisellä. VISP-sovelluksen
+valinnainen verkkobonding on oletuksena pois päältä. Sen oletustila **SRTLA
+(aggregating)** jakaa yhden lähetyksen molemmille yhteyksille, mikä tuo
+lisää marginaalia, mutta käytettävä kokonaismäärä vaihtelee heikomman
+yhteyden mukaan eikä ole kahden nopeustestin summa. **Broadcast**-tila lähettää
+samat paketit molempia yhteyksiä pitkin redundanssia varten, ei laske
+nopeuksia yhteen ja voi likimain kaksinkertaistaa mobiilidatan käytön.
 [Puhelinsovelluksen dokumentaatio](https://docs.visp-stream.com/docs/phone-app)
 selittää nykyiset tilat ja yhteyskohtaisen live-tilan.
 

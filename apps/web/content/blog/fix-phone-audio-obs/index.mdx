@@ -2,7 +2,7 @@
 title: "How to Fix Phone Camera Audio in OBS: No Sound, Echo, or Delay"
 description: "Fix phone-camera audio in OBS: trace silence, remove echo, match delayed sources, set clean levels, and verify the final Twitch or Kick mix."
 publishedAt: 2026-07-28
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "A phone microphone sends one clean blue audio waveform into a home streaming mixer while a faint duplicate waveform fades away"
 ---
 
@@ -11,8 +11,10 @@ changing every audio setting. First identify whether the problem is **silence,
 a duplicate signal, a fixed timing difference, or a level problem**. Each has a
 different fix.
 
-In a VISP workflow, the phone sends one camera-and-microphone contribution feed
-to the relay, and OBS receives that feed as a Media Source. OBS still owns the
+This guide covers the optional VISP workflow where OBS produces the show. (With
+Direct, the default, the relay sends the phone feed to the platforms and there
+is no OBS mix to fix.) The phone sends one camera-and-microphone contribution
+feed to the relay, and OBS receives that feed as a Media Source. OBS owns the
 final Twitch or Kick mix. That separation gives you useful checkpoints: the
 phone meter, the VISP device state, the OBS mixer, a local recording, and the
 public platform output.
@@ -43,7 +45,7 @@ and routing.
 The native VISP app captures the selected phone microphone, displays a live
 level indicator, encodes audio as AAC beside H.264 video, and publishes both
 over SRT. The relay authenticates and forwards that contribution feed. It does
-not split, remix, normalize, or transcode it on the normal relay-to-OBS path.
+not split, remix, normalize, or transcode it on the relay-to-OBS path.
 
 The VISP OBS plugin adds the device as an FFmpeg Media Source with MPEG-TS
 input, hardware decoding when available, low buffering, and automatic
@@ -228,10 +230,12 @@ the final output configuration instead.
 
 ## Know what VISP does not fix
 
-VISP gives the phone a revocable publishing path, relays its feed into OBS, and
-keeps the Twitch or Kick destination in the home studio. On the standard
-phone-to-OBS path, it does **not** transcode the feed, mix microphones, remove
-room echo, normalize loudness, or bond cellular and Wi-Fi connections.
+VISP gives the phone a revocable publishing path and, in this workflow, relays
+its feed into OBS while the Twitch or Kick destination stays in the home studio.
+On the relay-to-OBS path, it does **not** transcode the feed, mix microphones,
+remove echo from a duplicated route, or normalize loudness. The phone app's
+optional **Audio isolation** setting can reduce background noise at capture,
+but it cannot undo a second copy of the voice added in OBS.
 
 That boundary is useful during troubleshooting: capture problems belong at
 the phone, transport problems belong on the contribution route, and final

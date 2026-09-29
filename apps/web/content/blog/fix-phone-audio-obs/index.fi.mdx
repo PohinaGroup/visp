@@ -2,7 +2,7 @@
 title: "Näin korjaat puhelinkameran äänen OBS:ssä: hiljaisuus, kaiku ja viive"
 description: "Korjaa puhelinkameran ääni OBS:ssä: paikanna hiljaisuus, poista kaiku, kohdista viiveet, säädä tasot ja tarkista Twitch- tai Kick-miksaus."
 publishedAt: 2026-07-28
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Puhelimen mikrofoni lähettää yhden puhtaan sinisen ääniaallon kotistudion mikseriin samalla kun haalea kaksoisaalto häviää"
 ---
 
@@ -11,9 +11,11 @@ muuttamalla kaikkia ääniasetuksia. Selvitä ensin, onko ongelma **täysi
 hiljaisuus, äänen kahdentuminen, vakio viive vai väärä taso**. Jokaiseen
 oireeseen on eri korjaus.
 
-VISP-työnkulussa puhelin lähettää yhden kamera- ja mikrofonisyötteen relayhin,
-ja OBS vastaanottaa sen medialähteenä. Lopullinen Twitch- tai Kick-miksaus
-tehdään edelleen OBS:ssä. Siksi signaaliketjussa on useita selviä
+Tämä opas koskee valinnaista VISP-työnkulkua, jossa lähetys tuotetaan OBS:ssä.
+(Oletuksena olevassa Directissä relay lähettää puhelimen syötteen alustoille,
+eikä korjattavaa OBS-miksausta ole.) Puhelin lähettää yhden kamera- ja
+mikrofonisyötteen relayhin, ja OBS vastaanottaa sen medialähteenä. Lopullinen
+Twitch- tai Kick-miksaus tehdään OBS:ssä. Siksi signaaliketjussa on useita selviä
 tarkistuspisteitä: puhelimen mittari, VISP-laitteen tila, OBS-mikseri,
 paikallinen tallenne ja julkinen alustalähetys.
 
@@ -43,7 +45,7 @@ reitityksensä ja viiveensä.
 VISPin natiivisovellus tallentaa valitun puhelinmikrofonin, näyttää sen tason
 suorassa mittarissa, enkoodaa äänen AAC-muotoon H.264-videon rinnalle ja
 lähettää molemmat SRT:llä. Relay tunnistaa yhteyden ja välittää
-kuvalähdesyötteen. Tavallisella relaysta OBS:ään kulkevalla reitillä se ei
+kuvalähdesyötteen. Relaysta OBS:ään kulkevalla reitillä se ei
 erottele, miksaa, normalisoi tai transkoodaa ääntä.
 
 VISPin OBS-lisäosa lisää laitteen FFmpeg-medialähteenä, jonka syöttömuoto on
@@ -238,11 +240,13 @@ Tutki silloin lopullisen ulostulon määritystä.
 
 ## Tiedä, mitä VISP ei korjaa
 
-VISP antaa puhelimelle peruutettavan julkaisupolun, välittää sen syötteen
-OBS:ään ja pitää Twitch- tai Kick-kohteen kotistudiossa. Tavallisella
-puhelimesta OBS:ään kulkevalla reitillä se **ei** transkoodaa syötettä, miksaa
-mikrofoneja, poista huonekaikua, normalisoi äänenvoimakkuutta eikä niputa
-mobiili- ja Wi-Fi-yhteyttä yhdeksi yhteydeksi.
+VISP antaa puhelimelle peruutettavan julkaisupolun ja tässä työnkulussa
+välittää sen syötteen OBS:ään, kun Twitch- tai Kick-kohde pysyy kotistudiossa.
+Relaysta OBS:ään kulkevalla reitillä se **ei** transkoodaa syötettä, miksaa
+mikrofoneja, poista päällekkäisen reitin kaikua eikä normalisoi
+äänenvoimakkuutta. Puhelinsovelluksen valinnainen **Audio isolation** -asetus
+voi vaimentaa taustamelua jo kuvattaessa, mutta se ei poista OBS:ssä lisättyä
+toista kopiota äänestä.
 
 Tämä raja helpottaa vianetsintää: tallennusongelmat kuuluvat puhelimeen,
 siirto-ongelmat kuvalähdereitille ja lopullisen miksauksen ongelmat OBS:ään.

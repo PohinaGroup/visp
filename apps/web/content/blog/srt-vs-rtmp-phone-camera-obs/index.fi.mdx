@@ -2,11 +2,12 @@
 title: "SRT vai RTMP: kumpi tuo puhelinkameran OBS:ään?"
 description: "Vertaa SRT:tä ja RTMP:tä puhelinkameran tuonnissa OBS:ään: pakettien korjaus, itse säädettävä viive, tunnusten rajat ja milloin RTMP on oikea valinta."
 publishedAt: 2026-07-26
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Yhtenäinen ja katkoviivainen signaalilinja lähtevät puhelinmerkistä, kohtaavat relay-lohkon ja OBS-studion lohkon ja päättyvät punaiseen kohdepisteeseen Twitchille tai Kickille"
 ---
 
-Kun puhelin tai kenttäenkooderi syöttää kuvaa kotistudion OBS:ään, **julkaise
+Kun puhelin tai kenttäenkooderi syöttää kuvaa VISPiin, lähettipä relay sen
+Directillä suoraan alustoille tai kotistudion OBS:ään, **julkaise
 oletuksena SRT:llä ja jätä RTMP varavaihtoehdoksi verkkoihin, jotka estävät
 UDP:n.** SRT antaa pakettien korjauksen ja itse valitsemasi korjausikkunan; RTMP
 antaa TCP-yhteyden, jonka lähes jokainen enkooderi ja palomuuri hyväksyy.
@@ -17,7 +18,9 @@ valintasi. **Jakelun** osuus OBS:stä palveluun ei ole: Twitch
 [dokumentoi RTMP-vastaanoton](https://dev.twitch.tv/docs/video-broadcast/), ja
 Kickin oma striimausohje antaa `rtmps://`-palvelinosoitteen. Kysymys ei siis ole
 "SRT vai RTMP" koko lähetykselle. Kysymys on siitä, kumpi kuljettaa kenttäkameran
-siihen tuotantoon, joka puhuu palvelulle joka tapauksessa RTMP:tä.
+siihen tuotantoon, joka puhuu palvelulle joka tapauksessa RTMP:tä. (VISP
+Directissä relay hoitaa alustaosuuden itse ja tekee oman koodauksen jokaiselle
+kohteelle.)
 
 ![Kenttäpuhelin tavoittaa VISP-relayn oletuksena SRT:llä UDP-portissa 8890 tai varavaihtoehtona RTMP:llä TCP-portissa 1935, ja OBS lähettää valmiin lähetyksen Twitchiin tai Kickiin](./srt-rtmp-paths.svg)
 
@@ -79,7 +82,7 @@ opened".
 Jos siis valitset SRT:n ja RTMP:n väliltä siksi, että haluat välttää portin
 avaamista studioosi, protokolla ei ole ratkaiseva tekijä — välissä oleva relay
 on. Sama pätee etäohjaukseen:
-[VISPin OBS-lisäosa kyselee ulospäin HTTPS:llä](/blog/control-obs-phone-without-port-forwarding),
+[VISPin OBS-lisäosa kyselee ulospäin HTTPS:llä](/fi/blog/control-obs-phone-without-port-forwarding),
 joten show'n ohjaaminen kentältä ei myöskään lisää saapuvaa porttia.
 
 ## Aseta SRT-viive mittauksen, ei arvauksen perusteella
@@ -114,21 +117,22 @@ SRT-syöte kestää olosuhteet, joissa RTMP-syöte alkaa jonottaa ja pysähtyy.
 
 ## Mitä relay ei korjaa puolestasi
 
-Relay **ei transkoodaa videota eikä summaa verkkoyhteyksien kapasiteettia.**
-VISP Native voi erikseen monistaa paketit Wi-Fiin ja mobiiliin. Relay tunnistaa
-julkaisevan laitteen, välittää sen lähettämän yksittäisen virran ja tarjoaa
-OBS:lle erillisen lukuosoitteen. Tästä seuraa kaksi asiaa, ja ne pätevät
+Relaysta OBS:ään kulkevalla polulla relay **ei transkoodaa videota.** Se
+tunnistaa julkaisevan laitteen, välittää sen lähettämän virran ja tarjoaa
+OBS:lle erillisen lukuosoitteen. Direct koodaa videon uudelleen jokaiselle
+alustalle, mutta vain saapuneesta kuvasta. Tästä seuraa kaksi asiaa, ja ne pätevät
 samalla tavalla SRT:hen ja RTMP:hen:
 
 - **Enkooderin asetukset ovat lopullisia.** Määritä lähteessä H.264-video,
   AAC-ääni, vakiobittinopeus ja kahden sekunnin avainkuvaväli. Relay ei voi
   laskea bittinopeutta, jota lähetyskaistasi ei kanna, ja Kickin ohjekeskus
   sanoo suoraan, että sen vastaanotto haluaa H.264:n ja CBR:n eikä VBR:ää.
-- **Yksi yhteys on yksi yhteys.** SRT:n valinta ei yhdistä WiFiä ja
-  mobiiliverkkoa. Jos tarvitset useamman yhteyden toimivan yhtenä, se kuuluu
-  VISPin alle — esimerkiksi [Speedifyn kaltaiseen yhdistävään tunneliin](/blog/bond-cellular-wifi-visp-speedify)
-  tai erilliseen yhdistävään enkooderiin, kuten artikkelissa
-  [VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
+- **Yksi yhteys on yksi yhteys.** SRT:n tai RTMP:n valinta ei yhdistä WiFiä ja
+  mobiiliverkkoa. Siihen tarvitset VISP-sovelluksen valinnaisen **Network
+  bonding** -asetuksen, Moblinista tai BELABOXista laitteen SRTLA-osoitteeseen
+  lähetetyn SRTLA:n, [Speedifyn kaltaisen yhdistävän tunnelin](/fi/blog/bond-cellular-wifi-visp-speedify)
+  tai erillisen yhdistävän enkooderin, kuten artikkelissa
+  [VISP vs BELABOX vs LiveU Solo](/fi/blog/visp-vs-belabox-vs-liveu-solo).
 
 Vain yksi julkaisija voi omistaa relay-polun kerrallaan, joten protokollan
 vaihtaminen ei myöskään ole saumaton vaihto. Katkaise SRT-julkaisijan yhteys,
@@ -148,24 +152,26 @@ turvamalli on molemmille sama: osoite *on* tunnus, jokaisella julkaisevalla
 laitteella on omansa, ja yhden laitteen kierrättäminen tai peruminen ei häiritse
 muita. Älä koskaan liitä julkaisuosoitetta julkiseen Discordiin, tukipyyntöön tai
 näkyville striimissä. Jos osoite vuotaa, kierrätä kyseinen laite sen sijaan, että
-rakentaisit studion uudelleen. Relay hallinnoi OBS:n lukutunnuksia erikseen, ja
-Twitchin tai Kickin lähetysavain ei poistu OBS:stä lainkaan.
+rakentaisit studion uudelleen. Relay hallinnoi OBS:n lukutunnuksia erikseen.
+Twitchin tai Kickin lähetysavain ei päädy puhelimeen: se pysyy OBS:ssä, tai
+Directissä palvelin hakee sen lähdön ajaksi.
 
 ## Laitteen vaihtaminen RTMP-varaosoitteeseen
 
-1. Avaa [hallintanäkymä](https://visp-stream.com/dashboard) ja etsi laite
-   kohdasta **Video sources**.
-2. Vaihda näkymä tilaan **Advanced**, jolloin laitteen RTMP-osoite paljastuu.
+1. Avaa [hallintanäkymän](https://visp-stream.com/dashboard)
+   **Laitteet**-välilehti ja etsi laite kohdasta **Videolähteet**.
+2. Ota käyttöön **Näytä RTMP- ja SRTLA-vara-osoitteet**, jolloin laitteen
+   RTMP-osoite paljastuu.
 3. Liitä se lähettävään sovellukseen **Custom**- tai **Custom RTMP**
    -palvelimeksi ja jätä stream key tyhjäksi.
-4. Varmista, että laiterivi näyttää **Live**, ja lisää tai päivitä sitten
-   vastaava lukuosoite OBS:ssä medialähteeksi.
+4. Varmista, että laiterivi näyttää **Live**. Jos käytät OBS:ää, lisää tai
+   päivitä vastaava lukuosoite siellä medialähteeksi.
 
-Sama paljastus koskee lukupuolta, joten OBS voi käyttää kumpaa tahansa
+Relaylla on myös RTMP-lukuosoitteet, joten OBS voi käyttää kumpaa tahansa
 protokollaa. Täydelliset osoitemuodot ja enkooderikohtaiset vaiheet löytyvät
 sivulta [Add a video source](https://docs.visp-stream.com/docs/video-source);
-[Larix](/blog/larix-broadcaster-obs-srt)- ja
-[Moblin](/blog/moblin-remote-camera-obs-srt)-oppaat käsittelevät nämä kaksi
+[Larix](/fi/blog/larix-broadcaster-obs-srt)- ja
+[Moblin](/fi/blog/moblin-remote-camera-obs-srt)-oppaat käsittelevät nämä kaksi
 sovellusta alusta loppuun.
 
 ## Valinnan vianetsintä
@@ -190,7 +196,7 @@ Tämä on TCP:tä suunnitellusti. Luotettavalla järjestyksessä toimitetulla
 liikenteellä ei ole takarajaa, joten jatkuva häviö muuttuu puskuroinniksi eikä
 hallituksi laadun laskuksi. Siirrä laite SRT:lle, jos verkko sen sallii, ja lisää
 kummassakin tapauksessa
-[paikallinen OBS-varascene](/blog/keep-stream-live-bad-mobile-network)
+[paikallinen OBS-varascene](/fi/blog/keep-stream-live-bad-mobile-network)
 uudelleenyhdistämisen ajaksi.
 
 ### OBS näyttää lähteen, mutta ääntä ei tule
@@ -206,8 +212,8 @@ saapua muodossa, jota OBS ei soita.
 Ei niiden dokumentoituun vastaanottoon. Twitchin kehittäjädokumentaatio kuvaa
 lähetysten saapuvan "through the open Internet, into Twitch using *Real-Time
 Messaging Protocol (RTMP)*", ja Kick dokumentoi `rtmps://`-palvelinosoitteen. SRT
-on tarkoitettu tuotantosyötteen osuudelle omaan tuotantoosi; OBS puhuu sen
-jälkeen palvelun protokollaa.
+on tarkoitettu tuotantosyötteen osuudelle omaan tuotantoosi; OBS tai VISP
+Directissä relay puhuu sen jälkeen palvelun protokollaa.
 
 ### Onko SRT aina RTMP:tä matalaviiveisempi?
 

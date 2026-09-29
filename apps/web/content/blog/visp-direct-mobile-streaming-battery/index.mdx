@@ -2,14 +2,14 @@
 title: "How VISP Direct Saves Mobile Phone Battery When Streaming"
 description: "See when VISP Direct can reduce phone workload during multi-platform simulcasting, what remains on-device, and how to test real battery savings."
 publishedAt: 2026-07-28
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "A cool phone with a healthy battery sends one cyan upload to a relay that performs two glowing destination encodes"
 ---
 
 VISP Direct can save mobile phone battery during a **Twitch-and-Kick
-simulcast** by keeping the phone to one video encode and one upload. The VISP
-relay receives that contribution and performs the two separate platform
-encodes.
+simulcast** (or any mix of Twitch, Kick, and YouTube) by keeping the phone to
+one video encode and one upload. The VISP relay receives that contribution and
+performs the separate platform encodes.
 
 The qualification matters. Direct does not stop the camera, microphone, phone
 encoder, screen, or cellular radio from using power. It also does not promise
@@ -101,7 +101,7 @@ upload and redistribute it in the cloud. Compared with that kind of relay,
 VISP Direct may not reduce phone workload at all. Compare the actual signal
 path, not the feature name.
 
-The same caution applies to the ordinary VISP-to-OBS workflow. The phone sends
+The same caution applies to the optional VISP-to-OBS workflow. The phone sends
 one contribution to VISP, and OBS performs one final destination encode. If
 you replace that with Direct to one platform, the phone still captures,
 encodes, and uploads one feed. Direct removes the need to run the OBS computer,
@@ -151,11 +151,13 @@ The preview and chat can stay on. A bright screen is useful outdoors but costs
 energy. Floating chat stays private on the phone, while Embedded chat becomes
 part of the captured program. Neither mode turns off the streaming workload.
 
-Finally, VISP Native can duplicate packets over cellular and Wi-Fi for failover,
-but it does not aggregate the links' capacity or reduce the total radio work. The
+Finally, the VISP app's optional **Network bonding** keeps both the cellular
+and Wi-Fi radios busy. SRTLA mode spreads the stream across them, and
+**Broadcast** mode sends every packet over both, roughly doubling mobile data.
+Either way it adds radio work rather than saving battery. The
 [cellular-and-Wi-Fi bonding guide](/blog/bond-cellular-wifi-visp-speedify)
-covers an optional network layer, with the additional warning that bonding
-software itself also consumes device resources.
+covers the options, including third-party bonding software, which also
+consumes device resources.
 
 ## How to reduce battery use in the complete workflow
 
@@ -223,14 +225,16 @@ evidence. “Direct saves 30% battery” without controlled measurements is not.
 
 A longer-lasting phone can still lose its network. SRT retransmits missing
 packets when they arrive within the configured latency window, but it cannot
-create bandwidth or media during a complete outage. Direct also has no OBS
-fallback scene to show when the contribution disappears.
+create bandwidth or media during a complete outage. Direct has no OBS fallback
+scene, but it has an optional BRB card: turn on **Show a BRB card when my
+stream drops** on the dashboard **BRB** tab, and a lost ingest keeps each
+Direct output open behind the card while the phone reconnects. It is off by
+default.
 
-If continuity matters more than removing the home computer, the ordinary
-VISP-to-OBS workflow may still be the better engineering choice. OBS can keep
-the public stream alive with local content while the phone reconnects. Read
-the [bad-mobile-network guide](/blog/keep-stream-live-bad-mobile-network)
-before trading that fallback for a shorter Direct path.
+If you need a produced fallback with local content, the optional VISP-to-OBS
+workflow may still be the better engineering choice. Read the
+[bad-mobile-network guide](/blog/keep-stream-live-bad-mobile-network) before
+choosing between the two.
 
 Direct itself is capacity-limited during beta. Each platform uses one relay
 forwarder. If no slot is free, the Direct output does not start, although the

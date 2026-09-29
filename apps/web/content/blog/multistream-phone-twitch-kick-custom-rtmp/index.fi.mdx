@@ -2,6 +2,7 @@
 title: "Näin lähetät puhelimesta Twitchiin, Kickiin ja mukautettuun RTMP-kohteeseen"
 description: "Lähetä yksi puhelimen IRL-kuvalähde Twitchiin, Kickiin, YouTubeen sekä mukautettuun RTMP-, RTMPS- tai SRT-kohteeseen VISP Directillä."
 publishedAt: 2026-08-30
+updatedAt: 2026-09-29
 coverAlt: "IRL-kuvaaja lähettää yhden puhelinsyötteen relayn kautta vaaka-, pysty- ja palvelinkohteisiin"
 ---
 
@@ -24,8 +25,9 @@ haluat jakaa sen useampaan paikkaan. Se ei korvaa OBS:n kohtauksia, paikallista
 ## Mitä mukautettu lähtö muuttaa?
 
 Puhelin lähettää yhden H.264- ja AAC-kuvalähteen VISPiin. Direct purkaa
-kuvalähteen ja tekee jokaiselle käytössä olevalle lähdölle erillisen H.264- ja
-stereo-AAC-jakelukoodauksen. RTMP- ja RTMPS-kohteet käyttävät FLV-säiliötä.
+kuvalähteen, koodaa sen jakelua varten H.264- ja stereo-AAC-muotoon ja ajaa
+jokaiselle käytössä olevalle lähdölle oman forwarderin. Saman rajauksen lähdöt
+voivat jakaa yhden relay-koodauksen; pystylähtö saa oman. RTMP- ja RTMPS-kohteet käyttävät FLV-säiliötä.
 SRT-kohteet käyttävät MPEG-TS-säiliötä.
 
 Ero vaikuttaa kapasiteetin suunnitteluun:
@@ -38,7 +40,7 @@ Ero vaikuttaa kapasiteetin suunnitteluun:
 
 VISP Direct toimii siis eri tavalla kuin palvelu, joka kopioi valmiin
 alustasyötteen sellaisenaan. Puhelin koodaa edelleen oman kuvalähteensä, ja relay
-tekee yhden jakelukoodauksen kohdetta kohti. [VISP Direct
+koodaa syötteen uudelleen ennen kuin se lähtee kuhunkin kohteeseen. [VISP Direct
 -opas](https://docs.visp-stream.com/fi/docs/direct-output) selittää tämän rajan
 sekä relayn kapasiteettitarkistuksen, joka tehdään ennen julkaisun alkua.
 
@@ -103,8 +105,8 @@ lähdön voi pysäyttää laitteen ollessa edelleen live-tilassa.
 2. Hae täydellinen julkaisuosoite vastaanottavalta palvelulta. Jos palvelu
    näyttää palvelimen ja avaimen erikseen, muodosta lopullinen URL-osoite sen
    oman ohjeen mukaan.
-3. Avaa VISP-hallintapaneelin **Direct output**.
-4. Valitse **Custom destinations** -kohdasta **Add custom destination**.
+3. Avaa VISP-hallintapaneelin **Kohteet**-välilehti.
+4. Valitse **Mukautetut kohteet** -kohdasta **Lisää mukautettu kohde**.
 5. Anna lyhyt nimi ja täydellinen RTMP-, RTMPS- tai SRT-osoite.
 6. Tallenna kohde ja ota se käyttöön oikealle julkaisulaitteelle.
 7. Ota saman lähetyksen tarvitsemat sisäänrakennetut Twitch-, Kick- tai
@@ -153,7 +155,7 @@ sivu sieltä.
 Jokainen Direct-lähtö käyttää yhden forwarder-paikan. Twitch, Kick ja yksi
 mukautettu RTMPS-kohde tarvitsevat kolme paikkaa. Erillinen pystylähtö tarvitsee
 vielä yhden. Puhelin lähettää edelleen yhden kuvalähteen, mutta relay tekee
-enemmän koodausta ja lähettää enemmän dataa ulospäin.
+enemmän työtä ja lähettää enemmän dataa ulospäin.
 
 Jos relay ei pysty varaamaan kaikkia tarvittavia paikkoja, VISP estää uuden
 julkaisun tai merkitsee yksittäisen lähdön poissa käytöstä. Se ei teeskentele

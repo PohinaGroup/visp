@@ -2,7 +2,7 @@
 title: "Mikä on videolähde? Näin tuot puhelimen kuvan OBS:ään"
 description: "Opi, mitä videolähde ja lähdemateriaali tarkoittavat suoratoistossa, ja yhdistä puhelin, kamera tai etäenkooderi OBS:ään."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-29
 coverAlt: "Puhelin, kamera ja kannettava lähettävät erilliset videolähteet kotituotantoon ja yhden valmiin ohjelman yleisölle"
 ---
 
@@ -46,10 +46,14 @@ tarvitsee kentän ja studion väliin verkosta tavoitettavan pisteen. Puhelin
 enkoodaa H.264-videon ja AAC-äänen, julkaisee ne esimerkiksi SRT:llä, ja OBS
 vastaanottaa striimin internetin yli.
 
-VISP tarjoaa välipolun. Luo Video sources -näkymässä nimetty laite. Puhelin saa
-julkaisuosoitteen ja OBS erillisen lukuosoitteen. Molemmat yhdistävät releelle
-ulospäin, joten kotireitittimeen ei avata SRT-porttia. Twitch- tai Kick-avain
-pysyy OBS:ssä.
+VISP tarjoaa välipolun. Luo hallintapaneelin **Laitteet**-välilehdellä nimetty
+laite. Puhelin saa julkaisuosoitteen ja OBS erillisen lukuosoitteen. Molemmat
+yhdistävät releelle ulospäin, joten kotireitittimeen ei avata SRT-porttia.
+
+VISPin oletusulostulo on Suora, jossa rele itse lähettää lähteen Twitchiin,
+Kickiin tai YouTubeen ja OBS on valinnainen. Kun ohjelman kokoaa OBS, kuten
+tässä oppaassa, valitse hallintapaneelin **Tila**-valikosta **Puhelimesta omaan
+OBS:ään**. Twitch- tai Kick-avain pysyy silloin OBS:ssä.
 
 Ajantasainen [VISPin videolähdedokumentaatio](https://docs.visp-stream.com/docs/video-source)
 käsittelee lähteen ja tunnusten luomisen. [Enkooderiohje](https://docs.visp-stream.com/docs/broadcaster-setup)
@@ -60,10 +64,10 @@ kattaa kolmannen osapuolen sovellukset, SRT-viiveen, SRTLA:n ja OBS-varakuvan.
 Neljä käytännöllistä vaihtoehtoa kattaa useimmat etäkamerat.
 
 **VISPin oma sovellus** on lyhin polku sisäiselle kameralle, striimin tilalle,
-chatille ja rajatuille OBS-ohjauksille. Laite otetaan käyttöön ilman koko URL:n
-manuaalista kopiointia. Kahden linkin tila kahdentaa paketit Wi-Fi- ja
-mobiiliverkkoon vikasietoisuutta varten, mutta ei laske niiden kapasiteettia
-yhteen.
+chatille ja rajatuille OBS-ohjauksille. Kirjautuminen luo ja määrittää laitteen ilman koko
+URL:n manuaalista kopiointia. Valinnainen verkkobonding on oletuksena pois
+päältä; se voi yhdistää Wi-Fin ja mobiiliverkon kapasiteetin (SRTLA) tai
+kahdentaa paketit molempiin vikasietoisuutta varten (Broadcast).
 
 **Moblin** on avoimen lähdekoodin iOS-enkooderi, joka tukee SRT:tä, SRTLA:ta ja
 muita protokollia. Käytä sitä, kun haluat sen kameraohjaukset tai SRTLA-
@@ -84,7 +88,8 @@ avaa vaihtokaupan.
 
 ## Luo videolähde VISPissä
 
-Kirjaudu sisään, avaa **Video sources**, valitse **Add device** ja nimeä lähde
+Kirjaudu sisään, avaa **Laitteet**-välilehti, kirjoita **Videolähteet**-kohdan
+**Laitteen nimi** -kenttään nimi ja valitse **Lisää laite**. Nimeä lähde
 pysyvän roolin mukaan: “liikkuva Android”, “lavan yleiskamera” tai “vieraan
 sisäänkäynti”. Vältä tämän päivän tapahtuman nimeä, jos sama kamera palaa ensi
 viikolla.
@@ -95,8 +100,9 @@ stream ID antaa oikeuden julkaista polkuun. Älä näytä sitä ruutukaappauksis
 julkisissa tukiviesteissä.
 
 SRT on oletus, koska se voi lähettää kadonneita UDP-paketteja uudelleen valitun
-viiveikkunan sisällä. Käytä Advanced-näkymän RTMP:tä, jos verkko estää UDP:n tai
-enkooderi ei tue SRT:tä. Protokollan vaihtaminen ei korjaa yhteyttä, jonka
+viiveikkunan sisällä. RTMP-osoite tulee näkyviin, kun kytket samalla välilehdellä
+päälle **Näytä RTMP- ja SRTLA-vara-osoitteet**. Käytä sitä, jos verkko estää
+UDP:n tai enkooderi ei tue SRT:tä. Protokollan vaihtaminen ei korjaa yhteyttä, jonka
 jatkuva upload on valittua bittinopeutta pienempi.
 
 Vain yksi aktiivinen julkaisija voi omistaa laitepolun. Anna jokaiselle
@@ -121,7 +127,8 @@ erottaa kentän uploadin, kodin downloadin ja OBS:n lopullisen uploadin.
 
 ## Lisää lähde OBS:ään
 
-Helpoin tapa on VISPin luoma scene collection. Lataa se ja valitse OBS:ssä
+Helpoin tapa on VISPin luoma scene collection. Valitse hallintapaneelin
+**OBS-lukutunnukset**-kohdasta **Lataa OBS-kokoelma** ja valitse OBS:ssä
 **Scene Collection → Import**. Se sisältää varascenen sekä uudelleen yhdistävän
 Media Source -scenen jokaiselle aktiiviselle laitteelle.
 
@@ -138,8 +145,9 @@ Vaiheet noudattavat virallista [OBS:n SRT-ohjetta](https://obsproject.com/kb/srt
 OBS-osoite ei ole julkaisuosoite. Väärän tunnuksen antaminen väärälle päälle
 aiheuttaa sekavan vian ja rikkoo tarkoitetun erottelun.
 
-VISPin OBS-lisäosa voi myös lisätä nimetyn laitteen ja vastaanottaa rajattuja
-etäohjauksia. Se kysyy komennot ulospäin HTTPS:llä, joten studio ei avaa
+VISPin valinnainen OBS-lisäosa voi myös lisätä nimetyn laitteen ja vastaanottaa
+rajattuja etäohjauksia. Se pitää VISPiin ulospäin suuntautuvan, tunnistetun
+WSS-yhteyden, joten studio ei avaa
 ohjausporttia internetiin. Puhelin voi vaihtaa ohjelmascenen tai käynnistää ja
 pysäyttää aktiivisen OBS-striimin saamatta alustan avainta.
 
@@ -182,7 +190,7 @@ perua, testata ja palauttaa.
 Koko ketju on **puhelinkamera → H.264/AAC-enkooderi → SRT- tai SRTLA-julkaisu →
 VISP-rele → OBS Media Source → scenet ja äänimiksaus → Twitch, Kick tai YouTube**.
 
-Jos puhelin ja OBS-studio ovat valmiina, [kokeile VISPiä](https://app.visp-stream.com)
+Jos puhelin ja OBS-studio ovat valmiina, [kokeile VISPiä](https://visp-stream.com)
 luomalla yksi nimetty videolähde. Tallenna ensimmäinen testi OBS:llä, katkaise
 verkko kerran ja varmista saman lähteen palaavan. Silloin sinulla on uudelleen
 käytettävä videolähde eikä vain olohuoneessa kerran toiminut linkki.

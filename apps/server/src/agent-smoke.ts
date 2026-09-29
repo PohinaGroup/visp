@@ -44,7 +44,7 @@ try {
 
 	const prompt = createInterface({ input: stdin, output: stdout });
 	await prompt.question(
-		"Revoke streams:read in VISP Settings → Agent access, then press Enter. ",
+		"Revoke streams:read in the VISP dashboard Advanced tab → Agent access, then press Enter. ",
 	);
 	prompt.close();
 

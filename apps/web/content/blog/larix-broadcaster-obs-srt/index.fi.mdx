@@ -2,7 +2,7 @@
 title: "Larix Broadcasterin yhdistäminen OBS:ään SRT:llä"
 description: "Yhdistä Larix Broadcaster OBS:ään SRT:llä VISPin kautta, säädä mobiiliverkon bittinopeus ja viive sekä testaa palautuminen ennen lähetystä."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "Puhelinkamera lähettää yhden SRT-syötteen relay-palvelimen kautta OBS-tuotantoon"
 ---
 
@@ -51,18 +51,22 @@ mobiilituotannon toimivuudesta.
 
 ## 1. Luo Larix-videolähde VISPiin
 
-Kirjaudu VISPiin ja valitse käyttöönotossa julkaisijaksi **Larix Broadcaster**.
-Jos tili on jo määritetty, avaa **Video sources**, valitse **Add device** ja anna
+Kirjaudu VISPiin. Koska tässä työnkulussa OBS lähettää valmiin striimin, vastaa
+kysymykseen **Missä lähetät suorana?** valitsemalla **Muu kohde**, avaa sitten
+kohdan **Miten lähetät videon?** alta **Käytä jotain muuta** ja valitse **Larix
+Broadcaster**. Jos tili on jo määritetty, vaihda hallintapaneelin tilavalikosta
+**Puhelimesta omaan OBS:ään**, avaa **Laitteet**-välilehti, valitse **Lisää laite** ja anna
 laitteelle käytännöllinen nimi, kuten ”liikkuva Larix” tai ”maaliviivan kamera”.
 Yksi VISP-laite vastaa yhtä julkaisupolkua.
 
-Valitse **Copy** kohdasta **Add this to video source**. Arvo alkaa `srt://` ja
+Valitse **Copy** kohdasta **Lisää tämä videolähteeseen**. Arvo alkaa `srt://` ja
 sisältää polun julkaisutunnuksen. Käsittele koko osoitetta salasanana: älä näytä
 sitä kuvakaappauksessa, chatissa, lähetysgrafiikassa tai julkisessa
 ongelmanratkaisuketjussa.
 
 VISP näyttää oletuksena SRT-osoitteen. Käytä sitä, ellei lähetysverkko estä
-UDP:tä. Hallintapaneelin **Advanced**-tila tarjoaa RTMP-varavaihtoehdon, mutta
+UDP:tä. **Laitteet**-välilehden **Näytä RTMP- ja SRTLA-vara-osoitteet** tuo
+esiin RTMP-varavaihtoehdon, mutta
 protokollan vaihtaminen ei auta, jos lähetyskaistaa on yksinkertaisesti liian
 vähän.
 
@@ -157,7 +161,8 @@ uudelleenyhdistävän medialähdekohtauksen jokaista aktiivista VISP-laitetta ko
 
 Manuaalinen lähde luodaan näin:
 
-1. Näytä tai kopioi laitteen OBS-osoite VISPistä.
+1. Näytä tai kopioi laitteen OBS-osoite hallintapaneelin OBS-välilehden
+   kohdasta **OBS-lukutunnukset**.
 2. Lisää OBS:ään **Media Source**.
 3. Poista **Local File** käytöstä.
 4. Liitä OBS-lukuosoite **Input**-kenttään.
@@ -196,8 +201,9 @@ ja käytä Advanced Scene Switcherissä medialähteen tilaan perustuvaa ehtoa.
 
 ## Mitä tämä ratkaisu ei tee
 
-VISP välittää tunnistetun syötteen. Se ei transkoodaa videota eikä yhdistä
-Wi-Fiä ja mobiilidataa yhdeksi verkkoyhteydeksi. Larix voi julkaista useaan
+VISP välittää tunnistetun syötteen OBS:ään transkoodaamatta. Larix lähettää
+yhtä verkkoreittiä, joten mikään tässä ketjussa ei yhdistä Wi-Fiä ja
+mobiilidataa yhdeksi verkkoyhteydeksi. Larix voi julkaista useaan
 kohteeseen, mutta rinnakkaiset lähdöt eivät ole bondingia: jokainen lähtö
 kulkee edelleen puhelimen käytettävissä olevan verkkoreitin kautta.
 
@@ -239,7 +245,8 @@ ettei mikserin monitorointi aiheuta kiertoa puhelimessa.
 
 ### Tapahtumaverkko estää SRT:n
 
-Vaihda VISP **Advanced**-tilaan, kopioi laitteen RTMP-julkaisuosoite ja luo
+Kytke **Laitteet**-välilehdellä päälle **Näytä RTMP- ja SRTLA-vara-osoitteet**,
+kopioi laitteen RTMP-julkaisuosoite ja luo
 Larixiin RTMP-yhteys. Pidä OBS:n generoitu lukupolku ennallaan. RTMP on
 TCP-pohjainen yhteensopivuusvaihtoehto, ei ratkaisu riittämättömään kaistaan.
 
@@ -260,7 +267,10 @@ TCP-pohjainen yhteensopivuusvaihtoehto, ei ratkaisu riittämättömään kaistaa
 
 Ei. Larix lähettää kenttäsyötteen VISPiin, OBS vastaanottaa sen ja lähettää
 valmiin tuotannon Twitchiin tai Kickiin. Kohtaukset, hälytykset, tallennus ja
-kohdepalvelun lähetysavain pysyvät studiossa.
+kohdepalvelun lähetysavain pysyvät studiossa. Jos et tarvitse OBS:ää, VISP
+Direct voi sen sijaan enkoodata saman Larix-syötteen releellä ja lähettää sen
+Twitchiin, Kickiin tai YouTubeen; katso
+[Direct-lähdön ohje](https://docs.visp-stream.com/fi/docs/direct-output).
 
 ### Kannattaako Larixista käyttää SRT:tä vai RTMP:tä?
 

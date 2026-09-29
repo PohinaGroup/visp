@@ -2,6 +2,7 @@
 title: "How to Reduce Wind and Background Noise in iPhone IRL Streams"
 description: "Reduce wind and background noise in iPhone IRL streams with mic placement, VISP audio isolation, OBS filtering, and a repeatable field test."
 publishedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "An outdoor iPhone creator uses a wind-protected microphone as a clean audio waveform travels toward a home streaming studio"
 ---
 
@@ -14,7 +15,9 @@ four, and it can make speech sound thin or unstable.
 For an iPhone-to-OBS workflow, use this order: stop wind before it reaches the
 microphone, choose the right input, apply one appropriate isolation layer, and
 judge the result from an OBS recording. That keeps the solution understandable
-when you are outside and about to go live on Twitch or Kick.
+when you are outside and about to go live on Twitch or Kick. If you stream with
+VISP Direct and no OBS, the same order applies; judge the result from a
+platform test stream or VOD instead.
 
 ![Wind is reduced at the microphone, speech is optionally isolated on the iPhone, VISP carries the contribution feed, and OBS provides the final check and optional mild suppression](./wind-noise-audio-path.svg)
 
@@ -83,8 +86,8 @@ current capture and publishing workflow.
 ## 3. Turn on VISP Audio isolation on iPhone
 
 With the stream stopped, open **Settings → Audio** and enable **Audio
-isolation**. The switch is currently an iOS feature; it is not shown in the
-Android or browser publisher.
+isolation**. The Android app has the same switch; the hosted **Better audio
+isolation** option below is iPhone-only.
 
 VISP then uses the iPhone's native voice-processing path. If iOS opens its
 microphone-mode sheet, choose **Voice Isolation**. Apple's current
@@ -202,8 +205,8 @@ Before leaving:
 10. repeat a short check at the real location because indoor rehearsal cannot
     reproduce its wind and crowd.
 
-VISP does not create a good microphone signal after the fact, and its normal
-relay does not transcode audio or bond network capacity. It gives the iPhone a
+VISP does not create a good microphone signal after the fact, and its relay
+path to OBS does not transcode or clean up audio. It gives the iPhone a
 managed contribution path into the home studio, where you can inspect and mix
 the result before it reaches Twitch or Kick.
 

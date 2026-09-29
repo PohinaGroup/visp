@@ -2,7 +2,7 @@
 title: "How to Use Larix Broadcaster With OBS Over SRT"
 description: "Connect Larix Broadcaster to OBS over SRT through VISP, tune mobile bitrate and latency, import the feed, and test recovery before going live."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "A phone camera sends one SRT feed through a relay into a home OBS production monitor"
 ---
 
@@ -49,8 +49,11 @@ A fast Wi-Fi rehearsal does not validate a moving cellular production.
 
 ## 1. Create a Larix video source in VISP
 
-Sign in to VISP and choose **Larix Broadcaster** as the publisher during setup.
-If the account is already configured, open **Video sources**, choose **Add
+Sign in to VISP. Because OBS will send the finished stream in this workflow,
+answer **Where do you go live?** with **Somewhere else**, then open **Use
+something else** under **How will you send video?** and choose **Larix
+Broadcaster**. If the account is already configured, set the dashboard's
+**Mode** menu to **Phone to your OBS**, open the **Devices** tab, choose **Add
 device**, and give it a practical name such as “roaming Larix” or “finish-line
 camera.” One VISP device represents one publishing path.
 
@@ -59,8 +62,9 @@ Choose **Copy** beside **Add this to video source**. The value begins with
 a password: do not paste it into screenshots, chat, stream overlays, or a
 public troubleshooting post.
 
-VISP shows SRT by default. Keep it unless the sending network blocks UDP. The
-dashboard exposes an RTMP fallback in **Advanced** mode, but changing protocols
+VISP shows SRT by default. Keep it unless the sending network blocks UDP.
+**Show RTMP and SRTLA fallback URLs** on the **Devices** tab reveals an RTMP
+fallback, but changing protocols
 does not improve a connection that simply lacks enough upload capacity.
 
 For the exact dashboard flow, see the VISP documentation for [adding a video
@@ -154,7 +158,8 @@ Fallback scene and one reconnecting Media Source scene per active VISP device.
 
 For a manual source:
 
-1. Reveal or copy the device's OBS URL in VISP.
+1. Reveal or copy the device's OBS URL under **OBS read credentials** on the
+   dashboard's OBS tab.
 2. In OBS, add a **Media Source**.
 3. Clear **Local File**.
 4. Paste the OBS reading URL into **Input**.
@@ -194,8 +199,9 @@ and configure a Media-state condition in Advanced Scene Switcher.
 
 ## What this setup does not do
 
-VISP relays the authenticated feed; it does not transcode it and it does not
-bond Wi-Fi and cellular into one connection. Larix can publish to multiple
+VISP relays the authenticated feed to OBS without transcoding it. Larix sends
+over one network path, so nothing in this chain bonds Wi-Fi and cellular into
+one connection. Larix can publish to multiple
 destinations, but simultaneous outputs are not network bonding: each output
 still travels over the phone's available network path.
 
@@ -238,7 +244,8 @@ is not muted and its mixer monitoring does not create feedback on the phone.
 
 ### SRT is blocked on the venue network
 
-Switch VISP to **Advanced**, copy that device's RTMP publishing URL, and create
+On the **Devices** tab, turn on **Show RTMP and SRTLA fallback URLs**, copy that
+device's RTMP publishing URL, and create
 an RTMP connection in Larix. Keep OBS on its generated reading path. RTMP is a
 compatibility fallback over TCP, not a cure for insufficient bandwidth.
 
@@ -259,7 +266,10 @@ compatibility fallback over TCP, not a cure for insufficient bandwidth.
 
 No. Larix sends a contribution feed to VISP, OBS receives it, and OBS sends the
 finished production to Twitch or Kick. That keeps scenes, alerts, recording,
-and the destination stream key at the studio.
+and the destination stream key at the studio. If you do not need OBS, VISP
+Direct can instead encode the same Larix feed on the relay and send it to
+Twitch, Kick, or YouTube; see the
+[Direct output docs](https://docs.visp-stream.com/docs/direct-output).
 
 ### Should I use SRT or RTMP from Larix?
 

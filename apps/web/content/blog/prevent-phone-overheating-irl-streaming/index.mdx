@@ -2,6 +2,7 @@
 title: "How to Stop Your Phone Overheating While IRL Streaming to OBS"
 description: "Prevent phone overheating during IRL streaming to OBS with safer camera settings, shade, ventilation, power planning, and a tested fallback."
 publishedAt: 2026-07-29
+updatedAt: 2026-09-28
 coverAlt: "A shaded phone on a streaming grip films a sunny city while a blue signal path reaches a cool home OBS studio"
 ---
 
@@ -23,15 +24,16 @@ performance, the camera, the display, or the network connection.
 
 ## Understand what the phone is doing
 
-In the standard VISP-to-OBS workflow, the field phone still performs the first
-video encode. The VISP app captures the selected camera and microphone,
-encodes H.264 video and AAC audio, and sends one contribution feed over SRT.
-The relay authenticates and forwards that feed. OBS decodes it, builds the
-finished program, and sends the Twitch or Kick broadcast from the home
-computer.
+In every VISP workflow, the field phone performs the first video encode. The
+VISP app captures the selected camera and microphone, encodes H.264 video and
+AAC audio, and sends one contribution feed over SRT. With Direct, the default
+output, the relay then encodes that feed for Twitch, Kick, or YouTube. In the
+optional OBS workflow this guide focuses on, the relay forwards the feed and
+OBS decodes it, builds the finished program, and sends the broadcast from the
+home computer.
 
-That design keeps OBS scenes, browser sources, alerts, recording, and the
-platform stream key off the phone. It does not make phone capture free. During
+Either way, the platform encode and the platform stream key stay off the phone,
+and with OBS so do scenes, browser sources, alerts, and recording. It does not make phone capture free. During
 an outdoor broadcast, one device may be:
 
 - running the camera and hardware video encoder continuously;
@@ -58,8 +60,9 @@ show.
 ## Start with a cooler video baseline
 
 Use the lowest format that meets the production need, then move upward only
-after a full-duration test. The VISP phone app prefers **720p at 30 fps** when
-the selected camera supports it. That is a useful IRL baseline: it asks the
+after a full-duration test. The VISP phone app starts at 1080p30 when the
+camera supports it, so pick the **Reliable · 720p30** quality preset for a
+cooler start. That is a useful IRL baseline: it asks the
 camera and encoder to process fewer pixels and frames than 1080p60, while OBS
 can still place the feed inside a normal scene.
 
@@ -220,12 +223,11 @@ On the normal relay-to-OBS path, VISP **does not transcode** the contribution.
 If the phone sends an unnecessarily demanding format, the relay will not turn
 it into a cooler one. Change resolution, frame rate, and bitrate at the phone.
 
-The relay also **does not bond network connections or combine their capacity
-into a faster upload**. A native multi-link redundancy mode can send duplicate
-SRT packets over Wi-Fi and cellular, but redundancy is not extra cooling or
-aggregated throughput and may increase radio and data use. Leave it out of the
-first thermal baseline, then test it separately only if the route requires that
-resilience.
+Network bonding in the VISP app is optional and off by default. Its SRTLA
+mode keeps Wi-Fi and cellular radios both transmitting, and its Broadcast mode
+sends duplicate packets over both, which may increase radio work and data use.
+Neither mode is extra cooling. Leave bonding out of the first thermal baseline,
+then test it separately only if the route requires it.
 
 For the complete source setup, use the
 [VISP phone app documentation](https://docs.visp-stream.com/docs/phone-app)

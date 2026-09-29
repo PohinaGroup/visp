@@ -2,11 +2,11 @@
 title: "IRLToolkitin hinta: mitä 129 tai 179 dollaria kuukaudessa sisältää?"
 description: "Katso IRLToolkitin nykyiset Standard- ja Advanced-hinnat, pilvi-OBS-pakettien sisältö ja milloin kevyempi VISP-polku riittää."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-28
 coverAlt: "Pilvituotannon palvelutasot punnitaan yksinkertaisempaa puhelinrelettä ja kotistudiota vasten"
 ---
 
-IRLToolkit listaa 23.8.2026 Standard-pilvi-OBS-paketin hinnaksi **129 dollaria
+IRLToolkit listaa 28.9.2026 Standard-pilvi-OBS-paketin hinnaksi **129 dollaria
 kuukaudessa** ja Advanced-paketin hinnaksi **179 dollaria kuukaudessa**.
 Standard sisältää oman pilvi-OBS-ympäristön, yhden yleisen ingestin ja
 multistreamauksen kahteen kohteeseen. Advanced poistaa listatut resoluutio- ja
@@ -35,7 +35,7 @@ Turing -tasoinen tai uudempi GPU-resurssi, RTMP/SRT-lähtö sekä scenet, teksti
 kuvat, mediatiedostot ja selainlähteet. Siksi tilausta ei kannata verrata pelkkään
 releeseen: IRLToolkit myy hostattua tuotantoympäristöä, ei vain videoputkea.
 
-Hinnat ja rajat tarkistettiin julkaisupäivänä. Ne eivät lupaa tulevan laskun
+Hinnat ja rajat tarkistettiin viimeksi 28.9.2026. Ne eivät lupaa tulevan laskun
 olevan sama. Verot, maksuehdot, mobiilidata ja erikseen ostettu enkooderilaitteisto
 eivät sisälly taulukkoon.
 
@@ -95,13 +95,14 @@ kertoa 129 kahdellatoista ja olettaa muut vaihtoehdot ilmaisiksi.
 
 VISP ei ole täyden pilvi-OBS:n hostattu kopio. Se on itse ylläpidetty SRT/RTMP-
 rele ja ohjaustaso. Puhelin, selain tai kolmannen osapuolen enkooderi julkaisee
-tunnistettuun laitepolkuun. Kotona oleva OBS lukee kuvaa, säilyttää Twitch- tai
+tunnistettuun laitepolkuun. Oletuksena Suora enkoodaa kuvan releellä
+jokaiselle valitulle Twitch-, Kick- tai YouTube-kohteelle, eikä kotona tarvita
+tietokonetta. Valinnaisesti kotona oleva OBS lukee kuvaa, säilyttää Twitch- tai
 Kick-avaimen ja hoitaa scenet, alertit, tallennuksen sekä lopullisen enkoodauksen.
 
-VISP on beta-aikana ilmainen. Se sopii tekijälle, jolla on jo puhelin ja
-kotikone eikä tarvetta hallitulle pilvituotannolle. Direct-polku voi myös viedä
-yksinkertaisen puhelinkuvan suoraan alustalle, yksi enkoodaus jokaista kohdetta
-kohti, kun koti-OBS:ää ei tarvita.
+VISP on beta-aikana ilmainen. Se sopii puhelimesta alustalle -lähetykseen, joka
+ei tarvitse hallittua pilvituotantoa, tai tekijälle, jolla on jo OBS:ää
+pyörittävä kotikone.
 
 Vaihtokaupat ovat todellisia:
 
@@ -111,10 +112,10 @@ Vaihtokaupat ovat todellisia:
 | VISP koti-OBS:ään | Pysyvät laitepolut ja olemassa olevan studion käyttö | Kodin sähkön, OBS:n kunnon, verkkoyhteydet ja ylläpidon |
 | VISP Direct | Ei koti-OBS:ää yksinkertaiseen lähtöön | Rele- ja kohdeasetukset sekä yksinkertaisemman tuotannon rajat |
 
-VISPin rele–OBS-polku ei transkoodaa kuvalähdettä. VISP Nativen kahden linkin
-tila lähettää päällekkäisiä paketteja eikä yhdistä kapasiteettia. Kolmannen
-osapuolen SRTLA-enkooderi voi käyttää nykyistä SRTLA-ingestiä aitoon
-monitieyhteyteen. Mikään näistä ei sisällä pilvi-OBS-operaattoria tai maksullisen
+VISPin rele–OBS-polku ei transkoodaa kuvalähdettä. VISP Nativen valinnaisen
+verkkobondingin oletustila on SRTLA, joka yhdistää Wi-Fin ja mobiiliyhteyden
+kapasiteetin releen SRTLA-ingestin kautta; kolmannen osapuolen SRTLA-enkooderi
+voi käyttää samaa ingestiä. Mikään näistä ei sisällä pilvi-OBS-operaattoria tai maksullisen
 palvelun tukimallia.
 
 Laajempi [IRLToolkit-vaihtoehto-opas](/blog/irltoolkit-alternative) vertailee
@@ -158,6 +159,6 @@ on jo olemassa ja tarve on lähinnä etäpuhelimen turvallinen videolähde.
 Jos haluat testata kevyempää mallia, seuraa [aloitusohjetta](https://docs.visp-stream.com/docs/get-started)
 ja testaa koko reitti ennen oikeaa lähetystä. IRLToolkitin 129 ja 179 dollarin
 hinnat ostavat pilvituotantoa, eivät vain videoputkea. Jos tuotanto on puuttuva
-osa, vertaa paketteja. Muussa tapauksessa [kokeile VISPiä](https://app.visp-stream.com)
+osa, vertaa paketteja. Muussa tapauksessa [kokeile VISPiä](https://visp-stream.com)
 jo omistamasi OBS-studion kanssa ja maksa lisäkerroksista vasta mitatun tarpeen
 perusteella.

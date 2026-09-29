@@ -20,6 +20,12 @@ vaihtaa kohtauksia. Nimeä kamerat tehtävän mukaan, esimerkiksi “juontaja”
 
 ## Luo yksi VISP-laite jokaiselle puhelimelle
 
+Usean puhelimen tuotanto toimii OBS-tilassa. VISP aloittaa Direct-tilassa, joka
+välittää yhden laitteen kerrallaan, joten valitse ensin hallintapaneelin **Tila:
+Suora · vaihda** -valikosta **Puhelimesta omaan OBS:ään**. Kirjaudu sitten
+VISP-sovellukseen jokaisella puhelimella, jolloin sovellus luo puhelimelle oman
+laitteen, tai lisää laite hallintapaneelin **Laitteet**-välilehdeltä.
+
 Yhtä julkaisupolkua voi käyttää vain yksi lähettäjä kerrallaan. Erillinen laite
 antaa jokaiselle puhelimelle oman tunnuksen, tilan ja peruutusmahdollisuuden.
 Yhden puhelimen tunnuksen kierrättäminen ei silloin katkaise muita kameroita.
@@ -71,8 +77,8 @@ vastaanottokapasiteettinsa. OBS:n dekoodauskuorma kasvaa lähteiden määrän,
 tarkkuuden ja kuvataajuuden mukana. Lisää kameroita yksi kerrallaan ja mittaa
 CPU-, GPU- ja verkkokuorma.
 
-VISP ei synkronoi itsenäisiä puhelinkameroita ruuduntarkasti eikä yhdistä niiden
-verkkoyhteyksiä. OBS:ssä voi lisätä viivettä lähteisiin, jos tuotanto tarvitsee
+VISP ei synkronoi itsenäisiä puhelinkameroita ruuduntarkasti eikä yhdistä eri
+puhelinten verkkoyhteyksiä. OBS:ssä voi lisätä viivettä lähteisiin, jos tuotanto tarvitsee
 lähempää ajallista kohdistusta.
 
 ## Kahden puhelimen harjoitus
@@ -99,8 +105,10 @@ lähdekohtaisia viiveitä OBS:ssä.
 
 ### Yhdistävätkö useat puhelimet verkkonsa?
 
-Eivät. Jokainen puhelin käyttää omaa yhteyttään omaan syötteeseensä; tämä ei ole
-verkkobondingia.
+Eivät. Jokainen puhelin käyttää omaa yhteyttään omaan syötteeseensä. Kukin
+puhelin voi ottaa käyttöön VISP-sovelluksen valinnaisen verkkobondingin omille
+Wi-Fi- ja mobiiliyhteyksilleen, mutta puhelimet eivät yhdistä yhteyksiään
+keskenään.
 
 ## Lisätietoja
 

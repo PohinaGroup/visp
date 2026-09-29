@@ -2,6 +2,7 @@
 title: "IRLToolkitin vaihtoehdot: mistä maksat ja milloin ilmainen riittää"
 description: "Vertaa IRLToolkitin pilvi-OBS:n hintaa halvempiin relay-palveluihin ja ilmaisiin vaihtoehtoihin ja löydä lähetystapa, joka sopii omaan tekemiseesi."
 publishedAt: 2026-08-09
+updatedAt: 2026-09-29
 coverAlt: "Hintavertailukortti, jossa VISPin signaaliketju kulkee puhelimesta relayn ja Directin kautta suoratoistopalveluun"
 ---
 
@@ -25,18 +26,20 @@ Tämä teksti auttaa erottamaan nuo kaksi tilannetta toisistaan.
 | Hinta | Ilmainen betan ajan | 129–179 $ / kk | 120–180 $ / kk | 10–20 $ / kk | Laitteisto + oma palvelin |
 | Kotikone | Ei tarvita | Ei tarvita — pilvi-OBS | Ei tarvita — pilvi-OBS | Tarvitaan — ajat OBS:n itse | Tarvitaan — ajat OBS:n itse |
 | Puhelinsovellus mukana | iOS, Android, selain | Oma encoder | Oma encoder | Oma encoder | Oma laitteistoencoder |
-| Mobiiliyhteyksien niputus | SRTLA-vastaanotto — ei vielä sovelluksessa | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA, oma protokolla |
+| Mobiiliyhteyksien niputus | Valinnainen sovelluksessa (Wi-Fi + mobiili, SRTLA); relay ottaa vastaan minkä tahansa SRTLA-lähettimen | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA | Kyllä — SRTLA, oma protokolla |
 | Kohtaukset ja grafiikat | Chat-grafiikka; kohtaukset omassa OBS:ssä | Pilvi-OBS mukana | Pilvi-OBS mukana | Oma OBS | Oma OBS |
-| Katkosuoja | BRB-kortti relaylta ja chat-ilmoitus | Odotusruutu, moderaattorin varassa | Odotusruutu, moderaattorin varassa | Oma OBS | Oma OBS |
+| Katkosuoja | Valinnainen BRB-kortti relaylta ja valinnainen chat-ilmoitus | Odotusruutu, moderaattorin varassa | Odotusruutu, moderaattorin varassa | Oma OBS | Oma OBS |
 | Lähdekoodi | GPL-2.0, itse ylläpidettävä | Suljettu | Suljettu | Suljettu | Avoin lähdekoodi |
 
 Julkiset listahinnat, tarkistettu 14. elokuuta 2026.
 
-Lue niputusrivi ennen hintariviä. VISPin relayt ottavat vastaan SRTLA:a, joten
-BELABOX-laite tai Moblin voi jo nyt yhdistää wifin ja kaksi SIM-korttia yhdeksi
-VISP-lähetykseksi. Sitä VISPin oma puhelinsovellus ei osaa: se monistaa paketit
-yhteyksille, mikä kestää katkon mutta ei kasvata kaistaa. Jos tarvitset
-yhdistämistä etkä halua kantaa toista encoderia, tuo puute on todellinen. Siirry
+Lue niputusrivi ennen hintariviä. VISPin puhelinsovellus voi niputtaa puhelimen
+oman Wi-Fi- ja mobiiliyhteyden: kun kytket **Network bonding** -asetuksen päälle,
+oletustila **SRTLA (aggregating)** jakaa lähetyksen molemmille. Yhteyksiä on
+silloin kaksi. VISPin relayt ottavat SRTLA:ta vastaan myös muilta lähettimiltä,
+joten BELABOX-laite tai Moblin voi yhdistää wifin ja kaksi SIM-korttia yhdeksi
+VISP-lähetykseksi. Jos tarvitset enemmän yhteyksiä kuin yhdessä puhelimessa on
+etkä halua kantaa toista encoderia, tuo puute on todellinen. Siirry
 kohtaan [milloin maksaminen kannattaa](#milloin-maksaminen-kannattaa).
 
 ## Mitä 129 dollarilla oikeasti saa
@@ -65,15 +68,16 @@ Kickiin tai YouTubeen. Kotikone pysyy sammuksissa, eikä polulla ole OBS:ää el
 itse halua.
 
 Tämä kattaa listan ensimmäisen kohdan, ja kattaa sen ilmaiseksi betan ajan. Se ei
-anna pilvikohtauksia, eikä puhelinsovellus yhdistä kaistaa — mutta relay ottaa
-vastaan SRTLA-lähettimen, joka yhdistää.
+anna pilvi-OBS:n kohtauksia, ja puhelinsovelluksen niputus rajoittuu puhelimen
+Wi-Fi- ja mobiiliyhteyteen — mutta relay ottaa vastaan SRTLA-lähettimen, jolla
+yhteyksiä on enemmän.
 
 Kolme asiaa, joita maksulliset palvelut eivät tee:
 
 - **Puhelinsovellus kuuluu tuotteeseen.** iOS, Android ja selainjulkaisija sen
   sijaan että määrittäisit Larixin tai Moblinin itse. Lisätiedot
   [puhelinsovelluksen ohjeissa](https://docs.visp-stream.com/docs/phone-app).
-- **Chat saa tiedon katkosta.** Relay tietää eron BRB-kortilla pidetyn katkon
+- **Chat saa tiedon katkosta.** VISP tietää eron BRB-kortilla pidetyn katkon
   ja päättyneen lähetyksen välillä ja kirjoittaa oikean viestin Twitchin,
   Kickin ja YouTuben chattiin. Lisää:
   [IRL-chatbotin ilmoitukset](/blog/irl-chat-bot-alerts-without-a-pc).
@@ -92,12 +96,12 @@ lisä eikä eri tuote.
 
 Ole rehellinen siitä, mitkä näistä kuvaavat sinua:
 
-- **Tarvitset niputuksen yhdestä taskukokoisesta laitteesta.** VISPin
-  natiivisovellus voi monistaa paketit Wi-Fin ja mobiiliyhteyden yli, mikä kestää
-  toisen katkeamisen, mutta kaksi puolinopeaa yhteyttä eivät summaudu yhdeksi
-  nopeaksi. BELABOX-laitteen tai Moblinin osoittaminen VISPin SRTLA-porttiin
-  antaa oikean yhdistämisen ilmaiseksi — jos toisen encoderin kantaminen ei
-  onnistu, osta palvelu joka niputtaa omassa sovelluksessaan.
+- **Tarvitset yhdestä taskukokoisesta laitteesta enemmän kuin kaksi
+  yhteyttä.** VISPin natiivisovellus voi niputtaa yhden puhelimen Wi-Fin ja
+  mobiiliyhteyden SRTLA:lla, mikä summaa niiden kapasiteetin, mutta se ei lisää
+  SIM-kortteja tai modeemeja. Kun osoitat useamman yhteyden BELABOX-laitteen tai
+  Moblinin VISPin SRTLA-porttiin, saat sen yhdistämisen ilmaiseksi — jos toisen
+  encoderin kantaminen ei onnistu, osta siihen rakennettu palvelu.
 - **Moderaattori ajaa tuotantoasi kun kävelet.** Pilvi-OBS hallintapaneelilla on
   rakennettu juuri tähän.
 - **Ohjelmasi on kohtausvetoinen etkä ole koskaan lähellä konetta.** Pilvi-OBS.
@@ -120,7 +124,7 @@ puhelinsovelluksesta tai selaimesta ja katso, onko puuttuvilla paloilla oikeasti
 merkitystä sinun ohjelmassasi. Jos on, maksulliset palvelut ovat yhä olemassa, ja
 tiedät täsmälleen minkä ominaisuuden ostat sen sijaan että arvaisit.
 
-Jos osoittautuu että tarvitset niputusta, käytämme mieluummin rahasi
+Jos osoittautuu että tarvitset enemmän niputusta kuin puhelimen kaksi yhteyttä, käytämme mieluummin rahasi
 BELABOX-laitteeseen kuin kuukausimaksuun — se julkaisee suoraan VISPiin SRTLA:lla,
 ja [vertailumme BELABOXista ja LiveU Solosta](/blog/visp-vs-belabox-vs-liveu-solo)
 käy läpi kummankin paikan. Asennus on

@@ -30,7 +30,7 @@ bun run dev:local
 ```
 
 Compose data volumes persist across restarts. Ctrl+C stops the API, portal,
-admin console, OBS Remote web app, and docs; `bun run dev:local:down` stops the
+admin console, multi-chat, Typography, OBS Remote web app, and docs; `bun run dev:local:down` stops the
 containers without deleting their data.
 
 ## Environment files
@@ -55,10 +55,17 @@ commands still require every schema-required value. Important groups are:
   may be placeholders only when the matching provider flow is not exercised.
 - `AI_GATEWAY_API_KEY` authenticates the server-side Seppo setup assistant with
   Vercel AI Gateway. Create the key in Vercel and never expose it as a `VITE_*`
-  variable.
+  variable. It is required; a placeholder starts the server, but Seppo and Typography
+  caption cleanup need a real key.
 - Optional `ELEVENLABS_API_KEY` enables account-gated hosted captions and audio
   isolation. Add `ELEVENLABS_VOICE_ID` to enable hosted chat text-to-speech.
   Without them, the app uses on-device fallbacks or hides the hosted option.
+- `VISP_CHAT_BOT_USER_ID` names the Better Auth user whose linked Twitch
+  account posts as the shared VISP bot. It is required; any non-empty value
+  works locally until you exercise the bot.
+- `STUDIO_MEDIA_USER` and `STUDIO_MEDIA_PASSWORD` authenticate the local RTSP
+  reads used by Direct and Cloud Studio. The example values work locally except
+  the password, which needs at least 32 characters.
 - `HOOK_SECRET`, `MEDIAMTX_API_URL`, `RELAY_HOST`, and `RELAY_PING_URL` connect
   the app to the local MediaMTX and Portless relay domains.
 - `S3_*` configures private snapshot storage. The launcher points these values
@@ -134,25 +141,19 @@ remove it when scrubbing unused background modes for App Review.
    `https://api.visp.localhost/api/auth/callback/google`, preserving the normal
    VISP session cookie. An origin contains only scheme and host; never put the
    callback path in it.
-5. For native Google sign-in on a physical device, create a separate **iOS**
-   OAuth client (Google Cloud Console → Clients → Create client → iOS) with
-   bundle ID `com.pohinagroup.visp`. Google does not accept LAN IP redirect
-   URIs, so the native app uses `@react-native-google-signin/google-signin` and
-   exchanges an ID token with Better Auth instead of browser redirects.
-6. Copy the generated values into the untracked `apps/server/.env`:
+5. Copy the generated values into the untracked `apps/server/.env`:
 
    ```text
    GOOGLE_CLIENT_ID=...apps.googleusercontent.com
    GOOGLE_CLIENT_SECRET=...
-   GOOGLE_IOS_CLIENT_ID=...apps.googleusercontent.com
    ```
 
-   `dev:local` copies the web and iOS client IDs into `apps/native/.env.local`
-   as `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` and `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`.
-   A physical phone cannot reach `https://api.visp.localhost`; `dev:local` also
-   sets `EXPO_PUBLIC_SERVER_URL` to `http://LAN_IP:3000`. Rebuild the native
-   dev client after adding the iOS client ID (`bun run --cwd apps/native ios`).
-7. Restart `bun run dev:local`, sign in with Google, and authorize YouTube from
+   The native app signs in to Google through the same browser OAuth flow and
+   server callback, so it needs no separate mobile OAuth client. A physical
+   phone cannot reach `https://api.visp.localhost`; set
+   `EXPO_PUBLIC_SERVER_URL=http://LAN_IP:3000` in `apps/native/.env.local`
+   yourself.
+6. Restart `bun run dev:local`, sign in with Google, and authorize YouTube from
    Direct. VISP requests explicit consent and offline access so it can refresh
    the token when a stream starts unattended.
 
@@ -191,6 +192,7 @@ For normal portal/API work, use the one-stop launcher:
 | API | managed by the launcher | `https://api.visp.localhost` |
 | Admin console | managed by the launcher | `https://admin.visp.localhost` |
 | Multi-chat | managed by the launcher | `https://multichat.visp.localhost` |
+| Typography | managed by the launcher | `https://typography.visp.localhost` |
 | Docs | managed by the launcher | `https://docs.visp.localhost` |
 | OBS Remote web | managed by the launcher | `http://localhost:8083` |
 | Relay | managed by the launcher | `https://relay.visp.localhost` |
@@ -300,11 +302,14 @@ stack is already warm.
 | Database schema and migrations | `packages/db/src` |
 | Browser routes and components | `apps/web/src` |
 | Admin support console | `apps/admin/src` |
+| Multi-chat overlay | `apps/multichat/src` |
+| Typography editor | `apps/typography/src` |
 | Shared UI primitives | `packages/ui/src` |
 | Native screens and device behavior | `apps/native/src` |
 | Native SRT bridge | `apps/native/modules/visp-srt` |
 | OBS Remote interface | `apps/obs-remote/src` |
 | OBS-side remote transport | `apps/obs-plugin` |
+| Relay hooks, MediaMTX config, compositor | `deploy/relay`, `deploy/compositor` |
 | Operator/broadcaster docs | `apps/fumadocs/content/docs` |
 
 Environment variables are validated centrally in `packages/env`; add new

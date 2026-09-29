@@ -1,7 +1,12 @@
 # VISP managed compositor
 
-Install Bun, FFmpeg, and Chromium on the relay host. Install the worker and its
-systemd template, then create the unprivileged service account:
+Optional: the compositor is needed only for Cloud Studio
+(`CLOUD_STUDIO_ENABLED=true` on the app). Relays without it forward the camera
+feed directly.
+
+Install Bun, FFmpeg, and Chromium on the relay host. From `deploy/compositor`,
+install the worker and its systemd template, then create the unprivileged
+service account:
 
 ```sh
 sudo useradd --system --no-create-home --shell /usr/sbin/nologin visp-compositor

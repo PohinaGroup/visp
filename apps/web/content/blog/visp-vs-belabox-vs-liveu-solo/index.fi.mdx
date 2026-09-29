@@ -2,12 +2,12 @@
 title: "VISP, BELABOX vai LiveU Solo IRL-suoratoistoon?"
 description: "Vertaa VISPiä, BELABOXia ja LiveU Soloa IRL-suoratoistossa, verkkobondingissa, laitteistossa, OBS-tuotannossa ja toimintavarmuudessa."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "Valintapolut vertailevat VISPiä, BELABOXia ja LiveU Soloa IRL-suoratoistossa"
 ---
 
 VISP, BELABOX ja LiveU Solo ratkaisevat eri osia IRL-suoratoistosta. **VISP on
-ohjelmistopohjainen etäkamerapolku omaan OBS-studioon. BELABOX on rakennettava
+ohjelmistopohjainen polku puhelimesta suoraan alustalle tai omaan OBS-studioon. BELABOX on rakennettava
 lähetin- ja bonding-ekosysteemi. LiveU Solo on valmis kaupallinen
 bonding-enkooderi pilvipalveluineen.**
 
@@ -15,9 +15,12 @@ bonding-enkooderi pilvipalveluineen.**
 
 ## Mitä kukin järjestelmä ratkaisee?
 
-VISP tunnistaa puhelimen tai enkooderin, välittää syötteen relay-palvelun kautta
-OBS:ään ja voi ohjata OBS:ää etänä. Natiivisovellus voi monistaa paketit Wi-Fiin
-ja mobiiliin, mutta ei summaa yhteyksien kapasiteettia.
+VISP tunnistaa puhelimen tai enkooderin. Oletuksena VISP Direct enkoodaa
+syötteen relayllä Twitchiin, Kickiin tai YouTubeen ilman OBS:ää; valinnaisesti
+relay välittää syötteen OBS:ään, jota VISP voi ohjata etänä. Natiivisovelluksen
+valinnainen verkkobonding voi yhdistää puhelimen Wi-Fin ja mobiilidatan
+SRTLA:lla tai monistaa paketit molempiin, ja relay ottaa vastaan SRTLA:ta myös
+BELABOXilta tai Moblinilta. Puhelimessa on silti vain nämä kaksi yhteyttä.
 
 BELABOX yhdistää tyypillisesti pienen Linux-lähettimen, videokaappauksen,
 useita modeemeja tai yhteyksiä sekä vastaanottavan Belaboxin tai oman palvelimen.
@@ -32,9 +35,9 @@ laite-, tilaus- ja palveluriippuvuutta.
 | Ominaisuus | VISP | BELABOX | LiveU Solo |
 | --- | --- | --- | --- |
 | Päämuoto | Ohjelmisto ja relay | Rakennettava lähetin | Valmis enkooderilaite |
-| Usean verkon toiminta | Kahden linkin pakettimonistus; ei kaistojen summausta | SRTLA-bonding kokoonpanosta riippuen | Tuetun palvelun bonding |
+| Usean verkon toiminta | Valinnainen puhelimen Wi-Fi + mobiili -bonding (SRTLA tai pakettimonistus); relay ottaa vastaan SRTLA-lähettimiä | SRTLA-bonding useilla modeemeilla kokoonpanosta riippuen | Tuetun palvelun bonding |
 | Kamera | Puhelin, selain tai SRT/RTMP-enkooderi | HDMI/USB-kaappaus tai tuettu lähde | HDMI/SDI mallista riippuen |
-| OBS-työnkulku | Suora etäkameralähde ja ohjaus | Vastaanotin tuottaa lähteen OBS:lle | Pilvipalvelun ulostulo tai suora kohde |
+| OBS-työnkulku | Valinnainen etäkameralähde ja ohjaus; Direct ei tarvitse OBS:ää | Vastaanotin tuottaa lähteen OBS:lle | Pilvipalvelun ulostulo tai suora kohde |
 | Käyttöönotto | Kevyt | Teknisesti vaativa | Valmistajan ohjaama |
 | Kustannusrakenne | Palvelu tai itse ylläpito | Osat, modeemit ja palvelin | Laite, yhteydet ja palvelutilaus |
 
@@ -88,14 +91,19 @@ medialähteeksi.
 
 ### Voiko VISP yhdistää mobiilidatan ja Wi-Fin?
 
-VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin yhden linkin vian varalta.
-Se ei summaa kaistoja; kapasiteetin aggregointi vaatii bonding-lähettimen tai
--palvelun.
+Voi, valinnaisesti. VISP-sovelluksen kohdassa **Settings → Network → Network
+bonding** oletustila **SRTLA (aggregating)** yhdistää molemmat yhteydet,
+**Broadcast** lähettää jokaisen paketin molempia pitkin vikasietoisuuden vuoksi
+noin kaksinkertaisella datankulutuksella, ja **Main + backup** suosii Wi-Fiä.
+Relay ottaa vastaan SRTLA:ta myös BELABOXilta tai Moblinilta. Jos tarvitset yli
+kaksi yhteyttä, ulkoisia modeemeja tai hallitun bonding-palvelun, BELABOX tai
+LiveU sopii paremmin.
 
 ### Voiko BELABOX lähettää kuvan OBS:ään?
 
 Kyllä, kun vastaanottava pää tuottaa OBS:n tukeman syötteen. Tarkka työnkulku
-riippuu valitusta Belabox-kokoonpanosta.
+riippuu valitusta Belabox-kokoonpanosta. BELABOX voi myös lähettää SRTLA:ta
+VISP-relaylle UDP-porttiin 5000, josta syöte jatkaa OBS:ään tai Directiin.
 
 ### Korvaako LiveU Solo OBS:n?
 

@@ -2,6 +2,7 @@
 title: "IRL-striimin luotettavuus: miksi puskurointi karkottaa katsojia"
 description: "Ymmärrä, miksi puskurointi ja ingest-katkot menettävät katsojia, ja rakenna selkeä BRB-, palautus-, chat-, bitrate- ja bonding-polku."
 publishedAt: 2026-08-15
+updatedAt: 2026-09-28
 coverAlt: "IRL-lähetys siirtyy livekuvasta selkeään BRB-tilaan ja takaisin katkaisematta katsojille näkyvää lähetystä"
 ---
 
@@ -96,7 +97,9 @@ toisto on hiljaisuutta huonompi. Paikallinen musiikki voi tuoda lisenssi- tai
 varmista, mitä valmis alustasoitin vastaanottaa.
 
 VISP Direct voi pitää alustalähdön relaylla ja näyttää BRB-kortin julkaisijan
-kadotessa. Koti-OBS voi tehdä saman paikallisella varakohtauksella. Ratkaisuja
+kadotessa. Kortti on valinnainen ja oletuksena pois päältä: ota käyttöön
+**Näytä BRB-kortti, kun lähetys katkeaa** hallintapaneelin **BRB**-välilehdellä.
+Koti-OBS voi tehdä saman paikallisella varakohtauksella. Ratkaisuja
 verrataan [BRB-ruutu ilman OBS:ää -oppaassa](/fi/blog/brb-screen-phone-irl-without-obs).
 
 ## Kerro chatille ennen kuin chat kysyy
@@ -158,7 +161,10 @@ BRB säilyttää ohjelman mutta ei tapahtumaa. Jos yleisön on nähtävä kilpai
 maali, uutistilanne, maksullinen esitys tai muu ainutkertainen hetki, kenttäkuvan
 pitää ehkä selvitä yhden yhteyden hajoamisesta.
 
-Silloin riippumattomat linkit ja oikea bonding muuttuvat vaatimuksiksi. Useat
+Silloin riippumattomat linkit ja oikea bonding muuttuvat vaatimuksiksi.
+VISP-puhelinsovelluksen valinnainen **Network bonding** voi yhdistää Wi-Fin ja
+mobiiliyhteyden tai lähettää jokaisen paketin molempia pitkin; erilliset
+niputusenkooderit ja -palvelut ovat seuraava askel. Useat
 yhteydet vähentävät riippuvuutta yhdestä operaattorista, vaikka yhteinen peitto,
 ruuhka, laitteet, virta ja relay voivat edelleen hajota. Bonding on kerros, ei
 takuu.

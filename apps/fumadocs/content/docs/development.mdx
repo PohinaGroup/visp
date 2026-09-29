@@ -33,7 +33,9 @@ The launcher generates missing local secrets and reports blank Twitch, Kick, or 
 credentials. Those provider flows require real credentials; unrelated local
 features still start.
 
-`AI_GATEWAY_API_KEY` enables Seppo through Vercel AI Gateway. Optional
+`AI_GATEWAY_API_KEY` enables Seppo through Vercel AI Gateway. It and
+`VISP_CHAT_BOT_USER_ID` are required and have no launcher default; placeholders
+start the server. Optional
 `ELEVENLABS_API_KEY` enables account-gated hosted captions and audio isolation;
 add `ELEVENLABS_VOICE_ID` for hosted chat text-to-speech. Without those optional
 values, the native app uses on-device fallbacks or hides the hosted option.
@@ -60,7 +62,8 @@ files.
 ## Start the local stack
 
 One command starts PostgreSQL 18, MinIO, two MediaMTX relays, the relay gateway, API,
-portal, admin console, OBS Remote web app, and docs, then applies migrations:
+portal, admin console, multi-chat, Typography, OBS Remote web app, and docs,
+then applies migrations:
 
 ```bash
 bun run dev:local
@@ -92,11 +95,13 @@ For normal API and portal work:
 | Complete local stack | `bun run dev:local` | `https://visp.localhost` |
 | API | Managed by the launcher | `https://api.visp.localhost` |
 | Admin console | Managed by the launcher | `https://admin.visp.localhost` |
+| Multi-chat | Managed by the launcher | `https://multichat.visp.localhost` |
+| Typography | Managed by the launcher | `https://typography.visp.localhost` |
 | OBS Remote web | Managed by the launcher | `http://localhost:8083` |
 | Relay | Managed by the launcher | `https://relay.visp.localhost` |
 | MinIO console | Managed by the launcher | `https://minio.visp.localhost` |
 | PostgreSQL | Managed by the launcher | `127.0.0.1:54320` |
-| Documentation | `bun run --cwd apps/fumadocs dev` | `https://docs.visp.localhost` |
+| Documentation | Managed by the launcher (alone: `bun run --cwd apps/fumadocs dev`) | `https://docs.visp.localhost` |
 | Expo dev server | `bun run --cwd apps/native dev` | Shown by Expo |
 
 `bun run dev` starts every workspace through Turborepo. Use the focused commands
@@ -155,6 +160,8 @@ The integration suite manages `compose.test.yml`, binds PostgreSQL to
 | Database schema and migrations | `packages/db/src` |
 | Browser portal | `apps/web/src` |
 | Admin support console | `apps/admin/src` |
+| Multi-chat overlay | `apps/multichat/src` |
+| Typography editor | `apps/typography/src` |
 | Shared UI primitives | `packages/ui/src` |
 | Native client and SRT bridge | `apps/native` |
 | OBS Remote control surface | `apps/obs-remote` |

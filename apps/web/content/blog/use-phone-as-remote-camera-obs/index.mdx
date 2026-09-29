@@ -2,7 +2,7 @@
 title: "How to Use Your Phone as a Remote Camera in OBS"
 description: "Send an iPhone or Android camera over the internet into OBS with VISP while keeping your scenes, alerts, controls, and stream key at home."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "A phone sends video through VISP to an OBS studio and then to streaming platforms"
 ---
 
@@ -11,6 +11,10 @@ camera and microphone to a VISP device, add that device to OBS as a media
 source, and let OBS send the finished show to Twitch or Kick.** The phone does
 not need your destination stream key, and your existing OBS scenes, alerts,
 graphics, and encoder settings remain at home.
+
+VISP's default output is Direct, where the relay sends the phone straight to
+Twitch, Kick, or YouTube without OBS. This guide covers the optional OBS
+workflow, for when you want the phone inside an existing OBS production.
 
 This is different from using a phone as a USB or local Wi-Fi webcam. The field
 phone can be in another building or city as long as it can reach the VISP
@@ -44,18 +48,22 @@ program to the destination. This separation is useful because a phone outage
 does not automatically end the platform broadcast. OBS can show a local
 fallback while the camera reconnects.
 
-The relay does not transcode the incoming feed. Choose a resolution, frame rate,
-and bitrate the phone and mobile connection can sustain. VISP Native can
-duplicate packets over Wi-Fi and cellular without aggregating their capacity;
-read the [mobile-network resilience
+On this path the relay does not transcode the incoming feed. Choose a
+resolution, frame rate, and bitrate the phone and mobile connection can
+sustain. The VISP app's optional **Network bonding** can use Wi-Fi and
+cellular together; read the [mobile-network resilience
 guide](/blog/keep-stream-live-bad-mobile-network) if the route has weak
 coverage.
 
 ## Step 1: Sign in and choose the phone workflow
 
 Open VISP and sign in with the Twitch, Kick, or Google identity used for the production.
-During setup, choose the phone-to-OBS use case and the VISP app as the publisher.
-The setup flow creates or claims a publishing device for the phone.
+Setup asks where you go live. Twitch, Kick, and YouTube use Direct; **Somewhere
+else** routes the feed through OBS. If you already finished setup with Direct,
+switch the dashboard **Mode** menu (the **Mode: Direct · change** header) to
+**Phone to your OBS**, so OBS alone publishes to the platform. When the VISP
+app signs in with the same account, it creates or claims a publishing device
+for the phone.
 
 Each device represents one feed and owns an independent publish credential.
 Use a descriptive name such as “roaming phone,” “stage left,” or “guest
@@ -95,9 +103,11 @@ Check orientation before going live. OBS can crop or frame portrait video, but
 rotating after a scene is composed may produce the wrong layout. Confirm the
 selected microphone, speak at expected volume, and watch the app's audio level.
 
-Run the VISP latency probe from the field network. SRT needs enough latency for
-packet retransmission when mobile jitter occurs. The recommendation is based on
-round-trip measurements and the selected network profile; cellular uses a
+SRT needs enough latency for packet retransmission when mobile jitter occurs.
+The VISP app uses a fixed two-second SRT latency and adapts its bitrate on its
+own. For a third-party encoder, run the latency probe on the dashboard
+**Advanced** tab from the field network; the recommendation is based on
+round-trip measurements and the selected network profile, and cellular uses a
 larger safety margin than wired connections.
 
 ## Step 4: Test before starting the destination stream
@@ -141,11 +151,11 @@ and TCP WebRTC paths cannot use that workflow.
 
 Larix Broadcaster and Moblin can publish to VISP with a generated SRT URL. This
 is useful when their camera controls, adaptive-bitrate options, overlays, or
-other encoder features better fit the job. In the dashboard, create a device,
-reveal or copy its publishing destination, and paste it into the encoder.
+other encoder features better fit the job. On the dashboard **Devices** tab,
+choose **Add device**, copy its sending URL, and paste it into the encoder.
 
 Use RTMP only when the sending application cannot use SRT or the network blocks
-UDP. RTMP over TCP can work through restrictive networks, but it does not offer
+UDP (turn on **Show RTMP and SRTLA fallback URLs** to see the URL). RTMP over TCP can work through restrictive networks, but it does not offer
 the same latency-window packet recovery as SRT.
 
 ## Troubleshooting
@@ -199,12 +209,14 @@ phone for a [multi-phone OBS stream](/blog/multi-phone-irl-stream-obs).
 
 ### Does VISP stream directly to Twitch or Kick?
 
-No. OBS sends the final program to the destination, keeping scenes, overlays,
-and the destination key at home.
+It can: Direct, the default, sends the phone to Twitch, Kick, or YouTube from
+the relay. In the OBS workflow this guide covers, OBS sends the final program
+to the destination, keeping scenes, overlays, and the destination key at home.
 
 ## Sources and further reading
 
 - [VISP get started](https://docs.visp-stream.com/docs/get-started)
+- [VISP Direct output](https://docs.visp-stream.com/docs/direct-output)
 - [VISP phone and browser app](https://docs.visp-stream.com/docs/phone-app)
 - [VISP OBS remote control](https://docs.visp-stream.com/docs/obs-remote-control)
 - [OBS smartphone camera guide](https://obsproject.com/kb/smartphone-camera-guide)

@@ -20,8 +20,8 @@ lisää valitut kuvakerrokset, ja VISP Direct lähettää tallennetun ohjelman
 Twitchiin, Kickiin, YouTubeen tai omaan kohteeseen.
 
 Kotona ei tarvitse olla käynnissä tietokonetta. Cloud Studion pitää kuitenkin
-olla käytössä omassa VISP-ympäristössäsi. Jos hallintapaneelissa ei näy **Open
-Studio** -painiketta, käytä puhelimessa tuotantosovellusta tai pidä OBS reitillä.
+olla käytössä omassa VISP-ympäristössäsi. Jos hallintapaneelin **Etusivu**-välilehdellä ei
+näy **Cloud Studio** -painiketta, käytä puhelimessa tuotantosovellusta tai pidä OBS reitillä.
 
 ![Puhelimen kuvalähde saapuu VISP Cloud Studioon, saa grafiikkakerrokset ja jatkaa yhtenä valmiina Direct-ohjelmana](./cloud-studio-signal-flow.svg)
 
@@ -79,23 +79,23 @@ PNG ja yksi hälytys riittävät koko reitin todentamiseen.
 
 1. Kirjaudu VISPiin ja tee puhelimen tavallinen Direct-käyttöönotto loppuun.
 2. Valtuuta testattavat alustakohteet.
-3. Avaa hallintapaneeli ja valitse Direct-tuotantotavaksi **Cloud Studio**.
-4. Valitse **Open Studio**. Puhelinsovelluksen **Edit on web** avaa saman
-   kirjautuneen editorin.
+3. Valitse hallintapaneelin **Etusivu**-välilehdeltä **Cloud Studio**.
+   Puhelinsovelluksen **Edit on web** avaa saman kirjautuneen editorin.
+4. Valitse kohdassa **Direct-tuotantotila** vaihtoehto **Cloud Studio**.
 5. Luo **Main**-niminen kohtaus.
-6. Valitse **Add source → PNG overlay** ja lähetä enintään 10 Mt:n kokoinen
+6. Valitse **Lisää lähde → PNG-päällys** ja lähetä enintään 10 Mt:n kokoinen
    läpinäkyvä PNG-kuva.
 7. Valitse kerros ja määritä sen sijainti, leveys ja korkeus. Korjaa pinoamisjärjestys
-   komennoilla **Move forward** ja **Move backward**.
-8. Valitse **Save**.
+   komennoilla **Siirrä eteen** ja **Siirrä taakse**.
+8. Valitse **Tallenna ja ota käyttöön**.
 
 Tallentaminen on olennainen vaihe. Editorissa muutokset pysyvät luonnoksena,
 kunnes tallennat ne. Direct käyttää viimeksi tallennettua ohjelmaa myös silloin,
 kun käynnistät lähetyksen myöhemmin puhelimesta. Editorista poistuminen
 tallentamatta ei muuta live-kuvaa.
 
-Käytä esikatseluita eri tarkoituksiin. **Camera ingest** näyttää puhelimesta
-saapuneen kuvan. **Program** näyttää valmiin koosteen. Jos ensimmäinen on kunnossa
+Käytä esikatseluita eri tarkoituksiin. **Kamerasyöte** näyttää puhelimesta
+saapuneen kuvan. **Ohjelma** näyttää valmiin koosteen. Jos ensimmäinen on kunnossa
 ja toinen ei, pysy Studiossa ja tarkista kerrokset. Jos molemmat ovat väärin,
 tarkista ensin puhelin ja kuvalähteen asetukset.
 
@@ -124,10 +124,11 @@ myös, ettei sivu jää tyhjäksi ilman evästettä tai kirjautunutta selainistu
 
 ## Lisää hälytykset polttamatta chattia kuvaan
 
-Lisää yksi hälytyskerros valinnalla **Add source → VISP alert**. Valitse
+Lisää yksi hälytyskerros valinnalla **Lisää lähde → VISP-hälytys**. Valitse
 seuraaja-, tilaus- tai lahjoitustapahtuma ja aseta hälytys kuten mikä tahansa
 kuvakerros. VISP ryhmittelee tuetut alustatapahtumat näihin kolmeen ryhmään.
-Hälytysteksti näkyy kymmenen sekuntia.
+Hälytys näkyy oletuksena kymmenen sekuntia; **Hälytyksen kesto (sekuntia)**
+hyväksyy arvot 1–30.
 
 Tämä ei ole sama asia kuin yhdistetyn chatin näyttäminen jokaisella alustalla.
 Hälytys on lyhyt tapahtumakortti. Chat-grafiikka on jatkuva viestivirta, joka voi
@@ -147,15 +148,15 @@ Cloud Studio tukee enintään kolmea kohtausta. Hyödyllinen ensimmäinen pari o
 - **Main**, jossa kamera ja tavallinen kulmagrafiikka näkyvät.
 - **Low signal**, jossa on lyhyt tekstirivi ja vähemmän grafiikkaa.
 
-Valitse **Cut**, kun vaihdon pitää tapahtua heti. **Fade** tekee puolen sekunnin
+Valitse **Leikkaus**, kun vaihdon pitää tapahtua heti. **Häivytys** tekee puolen sekunnin
 häivytyksen. Pidä molemmat kohtaukset samalla 1920×1080-pohjakankaalla.
-Kun valitset **Save**, kohtauksen vaihto päivittää Direct-ohjelman. Editori ei
-ole paikallinen, viiveetön videomikseri. Katso **Program**-esikatselua ja tarkista
+Kun valitset **Tallenna ja ota käyttöön**, kohtauksen vaihto päivittää Direct-ohjelman. Editori ei
+ole paikallinen, viiveetön videomikseri. Katso **Ohjelma**-esikatselua ja tarkista
 julkinen kanava toisella mykistetyllä laitteella.
 
 Älä sekoita Studio-kohtausta VISPin kuvalähteen katoamisen varatoimintoon.
 Studio-kohtaus tarvitsee edelleen puhelimen syötteen. Jos puhelin katoaa kokonaan
-ja **Never drop again** on käytössä, Direct pitää alustalähdön käynnissä
+ja **Älä koskaan katkea** on käytössä, Direct pitää alustalähdön käynnissä
 BRB-toiminnolla. [Heikon mobiiliverkon opas](/blog/keep-stream-live-bad-mobile-network)
 selittää, miksi SRT-palautus, uudelleenyhdistäminen ja varasisältö ovat edelleen
 eri osia luotettavaa lähetystä.

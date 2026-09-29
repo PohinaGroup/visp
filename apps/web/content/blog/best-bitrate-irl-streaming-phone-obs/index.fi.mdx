@@ -2,7 +2,7 @@
 title: "Paras bittinopeus IRL-striimiin: 720p vai 1080p puhelimesta OBS:ään?"
 description: "Valitse mobiilin IRL-striimin bittinopeus 720p- tai 1080p-kuvalle, mitoita kentän ja kotistudion yhteydet erikseen ja testaa oikea reitti."
 publishedAt: 2026-07-26
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Bränditön puhelinkamera lähettää yhden syaanin tuotantosyötteen kaupunkiympäristöstä tummaan kotistudioon"
 ---
 
@@ -13,8 +13,8 @@ selvällä marginaalilla.** Vakaa 720p-syöte antaa OBS:lle käyttökelpoisempaa
 kuvaa kuin terävämpi syöte, joka pysähtelee, yhdistää uudelleen tai saapuu liian
 myöhään SRT:n korjattavaksi.
 
-Nämä luvut koskevat puhelimelta tulevaa **tuotantosyötettä**, eivät OBS:n
-Twitchiin tai Kickiin lähettämää lopullista bittinopeutta. Kyseessä on kaksi
+Nämä luvut koskevat puhelimelta tulevaa **tuotantosyötettä**, eivät sitä
+lopullista bittinopeutta, jonka Twitch, Kick tai YouTube vastaanottaa. Kyseessä on kaksi
 eri internetosuutta, joilla on omat pullonkaulansa ja asetuksensa. Niiden
 erottaminen toisistaan ratkaisee suuren osan bittinopeuteen liittyvistä
 epäselvyyksistä.
@@ -38,8 +38,8 @@ yhteysohjausta: mobiiliverkolle annetaan matalampi tavoite eikä 1080p60:lle
 anneta siellä suositusta. [Avoin ohjauslogiikka](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/relay.ts)
 käyttää mobiilissa 2 500 kbps:ää 720p30-kuvalle ja 4 500 kbps:ää
 1080p30-kuvalle. VISPin puhelinsovelluksen kuvamuotokohtaiset enimmäistasot ovat
-3 500 kbps 720p-kuvalle, 6 000 kbps 1080p30-kuvalle ja 8 000 kbps
-1080p60-kuvalle. Sovellus mukauttaa tavoitetta yhteyden tilanteeseen, ja myös
+4 500 kbps 720p-kuvalle (4 000 kbps, kun Suora on käytössä), 6 000 kbps
+1080p30-kuvalle ja 8 000 kbps 1080p60-kuvalle. Sovellus mukauttaa tavoitetta yhteyden tilanteeseen, ja myös
 sen [bittinopeuslogiikka on avoin](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts).
 
 Palvelujen ohjeet tukevat samaa suuntaa. Twitchin viralliset
@@ -51,34 +51,38 @@ alueen. Se suosittelee paljon liikettä sisältävään IRL-lähetykseen 720p-ku
 koska se pysyy 1080p:tä vakaampana.
 
 Palvelujen suositukset koskevat niihin suoraan lähetettävää ohjelmaa, kun taas
-VISPin luvut koskevat OBS:ään tuotavaa lähdettä. Ne eivät ole sama sääntö,
+VISPin luvut koskevat relaylle lähetettävää lähdettä. Ne eivät ole sama sääntö,
 mutta kaksi toisistaan riippumatonta lähdettä osoittaa, että lähtötasot ovat
 järkeviä H.264-livekuvalle.
 
 ## Tuotantosyötteen ja lopullisen lähetyksen bittinopeudet ovat eri asioita
 
-VISP-työnkulussa puhelin ei lähetä suoraan Twitchiin tai Kickiin:
+VISP-työnkulussa puhelin ei koskaan lähetä suoraan Twitchiin tai Kickiin. Se
+enkoodaa kameransa ja lähettää tuotantosyötteen VISP-relaylle. Seuraava vaihe
+riippuu valitusta ulostulosta:
 
-1. puhelin enkoodaa kameransa ja lähettää tuotantosyötteen VISPiin;
-2. VISP välittää saman syötteen kotistudion OBS:ään;
-3. OBS purkaa kuvan ja yhdistää sen sceneihin, hälytyksiin, paikallisiin
-   kameroihin ja ääneen;
-4. OBS enkoodaa yhden valmiin ohjelman ja lähettää sen Twitchiin tai Kickiin.
+- **Suora (oletus):** relay purkaa syötteen ja tekee jokaiselle valitulle
+  Twitch-, Kick- tai YouTube-kohteelle oman jakeluenkoodauksen.
+- **Relaylta OBS:ään (valinnainen):** relay välittää saman syötteen
+  muuttamattomana kotistudion OBS:ään. OBS yhdistää sen sceneihin,
+  hälytyksiin, paikallisiin kameroihin ja ääneen, enkoodaa yhden valmiin
+  ohjelman ja lähettää sen palveluun.
 
-Puhelimen lähetyskaista ratkaisee siis sen, pääseekö etäkamera OBS:ään asti.
-Kotiyhteydessä pitää olla riittävästi **latauskaistaa** kaikille etäsyötteille
-ja riittävästi **lähetyskaistaa** yhdelle valmiille ohjelmalle. Puhelimen
-4 500 kbps:n syöte ei pakota OBS:ää käyttämään 4 500 kbps:ää, eikä OBS:n
-6 000 kbps:n ulostulo tuo 2 500 kbps:n puhelinsyötteeseen lisää yksityiskohtia.
+Kummassakin tapauksessa puhelimen lähetyskaista ratkaisee sen, pääseekö kuva
+relaylle asti. OBS:n kanssa kotiyhteydessä pitää lisäksi olla riittävästi
+**latauskaistaa** kaikille etäsyötteille ja riittävästi **lähetyskaistaa**
+yhdelle valmiille ohjelmalle. Puhelimen 4 500 kbps:n syöte ei pakota kohdetta
+4 500 kbps:iin, eikä 6 000 kbps:n lopullinen enkoodaus tuo 2 500 kbps:n
+puhelinsyötteeseen lisää yksityiskohtia.
 
-Jos kaksi puhelinta lähettää kumpikin 2 500 kbps:n videota, kotistudioon tulee
+Jos kaksi puhelinta lähettää OBS:ään kumpikin 2 500 kbps:n videota, kotistudioon tulee
 noin 5 000 kbps videodataa ennen ääntä, protokollien lisäkuormaa ja SRT:n
 uudelleenlähetyksiä. OBS lähettää silti vain yhden valmiin ohjelman palveluun.
 [Usean puhelimen IRL-opas](/blog/multi-phone-irl-stream-obs) käy läpi erilliset
 lähteet ja laitekohtaiset tunnukset.
 
 Tästä syystä kotistudion nopeustesti ei myöskään todista kenttäpuhelimen
-yhteyttä toimivaksi. Testaa molemmat sijainnit. Pienempi nimellisnopeus ei aina
+yhteyttä toimivaksi. Jos OBS on ketjussa, testaa molemmat sijainnit. Pienempi nimellisnopeus ei aina
 ole se osuus, joka käytännössä pettää.
 
 ## Kuinka paljon lähetysnopeutta puhelin tarvitsee?
@@ -167,7 +171,7 @@ Käytä taulukkoa suunnittelun alarajana ja tarkista puhelimen mitattu datankulu
 harjoituksen jälkeen. Operaattorin laskenta ja sovelluksen telemetria voivat
 pyöristää eri tavoin.
 
-## Määritä puhelinlähde ja OBS:n ulostulo erikseen
+## Määritä puhelinlähde ja lopullinen ulostulo erikseen
 
 VISPin puhelinsovelluksessa valitset kameran, resoluution ja ruudunpäivityksen.
 Sovellus asettaa kuvamuodon bittinopeuskaton ja mukauttaa tavoitetta yhteyden
@@ -192,33 +196,35 @@ viiveluotaimen ja automaattiset OBS-varascenet.
 [SRT:n ja RTMP:n vertailu](/blog/srt-vs-rtmp-phone-camera-obs) selittää, miksi
 protokollan valinta ei itsessään vähennä videon bittinopeutta.
 
-Määritä OBS:n Twitch- tai Kick-ulostulo erikseen palvelun ja kotiyhteyden
-mukaan. Twitchin nykyisen taulukon suurin esimerkkibittinopeus on 6 000 kbps.
+Suorassa tilassa relay tekee lopullisen enkoodauksen, joten puhelimeen ei
+aseteta palvelun bittinopeutta. Jos lopullisen ohjelman lähettää OBS, määritä
+sen Twitch- tai Kick-ulostulo palvelun ja kotiyhteyden mukaan. Twitchin nykyisen taulukon suurin esimerkkibittinopeus on 6 000 kbps.
 Kickin [OBS-asetusohje](https://help.kick.com/en/articles/7066931-how-to-stream-on-kick-com)
 dokumentoi H.264:n, CBR:n, kahden sekunnin avainruutuvälin ja enintään
 8 000 kbps:n bittinopeuden. Älä kopioi palvelun enimmäisarvoa
 puhelin-enkooderiin automaattisesti. Kenttäyhteys ratkaisee edelleen sen, mitä
 se kestää.
 
-## Relay ei transkoodaa eikä summaa yhteyksiä
+## Relay ei korjaa heikkoa lähetyskaistaa
 
-Relay **ei transkoodaa videota eikä summaa verkkoyhteyksien kapasiteettia**.
-VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin, mutta OBS vastaanottaa
-sen koodekin, resoluution, ruudunpäivityksen ja bittinopeuden, jonka puhelin
-tuottaa. Relay ei muuta 1080p-syötettä pienemmän bittinopeuden 720p-syötteeksi,
-kun mobiiliyhteys heikkenee, eikä se yhdistä mobiilidataa ja WiFiä yhdeksi
-kestäväksi yhteydeksi.
+Relaylta OBS:ään -polulla relay **ei transkoodaa**: OBS vastaanottaa sen
+koodekin, resoluution, ruudunpäivityksen ja bittinopeuden, jonka puhelin
+tuottaa. Suora enkoodaa jokaiselle palvelulle uudelleen, mutta vasta kun
+puhelimen syöte on saapunut, joten se ei palauta heikon lähetyskaistan takia
+kadonneita yksityiskohtia.
 
-Adaptiivinen bittinopeus kuuluu lähettävään sovellukseen. Aito bonding kuuluu
-erilliseen verkko- tai enkooderikerrokseen, kuten
+Adaptiivinen bittinopeus kuuluu lähettävään sovellukseen. Lisäkapasiteetti
+syntyy lähettäjän bondingista: VISP Nativen valinnaisesta verkkobondingista,
+jonka oletustila **SRTLA (aggregating)** yhdistää Wi-Fin ja mobiiliyhteyden
+relayn kautta, tai
 [mobiiliverkon kesto-oppaassa](/blog/keep-stream-live-bad-mobile-network)
-kuvattuihin ratkaisuihin. SRT voi lähettää paketteja uudelleen viiveikkunansa
+kuvatuista muista ratkaisuista. SRT voi lähettää paketteja uudelleen viiveikkunansa
 sisällä, mutta uudelleenlähetys ei luo puuttuvaa kaistaa.
 
 Raja tekee myös vianetsinnästä suoraviivaista: laske puhelimen lähdemuotoa, älä
 etsi muunnosta relaylta. Jos reitin on kestettävä yhden operaattorin
-katkeaminen, lisää aito bonding-ratkaisu sen sijaan, että nostaisit
-SRT-viivettä tai bittinopeutta.
+katkeaminen, ota bonding käyttöön toisen, riippumattoman yhteyden kanssa sen
+sijaan, että nostaisit SRT-viivettä tai bittinopeutta.
 
 ## 15 minuutin reittitesti
 
@@ -228,9 +234,11 @@ Tee tämä ennen kuin valitset 1080p:n oikeaan tapahtumaan:
 2. Aja VISPin relay-viiveluotain samassa verkossa, jota enkooderi käyttää.
 3. Lähetä vähintään 15 minuuttia samalla, kun kuljet oikean reitin.
 4. Seuraa mitattua bittinopeutta, kiertoaikaa, pakettihäviötä,
-   uudelleenyhdistämisiä, puhelimen lämpöä, akkua ja OBS:ssä liikkuvaa kuvaa.
-5. Katkaise yhteys hetkeksi tarkoituksella ja varmista, että OBS siirtyy
-   paikalliseen varasceneen puhelimen yhdistäessä uudelleen.
+   uudelleenyhdistämisiä, puhelimen lämpöä, akkua ja palvelussa (tai OBS:ssä)
+   liikkuvaa kuvaa.
+5. Katkaise yhteys hetkeksi tarkoituksella ja varmista, että varakuva toimii
+   puhelimen yhdistäessä uudelleen: Suoran valinnainen BRB-kortti tai OBS:n
+   paikallinen varascene.
 6. Nosta vain yhtä muuttujaa—resoluutiota, ruudunpäivitystä tai
    bittinopeutta—ja toista testi.
 
@@ -249,10 +257,11 @@ ja nopeasti liikkuva kuva voi näyttää paremmalta 3 000–3 500 kbps:llä, jos
 reitti kestää sen. Vakaa toimitus on tärkeämpää kuin alueen ylärajan
 tavoittaminen.
 
-### Pitääkö puhelimen ja OBS:n käyttää samaa bittinopeutta?
+### Pitääkö puhelimen ja palvelulle lähtevän ulostulon käyttää samaa bittinopeutta?
 
-Ei. Puhelimen bittinopeus kuvaa yhtä etälähdettä. OBS:n bittinopeus kuvaa
-Twitchiin tai Kickiin lähetettävää valmista ohjelmaa. Määritä ja testaa
+Ei. Puhelimen bittinopeus kuvaa yhtä etälähdettä. Suoran tai OBS:n
+bittinopeus kuvaa Twitchiin, Kickiin tai YouTubeen lähetettävää valmista
+ohjelmaa. Määritä ja testaa
 molemmat internetosuudet erikseen.
 
 ### Parantaako OBS heikkolaatuista puhelinsyötettä?
@@ -275,8 +284,13 @@ pakettihäviössä; se ei kasvata yhteyden kapasiteettia.
 
 ### Voiko WiFin ja mobiilidatan nopeudet laskea yhteen?
 
-Ei pelkän VISPin avulla. Siihen tarvitaan aito verkkobonding. Molempien
-radioiden kytkeminen päälle ei tee yhdestä VISP-syötteestä bondattua yhteyttä.
+Kyllä, aidolla kapasiteetin yhdistämisellä. VISP Nativen valinnaisen
+verkkobondingin oletustila on **SRTLA (aggregating)**, joka jakaa yhden
+lähetyksen molemmille yhteyksille relayn SRTLA-vastaanottimen kautta. Moblin,
+BELABOX tai Speedify hoitavat saman tehtävän. Sovelluksen **Broadcast**-tila on
+eri asia: se lähettää samat paketit molempia yhteyksiä pitkin varmistukseksi
+eikä laske nopeuksia yhteen. Mitoita bittinopeus niin, että lähetys kestää
+myös toisen yhteyden heikentymisen.
 
 ## Lähteet ja seuraavat askeleet
 
@@ -292,5 +306,5 @@ radioiden kytkeminen päälle ei tee yhdestä VISP-syötteestä bondattua yhteyt
 
 Jos haluat kokeilla turvallisempaa puhelimesta studioon kulkevaa työnkulkua,
 [kokeile VISPiä](https://visp-stream.com): aloita yhdellä 720p30-lähteellä,
-mittaa relay-reitti oikeassa mobiiliverkossa, varmista kuva OBS:ssä ja nosta
+mittaa relay-reitti oikeassa mobiiliverkossa, varmista kuva palvelussa tai OBS:ssä ja nosta
 laatua vasta, kun reitti osoittaa, että tilaa on.

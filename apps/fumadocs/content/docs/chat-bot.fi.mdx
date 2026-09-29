@@ -11,7 +11,9 @@ pyörii VISPin palvelimilla — relay kertoo lähteen ilmestymisestä tai
 katoamisesta ja sovelluspalvelin lähettää viestin — joten se toimii myös
 tietokoneen ollessa sammuksissa ja puhelimen taskussa.
 
-Viestit lähetetään **omalla tililläsi**, ei erillisenä bottikäyttäjänä.
+Twitchissä viestit lähettää oletuksena **VISP-botti**. Tilit, joilla valinta on
+käytössä, voivat valita hallintapaneelista **Oma Twitch-tilini**. Kickissä ja
+YouTubessa viestit lähetetään aina omalla linkitetyllä tililläsi.
 
 ## Mitä se voi kertoa
 
@@ -23,7 +25,8 @@ Viestit lähetetään **omalla tililläsi**, ei erillisenä bottikäyttäjänä.
 | Lähetys päättyi | Lähde katoaa ja lähdöt puretaan | Stream ended after \{uptime\}. Thanks for watching! |
 
 "Signaali katkesi" ja "Lähetys päättyi" ovat eri tapahtumia. Kumman saat,
-riippuu siitä pitääkö **Älä koskaan katkea** lähetystä yllä: jos pitää, chat
+riippuu siitä pitääkö **Älä koskaan katkea** (hallintapaneelin **BRB**-välilehti)
+lähetystä yllä: jos pitää, chat
 kuulee BRB-kortista; jos ei, chat kuulee että lähetys loppui.
 
 Jokainen ilmoitus lähtee kerran laitetta ja tilanmuutosta kohden riippumatta
@@ -31,7 +34,9 @@ siitä, kuinka monta kertaa relay raportoi sen.
 
 ## Käyttöönotto
 
-1. Avaa hallintapaneeli ja etsi **Chat-botti**.
+Chat-botti on valinnainen ja oletuksena pois päältä.
+
+1. Avaa hallintapaneelin **Chat**-välilehti ja etsi **Chat-botti**.
 2. Kytke päälle **Anna VISPin kirjoittaa chattiini**.
 3. Valitse alustat. Jos oikeutta ei vielä ole, näkyy **Anna kirjoituslupa** —
    se avaa alustan lupanäkymän.
@@ -44,13 +49,14 @@ katkaise chatin lukemista, Directiä tai otsikon muokkausta.
 
 | Alusta | Oikeus | Yleensä jo myönnetty? |
 | --- | --- | --- |
-| Twitch | `user:write:chat` | Ei — yksi lisälupa |
+| Twitch, VISP-botti | `channel:bot` | Ei — yksi lisälupa |
+| Twitch, oma tili | `user:write:chat` | Ei — yksi lisälupa |
 | Kick | `chat:write` | Ei — yksi lisälupa |
 | YouTube | `youtube.force-ssl` | Kyllä, jos käytät Directiä tai muokkaat otsikoita VISPistä |
 
 ## Komennot
 
-Komentojen etuliite on `!`.
+Oletuksena kuka tahansa chatissa voi käyttää komentoja. Etuliite on `!`.
 
 | Komento | Kenelle | Vastaa |
 | --- | --- | --- |
@@ -89,10 +95,10 @@ valittuna.
 
 **YouTubeen ei tule mitään.** YouTuben chat on olemassa vain lähetyksen ajan ja
 sen pitää olla käytössä kyseisessä lähetyksessä. Tarkista ensin
-[Direct-lähtö](/docs/direct-output).
+[Direct-lähtö](/fi/docs/direct-output).
 
 **Komennot eivät toimi.** Tarkista että **Vastaa chat-komentoihin** on päällä,
-että chat on käytössä kyseisellä alustalla ja että jokin laite todella julkaisee.
+että chat on käytössä kyseisellä alustalla kohdassa **Chat-yhteydet** ja että jokin laite todella julkaisee.
 
 **Ilmoitus jäi tulematta vaikka lähetys katkesi.** Sama tapahtuma vaimennetaan
 minuutin ajaksi laitetta kohden, joten nopeasti kahdesti pätkivä yhteys kertoo

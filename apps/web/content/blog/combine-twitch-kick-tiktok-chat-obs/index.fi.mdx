@@ -2,6 +2,7 @@
 title: "Näin yhdistät Twitch-, Kick- ja TikTok-chatit OBS:ään"
 description: "Yhdistä Twitch-, Kick- ja TikTok LIVE -chatit yhteen OBS:n Browser Sourceen, suojaa overlay-URL, testaa lähteet ja huomioi Twitchin simulcast-säännöt."
 publishedAt: 2026-09-07
+updatedAt: 2026-09-28
 coverAlt: "Violetti, vihreä ja korallinpunainen chat-virta yhdistyvät kotistudion näytöllä yhdeksi läpikuultavaksi paneeliksi yöllisen kaupunkilähetyksen päälle"
 ---
 
@@ -70,12 +71,14 @@ moderointityökalut ovat silti välttämättömiä. Pidä Twitch Mod View, Kicki
 hallintapaneeli tai TikTok LIVE Studio moderaattorin saatavilla. Overlay on
 yhteinen lukunäkymä eikä korvaa niitä.
 
-Multi-chat eroaa myös VISPin kahdesta aiemmasta chat-polusta.
+Multi-chat eroaa myös VISPin muista chat-ominaisuuksista.
 [Puhelimen chat-opas](/fi/blog/twitch-kick-chat-phone-obs) käsittelee
-kenttäpuhelimen yksityistä kelluvaa näkymää.
+kenttäpuhelimen yksityistä kelluvaa näkymää. Hallintapaneelin
+**Chat**-välilehdellä on oma **OBS-chatpäällys** siellä käyttöön otetuille
+Twitch-, Kick- ja YouTube-chateille.
 [VISPin chat-botin ohje](https://docs.visp-stream.com/fi/docs/chat-bot)
 käsittelee automaattisia lähetyshälytyksiä ja esimerkiksi `!bitrate`-komentoa.
-Multi-chat ei tee kumpaakaan. Se antaa OBS:lle yhden reaaliaikaisen ja vain
+Multi-chat on oikea sivu, kun mukaan halutaan myös TikTok LIVE. Se antaa OBS:lle yhden reaaliaikaisen ja vain
 lukemiseen tarkoitetun verkkosivun.
 
 ## 1. Tallenna kolmen kanavan käyttäjänimet
@@ -109,8 +112,8 @@ Palvelu yhdistää kanavaan VISP Twitch -botin käyttäjätilillä. Twitchin nyk
 vaatii kanavan omistajaa myöntämään botille käyttöoikeuden tai antamaan sille
 moderaattorin roolin.
 
-Jos Twitch-lähde ilmoittaa käyttöoikeusvirheestä, avaa VISPin varsinainen
-hallintapaneeli ja valtuuta VISP-chat-botti kyseiselle Twitch-kanavalle. Palaa
+Jos Twitch-lähde ilmoittaa käyttöoikeusvirheestä, avaa VISPin varsinaisen
+hallintapaneelin **Chat**-välilehti ja valitse Twitchille **Valtuuta chat**. Palaa
 sen jälkeen Multi-chat-sivulle ja tallenna lähde uudelleen. Sekä väärä
 käyttäjänimi että puuttuva botin lupa voivat estää tilauksen.
 
@@ -266,9 +269,8 @@ Varmista ennen lähetystä nämä asiat:
 - yhdistetty chat pysyy yksityisenä Twitch-simulcastissa;
 - paikallinen tallenne todistaa, näkyykö lähde halutussa kohdassa.
 
-Multi-chat ei muuta puhelimen ja OBS:n välistä videoreittiä. VISP välittää sen
-edelleen ilman transkoodausta, eikä chat-overlay yhdistä mobiiliyhteyksien
-kapasiteettia. Jos tarvitset lisäksi yhden puhelimen lähetyksen useaan
+Multi-chat ei koske videoreittiin, menipä puhelimen kuva alustoille Directillä
+tai omaan OBS:ääsi. Jos tarvitset lisäksi yhden puhelimen lähetyksen useaan
 palveluun, käytä erillistä
 [puhelimen monilähetysopasta](/fi/blog/multistream-phone-twitch-kick-custom-rtmp).
 

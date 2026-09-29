@@ -15,23 +15,25 @@ Without Direct, your device does the full encode and the relay forwards that
 bitstream to OBS untouched. With Direct enabled on a device:
 
 - your device still encodes, because SRT needs a compressed feed to upload;
-- the relay runs a **separate distribution encode per destination** — H.264
-  video and stereo AAC audio, always re-encoded, never stream-copied;
+- the relay runs a **distribution encode** — H.264 video and stereo AAC audio,
+  always re-encoded, never stream-copied; destinations with the same framing
+  share one encode, while portrait or differently framed outputs get their own;
 - each destination is its own process, so one platform failing does not
   interrupt the other.
 
 VISP Native uses a lower Direct contribution bitrate while keeping 1080p
 available; platform quality comes from the relay encode.
 
-Each selected platform consumes a relay forwarding slot and a separate encode.
+Each selected platform consumes a relay forwarding slot.
 Selecting several platforms increases relay CPU and outbound bandwidth, but it
 does not add another upload from your phone.
 
 ## BRB hold
 
-When **Never drop again** is enabled, a lost ingest keeps each Direct output
-open. Accounts in the BRB highlights beta can upload up to five short H.264 MP4
-clips in the web dashboard. Enabled clips play in order and loop; the current
+BRB is optional and off by default. When **Show a BRB card when my stream
+drops** is on (dashboard **BRB** tab), a lost ingest keeps each Direct output
+open. Accounts in the BRB highlights beta can also upload up to five H.264 MP4
+clips (30 seconds and 25 MB each) on the same tab. Enabled clips play in order and loop; the current
 still BRB card remains the fallback when the flag is off, no clips are enabled,
 or the relay cannot play them. The playlist and its audio/message preferences
 are captured when BRB starts, so edits apply on the next BRB.
@@ -41,12 +43,16 @@ configuration is web-only; the native BRB controls are unchanged.
 
 ## Choose where the program is made
 
+This choice only appears when the server has Cloud Studio enabled. Without it,
+Direct sends your feed as it arrives.
+
 - **Cloud Studio** burns the last saved web Studio scene into Direct. It supports
   up to three scenes, eight layers per scene, two public HTTPS browser sources,
   and one VISP alert layer. Save is explicit: unsaved edits never reach a live
   program. Native publishes with the last saved program and opens the web editor.
-- **I use OBS** keeps the existing workflow. VISP does not host OBS; your own OBS
-  owns scenes, overlays, plugins, recording, and the platform output.
+- **I use OBS** (the default) skips Cloud Studio. VISP passes your feed to the
+  platforms untouched, so whatever your publishing device or your own OBS
+  composed is what viewers see. VISP does not host OBS.
 
 The program preview is normally under three seconds behind ingest. A saved live
 edit is normally applied in under two seconds. These are operating targets, not
@@ -56,22 +62,25 @@ camera-only passthrough and retries; saved scenes remain intact.
 ## Enable it
 
 1. During setup, choose Twitch, Kick, or YouTube and authorize streaming. Existing users
-   can instead open **Direct output** on the dashboard.
+   can instead open the **Destinations** tab on the dashboard.
 2. Next to a destination, choose **Authorize streaming**. This re-opens the
-	provider's consent screen and asks for the permission Direct needs.
+   provider's consent screen and asks for the permission Direct needs.
    VISP requests every permission you had already granted at the same time, so
    authorizing Direct never switches off chat or title and category editing.
 3. Enable any combination of **Twitch**, **Kick**, and **YouTube** for the device.
 
-Outputs are saved as the account default. The newest device takes ownership at
+Outputs are saved as the account default. Change them only while the device
+is not publishing, and keep at least one output on; to turn Direct off, switch
+the dashboard **Mode** menu to **Phone to your OBS**. The newest device takes ownership at
 Go Live when the previous owner is offline. A running device is never
 interrupted automatically.
 
 ## Landscape and portrait together
 
-Accounts with portrait Direct output enabled can add a separate **Portrait**
-destination from the dashboard or phone settings. Choose **Add portrait
-output**, position the 9:16 crop over the landscape contribution, and save.
+Portrait output is optional and enabled per account by an operator. When it is
+on, you can add a separate **Portrait** destination from the dashboard
+**Destinations** tab or the phone's stream settings. Choose **Add portrait
+output** (**Add portrait** in the phone app), position the 9:16 crop over the landscape contribution, and save.
 The landscape destination remains a passthrough distribution encode while the
 portrait destination applies the saved crop and scales it to 1080×1920.
 
@@ -79,6 +88,13 @@ Portrait uses its own forwarder slot. You can save framing while the relay is
 full, but the portrait destination will not start until a slot is free;
 landscape may still go live. Each side reports status independently. See the
 [portrait Direct output guide](/docs/portrait-direct-output) for the full flow.
+
+## Custom destinations (optional)
+
+Under **Custom destinations** on the **Destinations** tab you can save your own
+RTMP, RTMPS, or SRT endpoint with **Add custom destination** and switch it on
+per device. Each one is another relay encode and forwarder slot. Credentials
+stay hidden after saving.
 
 ## Your stream key
 
@@ -93,9 +109,11 @@ The relay-to-OBS workflow is unchanged and still never touches a stream key.
 
 ## Using OBS at the same time
 
-OBS can keep reading the feed for monitoring or recording. Do not point OBS at
-a platform that Direct already owns — that is two publishers on one stream key,
-and the platform will reject or interrupt one of them.
+OBS is optional with Direct. If you want OBS to keep reading the feed for
+monitoring or recording, get the **OBS read credentials** on the dashboard
+**Destinations** tab. Do not point OBS at a platform that Direct already owns —
+that is two publishers on one stream key, and the platform will reject or
+interrupt one of them.
 
 What OBS reads is your device's contribution feed, not the encode the platform
 receives. To check what viewers actually see, watch the platform.

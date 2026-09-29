@@ -2,6 +2,7 @@
 title: "OBS Dropped Frames During IRL Streaming: Which Connection Is Failing?"
 description: "Diagnose OBS dropped frames in an IRL stream by separating phone-to-relay loss, relay-to-OBS trouble, home upload failure, and encoder overload."
 publishedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "An IRL creator sends a phone camera feed through three glowing checkpoints to an unbranded home production monitor"
 ---
 
@@ -10,6 +11,11 @@ phone-to-OBS production has three network legs: the phone sends a contribution
 feed to the relay, OBS reads that feed from the relay, and OBS uploads the
 finished program to Twitch or Kick. OBS can also miss frames before the final
 upload because its renderer or encoder is overloaded.
+
+This guide covers the optional relay-to-OBS workflow. With Direct, VISP's
+default output, there is no home OBS leg: the relay encodes the feed for the
+platform, so only the phone-to-relay checkpoint and the platform's own health
+view apply.
 
 The fastest fix is to watch the checkpoint closest to each leg. VISP's live
 bitrate, round-trip time, and packet-loss figures describe the publisher's
@@ -67,11 +73,13 @@ explains that SRT latency covers network delivery, not camera capture,
 encoding, decoding, or display. A larger buffer gives late packets more time,
 but it cannot create missing upload capacity.
 
-VISP currently labels a path **Congested** when reported loss reaches 2% or RTT
-reaches 400 ms. Those are product thresholds, not a universal law of mobile
-networks. The app's [open-source adaptive-bitrate
+VISP currently flags a path as congested, turning its dashboard bitrate graph
+red, when reported loss reaches 2% or RTT reaches 400 ms. Those are product
+thresholds, not a universal law of mobile networks. The app's [open-source
+adaptive-bitrate
 logic](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts)
-starts reducing its target before that label appears and raises it again only
+starts reducing its target before that point, prefers SRT's own drop and
+send-queue signals when the native app reports them, and raises it again only
 after healthier samples. Watch the direction over several seconds instead of
 trying to hold one perfect number.
 
@@ -200,10 +208,12 @@ No. More latency can give retransmissions longer to arrive. It does not make a
 
 ### “Wi-Fi plus cellular doubles the available bitrate”
 
-No. VISP's optional native multi-link mode sends duplicate SRT packets over
-both links for redundancy and discards duplicate arrivals. It does not add the
-two speeds into one larger bitrate budget, and it can roughly double mobile
-data use. The [phone app documentation](https://docs.visp-stream.com/docs/phone-app)
+Not simply by turning both radios on. The VISP app's optional network bonding
+is off by default. Its default **SRTLA (aggregating)** mode spreads one stream
+over both links, which adds headroom, but the usable total moves with the
+weaker link and is rarely the sum of two speed tests. **Broadcast** mode sends
+duplicate packets over both links for redundancy, does not add their speeds,
+and can roughly double mobile data use. The [phone app documentation](https://docs.visp-stream.com/docs/phone-app)
 explains the current modes and live per-link status.
 
 ## Rehearse the failure, not only the happy path

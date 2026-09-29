@@ -1,8 +1,8 @@
 ---
 title: "How to Use Moblin as a Remote Camera in OBS Over SRT"
-description: "Send Moblin's iPhone camera into OBS over SRT through VISP, tune adaptive bitrate and latency, and learn where SRTLA bonding fits and where it does not."
+description: "Send Moblin's iPhone camera into OBS over SRT through VISP, tune adaptive bitrate and latency, and bond Wi-Fi and cellular with Moblin's SRTLA."
 publishedAt: 2026-07-23
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "An iPhone running the Moblin encoder sends one SRT camera feed through a relay into a home OBS studio"
 ---
 
@@ -17,11 +17,13 @@ Moblin is a free, open-source (MIT) iOS streaming app. It can publish over SRT,
 so it fits the same relay pattern as any other encoder: the phone connects
 outward to VISP, OBS connects outward to VISP, and the home network never needs
 an inbound SRT port. The Twitch or Kick stream key stays in OBS, not on the
-field phone.
+field phone. (If you would rather skip OBS, VISP Direct can send the same Moblin
+feed straight to Twitch, Kick, or YouTube from the relay. This guide covers the
+OBS workflow.)
 
 ![An iPhone running Moblin sends one plain-SRT contribution feed through VISP to OBS, which produces the final Twitch or Kick stream](./moblin-visp-obs-flow.svg)
 
-## Why Moblin, and where its bonding actually lives
+## Why Moblin, and how its bonding fits VISP
 
 Moblin is worth singling out because it does more than plain SRT. Its README
 lists support for "RTMP, RTMPS, SRT, SRTLA, RIST or WHIP (WebRTC)," plus
@@ -37,22 +39,23 @@ several links, and `srtla_rec` reassembles them "back into a coherent SRT
 stream" before handing it to a normal SRT application. In other words, bonding
 only works if the far end is an SRTLA receiver.
 
-VISP is **not** an SRTLA receiver. It is a self-hosted SRT/RTMP relay and
-control plane, and third-party Moblin publishing does not use VISP Native's
-dual-link packet duplication. So when you point
-Moblin at a VISP video source, you use Moblin's **plain SRT** output over a
-single link — not SRTLA. If you genuinely need to bond cellular and Wi-Fi into
-one resilient uplink, that belongs to Moblin's SRTLA path with a BELABOX-style
-receiver, or to a dedicated bonded encoder, as covered in
-[VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo). This
-guide is about Moblin's single-path SRT contribution into an existing OBS
-studio, which is the more common need.
+The VISP relay runs one. Each VISP device has an `srtla://` URL next to its
+plain `srt://` URL, and `srtla_rec` hands the reassembled stream to the relay
+with the same credentials. So you have two choices: point Moblin at the plain
+SRT URL for a single-link contribution, or at the SRTLA URL to bond cellular
+and Wi-Fi. Both links still share one phone and often the same coverage, so
+for heavier bonding needs compare dedicated encoders in
+[VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo). The
+steps below start with plain SRT and note where SRTLA differs.
 
 ## What you need
 
 - Moblin installed on the field iPhone (App Store, free)
 - OBS Studio on the production computer
-- A VISP account signed in with Twitch, Kick, or Google
+- A VISP account signed in with Twitch, Kick, or Google, with the dashboard
+  **Mode** menu set to **Phone to your OBS** (Direct is the default; leaving it
+  on while OBS also streams to the same platform puts two publishers on one
+  channel)
 - Enough sustained upload capacity for Moblin and download capacity for OBS
 - Headphones for checking audio without creating a return-path echo
 - A local OBS fallback scene for a field interruption
@@ -64,8 +67,8 @@ meaningful on the real route.
 
 ## 1. Create a Moblin video source in VISP
 
-Sign in to VISP, open **Video sources**, choose **Add device**, and give it a
-practical name such as "roaming Moblin" or "handheld iPhone." One VISP device
+Sign in to VISP, open the dashboard **Devices** tab, choose **Add device** under
+**Video sources**, and give it a practical name such as "roaming Moblin" or "handheld iPhone." One VISP device
 represents one publishing path.
 
 Choose **Copy** beside **Add this to video source**. The value begins with
@@ -73,9 +76,10 @@ Choose **Copy** beside **Add this to video source**. The value begins with
 password: do not paste it into screenshots, chat, stream overlays, or a public
 troubleshooting post.
 
-VISP shows SRT by default. Keep it unless the sending network blocks UDP. The
-dashboard exposes an RTMP fallback in **Advanced** mode, but switching protocols
-does not add bandwidth to a connection that simply lacks enough upload capacity.
+VISP shows SRT by default. Keep it unless the sending network blocks UDP or
+you want to bond. Turn on **Show RTMP and SRTLA fallback URLs** on the same tab
+to reveal the device's RTMP and SRTLA URLs. Switching to RTMP does not add
+bandwidth to a connection that simply lacks enough upload capacity.
 For the exact dashboard flow, see the VISP documentation for
 [adding a video source](https://docs.visp-stream.com/docs/video-source).
 
@@ -88,10 +92,11 @@ video source expects. Select that stream as the active one before returning to
 the camera view.
 
 Paste the VISP URL as a single value. Do not try to split it into separate
-server, stream ID, or password fields, and do not change the scheme to
-`srtla://`. The generated URL already carries the SRT stream ID and
-authentication data in the format the relay expects, and `srtla://` would ask
-Moblin to reach a bonding receiver that VISP does not provide.
+server, stream ID, or password fields, and do not edit the scheme or port by
+hand. The generated URL already carries the SRT stream ID and authentication
+data in the format the relay expects. To bond, paste the device's separate
+SRTLA URL instead; it points at the relay's SRTLA port (UDP 5000), so changing
+`srt://` to `srtla://` on the plain URL is not enough.
 
 ## 3. Choose settings the mobile connection can sustain
 
@@ -110,7 +115,7 @@ useful than a nominal 1080p feed that constantly queues, freezes, or reconnects.
 | Bitrate repeatedly approaches available upload | Lower target bitrate |
 | Short bursts of loss or jitter | Increase SRT latency |
 | Capacity changes while moving | Enable Moblin adaptive bitrate |
-| Long dead zone or total carrier outage | Use OBS fallback or add real bonding |
+| Long dead zone or total carrier outage | Use OBS fallback or add bonding (SRTLA) |
 
 Moblin's README explicitly lists "Adaptive bitrate for SRT(LA)," which lets the
 encoder lower and later restore bitrate as mobile capacity changes. Test it at
@@ -118,9 +123,9 @@ the lowest picture quality you would accept before relying on it live. Adaptive
 bitrate can trade detail for continuity; it cannot send video when the active
 connection has no usable route.
 
-VISP **does not transcode** the incoming feed. The codec, resolution, frame
-rate, keyframe interval, and bitrate Moblin sends are what the relay passes
-toward OBS. Fix an incompatible or oversized contribution at the encoder rather
+On the relay-to-OBS path VISP **does not transcode** the incoming feed. The
+codec, resolution, frame rate, keyframe interval, and bitrate Moblin sends are
+what the relay passes toward OBS. Fix an incompatible or oversized contribution at the encoder rather
 than expecting the relay to convert it.
 
 ## 4. Tune SRT latency from the field network
@@ -133,7 +138,8 @@ field-to-studio path. The
 behavior, and the [SRT Alliance overview](https://www.srtalliance.org/about-srt-technology/)
 explains why latency is tied to round-trip time.
 
-Run VISP's latency probe on the connection Moblin will actually use and select
+Run VISP's latency probe (dashboard **Advanced** tab) on the connection Moblin
+will actually use and select
 the correct network profile. VISP turns the median of seven round-trip samples
 into these starting recommendations:
 
@@ -166,7 +172,8 @@ Source scene per active VISP device.
 
 For a manual source:
 
-1. Reveal or copy the device's OBS reading URL in VISP.
+1. Reveal or copy the device's OBS read URL in VISP (the dashboard **OBS**
+   tab in Phone to your OBS mode).
 2. In OBS, add a **Media Source**.
 3. Clear **Local File**.
 4. Paste the OBS reading URL into **Input**.
@@ -204,13 +211,12 @@ decoder change does not flap between scenes.
 
 ## What this setup does not do
 
-VISP relays the authenticated feed; it does not transcode it and it does not
-bond connections. SRT retransmission can recover some packet loss, but it cannot
-combine two ISPs or keep sending through a total outage. If one carrier must
-fail without interrupting the field picture, keep that resilience where it
-belongs: Moblin's own SRTLA bonding with a BELABOX-style receiver, or a
-dedicated bonded encoder. Pointing Moblin's plain SRT at VISP gives you one
-authenticated link, not aggregation.
+VISP relays the authenticated feed to OBS without transcoding it. SRT
+retransmission can recover some packet loss, but plain SRT cannot combine two
+links or keep sending through a total outage. If one carrier must fail without
+interrupting the field picture, use Moblin's SRTLA URL so both links carry the
+stream, or a dedicated bonded encoder. Even bonded, two links in the same dead
+zone still drop together.
 
 Only one publisher can own a VISP device path at a time. A second phone cannot
 sit pre-connected on the same URL as a seamless standby. Give every phone or
@@ -222,8 +228,8 @@ independent sources compose in OBS.
 
 ### Moblin starts, but VISP never shows Live
 
-Check that the correct stream is selected, the full current publishing URL was
-pasted, and its scheme is `srt://` rather than `srtla://`. Confirm no other
+Check that the correct stream is selected and the full current publishing URL
+was pasted unchanged: the `srt://` URL, or the separate SRTLA URL if you bond. Confirm no other
 encoder is already using that device path. If the credential was rotated or
 revoked, replace the old Moblin URL.
 
@@ -249,13 +255,14 @@ feedback on the phone.
 
 ### SRT is blocked on the venue network
 
-Switch VISP to **Advanced**, copy that device's RTMP publishing URL, and create
-an RTMP stream in Moblin. Keep OBS on its generated reading path. RTMP is a
+Turn on **Show RTMP and SRTLA fallback URLs** on the **Devices** tab, copy that
+device's RTMP publishing URL, and create an RTMP stream in Moblin. Keep OBS on its generated reading path. RTMP is a
 compatibility fallback over TCP, not a cure for insufficient bandwidth.
 
 ## Pre-stream checklist
 
-- Moblin's active stream uses the current VISP `srt://` publishing URL.
+- The dashboard Mode is **Phone to your OBS**.
+- Moblin's active stream uses the current VISP `srt://` (or SRTLA) publishing URL.
 - H.264, AAC, orientation, keyframe interval, and bitrate are tested.
 - SRT latency comes from a probe on the real field network.
 - Adaptive bitrate is enabled and tested when mobile capacity varies.
@@ -270,20 +277,20 @@ compatibility fallback over TCP, not a cure for insufficient bandwidth.
 
 No. Moblin sends a contribution feed to VISP, OBS receives it, and OBS sends the
 finished production to Twitch or Kick. That keeps scenes, alerts, recording, and
-the destination stream key at the studio.
+the destination stream key at the studio. If you do not need OBS, VISP Direct
+can send the Moblin feed to the platforms from the relay instead.
 
 ### Can I use Moblin's SRTLA bonding through VISP?
 
-No. SRTLA needs a matching SRTLA receiver to reassemble the bonded links, and
-VISP is a plain SRT/RTMP relay, not that receiver. Use Moblin's `srt://` output
-for VISP, and keep SRTLA bonding on its own BELABOX-style receiver if you need
-it.
+Yes. The VISP relay runs an SRTLA receiver. Turn on **Show RTMP and SRTLA
+fallback URLs** on the **Devices** tab and paste the device's SRTLA URL into
+Moblin instead of the `srt://` URL.
 
 ### Should I use SRT or RTMP from Moblin?
 
 Use SRT by default for recovery on an unpredictable network. Use RTMP when the
-sending network cannot pass UDP. Neither protocol creates bandwidth, transcodes
-video, or bonds connections.
+sending network cannot pass UDP. Neither protocol creates bandwidth or bonds
+connections; that is SRTLA's job.
 
 ### Is Moblin required for VISP?
 

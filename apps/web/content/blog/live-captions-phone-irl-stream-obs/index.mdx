@@ -2,6 +2,7 @@
 title: "How to Add Live Captions to a Phone IRL Stream in OBS"
 description: "Add burned-in English or Finnish live captions to a phone IRL stream, verify them in OBS, and understand accuracy, privacy, and platform limits."
 publishedAt: 2026-08-02
+updatedAt: 2026-09-28
 coverAlt: "An IRL creator speaks to a phone camera while blank caption cards follow the video signal into a home production monitor"
 ---
 
@@ -56,9 +57,12 @@ recover those pixels later.
 - A private rehearsal recording with the same environment, microphone, and
   movement planned for the real stream
 
-The phone still contributes one H.264/AAC feed to the home studio. OBS owns
-the scenes, recording, and final Twitch or Kick destination. Enabling
-subtitles does not move the platform stream key to the phone.
+The phone still contributes one H.264/AAC feed to the relay. In this guide
+OBS reads it and owns the scenes, recording, and final Twitch or Kick
+destination, so set the dashboard **Mode** menu to **Phone to your OBS**. OBS
+is optional: with Direct, VISP's default output, the same burned-in text
+reaches Twitch, Kick, or YouTube without a computer at home. Enabling subtitles
+does not move the platform stream key to the phone.
 
 ## 1. Choose the spoken language before going live
 
@@ -206,11 +210,10 @@ The complete flow is deliberately short:
 6. The VISP relay authenticates and forwards the contribution to OBS.
 7. OBS places that already-captioned source in the final Twitch or Kick scene.
 
-In this phone-to-OBS path, VISP **does not transcode the contribution and does
-not bond network connections**. Its optional dual-link redundancy sends
-duplicate SRT packets over Wi-Fi and cellular; it does not combine their
-capacity. Captions and hosted recognition also cannot create bandwidth when
-the route is congested.
+In this phone-to-OBS path, VISP **does not transcode the contribution**.
+Network bonding in the app is optional and off by default. Captions and hosted
+recognition cannot create bandwidth when the route is congested, and hosted
+recognition adds its own upload.
 
 Because the text is composed before the relay, reconnecting the same phone
 source preserves the caption design without an OBS-side caption plugin. The

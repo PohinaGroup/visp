@@ -2,7 +2,7 @@
 title: "How to Stream on Twitch From Your Phone Through OBS"
 description: "Stream on Twitch from your phone through OBS while keeping scenes, alerts, fallback, and your Twitch stream key on the home studio computer."
 publishedAt: 2026-07-27
-updatedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "An unbranded phone films a street performance, sends it through a transparent relay cube into a home production desk, and viewers receive the finished program"
 ---
 
@@ -14,8 +14,8 @@ finished program to Twitch.
 This route makes sense when you want to keep your existing scenes, alerts,
 local microphones, recordings, and fallback content at home. It also keeps the
 Twitch stream key off the field phone. If one phone camera is the whole show,
-Twitch's direct mobile workflow is shorter and usually the better starting
-point.
+a direct route is shorter and usually the better starting point: VISP's default
+Direct output, the Twitch app, or another mobile encoder.
 
 ![The phone contributes one camera feed through VISP to home OBS, and OBS sends a separately configured finished program to Twitch](./twitch-phone-obs-path.svg)
 
@@ -34,7 +34,7 @@ source inside an OBS studio:
 
 | Production need | Better starting route |
 | --- | --- |
-| One phone, no home computer, fastest setup | Twitch app or a direct mobile encoder |
+| One phone, no home computer, fastest setup | VISP Direct, the Twitch app, or a direct mobile encoder |
 | Existing OBS scenes, alerts, graphics, and studio audio | Phone → VISP → OBS → Twitch |
 | Local fallback while the field phone reconnects | Phone → VISP → OBS → Twitch |
 | Twitch stream key must stay off the field phone | Phone → VISP → OBS → Twitch |
@@ -54,9 +54,9 @@ There are two encoder connections in this workflow:
 2. **Distribution:** OBS reads that source, composes the scene, encodes the
    final program, and sends it to Twitch.
 
-VISP handles only the contribution leg. It relays the phone feed into OBS and
-manages access to that path. It does not receive or proxy the Twitch stream
-key. Twitch documents that its ingest authorizes the final RTMP broadcast with
+In this route VISP handles only the contribution leg. It relays the phone feed
+into OBS and manages access to that path. It does not receive or proxy the
+Twitch stream key. Twitch documents that its ingest authorizes the final RTMP broadcast with
 a [stream key](https://help.twitch.tv/s/article/twitch-stream-key-faq?language=en_US);
 that authorization belongs in OBS, not in the VISP phone app or dashboard.
 
@@ -103,6 +103,11 @@ covers the manual SRT and RTMP paths.
 Signing in with Twitch identifies the VISP account. It does not make the phone
 the Twitch destination and it does not give VISP the channel's stream key.
 
+VISP's default output is Direct, which would send the phone to Twitch from the
+relay. For this OBS route, open the dashboard **Mode** menu and choose **Phone
+to your OBS**. If you skip this, the relay and OBS would both try to broadcast
+to the same channel.
+
 ## 2. Add the phone feed to OBS
 
 Install the VISP plugin, restart OBS, then open **Tools → VISP Remote
@@ -130,10 +135,11 @@ before starting the public broadcast. For moving IRL video on cellular,
 holds the contribution bitrate with margin.
 
 These settings describe the phone-to-VISP feed, not the OBS-to-Twitch output.
-VISP does not transcode the incoming video to a different resolution or
-bitrate. VISP Native can duplicate packets over cellular and Wi-Fi, but it does
-not combine their capacity. If neither network can carry the feed, the relay
-cannot create the missing bandwidth.
+On the way to OBS, VISP does not transcode the incoming video to a different
+resolution or bitrate. VISP Native's optional network bonding can spread the
+feed over Wi-Fi and cellular (SRTLA) or duplicate it on both for failover
+(Broadcast). If the networks together cannot carry the feed, the relay cannot
+create the missing bandwidth.
 
 Start the phone contribution and wait for its dashboard row to show **Live**.
 Watch the source in OBS for several minutes, move as you will during the real
@@ -245,10 +251,11 @@ load and retest before changing unrelated network settings.
 ## Know what VISP does not do
 
 VISP is an authenticated SRT/RTMP relay and control plane for contribution
-feeds. It does not host OBS, mix scenes on the server, send the finished
-program to Twitch, transcode video, or bond network connections. The phone
-encodes the field feed, OBS builds and encodes the show, and Twitch receives
-the final output directly from OBS.
+feeds. It does not host OBS. In the OBS route it does not transcode video or
+send the finished program to Twitch: the phone encodes the field feed, OBS
+builds and encodes the show, and Twitch receives the final output directly
+from OBS. Direct, the relay-encoded route, is a separate mode you can switch
+back to when a session does not need OBS.
 
 That separation is the point of the workflow: the phone becomes a managed
 camera inside your existing Twitch production without becoming the owner of

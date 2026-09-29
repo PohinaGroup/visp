@@ -100,7 +100,8 @@ may be able to operate the paired OBS instance. If the computer or configuration
 is exposed, rotate the OBS token in VISP and pair again. Rotation disconnects
 older plugin configurations on their next request.
 
-The dashboard should report **Connected** within a few seconds. If it does not,
+In OBS mode, the dashboard's **OBS** tab should report **Connected** within a
+few seconds. If it does not,
 confirm that the OBS computer can reach the public VISP app address over HTTPS.
 No inbound test or router-port scan is needed.
 
@@ -121,6 +122,10 @@ The command changes the program scene, not a private Studio Mode preview. If a
 producer is actively preparing a preview transition, coordinate before using
 the phone picker. The remote control also does not expose OBS's audio mixer, so
 scene design should already produce the intended microphone state.
+
+If you also want recording, pause recording, replay buffer, or virtual camera
+toggles, open the separate [OBS Remote](https://remote.visp-stream.com) app. It
+uses the same paired plugin and outbound path.
 
 ## 4. Test start and stop deliberately
 
@@ -203,10 +208,10 @@ video and AAC audio over SRT while control requests use the app API and the OBS
 plugin's authenticated outbound WSS connection. OBS still renders the final scenes and sends the finished
 program to Twitch or Kick.
 
-The relay **does not transcode video or aggregate network capacity**. VISP
-Native can duplicate packets over Wi-Fi and cellular, but it
-cannot lower an unsuitable camera bitrate at the relay, combine cellular and
-Wi-Fi into one resilient uplink, or make a control command cross a total outage.
+In this relay-to-OBS workflow the relay **does not transcode video**. The
+VISP app's optional network bonding can combine Wi-Fi and cellular with SRTLA
+or duplicate packets over both, but nothing in VISP can lower an unsuitable
+camera bitrate at the relay or make a control command cross a total outage.
 Those boundaries remain true even though control and camera publishing appear
 in one phone app.
 
@@ -257,8 +262,10 @@ from its phone workflow without exposing an inbound control port.
 
 ### Can the phone control audio sources and filters?
 
-No. The current VISP phone control is limited to stream start or stop and
-program-scene selection. Build audio behavior into tested scenes or use a more
+No. The control in the VISP phone app is limited to stream start or stop and
+program-scene selection. The separate OBS Remote app adds recording, replay
+buffer, and virtual camera toggles, but neither controls audio sources or
+filters. Build audio behavior into tested scenes or use a more
 capable local OBS control system.
 
 ### Can I switch scenes from an Apple Watch?

@@ -2,14 +2,14 @@
 title: "Näin VISP Direct säästää puhelimen akkua striimatessa"
 description: "Katso, milloin VISP Direct vähentää puhelimen työtä monialustalähetyksessä, mikä jää puhelimelle ja miten säästö mitataan."
 publishedAt: 2026-07-28
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Viileänä pysyvä puhelin ja täysi akkukuvake lähettävät yhden syaanin syötteen relaylle, joka tekee kaksi hohtavaa kohdekoodausta"
 ---
 
 VISP Direct voi säästää puhelimen akkua **Twitchin ja Kickin samanaikaisessa
-lähetyksessä**, koska puhelin tekee yhden videokoodauksen ja yhden lähetyksen.
-VISP-relay vastaanottaa kuvalähteen ja tekee alustojen kaksi erillistä
-jakelukoodausta.
+lähetyksessä** (tai millä tahansa Twitchin, Kickin ja YouTuben yhdistelmällä),
+koska puhelin tekee yhden videokoodauksen ja yhden lähetyksen. VISP-relay
+vastaanottaa kuvalähteen ja tekee alustojen erilliset jakelukoodaukset.
 
 Rajaus on olennainen. Direct ei sammuta kameraa, mikrofonia, puhelimen
 videokoodainta, näyttöä tai mobiiliradiota. Se ei myöskään lupaa akkusäästöä
@@ -102,7 +102,7 @@ vastaanottaa jo yhden puhelinlähetyksen ja jakaa sen pilvestä. Tällaiseen
 relayhin verrattuna VISP Direct ei välttämättä vähennä puhelimen työtä lainkaan.
 Vertaa todellista signaalireittiä, älä ominaisuuden nimeä.
 
-Sama varovaisuus koskee tavallista VISP–OBS-työnkulkua. Puhelin lähettää yhden
+Sama varovaisuus koskee valinnaista VISP–OBS-työnkulkua. Puhelin lähettää yhden
 kuvalähteen VISPille ja OBS tekee yhden lopullisen kohdekoodauksen. Kun se
 vaihdetaan yhden alustan Direct-lähtöön, puhelin kuvaa, koodaa ja lähettää
 edelleen kerran. Direct voi poistaa tarpeen pitää OBS-konetta käynnissä, mutta
@@ -152,11 +152,13 @@ Myös esikatselu ja chat voivat pysyä näytöllä. Kirkas näyttö auttaa ulkon
 kuluttaa energiaa. Floating-chat näkyy vain puhelimella, kun taas Embedded-chat
 on osa lähtevää kuvaa. Kumpikaan tila ei poista suoratoiston perustyötä.
 
-VISP Native voi monistaa paketit mobiili- ja Wi-Fi-yhteyteen vikasietoisuutta
-varten, mutta se ei summaa linkkien kapasiteettia eikä vähennä radioiden kokonaistyötä.
-[Mobiili- ja Wi-Fi-bondauksen opas](/blog/bond-cellular-wifi-visp-speedify)
-kuvaa valinnaisen verkkokerroksen ja muistuttaa, että myös
-bondausohjelmisto käyttää puhelimen resursseja.
+VISP-sovelluksen valinnainen **Network bonding** pitää sekä mobiili- että
+Wi-Fi-radion kiireisenä. SRTLA-tila jakaa lähetyksen molemmille, ja
+**Broadcast**-tila lähettää jokaisen paketin molempia pitkin, mikä noin
+kaksinkertaistaa mobiilidatan. Kummassakin tapauksessa radiotyö lisääntyy eikä
+akkua säästy. [Mobiili- ja Wi-Fi-bondauksen opas](/fi/blog/bond-cellular-wifi-visp-speedify)
+kuvaa vaihtoehdot, myös kolmannen osapuolen bondausohjelmiston, joka sekin
+käyttää puhelimen resursseja.
 
 ## Näin pienennät koko työnkulun virrankulutusta
 
@@ -166,7 +168,7 @@ järkevästä kuvalähteen profiilista.
 Aloita liikkuvassa mobiililähetyksessä **720p- ja 30 fps -asetuksilla**. Nosta
 tarkkuutta vasta, kun katsoja oikeasti näkee lisäyksityiskohdat ja pitkä
 kenttätesti osoittaa puhelimen pysyvän vakaana.
-[Mobiilistriimin bittinopeusopas](/blog/best-bitrate-irl-streaming-phone-obs)
+[Mobiilistriimin bittinopeusopas](/fi/blog/best-bitrate-irl-streaming-phone-obs)
 erottaa kuvalähteen ja lopullisen alustan bittinopeuden ja selittää, miksi
 valikon maksimi ei ole tavoite.
 
@@ -223,14 +225,16 @@ ole.
 
 Pidemmälle riittävä akku voi edelleen menettää verkkoyhteyden. SRT lähettää
 puuttuvia paketteja uudelleen viiveikkunan sisällä, mutta ei pysty luomaan
-kaistaa tai mediaa täydellisen katkon aikana. Directillä ei myöskään ole
-OBS-varakuvaa kuvalähteen kadotessa.
+kaistaa tai mediaa täydellisen katkon aikana. Directissä ei ole
+OBS-varakohtausta, mutta siinä on valinnainen BRB-kortti: ota hallintapaneelin
+**BRB**-välilehdellä käyttöön **Näytä BRB-kortti, kun lähetys katkeaa**, niin
+katkennut syöte pitää jokaisen Direct-lähdön auki kortin takana puhelimen
+yhdistäessä uudelleen. Se on oletuksena pois päältä.
 
-Jos jatkuvuus on kotikoneen poistamista tärkeämpää, tavallinen VISP–OBS-reitti
-voi olla parempi tekninen valinta. OBS voi pitää julkisen lähetyksen käynnissä
-paikallisella sisällöllä puhelimen yhdistäessä uudelleen. Lue
-[heikon mobiiliverkon opas](/blog/keep-stream-live-bad-mobile-network) ennen
-kuin vaihdat varakuvan lyhyempään Direct-reittiin.
+Jos tarvitset tuotetun varakuvan paikallisella sisällöllä, valinnainen
+VISP–OBS-reitti voi olla parempi tekninen valinta. Lue
+[heikon mobiiliverkon opas](/fi/blog/keep-stream-live-bad-mobile-network) ennen
+kuin valitset näiden välillä.
 
 Directin kapasiteetti on välittäjäkohtainen. Jokainen alusta käyttää yhden
 relay-välittäjän. Jos paikkaa ei ole vapaana, Direct-lähtö ei käynnisty, vaikka

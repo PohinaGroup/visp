@@ -2,6 +2,7 @@
 title: "How to Record an IRL Stream in OBS From Your Phone"
 description: "Record a Twitch or Kick IRL stream on your home OBS computer from the field, with remote controls, safe file settings, and a tested stop routine."
 publishedAt: 2026-09-06
+updatedAt: 2026-09-28
 coverAlt: "An IRL creator uses a phone at dusk while a home production computer records the incoming camera feed"
 ---
 
@@ -32,7 +33,9 @@ record the original phone feed. Watch the platform separately when you need to
 verify the exact viewer output.
 
 VISP does not keep a continuous cloud recording. The file belongs to OBS and
-stays on the computer named in **Settings → Output → Recording Path**.
+stays on the computer named in **Settings → Output → Recording Path**. The
+plugin's optional **Back up to VISP** button copies scene collections,
+profiles, and the media files they reference, not your recordings.
 
 ## 1. Configure recording on the OBS computer
 
@@ -64,8 +67,10 @@ and test the file in the editor you will actually use.
 ## 2. Bring the phone feed into OBS
 
 Complete the [phone-to-OBS setup](/blog/use-phone-as-remote-camera-obs) and add
-the publishing device to the intended scene with the VISP plugin. The relay
-forwards the phone's contribution to OBS without transcoding it.
+the publishing device to the intended scene with the VISP plugin. If OBS owns
+the public broadcast, set the dashboard **Mode** menu to **Phone to your OBS**
+first; Direct is the default. The relay forwards the phone's contribution to
+OBS without transcoding it.
 
 Check four things in a local test recording:
 
