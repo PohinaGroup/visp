@@ -48,7 +48,8 @@ if(ENABLE_QT)
       COMMAND chmod +x "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
       COMMAND "${CMAKE_CURRENT_BINARY_DIR}/bundle-agl-stub.sh"
               "$<TARGET_FILE:${CMAKE_PROJECT_NAME}>" "${_visp_stub_agl}"
-      COMMENT "Bundle stub AGL dylib for macOS SDKs without AGL"
+              "$<TARGET_FILE:Qt6::QSecureTransportBackendPlugin>"
+      COMMENT "Bundle AGL stub and Qt TLS backend"
       VERBATIM
     )
   endif()
@@ -86,6 +87,13 @@ if(BUILD_TESTING)
     get_filename_component(_qt_core_framework "${_qt_core_headers}" DIRECTORY)
     get_filename_component(_qt_framework_dir "${_qt_core_framework}" DIRECTORY)
     target_link_options(visp-protocol-test PRIVATE "-Wl,-rpath,${_qt_framework_dir}")
+    add_executable(visp-tls-test src/tls-test.cpp)
+    target_link_libraries(visp-tls-test PRIVATE Qt6::Core Qt6::Network)
+    target_link_options(visp-tls-test PRIVATE "-Wl,-rpath,${_qt_framework_dir}")
+    set_target_properties(visp-tls-test PROPERTIES XCODE_ATTRIBUTE_ENABLE_HARDENED_RUNTIME NO)
+    add_dependencies(visp-tls-test ${CMAKE_PROJECT_NAME})
+    add_test(NAME visp-tls COMMAND visp-tls-test
+      "$<TARGET_BUNDLE_DIR:${CMAKE_PROJECT_NAME}>/Contents/Resources/qt")
   endif()
 endif()
 
