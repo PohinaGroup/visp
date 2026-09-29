@@ -660,6 +660,7 @@ int main(void)
 #else
 
 #include <QNetworkAccessManager>
+#include <QCoreApplication>
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRandomGenerator>
@@ -2257,6 +2258,13 @@ const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
+#ifdef __APPLE__
+	char *qt_plugins = obs_module_file("qt");
+	if (qt_plugins) {
+		QCoreApplication::addLibraryPath(QString::fromUtf8(qt_plugins));
+		bfree(qt_plugins);
+	}
+#endif
 	obs_frontend_add_event_callback(frontend_event, NULL);
 	obs_frontend_add_tools_menu_item("VISP Remote Control", open_settings, NULL);
 	apply_config(load_config());
