@@ -39,6 +39,7 @@ import {
 	listPaths,
 	reconcilePathState,
 } from "@VISP/api/relay";
+import { reportRelayHealth } from "@VISP/api/relay-health";
 import { getSnapshotUploadUrl } from "@VISP/api/snapshots";
 import {
 	compositorDesiredState,
@@ -472,6 +473,31 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 					t.Literal("donation"),
 				]),
 				label: t.Optional(t.String({ maxLength: 120 })),
+			}),
+		},
+	)
+	.post(
+		"/api/hooks/relay-health",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			return (await reportRelayHealth(body))
+				? status(204)
+				: status(404, "relay not registered");
+		},
+		{
+			body: t.Object({
+				relay: t.String({ minLength: 1, maxLength: 64 }),
+				cpuCount: t.Integer({ minimum: 1 }),
+				load1: t.Number({ minimum: 0 }),
+				load5: t.Number({ minimum: 0 }),
+				load15: t.Number({ minimum: 0 }),
+				memTotalKb: t.Integer({ minimum: 0 }),
+				memAvailableKb: t.Integer({ minimum: 0 }),
+				diskTotalKb: t.Integer({ minimum: 0 }),
+				diskAvailableKb: t.Integer({ minimum: 0 }),
+				uptimeSeconds: t.Integer({ minimum: 0 }),
 			}),
 		},
 	)

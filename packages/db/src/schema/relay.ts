@@ -670,3 +670,34 @@ export const relayStreamSessionRelations = relations(
 		}),
 	}),
 );
+
+/**
+ * Last host-metrics sample pushed by a relay's health timer. One row per relay,
+ * upserted — admin shows "now", and a stale reportedAt is how a dark relay
+ * announces itself. No time series: that's a metrics system's job, not this
+ * table's.
+ */
+export const relayHealth = pgTable("relay_health", {
+	relayId: integer("relay_id")
+		.primaryKey()
+		.references(() => relay.id, { onDelete: "cascade" }),
+	reportedAt: timestamp("reported_at", { withTimezone: true })
+		.defaultNow()
+		.notNull(),
+	cpuCount: integer("cpu_count").notNull(),
+	load1: real("load1").notNull(),
+	load5: real("load5").notNull(),
+	load15: real("load15").notNull(),
+	memTotalKb: bigint("mem_total_kb", { mode: "number" }).notNull(),
+	memAvailableKb: bigint("mem_available_kb", { mode: "number" }).notNull(),
+	diskTotalKb: bigint("disk_total_kb", { mode: "number" }).notNull(),
+	diskAvailableKb: bigint("disk_available_kb", { mode: "number" }).notNull(),
+	uptimeSeconds: integer("uptime_seconds").notNull(),
+});
+
+export const relayHealthRelations = relations(relayHealth, ({ one }) => ({
+	relay: one(relay, {
+		fields: [relayHealth.relayId],
+		references: [relay.id],
+	}),
+}));

@@ -56,12 +56,15 @@ disconnecting either side behaves as expected. Only then install
    ```text
    HOOK_SECRET=replace-with-a-random-secret
    APP_ORIGIN=https://app.example.com
+   RELAY_NAME=relay-fi-1
    MTX_AUTHHTTPADDRESS=https://app.example.com/api/mediamtx/auth
    MTX_APIADDRESS=100.64.0.10:9997
    MTX_WEBRTCALLOWORIGINS=https://visp-stream.com,https://stream.visp-stream.com
    ```
 
-   Replace the example origin and Tailscale address. Set
+   Replace the example origin and Tailscale address. `RELAY_NAME` must match
+   the relay name registered in VISP Admin: it is how the health report finds
+   its row, and a mismatch shows the relay as reporting no host metrics. Set
 	`MTX_WEBRTCADDITIONALHOSTS=relay.example.com` to the relay's public hostname.
 	Keep `MTX_WEBRTCALLOWORIGINS` aligned with the deployed portal and native-web
 	origins so authenticated WHEP previews can signal directly to the relay.
@@ -316,13 +319,20 @@ pprof stay disabled.
    AI_GATEWAY_API_KEY=...
    ```
 
-3. The browser uploads directly to the signed object-storage URL. Set
+3. The browser uploads directly to the signed object-storage URL: Typography
+   source files, plus the dashboard's BRB images and Studio assets. Set
    `S3_UPLOAD_ENDPOINT` to a public HTTPS S3 endpoint, then allow this bucket
-   CORS policy (replace the origin only if the deployed domain differs):
+   CORS policy. Staging shares the production bucket, so its origins are
+   listed too (replace them only if the deployed domains differ):
 
    ```json
    [{
-     "AllowedOrigins": ["https://typography.visp-stream.com"],
+     "AllowedOrigins": [
+       "https://visp-stream.com",
+       "https://typography.visp-stream.com",
+       "https://staging.visp-stream.com",
+       "https://typography.staging.visp-stream.com"
+     ],
      "AllowedMethods": ["PUT", "GET", "HEAD"],
      "AllowedHeaders": ["Content-Type", "content-type"],
      "ExposeHeaders": ["ETag"],
@@ -427,6 +437,24 @@ disabling also removes the relay from reconciliation.
 
 Relays are mutually trusted through the shared hook secret. Add per-relay hook
 secrets only if that trust boundary changes.
+
+### Relay health in Admin
+
+The relay list shows two independent signals per relay. Either can fail alone,
+so they are never merged into one light:
+
+- **Control API** — the app calls MediaMTX `/v3/paths/list` over Tailscale when
+  an admin loads the page. It reports reachability, response time, and the
+  number of ready paths. Needs nothing installed on the relay.
+- **Host metrics** — CPU load against core count, RAM, disk, and uptime, pushed
+  every 30 seconds by `visp-relay-health.timer`. The script reads `/proc` and
+  `df`, then posts to `/api/hooks/relay-health` with the shared hook secret, so
+  no exporter runs and no extra port opens. `visp-relay-release production
+  mediamtx` installs and enables it.
+
+A sample older than two minutes turns red: the relay stopped reporting even if
+its control API still answers. The app server reports its own CPU and RAM from
+its own process, on the Overview card above the relay list.
 
 ## 4. Configure snapshot storage
 
