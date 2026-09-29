@@ -2,6 +2,7 @@
 title: "IRL-striimaus yöllä: parhaat puhelinkameran asetukset"
 description: "Valitse puhelimen kamera, 30 FPS, valo ja bittinopeus pimeään IRL-lähetykseen ja korjaa kuvaa maltillisesti OBS:ssä Twitchiä tai Kickiä varten."
 publishedAt: 2026-08-31
+updatedAt: 2026-09-29
 coverAlt: "IRL-sisällöntuottaja kävelee yöllisellä kaupunkikadulla puhelin ja pieni pehmeä valo samassa käsikahvassa"
 ---
 
@@ -29,7 +30,7 @@ Aloita näillä VISP-puhelinsovelluksen asetuksilla:
 | Tarkkuus | 720p epävarmalla mobiiliverkolla, 1080p testatulla reitillä | Yhteys ja lopullinen katselutesti kestävät suuremman tarkkuuden |
 | Vakautus | Päällä kävellessä, jos VISP näyttää tuen | Poista jalustalla tai jos yötesti näyttää paremmalta ilman sitä |
 | Valo | Pieni hajautettu valo puhelimen lähellä | Siirrä tai pehmennä, jos iho palaa puhki tai valo heijastuu laseista |
-| OBS-korjaus | Pieni gamma- tai kirkkaussäätö | Lopeta, kun kohina ja pakkausruudut korostuvat |
+| OBS-korjaus (valinnainen, vain OBS) | Pieni gamma- tai kirkkaussäätö | Lopeta, kun kohina ja pakkausruudut korostuvat |
 
 VISP näyttää tällä hetkellä kameran, tarkkuuden, kuvataajuuden, laitteen
 ilmoittamat zoomaustasot ja tuetun kuvanvakautuksen. Sovelluksessa ei ole
@@ -101,7 +102,9 @@ pidä tulkita VISPin lähetysasetuksiksi.
 Valitse 60 FPS vain nopealle kohteelle, hyvin valaistuun paikkaan ja pitkän
 kokonaistestin jälkeen. [30 FPS:n ja 60 FPS:n
 vertailu](/fi/blog/30-vs-60-fps-irl-streaming) käsittelee tarkemmin liikettä,
-lämpöä, kaistaa ja OBS:n lähtöä.
+lämpöä, kaistaa ja OBS:n lähtöä. VISP Directissä releen jakelukoodaus on
+oletuksena 30 FPS, joten 60 FPS:n kuvaus lisää puhelimen lämpöä ja
+lähetyskaistaa, mutta katsojat eivät näe sitä 60 FPS:nä.
 
 ## Sovita tarkkuus ja bittinopeus reittiin
 
@@ -236,7 +239,6 @@ Google Kuvia ja pilvikäsittelyä. Se ei ole kolmannen osapuolen livekameratehos
 - [Kickin mobiililähetyksen laatu](https://help.kick.com/en/articles/15159752-settings-and-stream-quality-on-the-kick-go-live-app)
 - [OBS:n Color Correction -suodatin](https://obsproject.com/kb/color-correction-filter)
 
-Jos haluat kokeilla asetuksia toistettavalla puhelimen ja studion välisellä
-reitillä, [kokeile VISPiä](https://visp-stream.com), aloita pienestä valosta ja
+Jos haluat kokeilla asetuksia toistettavalla puhelinreitillä, [kokeile VISPiä](https://visp-stream.com), aloita pienestä valosta ja
 30 FPS:stä ja säilytä vain julkista Twitch- tai Kick-lähetystä parantavat
 muutokset.

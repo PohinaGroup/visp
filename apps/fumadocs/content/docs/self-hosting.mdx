@@ -12,8 +12,8 @@ You need **one app host and one or more Linux relay hosts**:
 
 | Host | Runs |
 | --- | --- |
-| Relay(s) | MediaMTX, Caddy (RTT probe), snapshot hook |
-| App | PostgreSQL, API, portal, admin console, browser publisher, docs, Caddy |
+| Relay(s) | MediaMTX, Caddy (RTT probe), snapshot hook, Direct FFmpeg forwarders; optionally `srtla_rec`, `visp-bond`, and the Cloud Studio compositor |
+| App | PostgreSQL, API, Typography worker, portal, admin console, multi-chat, Typography, browser publisher, OBS Remote web, docs, Caddy |
 
 Templates live in the repository's `deploy/` directory. Keep domains, IPs, and
 secrets out of Git. Put production env files under `/etc/visp/` with mode
@@ -25,12 +25,15 @@ secrets out of Git. Put production env files under `/etc/visp/` with mode
 - [Tailscale](https://tailscale.com/) on both hosts for admin and the MediaMTX
   Control API
 - [Caddy](https://caddyserver.com/) on both hosts
-- [Bun](https://bun.sh/) 1.3.14+ and PostgreSQL 18 on the app host (matching
-  the local Compose target)
-- `ffmpeg` and `curl` on the relay host
-- Twitch and Kick developer applications plus a Google OAuth web client with YouTube Data API v3 enabled
-- A private S3-compatible bucket for live-path JPEG snapshots
-- DNS for your app, admin, relay, browser-publisher, and docs hostnames
+- [Bun](https://bun.sh/) 1.3.14+, Node.js 20+, FFmpeg, and PostgreSQL 18 on
+  the app host (matching the local Compose target)
+- `ffmpeg`, `curl`, `jq`, and DejaVu fonts on the relay host
+- Twitch and Kick developer applications plus a Google OAuth web client with
+  YouTube Data API v3 enabled (the server requires all three credential pairs)
+- A private S3-compatible bucket for snapshots, BRB media, OBS backups, and
+  Typography uploads
+- DNS for your app, admin, multi-chat, Typography, relay, browser-publisher,
+  OBS Remote, and docs hostnames
 
 Clone the repository as `root` into `/opt/visp` on the app host. The systemd
 units expect that path.
@@ -58,7 +61,7 @@ HTTP authentication against the app.
 
 ## 2. Relay host
 
-1. Install Tailscale, Caddy, `curl`, `ffmpeg`, and the pinned MediaMTX binary.
+1. Install Tailscale, Caddy, `curl`, `jq`, `ffmpeg`, and the pinned MediaMTX binary.
 2. Install the snapshot hook and production config:
 
    ```bash
@@ -68,27 +71,38 @@ HTTP authentication against the app.
      /etc/mediamtx/mediamtx.yml
    ```
 
-   RTSP binds only to `127.0.0.1` for the snapshot hook. Do not expose TCP 8554.
+   RTSP binds only to `127.0.0.1` for the snapshot hook and Direct forwarders.
+   Do not expose TCP 8554.
 3. Create `/etc/visp/relay.env`:
 
    ```text
    HOOK_SECRET=replace-with-a-random-secret
+   STUDIO_MEDIA_PASSWORD=same-value-as-app-env
    APP_ORIGIN=https://app.example.com
+   RELAY_NAME=relay-1
    MTX_AUTHHTTPADDRESS=https://app.example.com/api/mediamtx/auth
    MTX_APIADDRESS=100.64.0.10:9997
    MTX_WEBRTCADDITIONALHOSTS=relay.example.com
+   MTX_WEBRTCALLOWORIGINS=https://app.example.com,https://stream.example.com
    ```
 
    Use the app's public HTTPS origin, the relay's Tailscale address for the
    Control API bind, and the relay's public hostname for WebRTC. MediaMTX maps
-   `MTX_*` variables onto the matching YAML settings. `HOOK_SECRET` must match
-   the app host.
+   `MTX_*` variables onto the matching YAML settings. `HOOK_SECRET` and
+   `STUDIO_MEDIA_PASSWORD` must match the app host. `RELAY_NAME` must match the
+   relay's name in VISP Admin. Direct encoder, BRB, and bonding knobs are
+   listed in `deploy/README.md`.
 4. Install `deploy/systemd/mediamtx.service`. Use Caddy's packaged unit with
    `deploy/relay/Caddyfile`, install `deploy/systemd/caddy-relay.conf` as a
    `caddy.service.d/visp.conf` drop-in, and set `RELAY_DOMAIN` and `APP_DOMAIN`
    in `/etc/visp/caddy.env`.
+   Optional: for bonded phone uplinks, also build and enable `visp-bond`
+   (bonded SRT) and `srtla_rec` (SRTLA) with `deploy/systemd/visp-bond.service`
+   and `deploy/systemd/srtla-rec.service`; `deploy/README.md` has the build
+   steps.
 5. Open public **UDP 8890** (SRT), **TCP 1935** (RTMP), **TCP 443** (RTT
-   probe), and **UDP/TCP 8189** (WebRTC; TCP is the ICE fallback). Allow SSH
+   probe), and **UDP/TCP 8189** (WebRTC; TCP is the ICE fallback). With bonding
+   enabled, also open **UDP 8891** (bonded SRT) and **UDP 5000** (SRTLA). Allow SSH
    and MediaMTX **TCP 9997** only on the Tailscale interface. Mirror the same
    rules in your cloud firewall.
 6. In Tailscale ACLs, allow only the app host to reach relay TCP 9997.
@@ -99,7 +113,8 @@ remain disabled.
 
 ## 3. App host
 
-1. Install PostgreSQL, Bun, Node.js 20+, Tailscale, and Caddy. Clone the repository as
+1. Install PostgreSQL (or use a managed database), Bun, Node.js 20+, Tailscale,
+   Caddy, FFmpeg, and DejaVu fonts. Clone the repository as
    `root` into `/opt/visp`. The API service runs under Node; Bun is still used for
    builds, migrations, and the portal.
 2. Fill `/etc/visp/app.env` from `apps/server/.env.example`:
@@ -118,6 +133,11 @@ remain disabled.
      origins (same host when Caddy terminates TLS for both).
    - Set `ADMIN_ORIGIN` to the admin console origin and `ADMIN_USER_IDS` to
      comma-separated Better Auth user IDs that need break-glass access.
+   - Set `MULTICHAT_ORIGIN` and `TYPOGRAPHY_ORIGIN` to those apps' public
+     origins.
+   - Set `STUDIO_MEDIA_PASSWORD` (32+ characters, same as the relay),
+     `RESEND_API_KEY`, `AI_GATEWAY_API_KEY`, and `VISP_CHAT_BOT_USER_ID`; the
+     server refuses to start without them.
 
    Then install dependencies and migrate:
 
@@ -139,6 +159,12 @@ remain disabled.
    ```text
    EXPO_PUBLIC_SERVER_URL=https://app.example.com
    ```
+
+   Create `/etc/visp/typography-web.env`:
+
+   ```text
+   VITE_API_URL=https://app.example.com
+   ```
 4. Build and install services:
 
    ```bash
@@ -147,17 +173,21 @@ remain disabled.
      /etc/systemd/system/visp-server.service
    sudo install -m 0644 deploy/systemd/visp-web.service \
      /etc/systemd/system/visp-web.service
+   sudo install -m 0644 deploy/systemd/visp-typography-worker.service \
+     /etc/systemd/system/visp-typography-worker.service
    sudo systemctl daemon-reload
-   sudo systemctl enable --now visp-server visp-web
+   sudo systemctl enable --now visp-server visp-web visp-typography-worker
    ```
 
    Use Caddy's packaged unit with `deploy/app/Caddyfile` and
    `deploy/systemd/caddy-app.conf` as the drop-in. In `/etc/visp/caddy.env` set
    `APP_DOMAIN`, `ADMIN_DOMAIN`, `MULTICHAT_DOMAIN`, `NATIVE_WEB_DOMAIN`,
-   `OBS_REMOTE_WEB_DOMAIN`, `DOCS_DOMAIN`, and `RELAY_PUBLIC_IPS`. The latter is
+   `OBS_REMOTE_WEB_DOMAIN`, `TYPOGRAPHY_DOMAIN`, `DOCS_DOMAIN`, and
+   `RELAY_PUBLIC_IPS`. The latter is
    a space-separated list of every relay public IP. Caddy serves
    `apps/admin/dist`, `apps/multichat/dist`, `apps/native/dist`,
-   `apps/obs-remote/dist`, and `apps/fumadocs/.output/public` as static files;
+   `apps/obs-remote/dist`, `apps/typography/dist`, and
+   `apps/fumadocs/.output/public` as static files;
    none needs its own systemd unit.
 5. Register provider callbacks:
 
@@ -178,13 +208,14 @@ remain disabled.
 	The Kick app needs the `user:read` scope. Chat delivery uses the server's
 	app token and `chat.message.sent` webhook subscriptions.
 
-	Set `AI_GATEWAY_API_KEY` if Seppo is enabled. Optional hosted speech features
+	`AI_GATEWAY_API_KEY` powers Seppo and Typography caption cleanup. Optional hosted speech features
 	use `ELEVENLABS_API_KEY`; `ELEVENLABS_VOICE_ID` additionally enables hosted
 	chat text-to-speech. Leave both ElevenLabs values unset to keep captions,
 	audio isolation, and speech on-device. Disclose and contract for these
 	external processors before enabling them for users.
 6. Expose only public **TCP 443**. Allow SSH only over Tailscale. Create DNS
-   for the app, admin, browser-publisher, OBS Remote, and docs hostnames before
+   for the app, admin, multi-chat, Typography, browser-publisher, OBS Remote,
+   and docs hostnames before
    Caddy obtains certificates.
 
 Do not put MediaMTX auth or hook routes behind a CDN or WAF. Caddy accepts
@@ -208,7 +239,10 @@ Admin. Draining prevents new assignments without moving existing paths.
 
 Use a private S3-compatible bucket (UpCloud Managed Object Storage works) with
 its public HTTPS endpoint. Grant the app credential GET, HEAD, PUT, and DELETE
-only on the `snapshots/` prefix. Keep versioning disabled.
+only on the prefixes VISP writes: `snapshots/`, `brb/`, `obs-backups/`,
+`typography/`, and (with Cloud Studio) `studio-staging/` and `studio-verified/`.
+Keep versioning disabled. `deploy/README.md` lists the BRB upload lifecycle rule
+and the Typography CORS policy.
 
 Apply a lifecycle rule so stopped paths disappear after one day:
 
@@ -229,7 +263,9 @@ If versioning was previously enabled, suspend it and add
 `"NoncurrentVersionExpiration": { "NoncurrentDays": 1 }`. The relay receives
 only 60-second presigned PUT URLs; S3 access keys never leave the app host.
 
-## 6. OBS plugin
+## 6. OBS plugin (optional)
+
+Skip this if nobody controls OBS through VISP; Direct output does not need OBS.
 
 Deploy the API and the `/api/obs/*` Caddy rule, and apply migrations, before
 pairing OBS. The device-authorization endpoints under `/api/auth/*` must also
@@ -294,7 +330,7 @@ connections fail authentication.
 For ongoing updates on a host that uses the release bootstrap, see
 [Releases and updates](/docs/releases). Manual updates are the same sequence
 the helper runs: install frozen dependencies, migrate, build, then restart
-`visp-server` and `visp-web` and reload Caddy.
+`visp-server`, `visp-web`, and `visp-typography-worker` and reload Caddy.
 
 ## Acceptance test
 
@@ -315,6 +351,7 @@ the helper runs: install frozen dependencies, migrate, build, then restart
 ## Scope
 
 Self-hosting uses one app host and one or more relay hosts. VISP does not
-transcode, bill users, or host OBS. Phone store builds
+bill users or host OBS. The relay transcodes only for Direct output; the
+relay-to-OBS path is never transcoded. Phone store builds
 and notarized OBS packages are optional extras from the project's release
 pipeline; you can still run the relay and portal without them.

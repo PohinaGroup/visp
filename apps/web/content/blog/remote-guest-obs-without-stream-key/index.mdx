@@ -2,7 +2,7 @@
 title: "How to Bring a Remote Guest Into OBS Without Sharing Your Stream Key"
 description: "Bring a remote guest camera into OBS with revocable VISP access while keeping Twitch or Kick credentials and final production control at home."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "A security boundary keeps the platform stream key in OBS while a guest publishes through VISP"
 ---
 
@@ -36,10 +36,17 @@ Instead, separate the two jobs:
 VISP's device credentials are scoped to contribution. Each guest or camera has
 independent publishing access, and OBS read access is managed separately.
 
+This split assumes OBS is the distributor. VISP's default output is Direct,
+where the relay sends a device's feed straight to your connected platforms and
+the newest publishing device can take over that output. Before inviting a guest,
+open the dashboard **Mode** menu and choose **Phone to your OBS**, so a guest
+feed only ever reaches OBS.
+
 ## Create a guest publishing device
 
-Sign in to the VISP dashboard and create a new video source for the guest. Give
-it a recognizable and temporary name such as “Guest — Alex — July 22” rather
+Sign in to the VISP dashboard, open the **Devices** tab, and under **Video
+sources** enter a **Device name** for the guest, then choose **Add device**.
+Use a recognizable and temporary name such as “Guest — Alex — July 22” rather
 than reusing the roaming phone device.
 
 Independent devices make cleanup predictable. Revoking or rotating the guest's
@@ -53,10 +60,15 @@ publish to that device path.
 
 ## Send the guest through the browser publisher
 
-The easiest guest flow uses the VISP browser publisher. Send the guest to the
-approved VISP setup flow, where they sign in or claim the intended device and
-grant camera and microphone permission. The browser publishes H.264 video over
-WHIP/WebRTC to the relay.
+The easiest guest flow uses the VISP browser publisher at
+`stream.visp-stream.com`. Copy the guest device's URL beside **Add this to
+video source** and send it to the guest privately. The guest opens the browser
+app, pastes the URL as a manual destination without signing in, and grants
+camera and microphone permission. The browser publishes H.264 video over
+WHIP/WebRTC to that device's relay path.
+
+Do not ask the guest to sign in with their own Twitch, Kick, or Google account:
+that creates devices on their account, not yours.
 
 Ask the guest to join early enough to test:
 
@@ -74,9 +86,10 @@ URL.
 
 ## Add the guest feed to OBS
 
-Pair the VISP Remote Control plugin in OBS, select the guest device, and add it
-to the intended scene. The alternative is to reveal the OBS read URL in the
-dashboard and configure a media source manually.
+The optional VISP plugin is the quickest route: in OBS open **Tools → VISP
+Remote Control**, find the guest device, and choose **Add to scene** with the
+intended scene selected. Without the plugin, reveal the OBS read URL on the
+dashboard **OBS** tab and configure a Media Source manually.
 
 Build at least three scenes:
 
@@ -118,10 +131,11 @@ VISP can let an authenticated field operator send start, stop, and scene
 commands through the paired OBS plugin. The plugin receives them over an
 authenticated outbound WSS connection; OBS opens no inbound internet port.
 
-Do not grant remote production controls merely because someone can publish a
-camera. Publishing access and operator trust are different decisions. A
-one-time guest usually needs only the ability to send media. A regular remote
-host may need a curated set of scene controls.
+Those commands come only from apps signed in to your own VISP account. A
+publishing URL gives no OBS control, so a guest who only sends media cannot
+start, stop, or switch anything. VISP has no separate guest-operator role;
+do not share your account login to create one. Publishing access and operator
+trust are different decisions.
 
 Use clear scene names and test remote commands while the destination broadcast
 is offline. Rotating the OBS plugin credential disconnects older plugin
@@ -163,7 +177,7 @@ nobody owns the removal step.
 ### Before the call
 
 - Create a uniquely named guest device.
-- Send only the guest publishing flow, not the destination stream key.
+- Send only the guest device's publishing URL, privately, not the destination stream key.
 - Build host, guest, and fallback scenes.
 - Test camera, microphone, headphones, and network.
 - Decide how the guest hears the host or program.
@@ -187,7 +201,7 @@ nobody owns the removal step.
 
 ### Does the guest need my Twitch or Kick login?
 
-No. They need only the approved VISP publishing flow for their device. OBS at
+No. They need only the publishing URL for their own guest device. OBS at
 home owns the destination account and stream key.
 
 ### Can the guest join without installing an app?
@@ -207,8 +221,9 @@ credential unless it was exposed.
 
 ### Can a guest control OBS?
 
-VISP supports authenticated remote commands through the OBS plugin, but grant
-that separately and only when the guest is also a trusted operator.
+Not through their publishing URL. Remote OBS commands require an app signed in
+to your VISP account, and VISP has no per-guest operator permission. Keep
+scene control with your own team.
 
 ## Sources and further reading
 

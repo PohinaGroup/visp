@@ -2,6 +2,7 @@
 title: "The Cheapest IRL Streaming Setup in 2026"
 description: "Build a reliable IRL streaming setup from a phone, free software, and an optional relay before spending money on bonding hardware or cloud OBS services."
 publishedAt: 2026-08-09
+updatedAt: 2026-09-28
 coverAlt: "A low-cost IRL streaming chain from a phone through VISP to Twitch, Kick, and YouTube"
 ---
 
@@ -38,9 +39,12 @@ The highest available bitrate is rarely the safest one. A stream that looks
 slightly softer but stays online is better than a sharp stream that freezes
 every minute.
 
-Begin around 3–4 Mbps for 720p video. Walk the actual route while watching the
-publisher and relay health indicators. If upload capacity regularly approaches
-the selected bitrate, reduce it. Leave room for radio variation, protocol
+Begin with 720p30. In the VISP app that is the **Reliable · 720p30** preset;
+the app sets the bitrate ceiling for the format and lowers its target when the
+link gets congested. In a manual encoder, start around 2.5 Mbps on cellular and
+3.5 Mbps on stable Wi-Fi. Walk the actual route while watching the publisher
+and relay health indicators. If upload capacity regularly approaches the
+bitrate, drop to a lower format or bitrate. Leave room for radio variation, protocol
 overhead, and other phone traffic. Our [phone bitrate guide](/blog/best-bitrate-irl-streaming-phone-obs)
 has more exact starting points for different resolutions and frame rates.
 
@@ -76,7 +80,7 @@ pain after twenty minutes is not cheap in practice.
 | Windscreen or basic microphone | Clearer outdoor speech | €10–150 |
 | Grip or compact stabilizer | More comfortable, steadier framing | €20–150 |
 | Second SIM or hotspot | Another independent connection | Plan dependent |
-| Bonding encoder and server | Aggregated network capacity | Hundreds plus service |
+| Dedicated bonding encoder or service | More links and managed bonding | Hundreds plus service |
 
 Prices vary, so treat these as categories rather than a shopping list. Buy the
 next row only when your test identifies that exact limitation.
@@ -98,19 +102,21 @@ when overlays are central to the show. They are unnecessary when the desired
 output is simply the phone camera. Compare that tradeoff in our
 [IRLToolkit alternatives guide](/blog/irltoolkit-alternative).
 
-## Duplication is not bonding
+## Bonding is optional, and it is not all the same
 
-VISP can duplicate packets across Wi-Fi and cellular. If one path disappears,
-packets arriving through the other path can keep the stream alive. Duplication
-does not combine two weak links into one faster link: the complete stream still
-has to fit through either connection.
+The VISP iOS and Android apps include optional network bonding, off by default.
+Its default **SRTLA (aggregating)** mode spreads one stream over Wi-Fi and
+cellular, so two modest links can carry more than either alone. **Broadcast**
+mode instead duplicates every packet over both links: if one path disappears,
+the other keeps the stream alive, but the complete stream still has to fit
+through either connection and mobile data use roughly doubles.
 
-True bonding divides or coordinates traffic across multiple links. It is useful
-on difficult routes, but it requires extra hardware or software and usually a
-server. Do not pay for it because IRL streamers on different routes use it. Pay
-for it after logs or repeated tests show that no single available connection can
-carry your target bitrate. The [bonding comparison](/blog/bond-cellular-wifi-visp-speedify)
-explains the difference in detail.
+Either way, bonding needs a second usable connection, such as a second SIM,
+a hotspot, or venue Wi-Fi, and that connection may cost money. Do not pay for
+it because IRL streamers on different routes use it. Pay for it after logs or
+repeated tests show that no single available connection can carry your target
+bitrate. The [bonding comparison](/blog/bond-cellular-wifi-visp-speedify)
+explains the options in detail.
 
 ## Test the setup like a real broadcast
 

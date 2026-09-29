@@ -4,35 +4,38 @@ description: Hosts, clients, media authentication, hooks, reconciliation, snapsh
 icon: Network
 ---
 
-VISP is a control plane wrapped around MediaMTX. The relay moves media without
-transcoding it; the app decides who may connect and tracks what is live.
+VISP is a control plane wrapped around MediaMTX. The relay moves the
+contribution feed without transcoding it and, for Direct, runs the distribution
+encode to each platform; the app decides who may connect and tracks what is live.
 
 ## Hosts and clients
 
 | Piece | Runs | Responsibility |
 | --- | --- | --- |
-| Relay hosts | MediaMTX, Caddy, snapshot hook | SRT/RTMP/WebRTC ingest and read, HTTPS RTT probe, per-path JPEG snapshots |
+| Relay hosts | MediaMTX, `srtla_rec`, `visp-bond`, Caddy, snapshot hook | SRT/SRTLA/RTMP/WebRTC ingest and read, Direct FFmpeg forwarders and BRB card, HTTPS RTT probe, per-path JPEG snapshots |
 | Managed compositor | Bun worker, Chromium, FFmpeg | Pulls the last saved Cloud Studio graph and publishes a program feed for Direct |
-| App host | PostgreSQL, Elysia/tRPC API, portal, admin console | Twitch, Kick, and Google login, support operations, path and credential state, MediaMTX authentication, OBS control |
+| App host | PostgreSQL, Elysia/tRPC API, portal, admin console, static web apps | Twitch, Kick, Google, and Apple login, support operations, path and credential state, MediaMTX authentication, OBS control |
 | Native app | iOS and Android | SRT camera publishing, chat, stream metadata, OBS controls, Watch companion |
 | Browser app | `stream.visp-stream.com` | WebRTC (WHIP) camera publishing from a browser |
 | OBS Remote | `remote.visp-stream.com` (also iOS/Android) | Dedicated stream and scene control surface using the broadcaster's VISP account |
 | OBS plugin | Broadcaster's OBS Studio 31 | Device management, Media Source setup, and outbound-only remote control |
 
 The hosts talk over Tailscale for administration and each MediaMTX Control API.
-Media uses the assigned relay's public SRT (UDP 8890), RTMP (TCP 1935), and WebRTC
-(UDP/TCP 8189) ports.
+Media uses the assigned relay's public SRT (UDP 8890), SRTLA (UDP 5000), bonded
+SRT (UDP 8891), RTMP (TCP 1935), and WebRTC (UDP/TCP 8189) ports.
 
 ## Media authentication
 
 MediaMTX asks the app before every new connection by calling
 `POST /api/mediamtx/auth`:
 
-1. Localhost RTSP reads are allowed without credentials — this is the snapshot
-   hook reading its own relay.
+1. Localhost RTSP connections (snapshot, Direct, and compositor processes on
+   the relay) must present a per-path credential derived from
+   `STUDIO_MEDIA_PASSWORD`; they may read, and publish only to their own
+   `studio/` or `direct/` path.
 2. Everything else must present a username and password.
 3. Allowed combinations are SRT publish/read, RTMP publish/read, and WebRTC
-   publish. Other protocols and actions are rejected.
+   publish/read. Other protocols and actions are rejected.
 4. For Direct publishes, the app atomically reserves relay encoder capacity.
 5. The app verifies the credential against the matching Argon2id hash and
    answers allow or deny.
@@ -122,8 +125,9 @@ published — no transcode, no provider stream key.
 
 VISP Direct is the one exception and the default Twitch/Kick/YouTube output. When a
 device owns a Direct destination, the relay runs
-a full distribution encode per destination (H.264 + AAC stereo, never a stream
-copy). At stream start it retrieves a Twitch or Kick key through OAuth consent,
+a full distribution encode (H.264 + AAC stereo, never a stream copy); outputs
+with matching settings share one encode, with a separate FFmpeg forwarder per
+destination. At stream start it retrieves a Twitch or Kick key through OAuth consent,
 or creates a public YouTube broadcast and obtains its RTMPS ingest destination.
 The destination is passed to the forwarding process and never returned to a
 client app or stored as a separate database value. What OBS reads stays the

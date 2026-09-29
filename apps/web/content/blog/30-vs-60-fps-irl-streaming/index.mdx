@@ -2,14 +2,15 @@
 title: "30 FPS vs 60 FPS for IRL Streaming: Which Should You Use?"
 description: "Choose 30 or 60 FPS for a phone IRL stream based on motion, mobile bandwidth, battery, low light, OBS output, and real route tests."
 publishedAt: 2026-08-23
+updatedAt: 2026-09-28
 coverAlt: "An IRL creator holds a phone beside two flowing frame sequences that compare steady 30 FPS with faster 60 FPS motion"
 ---
 
 For most phone IRL streams, **start at 30 FPS**. It is the safer choice for
 walking, chatting, travel, long sessions, cellular upload, and dim venues. Use
 60 FPS when fast motion is central to the show—sports, cycling, rides, or quick
-camera moves—and only after the phone, field connection, OBS computer, and
-public Twitch or Kick output all pass a realistic test.
+camera moves—and only after the phone, field connection, OBS computer if you
+use one, and public Twitch or Kick output all pass a realistic test.
 
 That choice is not about chasing the largest number. Frame rate is one part of
 a complete phone-to-viewer path, and 60 FPS asks every part of that path to
@@ -94,7 +95,8 @@ Before keeping it, verify all four conditions:
 1. The selected phone camera and resolution actually offer 60 FPS.
 2. The real mobile route can sustain the higher contribution target with
    margin while moving.
-3. OBS can render and encode the complete production at 60 FPS without lag.
+3. If you produce in OBS, it can render and encode the complete production at
+   60 FPS without lag.
 4. The final Twitch or Kick program is also configured for 60 FPS.
 
 OBS's [overview guide](https://obsproject.com/kb/obs-studio-overview) says its
@@ -110,8 +112,10 @@ recording—has been tested and genuinely needs the extra frames.
 ## How VISP handles frame rate
 
 Open **Settings → Camera** in the VISP phone app while the stream is stopped.
-Choose the camera and resolution first, then select one of the frame rates the
-device reports for that exact combination. VISP does not invent a universal
+The **Stream quality** presets (**Reliable · 720p30**, **Balanced · 1080p30**,
+**Motion · 1080p60**) appear only when the camera supports them. For anything
+else, choose the camera and resolution first, then select one of the frame
+rates the device reports for that exact combination. VISP does not invent a universal
 60 FPS option: its native capture modules inspect camera formats and supported
 rate ranges, and Android also checks hardware encoder support before showing a
 choice.
@@ -128,10 +132,14 @@ logic](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats
 allows a higher ceiling for 1080p at 50/60 FPS than for 1080p30. That is a
 ceiling, not a promise that a mobile connection can sustain it.
 
-For the normal phone-to-OBS workflow, the relay does not transcode the feed.
-OBS receives the H.264/AAC contribution the phone published. With VISP Direct,
-the relay makes a separate distribution encode for each selected platform, so
-the phone contribution and the public platform encode remain separate stages.
+With VISP Direct, the default output, the relay makes a separate distribution
+encode for each selected platform, so the phone contribution and the public
+platform encode remain separate stages. The hosted relay's Direct encode runs
+at 30 FPS by default, so a 60 FPS contribution does not reach Direct viewers as
+60 FPS unless the relay operator changes that setting. In the optional
+relay-to-OBS workflow,
+the relay does not transcode the feed: OBS receives the H.264/AAC contribution
+the phone published, and the OBS output sets the public frame rate.
 
 ## Test 30 and 60 FPS on the route you will stream
 
@@ -145,8 +153,8 @@ For each run:
    guide](/blog/best-bitrate-irl-streaming-phone-obs).
 2. Walk the weak part of the route for at least ten minutes.
 3. Watch VISP's live bitrate, RTT, and loss for the phone-to-relay checkpoint.
-4. In OBS, inspect network dropped frames, rendering lag, and encoding lag
-   separately.
+4. If you use OBS, inspect network dropped frames, rendering lag, and
+   encoding lag separately.
 5. Watch the public Twitch or Kick player from a muted second connection.
 6. Repeat at 60 FPS without changing several other settings at once.
 

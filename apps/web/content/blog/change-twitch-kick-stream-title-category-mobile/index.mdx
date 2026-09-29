@@ -2,6 +2,7 @@
 title: "How to Change Twitch and Kick Stream Titles and Categories on Mobile"
 description: "Change Twitch and Kick stream titles and categories from your phone, keep both channels accurate during IRL streams, and verify every update."
 publishedAt: 2026-08-16
+updatedAt: 2026-09-29
 coverAlt: "An IRL creator in a city square taps a text-free stream-information interface on a phone mounted to a handheld gimbal"
 ---
 
@@ -94,12 +95,13 @@ The permissions are specific:
 - Kick uses `channel:write`. Kick documents it for updating livestream
   metadata through its [Channels API](https://docs.kick.com/apis/channels).
 
-Neither permission is a stream key. In the normal phone-to-OBS workflow, the
-Twitch or Kick destination and key remain in OBS. VISP's relay still forwards
-the H.264/AAC contribution without transcoding it. With
-[VISP Direct](/blog/what-is-visp-direct), the relay owns the platform output,
-but the metadata edit is still a separate authenticated API request rather
-than a change to the video connection.
+Neither permission is a stream key. With [VISP Direct](/blog/what-is-visp-direct),
+the default output, the relay runs the platform output and resolves the stream
+key server-side; the phone never receives it. If you route the phone into your
+own OBS instead, the Twitch or Kick destination and key stay in OBS and the
+relay forwards the H.264/AAC contribution without transcoding it. Either way,
+the metadata edit is a separate authenticated API request, not a change to the
+video connection.
 
 If the authorization prompt appears again after you previously approved it,
 approve the current scope instead of assuming the camera is broken. Provider
@@ -151,13 +153,13 @@ operations.
 Meanwhile the video keeps following whichever production path you already
 chose:
 
+- With Direct, VISP continues its existing destination encodes. Editing the
+  title does not add an encode or move the feed.
 - In a [phone-through-OBS Twitch workflow](/blog/twitch-phone-through-obs),
   the phone contribution continues through the VISP relay into home OBS, and
   OBS continues sending the finished program to Twitch.
 - In the equivalent [Kick phone-through-OBS workflow](/blog/kick-phone-through-obs),
   OBS retains scenes, alerts, fallback, and the Kick destination.
-- With Direct, VISP continues its existing destination encodes. Editing the
-  title does not add an encode or move the feed.
 
 This separation matters in troubleshooting. If the new title fails but video
 is healthy, do not change SRT latency, bitrate, or the OBS Media Source. Check
@@ -182,7 +184,7 @@ category again, and submit. A category carrying only one platform badge is not
 a partial failure; it means the other catalog did not return the same named
 category.
 
-For an operator-assisted show, VISP's relay-side chat bot offers another narrow
+For an operator-assisted show, VISP's optional server-side chat bot offers another narrow
 tool: the broadcaster or a moderator can use `!title <text>` to update the
 shared title. It does not choose a category, so use it for a quick retitle and
 keep the **Info** sheet for catalog changes. The setup and limits are covered
@@ -209,7 +211,7 @@ When the program changes:
 If only one platform is in use, its native dashboard may remain the shortest
 route. If Twitch and Kick are carrying the same IRL show, one carefully checked
 VISP update removes a dashboard round trip while keeping the platform accounts,
-media path, and OBS production in their proper places.
+media path, and any OBS production in their proper places.
 
 See the [VISP phone app documentation](https://docs.visp-stream.com/docs/phone-app)
 for the current camera, chat, stream-info, and OBS controls. When you are ready

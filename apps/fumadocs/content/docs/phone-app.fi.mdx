@@ -18,21 +18,23 @@ Sovellus näyttää, milloin kamera julkaisee ja milloin alustalähtö on suoran
 
 ## Verkkoyhteyksien yhdistäminen
 
-iOS- ja Android-sovellukset voivat lähettää samat SRT-paketit yhtä aikaa
-Wi-Fi- ja mobiiliyhteyden kautta. Välityspalvelin käyttää ensimmäisenä
-saapunutta kopiota ja poistaa kaksoiskappaleet. Ominaisuus parantaa
-toimintavarmuutta, mutta ei yhdistä yhteyksiä yhdeksi nopeammaksi yhteydeksi.
+iOS- ja Android-sovellukset voivat lähettää yhtä aikaa Wi-Fi- ja
+mobiiliyhteyden kautta. Toiminto on oletuksena pois päältä. Ota se käyttöön
+kohdasta **Settings → Network → Network bonding** ja valitse **Mode**:
 
-Ota toiminto käyttöön kohdasta **Asetukset → Verkko → Verkkoyhteyksien
-yhdistäminen**. **Broadcast** pitää molemmat yhteydet aktiivisina. Kohdassa
-**Lisäasetukset** voit valita **Pääyhteys + varayhteys**, jolloin Wi-Fi on
-ensisijainen ja mobiiliyhteys otetaan käyttöön pääyhteyden katketessa.
-Lähetysnäkymä näyttää Wi-Fin ja mobiiliyhteyden erikseen ja ilmoittaa, jos vain
-toinen on käytettävissä.
+- **SRTLA (aggregating)** on oletus. Se lähettää jokaisen paketin kerran sille
+  yhteydelle, joka kantaa parhaiten, joten molemmat yhteydet tuovat lisää
+  pelivaraa.
+- **Broadcast** lähettää jokaisen paketin molempia yhteyksiä pitkin, ja
+  välityspalvelin käyttää ensimmäisenä saapuneen kopion. Tämä parantaa
+  toimintavarmuutta, mutta voi noin kaksinkertaistaa mobiilidatan käytön.
+  Sovellus varoittaa ennen ensimmäistä Broadcast-lähetystä.
+- **Main + backup** suosii Wi-Fiä ja ottaa mobiiliyhteyden käyttöön
+  pääyhteyden katketessa.
 
-Toiminto voi noin kaksinkertaistaa mobiilidatan käytön. Sovellus varoittaa
-ennen ensimmäistä yhdistettyä lähetystä. Kun toiminto ei ole käytössä, julkaisu
-jatkuu entiseen tapaan suoraan UDP-porttiin 8890.
+Sovellus näyttää Wi-Fin ja mobiiliyhteyden erikseen ja ilmoittaa, jos vain
+toinen on käytettävissä. Kun toiminto ei ole käytössä, julkaisu menee suoraan
+UDP-porttiin 8890.
 
 ## Lähetyksen aikana
 
@@ -46,4 +48,4 @@ sovellusta käytettäessä. Audio-asetuksissa voi käyttää ääneneristystä j
 suomen- tai englanninkielisen tekstityksen kuvaan. Pilvipohjaiset paremmat
 vaihtoehdot näkyvät vain tileillä, joille ne on otettu käyttöön.
 
-OBS-etäohjaus näkyy vasta, kun [VISP OBS -lisäosa on yhdistetty](/fi/docs/obs-remote-control).
+Valinnainen OBS-etäohjaus näkyy vasta, kun [VISP OBS -lisäosa on yhdistetty](/fi/docs/obs-remote-control).

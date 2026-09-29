@@ -2,7 +2,7 @@
 title: "How to Use IRL Pro With OBS Over SRT or SRTLA"
 description: "Connect IRL Pro on Android to OBS through VISP, choose plain SRT or bonded SRTLA, protect credentials, and test mobile recovery."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-28
 coverAlt: "An Android phone sends cellular and Wi-Fi paths through a protected relay into a home production workstation"
 ---
 
@@ -52,9 +52,10 @@ the architecture: the sender distributes one SRT stream across links, and the
 receiver rebuilds the coherent stream for a normal SRT application. SRTLA is
 not merely two complete simultaneous uploads.
 
-VISP's current relay accepts SRTLA on UDP 5000. This is separate from VISP
-Native's optional dual-link mode, which duplicates packets without combining
-capacity. IRL Pro using the SRTLA URL is the true multipath case covered here.
+VISP's current relay accepts SRTLA on UDP 5000. VISP Native's optional network
+bonding uses the same receiver: its default **SRTLA (aggregating)** mode
+combines Wi-Fi and cellular capacity. Here, IRL Pro is the sender doing the
+multipath work.
 
 Start with plain SRT if one connection already has comfortable margin. SRTLA
 adds value when a second independent route addresses measured congestion,
@@ -77,15 +78,22 @@ operator can restore them without exposing credentials.
 
 ## 1. Create a dedicated IRL Pro source
 
-Sign in to VISP, open **Video sources**, choose **Add device**, and use a stable
-name such as “Android roaming camera.” One device equals one publishing path.
+Sign in to VISP, open the dashboard **Devices** tab, enter a **Device name**
+under **Video sources** such as “Android roaming camera,” and choose **Add
+device**. One device equals one publishing path.
 Do not share that path with a second phone: only one publisher can own it at a
 time, and separate devices are easier to revoke and monitor.
 
 For plain SRT, copy the default value beside **Add this to video source**. For
-SRTLA, switch the dashboard to **Advanced**, open the device, and reveal the
-SRTLA URL. The current [encoder documentation](https://docs.visp-stream.com/docs/broadcaster-setup)
+SRTLA, turn on **Show RTMP and SRTLA fallback URLs** on the same tab, open the
+device, and choose **Bonding two connections with BELABOX or Moblin? Show the
+SRTLA URL**. The current [encoder documentation](https://docs.visp-stream.com/docs/broadcaster-setup)
 shows the format and UDP 5000 receiver port.
+
+Because OBS makes the final output in this guide, open the **Mode** menu in
+the dashboard header and choose **Phone to your OBS**. Direct is the default
+mode; if it stays on, the relay also sends this source to your connected
+platforms, and OBS streaming to the same channel would collide with it.
 
 Treat the complete URL as a password. Its stream ID includes the device's
 publishing authority. Do not show it on stream, include it in a public QR code
@@ -166,8 +174,10 @@ split evenly. The goal is a healthy coherent stream, not identical counters.
 
 ## 6. Add the IRL Pro source to OBS
 
-IRL Pro uses the publish URL. OBS uses the separate read URL. Reveal the OBS
-address in VISP or download the generated scene collection. To configure it
+IRL Pro uses the publish URL. OBS uses the separate read URL. On the dashboard
+tab that holds **OBS read credentials** (labeled **OBS** in OBS mode), choose
+**Generate OBS credentials** or **Reveal read URLs**, or use **Download OBS
+collection** for the generated scene collection. To configure it
 manually:
 
 1. Add a **Media Source** in OBS.
@@ -223,7 +233,7 @@ that path records cleanly, switch to the generated SRTLA URL, add the second
 network and run the one-link-at-a-time failure drill. This order gives every
 failure a clear cause.
 
-If IRL Pro is your preferred Android encoder, [try VISP](https://app.visp-stream.com)
+If IRL Pro is your preferred Android encoder, [try VISP](https://visp-stream.com)
 with a named test source and keep the Twitch or Kick destination in OBS. You
 will know from the rehearsal whether plain SRT is already enough or whether
 SRTLA is solving a measured mobile-network problem.

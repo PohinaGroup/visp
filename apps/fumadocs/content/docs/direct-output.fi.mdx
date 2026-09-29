@@ -16,26 +16,31 @@ Ilman Directiä laitteesi tekee koodauksen ja relay välittää bittivirran
 OBS:lle koskematta siihen. Kun Direct on käytössä laitteella:
 
 - laitteesi koodaa edelleen, koska SRT tarvitsee pakatun syötteen;
-- relay ajaa **erillisen jakelukoodauksen jokaiselle kohteelle** — H.264-video
-  ja stereo-AAC-ääni, aina uudelleenkoodattuna, ei koskaan kopioituna;
+- relay ajaa **jakelukoodauksen** — H.264-video ja stereo-AAC-ääni, aina
+  uudelleenkoodattuna, ei koskaan kopioituna; saman rajauksen kohteet jakavat
+  yhden koodauksen, pystykuva ja muut rajaukset saavat omansa;
 - jokainen kohde on oma prosessinsa, joten yhden alustan vika ei keskeytä
   toista.
 
 VISP Native käyttää Directissä pienempää syötteen bittinopeutta, mutta 1080p on
 edelleen valittavissa; alustan kuvanlaatu tulee relayn koodauksesta.
 
-Jokainen valittu alusta käyttää oman välityspaikan ja koodauksen. Usean alustan
+Jokainen valittu alusta käyttää oman välityspaikan. Usean alustan
 valinta kasvattaa relayn kuormitusta, mutta ei lisää puhelimen lähetyksiä.
 
 ## Missä ohjelma tehdään
+
+Valinta näkyy vain, jos palvelimella on Cloud Studio käytössä. Muuten Direct
+välittää syötteesi sellaisenaan.
 
 - **Cloud Studio** polttaa web-Studiossa viimeksi tallennetun näkymän Directin
   ohjelmaan. Käytössä on enintään kolme näkymää, kahdeksan tasoa näkymää kohden,
   kaksi julkista HTTPS-selainlähdettä ja yksi VISP-hälytystaso. Tallentamattomat
   muutokset eivät päädy lähetykseen. Native käyttää viimeksi tallennettua ohjelmaa
   ja avaa muokkauksen webissä.
-- **Käytän OBS:ää** säilyttää nykyisen työnkulun. VISP ei ylläpidä OBS:ää, vaan
-  oma OBS vastaa näkymistä, päällyksistä, lisäosista ja alustalähdöstä.
+- **Käytän OBS:ää** (oletus) ohittaa Cloud Studion. VISP välittää syötteesi
+  alustoille koskematta siihen, joten katsojat näkevät sen, minkä laitteesi tai
+  oma OBS:si kokosi. VISP ei ylläpidä OBS:ää.
 
 Esikatselu on tavallisesti alle kolme sekuntia kamerasyötettä jäljessä, ja
 tallennettu muutos tulee tavallisesti käyttöön alle kahdessa sekunnissa. Nämä
@@ -45,20 +50,23 @@ vain kameran, yrittää uudelleen ja säilyttää tallennetut näkymät.
 ## Käyttöönotto
 
 1. Valitse käyttöönotossa Twitch, Kick tai YouTube ja valtuuta lähetys. Nykyinen käyttäjä
-   voi avata hallintapaneelista **Direct output**.
-2. Valitse kohteen vierestä **Authorize streaming**. VISP pyytää
+   voi avata hallintapaneelin **Kohteet**-välilehden.
+2. Valitse kohteen vierestä **Valtuuta lähetys**. VISP pyytää
    samalla kaikki aiemmin myöntämäsi oikeudet, joten Directin valtuutus ei
    koskaan katkaise chattia tai otsikon ja kategorian muokkausta.
 3. Ota laitteelle käyttöön haluamasi yhdistelmä kohteista **Twitch**, **Kick** ja **YouTube**.
 
-Asetus tallennetaan tilin oletukseksi. Uusin laite ottaa kohteet omistukseensa
+Asetus tallennetaan tilin oletukseksi. Lähtöjä voi muuttaa vain, kun laite ei
+julkaise, ja vähintään yhden on oltava päällä; Directin saa pois vaihtamalla
+hallintapaneelin **Tila**-valikosta **Puhelimesta omaan OBS:ään**. Uusin laite ottaa kohteet omistukseensa
 Go Live -painalluksella, kun edellinen omistaja on offline. Käynnissä olevaa
 lähetystä ei koskaan keskeytetä automaattisesti.
 
 ## Vaaka- ja pystylähtö samanaikaisesti
 
-Kun pystysuuntainen Direct-lähtö on käytössä tilillä, voit lisätä erillisen
-**Pysty**-kohteen hallintapaneelista tai puhelimen asetuksista. Valitse **Lisää
+Pystylähtö on valinnainen, ja ylläpitäjä ottaa sen käyttöön tilikohtaisesti.
+Kun se on käytössä, voit lisätä erillisen **Pysty**-kohteen hallintapaneelin
+**Kohteet**-välilehdeltä tai puhelimen lähetysasetuksista. Valitse **Lisää
 pystylähtö**, sijoita 9:16-rajaus vaakasuuntaisen syötteen päälle ja tallenna.
 Vaakalähtö pysyy ennallaan, ja pystylähtö rajataan sekä skaalataan kokoon
 1080×1920.
@@ -80,7 +88,9 @@ Relay-OBS-polku on ennallaan eikä koske lähetysavaimeen lainkaan.
 
 ## OBS samaan aikaan
 
-OBS voi edelleen lukea syötettä tarkkailuun tai tallennukseen. Älä kuitenkaan
+OBS on Directin kanssa valinnainen. Jos haluat OBS:n lukevan syötettä
+tarkkailuun tai tallennukseen, hae **OBS-lukutunnukset** hallintapaneelin
+**Kohteet**-välilehdeltä. Älä kuitenkaan
 ohjaa OBS:ää alustalle, jonka Direct jo omistaa — se on kaksi julkaisijaa
 yhdellä lähetysavaimella.
 
@@ -104,7 +114,7 @@ Jokainen kohde näyttää oman tilansa ja viimeisen virheensä laitteen alla.
 
 - **Alusta ei vastaa.** VISP yrittää uudelleen ja jättää toisen kohteen käyntiin.
 - **Lupa peruttiin alustalla.** Kohde epäonnistuu ja kortti tarjoaa
-  **Reauthorize**-painiketta.
+  **Valtuuta uudelleen** -painiketta.
 - **"Direct is at capacity."** Relay on rajallaan. Relay-OBS-polku toimii
   edelleen; kokeile Direct-lähtöä hetken kuluttua uudelleen.
 - **VISP ei ole tavoitettavissa laitteen yhdistäessä.** Direct-lähtöä ei

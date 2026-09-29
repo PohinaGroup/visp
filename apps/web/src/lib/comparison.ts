@@ -57,7 +57,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Cellular bonding",
 		cells: [
-			"SRTLA ingest — not in the app yet",
+			"Yes — SRTLA ingest, optional Wi-Fi + cellular in the app",
 			"Yes — SRTLA ingest",
 			"Yes — SRTLA ingest",
 			"Yes — SRTLA ingest",
@@ -120,7 +120,7 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Mobiiliyhteyksien niputus",
 		cells: [
-			"SRTLA-vastaanotto — ei vielä sovelluksessa",
+			"Kyllä — SRTLA, valinnainen Wi-Fi + mobiili sovelluksessa",
 			"Kyllä — SRTLA",
 			"Kyllä — SRTLA",
 			"Kyllä — SRTLA",

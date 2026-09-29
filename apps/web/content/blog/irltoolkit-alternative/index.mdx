@@ -2,6 +2,7 @@
 title: "IRLToolkit Alternatives: What You Pay For, and When Free Is Enough"
 description: "Compare IRLToolkit's cloud OBS pricing with cheaper relay services and free options, and find the IRL streaming setup that matches how you actually stream."
 publishedAt: 2026-08-09
+updatedAt: 2026-09-29
 coverAlt: "A price comparison card showing the VISP signal chain from phone through relay and Direct to a streaming platform"
 ---
 
@@ -25,18 +26,19 @@ This post is about telling those two situations apart.
 | Price | Free during beta | $129–179 / mo | $120–180 / mo | $10–20 / mo | Hardware + your own server |
 | Computer at home | Not needed | Not needed — cloud OBS | Not needed — cloud OBS | Required — you run OBS | Required — you run OBS |
 | Phone app included | iOS, Android, browser | Bring your own encoder | Bring your own encoder | Bring your own encoder | Dedicated hardware encoder |
-| Cellular bonding | SRTLA ingest — not in the app yet | Yes — SRTLA ingest | Yes — SRTLA ingest | Yes — SRTLA ingest | Yes — SRTLA, its own protocol |
+| Cellular bonding | Optional in the app (Wi-Fi + cellular, SRTLA); relay accepts any SRTLA sender | Yes — SRTLA ingest | Yes — SRTLA ingest | Yes — SRTLA ingest | Yes — SRTLA, its own protocol |
 | Scenes and overlays | Chat overlay; scenes in your own OBS | Cloud OBS included | Cloud OBS included | Your own OBS | Your own OBS |
-| Drop protection | BRB card from the relay, plus a chat alert | Holding screen, moderator-driven | Holding screen, moderator-driven | Your own OBS | Your own OBS |
+| Drop protection | Optional BRB card from the relay, plus an optional chat alert | Holding screen, moderator-driven | Holding screen, moderator-driven | Your own OBS | Your own OBS |
 | Source available | GPL-2.0, self-hostable | Closed | Closed | Closed | Open source |
 
 Public list prices, checked 14 August 2026.
 
-Read the bonding row before the price row. VISP's relays accept SRTLA, so a
-BELABOX box or Moblin can aggregate Wi-Fi and two SIMs into one VISP stream
-today. What VISP's own phone app cannot do is bond by itself — it duplicates
-packets across links, which survives a dropout but does not add bandwidth. If
-you need aggregation and do not want to carry a second encoder, that gap is
+Read the bonding row before the price row. VISP's phone app can bond the
+phone's own Wi-Fi and cellular links: turn on **Network bonding** and the
+default **SRTLA (aggregating)** mode spreads the stream across both. That is two
+links. VISP's relays also accept SRTLA from other senders, so a BELABOX box or
+Moblin can aggregate Wi-Fi and two SIMs into one VISP stream. If you need more
+links than one phone has and do not want to carry a second encoder, that gap is
 real. Skip to [when to pay](#when-paying-is-the-right-call).
 
 ## What the $129 actually buys
@@ -66,15 +68,16 @@ to Twitch, Kick, or YouTube. The computer at home stays off, and there is no OBS
 in the path unless you want one.
 
 That covers the first item on the list above, and covers it for free during the
-beta. It does not give you cloud scenes, and the phone app does not aggregate
-bandwidth — though the relay will accept an SRTLA sender that does.
+beta. It does not give you cloud OBS scenes, and the phone app's bonding is
+limited to the phone's Wi-Fi and cellular links — though the relay will accept
+an SRTLA sender with more.
 
 Three things it does that the paid services do not:
 
 - **The phone app is part of the product.** iOS, Android, and a browser publisher,
   rather than "configure Larix or Moblin yourself." Details in the
   [phone app docs](https://docs.visp-stream.com/docs/phone-app).
-- **Chat is told when the signal drops.** The relay knows the difference
+- **Chat is told when the signal drops.** VISP knows the difference
   between a dropout it is holding on a BRB card and a stream that ended, and
   posts the right one to Twitch, Kick, and YouTube chat. Details in
   [IRL chat bot alerts](/blog/irl-chat-bot-alerts-without-a-pc).
@@ -93,12 +96,11 @@ is additive rather than a different product.
 
 Be honest about which of these describe you:
 
-- **You need bonding from one pocket-sized device.** VISP's native app
-  duplicates packets across Wi-Fi and cellular, which survives one link dropping,
-  but two half-speed connections do not add up to one fast one. Point a BELABOX
-  box or Moblin at VISP's SRTLA port and you get real aggregation for free — if
-  carrying that second encoder is not an option, buy a service that bonds inside
-  its own app.
+- **You need more than two links from one pocket-sized device.** VISP's native
+  app can bond one phone's Wi-Fi and cellular with SRTLA, which adds their
+  capacity, but it cannot add extra SIMs or modems. Point a BELABOX box or Moblin
+  with more links at VISP's SRTLA port and you get that aggregation for free — if
+  carrying that second encoder is not an option, buy a service built around it.
 - **A moderator runs your production while you walk.** Cloud OBS with dashboard
   access is built for exactly this.
 - **Your show is scene-heavy and you are never near a computer.** Cloud OBS.
@@ -121,8 +123,8 @@ from the phone app or the browser, and see whether the missing pieces actually
 matter to your show. If they do, the paid services are still there, and you will
 know precisely which feature you are buying instead of guessing.
 
-If it turns out you need bonding, we would rather you spent the money on a
-BELABOX box than on a subscription — it publishes straight into VISP over SRTLA,
+If it turns out you need more bonding than one phone's two links, we would
+rather you spent the money on a BELABOX box than on a subscription — it publishes straight into VISP over SRTLA,
 and [our comparison of BELABOX and LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo)
 covers where each one fits. Setup is in the
 [broadcaster setup docs](https://docs.visp-stream.com/docs/broadcaster-setup).
@@ -166,8 +168,9 @@ may offer more convenience and support. Neither property automatically wins,
 but it changes what happens if pricing, limits, or your production needs change.
 
 The practical answer is therefore deliberately narrow: use VISP while transport
-and direct delivery are enough, with a BELABOX box in front of it if the route
-demands bonding. Pay IRLToolkit, Streamable.run, or another specialist when the
-show actively uses a remotely operated studio, or when you want bonding without
-carrying a separate encoder. That boundary keeps the free setup honest and makes
+and direct delivery are enough, with the app's Wi-Fi + cellular bonding or a
+BELABOX box in front of it if the route demands more. Pay IRLToolkit,
+Streamable.run, or another specialist when the show actively uses a remotely
+operated studio, or when you want multi-modem bonding without carrying a
+separate encoder. That boundary keeps the free setup honest and makes
 the subscription easy to justify when you cross it.

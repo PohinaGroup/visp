@@ -107,7 +107,8 @@ pystyä ohjaamaan yhdistettyä OBS-instanssia. Jos tietokone tai asetustiedosto
 paljastuu, kierrätä OBS-tunnus VISPissä ja tee yhdistäminen uudelleen. Kierrätys
 katkaisee vanhojen lisäosa-asetusten yhteyden heti tai niiden seuraavalla tilaraportilla.
 
-Hallintapaneelin pitäisi näyttää tila **Connected** muutamassa sekunnissa. Jos
+OBS-tilassa hallintapaneelin **OBS**-välilehden pitäisi näyttää tila
+**Yhdistetty** muutamassa sekunnissa. Jos
 näin ei käy, varmista, että OBS-kone pääsee VISP-sovelluksen julkiseen
 osoitteeseen HTTPS:llä. Saapuvan yhteyden testiä tai reitittimen porttiskannausta
 ei tarvita.
@@ -128,6 +129,10 @@ Komento vaihtaa ohjelmassa näkyvän kohtauksen, ei Studio Moden yksityistä
 esikatselua. Jos tuottaja valmistelee parhaillaan siirtymää esikatselussa, sovi
 puhelinohjauksesta etukäteen. Etäohjaus ei myöskään avaa OBS:n äänimikseriä,
 joten testattujen kohtausten pitää jo tuottaa haluttu mikrofonitila.
+
+Jos tarvitset myös tallennuksen, tallennuksen tauon, replay bufferin tai
+virtuaalikameran kytkimet, avaa erillinen [OBS Remote](https://remote.visp-stream.com)
+-sovellus. Se käyttää samaa yhdistettyä lisäosaa ja lähtevää yhteyttä.
 
 ## 4. Testaa käynnistys ja pysäytys harkitusti
 
@@ -209,11 +214,11 @@ AAC-ääntä SRT:llä samalla kun ohjauspyynnöt kulkevat sovellusrajapinnan ja
 OBS-lisäosan todennetun WSS-yhteyden kautta. OBS koostaa edelleen valmiit kohtaukset ja
 lähettää ohjelman Twitchiin tai Kickiin.
 
-Relay **ei transkoodaa videota eikä summaa verkkoyhteyksien kapasiteettia**.
-VISP Native voi monistaa paketit Wi-Fiin ja mobiiliin, mutta relay ei voi laskea
-liian suurta kamerabittinopeutta välityspalvelimella, yhdistää mobiilidataa ja
-Wi-Fiä yhdeksi vikasietoiseksi siirtotieksi tai viedä ohjauskomentoa täydellisen
-katkoksen yli. Rajat eivät muutu, vaikka ohjaus ja kameralähetys näkyvät samassa
+Tässä relay–OBS-työnkulussa relay **ei transkoodaa videota**. VISP-sovelluksen
+valinnainen verkkobonding voi yhdistää Wi-Fin ja mobiilidatan SRTLA:lla tai
+monistaa paketit molempiin, mutta mikään VISPissä ei voi laskea liian suurta
+kamerabittinopeutta relayllä tai viedä ohjauskomentoa täydellisen katkoksen
+yli. Rajat eivät muutu, vaikka ohjaus ja kameralähetys näkyvät samassa
 puhelinsovelluksessa.
 
 Kohdepalvelun lähetysavain säilyy aktiivisessa OBS-profiilissa. VISP ei tarvitse
@@ -265,8 +270,10 @@ julkaisemista.
 
 ### Voiko puhelimella ohjata äänilähteitä ja suodattimia?
 
-Ei. Nykyinen VISP-puhelinohjaus rajoittuu lähetyksen käynnistykseen tai
-pysäytykseen ja ohjelmakohtauksen valintaan. Rakenna äänikäytös testattuihin
+Ei. VISP-puhelinsovelluksen ohjaus rajoittuu lähetyksen käynnistykseen tai
+pysäytykseen ja ohjelmakohtauksen valintaan. Erillinen OBS Remote -sovellus
+lisää tallennuksen, replay bufferin ja virtuaalikameran kytkimet, mutta
+kumpikaan ei ohjaa äänilähteitä tai suodattimia. Rakenna äänikäytös testattuihin
 kohtauksiin tai käytä monipuolisempaa paikallista OBS-ohjausjärjestelmää.
 
 ### Voiko kohtauksia vaihtaa Apple Watchilla?

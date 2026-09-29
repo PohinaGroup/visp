@@ -13,7 +13,8 @@ broadcast from the home computer.
 That extra stage is useful when the stream needs existing OBS scenes, alerts,
 local microphones, recordings, or a fallback picture. It also keeps the Kick
 stream key at home. If you only need one phone camera and want the fastest
-route live, Kick's own mobile app or a direct mobile encoder is simpler.
+route live, Kick's own mobile app, a direct mobile encoder, or VISP Direct (the
+default VISP output, which encodes to Kick on the relay) is simpler.
 
 ![The phone publishes one contribution feed through VISP to OBS, while OBS sends a separately configured final program to Kick](./kick-phone-obs-path.svg)
 
@@ -30,7 +31,7 @@ broadcast.
 
 | Production need | Better starting route |
 | --- | --- |
-| One phone, minimal setup, no home computer | Kick - Go Live or another direct mobile encoder |
+| One phone, minimal setup, no home computer | Kick - Go Live, another direct mobile encoder, or VISP Direct |
 | Existing OBS scenes, alerts, graphics, and audio | Phone → VISP → OBS → Kick |
 | Local fallback while the phone reconnects | Phone → VISP → OBS → Kick |
 | Kick stream key must stay off the field phone | Phone → VISP → OBS → Kick |
@@ -83,6 +84,11 @@ Open the VISP app on the field phone and choose **Continue with Kick**. The app
 claims a publishing device for that installation and stores its SRT publish
 URL in secure platform storage. You do not normally copy the URL.
 
+VISP starts in Direct mode, where the relay sends to Kick itself. For this
+workflow, open the dashboard, use the **Mode: Direct · change** menu in the
+header, and choose **Phone to your OBS**. Do not leave Direct and OBS both
+publishing to the same Kick channel.
+
 Give the device a name that will still make sense inside OBS, such as
 “roaming phone” or “venue camera.” Each phone should have its own device and
 credential. Sharing one device between phones makes revocation harder and
@@ -106,8 +112,8 @@ work rather than general account access; the
 [OBS remote-control documentation](https://docs.visp-stream.com/docs/obs-remote-control)
 describes the pairing and revocation model.
 
-The manual alternative is to download the generated scene collection from the
-VISP dashboard and import it with **Scene Collection → Import**. It includes a
+The manual alternative is to choose **Download OBS collection** on the
+dashboard's **OBS** tab and import it with **Scene Collection → Import**. It includes a
 fallback scene and one Media Source per current path. If you reveal and paste a
 read URL yourself, protect it like a password. Rotating the account-wide read
 credential invalidates every existing VISP Media Source in OBS.
@@ -119,10 +125,11 @@ before starting the destination broadcast. For moving IRL video on cellular,
 720p30 is a sensible first test. Increase quality only after the actual route
 holds the contribution bitrate with margin.
 
-These are contribution settings, not Kick output settings. VISP does not
-transcode the phone feed to another resolution or bitrate. It also does not
-bond cellular, Wi-Fi, and Ethernet connections. If one carrier or access point
-cannot carry the selected feed, VISP cannot manufacture missing bandwidth.
+These are contribution settings, not Kick output settings. The relay-to-OBS
+path does not transcode the phone feed to another resolution or bitrate. The
+VISP app's optional network bonding can combine Wi-Fi and cellular, but if the
+available links cannot carry the selected feed, VISP cannot manufacture missing
+bandwidth.
 
 Start the phone feed and wait for the device to show **Live** in the dashboard.
 In OBS, inspect motion for several minutes, speak into the real microphone,
@@ -204,8 +211,8 @@ not the phone's SRT latency. Lower the final output bitrate or fix the home
 uplink.
 
 **The phone feed freezes or reconnects while Kick remains live:** that points
-to the contribution leg. Lower the phone bitrate, use the dashboard latency
-probe, and test the actual field network. The
+to the contribution leg. Lower the phone bitrate, use the latency probe on the dashboard's
+**Advanced** tab, and test the actual field network. The
 [mobile-network resilience guide](/blog/keep-stream-live-bad-mobile-network)
 shows how SRT recovery, reconnects, and an OBS fallback work together.
 
@@ -215,9 +222,11 @@ chat, and the Kick destination key are separate access paths.
 
 ## Know what VISP does not replace
 
-VISP is an authenticated SRT/RTMP relay and control plane for contribution
-feeds. It does not host OBS, mix scenes on the server, send the finished
-program to Kick, transcode video, or bond network connections. The phone still
+In this workflow VISP is an authenticated SRT/RTMP relay and control plane for
+contribution feeds. It does not host OBS, and the relay-to-OBS path does not mix
+scenes, transcode video, or send the finished program to Kick. (VISP Direct and
+Cloud Studio do encode and compose on the relay, but then OBS is not the
+program.) The phone still
 encodes the field feed, OBS still builds and encodes the show, and Kick still
 receives the final output directly from OBS.
 

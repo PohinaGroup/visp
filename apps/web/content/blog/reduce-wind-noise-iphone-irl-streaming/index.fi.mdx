@@ -2,6 +2,7 @@
 title: "Näin vähennät tuulen ja taustamelun iPhonen IRL-lähetyksessä"
 description: "Vähennä tuulta ja taustamelua iPhonen IRL-lähetyksessä mikrofonin sijoittelulla, VISPin ääneneristyksellä ja maltillisella OBS-suodatuksella."
 publishedAt: 2026-08-03
+updatedAt: 2026-09-29
 coverAlt: "Ulkona kuvaava iPhone-sisällöntuottaja käyttää tuulisuojattua mikrofonia, josta puhdas ääniaalto kulkee kotistudioon"
 ---
 
@@ -16,7 +17,8 @@ Kun iPhone lähettää kuvan OBS:ään, etene tässä järjestyksessä: estä tu
 pääsemästä mikrofoniin, valitse oikea äänitulo, käytä yhtä tilanteeseen sopivaa
 eristysvaihetta ja arvioi tulos OBS-tallenteesta. Näin ratkaisu pysyy
 ymmärrettävänä myös silloin, kun olet jo ulkona aloittamassa Twitch- tai
-Kick-lähetystä.
+Kick-lähetystä. Jos lähetät VISP Directillä ilman OBS:ää, sama järjestys pätee;
+arvioi tulos silloin alustan testilähetyksestä tai tallenteesta.
 
 ![Tuulta vähennetään ensin mikrofonilla, puhe voidaan eristää iPhonessa, VISP kuljettaa syötteen ja OBS:ssä tehdään lopputarkistus sekä tarvittaessa maltillinen kohinanpoisto](./wind-noise-audio-path.svg)
 
@@ -87,8 +89,8 @@ OBS:ään. Nykyinen tallennus- ja lähetysprosessi kuvataan
 ## 3. Ota VISPin Audio isolation käyttöön iPhonessa
 
 Kun lähetys on pysäytetty, avaa **Settings → Audio** ja ota **Audio isolation**
-käyttöön. Valitsin on tällä hetkellä iOS-ominaisuus, eikä sitä näytetä Android-
-tai selainlähettimessä.
+käyttöön. Android-sovelluksessa on sama valitsin; alempana kuvattu
+palvelimella toimiva **Better audio isolation** on vain iPhonessa.
 
 VISP käyttää tällöin iPhonen paikallista puheenkäsittelyreittiä. Jos iOS avaa
 mikrofonitilojen valinnan, valitse **Voice Isolation**. Applen nykyisen
@@ -208,8 +210,8 @@ Tee nämä ennen lähtöä:
 10. tee lyhyt tarkistus oikeassa paikassa, sillä sisäharjoitus ei toista sen
     tuulta ja yleisöä.
 
-VISP ei pysty luomaan jälkikäteen hyvää mikrofonisignaalia, eikä sen tavallinen
-välitysreitti transkoodaa ääntä tai yhdistä verkkoyhteyksien kapasiteettia. Se
+VISP ei pysty luomaan jälkikäteen hyvää mikrofonisignaalia, eikä sen
+välitysreitti OBS:ään transkoodaa tai puhdista ääntä. Se
 antaa iPhonelle hallitun syötereitin kotistudioon, jossa voit tarkistaa ja
 miksata tuloksen ennen Twitchiä tai Kickiä.
 

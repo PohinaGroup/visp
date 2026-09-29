@@ -8,23 +8,28 @@ should help readers choose the right workflow, including cases where another
 product is the better fit. VISP should not be presented as a universal
 replacement for every mobile-streaming tool.
 
-VISP is a self-hosted SRT/RTMP relay and control plane. It gives publishing
-devices independently revocable access, brings their feeds into OBS, and lets a
-remote creator control OBS without exposing an inbound control port. The native
-app can duplicate packets over Wi-Fi and cellular without aggregating their
-capacity. Relay-to-OBS does not transcode; Direct encodes each destination.
+VISP is a self-hosted SRT/SRTLA/RTMP relay and control plane. It gives
+publishing devices independently revocable access. By default, Direct
+distribution-encodes the feed on the relay and sends it to Twitch, Kick,
+YouTube, or custom RTMP/RTMPS/SRT endpoints, with one forwarder per
+destination. Routing the feed into OBS is optional, and a remote creator can
+control OBS without exposing an inbound control port. The native app has
+optional network bonding (off by default): **SRTLA (aggregating)** combines
+Wi-Fi and cellular capacity, **Broadcast** duplicates packets over both, and
+**Main + backup** fails over. Relay-to-OBS does not transcode; Direct
+re-encodes.
 
 ## Rival map
 
 | Product | Relationship to VISP | Editorial angle |
 | --- | --- | --- |
 | [VDO.Ninja](https://docs.vdo.ninja/) | Direct overlap for bringing remote cameras and guests into OBS | VDO.Ninja is browser-first and commonly uses peer-to-peer WebRTC for very low latency. VISP uses authenticated relay paths and is built around persistent publishing devices feeding a home OBS studio. |
-| [BELABOX](https://belabox.net/) | Direct overlap for IRL contribution to OBS | BELABOX focuses on dedicated or DIY encoders, SRTLA network bonding, dynamic bitrate, and cloud relays. It is the stronger fit when several connections must act as one resilient uplink. |
-| [LiveU Solo](https://solohelp.liveu.tv/hc/en-us/articles/16672822061339-Overview-of-the-Solo-PRO) | Higher-cost hardware alternative for field contribution | LiveU Solo combines a hardware encoder with its cloud bonding service. Compare its appliance workflow and bonding guarantees with VISP's phone-to-existing-OBS workflow, not as if the products have identical scope. |
+| [BELABOX](https://belabox.net/) | Direct overlap for IRL contribution to OBS | BELABOX focuses on dedicated or DIY encoders, SRTLA network bonding, dynamic bitrate, and cloud relays. It is the stronger fit when more links than a phone's Wi-Fi and cellular must act as one resilient uplink. |
+| [LiveU Solo](https://solohelp.liveu.tv/hc/en-us/articles/16672822061339-Overview-of-the-Solo-PRO) | Higher-cost hardware alternative for field contribution | LiveU Solo combines a hardware encoder with its cloud bonding service. Compare its appliance workflow and bonding guarantees with VISP's phone-based Direct or OBS workflows, not as if the products have identical scope. |
 | [Larix Broadcaster](https://softvelum.com/larix/) | Complementary encoder and partial app alternative | Larix is a mature mobile encoder with SRT, RTMP, adaptive bitrate, and other professional controls. It can publish into VISP, so articles should cover the combination as well as the app comparison. |
 | [Moblin](https://github.com/eerimoq/moblin) | Complementary iOS encoder and partial app alternative | Moblin is an open-source IRL streaming app supporting protocols including SRT, SRTLA, RTMP, RIST, and WHIP. Like Larix, it can be a VISP video source instead of an either-or rival. |
-| [Speedify](https://speedify.com/irl-streaming-connection-bonding-software/) | Complementary network layer | Speedify can aggregate connections for any encoder above it. VISP Native already offers duplicate-packet failover, while Speedify remains relevant when capacity aggregation or a system-wide tunnel is required. |
-| [Streamlabs Mobile](https://support.streamlabs.com/hc/en-us/articles/4413175147931-Mobile-Live-Streaming-Guide) | Partial alternative for going live directly from a phone | Streamlabs Mobile emphasizes phone-side overlays and multistreaming. VISP can feed OBS or use Direct for simpler Twitch, Kick, and YouTube output. |
+| [Speedify](https://speedify.com/irl-streaming-connection-bonding-software/) | Complementary network layer | Speedify can aggregate connections for any encoder above it. VISP Native already offers optional SRTLA bonding of Wi-Fi and cellular plus duplicate-packet and backup modes, while Speedify remains relevant for more links, other encoders, or a system-wide tunnel. |
+| [Streamlabs Mobile](https://support.streamlabs.com/hc/en-us/articles/4413175147931-Mobile-Live-Streaming-Guide) | Partial alternative for going live directly from a phone | Streamlabs Mobile emphasizes phone-side overlays and multistreaming. VISP defaults to Direct for simpler Twitch, Kick, YouTube, and custom-endpoint output, and can optionally feed OBS instead. |
 
 ## Launch articles
 
@@ -61,14 +66,15 @@ BELABOX and LiveU Solo are the stronger choices when genuine network bonding
 is required. They can use multiple cellular, Wi-Fi, or wired connections to
 survive an individual link degrading, with BELABOX offering a configurable
 software/hardware ecosystem and LiveU offering an integrated commercial
-appliance and cloud service. VISP Native duplicates packets across two links but
-does not aggregate their capacity, so it should not be marketed as equivalent
-to those managed bonding systems.
+appliance and cloud service. VISP Native can bond one phone's Wi-Fi and
+cellular with SRTLA, but two links in a phone should not be marketed as
+equivalent to those multi-modem and managed bonding systems.
 
-VISP fits creators who already have scenes, alerts, destinations, and an
-operator in OBS and want a phone or browser to become a remote camera without
-rebuilding that studio. The comparison should finish with a simple decision:
-use VISP for an approachable phone-to-home-OBS workflow, BELABOX for flexible
+VISP fits creators who want a phone to go live directly through Direct, or who
+already have scenes, alerts, destinations, and an operator in OBS and want a
+phone or browser to become a remote camera without rebuilding that studio. The
+comparison should finish with a simple decision: use VISP for an approachable
+phone-to-platform or phone-to-home-OBS workflow, BELABOX for flexible
 enthusiast or professional bonded IRL rigs, and LiveU Solo when dedicated
 hardware and a supported bonding service justify the cost.
 
@@ -162,8 +168,8 @@ no draft or scheduling layer.
 Before changing a comparison, recheck product capabilities against the
 official sources above. Keep claims dated through `updatedAt` when facts change,
 omit volatile prices, and distinguish relay-to-OBS passthrough, Direct encoding,
-native dual-link duplication, and true bandwidth aggregation wherever they
-affect the recommendation.
+the native app's two-link bonding modes (SRTLA aggregation versus Broadcast
+duplication), and multi-modem bonding wherever they affect the recommendation.
 
 New posts should answer one search intent, use a unique 1200×630 cover, include
 descriptive alt text for every image, link to primary sources, cross-link only

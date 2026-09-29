@@ -38,7 +38,7 @@ The monorepo workflow uses the pinned official
 to build and test Windows, macOS, and Ubuntu packages on pull requests and
 `main`. A stable unified GitHub Release reuses the same workflow to sign and
 notarize macOS, generate checksums, and attach every package to the existing
-release. Set the version in `buildspec.json` to match the release tag without
+release when `apps/obs-plugin` changed since the previous release. Set the version in `buildspec.json` to match the release tag without
 its leading `v`, then publish the release:
 
 ```sh

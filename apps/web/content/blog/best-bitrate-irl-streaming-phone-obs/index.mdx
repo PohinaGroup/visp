@@ -2,7 +2,7 @@
 title: "Best Bitrate for IRL Streaming: 720p or 1080p From Phone to OBS?"
 description: "Choose the best mobile IRL streaming bitrate for 720p or 1080p, budget phone and home bandwidth separately, and test the real route before live."
 publishedAt: 2026-07-26
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "An unbranded phone camera sends one cyan contribution feed from a city location into a dark home production studio"
 ---
 
@@ -13,7 +13,7 @@ a sharper feed that repeatedly stalls, reconnects, or arrives too late for SRT
 to repair.
 
 Those numbers describe the **contribution feed from the phone**, not the final
-bitrate OBS sends to Twitch or Kick. The two internet legs have different
+bitrate Twitch, Kick, or YouTube receives. The two internet legs have different
 jobs, different bottlenecks, and separate bitrate settings. Keeping them
 separate is the most important idea in this guide.
 
@@ -36,8 +36,9 @@ guidance model: cellular gets a lower target, and 1080p60 is not recommended
 there. The [open-source guidance
 implementation](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/relay.ts)
 uses 2,500 kbps for cellular 720p30 and 4,500 kbps for cellular 1080p30. The
-VISP phone app uses format ceilings of 3,500 kbps for 720p, 6,000 kbps for
-1080p30, and 8,000 kbps for 1080p60, then adjusts to link conditions; its
+VISP phone app uses format ceilings of 4,500 kbps for 720p (4,000 kbps when
+Direct is on), 6,000 kbps for 1080p30, and 8,000 kbps for 1080p60, then adjusts
+to link conditions; its
 [bitrate logic is public](https://github.com/PohinaGroup/visp/blob/main/packages/api/src/link-stats.ts).
 
 The platform guidance points in the same direction. Twitch's official
@@ -49,33 +50,37 @@ and specifically recommends 720p for IRL streams with frequent movement
 because it is more stable than 1080p.
 
 Platform recommendations describe streams sent to those platforms, while the
-VISP numbers describe a source sent into OBS. They are not interchangeable
+VISP numbers describe a source sent to the relay. They are not interchangeable
 rules, but they are useful independent checks that the starting points are
 reasonable for H.264 live video.
 
 ## Contribution bitrate and destination bitrate are different
 
-In a VISP workflow, the phone does not send directly to Twitch or Kick:
+In a VISP workflow, the phone never sends straight to Twitch or Kick. It
+encodes its camera and uploads that contribution feed to a VISP relay. What
+happens next depends on the output you chose:
 
-1. the phone encodes its camera and uploads that contribution feed to VISP;
-2. VISP relays the same feed to the home OBS computer;
-3. OBS decodes it, combines it with scenes, alerts, local cameras, and audio;
-4. OBS encodes one finished program and uploads that program to Twitch or Kick.
+- **Direct (the default):** the relay decodes the feed and runs a separate
+  distribution encode for each selected Twitch, Kick, or YouTube destination.
+- **Relay to OBS (optional):** the relay passes the same feed untouched to the
+  home OBS computer, OBS combines it with scenes, alerts, local cameras, and
+  audio, then encodes one finished program and uploads it to the platform.
 
-The phone's upload budget therefore controls whether the remote camera reaches
-OBS. The home connection needs enough **download** for every remote feed and
-enough **upload** for the single final program. A 4,500 kbps phone feed does not
-automatically force OBS to stream at 4,500 kbps, and a 6,000 kbps OBS output
-does not give a 2,500 kbps phone source more detail.
+Either way, the phone's upload budget controls whether the camera picture
+reaches the relay. With OBS, the home connection also needs enough
+**download** for every remote feed and enough **upload** for the single final
+program. A 4,500 kbps phone feed does not force the destination to 4,500 kbps,
+and a 6,000 kbps final encode does not give a 2,500 kbps phone source more
+detail.
 
-For two phones publishing at 2,500 kbps each, the home studio should expect
+For two phones publishing at 2,500 kbps each into OBS, the home studio should expect
 roughly 5,000 kbps of incoming video payload before audio, protocol overhead,
 and SRT retransmissions. OBS still sends only one final program to the
 platform. See the [multi-phone IRL guide](/blog/multi-phone-irl-stream-obs) for
 the separate-source and credential setup.
 
 This is also why a speed test at the home studio cannot validate the field
-phone. Test both locations. The path that fails is not necessarily the path
+phone. If OBS is in the chain, test both locations. The path that fails is not necessarily the path
 with the smaller headline speed.
 
 ## How much upload speed should the phone have?
@@ -159,7 +164,7 @@ retransmitted; that recovery consumes time and bandwidth, not free capacity.
 For planning, use the table as a floor and check the phone's measured data use
 after a rehearsal. Carrier accounting and app telemetry may round differently.
 
-## Configure the phone source, then configure OBS separately
+## Configure the phone source, then the final output separately
 
 With the VISP phone app, choose the camera, resolution, and frame rate. The app
 sets the format's bitrate ceiling and adapts its target from live link
@@ -182,32 +187,34 @@ latency probe and automatic OBS fallback scenes. The [SRT versus RTMP
 guide](/blog/srt-vs-rtmp-phone-camera-obs) explains why the protocol choice
 does not reduce the media bitrate itself.
 
-In OBS, configure the final Twitch or Kick output according to the platform
-and the home uplink. Twitch's current table tops its listed examples at 6,000
+With Direct, the relay makes the final encode, so there is no platform
+bitrate to set on the phone. If OBS sends the final program instead, configure
+that Twitch or Kick output according to the platform and the home uplink. Twitch's current table tops its listed examples at 6,000
 kbps. Kick's [OBS setup
 guide](https://help.kick.com/en/articles/7066931-how-to-stream-on-kick-com)
 documents H.264, CBR, a two-second keyframe interval, and up to 8,000 kbps. Do
 not copy a platform maximum into the phone encoder by reflex; the field link
 still decides what it can sustain.
 
-## The relay does not transcode or aggregate connections
+## The relay cannot fix a weak upload
 
-The relay **does not transcode video or aggregate network capacity.** VISP
-Native can duplicate packets over Wi-Fi and cellular, but the
-codec, resolution, frame rate, and bitrate produced by the phone are the feed
-OBS receives. The relay cannot turn a 1080p feed into a lower-rate 720p feed
-when mobile upload degrades, and it cannot combine cellular and Wi-Fi into one
-resilient uplink.
+On the relay-to-OBS path the relay **does not transcode**: the codec,
+resolution, frame rate, and bitrate produced by the phone are the feed OBS
+receives. Direct re-encodes for each platform, but only after the phone's feed
+has arrived, so it cannot restore detail lost to a weak upload.
 
-Adaptive bitrate belongs in the publishing app. Real bonding belongs in a
-separate network or encoder layer, such as the options discussed in the
+Adaptive bitrate belongs in the publishing app. Extra capacity comes from
+bonding at the sender: VISP Native's optional network bonding, whose default
+**SRTLA (aggregating)** mode combines Wi-Fi and cellular through the relay, or
+the other options in the
 [mobile network resilience guide](/blog/keep-stream-live-bad-mobile-network).
 SRT can retransmit packets inside its latency window, but retransmission cannot
 create missing bandwidth.
 
 That boundary is useful when troubleshooting: lower the source format at the
-phone, not at the relay. If the route must survive one carrier failing, add a
-genuine bonding system rather than raising SRT latency or bitrate.
+phone, not at the relay. If the route must survive one carrier failing, turn
+on bonding with a second independent link rather than raising SRT latency or
+bitrate.
 
 ## A 15-minute route test
 
@@ -217,9 +224,10 @@ Run this before choosing 1080p for a real event:
 2. Run the VISP relay latency probe on the same network the encoder will use.
 3. Publish for at least 15 minutes while walking the actual route.
 4. Watch measured bitrate, RTT, packet loss, reconnects, phone temperature,
-   battery, and the advancing picture in OBS.
-5. Force one short interruption and confirm OBS switches to a local fallback
-   while the phone reconnects.
+   battery, and the advancing picture on the platform (or in OBS).
+5. Force one short interruption and confirm your fallback works while the
+   phone reconnects: the optional BRB card with Direct, or a local fallback
+   scene in OBS.
 6. Raise only one variable—resolution, frame rate, or bitrate—and repeat.
 
 Do not raise all three together. If 1080p30 fails, return to the last stable
@@ -236,11 +244,11 @@ Yes, it is a sensible cellular starting point for 720p30. Detailed, fast-moving
 scenes may look cleaner at 3,000–3,500 kbps if the route can sustain it. Stable
 delivery matters more than reaching the top of the range.
 
-### Should the phone and OBS use the same bitrate?
+### Should the phone and the platform output use the same bitrate?
 
-No. The phone bitrate describes one remote source. The OBS bitrate describes
-the finished program sent to Twitch or Kick. Configure and test each internet
-leg independently.
+No. The phone bitrate describes one remote source. The Direct or OBS output
+bitrate describes the finished program sent to Twitch, Kick, or YouTube.
+Configure and test each internet leg independently.
 
 ### Will OBS improve a low-bitrate phone feed?
 
@@ -262,8 +270,12 @@ does not increase link capacity.
 
 ### Can Wi-Fi and cellular add their speeds together?
 
-Not through VISP alone. That requires real network bonding. Simply enabling
-both radios does not make one VISP stream use both paths as a bonded uplink.
+Yes, with real aggregation. VISP Native's optional network bonding defaults to
+**SRTLA (aggregating)**, which spreads one stream over both links through the
+relay's SRTLA receiver. Moblin, BELABOX, or Speedify can do the same job. The
+app's **Broadcast** mode is different: it sends the same packets over both
+links for failover and does not add their speeds. Size the bitrate so the
+stream still survives when one link weakens.
 
 ## Sources and next steps
 
@@ -279,5 +291,5 @@ both radios does not make one VISP stream use both paths as a bonded uplink.
 
 If you want to test the safer phone-to-studio workflow, [try
 VISP](https://visp-stream.com): start with one 720p30 source, measure the relay
-path on the real mobile network, confirm the feed in OBS, and raise quality only
+path on the real mobile network, confirm the picture on the platform or in OBS, and raise quality only
 after the route proves it has room.

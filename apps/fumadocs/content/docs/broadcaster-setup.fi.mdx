@@ -5,7 +5,7 @@ description: Käytä Larixia tai Moblinia, säädä SRT-viive ja pidä varakohta
 
 # Enkooderit ja varayhteys
 
-Larix Broadcaster, Moblin ja muut mukautettua SRT- tai RTMP-palvelinta tukevat sovellukset voivat julkaista VISPiin. Luo jokaiselle enkooderille oma laite ja liitä sen lähetysosoite sovellukseen.
+Larix Broadcaster, Moblin ja muut mukautettua SRT- tai RTMP-palvelinta tukevat sovellukset voivat julkaista VISPiin. Luo jokaiselle enkooderille oma laite hallintapaneelin **Laitteet**-välilehdellä (**Lisää laite**) ja liitä sen lähetysosoite sovellukseen. RTMP-osoite näkyy, kun otat käyttöön valinnan **Näytä RTMP- ja SRTLA-vara-osoitteet**.
 
 Käytä aluksi 720p- tai 1080p-kuvaa, 30 kuvaa sekunnissa ja verkkoon nähden varovaista bittinopeutta. SRT-viiveen on oltava riittävä mobiiliverkon vaihtelulle; kasvata sitä, jos kuvassa näkyy toistuvia häiriöitä.
 
@@ -17,7 +17,7 @@ kesken. SRTLA lähettää jokaisen paketin vain kerran ja siirtää liikennettä
 yhteydelle, joka juuri nyt kantaa parhaiten — kahdesta yhteydestä saa siis
 lisää pelivaraa eikä kaksinkertaista datalaskua.
 
-Vaihda hallintapaneeli **Advanced**-tilaan, avaa laitteesi ja valitse SRTLA-osoite.
+Ota **Laitteet**-välilehdellä käyttöön **Näytä RTMP- ja SRTLA-vara-osoitteet**, avaa laitteesi ja valitse SRTLA-osoite.
 Siinä on samat tunnukset kuin SRT-osoitteessa; vain skeema ja portti eroavat:
 
 ```
@@ -29,4 +29,4 @@ kohdasta **Settings → Streams → lähetyksesi → SRT(LA)**. Aseta SRT-viive 
 heikompi yhteys kantaisi lähetyksen yksin. Jos UDP 5000 on estetty verkossa,
 tavallinen SRT-osoite portissa 8890 toimii edelleen ilman niputusta.
 
-Tee OBS:ään **Fallback**-kohtaus, joka ei riipu kentällä olevasta kamerasta. Testaa ennen lähetystä, että kohtaus vaihtuu käyttöön ja kamera palautuu verkkokatkon jälkeen.
+Jos käytät OBS:ää, tee siihen **Fallback**-kohtaus, joka ei riipu kentällä olevasta kamerasta. Testaa ennen lähetystä, että kohtaus vaihtuu käyttöön ja kamera palautuu verkkokatkon jälkeen.

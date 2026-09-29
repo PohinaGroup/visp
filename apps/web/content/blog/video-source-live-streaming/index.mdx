@@ -2,7 +2,7 @@
 title: "What Is a Video Source? How to Add Phone Footage to OBS"
 description: "Learn what source footage and video sources mean in live streaming, then connect a phone, camera, or remote encoder to OBS safely."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-29
 coverAlt: "A phone, camera, and laptop send separate source feeds into one home production monitor and finished audience stream"
 ---
 
@@ -47,10 +47,15 @@ remote phone needs a reachable network endpoint between field and studio. The
 phone encodes H.264 video and AAC audio, publishes them through a transport such
 as SRT, and OBS receives the stream over the internet.
 
-VISP provides that middle path. Create a named device under Video sources. The
-phone receives a publishing URL, while OBS receives a separate reading URL.
-Both connect outward to the relay, so the home router does not need an inbound
-SRT port. The Twitch or Kick stream key stays in OBS.
+VISP provides that middle path. Create a named device on the dashboard
+**Devices** tab. The phone receives a publishing URL, while OBS receives a
+separate reading URL. Both connect outward to the relay, so the home router
+does not need an inbound SRT port.
+
+VISP's default output is Direct, where the relay itself sends the source to
+Twitch, Kick, or YouTube and OBS is optional. When OBS should build the program,
+as in this guide, choose **Phone to your OBS** in the dashboard **Mode** menu.
+The Twitch or Kick stream key then stays in OBS.
 
 The current [VISP video-source documentation](https://docs.visp-stream.com/docs/video-source)
 covers source creation and credentials. The [encoder setup guide](https://docs.visp-stream.com/docs/broadcaster-setup)
@@ -61,9 +66,10 @@ covers third-party apps, SRT latency, SRTLA and OBS fallback behavior.
 Four practical senders cover most remote-camera jobs.
 
 **VISP native app:** the shortest path when you want the built-in camera,
-stream status, chat and selected OBS controls. A claimed device is configured
-without manually pasting the full URL. Its optional dual-link mode duplicates
-packets across Wi-Fi and cellular for failover; it does not add their capacity.
+stream status, chat and selected OBS controls. Signing in creates and
+configures the device without manually pasting the full URL. Its optional
+network bonding, off by default, can combine Wi-Fi and cellular capacity
+(SRTLA) or duplicate packets across both for failover (Broadcast).
 
 **Moblin:** an open-source iOS encoder supporting SRT, SRTLA and other protocols.
 Use it when you want its camera controls or SRTLA multipath behavior. The
@@ -83,8 +89,8 @@ contributes one flattened program rather than separate camera layers. The
 
 ## Create the video source in VISP
 
-Sign in, open **Video sources**, choose **Add device**, and name the source by
-its stable role: “roaming Android,” “stage wide camera,” or “guest entrance.”
+Sign in, open the **Devices** tab, enter a **Device name** under **Video
+sources**, and choose **Add device**. Name the source by its stable role: “roaming Android,” “stage wide camera,” or “guest entrance.”
 Avoid naming it after today's event if the same camera will return next week.
 
 The dashboard produces different credentials for publishing and reading. Copy
@@ -93,8 +99,9 @@ private: its stream ID contains the right to publish to that path. Do not show
 it in screenshots or paste it into public troubleshooting messages.
 
 SRT is the default because it can retransmit lost UDP packets inside a chosen
-latency window. Use RTMP from the Advanced view when the sender's network blocks
-UDP or the encoder does not support SRT. Switching protocol cannot fix a link
+latency window. To reveal RTMP, turn on **Show RTMP and SRTLA fallback URLs**
+on the same tab, and use it when the sender's network blocks UDP or the
+encoder does not support SRT. Switching protocol cannot fix a link
 whose sustained upload is below the chosen video bitrate.
 
 Only one active publisher can own a device path. Give each phone or encoder its
@@ -120,8 +127,9 @@ to separate field upload, home download and final OBS upload budgets.
 
 ## Add the source to OBS
 
-The simplest route is the generated scene collection. Download it from VISP,
-then in OBS choose **Scene Collection → Import**. It contains a fallback scene
+The simplest route is the generated scene collection. Choose **Download OBS
+collection** next to the **OBS read credentials** on the dashboard, then in OBS
+choose **Scene Collection → Import**. It contains a fallback scene
 and a reconnecting Media Source scene for each active device.
 
 For a manual source:
@@ -138,9 +146,9 @@ The OBS URL is not the publishing URL. Giving the phone the read credential or
 OBS the publish credential creates a confusing failure and weakens the intended
 separation.
 
-The VISP OBS plugin can also add named devices and accept selected remote
-controls. It polls outward over HTTPS, so the studio does not expose an inbound
-control port. The phone can switch program scenes or start and stop the active
+The optional VISP OBS plugin can also add named devices and accept selected
+remote controls. It keeps an outbound, authenticated WSS connection to VISP, so
+the studio does not expose an inbound control port. The phone can switch program scenes or start and stop the active
 OBS stream, but it does not receive the platform stream key.
 
 ## Put the source in a scene without hiding its limits
@@ -202,7 +210,7 @@ Every arrow is a checkpoint. Confirm the phone preview, VISP device state, OBS
 preview and platform player separately. That method finds a failing layer much
 faster than changing settings everywhere.
 
-If you have a phone and an OBS studio ready, [try VISP](https://app.visp-stream.com)
+If you have a phone and an OBS studio ready, [try VISP](https://visp-stream.com)
 by creating one named video source. Keep the first test off-air, record it in
 OBS, interrupt the network once, and verify that the same source returns. You
 will then have reusable source footage rather than a link that only worked in a

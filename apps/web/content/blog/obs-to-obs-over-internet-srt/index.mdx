@@ -2,7 +2,7 @@
 title: "How to Send OBS to Another OBS Over the Internet With SRT"
 description: "Send one OBS production to another OBS over the internet with SRT through VISP, without port forwarding or moving the final stream key."
 publishedAt: 2026-07-23
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Two separate streaming workstations exchange one live program feed through an internet relay"
 ---
 
@@ -45,7 +45,9 @@ video, a browser call workflow such as the one discussed in
 ## What you need
 
 - OBS Studio on the sending and receiving computers
-- A VISP account signed in with Twitch, Kick, or Google
+- A VISP account signed in with Twitch, Kick, or Google, with the dashboard
+  **Mode** menu set to **Phone to your OBS** (in the default Direct mode the
+  relay would also send the sender's feed to your platforms)
 - The VISP OBS plugin on each computer for the shortest setup, or access to the
   dashboard URLs for manual configuration
 - Enough sustained upload at the sending location for the contribution bitrate
@@ -64,8 +66,10 @@ The quickest path uses the VISP plugin. Install the package for OBS Studio 31,
 restart OBS, and open **Tools → VISP Remote Control** on the sending computer.
 Choose **Sign in with browser**, approve the displayed code, and return to OBS.
 
-Enter a practical device name such as “venue OBS” or “game observer,” then
-choose **Create and use as OBS output**. Confirm the warning. The plugin creates
+Under **This OBS profile output**, replace the default device name `OBS` with
+something practical such as “venue OBS” or “game observer,” then choose **Use
+this OBS as an output**. Confirm the **Replace OBS stream destination**
+warning. The plugin creates
 an independently revocable publishing device and replaces the current OBS
 profile's streaming service and key with its SRT publishing URL.
 
@@ -81,7 +85,8 @@ The full plugin behavior and pairing model are documented in
 
 If you do not use the plugin on the sending computer:
 
-1. Open the VISP dashboard and create one device for this OBS installation.
+1. Open the VISP dashboard **Devices** tab and create one device for this OBS
+   installation with **Add device**.
 2. Copy **Add this to video source**. Treat the complete URL as a password.
 3. In the sending OBS, open **Settings → Stream**.
 4. Set **Service** to **Custom**.
@@ -108,7 +113,8 @@ The receiving OBS then encodes its complete program for Twitch or Kick. Avoid
 making the contribution needlessly larger than the finished broadcast, but do
 not starve text, game motion, or fine detail that the studio must preserve.
 
-VISP **does not transcode** the contribution. It does not resize the picture,
+On this relay-to-OBS path VISP **does not transcode** the contribution. It does
+not resize the picture,
 change the codec, repair an overloaded encoder, or create a second quality
 ladder. If the receiving OBS cannot decode the feed reliably, correct the
 sending OBS settings.
@@ -139,7 +145,8 @@ selected scene.
 
 For manual setup:
 
-1. Reveal or copy the device's OBS reading URL in VISP.
+1. Reveal or copy the device's OBS read URL in VISP (the dashboard **OBS** tab
+   in Phone to your OBS mode).
 2. Add a **Media Source** in the receiving OBS.
 3. Clear **Local File**.
 4. Paste the reading URL into **Input**.
@@ -183,7 +190,7 @@ number is not always the best number. The
 requests and latency-controlled delivery, while OBS documents its SRT URL
 options in microseconds.
 
-Run VISP's dashboard latency probe from the sending network and start with the
+Run VISP's dashboard latency probe (**Advanced** tab) from the sending network and start with the
 recommendation for wired, Wi-Fi, or cellular use. Test the real path at the
 time and place it will run. More latency can absorb bursts of loss and jitter;
 it cannot compensate for a contribution bitrate that remains above available
@@ -212,11 +219,13 @@ the transition so a short decoder change does not flap between scenes.
 
 ## What VISP does not add to OBS-to-OBS streaming
 
-VISP is the authenticated relay and control plane in this workflow. This
-third-party OBS path does not transcode the feed or aggregate network capacity. SRT retransmission
-can recover some packet loss, but it cannot combine two ISPs or keep sending
-through a total outage. Use a genuine bonding layer when one connection must be
-able to fail without interrupting the contribution.
+VISP is the authenticated relay and control plane in this workflow. The
+relay-to-OBS path does not transcode the feed, and a sending OBS publishes over
+one connection. SRT retransmission can recover some packet loss, but it cannot
+combine two ISPs or keep sending through a total outage. Use a bonding layer,
+such as an SRTLA sender pointed at the device's SRTLA URL or a system-level
+bonding tool, when one connection must be able to fail without interrupting the
+contribution.
 
 VISP also does not turn one-way program contribution into a video call, create
 mix-minus audio, synchronize unrelated remote feeds, or separate a flattened
@@ -266,7 +275,9 @@ instead of reusing the profile that normally publishes directly to a platform.
 - The Twitch or Kick key exists only in the receiving OBS profile.
 - A local fallback works while the sender is offline.
 - A forced interruption recovers on the same Media Source.
-- The team understands that VISP neither transcodes nor bonds connections.
+- The dashboard Mode is **Phone to your OBS**, so only the receiving OBS
+  publishes to Twitch or Kick.
+- The team understands that the relay passes the feed through untouched.
 
 ## Frequently asked questions
 
@@ -288,8 +299,9 @@ profile, Start Streaming sends the complete program to Twitch or Kick.
 ### Should I use SRT or the RTMP fallback?
 
 Use SRT by default for this internet contribution path. Use VISP's RTMP
-fallback when the sending network blocks UDP. Neither choice transcodes the
-feed, creates bandwidth, or bonds connections.
+fallback (turn on **Show RTMP and SRTLA fallback URLs** on the **Devices** tab)
+when the sending network blocks UDP. Neither choice transcodes the feed,
+creates bandwidth, or bonds connections.
 
 ## Sources and next steps
 

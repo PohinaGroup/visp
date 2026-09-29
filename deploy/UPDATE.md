@@ -38,8 +38,9 @@ Restarting MediaMTX disconnects every relay stream. Restarting `srtla_rec` or
 Stable GitHub Releases are the production deployment interface. Publishing a
 non-draft, non-prerelease tag named `vX.Y.Z` runs `.github/workflows/release.yml`
 against that exact tagged commit. It deploys the API, portal, admin console,
-native web app, OBS Remote web app, Typography, and documentation; and attaches the OBS
-packages to the same GitHub Release. Mobile builds and store submissions run
+native web app, OBS Remote web app, Typography, and documentation; and, when
+`apps/obs-plugin` changed since the previous release, attaches the OBS packages
+to the same GitHub Release. Mobile builds and store submissions run
 separately: `.github/workflows/mobile.yml` builds and submits whichever of the
 two mobile apps changed on every push to `main` touching `apps/native` or
 `apps/obs-remote`. The commented release job remains available for
@@ -83,7 +84,8 @@ Create these root-owned, mode `0600` files:
   `TYPOGRAPHY_DOMAIN=typography.visp-stream.com`,
   `DOCS_DOMAIN=docs.visp-stream.com`, and the existing relay values.
 
-Install the app Caddyfile and ensure the two systemd services already exist:
+Install the app Caddyfile and ensure the two long-running web services already
+exist (the release helper installs and enables `visp-typography-worker` itself):
 
 ```bash
 sudo install -m 0644 deploy/app/Caddyfile /etc/caddy/Caddyfile
@@ -150,6 +152,8 @@ Before tagging, set the same `X.Y.Z` in:
 - `apps/obs-remote/app.json`
 - `apps/obs-remote/package.json`
 
+`bun run version:bump X.Y.Z` updates all of them.
+
 Create `vX.Y.Z` from a commit on `main`, then publish its GitHub Release. Draft
 and prerelease publications are ignored. The workflow serializes releases and
 first runs the repository tests, type checks, and all production builds.
@@ -157,10 +161,10 @@ first runs the repository tests, type checks, and all production builds.
 The app-server bootstrap verifies the tag and 40-character commit SHA, locks the
 host, refuses tracked changes, checks out the exact release, and executes that
 release's helper. The helper installs frozen dependencies, migrates the database,
-and builds all six app-server artifacts
-before restarting either service. It validates Caddy before installing its
-configuration, then restarts `visp-server` and `visp-web`, reloads Caddy, and
-runs local smoke checks. Install, migration, or build failures therefore leave
+and builds every app-server artifact
+before restarting any service. It validates Caddy before installing its
+configuration, then restarts `visp-server`, `visp-web`, and
+`visp-typography-worker`, reloads Caddy, and runs local smoke checks. Install, migration, or build failures therefore leave
 the currently running services untouched. Database rollback remains manual and
 migrations must stay backward-compatible.
 

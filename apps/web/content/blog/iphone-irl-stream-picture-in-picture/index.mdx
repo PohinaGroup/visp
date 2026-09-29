@@ -43,7 +43,8 @@ those jobs need a deliberate screen-capture workflow.
 The same phone capture can feed [VISP Direct](/blog/what-is-visp-direct), but the
 failure consequence is different. With OBS at home, the producer can cut to a
 local fallback scene if the phone stops. A Direct-only show has no home OBS
-layer to cover a failed background transition.
+layer; the most it can do is hold the platform output on the optional
+**Never drop again** BRB card until the phone returns.
 
 ## Check support on the actual iPhone
 
@@ -144,8 +145,9 @@ Do not rely on PiP for any of these:
 - **Force-quitting VISP.** Removing the app ends its publishing process.
 - **Recovering a dead network.** PiP does not create upload capacity, repair a
   carrier outage, or change SRT latency.
-- **Network bonding.** VISP's optional native dual-link mode duplicates packets
-  over Wi-Fi and cellular; PiP does not aggregate those links.
+- **Network bonding.** Combining or duplicating Wi-Fi and cellular is a
+  separate, optional setting under **Settings → Network**; PiP does not turn it
+  on or add capacity by itself.
 - **Changing camera settings in the background.** Return to VISP before
   switching camera, format, audio input, stabilization, or stream state.
 
@@ -232,7 +234,8 @@ keep VISP in the foreground for the show.
 
 PiP protects the same active iPhone capture path, so it can continue while
 Direct is enabled on a supported device. However, a Direct-only show has no OBS
-fallback scene if capture stops. Test the destination and recovery path, not
+fallback scene if capture stops; only the optional **Never drop again** BRB card
+can hold the output. Test the destination and recovery path, not
 only the phone preview.
 
 ### Does PiP reduce stream quality or bitrate?

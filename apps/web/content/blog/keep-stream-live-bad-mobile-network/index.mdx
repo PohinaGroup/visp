@@ -1,16 +1,19 @@
 ---
 title: "How to Keep Your Stream Live When the Mobile Network Drops"
-description: "Build a resilient IRL stream with SRT recovery, adaptive bitrate, reconnection, OBS fallback scenes, and honest limits on bad networks."
+description: "Build a resilient IRL stream with SRT recovery, adaptive bitrate, reconnection, a BRB card or OBS fallback scene, bonding, and honest limits on bad networks."
 publishedAt: 2026-07-22
+updatedAt: 2026-09-28
 coverAlt: "Layers of stream resilience protect an OBS broadcast during a mobile network interruption"
 ---
 
 You cannot make a mobile stream literally impossible to drop. You can keep a
 brief field outage from ending the viewer-facing broadcast by using several
-layers together: **leave the destination stream running in OBS, send the field
-feed over SRT, use a conservative adaptive bitrate, tune the recovery window,
-reconnect automatically, and switch OBS to a local fallback scene.** Add real
-network bonding when live field video must survive one connection failing.
+layers together: **keep the destination output running somewhere other than
+the phone, send the field feed over SRT, use a conservative adaptive bitrate,
+tune the recovery window, reconnect automatically, and show a fallback while
+the phone is gone.** With VISP Direct that fallback is the relay's optional BRB
+card; with your own OBS it is a local fallback scene. Add network bonding when
+live field video must survive one connection failing.
 
 That distinction prevents a common disappointment. A resilient production is
 not one perfect protocol setting. It is a system that fails gracefully and
@@ -23,13 +26,15 @@ recovers without forcing the audience to refresh or find a new broadcast.
 An IRL workflow often contains two separate internet legs:
 
 1. the phone or field encoder sends video to the relay or home studio;
-2. OBS sends the finished program to Twitch, Kick, YouTube, or another
+2. the relay or OBS sends the program to Twitch, Kick, YouTube, or another
    destination.
 
-VISP separates those legs. The phone publishes to the VISP relay, OBS reads the
-feed, and OBS publishes the final production. If the phone loses coverage, the
-second leg can remain healthy. OBS can keep sending local graphics, music, a
-BRB scene, or another camera.
+VISP separates those legs. The phone publishes to the VISP relay. With Direct,
+the default, the relay itself holds the platform connection; in the optional
+OBS workflow, OBS reads the feed and publishes the final production. If the
+phone loses coverage, the second leg can remain healthy. The relay can keep
+the platform output open behind a BRB card, and OBS can keep sending local
+graphics, music, a BRB scene, or another camera.
 
 If OBS itself reports dropped frames to the destination, troubleshoot the home
 uplink instead. The [OBS connection troubleshooting
@@ -50,7 +55,10 @@ Start below the repeatable worst-case upload rate on the actual route. A stable
 connection. Keep the keyframe interval at two seconds so decoders and fallback
 logic do not wait too long for a clean recovery point.
 
-Enable adaptive bitrate when the publishing application supports it. [Larix
+Enable adaptive bitrate when the publishing application supports it. The VISP
+app adapts its bitrate automatically from link health, within a floor and
+ceiling set by the capture format, and uses a two-second keyframe interval.
+[Larix
 Broadcaster](https://softvelum.com/larix/faq/) documents modes that lower the
 target bitrate in response to delivery problems and then cautiously restore
 quality. Adaptation preserves continuity by sacrificing detail before the
@@ -66,9 +74,11 @@ occur in bursts.
 
 The latency value is a trade. Too little latency means a retransmitted packet
 may arrive after its playback deadline. Too much adds unnecessary delay and
-can make remote direction awkward. VISP's dashboard probe uses measured
-round-trip time and a network profile to recommend a starting point. Run it on
-the same connection and in conditions similar to the real stream.
+can make remote direction awkward. The VISP phone app uses a fixed two-second
+SRT latency. For a third-party encoder, the dashboard probe on the **Advanced**
+tab uses measured round-trip time and a network profile to recommend a starting
+point. Run it on the same connection and in conditions similar to the real
+stream.
 
 For cellular use, VISP applies a larger multiplier and minimum than it does for
 wired or Wi-Fi networks because cellular jitter is less predictable. Treat the
@@ -76,14 +86,15 @@ recommendation as a safe starting point, then test motion, audio, and recovery.
 Do not tune latency downward only to advertise a smaller number.
 
 The [OBS SRT guide](https://obsproject.com/kb/srt-protocol-streaming-guide)
-describes OBS's SRT input behavior. VISP generates the authenticated URL and
-scene collection so creators do not need to construct stream IDs by hand.
+describes OBS's SRT input behavior. If you use OBS, VISP generates the
+authenticated read URL and scene collection so creators do not need to
+construct stream IDs by hand.
 
 ## Reconnect both ends automatically
 
 SRT can recover packet loss while a connection exists. It cannot transmit
-during a complete outage. The publisher and OBS source must therefore recover
-when the network returns.
+during a complete outage. The publisher, and the OBS source if you use one,
+must therefore recover when the network returns.
 
 The VISP phone app reports a reconnecting state and retries after a loss. The
 generated OBS media sources use automatic reconnection. Third-party encoders
@@ -93,16 +104,23 @@ publishing URL rather than create a new path.
 Only one publisher can own a VISP path at a time. Do not run a second encoder
 against the same device URL as a hot standby; the first connection remains the
 owner and the later publisher is rejected. Use a separate publishing device
-and OBS source if a second camera is genuinely needed.
+if a second camera is genuinely needed.
 
-## Keep OBS live with a fallback scene
+## Keep the output live with a BRB card or fallback scene
 
 The field feed disappearing does not require the destination stream to end.
-Create a local fallback scene containing something the home computer can
+
+With Direct, open the dashboard **BRB** tab and turn on **Show a BRB card when
+my stream drops**. It is off by default. When it is on, a lost ingest keeps
+each Direct output open and shows the card until the phone returns or you end
+the broadcast. The [BRB screen without OBS
+guide](/blog/brb-screen-phone-irl-without-obs) covers the options.
+
+If you produce in OBS, create a local fallback scene containing something the home computer can
 render without the phone: a branded slate, schedule, music, studio camera, or
 recap video. Then switch to it when the media source stops playing.
 
-VISP's scene collection includes a fallback scene. With the Advanced Scene
+VISP's downloadable OBS scene collection includes a fallback scene. With the Advanced Scene
 Switcher plugin, use a **Media** condition for the remote source, not merely a
 scene-visibility condition. A practical starting configuration is:
 
@@ -120,18 +138,19 @@ should not make the program cut back and forth.
 
 The field operator needs information they can act on. Watch encoder bitrate,
 reconnect attempts, audio level, battery, temperature, and which network is
-active. The producer should watch the OBS media state and destination health.
+active. The producer should watch the Direct output status or the OBS media
+state, plus destination health.
 
-Do not use the phone's preview as proof that video reached OBS. A camera can be
-capturing locally while the uplink is stalled. Confirm the relay path is live
-and the OBS source is advancing. Before a long route, intentionally disable the
-phone's connection and verify this sequence:
+Do not use the phone's preview as proof that video left the phone. A camera can
+be capturing locally while the uplink is stalled. Confirm the relay path is
+live and the output is advancing. Before a long route, intentionally disable
+the phone's connection and verify this sequence:
 
 1. the field feed freezes or stops;
-2. OBS switches to fallback without ending the broadcast;
+2. the BRB card or OBS fallback scene appears without ending the broadcast;
 3. the phone reports reconnection attempts;
 4. the feed returns when connectivity is restored;
-5. OBS waits for stable playback before switching back.
+5. the program returns to live video once playback is stable.
 
 That five-minute failure drill is more valuable than another hour adjusting
 settings on a perfect home Wi-Fi connection.
@@ -142,6 +161,15 @@ SRT, adaptive bitrate, and fallback handle degradation and recovery. They do
 not keep field video moving through an area where the active connection has no
 usable route. If continuous field pictures are mandatory, add multiple truly
 independent connections and a system that combines them at the far end.
+
+The VISP iOS and Android app has this built in as an option. Under **Settings
+→ Network**, turn on **Network bonding**; the default mode, **SRTLA
+(aggregating)**, spreads the stream across Wi-Fi and cellular and the relay
+reassembles it. **Broadcast** sends every packet over both links for more
+redundancy at roughly double the mobile data, and **Main + backup** keeps one
+link in reserve. Both links still share the phone, its battery, and often the
+same coverage gaps. Moblin and BELABOX can also send SRTLA to a VISP device's
+SRTLA URL.
 
 [BELABOX](https://belabox.net/) uses SRTLA to bond supported modem, Wi-Fi, and
 wired links toward its relays. [LiveU
@@ -161,10 +189,12 @@ reliable system because there is less hardware to power and operate.
 - Set bitrate below repeatable available upload, not peak upload.
 - Enable adaptive bitrate and a two-second keyframe interval.
 - Run the VISP latency probe on the field network.
-- Verify publisher and OBS reconnection.
-- Prepare a fallback scene that works without the field feed.
+- Verify publisher reconnection, and OBS source reconnection if you use OBS.
+- Turn on the BRB card, or prepare an OBS fallback scene that works without the
+  field feed.
 - Test a forced outage before viewers arrive.
-- Keep the home OBS destination connection independent and monitored.
+- If OBS owns the destination, keep the home connection independent and
+  monitored.
 - Add bonding only when the failure requirement demands it.
 
 ## Frequently asked questions
@@ -185,20 +215,24 @@ Behavior depends on the encoder. Many implementations reduce video bitrate,
 and some can also reduce frame rate. Test the lowest acceptable output before
 the live event.
 
-### Why does OBS stay live when the phone disconnects?
+### Why does the stream stay live when the phone disconnects?
 
-OBS is still connected to the destination and can render local sources. Only
-the remote media source is unavailable.
+The relay (with Direct and the BRB card on) or OBS is still connected to the
+destination and can show something other than the phone. Only the field feed
+is unavailable.
 
 ### What is the next upgrade after fallback scenes?
 
-If viewers must continuously see the field, add network bonding. If a short
+If viewers must continuously see the field, add network bonding, starting
+with the VISP app's own Network bonding. If a short
 branded fallback is acceptable, improve monitoring and recovery before adding
 hardware.
 
 ## Sources and further reading
 
 - [VISP encoders and fallback](https://docs.visp-stream.com/docs/broadcaster-setup)
+- [VISP phone app network bonding](https://docs.visp-stream.com/docs/phone-app)
+- [VISP Direct output and BRB hold](https://docs.visp-stream.com/docs/direct-output)
 - [SRT Alliance: SRT overview](https://www.srtalliance.org/about-srt-technology/)
 - [Larix adaptive bitrate FAQ](https://softvelum.com/larix/faq/)
 - [OBS connection troubleshooting](https://obsproject.com/kb/stream-connection-troubleshooting/)

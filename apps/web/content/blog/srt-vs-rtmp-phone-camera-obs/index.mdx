@@ -2,11 +2,12 @@
 title: "SRT vs RTMP: Which Protocol Should Carry Your Phone Camera Into OBS?"
 description: "Compare SRT and RTMP for sending a phone camera into OBS: packet recovery, latency you tune, credential limits, and when the RTMP fallback wins."
 publishedAt: 2026-07-26
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "A solid signal line and a dashed signal line leave a phone marker, meet a relay block and an OBS studio block, and end at a red destination dot for Twitch or Kick"
 ---
 
-For a phone or field encoder feeding a home OBS studio, **publish over SRT by
+For a phone or field encoder feeding VISP, whether the relay sends it straight
+to the platforms with Direct or into a home OBS studio, **publish over SRT by
 default and keep RTMP as the fallback for networks that block UDP.** SRT gives
 you packet recovery and a recovery window you set yourself; RTMP gives you a
 TCP connection that almost every encoder and firewall already tolerates.
@@ -17,7 +18,9 @@ choose. The **distribution** leg from OBS to the platform is not: Twitch
 [documents RTMP ingest](https://dev.twitch.tv/docs/video-broadcast/), and Kick's
 own streaming setup article hands out an `rtmps://` server URL. So this is not
 "SRT or RTMP" for your whole broadcast. It is which protocol carries the field
-camera into the production that then speaks RTMP to the platform anyway.
+camera into the production that then speaks RTMP to the platform anyway. (With
+VISP Direct, the relay handles that platform leg itself, with one encode per
+destination.)
 
 ![A field phone reaches the VISP relay over SRT on UDP 8890 by default or over RTMP on TCP 1935 as a fallback, and OBS sends the finished broadcast to Twitch or Kick](./srt-rtmp-paths.svg)
 
@@ -115,19 +118,20 @@ and stalls.
 
 ## What the relay will not fix for you
 
-The relay **does not transcode video or aggregate network capacity.** VISP
-Native can separately duplicate packets over Wi-Fi and cellular. The relay
-authenticates a publishing device, relays whatever single stream that device
-sends, and exposes a separate reading URL to OBS. Two consequences follow, and
-they are identical for SRT and RTMP:
+On the relay-to-OBS path the relay **does not transcode video.** It
+authenticates a publishing device, relays whatever stream that device sends,
+and exposes a separate reading URL to OBS. Direct re-encodes for each platform,
+but only from the picture that arrived. Two consequences follow, and they are
+identical for SRT and RTMP:
 
 - **Encoder settings are final.** Configure H.264 video, AAC audio, constant
   bitrate, and a two-second keyframe interval at the source. The relay cannot
   lower a bitrate your uplink cannot carry, and Kick's help center is blunt that
   its ingest wants H.264 with CBR rather than VBR.
-- **One uplink is one uplink.** Choosing SRT does not combine Wi-Fi and
-  cellular. If you need several connections to act as one, that belongs below
-  VISP — through a [bonded tunnel such as Speedify](/blog/bond-cellular-wifi-visp-speedify)
+- **One uplink is one uplink.** Choosing SRT or RTMP does not combine Wi-Fi
+  and cellular. For that, turn on the VISP app's optional **Network bonding**,
+  send SRTLA from Moblin or BELABOX to the device's SRTLA URL, use a
+  [bonded tunnel such as Speedify](/blog/bond-cellular-wifi-visp-speedify),
   or a dedicated bonded encoder ecosystem, as compared in
   [VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo).
 
@@ -149,20 +153,22 @@ practical security model is the same for both: the URL *is* the credential, each
 publishing device has its own, and rotating or revoking one device does not
 disturb the others. Never paste a publishing URL into a public Discord, a
 support ticket, or on stream. If one leaks, rotate that device rather than
-rebuilding the studio. The relay separately holds OBS read credentials, and your
-Twitch or Kick stream key never leaves OBS at all.
+rebuilding the studio. The relay separately holds OBS read credentials. Your
+Twitch or Kick stream key never reaches the phone: it stays in OBS, or with
+Direct it is fetched server-side while the output runs.
 
 ## Switching a device to the RTMP fallback
 
-1. Open the [dashboard](https://visp-stream.com/dashboard) and find the device
-   under **Video sources**.
-2. Switch the dashboard to **Advanced** to reveal the RTMP URL for that device.
+1. Open the [dashboard](https://visp-stream.com/dashboard) **Devices** tab and
+   find the device under **Video sources**.
+2. Turn on **Show RTMP and SRTLA fallback URLs** to reveal the RTMP URL for
+   that device.
 3. Paste it into the sending app as a **Custom** or **Custom RTMP** server, with
    an empty stream key.
-4. Confirm the device row reports **Live**, then add or refresh the matching read
-   URL in OBS as a Media Source.
+4. Confirm the device row reports **Live**. If you use OBS, add or refresh the
+   matching read URL there as a Media Source.
 
-The same reveal applies on the reading side, so OBS can consume either protocol.
+The relay also has RTMP read URLs, so OBS can consume either protocol.
 Full URL formats and per-encoder steps live in
 [Add a video source](https://docs.visp-stream.com/docs/video-source); the
 [Larix](/blog/larix-broadcaster-obs-srt) and
@@ -206,8 +212,8 @@ something OBS will not play.
 Not as their documented ingest. Twitch's developer documentation describes
 broadcasts arriving "through the open Internet, into Twitch using *Real-Time
 Messaging Protocol (RTMP)*", and Kick documents an `rtmps://` server URL. SRT is
-for the contribution leg into your own production; OBS then speaks the
-platform's protocol.
+for the contribution leg into your own production; OBS, or the relay with VISP
+Direct, then speaks the platform's protocol.
 
 ### Is SRT always lower latency than RTMP?
 

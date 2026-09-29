@@ -2,7 +2,7 @@
 title: "Näin käytät IRL Prota OBS:n kanssa SRT:llä tai SRTLA:lla"
 description: "Yhdistä Androidin IRL Pro OBS:ään VISPin kautta, valitse SRT tai bondattu SRTLA, suojaa tunnukset ja testaa mobiilipalautuminen."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-28
 coverAlt: "Android-puhelin lähettää mobiili- ja Wi-Fi-reitit suojatun releen kautta kotituotantoon"
 ---
 
@@ -52,10 +52,10 @@ arkkitehtuurin: lähetin jakaa yhden SRT-striimin linkeille ja vastaanotin kokoa
 sen tavalliselle SRT-sovellukselle. SRTLA ei ole vain kaksi kokonaista
 samanaikaista lähetystä.
 
-VISPin nykyinen rele vastaanottaa SRTLA:ta UDP-portissa 5000. Tämä on eri asia
-kuin VISP Nativen valinnainen kahden linkin tila, joka kahdentaa paketit
-yhdistämättä kapasiteettia. Tässä oppaassa aito monitieyhteys syntyy IRL Pron
-SRTLA-osoitteella.
+VISPin nykyinen rele vastaanottaa SRTLA:ta UDP-portissa 5000. Samaa
+vastaanotinta käyttää myös VISP Nativen valinnainen verkkobonding, jonka
+oletustila **SRTLA (aggregating)** yhdistää Wi-Fin ja mobiiliyhteyden
+kapasiteetin. Tässä oppaassa monitieyhteyden tekee IRL Pro SRTLA-osoitteella.
 
 Aloita tavallisella SRT:llä, jos yhdellä yhteydellä on jo selvä marginaali.
 SRTLA tuo arvoa, kun toinen itsenäinen reitti korjaa mitattua ruuhkaa,
@@ -77,15 +77,23 @@ paljastamatta tunnuksia.
 
 ## 1. Luo oma IRL Pro -lähde
 
-Kirjaudu VISPiin, avaa **Video sources**, valitse **Add device** ja anna pysyvä
-nimi, esimerkiksi “Android-liikkuva kamera”. Yksi laite tarkoittaa yhtä
+Kirjaudu VISPiin, avaa hallintapaneelin **Laitteet**-välilehti, kirjoita
+**Videolähteet**-kohdan **Laitteen nimi** -kenttään pysyvä nimi, esimerkiksi
+“Android-liikkuva kamera”, ja valitse **Lisää laite**. Yksi laite tarkoittaa yhtä
 julkaisupolkua. Älä jaa sitä toiselle puhelimelle: vain yksi julkaisija voi
 omistaa polun kerrallaan, ja erilliset laitteet on helpompi perua ja valvoa.
 
-Kopioi tavallista SRT:tä varten oletusarvo kohdasta **Add this to video source**.
-SRTLA:ta varten vaihda **Advanced**-näkymään, avaa laite ja näytä SRTLA-osoite.
+Kopioi tavallista SRT:tä varten oletusarvo kohdasta **Lisää tämä
+videolähteeseen**. SRTLA:ta varten kytke samalla välilehdellä päälle **Näytä
+RTMP- ja SRTLA-vara-osoitteet**, avaa laite ja valitse **Bonding two
+connections with BELABOX or Moblin? Show the SRTLA URL**.
 Nykyinen [enkooderidokumentaatio](https://docs.visp-stream.com/docs/broadcaster-setup)
 näyttää osoitemuodon ja UDP 5000 -vastaanottoportin.
+
+Koska tässä oppaassa OBS tekee lopullisen lähetyksen, avaa hallintapaneelin
+yläreunan **Tila**-valikko ja valitse **Puhelimesta omaan OBS:ään**. Suora on
+oletustila; jos se jää päälle, relay lähettää tämän lähteen myös yhdistettyihin
+palveluihin, ja samalle kanavalle striimaava OBS törmäisi siihen.
 
 Käsittele koko osoitetta salasanana. Sen stream ID sisältää laitteen
 julkaisuoikeuden. Älä näytä sitä lähetyksessä, tee siitä julkista QR-koodia tai
@@ -161,8 +169,10 @@ ehjä koottu striimi, ei identtinen laskuri.
 
 ## 6. Lisää IRL Pro -lähde OBS:ään
 
-IRL Pro käyttää julkaisuosoitetta ja OBS erillistä lukuosoitetta. Näytä
-OBS-osoite VISPissä tai lataa luotu scene collection. Manuaalisesti:
+IRL Pro käyttää julkaisuosoitetta ja OBS erillistä lukuosoitetta. Valitse
+**OBS-lukutunnukset**-kohdassa (OBS-tilassa välilehden nimi on **OBS**) **Luo
+OBS-tunnukset** tai **Näytä lukuosoitteet**, tai lataa valmis scene collection
+valinnalla **Lataa OBS-kokoelma**. Manuaalisesti:
 
 1. Lisää OBS:ään **Media Source**.
 2. Poista **Local File**.
@@ -212,6 +222,6 @@ yhdellä OBS Media Sourcella. Kun polku tallentuu puhtaasti, vaihda luotuun
 SRTLA-osoitteeseen, lisää toinen verkko ja tee linkit yksi kerrallaan katkaiseva
 harjoitus. Näin jokaisella vialla on selkeä syy.
 
-Jos IRL Pro on Android-enkooderisi, [kokeile VISPiä](https://app.visp-stream.com)
+Jos IRL Pro on Android-enkooderisi, [kokeile VISPiä](https://visp-stream.com)
 nimetyllä testilähteellä ja pidä Twitch- tai Kick-kohde OBS:ssä. Harjoitus kertoo,
 riittääkö tavallinen SRT vai ratkaiseeko SRTLA mitatun mobiiliverkko-ongelman.

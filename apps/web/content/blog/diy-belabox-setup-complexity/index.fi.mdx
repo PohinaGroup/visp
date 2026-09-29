@@ -2,6 +2,7 @@
 title: "DIY-BELABOX: itse rakennetun kokoonpanon todellinen työmäärä"
 description: "Tutustu DIY-BELABOXin Linux-, modeemi-, laite- ja VPS-työhön ja arvioi, onko joustavuus koko järjestelmän ylläpidon arvoinen."
 publishedAt: 2026-08-15
+updatedAt: 2026-09-29
 coverAlt: "DIY-BELABOX-työnkulku yhdistää Linux-asetukset, yhteensopivat modeemit, kenttälaitteiston ja VPS-relayn"
 ---
 
@@ -159,9 +160,12 @@ vertailuun.
 ## Ratkaise ensin, onko bonding vaatimus
 
 Älä aloita tuotemerkistä vaan viasta. Jos yksi hyvä mobiili- tai Wi-Fi-yhteys
-kantaa maltillisen bittinopeuden koko reitillä, puhelin voi riittää. VISP voi
-välittää syötteen OBS:ään tai suoraan alustalle. Pakettien monistus voi auttaa
-varayhteytenä, mutta ei yhdistä kahden heikon linkin kapasiteettia.
+kantaa maltillisen bittinopeuden koko reitillä, puhelin voi riittää. VISP lähettää
+syötteen oletuksena suoraan alustalle tai välittää sen omaan OBS:ääsi.
+VISP-sovelluksen valinnainen bondaus voi myös yhdistää puhelimen Wi-Fi- ja
+mobiiliyhteyden kapasiteetin SRTLA:lla tai monistaa paketit molempia reittejä
+varayhteydeksi. Kyse on yhden puhelimen kahdesta linkistä, ei usean itsenäisen
+modeemin rigistä.
 
 Jos yksikään yhteys ei kanna lähetystä mutta useat riippumattomat yhteydet yhdessä
 kantavat, oikea bonding on olennainen. DIY-BELABOX on silloin uskottava vastaus

@@ -2,7 +2,7 @@
 title: "Puhelimen käyttäminen OBS:n etäkamerana"
 description: "Lähetä iPhonen tai Android-puhelimen kamera internetin yli OBS:ään VISPillä ja pidä kohtaukset, ohjaukset sekä lähetysavain kotona."
 publishedAt: 2026-07-22
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Puhelin lähettää videon VISPin kautta OBS-studioon ja suoratoistopalveluihin"
 ---
 
@@ -12,13 +12,19 @@ lähettämällä valmiin ohjelman OBS:stä Twitchiin tai Kickiin. Puhelin ei tar
 kohdepalvelun lähetysavainta, ja nykyiset kohtaukset, hälytykset, grafiikat sekä
 enkoodausasetukset pysyvät kotikoneella.
 
+VISPin oletuslähtö on Direct, jossa relay lähettää puhelimen kuvan suoraan
+Twitchiin, Kickiin tai YouTubeen ilman OBS:ää. Tämä opas käsittelee
+valinnaista OBS-työnkulkua, kun haluat puhelimen osaksi olemassa olevaa
+OBS-tuotantoa.
+
 ![Puhelimen, VISPin ja OBS:n muodostama signaaliketju](./phone-to-obs.svg)
 
 ## Mitä tarvitset
 
-- Twitch- tai Kick-tunnuksella luodun VISP-tilin
+- Twitch-, Kick- tai Google-tunnuksella luodun VISP-tilin
 - OBS Studion kotikoneella
-- helpointa käyttöönottoa varten VISP Remote Control -lisäosan
+- helpointa käyttöönottoa varten VISP Remote Control -lisäosan tai käsin
+  määritetyn medialähteen
 - vähintään iOS 16.4:ää tai Android 7:ää käyttävän puhelimen tai modernin selaimen
 - vakaan lähetysyhteyden puhelimelle ja vakaan yhteyden OBS:lle
 
@@ -36,13 +42,21 @@ OBS yhdistää kameran paikallisiin lähteisiin ja lähettää valmiin ohjelman
 suoratoistopalveluun. Siksi puhelimen lyhyt verkkokatko ei automaattisesti päätä
 lähetystä: OBS voi näyttää paikallista varakohtausta yhteyden palautuessa.
 
-VISP ei transkoodaa eikä yhdistä useita verkkoyhteyksiä. Valitse tarkkuus,
-kuvataajuus ja bittinopeus, jotka puhelin ja mobiiliyhteys kestävät.
+Tällä polulla relay ei transkoodaa syötettä. Valitse tarkkuus, kuvataajuus ja
+bittinopeus, jotka puhelin ja mobiiliyhteys kestävät. VISP-sovelluksen
+valinnainen **Network bonding** voi käyttää Wi-Fiä ja mobiiliyhteyttä yhdessä;
+lue [mobiiliverkon kestävyysopas](/fi/blog/keep-stream-live-bad-mobile-network),
+jos reitillä on heikkoa peittoa.
 
 ## 1. Kirjaudu ja luo puhelimelle laite
 
-Kirjaudu VISPiin tuotannossa käyttämälläsi Twitch- tai Kick-tunnuksella. Valitse
-käyttöönotossa puhelimesta OBS:ään -työnkulku ja julkaisijaksi VISP-sovellus.
+Kirjaudu VISPiin tuotannossa käyttämälläsi Twitch-, Kick- tai Google-tunnuksella.
+Käyttöönotto kysyy, missä lähetät suorana. Twitch, Kick ja YouTube käyttävät
+Directiä; **Muu kohde** ohjaa syötteen OBS:n kautta. Jos kävit käyttöönoton jo
+Directillä, vaihda hallintapaneelin **Tila**-valikosta (**Tila: Suora ·
+vaihda**) **Puhelimesta omaan OBS:ään**, jotta vain OBS lähettää alustalle. Kun
+VISP-sovellus kirjautuu samalla tilillä, se luo tai ottaa käyttöön puhelimen
+julkaisulaitteen.
 Jokainen laite vastaa yhtä kuvalähdettä ja saa oman peruutettavan tunnuksen.
 
 Anna laitteelle kuvaava nimi, kuten ”liikkuva puhelin”, ”lava vasen” tai
@@ -67,9 +81,11 @@ Salli kameran ja mikrofonin käyttö ja valitse objektiivi. Aloita asetuksilla,
 joille verkossa jää riittävästi marginaalia. Mobiilikäytössä 720p tai maltillinen
 1080p on usein luotettavampi kuin sensorin suurin tarkkuus.
 
-Tarkista kuvan suunta, mikrofoni ja äänitaso ennen lähetystä. Mittaa viive
-kentällä käytettävästä verkosta. SRT tarvitsee riittävän viiveikkunan pakettien
-uudelleenlähetykseen, kun mobiiliverkon viive vaihtelee.
+Tarkista kuvan suunta, mikrofoni ja äänitaso ennen lähetystä. SRT tarvitsee
+riittävän viiveikkunan pakettien uudelleenlähetykseen, kun mobiiliverkon viive
+vaihtelee. VISP-sovellus käyttää kiinteää kahden sekunnin SRT-viivettä ja säätää
+bittinopeutta itse. Kolmannen osapuolen enkooderille mittaa viive
+hallintapaneelin **Edistynyt**-välilehdellä kentällä käytettävästä verkosta.
 
 ## 4. Testaa ennen julkista lähetystä
 
@@ -101,9 +117,11 @@ Selainjulkaisija sopii vieraalle tai laitteelle, johon sovellusta ei haluta
 asentaa. Se julkaisee H.264-mediaa WHIP/WebRTC:llä. Jos verkko estää sekä UDP-
 että TCP-pohjaisen WebRTC-median, käytä natiivia SRT-sovellusta.
 
-Larix Broadcaster ja Moblin voivat julkaista VISPiin generoidulla SRT-osoitteella.
+Larix Broadcaster ja Moblin voivat julkaista VISPiin generoidulla SRT-osoitteella:
+valitse **Laitteet**-välilehdellä **Lisää laite** ja kopioi lähetysosoite.
 RTMP kannattaa jättää varavaihtoehdoksi tilanteisiin, joissa sovellus ei tue
-SRT:tä tai verkko estää UDP:n.
+SRT:tä tai verkko estää UDP:n (osoite näkyy asetuksella **Näytä RTMP- ja
+SRTLA-vara-osoitteet**).
 
 ## Ongelmatilanteet
 
@@ -138,11 +156,14 @@ puhelimelle oma laite.
 
 ### Lähettääkö VISP suoraan Twitchiin tai Kickiin?
 
-Ei. OBS lähettää valmiin ohjelman kohteeseen, joten kohtaukset, grafiikat ja
-lähetysavain pysyvät kotona.
+Voi: oletuksena oleva Direct lähettää puhelimen kuvan relaylta Twitchiin,
+Kickiin tai YouTubeen. Tämän oppaan OBS-työnkulussa OBS lähettää valmiin
+ohjelman kohteeseen, joten kohtaukset, grafiikat ja lähetysavain pysyvät
+kotona.
 
 ## Lisätietoja
 
 - [VISP: aloita tästä](https://docs.visp-stream.com/fi/docs/get-started)
+- [Direct-lähtö](https://docs.visp-stream.com/fi/docs/direct-output)
 - [Puhelin- ja selainsovellus](https://docs.visp-stream.com/fi/docs/phone-app)
 - [OBS-etäohjaus](https://docs.visp-stream.com/fi/docs/obs-remote-control)

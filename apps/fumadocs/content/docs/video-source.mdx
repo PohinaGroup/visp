@@ -6,15 +6,16 @@ icon: Camera
 
 Every publishing device on your dashboard has a **sending URL**. Paste it into
 the app that films — that app becomes the video source, and VISP relays its
-feed into OBS. The URL contains that device's password, so keep it private.
+feed to your Direct platform or, optionally, into OBS. The URL contains that device's password, so keep it private.
 
 Using the **VISP phone app** or **browser publisher**? You don't need this
 page — they link the device automatically after you sign in.
 
 ## Copy the URL
 
-1. Open the [dashboard](https://visp-stream.com/dashboard) and find your
-   device under **Video sources**.
+1. Open the [dashboard](https://visp-stream.com/dashboard#devices)
+   **Devices** tab. Under **Video sources**, open your device, or create one
+   with **Device name** and **Add device**.
 2. Choose **Copy** next to **Add this to video source**.
 
 ## Paste it into your app
@@ -41,11 +42,11 @@ page — they link the device automatically after you sign in.
 
 In your app's stream settings, choose **Custom** or **Custom RTMP** as the
 service and paste the URL as the server. If your app doesn't accept an SRT
-URL, switch the dashboard to **Advanced** mode to reveal the RTMP fallback
-URL for the device.
+URL, turn on **Show RTMP and SRTLA fallback URLs** on the **Devices** tab to
+reveal the RTMP fallback URL for the device.
 
 ## Check it worked
 
-The device row on the dashboard shows **Live** as soon as VISP receives the
+The device row on the **Devices** tab shows **Live** as soon as VISP receives the
 feed. For latency tuning and automatic fallback scenes, see
 [Encoders and fallback](/docs/broadcaster-setup).

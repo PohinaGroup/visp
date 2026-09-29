@@ -1,8 +1,8 @@
 ---
 title: "Moblin etäkamerana OBS:ssä SRT:n yli"
-description: "Tuo Moblinin iPhone-kamera OBS:ään SRT:n yli VISPin kautta, säädä adaptiivinen bittinopeus ja viive ja opi, mihin SRTLA-yhdistäminen sopii ja mihin ei."
+description: "Tuo Moblinin iPhone-kamera OBS:ään SRT:n yli VISPin kautta, säädä adaptiivinen bittinopeus ja viive ja yhdistä Wi-Fi ja mobiili Moblinin SRTLA:lla."
 publishedAt: 2026-07-23
-updatedAt: 2026-08-03
+updatedAt: 2026-09-28
 coverAlt: "Moblin-enkooderia käyttävä iPhone lähettää yhden SRT-kamerasyötteen relayn kautta kotistudion OBS:ään"
 ---
 
@@ -16,11 +16,13 @@ Moblin on ilmainen, avoimen lähdekoodin (MIT) iOS-suoratoistosovellus. Se osaa
 julkaista SRT:llä, joten se sopii samaan relay-malliin kuin mikä tahansa muu
 enkooderi: puhelin muodostaa yhteyden ulospäin VISPiin, OBS muodostaa yhteyden
 ulospäin VISPiin, eikä kotiverkkoon tarvita saapuvaa SRT-porttia. Twitchin tai
-Kickin lähetysavain pysyy OBS:ssä, ei kenttäpuhelimessa.
+Kickin lähetysavain pysyy OBS:ssä, ei kenttäpuhelimessa. (Jos haluat ohittaa
+OBS:n, VISP Direct voi lähettää saman Moblin-syötteen relaylta suoraan
+Twitchiin, Kickiin tai YouTubeen. Tämä opas käsittelee OBS-työnkulkua.)
 
 ![Moblinia käyttävä iPhone lähettää yhden SRT-tuotantosyötteen VISPin kautta OBS:ään, joka tuottaa valmiin Twitch- tai Kick-lähetyksen](./moblin-visp-obs-flow.svg)
 
-## Miksi Moblin, ja missä sen yhdistäminen oikeasti tapahtuu
+## Miksi Moblin, ja miten sen yhdistäminen sopii VISPiin
 
 Moblin kannattaa nostaa esiin, koska se osaa muutakin kuin pelkän SRT:n. Sen
 README luettelee tuen protokollille "RTMP, RTMPS, SRT, SRTLA, RIST or WHIP
@@ -36,22 +38,24 @@ SRT-virran useaan linkkiin, ja `srtla_rec` kokoaa ne takaisin yhdeksi
 SRT-virraksi ennen kuin luovuttaa sen tavalliselle SRT-sovellukselle.
 Yhdistäminen toimii siis vain, jos toinen pää on SRTLA-vastaanotin.
 
-VISP **ei ole** SRTLA-vastaanotin. Se on itse isännöity SRT/RTMP-relay ja
-hallintakerros, eikä se yhdistä verkkoyhteyksiä. Kun siis osoitat Moblinin
-VISP-videolähteeseen, käytät Moblinin **tavallista SRT:tä** yhden linkin yli —
-et SRTLA:ta. Jos todella tarvitset mobiili- ja WiFi-yhteyden yhdistämistä yhdeksi
-kestäväksi lähetystieksi, se kuuluu Moblinin SRTLA-polulle BELABOX-tyyppisen
-vastaanottimen kanssa tai erilliselle yhdistävälle enkooderille, kuten
-kerrotaan artikkelissa
-[VISP vs BELABOX vs LiveU Solo](/blog/visp-vs-belabox-vs-liveu-solo). Tämä opas
-käsittelee Moblinin yhden linkin SRT-tuotantosyötettä olemassa olevaan
-OBS-studioon, mikä on yleisempi tarve.
+VISP-relay ajaa sellaista. Jokaisella VISP-laitteella on tavallisen
+`srt://`-osoitteen lisäksi `srtla://`-osoite, ja `srtla_rec` luovuttaa kootun
+virran relaylle samoilla tunnisteilla. Voit siis osoittaa Moblinin tavalliseen
+SRT-osoitteeseen yhden linkin syötettä varten tai SRTLA-osoitteeseen, kun
+haluat yhdistää mobiili- ja Wi-Fi-yhteyden. Molemmat linkit jakavat silti saman
+puhelimen ja usein saman peittoalueen, joten raskaampiin tarpeisiin vertaa
+erillisiä enkoodereita artikkelissa
+[VISP vs BELABOX vs LiveU Solo](/fi/blog/visp-vs-belabox-vs-liveu-solo). Alla
+olevat vaiheet alkavat tavallisesta SRT:stä ja kertovat, missä SRTLA eroaa.
 
 ## Mitä tarvitset
 
 - Moblin asennettuna kenttä-iPhoneen (App Store, ilmainen)
 - OBS Studio tuotantotietokoneella
-- VISP-tili, johon on kirjauduttu Twitchillä, Kickillä tai Googlella
+- VISP-tili, johon on kirjauduttu Twitchillä, Kickillä tai Googlella, ja
+  hallintapaneelin **Tila**-valikossa valittuna **Puhelimesta omaan OBS:ään**
+  (Direct on oletus; jos se jää päälle ja OBS lähettää samalle alustalle,
+  kanavalla on kaksi lähettäjää)
 - Riittävä lähetyskapasiteetti Moblinille ja latauskapasiteetti OBS:lle
 - Kuulokkeet äänen tarkistamiseen ilman paluutien kaikua
 - Paikallinen OBS-varascene kenttähäiriön varalle
@@ -63,21 +67,23 @@ ovat merkityksellisiä vain oikealla reitillä.
 
 ## 1. Luo Moblin-videolähde VISPiin
 
-Kirjaudu VISPiin, avaa **Video sources**, valitse **Add device** ja anna sille
+Kirjaudu VISPiin, avaa hallintapaneelin **Laitteet**-välilehti, valitse
+**Videolähteet**-kohdassa **Lisää laite** ja anna sille
 käytännöllinen nimi, kuten "roaming Moblin" tai "handheld iPhone". Yksi
 VISP-laite vastaa yhtä julkaisupolkua.
 
-Valitse **Copy** kohdan **Add this to video source** vierestä. Arvo alkaa
+Valitse **Copy** kohdan **Lisää tämä videolähteeseen** vierestä. Arvo alkaa
 merkinnällä `srt://` ja sisältää polun julkaisutunnisteen. Käsittele koko osoite
 salasanana: älä liitä sitä kuvakaappauksiin, chattiin, striimin grafiikoihin tai
 julkiseen vianetsintäviestiin.
 
-VISP näyttää SRT:n oletuksena. Pidä se, ellei lähettävä verkko estä UDP:tä.
-Kojelauta tarjoaa RTMP-varayhteyden **Advanced**-tilassa, mutta protokollan
+VISP näyttää SRT:n oletuksena. Pidä se, ellei lähettävä verkko estä UDP:tä tai
+halua yhdistää yhteyksiä. Samalla välilehdellä **Näytä RTMP- ja
+SRTLA-vara-osoitteet** tuo esiin laitteen RTMP- ja SRTLA-osoitteet. RTMP:hen
 vaihtaminen ei lisää kaistaa yhteyteen, jolta yksinkertaisesti puuttuu
 lähetyskapasiteettia. Tarkka kojelaudan kulku on VISPin dokumentaatiossa
 kohdassa
-[videolähteen lisääminen](https://docs.visp-stream.com/docs/video-source).
+[videolähteen lisääminen](https://docs.visp-stream.com/fi/docs/video-source).
 
 ## 2. Lisää SRT-striimi Moblinissa
 
@@ -87,10 +93,11 @@ lähettää tavallisella SRT:llä eikä SRTLA:lla — juuri sitä VISP-videoläh
 odottaa. Valitse tämä striimi aktiiviseksi ennen kuin palaat kameranäkymään.
 
 Liitä VISP-osoite yhtenä arvona. Älä yritä jakaa sitä erillisiin palvelin-,
-stream ID- tai salasanakenttiin äläkä vaihda skeemaa muotoon `srtla://`.
+stream ID- tai salasanakenttiin äläkä muokkaa skeemaa tai porttia käsin.
 Generoitu osoite sisältää jo SRT:n stream ID:n ja tunnistautumistiedot siinä
-muodossa, jota relay odottaa, ja `srtla://` pyytäisi Moblinia tavoittelemaan
-yhdistävää vastaanotinta, jota VISP ei tarjoa.
+muodossa, jota relay odottaa. Yhdistämistä varten liitä sen sijaan laitteen
+erillinen SRTLA-osoite; se osoittaa relayn SRTLA-porttiin (UDP 5000), joten
+pelkkä `srt://`-skeeman vaihtaminen muotoon `srtla://` ei riitä.
 
 ## 3. Valitse asetukset, jotka mobiiliyhteys kestää
 
@@ -110,7 +117,7 @@ yhdistää uudelleen.
 | Bittinopeus lähestyy toistuvasti käytettävissä olevaa kaistaa | Laske tavoitebittinopeutta |
 | Lyhyet häviö- tai jitter-purskeet | Kasvata SRT-viivettä |
 | Kapasiteetti muuttuu liikkeessä | Ota Moblinin adaptiivinen bittinopeus käyttöön |
-| Pitkä katvealue tai koko operaattorin katko | Käytä OBS-varascenea tai lisää oikea yhdistäminen |
+| Pitkä katvealue tai koko operaattorin katko | Käytä OBS-varascenea tai lisää yhdistäminen (SRTLA) |
 
 Moblinin README mainitsee nimenomaisesti "Adaptive bitrate for SRT(LA)", jonka
 avulla enkooderi laskee ja myöhemmin palauttaa bittinopeuden mobiilikapasiteetin
@@ -119,7 +126,7 @@ luotat siihen suorassa lähetyksessä. Adaptiivinen bittinopeus voi vaihtaa
 yksityiskohtia jatkuvuuteen; se ei voi lähettää videota, kun aktiivisella
 yhteydellä ei ole käyttökelpoista reittiä.
 
-VISP **ei transkoodaa** saapuvaa syötettä. Koodekki, resoluutio, kuvataajuus,
+Relaysta OBS:ään kulkevalla polulla VISP **ei transkoodaa** saapuvaa syötettä. Koodekki, resoluutio, kuvataajuus,
 avainruutuväli ja bittinopeus, jotka Moblin lähettää, ovat ne, jotka relay
 välittää OBS:lle. Korjaa yhteensopimaton tai ylisuuri syöte enkooderissa sen
 sijaan, että odottaisit relayn muuntavan sen.
@@ -134,7 +141,8 @@ tämän automaattisen uudelleenlähetyksen, ja
 [SRT Alliancen yleiskatsaus](https://www.srtalliance.org/about-srt-technology/)
 selittää, miksi viive on sidoksissa edestakaiseen viiveaikaan.
 
-Aja VISPin viivemittaus sillä yhteydellä, jota Moblin oikeasti käyttää, ja
+Aja VISPin viivemittaus (hallintapaneelin **Edistynyt**-välilehti) sillä
+yhteydellä, jota Moblin oikeasti käyttää, ja
 valitse oikea verkkoprofiili. VISP muuntaa seitsemän edestakaisen näytteen
 mediaanin näiksi aloitussuosituksiksi:
 
@@ -166,7 +174,8 @@ medialähdescenen jokaista aktiivista VISP-laitetta kohti.
 
 Manuaalinen lähde:
 
-1. Paljasta tai kopioi laitteen OBS-lukuosoite VISPissä.
+1. Paljasta tai kopioi laitteen OBS-lukuosoite VISPissä (hallintapaneelin
+   **OBS**-välilehti Puhelimesta omaan OBS:ään -tilassa).
 2. Lisää OBS:ssä **Media Source**.
 3. Poista **Local File** -valinta.
 4. Liitä OBS-lukuosoite kenttään **Input**.
@@ -178,8 +187,8 @@ Tilikohtaisen OBS-lukutunnisteen kierrättäminen mitätöi kaikki tilin olemass
 olevat OBS-lähteet, joten tee se vain, kun aiot korvata ne. Yhden Moblin-laitteen
 julkaisutunnisteen kierrättäminen vaikuttaa vain siihen laitteeseen. Tämä on sama
 lähdetyönkulku kuin
-[puhelin OBS-kamerana -oppaassa](/blog/use-phone-as-remote-camera-obs) ja
-[Larix Broadcaster -asennuksessa](/blog/larix-broadcaster-obs-srt); Moblin vain
+[puhelin OBS-kamerana -oppaassa](/fi/blog/use-phone-as-remote-camera-obs) ja
+[Larix Broadcaster -asennuksessa](/fi/blog/larix-broadcaster-obs-srt); Moblin vain
 korvaa enkooderin puhelimessa.
 
 ## 6. Testaa palautuminen ennen oikeaa lähetystä
@@ -198,33 +207,33 @@ Aja tämä lyhyt häiriöharjoitus kohde vielä offline-tilassa:
 6. Odota vakaata toistoa ennen kuin leikkaat takaisin kenttäkameraan.
 
 Jos tuotannon on tarkoitus viihdyttää katsojia kameran ollessa offline-tilassa,
-seuraa [mobiiliverkon kestävyysopasta](/blog/keep-stream-live-bad-mobile-network)
+seuraa [mobiiliverkon kestävyysopasta](/fi/blog/keep-stream-live-bad-mobile-network)
 ja määritä Media-state-ehto Advanced Scene Switcheriin, jotta lyhyt dekooderin
 muutos ei pompi scenejen välillä.
 
 ## Mitä tämä kokoonpano ei tee
 
-VISP välittää tunnistetun syötteen; se ei transkoodaa sitä eikä yhdistä
-yhteyksiä. SRT:n uudelleenlähetys voi palauttaa osan pakettihäviöstä, mutta se ei
-voi yhdistää kahta operaattoria eikä jatkaa lähetystä täydellisen katkon läpi.
-Jos yhden operaattorin on saatava pettää keskeyttämättä kenttäkuvaa, pidä
-kestävyys siellä minne se kuuluu: Moblinin omassa SRTLA-yhdistämisessä
-BELABOX-tyyppisen vastaanottimen kanssa tai erillisessä yhdistävässä
-enkooderissa. Moblinin tavallisen SRT:n osoittaminen VISPiin antaa yhden
-tunnistetun linkin, ei aggregointia.
+VISP välittää tunnistetun syötteen OBS:ään transkoodaamatta. SRT:n
+uudelleenlähetys voi palauttaa osan pakettihäviöstä, mutta tavallinen SRT ei
+voi yhdistää kahta linkkiä eikä jatkaa lähetystä täydellisen katkon läpi. Jos
+yhden operaattorin on saatava pettää keskeyttämättä kenttäkuvaa, käytä
+Moblinin SRTLA-osoitetta, jolloin molemmat linkit kantavat virtaa, tai
+erillistä yhdistävää enkooderia. Yhdistettynäkin kaksi linkkiä samassa
+katvealueessa putoavat yhdessä.
 
 Vain yksi julkaisija voi omistaa VISP-laitepolun kerrallaan. Toinen puhelin ei
 voi olla valmiiksi yhdistettynä samaan osoitteeseen saumattomana varana. Anna
 jokaiselle puhelimelle tai enkooderille oma VISP-laite ja OBS-lähde;
-[usean puhelimen IRL-opas](/blog/multi-phone-irl-stream-obs) näyttää, miten nämä
+[usean puhelimen IRL-opas](/fi/blog/multi-phone-irl-stream-obs) näyttää, miten nämä
 itsenäiset lähteet sommitellaan OBS:ssä.
 
 ## Vianetsintä
 
 ### Moblin käynnistyy, mutta VISP ei näytä Live-tilaa
 
-Tarkista, että oikea striimi on valittuna, koko nykyinen julkaisuosoite on
-liitetty ja sen skeema on `srt://` eikä `srtla://`. Varmista, ettei toinen
+Tarkista, että oikea striimi on valittuna ja koko nykyinen julkaisuosoite on
+liitetty muuttamattomana: `srt://`-osoite tai yhdistäessä erillinen
+SRTLA-osoite. Varmista, ettei toinen
 enkooderi jo käytä kyseistä laitepolkua. Jos tunniste on kierrätetty tai
 peruutettu, korvaa vanha Moblin-osoite.
 
@@ -250,13 +259,16 @@ kaikua puhelimeen.
 
 ### SRT on estetty tapahtumapaikan verkossa
 
-Vaihda VISP tilaan **Advanced**, kopioi kyseisen laitteen RTMP-julkaisuosoite ja
+Ota **Laitteet**-välilehdellä käyttöön **Näytä RTMP- ja SRTLA-vara-osoitteet**,
+kopioi kyseisen laitteen RTMP-julkaisuosoite ja
 luo Moblinissa RTMP-striimi. Pidä OBS sen generoidulla lukupolulla. RTMP on
 yhteensopivuusvara TCP:n yli, ei parannus riittämättömään kaistaan.
 
 ## Tarkistuslista ennen lähetystä
 
-- Moblinin aktiivinen striimi käyttää nykyistä VISPin `srt://`-julkaisuosoitetta.
+- Hallintapaneelin tila on **Puhelimesta omaan OBS:ään**.
+- Moblinin aktiivinen striimi käyttää nykyistä VISPin `srt://`- (tai SRTLA-)
+  julkaisuosoitetta.
 - H.264, AAC, suunta, avainruutuväli ja bittinopeus on testattu.
 - SRT-viive tulee oikean kenttäverkon mittauksesta.
 - Adaptiivinen bittinopeus on käytössä ja testattu, kun mobiilikapasiteetti vaihtelee.
@@ -271,20 +283,20 @@ yhteensopivuusvara TCP:n yli, ei parannus riittämättömään kaistaan.
 
 Ei. Moblin lähettää tuotantosyötteen VISPiin, OBS vastaanottaa sen, ja OBS
 lähettää valmiin tuotannon Twitchiin tai Kickiin. Näin scenet, hälytykset,
-tallennus ja kohteen lähetysavain pysyvät studiossa.
+tallennus ja kohteen lähetysavain pysyvät studiossa. Jos et tarvitse OBS:ää,
+VISP Direct voi lähettää Moblin-syötteen alustoille relaylta.
 
 ### Voinko käyttää Moblinin SRTLA-yhdistämistä VISPin kautta?
 
-Et. SRTLA tarvitsee vastaavan SRTLA-vastaanottimen kokoamaan yhdistetyt linkit,
-ja VISP on tavallinen SRT/RTMP-relay, ei tuo vastaanotin. Käytä Moblinin
-`srt://`-lähtöä VISPiin ja pidä SRTLA-yhdistäminen omalla BELABOX-tyyppisellä
-vastaanottimellaan, jos tarvitset sitä.
+Voit. VISP-relay ajaa SRTLA-vastaanotinta. Ota **Laitteet**-välilehdellä
+käyttöön **Näytä RTMP- ja SRTLA-vara-osoitteet** ja liitä laitteen
+SRTLA-osoite Mobliniin `srt://`-osoitteen sijaan.
 
 ### Pitäisikö käyttää SRT:tä vai RTMP:tä Moblinista?
 
 Käytä SRT:tä oletuksena palautumisen vuoksi ennustamattomassa verkossa. Käytä
 RTMP:tä, kun lähettävä verkko ei päästä UDP:tä läpi. Kumpikaan protokolla ei luo
-kaistaa, transkoodaa videota tai yhdistä yhteyksiä.
+kaistaa eikä yhdistä yhteyksiä; se on SRTLA:n tehtävä.
 
 ### Onko Moblin pakollinen VISPille?
 

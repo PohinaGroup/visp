@@ -20,8 +20,8 @@ VISP Direct sends the saved program to Twitch, Kick, YouTube, or a custom
 destination.
 
 You do not need a computer at home for this workflow. You do need Cloud Studio
-to be enabled on your VISP deployment. If **Open Studio** does not appear on
-the dashboard, use a phone-side production app or keep OBS in the path.
+to be enabled on your VISP deployment. If the **Cloud Studio** button does not
+appear on the dashboard's **Home** tab, use a phone-side production app or keep OBS in the path.
 
 ![A phone contribution enters VISP Cloud Studio, receives graphic layers, and leaves as one finished Direct program](./cloud-studio-signal-flow.svg)
 
@@ -79,16 +79,15 @@ are enough to prove the path.
 
 1. Sign in to VISP and finish the normal Direct setup for your phone.
 2. Authorize the platform destinations that you want to test.
-3. Open the dashboard and select **Cloud Studio** as the Direct production
-   mode.
-4. Choose **Open Studio**. If you are in the phone app, **Edit on web** opens
-   the same authenticated editor.
+3. On the dashboard's **Home** tab, choose **Cloud Studio**. If you are in the
+   phone app, **Edit on web** opens the same authenticated editor.
+4. Under **Direct production mode**, select **Cloud Studio**.
 5. Create a scene named **Main**.
 6. Choose **Add source → PNG overlay** and upload a transparent PNG no larger
    than 10 MB.
 7. Select the layer and set its position, width, and height. Use **Move
    forward** or **Move backward** to fix the stacking order.
-8. Choose **Save**.
+8. Choose **Save and apply**.
 
 Saving matters. The editor keeps changes as a draft until you save them. Direct
 uses the last saved program, including when you later start the stream from the
@@ -127,7 +126,8 @@ assumption that might make it render blank in a new browser session.
 Choose **Add source → VISP alert** to add one alert layer. Select a follow,
 subscription, or donation event, then place the alert like any other visual
 layer. VISP maps supported events from connected platforms into those three
-display groups. The alert label appears for ten seconds.
+display groups. The alert shows for ten seconds by default; **Alert duration (seconds)**
+accepts 1 to 30.
 
 This is different from showing combined chat on every platform. An alert is a
 short event card. A chat overlay is a continuous stream of messages and can
@@ -149,7 +149,7 @@ Cloud Studio supports up to three scenes. A useful first pair is:
 
 Choose **Cut** when the switch should be immediate. Choose **Fade** for a
 half-second transition. Keep both scenes within the same 1920×1080 canvas.
-After you choose **Save**, a scene change updates the Direct program. The editor
+After you choose **Save and apply**, a scene change updates the Direct program. The editor
 is not a local switcher with zero network delay. Watch the **Program** preview
 and verify the public channel from a muted second device.
 

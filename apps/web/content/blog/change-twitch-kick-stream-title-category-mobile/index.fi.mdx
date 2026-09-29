@@ -2,6 +2,7 @@
 title: "Näin vaihdat Twitch- ja Kick-striimin otsikon ja kategorian puhelimella"
 description: "Vaihda Twitch- ja Kick-striimin otsikko ja kategoria puhelimesta, pidä molemmat kanavat ajan tasalla IRL-lähetyksessä ja tarkista päivitys."
 publishedAt: 2026-08-16
+updatedAt: 2026-09-29
 coverAlt: "IRL-striimaaja napauttaa tekstitöntä lähetystietonäkymää puhelimessa, joka on kiinnitetty käsivakaajaan kaupunkiaukiolla"
 ---
 
@@ -100,12 +101,13 @@ Luvat ovat tarkasti rajattuja:
   metatietojen päivittämiseen
   [Channels-rajapinnassa](https://docs.kick.com/apis/channels).
 
-Kumpikaan lupa ei ole striimiavain. Tavallisessa puhelimesta OBS:ään kulkevassa
-työnkulussa Twitch- tai Kick-kohde ja avain pysyvät OBS:ssä. VISPin välitys
-siirtää H.264/AAC-syötteen edelleen transkoodaamatta. Kun käytössä on
-[VISP Direct](/blog/what-is-visp-direct), välitys hallitsee alustalle menevää
-lähetystä, mutta lähetystiedon muutos on silti erillinen todennettu
-rajapintapyyntö eikä videoyhteyden muutos.
+Kumpikaan lupa ei ole striimiavain. Oletuslähdössä [VISP Direct](/blog/what-is-visp-direct)
+välitys hoitaa alustalle menevän lähetyksen ja hakee striimiavaimen
+palvelimella; puhelin ei koskaan saa sitä. Jos ohjaat puhelimen omaan OBS:ääsi,
+Twitch- tai Kick-kohde ja avain pysyvät OBS:ssä, ja välitys siirtää
+H.264/AAC-syötteen edelleen transkoodaamatta. Kummassakin tapauksessa
+lähetystiedon muutos on erillinen todennettu rajapintapyyntö eikä videoyhteyden
+muutos.
 
 Jos lupapyyntö ilmestyy uudelleen, vaikka hyväksyit sen aiemmin, hyväksy
 nykyinen lupa äläkä ala korjata kameraa. Alustan suostumus ja median julkaisu
@@ -155,13 +157,13 @@ dokumentoivat nämä päivitysrajapintansa metatietotoiminnoiksi.
 
 Video jatkaa samaan aikaan valitsemaasi tuotantoreittiä:
 
+- Directissä VISP jatkaa jo käynnissä olevia kohde-enkoodauksia. Otsikon muutos
+  ei lisää enkoodausta eikä siirrä syötettä.
 - [Twitchin puhelimesta OBS:ään kulkevassa työnkulussa](/blog/twitch-phone-through-obs)
   puhelimen syöte jatkaa VISP-välityksen kautta koti-OBS:ään, ja OBS lähettää
   valmiin ohjelman Twitchiin.
 - Vastaavassa [Kickin puhelin–OBS-työnkulussa](/blog/kick-phone-through-obs)
   OBS säilyttää skenet, hälytykset, varakuvan ja Kick-kohteen.
-- Directissä VISP jatkaa jo käynnissä olevia kohde-enkoodauksia. Otsikon muutos
-  ei lisää enkoodausta eikä siirrä syötettä.
 
 Erottelu on tärkeä vianhaussa. Jos uusi otsikko epäonnistuu mutta video toimii,
 älä muuta SRT-latenssia, bittinopeutta tai OBS:n Media Sourcea. Tarkista
@@ -186,8 +188,8 @@ kategoria uudelleen ja lähetä muutos. Vain yhden alustan merkinnällä näkyv�
 kategoria ei ole osittainen virhe. Se tarkoittaa, ettei toinen katalogi
 palauttanut samannimistä kategoriaa.
 
-Tuottajan tai moderaattorin avustamassa lähetyksessä VISPin välityksessä toimiva
-chat-botti tarjoaa vielä yhden rajatun työkalun: lähettäjä tai moderaattori voi
+Tuottajan tai moderaattorin avustamassa lähetyksessä VISPin palvelimella toimiva
+valinnainen chat-botti tarjoaa vielä yhden rajatun työkalun: lähettäjä tai moderaattori voi
 käyttää komentoa `!title <teksti>` yhteisen otsikon vaihtamiseen. Komento ei
 valitse kategoriaa, joten käytä sitä nopeaan otsikointiin ja pidä **Info**
 katalogimuutoksia varten. Asetukset ja rajat löytyvät
@@ -214,7 +216,7 @@ Kun ohjelma vaihtuu:
 Jos käytät vain yhtä alustaa, sen oma hallintanäkymä voi edelleen olla lyhin
 reitti. Kun Twitch ja Kick välittävät samaa IRL-ohjelmaa, yksi huolellisesti
 tarkistettu VISP-päivitys poistaa ylimääräisen hallintakierroksen ja pitää
-alustatilit, mediareitin sekä OBS-tuotannon oikeilla paikoillaan.
+alustatilit, mediareitin ja mahdollisen OBS-tuotannon oikeilla paikoillaan.
 
 Nykyiset kamera-, chat-, lähetystieto- ja OBS-ohjaimet on kuvattu
 [VISP-puhelinsovelluksen dokumentaatiossa](https://docs.visp-stream.com/docs/phone-app).

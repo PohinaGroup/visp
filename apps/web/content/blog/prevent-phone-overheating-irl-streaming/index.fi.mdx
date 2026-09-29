@@ -2,6 +2,7 @@
 title: "Näin estät puhelinta ylikuumenemasta IRL-lähetyksessä OBS:ään"
 description: "Estä puhelimen ylikuumeneminen IRL-lähetyksessä OBS:ään turvallisilla kuva-asetuksilla, varjolla, ilmanvaihdolla ja virtasuunnitelmalla."
 publishedAt: 2026-07-29
+updatedAt: 2026-09-28
 coverAlt: "Varjossa oleva puhelin kuvaa kesäistä kaupunkia samalla kun sininen signaalipolku johtaa viileään OBS-kotistudioon"
 ---
 
@@ -25,15 +26,17 @@ kameraa, näyttöä tai verkkoyhteyttä.
 
 ## Ymmärrä, mitä puhelin tekee
 
-Tavallisessa VISPistä OBS:ään kulkevassa työnkulussa kenttäpuhelin tekee
-edelleen ensimmäisen videoenkoodauksen. VISP-sovellus tallentaa valitun kameran
-ja mikrofonin, enkoodaa H.264-videon ja AAC-äänen sekä lähettää yhden
-kuvalähdesyötteen SRT:llä. Relay tunnistaa ja välittää syötteen. OBS purkaa sen,
-rakentaa lopullisen ohjelman ja lähettää Twitch- tai Kick-lähetyksen
+Jokaisessa VISP-työnkulussa kenttäpuhelin tekee ensimmäisen videoenkoodauksen.
+VISP-sovellus tallentaa valitun kameran ja mikrofonin, enkoodaa H.264-videon ja
+AAC-äänen sekä lähettää yhden kuvalähdesyötteen SRT:llä. Oletusulostulossa
+Suorassa relay enkoodaa syötteen Twitchiin, Kickiin tai YouTubeen. Tämän
+oppaan painottamassa valinnaisessa OBS-työnkulussa relay välittää syötteen, ja
+OBS purkaa sen, rakentaa lopullisen ohjelman ja lähettää lähetyksen
 kotitietokoneelta.
 
-Näin OBS-kohtaukset, selainlähteet, hälytykset, tallennus ja alustan
-lähetysavain pysyvät poissa puhelimesta. Kameran käyttäminen ei silti muutu
+Kummassakin tapauksessa alustan enkoodaus ja lähetysavain pysyvät poissa
+puhelimesta, ja OBS:n kanssa myös kohtaukset, selainlähteet, hälytykset ja
+tallennus. Kameran käyttäminen ei silti muutu
 ilmaiseksi. Ulkolähetyksessä sama laite voi:
 
 - käyttää kameraa ja laitteistopohjaista videoenkooderia jatkuvasti;
@@ -61,9 +64,9 @@ Nämä ovat turvatoimintoja. Älä yritä kiertää niitä kesken lähetyksen.
 ## Aloita viileämmästä kuvamuodosta
 
 Käytä pienintä tuotannon tarpeet täyttävää kuvamuotoa ja nosta asetuksia vasta
-koko lähetyksen pituisen testin jälkeen. VISP-puhelinsovellus suosii
-**720p-kuvaa 30 ruudulla sekunnissa**, kun valittu kamera tukee sitä. Se on
-hyvä IRL-lähtötaso: kamera ja enkooderi käsittelevät vähemmän pikseleitä ja
+koko lähetyksen pituisen testin jälkeen. VISP-puhelinsovellus aloittaa
+1080p30-kuvasta, kun kamera tukee sitä, joten valitse viileämpää alkua varten
+laatuasetus **Reliable · 720p30**. Se on hyvä IRL-lähtötaso: kamera ja enkooderi käsittelevät vähemmän pikseleitä ja
 ruutuja kuin 1080p60-kuvassa, mutta OBS voi silti sijoittaa syötteen tavalliseen
 kohtaukseen.
 
@@ -231,12 +234,12 @@ Tavallisella relaysta OBS:ään kulkevalla polulla VISP **ei transkoodaa**
 kuvalähdettä. Jos puhelin lähettää tarpeettoman raskasta kuvamuotoa, relay ei
 muuta sitä viileämmäksi. Vaihda tarkkuus, kuvataajuus ja bittinopeus puhelimesta.
 
-Relay **ei myöskään niputa verkkoyhteyksiä tai yhdistä niiden kapasiteettia
-nopeammaksi lähetykseksi**. Natiivisovelluksen monilinkkinen redundanssitila voi
-lähettää samoja SRT-paketteja Wi-Fi- ja mobiiliyhteydellä, mutta redundanssi ei
-jäähdytä laitetta eikä yhdistä siirtokapasiteettia. Se voi lisätä radioiden
-työtä ja datankäyttöä. Jätä se pois ensimmäisestä lämpötestistä ja testaa se
-erikseen vain, jos reitti tarvitsee lisäsietoa.
+VISP-sovelluksen verkkobonding on valinnainen ja oletuksena pois päältä. Sen
+SRTLA-tila pitää sekä Wi-Fi- että mobiiliradion lähettämässä, ja
+Broadcast-tila lähettää samat paketit molempia pitkin, mikä voi lisätä
+radioiden työtä ja datankäyttöä. Kumpikaan tila ei jäähdytä laitetta. Jätä
+bonding pois ensimmäisestä lämpötestistä ja testaa se erikseen vain, jos reitti
+tarvitsee sitä.
 
 Koko lähdeasetuksen löydät
 [VISP-puhelinsovelluksen ohjeesta](https://docs.visp-stream.com/fi/docs/phone-app)

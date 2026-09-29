@@ -2,6 +2,7 @@
 title: "How to Use an External Microphone for Phone IRL Streaming"
 description: "Connect and verify an external phone microphone for Twitch or Kick IRL streaming, then prevent wrong-input, clipping, and route-change failures."
 publishedAt: 2026-08-14
+updatedAt: 2026-09-28
 coverAlt: "An IRL creator wearing a compact external microphone while a clean audio waveform travels from a phone toward a home streaming studio"
 ---
 
@@ -184,8 +185,10 @@ show.
 Treat an unplugged receiver or dead wireless transmitter as an on-air fault,
 not as a seamless input switch. When VISP refreshes settings and a saved input
 is no longer available, it clears that unavailable selection back toward the
-system default. The operating system still controls the actual route, so stop,
-reconnect, reselect, and verify whenever the production allows.
+system default. While live, the app checks the selected input every few
+seconds and shows "Selected microphone disconnected" if it disappears. The
+operating system still controls the actual route, so stop, reconnect, reselect,
+and verify whenever the production allows.
 
 For an OBS production, keep a local fallback scene ready while the field
 operator fixes audio. For Direct, the platform feed has no home-OBS layer to

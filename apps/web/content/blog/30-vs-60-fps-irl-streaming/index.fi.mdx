@@ -2,6 +2,7 @@
 title: "30 vai 60 FPS IRL-striimiin? Näin valitset kuvataajuuden"
 description: "Valitse puhelimen IRL-striimiin 30 tai 60 FPS liikkeen, mobiiliyhteyden, akun, hämärän, OBS-lähdön ja oikean reittitestin perusteella."
 publishedAt: 2026-08-23
+updatedAt: 2026-09-28
 coverAlt: "IRL-kuvaaja pitää puhelinta kahden virtaavan kuvasarjan vieressä, jotka vertaavat vakaata 30 FPS:n ja nopeampaa 60 FPS:n liikettä"
 ---
 
@@ -10,8 +11,8 @@ kuvataajuudella**. Se on turvallisempi valinta kävelyyn, keskusteluun,
 matkailuun, pitkiin lähetyksiin, mobiiliyhteydelle ja hämäriin paikkoihin.
 Valitse 60 FPS, kun nopea liike on ohjelman ytimessä—esimerkiksi urheilussa,
 pyöräilyssä, huvipuistolaitteissa tai nopeissa panoroinneissa—ja vasta kun
-puhelin, kenttäyhteys, OBS-kone sekä julkinen Twitch- tai Kick-lähtö ovat
-läpäisseet realistisen testin.
+puhelin, kenttäyhteys, mahdollinen OBS-kone sekä julkinen Twitch- tai
+Kick-lähtö ovat läpäisseet realistisen testin.
 
 Kyse ei ole suurimman numeron tavoittelusta. Kuvataajuus on yksi osa koko
 puhelimesta katsojalle kulkevaa ketjua, ja 60 FPS pyytää jokaista sen osaa
@@ -94,8 +95,8 @@ Varmista ennen asetuksen säilyttämistä kaikki neljä ehtoa:
 1. Valittu puhelimen kamera ja resoluutio tarjoavat oikeasti 60 FPS:n.
 2. Todellinen mobiilireitti kestää suuremman kuvalähteen tavoitteen pelivaralla
    myös liikkuessa.
-3. OBS pystyy piirtämään ja koodaamaan koko tuotannon 60 FPS:n nopeudella ilman
-   viivettä.
+3. Jos tuotat lähetyksen OBS:ssä, se pystyy piirtämään ja koodaamaan koko
+   tuotannon 60 FPS:n nopeudella ilman viivettä.
 4. Lopullinen Twitch- tai Kick-ohjelma on myös asetettu 60 FPS:lle.
 
 OBS:n [yleisopas](https://obsproject.com/kb/obs-studio-overview) neuvoo
@@ -113,7 +114,9 @@ ylimääräisiä ruutuja.
 ## Näin VISP käsittelee kuvataajuutta
 
 Avaa VISP-puhelinsovelluksen **Settings → Camera**, kun lähetys on pysäytetty.
-Valitse ensin kamera ja resoluutio. Valitse sitten yksi niistä kuvataajuuksista,
+**Stream quality** -esiasetukset (**Reliable · 720p30**, **Balanced · 1080p30**,
+**Motion · 1080p60**) näkyvät vain, jos kamera tukee niitä. Muuten valitse
+ensin kamera ja resoluutio. Valitse sitten yksi niistä kuvataajuuksista,
 joita laite ilmoittaa tukevansa juuri kyseisellä yhdistelmällä. VISP ei keksi
 yleistä 60 FPS:n asetusta, vaan natiivit kaappausmoduulit tarkistavat kameramuodot
 ja tuetut nopeusalueet. Android tarkistaa lisäksi laitteistokiihdytetyn
@@ -130,10 +133,14 @@ ylärajan sisällä. Nykyinen [bittinopeuslogiikka](https://github.com/PohinaGro
 sallii 1080p-kuvalle suuremman ylärajan 50/60 FPS:llä kuin 30 FPS:llä. Yläraja ei
 ole lupaus siitä, että mobiiliyhteys pystyy ylläpitämään nopeutta.
 
-Tavallisessa puhelin–OBS-työnkulussa relay ei transkoodaa syötettä. OBS saa
-puhelimen julkaiseman H.264/AAC-kuvalähteen. VISP Directissä relay tekee
-erillisen jakelukoodauksen jokaiselle valitulle alustalle, joten puhelimen
-kuvalähde ja julkinen alustakoodaus ovat edelleen eri vaiheita.
+VISP Directissä, joka on oletuslähtö, relay tekee erillisen jakelukoodauksen
+jokaiselle valitulle alustalle, joten puhelimen kuvalähde ja julkinen
+alustakoodaus ovat eri vaiheita. Ylläpidetyn relayn Direct-koodaus toimii
+oletuksena 30 FPS:llä, joten 60 FPS:n kuvalähde ei näy Direct-katsojille 60
+FPS:nä, ellei relayn ylläpitäjä muuta asetusta. Valinnaisessa
+relay–OBS-työnkulussa relay ei
+transkoodaa syötettä: OBS saa puhelimen julkaiseman H.264/AAC-kuvalähteen, ja
+OBS:n lähtö määrää julkisen kuvataajuuden.
 
 ## Testaa 30 ja 60 FPS oikealla lähetysreitillä
 
@@ -148,8 +155,8 @@ Tee kummallakin asetuksella näin:
 2. Kulje reitin heikossa kohdassa vähintään kymmenen minuuttia.
 3. Seuraa VISPin live-näkymän bittinopeutta, RTT:tä ja hävikkiä puhelin–relay-
    tarkistuspisteessä.
-4. Tarkista OBS:stä verkon pudottamat ruudut, renderöintiviive ja koodausviive
-   erikseen.
+4. Jos käytät OBS:ää, tarkista siitä verkon pudottamat ruudut,
+   renderöintiviive ja koodausviive erikseen.
 5. Katso julkista Twitch- tai Kick-soitinta mykistetyllä toisella yhteydellä.
 6. Toista 60 FPS:llä muuttamatta samalla useita muita asetuksia.
 

@@ -2,13 +2,13 @@
 title: "BELABOX Alternative for IRL Streaming: Phone, SRTLA, or Hardware?"
 description: "Compare practical BELABOX alternatives for IRL streaming, from a phone and VISP to SRTLA apps and managed broadcast hardware."
 publishedAt: 2026-08-23
-updatedAt: 2026-08-23
+updatedAt: 2026-09-29
 coverAlt: "An IRL creator compares a phone rig, a configurable bonded encoder, and dedicated field hardware connected to a home studio"
 ---
 
 The best BELABOX alternative depends on what you are replacing. If you need a
-small field camera feeding an existing OBS studio, a phone and VISP may be the
-simplest answer. If several connections must contribute capacity to one uplink,
+small field camera that goes live to Twitch, Kick, or YouTube, or feeds an
+existing OBS studio, a phone and VISP may be the simplest answer. If several connections must contribute capacity to one uplink,
 use an SRTLA-capable app or another bonding system. If a supported appliance and
 managed service are the requirement, dedicated broadcast hardware remains the
 closer substitute.
@@ -24,8 +24,8 @@ the smallest workflow that actually addresses it.
 
 | Requirement | Strong starting point | Why |
 | --- | --- | --- |
-| Use a phone as a repeat field camera in home OBS | Phone + VISP | Few extra parts, persistent device path, OBS keeps scenes and stream keys |
-| Combine Wi-Fi and cellular capacity | SRTLA app + compatible receiver | True multipath transport can use both links |
+| Use a phone as a repeat field camera | Phone + VISP | Few extra parts, persistent device path, Direct output or your own OBS, no stream key on the phone |
+| Combine Wi-Fi and cellular capacity | SRTLA sender (Moblin, IRL Pro, VISP Native) + compatible receiver | Multipath transport can use both links |
 | Own and tune a dedicated encoder | BELABOX or another DIY encoder | Replaceable parts and detailed transport control |
 | Buy an integrated supported appliance | LiveU Solo or similar hardware | Hardware, bonding service and support are packaged together |
 | Bring a guest in through a browser | VDO.Ninja | Fast browser onboarding and interactive WebRTC fit better |
@@ -60,10 +60,12 @@ easier to rehearse.
 
 ## Alternative 1: use a phone with VISP
 
-For a creator who already owns a capable phone and runs OBS at home, VISP turns
-the phone into an authenticated video source. The phone publishes outward to a
-VISP relay, and OBS reads the separate receiving URL. OBS continues to own the
-Twitch or Kick destination, scenes, alerts, recording and final encoder.
+For a creator who already owns a capable phone, VISP turns it into an
+authenticated video source. The phone publishes outward to a VISP relay. By
+default, Direct encodes that feed on the relay and sends it to Twitch, Kick, or
+YouTube, so no computer is needed. If you run OBS at home, you can instead route
+the feed there; OBS reads a separate receiving URL and keeps the destination,
+scenes, alerts, recording and final encoder.
 
 This route removes the capture card, single-board computer, USB modem hub and
 custom enclosure from the field kit. It is a strong fit for city walks, event
@@ -72,15 +74,16 @@ usually carries a conservative bitrate. Follow the [video-source setup](https://
 and the [phone camera guide](/blog/use-phone-as-remote-camera-obs) for the full
 path.
 
-The boundary matters. VISP Native can duplicate packets over Wi-Fi and cellular
-for failover, but duplication does not add the capacity of those links. Both
-paths carry copies. If neither connection alone can sustain the stream,
-duplicate packets do not turn them into one larger pipe.
+The boundary matters. VISP Native has optional network bonding for Wi-Fi and
+cellular, off by default. Its default bonding mode, **SRTLA (aggregating)**,
+spreads the stream over both links so each adds headroom. **Broadcast** sends
+every packet over both links for redundancy, at roughly double the mobile data,
+and **Main + backup** prefers Wi-Fi and falls back to cellular. That covers two
+links in one phone. It is not a multi-modem rig: a BELABOX build can bond
+several cellular modems plus Wi-Fi or Ethernet.
 
-VISP's current third-party-encoder path also exposes an SRTLA receiver. That
-means an SRTLA-capable sender can aggregate compatible phone links into the
-relay. It does not turn the VISP native duplicate-link mode into bonding; these
-are two different senders and two different transport behaviors.
+The relay also accepts SRTLA from third-party senders, so Moblin, IRL Pro or a
+BELABOX box can publish into the same device path.
 
 ## Alternative 2: use Moblin or IRL Pro with SRTLA
 
@@ -90,9 +93,10 @@ Wi-Fi and Ethernet use. IRL Pro is documented by IRLToolkit as an SRTLA mobile
 encoder. With a compatible receiving endpoint, either can spread a contribution
 stream across available links.
 
-VISP shows an SRTLA publishing URL in the device's Advanced view. Its relay
-accepts SRTLA on UDP 5000, reassembles the contribution and makes the normal
-reading path available to OBS. The [encoder and fallback documentation](https://docs.visp-stream.com/docs/broadcaster-setup)
+On the dashboard **Devices** tab, **Show RTMP and SRTLA fallback URLs**
+reveals an SRTLA publishing URL for each device. The relay
+accepts SRTLA on UDP 5000, reassembles the contribution and handles it like any
+other feed: Direct output, or the reading path for OBS. The [encoder and fallback documentation](https://docs.visp-stream.com/docs/broadcaster-setup)
 contains the current URL and receiver details. For Android, use the
 [IRL Pro to OBS tutorial](/blog/irl-pro-obs-srt); for iPhone, start with the
 [Moblin guide](/blog/moblin-remote-camera-obs-srt).
@@ -167,7 +171,8 @@ Use this escalation order:
 
 1. Lower the contribution bitrate until one connection has repeatable margin.
 2. Increase SRT latency enough to recover the route's packet loss and jitter.
-3. Keep OBS live with a local fallback while the field feed reconnects.
+3. Hold the broadcast while the field feed reconnects: the optional BRB card
+   with Direct, or a local fallback scene in OBS.
 4. Add a second independent network when one carrier is the measured failure.
 5. Move to dedicated hardware when phone heat, runtime or capture limits are the
    measured failure.
@@ -178,13 +183,14 @@ oversized bitrate.
 
 ## The practical recommendation
 
-Choose a phone with VISP when you already have OBS, want stable named camera
-paths and can stream on one link. Add an SRTLA-capable app and receiver when
-testing proves that combined paths are necessary. Keep or build BELABOX when a
+Choose a phone with VISP when you want stable named camera paths, with or
+without OBS, and one link or Wi-Fi plus cellular is enough. Turn on bonding or
+use another SRTLA-capable app when testing proves that combined paths are
+necessary. Keep or build BELABOX when a
 dedicated configurable encoder is the point. Choose managed hardware when
 appliance support matters more than owning every component.
 
-If the phone-to-home-studio path fits, [try VISP](https://app.visp-stream.com)
+If the phone path fits, [try VISP](https://visp-stream.com)
 with one source and one realistic route before buying more hardware. The test
 will show whether you need a smaller alternative—or whether BELABOX was solving
 the right problem all along.

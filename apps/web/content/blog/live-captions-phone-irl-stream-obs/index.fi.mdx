@@ -2,6 +2,7 @@
 title: "Live-tekstityksen lisääminen puhelimen IRL-kuvaan OBS:ssä"
 description: "Lisää englannin- tai suomenkielinen live-tekstitys puhelimen IRL-kuvaan, tarkista se OBS:ssä ja huomioi tarkkuus, yksityisyys sekä rajat."
 publishedAt: 2026-08-02
+updatedAt: 2026-09-28
 coverAlt: "IRL-kuvaaja puhuu puhelinkameralle, ja tyhjät tekstityskortit seuraavat videosignaalia kotistudion tuotantoruudulle"
 ---
 
@@ -58,8 +59,12 @@ palauttaa peittyneitä pikseleitä myöhemmin.
 - yksityisen koetallenteen samalla ympäristöllä, mikrofonilla ja liikkeellä
   kuin varsinaisessa lähetyksessä
 
-Puhelin lähettää edelleen yhden H.264/AAC-syötteen kotistudioon. OBS hallitsee
-kohtauksia, tallennusta ja lopullista Twitch- tai Kick-kohdetta. Tekstityksen
+Puhelin lähettää edelleen yhden H.264/AAC-syötteen relaylle. Tässä oppaassa
+OBS lukee sen ja hallitsee kohtauksia, tallennusta ja lopullista Twitch- tai
+Kick-kohdetta, joten valitse hallintapaneelin **Tila**-valikosta **Puhelimesta
+omaan OBS:ään**. OBS on valinnainen: VISPin oletusulostulolla Suoralla sama
+kuvaan poltettu teksti päätyy Twitchiin, Kickiin tai YouTubeen ilman kotikonetta.
+Tekstityksen
 käyttöönotto ei siirrä palvelun lähetysavainta puhelimeen.
 
 ## 1. Valitse puheen kieli ennen lähetystä
@@ -209,11 +214,10 @@ Koko polku on tarkoituksella lyhyt:
 7. OBS sijoittaa valmiiksi tekstitetyn lähteen lopulliseen Twitch- tai
    Kick-kohtaukseen.
 
-Tässä puhelimesta OBS:ään kulkevassa polussa VISP **ei transkoodaa syötettä
-eikä bondaa verkkoyhteyksiä**. Valinnainen kahden yhteyden redundanssi lähettää
-samat SRT-paketit Wi-Fi- ja mobiiliyhteydellä. Se ei yhdistä yhteyksien
-kapasiteettia. Tekstitys tai palvelutunnistus ei myöskään luo kaistaa
-ruuhkautuneelle reitille.
+Tässä puhelimesta OBS:ään kulkevassa polussa VISP **ei transkoodaa syötettä**.
+Sovelluksen verkkobonding on valinnainen ja oletuksena pois päältä. Tekstitys
+tai palvelutunnistus ei luo kaistaa ruuhkautuneelle reitille, ja
+palvelutunnistus käyttää lisäksi omaa lähetyskaistaansa.
 
 Koska teksti sommitellaan ennen välityspalvelua, saman puhelinlähteen
 uudelleenyhdistäminen säilyttää tekstitystavan ilman OBS:n tekstityslisäosaa.

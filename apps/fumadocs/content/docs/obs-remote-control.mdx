@@ -10,14 +10,16 @@ installation as a publishing device, and lets the portal, Native app, or
 dedicated VISP OBS Remote app control the stream. OBS never opens an inbound
 port and no port forwarding is needed.
 
-Pairing is step 4 of [Get started](/docs/get-started). This page covers
+The plugin is optional: Direct streams to your platforms without OBS. Pairing
+is the optional OBS step of [Get started](/docs/get-started). This page covers
 install details, security, and recovery.
 
 ## Install
 
 Download the package for your platform from the project's GitHub Release —
-Windows, macOS (signed and notarized), and Ubuntu packages are attached to
-every stable release with a `SHA256SUMS.txt`. Install it like any OBS plugin
+Windows, macOS (signed and notarized), and Ubuntu packages are attached, with a
+`SHA256SUMS.txt`, to each stable release that changes the plugin. Use the newest
+release that has them. Install it like any OBS plugin
 and restart OBS. Building from source is only needed for development; see the
 `apps/obs-plugin` README.
 
@@ -28,16 +30,19 @@ and restart OBS. Building from source is only needed for development; see the
 3. Sign in to VISP and approve the OBS code, then return to OBS.
 
 The dialog lists every active publishing device. **Add to scene** creates or
-refreshes its Media Source in the selected scene. **Create and use as OBS
+refreshes its Media Source in the selected scene. **Use this OBS as an
 output** creates a new VISP publishing device and, after confirmation, replaces
 the current OBS profile's stream destination with its SRT URL. Stop streaming
 before changing that destination.
 
 ![OBS Tools → VISP Remote Control](./images/obs-plugin-tools.png)
 
-The dashboard shows **Connected** within a few seconds, without restarting OBS.
-Existing manual pairing still works: generate a token in the dashboard, or
-place these values in the generated `config.ini` while OBS is closed:
+When your dashboard mode is OBS, the dashboard **OBS** tab shows **Connected**
+within a few seconds, without restarting OBS. Manual pairing still works: on
+that tab, open **Plugin pairing** and choose **Generate pairing token** or
+**Download plugin config**. Paste the token under **Advanced** in the plugin
+dialog, use **Import config.ini**, or place these values in `config.ini` while
+OBS is closed:
 
 ```ini
 [visp]
@@ -48,6 +53,13 @@ token=the-token-shown-by-visp
 Remote start/stop uses the active OBS profile. Configuring this OBS installation
 as a VISP publishing device replaces that profile's current service and key;
 VISP never receives the replaced provider key.
+
+## Back up OBS (optional)
+
+**Back up to VISP** in the plugin dialog uploads your scene collections,
+profile settings, and linked local media to VISP. Stream keys and VISP
+credentials are excluded. Backups are upload-only; VISP has no restore flow
+yet.
 
 ## Security model
 

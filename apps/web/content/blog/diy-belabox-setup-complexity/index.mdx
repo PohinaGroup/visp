@@ -2,6 +2,7 @@
 title: "DIY BELABOX Setup: The Real Cost of Building It Yourself"
 description: "Understand the Linux, modem, hardware, and VPS work behind a DIY BELABOX build, then decide whether the flexibility is worth owning."
 publishedAt: 2026-08-15
+updatedAt: 2026-09-29
 coverAlt: "A DIY BELABOX workflow connects Linux configuration, compatible modems, field hardware, and a VPS relay"
 ---
 
@@ -163,9 +164,11 @@ managed service or a phone-only setup.
 Do not begin with a product name. Begin with the failure.
 
 If one good cellular or Wi-Fi connection carries a conservative bitrate across
-the route, a phone may be enough. VISP can relay that feed to OBS or deliver it
-directly to a platform. Packet duplication across Wi-Fi and cellular can help
-with failover, but it does not combine the capacity of two weak links.
+the route, a phone may be enough. VISP delivers that feed directly to a
+platform by default, or relays it to your OBS. The VISP app's optional bonding
+can also combine a phone's Wi-Fi and cellular capacity with SRTLA, or duplicate
+packets over both for failover. That is two links in one phone, not a rig with
+several independent modems.
 
 If no single connection can sustain the stream but several independent links
 together can, true bonding is relevant. A DIY BELABOX is then a credible answer,
