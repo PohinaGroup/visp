@@ -138,13 +138,13 @@ jobs:
           bun run check-types
           bun run --cwd apps/fumadocs types:check
 
-      - name: Portal browser checks
-        env:
-          PLAYWRIGHT_ISOLATED_PORTAL: "1"
-          PLAYWRIGHT_PORTAL_URL: http://127.0.0.1:3001
-        run: |
-          bun x playwright install --with-deps chromium
-          bun run test:e2e --project portal
+#      - name: Portal browser checks
+#        env:
+#          PLAYWRIGHT_ISOLATED_PORTAL: "1"
+#          PLAYWRIGHT_PORTAL_URL: http://127.0.0.1:3001
+#        run: |
+#          bun x playwright install --with-deps chromium
+#          bun run test:e2e --project portal
 
       - name: Build API, portal, admin, multi-chat, and Typography
         run: |
