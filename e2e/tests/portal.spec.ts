@@ -6,7 +6,7 @@ test.describe("portal", () => {
 		await expect(page).toHaveTitle(/VISP/);
 		await expect(
 			page.getByRole("heading", {
-				name: "Your phone is the camera.",
+				name: "Stop paying for cloud OBS.",
 			}),
 		).toBeVisible();
 		await expect(
@@ -16,7 +16,7 @@ test.describe("portal", () => {
 		).toBeVisible();
 		await expect(
 			page.getByRole("heading", {
-				name: "Live from your phone in three steps",
+				name: "Your studio, or no studio at all",
 			}),
 		).toBeVisible();
 	});
@@ -41,7 +41,7 @@ test.describe("portal", () => {
 		await page.goto("/fi");
 		await expect(
 			page.getByRole("heading", {
-				name: "Puhelimesi on kamera.",
+				name: "Lopeta pilvi-OBS:n vuokraaminen.",
 			}),
 		).toBeVisible();
 		await expect(
@@ -51,7 +51,7 @@ test.describe("portal", () => {
 		).toBeVisible();
 		await expect(
 			page.getByRole("heading", {
-				name: "Puhelimesta suorana kolmessa vaiheessa",
+				name: "Oma studio tai ei studiota lainkaan",
 			}),
 		).toBeVisible();
 	});
