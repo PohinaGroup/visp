@@ -1,0 +1,145 @@
+---
+title: "How to Caption an IRL Stream Replay for YouTube"
+description: "Caption an edited IRL replay with VISP Typography or a separate YouTube track. Fix transcript errors and retime captions after cuts."
+publishedAt: 2026-10-01
+coverAlt: "A laptop shows an edited waterfront walk on a video timeline beside a phone and headphones"
+---
+
+To caption an IRL replay for YouTube, finish the video edit first. Then choose
+whether captions should be part of the picture or a separate track viewers can
+turn on and off. VISP Typography can transcribe an uploaded video, let you edit
+word-level captions, and export a captioned MP4. For a separate YouTube caption
+track, create a timed file such as SRT and add it in YouTube Studio.
+
+That choice matters when a two-hour Twitch or Kick walk becomes a fifteen-minute
+YouTube video. You may want to correct a street name, translate a conversation,
+or let viewers hide the text. Do the caption work against the final edit, not
+the original broadcast timeline. This guide covers replay uploads, not live
+YouTube caption setup.
+
+![A phone recording is edited into a final video, then branches to a captioned MP4 export or a separate SRT track for YouTube](./replay-caption-flow.svg)
+
+## Choose burned-in captions or a YouTube track
+
+Burned-in captions are pixels in the video. Viewers cannot hide them or select
+another language track. A separate caption track stays independent of the
+picture, so viewers can enable it and YouTube can associate it with a language.
+
+VISP Typography creates a captioned MP4. It does not export an SRT file. Choose
+it when you want styled text permanently visible in the finished video. Choose
+a timed subtitle file when you need YouTube's player controls or separate
+language tracks. You can use both, but turn off one layer while reviewing so
+duplicate text does not obscure the picture.
+
+VISP's phone live subtitles are also burned into the camera image. They remain
+in any recording made from that source. The [live-caption guide](/blog/live-captions-phone-irl-stream-obs)
+explains that tradeoff; VISP's [media architecture documentation](https://docs.visp-stream.com/docs/architecture)
+describes how the camera feed reaches OBS.
+
+## Finish the video edit first
+
+Make the version you intend to publish. Remove waiting screens, choose the
+walk segments, set the final audio mix, and complete any speed changes. Export
+the video and use that exact version as the reference for captions.
+
+For example, a guest starts speaking at 12:00 in the stream recording. You
+remove the first two minutes and another thirty-second pause before the guest.
+In the replay, that speech starts at 09:30. Captions timed to the original
+recording now arrive two and a half minutes late. One global offset will not
+fix later cuts or speed changes.
+
+Keep the recording, editing project, final video, and any caption file
+together. Use matching version names, such as `harbor-walk-v3.mp4` and
+`harbor-walk-v3.en.srt`. This is a simple way to avoid pairing a caption file
+with the wrong export.
+
+Listen to the exported audio rather than relying on the editor preview. Check
+that your voice, guests, and studio commentary are present. If speech is
+doubled or a microphone is delayed, use the [phone audio troubleshooting guide](/blog/fix-phone-audio-obs)
+before the next session. Caption edits cannot fix the sound in the video.
+
+## Create a captioned MP4 with VISP Typography
+
+VISP Typography accepts MP4, QuickTime MOV, and WebM uploads. It creates
+word-level captions in English or Finnish. You can correct words and their
+start and end times, choose a caption style, adjust its position, and export
+an H.264 MP4 with the captions rendered into the video.
+
+Check the framing before choosing this route: the current Typography export
+reframes video to vertical 1080 × 1920 (9:16). A landscape replay will be
+cropped. If you need to preserve the original widescreen frame, use an editor
+that keeps that aspect ratio and add a separate timed caption track in YouTube
+Studio instead.
+
+1. Finish and export the replay from your video editor.
+2. Open [VISP Typography](https://typography.visp-stream.com) and sign in.
+3. Upload the final MP4, MOV, or WebM file and select the spoken language.
+4. Review the generated transcript against the video. Correct names and
+   mistakes, then check word timing around edits.
+5. Adjust the style and position so the text stays readable without covering
+   faces, signs, or important parts of the scene.
+6. Export the MP4 and watch the exported file from beginning to end.
+
+Speech recognition is a starting point, not a proofread transcript. Listen for
+street names, guest names, channel names, negatives, numbers, and overlapping
+voices. Do not fill in words that traffic or wind made impossible to hear.
+Check the whole video at normal speed after editing. A transcript can look
+correct while a word appears too early, stays on screen through a cut, or
+misses a quiet sentence. Fix the text and timing in the editor, then export
+again. The MP4 keeps the selected style in the picture, so review it on a small
+screen and make sure the captions remain legible over both bright streets and
+dark scenes. Keep a clean copy of the original export so you can change the
+caption design later without stacking another caption layer on top.
+
+## Add a separate caption track in YouTube Studio
+
+If viewers should control captions separately from the picture, prepare a timed
+caption file against the final export. YouTube supports basic SubRip `.srt`
+files as plain UTF-8 text; SRT styling markup is not recognized. Check
+[YouTube's supported caption formats](https://support.google.com/youtube/answer/2734698?hl=en)
+if your editor offers several export choices.
+
+Follow YouTube's [caption upload instructions](https://support.google.com/youtube/answer/2734796?hl=en):
+
+1. Open YouTube Studio and select **Subtitles**.
+2. Select the finished video and add the intended language.
+3. Choose to add a caption file for that language.
+4. Choose **Upload file**, then **With timing** for a timed SRT file.
+5. Select the file and save it.
+
+If you use automatic captions as a draft, review them before publishing.
+YouTube notes that background noise, overlapping speech, and poor sound can
+affect recognition. It generates new automatic captions for a completed live
+replay through its VOD process; those captions may differ from the live
+captions. See YouTube's [automatic-caption guidance](https://support.google.com/youtube/answer/6373554?hl=en).
+
+## Review every cut and the final export
+
+Watch the opening with captions enabled. Confirm the first sentence appears
+with the first audible words, not during a title card or waiting screen. Then
+check the passages immediately after each cut, plus sections where you changed
+speed or replaced audio.
+
+If captions are early or late by the same amount throughout, inspect the
+starting offset. If timing matches at the beginning and fails after a cut,
+compare the caption file with the edit version. If the error grows during an
+unchanged section, inspect how the timings were generated. Avoid nudging lines
+one by one until you know which timing problem you have.
+
+Check the last spoken sentence too. Watch a representative passage on a phone
+at normal speed and once with sound off. Confirm the words are readable and
+the speaker is clear. For a separate YouTube track, turn captions off and
+confirm only the intended permanent graphics remain. For a burned-in export,
+check that no old live overlay creates a second set of words.
+
+## Plan the next recording for reuse
+
+If you regularly turn streams into videos, decide how you will record before
+the next broadcast. A phone subtitle overlay is part of that camera picture.
+A clean replay needs a recording without that overlay; recording the same
+captioned source elsewhere will not remove it.
+
+Use the [VISP phone setup documentation](https://docs.visp-stream.com/docs/phone-app)
+to prepare the camera feed. For edited videos, try [VISP Typography](https://typography.visp-stream.com)
+with a short recording first, then review the exported MP4 before captioning a
+full afternoon of IRL footage.

@@ -1,0 +1,44 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Two ways to caption an edited replay</title>
+  <desc id="desc">After editing a phone recording, choose a video export with captions rendered into the picture or upload a separate timed SRT caption track to YouTube.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto">
+      <path d="M0 0 10 5 0 10" fill="none" stroke="#75dace" stroke-width="2" />
+    </marker>
+  </defs>
+  <rect width="1600" height="900" rx="32" fill="#101b2b" />
+  <g fill="none" stroke="#75dace" stroke-width="6" marker-end="url(#arrow)">
+    <path d="M280 450H405" />
+    <path d="M660 450H770V290H870" />
+    <path d="M770 450V620H870" />
+    <path d="M1100 290H1190V440H1280" />
+    <path d="M1100 620H1190V480H1280" />
+  </g>
+  <g stroke="#b6c9da" stroke-width="5" fill="#1b2d43">
+    <rect x="110" y="305" width="170" height="290" rx="24" />
+    <rect x="130" y="340" width="130" height="210" rx="8" />
+    <rect x="420" y="350" width="240" height="200" rx="18" />
+    <rect x="885" y="205" width="215" height="170" rx="16" />
+    <rect x="885" y="535" width="215" height="170" rx="16" />
+    <rect x="1300" y="325" width="230" height="250" rx="18" />
+  </g>
+  <g fill="#edf5fa" font-family="sans-serif" font-size="32" text-anchor="middle">
+    <text x="195" y="455">PHONE</text>
+    <text x="540" y="430">FINAL EDIT</text>
+    <text x="992" y="280">CAPTIONED</text>
+    <text x="992" y="325">MP4</text>
+    <text x="992" y="610">TIMED SRT</text>
+    <text x="1415" y="435">YOUTUBE</text>
+    <text x="1415" y="480">REPLAY</text>
+  </g>
+  <g fill="#75dace">
+    <rect x="445" y="465" width="54" height="16" rx="4" />
+    <rect x="510" y="465" width="78" height="16" rx="4" />
+    <rect x="600" y="465" width="38" height="16" rx="4" />
+  </g>
+  <g fill="#edc17f">
+    <rect x="910" y="345" width="165" height="10" rx="5" />
+    <rect x="920" y="665" width="145" height="10" rx="5" />
+  </g>
+  <path d="M1370 505v28h90v-28" fill="none" stroke="#ed9078" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
