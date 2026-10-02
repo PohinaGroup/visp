@@ -693,6 +693,7 @@ int main(void)
 #include <obs-module.h>
 #include <plugin-support.h>
 #include <util/config-file.h>
+#include <util/platform.h>
 
 #define CONFIG_SECTION "visp"
 #define DEFAULT_CONTROL_URL "https://visp-stream.com/api/obs/control"
@@ -744,10 +745,21 @@ static void collect_referenced_files(const QJsonValue &value, const QDir &base,
 		files->insert(file.canonicalFilePath());
 }
 
+// OBS does not create the per-plugin config folder; saving fails until it exists (fresh Windows installs).
+static char *config_file_path()
+{
+	char *dir = obs_module_config_path("");
+	if (dir) {
+		os_mkdirs(dir);
+		bfree(dir);
+	}
+	return obs_module_config_path("config.ini");
+}
+
 static plugin_config load_config()
 {
 	plugin_config result;
-	char *path = obs_module_config_path("config.ini");
+	char *path = config_file_path();
 	config_t *config = NULL;
 	if (!path)
 		return result;
@@ -773,7 +785,7 @@ static plugin_config load_config()
 
 static bool save_config(const plugin_config &settings)
 {
-	char *path = obs_module_config_path("config.ini");
+	char *path = config_file_path();
 	config_t *config = NULL;
 	if (!path)
 		return false;
