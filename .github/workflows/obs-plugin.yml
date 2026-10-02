@@ -128,6 +128,21 @@ jobs:
         working-directory: apps/obs-plugin
         run: ./.github/scripts/Package-Windows.ps1 -Target x64 -Configuration Release
 
+      - name: Build Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        working-directory: apps/obs-plugin
+        run: |
+          $version = (Get-Content buildspec.json | ConvertFrom-Json).version
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y }
+          # ponytail: zip is the template's only Windows output, so the installer wraps it.
+          $zip = Get-Item release/*-windows-x64.zip
+          Expand-Archive $zip -DestinationPath release/installer-src
+          Remove-Item $zip
+          & $iscc /Qp "/DVersion=$version" "/DSourceDir=$PWD\release\installer-src" "/O$PWD\release" installer-windows.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Package macOS
         if: runner.os == 'macOS' && github.event_name != 'release'
         shell: zsh --no-rcs --errexit --pipefail {0}
@@ -157,7 +172,7 @@ jobs:
           name: visp-obs-${{ matrix.artifact }}
           if-no-files-found: error
           path: |
-            apps/obs-plugin/release/*.zip
+            apps/obs-plugin/release/*.exe
             apps/obs-plugin/release/*.pkg
             apps/obs-plugin/release/*.deb
             apps/obs-plugin/release/*.ddeb

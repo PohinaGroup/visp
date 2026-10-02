@@ -49,7 +49,7 @@ export function classifyObsPluginAsset(
 ): ObsPluginPlatform | null {
 	const name = fileName.toLowerCase();
 
-	if (name.endsWith("-windows-x64.zip")) {
+	if (name.endsWith("-windows-x64.exe")) {
 		return "windows";
 	}
 	if (name.endsWith("-macos-universal.pkg")) {
