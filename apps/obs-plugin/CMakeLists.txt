@@ -52,6 +52,9 @@ if(ENABLE_QT)
       COMMENT "Bundle AGL stub and Qt TLS backend"
       VERBATIM
     )
+  elseif(WIN32)
+    # OBS does not ship Qt's TLS plugins; HTTPS (browser sign-in) fails without one.
+    install(FILES "$<TARGET_FILE:Qt6::QSchannelBackendPlugin>" DESTINATION "${CMAKE_PROJECT_NAME}/data/qt/tls")
   endif()
   target_compile_options(
     ${CMAKE_PROJECT_NAME}

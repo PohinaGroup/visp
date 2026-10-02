@@ -1178,7 +1178,10 @@ private:
 				       : network.get(request);
 		connect(reply, &QNetworkReply::finished, this, [reply, handler = std::move(handler)]() {
 			const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-			const QByteArray response = reply->readAll();
+			QByteArray response = reply->readAll();
+			// Network/TLS failures have no body; surface Qt's reason instead of a generic fallback.
+			if (response.isEmpty() && reply->error() != QNetworkReply::NoError)
+				response = reply->errorString().toUtf8();
 			handler(status, response);
 			reply->deleteLater();
 		});
@@ -2258,7 +2261,7 @@ const char *obs_module_description(void)
 
 bool obs_module_load(void)
 {
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(_WIN32)
 	char *qt_plugins = obs_module_file("qt");
 	if (qt_plugins) {
 		QCoreApplication::addLibraryPath(QString::fromUtf8(qt_plugins));
