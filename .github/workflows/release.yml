@@ -17,6 +17,9 @@ jobs:
     if: github.event.release.prerelease == false
     runs-on: blacksmith-4vcpu-ubuntu-2404
     environment: production
+    permissions:
+      contents: read
+      actions: read
     outputs:
       tag: ${{ steps.release.outputs.tag }}
       sha: ${{ steps.release.outputs.sha }}
@@ -62,11 +65,20 @@ jobs:
         id: release_changes
         env:
           RELEASE_SHA: ${{ steps.release.outputs.sha }}
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          previous=$(git tag --merged "$RELEASE_SHA^" --list 'v[0-9]*' \
-            --sort=-version:refname | head -1)
+          # Diff against the last release that shipped; a failed release's tag must not hide its changes.
+          shipped=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow release.yml --event release \
+            --status success --limit 100 --json headSha --jq '.[].headSha')
+          previous=
+          for tag in $(git tag --merged "$RELEASE_SHA^" --list 'v[0-9]*' --sort=-version:refname); do
+            if grep -qx "$(git rev-list -n 1 "$tag")" <<< "$shipped"; then
+              previous=$tag
+              break
+            fi
+          done
           components=()
           if [[ -z "$previous" ]]; then
             components=(mediamtx srtla-rec visp-bond caddy)
