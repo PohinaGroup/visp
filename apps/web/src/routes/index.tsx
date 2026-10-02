@@ -293,9 +293,6 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 									{t.downloadLink}
 								</Link>
 							</div>
-							<p className="font-mono text-muted-foreground text-xs uppercase tracking-wider">
-								{t.hero.note}
-							</p>
 						</div>
 
 						<div className="flex justify-center md:justify-end">
