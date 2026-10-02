@@ -752,7 +752,7 @@ static plugin_config load_config()
 	if (!path)
 		return result;
 	if (config_open(&config, path, CONFIG_OPEN_ALWAYS) != CONFIG_SUCCESS) {
-		obs_log(LOG_ERROR, "could not open configuration at %s", path);
+		obs_log(LOG_ERROR, "could not open config at %s", path);
 		bfree(path);
 		return result;
 	}
