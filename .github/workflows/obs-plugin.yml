@@ -134,8 +134,19 @@ jobs:
         working-directory: apps/obs-plugin
         run: |
           $version = (Get-Content buildspec.json | ConvertFrom-Json).version
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y }
+          function Find-Iscc {
+            (Get-Command iscc -ErrorAction SilentlyContinue).Source ??
+              (Get-ChildItem "${env:ProgramFiles(x86)}\Inno Setup *\ISCC.exe", "$env:ProgramFiles\Inno Setup *\ISCC.exe" -ErrorAction SilentlyContinue |
+                Select-Object -Last 1).FullName
+          }
+          $iscc = Find-Iscc
+          if (-not $iscc) {
+            choco install innosetup --no-progress -y
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            $iscc = Find-Iscc
+          }
+          if (-not $iscc) { throw "ISCC.exe not found after installing Inno Setup" }
+          Write-Host "Using $iscc"
           # ponytail: zip is the template's only Windows output, so the installer wraps it.
           $zip = Get-Item release/*-windows-x64.zip
           Expand-Archive $zip -DestinationPath release/installer-src
