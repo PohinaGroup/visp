@@ -28,7 +28,6 @@ const en = {
 		eyebrow: "Free during beta",
 		title: "Stop paying for cloud OBS.",
 		body: "Stream from your phone into the OBS you already run at home. Your scenes, overlays, alerts, and plugins keep working — without a $120–180 monthly bill.",
-		note: "No ports to open · no stream key on your phone",
 		videoLabel: "A VISP stream goes live and arrives in OBS",
 		videoCaption: "REAL GO-LIVE · 8 SEC",
 	},
@@ -209,8 +208,7 @@ const fi: typeof en = {
 		eyebrow: "Ilmainen betan ajan",
 		title: "Lopeta pilvi-OBS:n vuokraaminen.",
 		body: "Lähetä puhelimesta kotona jo pyörivään OBS:ään. Kohtaukset, grafiikat, hälytykset ja lisäosat toimivat edelleen — ilman 120–180 dollarin kuukausilaskua.",
-		note: "Ei avattavia portteja · ei lähetysavainta puhelimeen",
-		videoLabel: "VISP-lähetys käynnistyy ja kuva saapuu OBS:iin",
+		videoLabel: "VISP-lähetys käynnistyy ja kuva saapuu OBS:ään",
 		videoCaption: "AITO LÄHETYS · 8 S",
 	},
 	path: {
