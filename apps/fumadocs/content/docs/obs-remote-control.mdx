@@ -19,8 +19,12 @@ install details, security, and recovery.
 Download the package for your platform from the project's GitHub Release —
 Windows, macOS (signed and notarized), and Ubuntu packages are attached, with a
 `SHA256SUMS.txt`, to each stable release that changes the plugin. Use the newest
-release that has them. Install it like any OBS plugin
-and restart OBS. Building from source is only needed for development; see the
+release that has them. On Windows, close OBS and run the `windows-x64.exe`
+installer; it installs to `C:\ProgramData\obs-studio\plugins\visp-obs` and
+offers to remove an older manual copy from the OBS program folder. On other
+platforms, install it like any OBS plugin. Then restart OBS. The Windows
+installer is not code-signed yet, so SmartScreen may warn; choose
+**More info → Run anyway**. Building from source is only needed for development; see the
 `apps/obs-plugin` README.
 
 ## Pair

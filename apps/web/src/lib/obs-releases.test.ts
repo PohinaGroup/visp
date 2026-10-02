@@ -21,7 +21,7 @@ test("detects desktop OBS platforms without treating Android as Linux", () => {
 
 describe("classifyObsPluginAsset", () => {
 	test("maps install packages to platforms", () => {
-		expect(classifyObsPluginAsset("visp-obs-1.0.12-windows-x64.zip")).toBe(
+		expect(classifyObsPluginAsset("visp-obs-1.0.12-windows-x64.exe")).toBe(
 			"windows",
 		);
 		expect(classifyObsPluginAsset("visp-obs-1.0.12-macos-universal.pkg")).toBe(
@@ -56,8 +56,8 @@ describe("pickObsPluginAssets", () => {
 				browser_download_url: "https://example.com/SHA256SUMS.txt",
 			},
 			{
-				name: "visp-obs-1.0.12-windows-x64.zip",
-				browser_download_url: "https://example.com/windows.zip",
+				name: "visp-obs-1.0.12-windows-x64.exe",
+				browser_download_url: "https://example.com/windows.exe",
 			},
 			{
 				name: "visp-obs-1.0.12-macos-universal.pkg",
@@ -83,8 +83,8 @@ describe("parseObsPluginRelease", () => {
 			html_url: "https://github.com/PohinaGroup/visp/releases/tag/v1.0.12",
 			assets: [
 				{
-					name: "visp-obs-1.0.12-windows-x64.zip",
-					browser_download_url: "https://example.com/windows.zip",
+					name: "visp-obs-1.0.12-windows-x64.exe",
+					browser_download_url: "https://example.com/windows.exe",
 				},
 			],
 		});
