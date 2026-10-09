@@ -45,7 +45,7 @@ import {
 	portraitFilterValue,
 } from "./direct-portrait";
 import { decryptSecret } from "./encrypted-secret";
-import { hasStreamKeyScope, parseScopes } from "./scopes";
+import { hasStreamKeyScope, PROVIDER_SCOPES, parseScopes } from "./scopes";
 
 export type { DirectCrop } from "./direct-crop";
 export {
@@ -120,6 +120,53 @@ const defaultDependencies: DirectDependencies = {
 	resolveHost,
 };
 
+/** A 401 on the key call: the stored token cannot read it, whatever account.scope says. */
+class StreamKeyRejected extends DirectError {}
+
+function throwStreamKeyFailure(
+	provider: "twitch" | "kick",
+	status: number,
+): never {
+	const name = provider === "twitch" ? "Twitch" : "Kick";
+	// Other statuses are provider trouble, not consent.
+	if (status !== 401) {
+		throw new DirectError(
+			"consent-required",
+			`${name} stream key request failed (${status})`,
+		);
+	}
+	throw new StreamKeyRejected(
+		"consent-required",
+		`${name} stream key permission is required`,
+	);
+}
+
+/**
+ * Drop the stream-key scope so the UI asks for reauthorization instead of
+ * showing "Authorized" next to a failing output.
+ */
+async function forgetStreamKeyScope(provider: DirectProvider, userId: string) {
+	const streamKey = PROVIDER_SCOPES[provider].streamKey;
+	const [linked] = await db
+		.select({ id: account.id, scope: account.scope })
+		.from(account)
+		.where(
+			and(
+				eq(account.userId, userId),
+				eq(account.providerId, authProvider(provider)),
+			),
+		);
+	if (!linked) return;
+	await db
+		.update(account)
+		.set({
+			scope: parseScopes(linked.scope)
+				.filter((scope) => scope !== streamKey)
+				.join(","),
+		})
+		.where(eq(account.id, linked.id));
+}
+
 /**
  * Builds the full RTMPS destination in memory. The key is never returned to a
  * client app and never stored as a separate database value.
@@ -145,10 +192,7 @@ export async function streamKeyDestination(
 			},
 		);
 		if (!response.ok) {
-			throw new DirectError(
-				"consent-required",
-				"Twitch stream key permission is required",
-			);
+			throwStreamKeyFailure("twitch", response.status);
 		}
 		const payload = (await response.json()) as {
 			data?: Array<{ stream_key?: string }>;
@@ -177,10 +221,7 @@ export async function streamKeyDestination(
 		headers: { Authorization: `Bearer ${accessToken}` },
 	});
 	if (!response.ok) {
-		throw new DirectError(
-			"consent-required",
-			"Kick stream key permission is required",
-		);
+		throwStreamKeyFailure("kick", response.status);
 	}
 	const payload = (await response.json()) as {
 		data?: Array<{ stream?: { key?: string; url?: string } }>;
@@ -1661,6 +1702,9 @@ export async function resolveDirectDestinations(
 				error: null,
 			});
 		} catch (error) {
+			if (error instanceof StreamKeyRejected) {
+				await forgetStreamKeyScope(provider, path.userId);
+			}
 			// Never surface the provider's response body; it can carry the key.
 			await applyDirectState({
 				slug,
@@ -1814,6 +1858,10 @@ export async function stopDirectForPaths(pathIds: number[]) {
 			directTwitchState: sql`case when ${pathState.directTwitchState} in ${DIRECT_OCCUPIED_STATES_SQL} then 'stopped' else ${pathState.directTwitchState} end`,
 			directKickState: sql`case when ${pathState.directKickState} in ${DIRECT_OCCUPIED_STATES_SQL} then 'stopped' else ${pathState.directKickState} end`,
 			directYoutubeState: sql`case when ${pathState.directYoutubeState} in ${DIRECT_OCCUPIED_STATES_SQL} then 'stopped' else ${pathState.directYoutubeState} end`,
+			// A retrying output carries its last error; once stopped it is stale.
+			directTwitchError: sql`case when ${pathState.directTwitchState} in ${DIRECT_OCCUPIED_STATES_SQL} then null else ${pathState.directTwitchError} end`,
+			directKickError: sql`case when ${pathState.directKickState} in ${DIRECT_OCCUPIED_STATES_SQL} then null else ${pathState.directKickError} end`,
+			directYoutubeError: sql`case when ${pathState.directYoutubeState} in ${DIRECT_OCCUPIED_STATES_SQL} then null else ${pathState.directYoutubeError} end`,
 			directTwitchReservedUntil: null,
 			directKickReservedUntil: null,
 			directYoutubeReservedUntil: null,

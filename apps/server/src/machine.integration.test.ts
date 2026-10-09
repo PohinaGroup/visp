@@ -3469,6 +3469,10 @@ integration("VISP Direct boundaries", () => {
 	test("a missing provider scope returns reauthorize without exposing tokens", async () => {
 		const data = await seedDirect();
 		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
 			.update(relayPath)
 			.set({ directTwitch: true })
 			.where(eq(relayPath.id, data.pathB.id));
@@ -3502,6 +3506,55 @@ integration("VISP Direct boundaries", () => {
 			"Twitch stream key permission is required",
 		);
 		expect(state?.directTwitchError).not.toContain("token");
+		// The token cannot read the key, so the UI must stop saying "Authorized".
+		const [linked] = await db
+			.select({ scope: account.scope })
+			.from(account)
+			.where(eq(account.id, "direct-twitch-b"));
+		expect(linked?.scope).not.toContain("channel:read:stream_key");
+	});
+
+	test("a provider outage keeps stream-key consent", async () => {
+		const data = await seedDirect();
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true })
+			.where(eq(relayPath.id, data.pathB.id));
+		await db
+			.insert(pathState)
+			.values({
+				pathId: data.pathB.id,
+				directTwitchReservedUntil: new Date(Date.now() + 60_000),
+			})
+			.onConflictDoUpdate({
+				target: pathState.pathId,
+				set: { directTwitchReservedUntil: new Date(Date.now() + 60_000) },
+			});
+
+		await resolveDirectDestinations("beta-1", {
+			...directDeps(),
+			fetch: (async () =>
+				new Response("unavailable", {
+					status: 503,
+				})) as unknown as typeof fetch,
+		});
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathB.id));
+		expect(state?.directTwitchError).toBe(
+			"Twitch stream key request failed (503)",
+		);
+		const [linked] = await db
+			.select({ scope: account.scope })
+			.from(account)
+			.where(eq(account.id, "direct-twitch-b"));
+		expect(linked?.scope).toContain("channel:read:stream_key");
 	});
 
 	test("a provider failure frees only its reservation", async () => {

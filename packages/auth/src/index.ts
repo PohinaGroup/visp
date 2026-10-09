@@ -97,6 +97,11 @@ export function createAuth() {
 			// run apps/server/scripts/encrypt-oauth-tokens.ts once after deploying
 			// so no plaintext row is left behind.
 			encryptOAuthTokens: true,
+			// Sign-in asks only for identity scopes, but Better Auth would still
+			// overwrite the stored tokens while keeping account.scope. The UI then
+			// says "Authorized" and Direct fails with a 401 from Twitch. Tokens
+			// change only through linkSocial, which also merges the scope.
+			updateAccountOnSignIn: false,
 			// Implicit linking stays on so a streamer signing in with Google lands on
 			// the account they already made with Twitch. Better Auth only links when
 			// both the provider's email and the stored one are verified, and Kick
