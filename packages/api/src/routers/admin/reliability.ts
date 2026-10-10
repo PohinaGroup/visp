@@ -84,7 +84,7 @@ export function directPathWhere(alias: string): SQL {
  * still connecting. Columns: `started_at`, `first_live_at`, `start_to_live`
  * (seconds, null when the session never went live).
  */
-function directSessionsSql(from: Date, to: Date): SQL {
+export function directSessionsSql(from: Date, to: Date): SQL {
 	// `greatest` skips nulls, so it alone would turn "never live" into 0 s.
 	return sql`select s.started_at, s.first_live_at,
 			case when s.first_live_at is not null then
