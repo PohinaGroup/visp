@@ -171,6 +171,13 @@
 			"breakpoints": true
 		},
 		{
+			"idx": 26,
+			"version": "7",
+			"when": 1791634001000,
+			"tag": "0026_admin_metric_indexes",
+			"breakpoints": true
+		},
+		{
 			"idx": 27,
 			"version": "7",
 			"when": 1791634002000,
