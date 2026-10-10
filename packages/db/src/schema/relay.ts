@@ -680,8 +680,8 @@ export const relayStreamSessionRelations = relations(
 /**
  * Last host-metrics sample pushed by a relay's health timer. One row per relay,
  * upserted — admin shows "now", and a stale reportedAt is how a dark relay
- * announces itself. No time series: that's a metrics system's job, not this
- * table's.
+ * announces itself. History lives in `relay_health_sample` (raw, 30 days)
+ * and `relay_health_hourly` (13 months); this row is only "now".
  */
 export const relayHealth = pgTable("relay_health", {
 	relayId: integer("relay_id")

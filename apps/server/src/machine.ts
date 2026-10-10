@@ -19,6 +19,7 @@ import {
 	applyCustomDirectState,
 	customDirectOutputActive,
 } from "@VISP/api/direct-custom";
+import { reconcileForwarderSessions } from "@VISP/api/forwarder-sessions";
 import {
 	getObsBackupUploadUrl,
 	OBS_BACKUP_FILE_MAX_BYTES,
@@ -862,6 +863,13 @@ export function startReconciler() {
 			await reconcilePathState();
 		} catch (error) {
 			console.error("MediaMTX reconciliation failed", error);
+		}
+		// After the path pass so its stops are reflected. The first tick after
+		// a restart closes rows a crash left open.
+		try {
+			await reconcileForwarderSessions();
+		} catch (error) {
+			console.error("Forwarder session reconciliation failed", error);
 		} finally {
 			running = false;
 		}
