@@ -1,5 +1,6 @@
 export * from "./affiliate";
 export * from "./agent";
+export * from "./audit";
 export * from "./auth";
 export * from "./chat";
 export * from "./forwarder";

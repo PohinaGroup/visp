@@ -16,9 +16,11 @@ import { cpus, freemem, loadavg, totalmem, uptime } from "node:os";
 import { TRPCError } from "@trpc/server";
 import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
+import { writeAdminAudit } from "../admin-audit";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
 import { probeRelayApi } from "../relay-health";
+import { adminAuditRouter } from "./admin/audit";
 import { adminMetricsRouter } from "./admin/metrics";
 
 const PAGE_SIZE = 50;
@@ -60,10 +62,63 @@ function snakeCase(value: string) {
 	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
-function audit(actorId: string, targetId: string, action: string) {
-	console.info(
-		JSON.stringify({ event: "admin_action", actorId, targetId, action }),
-	);
+/** JSON-safe audit value: dates as ISO strings, everything else as is. */
+function auditValue(value: unknown) {
+	return value instanceof Date ? value.toISOString() : (value ?? null);
+}
+
+/**
+ * The fields of `keys` whose value differs between two versions of a row, as
+ * the `before`/`after` pair the audit log stores. Unchanged fields are left
+ * out so the audit page only shows what the action actually did.
+ */
+function changedFields<Row extends Record<string, unknown>>(
+	previous: Row,
+	next: Row,
+	keys: readonly (keyof Row & string)[],
+) {
+	const before: Record<string, unknown> = {};
+	const after: Record<string, unknown> = {};
+	for (const key of keys) {
+		const old = auditValue(previous[key]);
+		const now = auditValue(next[key]);
+		if (old === now) continue;
+		before[key] = old;
+		after[key] = now;
+	}
+	return { before, after };
+}
+
+const RELAY_AUDIT_FIELDS = [
+	"name",
+	"host",
+	"apiUrl",
+	"pingUrl",
+	"region",
+	"capacityPaths",
+	"maxForwarders",
+	"publicIp",
+	"enabled",
+	"drainedAt",
+] as const;
+
+/** The ban columns, read before and after a ban change for the audit log. */
+const BAN_FIELDS = {
+	banned: user.banned,
+	banReason: user.banReason,
+	banExpires: user.banExpires,
+};
+
+function banSnapshot(row: {
+	banned: boolean | null;
+	banReason: string | null;
+	banExpires: Date | null;
+}) {
+	return {
+		banned: Boolean(row.banned),
+		banReason: row.banReason,
+		banExpires: auditValue(row.banExpires),
+	};
 }
 
 const hasDevice = sql<boolean>`exists (
@@ -91,6 +146,7 @@ const isLive = sql<boolean>`exists (
 )`;
 
 export const adminRouter = router({
+	audit: adminAuditRouter,
 	metrics: adminMetricsRouter,
 	overview: adminProcedure.query(async () => {
 		const recentSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
@@ -227,7 +283,15 @@ export const adminRouter = router({
 						message: "Could not create relay",
 					});
 				}
-				audit(ctx.session.user.id, `relay:${created.id}`, "create");
+				await writeAdminAudit({
+					actorId: ctx.session.user.id,
+					targetType: "relay",
+					targetId: String(created.id),
+					action: "relay_create",
+					after: Object.fromEntries(
+						RELAY_AUDIT_FIELDS.map((key) => [key, auditValue(created[key])]),
+					),
+				});
 				return created;
 			}),
 		update: adminProcedure
@@ -247,24 +311,42 @@ export const adminRouter = router({
 			)
 			.mutation(async ({ ctx, input }) => {
 				const { id, drained, ...fields } = input;
-				const [updated] = await db
-					.update(relay)
-					.set({
-						...fields,
-						...(drained === undefined
-							? {}
-							: { drainedAt: drained ? new Date() : null }),
-					})
-					.where(eq(relay.id, id))
-					.returning();
-				if (!updated) {
-					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "Relay not found",
-					});
-				}
-				audit(ctx.session.user.id, `relay:${id}`, "update");
-				return updated;
+				// The previous row is read under lock only so the audit log can
+				// say what changed; the update itself is unchanged.
+				return db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select()
+						.from(relay)
+						.where(eq(relay.id, id))
+						.for("update");
+					const [updated] = await tx
+						.update(relay)
+						.set({
+							...fields,
+							...(drained === undefined
+								? {}
+								: { drainedAt: drained ? new Date() : null }),
+						})
+						.where(eq(relay.id, id))
+						.returning();
+					if (!previous || !updated) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Relay not found",
+						});
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "relay",
+							targetId: String(id),
+							action: "relay_update",
+							...changedFields(previous, updated, RELAY_AUDIT_FIELDS),
+						},
+						tx,
+					);
+					return updated;
+				});
 			}),
 	}),
 
@@ -604,10 +686,20 @@ export const adminRouter = router({
 					if (previous.role !== input.role && input.role !== "admin") {
 						await revokeAllUserSessions(input.userId, { tx });
 					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: "set_role",
+							before: { role: previous.role ?? null },
+							after: { role: updated.role ?? null },
+						},
+						tx,
+					);
 					return updated;
 				});
 				if (input.role === "admin") await refreshCachedUser(input.userId);
-				audit(ctx.session.user.id, input.userId, `set_role:${input.role}`);
 				return result;
 			}),
 
@@ -621,23 +713,38 @@ export const adminRouter = router({
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
-				const [result] = await db
-					.update(appUser)
-					.set({ [input.flag]: input.enabled })
-					.where(eq(appUser.id, input.userId))
-					.returning({ id: appUser.id, enabled: appUser[input.flag] });
-				if (!result) {
-					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "Relay user not found",
-					});
-				}
-				audit(
-					ctx.session.user.id,
-					input.userId,
-					`set_${snakeCase(input.flag)}:${input.enabled}`,
-				);
-				return result;
+				// Locked read of the old value so the audit row records a real
+				// before/after, including a no-op toggle.
+				return db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select({ enabled: appUser[input.flag] })
+						.from(appUser)
+						.where(eq(appUser.id, input.userId))
+						.for("update");
+					const [result] = await tx
+						.update(appUser)
+						.set({ [input.flag]: input.enabled })
+						.where(eq(appUser.id, input.userId))
+						.returning({ id: appUser.id, enabled: appUser[input.flag] });
+					if (!previous || !result) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Relay user not found",
+						});
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: `set_flag:${snakeCase(input.flag)}`,
+							before: { [input.flag]: previous.enabled },
+							after: { [input.flag]: result.enabled },
+						},
+						tx,
+					);
+					return result;
+				});
 			}),
 
 		ban: adminProcedure
@@ -662,7 +769,12 @@ export const adminRouter = router({
 						message: "Ban expiry must be in the future",
 					});
 				}
-				const result = await db.transaction(async (tx) => {
+				return db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select(BAN_FIELDS)
+						.from(user)
+						.where(eq(user.id, input.userId))
+						.for("update");
 					const [updated] = await tx
 						.update(user)
 						.set({
@@ -671,34 +783,64 @@ export const adminRouter = router({
 							banExpires: expiresAt,
 						})
 						.where(eq(user.id, input.userId))
-						.returning({ id: user.id });
-					if (!updated) {
+						.returning({ id: user.id, ...BAN_FIELDS });
+					if (!previous || !updated) {
 						throw new TRPCError({
 							code: "NOT_FOUND",
 							message: "User not found",
 						});
 					}
 					// Clears cached tokens too; a failure there rolls the ban back.
-					await revokeAllUserSessions(input.userId, { tx });
-					return updated;
+					const revoked = await revokeAllUserSessions(input.userId, { tx });
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: "ban",
+							before: banSnapshot(previous),
+							after: { ...banSnapshot(updated), revokedSessions: revoked },
+						},
+						tx,
+					);
+					return { id: updated.id };
 				});
-				audit(ctx.session.user.id, input.userId, "ban");
-				return result;
 			}),
 
 		unban: adminProcedure
 			.input(z.object({ userId: z.string().min(1) }))
 			.mutation(async ({ ctx, input }) => {
-				const [result] = await db
-					.update(user)
-					.set({ banned: false, banReason: null, banExpires: null })
-					.where(eq(user.id, input.userId))
-					.returning({ id: user.id });
-				if (!result) {
-					throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-				}
+				const result = await db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select(BAN_FIELDS)
+						.from(user)
+						.where(eq(user.id, input.userId))
+						.for("update");
+					const [updated] = await tx
+						.update(user)
+						.set({ banned: false, banReason: null, banExpires: null })
+						.where(eq(user.id, input.userId))
+						.returning({ id: user.id, ...BAN_FIELDS });
+					if (!previous || !updated) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "User not found",
+						});
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: "unban",
+							before: banSnapshot(previous),
+							after: banSnapshot(updated),
+						},
+						tx,
+					);
+					return { id: updated.id };
+				});
 				await refreshCachedUser(input.userId);
-				audit(ctx.session.user.id, input.userId, "unban");
 				return result;
 			}),
 
@@ -706,7 +848,13 @@ export const adminRouter = router({
 			.input(z.object({ userId: z.string().min(1) }))
 			.mutation(async ({ ctx, input }) => {
 				const revoked = await revokeAllUserSessions(input.userId);
-				audit(ctx.session.user.id, input.userId, "revoke_sessions");
+				await writeAdminAudit({
+					actorId: ctx.session.user.id,
+					targetType: "user",
+					targetId: input.userId,
+					action: "revoke_sessions",
+					after: { revokedSessions: revoked },
+				});
 				return { revoked };
 			}),
 	}),
