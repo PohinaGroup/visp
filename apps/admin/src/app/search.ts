@@ -21,6 +21,24 @@ export function stringifySearch(search: Record<string, unknown>): string {
 }
 
 /**
+ * Writes several query-string keys in one navigation, so related values (a
+ * date range's preset and bounds) never pass through a half-updated URL.
+ * `undefined` removes a key; keys not in the patch are kept. Pushes a history
+ * entry so Back works.
+ */
+export function useSetSearch(): (
+	patch: Record<string, string | undefined>,
+) => void {
+	const navigate = useNavigate();
+	return (patch) => {
+		void navigate({
+			to: ".",
+			search: (prev: Record<string, unknown>) => ({ ...prev, ...patch }),
+		});
+	};
+}
+
+/**
  * One query-string value as page state: reading it keeps reloads and shared
  * links on the same view, writing it pushes a history entry so Back works.
  */
@@ -28,14 +46,9 @@ export function useSearchParam(
 	key: string,
 ): [string | undefined, (value: string | undefined) => void] {
 	const search: Record<string, unknown> = useSearch({ strict: false });
-	const navigate = useNavigate();
+	const setSearch = useSetSearch();
 	const raw = search[key];
 	const value = typeof raw === "string" && raw ? raw : undefined;
-	const setValue = (next: string | undefined) => {
-		void navigate({
-			to: ".",
-			search: (prev: Record<string, unknown>) => ({ ...prev, [key]: next }),
-		});
-	};
+	const setValue = (next: string | undefined) => setSearch({ [key]: next });
 	return [value, setValue];
 }
