@@ -49,11 +49,9 @@ import {
 	reportCompositorHealth,
 } from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
-import { db } from "@VISP/db";
-import { session as authSession } from "@VISP/db/schema/index";
+import { revokeSessionByToken } from "@VISP/auth/sessions";
 import { env } from "@VISP/env/server";
 import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 import {
 	directDestinationJsonResponse,
@@ -120,9 +118,7 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				activeSession.user.id,
 				activeSession.user.name,
 			);
-			await db
-				.delete(authSession)
-				.where(eq(authSession.id, activeSession.session.id));
+			await revokeSessionByToken(activeSession.session.token);
 			const pairing = await rotateObsControlToken(relayUser.id);
 			return {
 				account: { handle: relayUser.handle, name: activeSession.user.name },

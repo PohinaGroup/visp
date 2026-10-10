@@ -34,6 +34,7 @@ import {
 	issueChatOverlayToken,
 	revokeChatOverlayToken,
 } from "@VISP/api/chat/overlay-token";
+import { createContext } from "@VISP/api/context";
 import {
 	applyDirectState,
 	directDestinationActive,
@@ -1862,6 +1863,254 @@ integration("relay PostgreSQL integration", () => {
 		expect(ensureRelayUser("no-accounts", "No Accounts")).rejects.toThrow(
 			"Streaming account required",
 		);
+	});
+
+	/** A session made the way sign-in makes one: a row plus a cache entry. */
+	async function cachedSession(userId: string) {
+		const ctx = await auth.$context;
+		const created = await ctx.internalAdapter.createSession(userId);
+		if (!created) throw new Error(`session for ${userId} was not created`);
+		expect(await ctx.secondaryStorage?.get(created.token)).toBeTruthy();
+		return created.token;
+	}
+
+	/** The tRPC caller a request carrying this bearer token would get. */
+	async function callerFor(token: string) {
+		const request = new Request("http://localhost/trpc", {
+			headers: { authorization: `Bearer ${token}` },
+		});
+		return appRouter.createCaller(
+			await createContext({
+				context: { request } as unknown as Parameters<
+					typeof createContext
+				>[0]["context"],
+			}),
+		);
+	}
+
+	async function sessionFor(token: string) {
+		return auth.api.getSession({
+			headers: new Headers({ authorization: `Bearer ${token}` }),
+		});
+	}
+
+	test("ends cached sessions when an admin bans a user or revokes their sessions", async () => {
+		await db.insert(user).values([
+			{ id: "ban-admin", name: "Admin", email: "ban-admin@example.test" },
+			{ id: "ban-target", name: "Target", email: "ban-target@example.test" },
+			{ id: "revoke-target", name: "Revoked", email: "revoke@example.test" },
+			{ id: "bystander", name: "Bystander", email: "bystander@example.test" },
+		]);
+		await db
+			.update(user)
+			.set({ role: "admin" })
+			.where(eq(user.id, "ban-admin"));
+		const adminToken = await cachedSession("ban-admin");
+		const bystanderToken = await cachedSession("bystander");
+		const banned = [
+			await cachedSession("ban-target"),
+			await cachedSession("ban-target"),
+		];
+		// A row that was never cached, and a cached token whose row is already
+		// gone (what the old raw delete left behind).
+		await db.insert(authSession).values({
+			id: "ban-target-db-only",
+			token: "ban-target-db-only-token",
+			userId: "ban-target",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		banned.push("ban-target-db-only-token");
+		const orphan = await cachedSession("ban-target");
+		await db.delete(authSession).where(eq(authSession.token, orphan));
+		banned.push(orphan);
+		for (const token of banned) {
+			expect((await sessionFor(token))?.user.id).toBe("ban-target");
+			expect((await (await callerFor(token)).privateData()).user.id).toBe(
+				"ban-target",
+			);
+		}
+
+		const admin = await callerFor(adminToken);
+		await admin.admin.users.ban({ userId: "ban-target", reason: "abuse" });
+		const ctx = await auth.$context;
+		for (const token of banned) {
+			expect(await sessionFor(token)).toBeNull();
+			expect(await ctx.secondaryStorage?.get(token)).toBeNull();
+			await expect(
+				(await callerFor(token)).privateData(),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		}
+		expect(
+			await ctx.secondaryStorage?.get("active-sessions-ban-target"),
+		).toBeNull();
+
+		const revoked = [
+			await cachedSession("revoke-target"),
+			await cachedSession("revoke-target"),
+		];
+		expect(
+			await admin.admin.users.revokeSessions({ userId: "revoke-target" }),
+		).toEqual({ revoked: 2 });
+		for (const token of revoked) {
+			expect(await sessionFor(token)).toBeNull();
+			await expect(
+				(await callerFor(token)).privateData(),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		}
+
+		// Nobody else is signed out.
+		expect(
+			(await (await callerFor(bystanderToken)).privateData()).user.id,
+		).toBe("bystander");
+		expect((await admin.admin.overview()).totalUsers).toBe(4);
+
+		// A ban written straight to the database still stops a session that
+		// survived it, once that session is served from the session table.
+		const survivor = await cachedSession("bystander");
+		await ctx.secondaryStorage?.delete(survivor);
+		await db.update(user).set({ banned: true }).where(eq(user.id, "bystander"));
+		await expect(
+			(await callerFor(survivor)).privateData(),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	});
+
+	test("takes admin access away from a demoted admin's existing sessions", async () => {
+		await db.insert(user).values([
+			{
+				id: "head-admin",
+				name: "Head",
+				email: "head@example.test",
+				role: "admin",
+			},
+			{
+				id: "demoted",
+				name: "Demoted",
+				email: "demoted@example.test",
+				role: "admin",
+			},
+			{ id: "promoted", name: "Promoted", email: "promoted@example.test" },
+		]);
+		const headToken = await cachedSession("head-admin");
+		const demotedToken = await cachedSession("demoted");
+		const promotedToken = await cachedSession("promoted");
+		const staleSession = await sessionFor(demotedToken);
+		if (!staleSession) throw new Error("demoted session was not created");
+		expect(staleSession.user.role).toBe("admin");
+		expect(
+			(await (await callerFor(demotedToken)).admin.overview()).totalUsers,
+		).toBe(3);
+
+		const head = await callerFor(headToken);
+		await head.admin.users.setRole({ userId: "demoted", role: "user" });
+		expect(await sessionFor(demotedToken)).toBeNull();
+		await expect(
+			(await callerFor(demotedToken)).admin.users.setRole({
+				userId: "demoted",
+				role: "admin",
+			}),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		// Even a session object that still says "admin" is checked against the
+		// user row, so a copy that escaped revocation cannot re-promote itself.
+		await expect(
+			appRouter
+				.createCaller({
+					auth: null,
+					headers: new Headers({ authorization: `Bearer ${demotedToken}` }),
+					session: staleSession,
+				})
+				.admin.users.setRole({ userId: "demoted", role: "admin" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(
+			(await db.query.user.findFirst({ where: eq(user.id, "demoted") }))?.role,
+		).toBe("user");
+
+		// Promotion keeps the session and updates its cached user.
+		await head.admin.users.setRole({ userId: "promoted", role: "admin" });
+		expect((await sessionFor(promotedToken))?.user.role).toBe("admin");
+		expect(
+			(await (await callerFor(promotedToken)).admin.overview()).totalUsers,
+		).toBe(3);
+		expect((await head.admin.overview()).totalUsers).toBe(3);
+	});
+
+	test("ends the device-flow session once OBS has its control token", async () => {
+		await seed();
+		const bystanderToken = await cachedSession("user-b");
+		const authRequest = (
+			path: string,
+			body: Record<string, unknown>,
+			authorization?: string,
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						...(authorization ? { authorization } : {}),
+					},
+					body: JSON.stringify(body),
+				}),
+			);
+		const code = (await (
+			await authRequest("/device/code", { client_id: "visp-obs", scope: "obs" })
+		).json()) as { device_code: string; user_code: string };
+		const browserToken = await cachedSession("user-a");
+		expect(
+			(
+				await auth.handler(
+					new Request(
+						`http://127.0.0.1:3000/api/auth/device?user_code=${encodeURIComponent(code.user_code)}`,
+						{ headers: { authorization: `Bearer ${browserToken}` } },
+					),
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest(
+					"/device/approve",
+					{ userCode: code.user_code },
+					`Bearer ${browserToken}`,
+				)
+			).status,
+		).toBe(200);
+		const temporary = (await (
+			await authRequest("/device/token", {
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+				device_code: code.device_code,
+				client_id: "visp-obs",
+			})
+		).json()) as { access_token: string };
+		const ctx = await auth.$context;
+		expect(
+			await ctx.secondaryStorage?.get(temporary.access_token),
+		).toBeTruthy();
+		expect((await sessionFor(temporary.access_token))?.user.id).toBe("user-a");
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(connect.status).toBe(200);
+		expect(await sessionFor(temporary.access_token)).toBeNull();
+		expect(await ctx.secondaryStorage?.get(temporary.access_token)).toBeNull();
+		await expect(
+			(await callerFor(temporary.access_token)).privateData(),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		const replay = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(replay.status).toBe(401);
+
+		// The browser that approved it and other users stay signed in.
+		expect((await sessionFor(browserToken))?.user.id).toBe("user-a");
+		expect((await sessionFor(bystanderToken))?.user.id).toBe("user-b");
 	});
 
 	test("scopes the chat overlay token to its owner and drops it on revoke", async () => {
