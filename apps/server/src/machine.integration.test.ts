@@ -75,6 +75,7 @@ import {
 	revokePath,
 	rotatePublishPath,
 	rotateReadSecret,
+	setPathLowLatency,
 } from "@VISP/api/relay";
 import { movePublishDevice } from "@VISP/api/relay-move";
 import { chooseRelay, ensureDefaultRelay } from "@VISP/api/relays";
@@ -1058,6 +1059,74 @@ integration("relay PostgreSQL integration", () => {
 			desiredScene: null,
 			scenes: [],
 		});
+	});
+
+	test("switches a device's OBS source to low latency and tells OBS to refetch", async () => {
+		const data = await seed();
+		const pairing = await rotateObsControlToken("user-a");
+		await db
+			.update(appUser)
+			.set({ readSecretHash: null })
+			.where(eq(appUser.id, "user-a"));
+		const report = async () => {
+			const response = await app.handle(
+				new Request("http://localhost/api/obs/control", {
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${pairing.token}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify({
+						appliedVersion: 0,
+						streaming: false,
+						scenes: ["Main"],
+						currentScene: "Main",
+					}),
+				}),
+			);
+			expect(response.status).toBe(200);
+			return (await response.json()) as { mediaSourcesRevision: number };
+		};
+		const source = async () => {
+			const response = await app.handle(
+				new Request(
+					`http://localhost/api/obs/devices/${data.pathA.id}/source`,
+					{
+						method: "POST",
+						headers: { authorization: `Bearer ${pairing.token}` },
+					},
+				),
+			);
+			expect(response.status).toBe(200);
+			return (await response.json()) as {
+				source: { settings: { buffering_mb: number; input: string } };
+			};
+		};
+
+		const before = await report();
+		expect((await source()).source.settings).toMatchObject({
+			buffering_mb: 1,
+			input: expect.stringContaining("latency=300000"),
+		});
+
+		expect(await setPathLowLatency("user-b", data.pathA.id, true)).toBeNull();
+		expect(await setPathLowLatency("user-a", data.pathA.id, true)).toEqual({
+			id: data.pathA.id,
+			lowLatency: true,
+		});
+		expect((await report()).mediaSourcesRevision).toBe(
+			before.mediaSourcesRevision + 1,
+		);
+		expect((await source()).source.settings).toMatchObject({
+			buffering_mb: 0,
+			input: expect.stringContaining("latency=150000"),
+		});
+		expect(
+			(await listPaths("user-a")).find((path) => path.id === data.pathA.id),
+		).toMatchObject({ lowLatency: true });
+
+		await setPathLowLatency("user-a", data.pathA.id, false);
+		expect((await source()).source.settings.buffering_mb).toBe(1);
 	});
 
 	test("stores, lists, restores and prunes OBS backups for their owner only", async () => {

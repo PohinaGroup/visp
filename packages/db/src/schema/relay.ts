@@ -181,6 +181,11 @@ export const appUser = pgTable(
 		brbHighlightsOverlay: boolean("brb_highlights_overlay")
 			.default(true)
 			.notNull(),
+		// Bumped whenever an OBS media source's settings change server-side, so
+		// the OBS plugin knows to refetch the VISP sources it manages.
+		obsMediaSourcesRevision: integer("obs_media_sources_revision")
+			.default(0)
+			.notNull(),
 		directProductionMode: text("direct_production_mode")
 			.default("obs")
 			.notNull(),
@@ -313,6 +318,11 @@ export const relayPath = pgTable(
 		directTwitch: boolean("direct_twitch").default(false).notNull(),
 		directKick: boolean("direct_kick").default(false).notNull(),
 		directYoutube: boolean("direct_youtube").default(false).notNull(),
+		// Low-latency OBS mode: the VISP app publishes with an RTT-sized SRT
+		// latency on a single link, and OBS reads it with a short latency and no
+		// demuxer buffering. Per device, because it changes what every reader of
+		// this path gets, Direct included.
+		lowLatency: boolean("low_latency").default(false).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
