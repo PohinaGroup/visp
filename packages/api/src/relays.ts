@@ -62,6 +62,23 @@ export async function ensureDefaultRelay() {
 		});
 }
 
+/**
+ * Picks the relay for a new or reassigned path. Ranking:
+ *
+ * 0. the client's measured preference (`preferredRelayId`);
+ * 1. a relay the user already has a path on (Direct handover, one relay per
+ *    person);
+ * 2. any relay in the user's home region: the preferred relay's region, else
+ *    the region most of their paths use, else `DEFAULT_RELAY_REGION`, else the
+ *    `default` relay's region;
+ * 3. the `default` relay itself, so a misnamed region never scatters accounts;
+ * 4. anything else.
+ *
+ * Ties go to the least-loaded relay. Disabled, drained and full relays are
+ * never candidates, and an active Direct session pins the user to its relay.
+ * Without step 2 a new Finnish account without a measurement could land on a
+ * far-away relay merely because it was emptier.
+ */
 export async function chooseRelay(
 	userId: string,
 	preferredRelayId?: number,
@@ -69,8 +86,25 @@ export async function chooseRelay(
 	replacingPathId?: number,
 ) {
 	await lockRelayAssignments(executor);
+	const replacing = replacingPathId ?? -1;
+	const defaultRegion = env.DEFAULT_RELAY_REGION ?? null;
 	const result = await executor.execute(sql<RelayCandidate>`
-		with active_direct as (${activeDirectRelays(userId)})
+		with active_direct as (${activeDirectRelays(userId)}),
+		home as (
+			select lower(trim(coalesce(
+				(select region from relay where id = ${preferredRelayId ?? -1}),
+				(select owned_relay.region from path owned_path
+					join relay owned_relay on owned_relay.id = owned_path.relay_id
+					where owned_path.user_id = ${userId}
+						and owned_path.revoked_at is null
+						and owned_path.id <> ${replacing}
+					group by owned_relay.region
+					order by count(*) desc, min(owned_path.id)
+					limit 1),
+				${defaultRegion}::text,
+				(select region from relay where name = 'default')
+			))) as region
+		)
 		select
 			r.id,
 			r.host,
@@ -81,7 +115,7 @@ export async function chooseRelay(
 		left join path assigned
 			on assigned.relay_id = r.id
 			and assigned.revoked_at is null
-			and assigned.id <> ${replacingPathId ?? -1}
+			and assigned.id <> ${replacing}
 		where r.enabled = true
 			and r.drained_at is null
 			and (not exists (select 1 from active_direct)
@@ -97,7 +131,9 @@ export async function chooseRelay(
 						and owned.relay_id = r.id
 						and owned.revoked_at is null
 				) then 1
-				else 2
+				when lower(trim(r.region)) = (select region from home) then 2
+				when r.name = 'default' then 3
+				else 4
 			end,
 			count(assigned.id),
 			r.id
