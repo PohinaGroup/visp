@@ -1,7 +1,9 @@
 import { db } from "@VISP/db";
 import { relay, relayHealth, relayHealthSample } from "@VISP/db/schema/index";
 import { eq, sql } from "drizzle-orm";
-import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
+import { relayOccupiedForwarderCount } from "./forwarder-sessions";
+
+type Logger = Pick<Console, "error">;
 
 export type RelayHealthReport = {
 	relay: string;
@@ -21,7 +23,10 @@ export type RelayHealthReport = {
  * when the reported name is not a registered relay — a relay that was renamed
  * in admin should show as dark, not silently write nothing.
  */
-export async function reportRelayHealth(report: RelayHealthReport) {
+export async function reportRelayHealth(
+	report: RelayHealthReport,
+	log: Logger = console,
+) {
 	const [target] = await db
 		.select({ id: relay.id })
 		.from(relay)
@@ -38,11 +43,30 @@ export async function reportRelayHealth(report: RelayHealthReport) {
 			set: { reportedAt, ...metrics },
 		});
 	// History row. A duplicate (same relay, same instant) is a retried push of
-	// the same sample, so it is dropped rather than overwriting.
-	await db
+	// the same sample, so it is dropped rather than overwriting. History is
+	// secondary to the live snapshot above, which is already saved: a failure
+	// here is logged and the hook still succeeds, so the relay timer does not
+	// see a 500 (and retry) for a report that was in fact recorded.
+	try {
+		await insertRelayHealthSample(target.id, reportedAt, report);
+	} catch (error) {
+		log.error("Relay health sample insert failed", {
+			relay: report.relay,
+			error,
+		});
+	}
+	return true;
+}
+
+function insertRelayHealthSample(
+	relayId: number,
+	reportedAt: Date,
+	report: RelayHealthReport,
+) {
+	return db
 		.insert(relayHealthSample)
 		.values({
-			relayId: target.id,
+			relayId,
 			reportedAt,
 			load1: report.load1,
 			cpuCount: report.cpuCount,
@@ -51,14 +75,13 @@ export async function reportRelayHealth(report: RelayHealthReport) {
 			livePaths: sql`(
 				select count(*)::int from "path" sample_path
 				join path_state sample_state on sample_state.path_id = sample_path.id
-				where sample_path.relay_id = ${target.id}
+				where sample_path.relay_id = ${relayId}
 					and sample_path.revoked_at is null
 					and sample_state.publishing
 			)`,
-			activeForwarders: relayActiveForwarders(target.id),
+			activeForwarders: relayActiveForwarders(relayId),
 		})
 		.onConflictDoNothing();
-	return true;
 }
 
 /** Share of a kb total in use, 0–100. A zero total (bad probe) reads as 0. */
@@ -69,27 +92,14 @@ export function usedPct(totalKb: number, availableKb: number) {
 }
 
 /**
- * Forwarders running on a relay, counted exactly like the admin relay list's
- * "active forwarders" column (legacy provider forwarders plus portrait
- * destinations in an occupied state) so a chart and the live number agree.
+ * Forwarders running on a relay: every encoder Direct's capacity checks count
+ * as occupied against `max_forwarders` (legacy provider outputs, portrait
+ * destinations and custom outputs), from the same definition session history
+ * uses, so capacity alerts and the forecast see the real load. Reservations
+ * are left out on purpose: no encoder runs for them yet.
  */
 function relayActiveForwarders(relayId: number) {
-	return sql<number>`(
-		select (
-			count(*) filter (where sample_state.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
-			count(*) filter (where sample_state.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
-			count(*) filter (where sample_state.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
-			(select count(*) from direct_destination sample_portrait
-				join "path" sample_portrait_path on sample_portrait_path.id = sample_portrait.path_id
-				where sample_portrait_path.relay_id = ${relayId}
-					and sample_portrait_path.revoked_at is null
-					and sample_portrait.state in ${DIRECT_OCCUPIED_STATES_SQL})
-		)::int
-		from "path" sample_path
-		join path_state sample_state on sample_state.path_id = sample_path.id
-		where sample_path.relay_id = ${relayId}
-			and sample_path.revoked_at is null
-	)`;
+	return relayOccupiedForwarderCount(relayId);
 }
 
 export type RelayApiProbe = {

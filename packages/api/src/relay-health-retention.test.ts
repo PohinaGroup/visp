@@ -2,14 +2,18 @@ import "./test-env";
 import { db } from "@VISP/db";
 import {
 	appUser,
+	customDirectDestination,
+	customDirectOutput,
+	directDestination,
 	pathState,
 	relay,
+	relayHealth,
 	relayHealthHourly,
 	relayHealthSample,
 	relayPath,
 	user,
 } from "@VISP/db/schema/index";
-import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
 import { asc, eq } from "drizzle-orm";
 import { tryAdvisoryLock } from "./advisory-lock";
 import { reportRelayHealth, usedPct } from "./relay-health";
@@ -62,6 +66,44 @@ integration("relay health history", () => {
 			{ pathId: live.id, publishing: true, directTwitchState: "live" },
 			{ pathId: idle.id, publishing: false, directKickState: "stopped" },
 		]);
+		// Every forwarder kind capacity enforcement counts against
+		// max_forwarders: a portrait destination and a custom output, live, plus
+		// a custom output that only holds a reservation (no encoder yet).
+		await db.insert(directDestination).values({
+			userId,
+			pathId: live.id,
+			provider: "youtube",
+			role: "portrait",
+			crop: { x: 0.3418, y: 0, w: 0.3164, h: 1, aspect: "9:16" },
+			state: "live",
+		});
+		await db.insert(customDirectDestination).values(
+			["dest", "dest-2"].map((name) => ({
+				id: `${userId}-${name}`,
+				userId,
+				name,
+				protocol: "rtmp" as const,
+				encryptedUrl: "opaque",
+				endpointSummary: "rtmp://example.test",
+			})),
+		);
+		await db.insert(customDirectOutput).values([
+			{
+				id: `${userId}-out-live`,
+				userId,
+				destinationId: `${userId}-dest`,
+				pathId: live.id,
+				state: "live",
+			},
+			{
+				id: `${userId}-out-reserved`,
+				userId,
+				destinationId: `${userId}-dest-2`,
+				pathId: idle.id,
+				reservedRelayId: relayId,
+				reservedUntil: new Date(Date.now() + 60_000),
+			},
+		]);
 	});
 
 	afterAll(async () => {
@@ -82,21 +124,21 @@ integration("relay health history", () => {
 			.where(eq(relayHealthHourly.relayId, relayId))
 			.orderBy(asc(relayHealthHourly.hour));
 
+	const report = () => ({
+		relay: relayName,
+		cpuCount: 4,
+		load1: 1.5,
+		load5: 1,
+		load15: 0.5,
+		memTotalKb: 8_000_000,
+		memAvailableKb: 2_000_000,
+		diskTotalKb: 100_000_000,
+		diskAvailableKb: 90_000_000,
+		uptimeSeconds: 3600,
+	});
+
 	test("a pushed report also lands as a history sample", async () => {
-		expect(
-			await reportRelayHealth({
-				relay: relayName,
-				cpuCount: 4,
-				load1: 1.5,
-				load5: 1,
-				load15: 0.5,
-				memTotalKb: 8_000_000,
-				memAvailableKb: 2_000_000,
-				diskTotalKb: 100_000_000,
-				diskAvailableKb: 90_000_000,
-				uptimeSeconds: 3600,
-			}),
-		).toBe(true);
+		expect(await reportRelayHealth(report())).toBe(true);
 		const [sample] = await samples();
 		expect(sample).toMatchObject({
 			cpuCount: 4,
@@ -104,7 +146,9 @@ integration("relay health history", () => {
 			memUsedPct: 75,
 			diskUsedPct: 10,
 			livePaths: 1,
-			activeForwarders: 1,
+			// Twitch landscape + YouTube portrait + live custom output; the
+			// reserved-only custom output runs no encoder yet.
+			activeForwarders: 3,
 		});
 		expect(Date.now() - (sample?.reportedAt.getTime() ?? 0)).toBeLessThan(
 			60_000,
@@ -112,6 +156,40 @@ integration("relay health history", () => {
 		await db
 			.delete(relayHealthSample)
 			.where(eq(relayHealthSample.relayId, relayId));
+	});
+
+	test("a failed history insert is logged and the report still succeeds", async () => {
+		const realInsert = db.insert.bind(db);
+		const insert = spyOn(db, "insert").mockImplementation(((
+			table: Parameters<typeof db.insert>[0],
+		) => {
+			if (table !== relayHealthSample) return realInsert(table);
+			return {
+				values: () => ({
+					onConflictDoNothing: () =>
+						Promise.reject(new Error("sample table unavailable")),
+				}),
+			};
+		}) as unknown as typeof db.insert);
+		const errors: unknown[][] = [];
+		try {
+			const result = await reportRelayHealth(
+				{ ...report(), load1: 2.5 },
+				{ error: (...args: unknown[]) => void errors.push(args) },
+			);
+			expect(result).toBe(true);
+		} finally {
+			insert.mockRestore();
+		}
+		expect(errors).toHaveLength(1);
+		expect(String(errors[0]?.[0])).toContain("sample insert failed");
+		// The live snapshot was still saved; only history is missing.
+		const [live] = await db
+			.select({ load1: relayHealth.load1 })
+			.from(relayHealth)
+			.where(eq(relayHealth.relayId, relayId));
+		expect(live?.load1).toBe(2.5);
+		expect(await samples()).toHaveLength(0);
 	});
 
 	test("rollup aggregates old samples by hour, prunes, and is idempotent", async () => {

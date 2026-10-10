@@ -39,6 +39,21 @@ function occupiedForwarders(scope: SQL) {
 }
 
 /**
+ * Forwarders occupying an encoder on one relay right now, as a scalar
+ * subquery. The same rows `forwarder_session` tracks and that Direct's
+ * capacity checks count as occupied (legacy provider outputs, portrait
+ * destinations and custom outputs), minus reservations: a reserved slot has
+ * no encoder running yet. Reusing `occupiedForwarders` keeps relay-health
+ * samples, session history and admission from drifting apart.
+ */
+export function relayOccupiedForwarderCount(relayId: number | SQL) {
+	return sql<number>`(
+		select count(*)::int
+		from (${occupiedForwarders(sql`p.relay_id = ${relayId}`)}) relay_occupied
+	)`;
+}
+
+/**
  * Makes `forwarder_session` agree with the live Direct state: opens a row for
  * every occupied forwarder that has none and closes every open row whose
  * forwarder is no longer occupied (left the occupied states, or its
