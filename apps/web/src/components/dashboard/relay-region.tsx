@@ -3,6 +3,7 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { relayRegionLabel } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 import type { PathView } from "./types";
 
@@ -24,7 +25,7 @@ export function RelayRegion({ path }: { path: PathView }) {
 	return (
 		<VStack gap={2}>
 			<Text type="supporting">
-				Relay: {path.relay.region} · {path.relay.name}
+				Relay: {relayRegionLabel(path.relay.region)} · {path.relay.name}
 			</Text>
 			{relays.data?.some((relay) => relay.id !== path.relay.id) ? (
 				<>
@@ -38,14 +39,14 @@ export function RelayRegion({ path }: { path: PathView }) {
 							.map((relay) => (
 								<Button
 									key={relay.id}
-									label={`Move to ${relay.region} · ${relay.name}`}
+									label={`Move to ${relayRegionLabel(relay.region)} · ${relay.name}`}
 									size="sm"
 									variant="secondary"
 									isDisabled={Boolean(path.publishing) || move.isPending}
 									onClick={() => {
 										if (
 											window.confirm(
-												`Move ${path.label} to ${relay.region}? Its sending and receiving URLs will change. Update external publishers and OBS, and refresh the destination in the VISP app.`,
+												`Move ${path.label} to ${relayRegionLabel(relay.region)}? Its sending and receiving URLs will change. Update external publishers and OBS, and refresh the destination in the VISP app.`,
 											)
 										) {
 											move.mutate({ pathId: path.id, relayId: relay.id });

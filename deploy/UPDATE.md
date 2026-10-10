@@ -6,7 +6,7 @@ The release workflow compares the release tag with the previous release and
 deploys only the changed relay components. The `production` environment must
 define `RELAY_DEPLOY_HOST` as the relay's Tailscale hostname, or set
 `RELAY_DEPLOY_TARGETS` to a JSON array of `{ "host": "tailscale-host", "url": "https://relay-host" }`
-objects for all relay hosts. See [REGIONS.md](REGIONS.md) for the Finland + US
+objects for all relay hosts. See [REGIONS.md](REGIONS.md) for multi-region
 setup. It uses the same
 `DEPLOY_USER`, SSH key, known-hosts entry, and Tailscale credentials as the app
 deployment.
