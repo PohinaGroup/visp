@@ -19,6 +19,7 @@ import { z } from "zod";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
 import { probeRelayApi } from "../relay-health";
+import { adminRelayHistoryRouter } from "./admin/relay-history";
 
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -265,6 +266,7 @@ export const adminRouter = router({
 				return updated;
 			}),
 	}),
+	relayHistory: adminRelayHistoryRouter,
 
 	users: router({
 		list: adminProcedure
