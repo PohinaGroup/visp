@@ -2,6 +2,7 @@
 #include <QCryptographicHash>
 #include <QDateTime>
 #include <QDir>
+#include <QFileInfo>
 #include <QHash>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -567,16 +568,46 @@ static QString current_os_name()
 #endif
 }
 
-// Mirrors validObsBackupPath on the server so a hostile manifest cannot escape the restore folder.
+// Device names Windows opens anywhere, even with an extension (CON.json, com1.png).
+static bool windows_reserved_name(const QString &part)
+{
+	const QString stem = part.section('.', 0, 0).toLower();
+	if (stem == "con" || stem == "prn" || stem == "aux" || stem == "nul")
+		return true;
+	if (stem.size() != 4 || !(stem.startsWith("com") || stem.startsWith("lpt")))
+		return false;
+	const QChar last = stem.at(3);
+	return (last >= '0' && last <= '9') || last == QChar(0xb9) || last == QChar(0xb2) || last == QChar(0xb3);
+}
+
+// Mirrors validObsBackupPath on the server so a hostile manifest cannot escape the restore folder:
+// relative, no "."/".." segments, and nothing Windows reads as a drive (C:/...), stream, device
+// name, or a name it silently trims (trailing dots and spaces).
 static bool valid_backup_path(const QString &path)
 {
-	if (path.isEmpty() || path.size() > 512 || path.contains('\\') || path.contains(QChar(0)))
+	if (path.isEmpty() || path.size() > 512)
 		return false;
+	for (const QChar character : path) {
+		if (character.unicode() < 0x20 || character.unicode() == 0x7f ||
+		    QStringLiteral("\\<>:\"|?*").contains(character))
+			return false;
+	}
 	for (const QString &part : path.split('/')) {
-		if (part.isEmpty() || part == "." || part == "..")
+		if (part.isEmpty() || part == "." || part == ".." || part.endsWith('.') || part.endsWith(' ') ||
+		    windows_reserved_name(part))
 			return false;
 	}
 	return true;
+}
+
+// Where a backup file lives under root, or empty when the path would land anywhere else.
+static QString contained_backup_path(const QString &root, const QString &path)
+{
+	const QString base = QDir::cleanPath(root);
+	if (base.isEmpty() || !valid_backup_path(path) || !QFileInfo(path).isRelative())
+		return {};
+	const QString joined = QDir::cleanPath(base + "/" + path);
+	return joined.startsWith(base + "/") ? joined : QString();
 }
 
 static bool valid_sha256(const QString &value)
@@ -609,8 +640,10 @@ static bool parse_backup_manifest(const QJsonObject &object, struct restore_mani
 		restore_file file;
 		file.path = item.value("path").toString();
 		file.original_path = item.value("originalPath").toString();
+		// Case-insensitive: on Windows and macOS "a" and "A" are one file, so a later
+		// download would overwrite one that was already verified.
 		if (!value.isObject() || !valid_backup_path(file.path) || file.path == "manifest.json" ||
-		    seen.contains(file.path) || !item.value("originalPath").isString() ||
+		    seen.contains(file.path.toLower()) || !item.value("originalPath").isString() ||
 		    !positive_integer(item.value("byteSize"), &file.byte_size) ||
 		    file.byte_size > 4LL * 1024 * 1024 * 1024)
 			return false;
@@ -620,7 +653,7 @@ static bool parse_backup_manifest(const QJsonObject &object, struct restore_mani
 		if (hash.isEmpty() && parsed.version == 2)
 			return false;
 		file.sha256 = hash.toLatin1();
-		seen.insert(file.path);
+		seen.insert(file.path.toLower());
 		parsed.files.append(file);
 	}
 	if (parsed.files.isEmpty())
@@ -657,6 +690,30 @@ static QString portable_path(const QString &path)
 {
 	QString result = path;
 	return result.replace('\\', '/');
+}
+
+// OBS runs these (Tools → Scripts) or the OS executes them, so backups never carry them.
+static bool script_like_file(const QString &path)
+{
+	static const QStringList extensions{"lua",   "luac", "py",  "pyc", "pyo", "pyw", "pyd",  "dll", "so",
+					    "dylib", "exe",  "com", "bat", "cmd", "ps1", "psm1", "sh",  "command",
+					    "js",    "jse",  "vbs", "vbe", "wsf", "msi", "scr",  "jar", "app"};
+	const QString name = portable_path(path).section('/', -1).toLower();
+	const qsizetype dot = name.lastIndexOf('.');
+	return (dot >= 0 && extensions.contains(name.sliced(dot + 1))) || name.contains(".so.");
+}
+
+// OBS loads every script listed under modules → scripts-tool when it opens a scene collection.
+// Returns whether any were listed.
+static bool strip_scene_scripts(QJsonObject *document)
+{
+	QJsonObject modules = document->value("modules").toObject();
+	if (!modules.contains("scripts-tool"))
+		return false;
+	const bool listed = !modules.value("scripts-tool").toArray().isEmpty();
+	modules.remove("scripts-tool");
+	document->insert("modules", modules);
+	return listed;
 }
 
 // Lowercase alphanumeric only, so a restored file name can never smuggle in a path.
@@ -1025,13 +1082,62 @@ int main(void)
 							     "\"originalPath\":\"a\",\"byteSize\":3}]}")
 					     .object(),
 				     &manifest));
-	for (const char *path : {"../escape", "media//x", "media\\x", "manifest.json", "/abs"}) {
+	for (const char *path : {"../escape",
+				 "media//x",
+				 "media\\x",
+				 "manifest.json",
+				 "/abs",
+				 "C:/Users/x/Start Menu/Programs/Startup/x.bat",
+				 "C:x.bat",
+				 "media/x:stream",
+				 "media/a*b",
+				 "media/a?b",
+				 "media/a|b",
+				 "media/a\"b",
+				 "media/a<b",
+				 "media/a>b",
+				 "media/a\tb",
+				 "media/trailing.",
+				 "media/trailing ",
+				 "CON",
+				 "media/nul.json",
+				 "media/COM1.png",
+				 "media/lpt9"}) {
 		const QJsonObject bad{
 			{"version", 1},
 			{"files", QJsonArray{QJsonObject{{"path", path}, {"originalPath", "x"}, {"byteSize", 1}}}}};
 		CHECK(!parse_backup_manifest(bad, &manifest));
 	}
 	CHECK(!parse_backup_manifest(QJsonObject{{"version", 3}, {"files", QJsonArray{}}}, &manifest));
+	CHECK(!parse_backup_manifest(
+		QJsonObject{{"version", 1},
+			    {"files",
+			     QJsonArray{QJsonObject{{"path", "media/a"}, {"originalPath", "x"}, {"byteSize", 1}},
+					QJsonObject{{"path", "media/A"}, {"originalPath", "x"}, {"byteSize", 1}}}}},
+		&manifest));
+	for (const char *path : {"scenes/Main.json", "scenes/My Scene.json", "profiles/Untitled/basic.ini",
+				 "media/000001", "media/000002.png", "media/console.png"})
+		CHECK(valid_backup_path(path));
+	CHECK(contained_backup_path("/tmp/restore", "scenes/My Scene.json") == "/tmp/restore/scenes/My Scene.json");
+	CHECK(contained_backup_path("/tmp/restore/", "media/000001") == "/tmp/restore/media/000001");
+	for (const char *path :
+	     {"C:/Users/x/AppData/x.bat", "/etc/passwd", "../x", "media/../../x", "media\\..\\x", ""})
+		CHECK(contained_backup_path("/tmp/restore", path).isEmpty());
+	CHECK(contained_backup_path("", "media/000001").isEmpty());
+	CHECK(script_like_file("C:\\Users\\me\\obs-scripts\\clock.LUA") && script_like_file("/opt/x/auto.py") &&
+	      script_like_file("/usr/lib/libx.so.6") && script_like_file("tool.exe"));
+	CHECK(!script_like_file("/home/me/logo.png") && !script_like_file("C:/media/intro.mp4") &&
+	      !script_like_file("overlay.html") && !script_like_file("no-extension"));
+	QJsonObject scripted{{"name", "Main"},
+			     {"modules",
+			      QJsonObject{{"scripts-tool", QJsonArray{QJsonObject{{"path", "/x/clock.lua"}}}},
+					  {"output-timer", QJsonObject{{"autoStartStreamTimer", false}}}}}};
+	CHECK(strip_scene_scripts(&scripted));
+	CHECK(!scripted.value("modules").toObject().contains("scripts-tool") &&
+	      scripted.value("modules").toObject().contains("output-timer"));
+	CHECK(!strip_scene_scripts(&scripted));
+	QJsonObject unscripted{{"name", "Main"}};
+	CHECK(!strip_scene_scripts(&unscripted) && !unscripted.contains("modules"));
 	QList<backup_summary> backups;
 	CHECK(parse_backup_list(
 		"{\"backups\":[{\"id\":\"6f1c1f3e-8f4c-4c1e-9a55-0a4b2b8f2a11\",\"completedAt\":"
@@ -1170,7 +1276,7 @@ static void collect_referenced_files(const QJsonValue &value, const QDir &base,
 	QFileInfo file(value.toString());
 	if (file.isRelative())
 		file.setFile(base.absoluteFilePath(file.filePath()));
-	if (file.isFile())
+	if (file.isFile() && !script_like_file(file.fileName()))
 		files->insert(file.canonicalFilePath());
 }
 
@@ -1752,19 +1858,37 @@ private:
 			const QString path = file.canonicalFilePath();
 			return path.startsWith(root_path + QDir::separator());
 		};
+		// Names the server would refuse (a ':' on macOS or Linux, CON, a trailing dot) or that only
+		// differ in case get a neutral archive name; restore reads names from the files themselves.
+		QSet<QString> archive_paths;
+		auto archive_path = [&archive_paths](const QString &wanted, const QString &stem,
+						     const QString &suffix) {
+			QString path = wanted;
+			for (int index = 1; !valid_backup_path(path) || archive_paths.contains(path.toLower()); index++)
+				path = QString("%1-%2%3").arg(stem, QString::number(index), suffix);
+			archive_paths.insert(path.toLower());
+			return path;
+		};
+		archive_paths.insert("manifest.json");
 		QSet<QString> media_files;
 		for (const QFileInfo &scene : scenes.entryInfoList({"*.json"}, QDir::Files)) {
 			// The server refuses empty uploads, and an empty file has nothing to restore.
 			if (!inside_config_root(scene) || scene.size() == 0)
 				continue;
-			backup_files.append({scene.canonicalFilePath(), "scenes/" + scene.fileName(), {}});
+			backup_files.append({scene.canonicalFilePath(),
+					     archive_path("scenes/" + scene.fileName(), "scenes/collection", ".json"),
+					     {}});
 			QFile scene_file(scene.filePath());
 			if (scene_file.open(QIODevice::ReadOnly)) {
 				const QJsonDocument scene_document = QJsonDocument::fromJson(scene_file.readAll());
-				if (scene_document.isArray())
+				if (scene_document.isArray()) {
 					collect_referenced_files(scene_document.array(), scenes, &media_files);
-				else if (scene_document.isObject())
-					collect_referenced_files(scene_document.object(), scenes, &media_files);
+				} else if (scene_document.isObject()) {
+					// Scripts are never backed up; restore drops the list too.
+					QJsonObject scene_object = scene_document.object();
+					strip_scene_scripts(&scene_object);
+					collect_referenced_files(scene_object, scenes, &media_files);
+				}
 			}
 		}
 		QDirIterator profiles_iterator(profiles.absolutePath(), {"basic.ini"}, QDir::Files,
@@ -1773,9 +1897,11 @@ private:
 			profiles_iterator.next();
 			const QFileInfo profile(profiles_iterator.fileInfo());
 			if (inside_config_root(profile) && profile.size() > 0)
-				backup_files.append({profile.canonicalFilePath(),
-						     "profiles/" + profiles.relativeFilePath(profile.filePath()),
-						     {}});
+				backup_files.append(
+					{profile.canonicalFilePath(),
+					 archive_path("profiles/" + profiles.relativeFilePath(profile.filePath()),
+						      "profiles/profile", "/basic.ini"),
+					 {}});
 		}
 		int media_index = 0;
 		for (const QString &path : media_files) {
@@ -1787,7 +1913,8 @@ private:
 				backup_files.clear();
 				return false;
 			}
-			backup_files.append({path, backup_media_path(++media_index, path), {}});
+			backup_files.append(
+				{path, archive_path(backup_media_path(++media_index, path), "media/file", ""), {}});
 		}
 		if (backup_files.isEmpty()) {
 			*error = "No OBS scene or profile files were found.";
@@ -1812,10 +1939,10 @@ private:
 		for (const backup_file &file : backup_files)
 			bytes += QFileInfo(file.source_path).size();
 		if (QMessageBox::question(
-				this, "Back up to VISP",
-				QString("Upload %1 files (%2) to VISP? This includes scene collections, profile settings, and linked local media. Stream keys and VISP credentials are excluded.")
-					.arg(backup_files.size())
-					.arg(QLocale().formattedDataSize(bytes))) != QMessageBox::Yes)
+			    this, "Back up to VISP",
+			    QString("Upload %1 files (%2) to VISP? This includes scene collections, profile settings, and linked local media. OBS scripts, stream keys, and VISP credentials are excluded.")
+				    .arg(backup_files.size())
+				    .arg(QLocale().formattedDataSize(bytes))) != QMessageBox::Yes)
 			return;
 		backup_in_progress = true;
 		set_backup_actions_enabled(false);
@@ -2096,7 +2223,7 @@ private:
 			bytes += file.byte_size;
 		if (QMessageBox::question(
 			    this, "Restore from VISP",
-			    QString("Download %1 files (%2) and add them as new scene collections and a new profile? Your existing scene collections and profiles are not changed.")
+			    QString("Download %1 files (%2) and add them as new scene collections and a new profile? Your existing scene collections and profiles are not changed. OBS scripts are not restored.")
 				    .arg(restore_data.files.size())
 				    .arg(QLocale().formattedDataSize(bytes))) != QMessageBox::Yes) {
 			finish_restore({}, {});
@@ -2136,9 +2263,20 @@ private:
 		     });
 	}
 
+	// The only way to name a downloaded file: QDir::filePath would pass an absolute path straight
+	// through. Empty when the path would leave the temporary restore folder.
+	QString restore_file_path(const QString &path) const
+	{
+		return restore_dir ? contained_backup_path(restore_dir->path(), path) : QString();
+	}
+
 	void download_restore_file(const restore_file &file, const QUrl &download_url)
 	{
-		const QString local_path = restore_dir->filePath(file.path);
+		const QString local_path = restore_file_path(file.path);
+		if (local_path.isEmpty()) {
+			finish_restore(QString("%1 is not a valid backup file path.").arg(file.path));
+			return;
+		}
 		if (!QDir().mkpath(QFileInfo(local_path).absolutePath())) {
 			finish_restore("Could not create a temporary folder for the download.");
 			return;
@@ -2190,7 +2328,7 @@ private:
 			}
 			backup_status.setText(
 				QString("Verifying %1 of %2...").arg(restore_index + 1).arg(restore_data.files.size()));
-			hash_file(restore_dir->filePath(file.path), [this, file](const QByteArray &sha256) {
+			hash_file(restore_file_path(file.path), [this, file](const QByteArray &sha256) {
 				if (sha256 != file.sha256) {
 					finish_restore(
 						QString("%1 does not match the backup (checksum).").arg(file.path));
@@ -2233,13 +2371,19 @@ private:
 		}
 		media_path_map media_paths;
 		int media_count = 0;
+		bool scripts_skipped = false;
 		for (const restore_file &file : restore_data.files) {
 			if (!file.path.startsWith("media/"))
 				continue;
+			// Older plugins backed up scripts a scene collection referenced; never put them back.
+			if (script_like_file(file.original_path) || script_like_file(file.path)) {
+				scripts_skipped = true;
+				continue;
+			}
 			const QString destination =
 				QDir(media_dir).absoluteFilePath(restored_media_name(file.path, file.original_path));
 			QFile::remove(destination);
-			if (!QFile::copy(restore_dir->filePath(file.path), destination)) {
+			if (!QFile::copy(restore_file_path(file.path), destination)) {
 				finish_restore(QString("Could not copy restored media to %1.").arg(destination));
 				return;
 			}
@@ -2256,16 +2400,20 @@ private:
 			if (!file.path.startsWith("scenes/") || !file.path.endsWith(".json"))
 				continue;
 			QByteArray contents;
-			const QJsonDocument scene_document = read_file(restore_dir->filePath(file.path), &contents)
+			const QJsonDocument scene_document = read_file(restore_file_path(file.path), &contents)
 								     ? QJsonDocument::fromJson(contents)
 								     : QJsonDocument();
 			if (!scene_document.isObject())
 				continue;
 			const QString original_scenes_dir =
 				QFileInfo(normalized_media_path(file.original_path, {})).path();
-			QJsonObject document = rewrite_media_paths(scene_document.object(), media_paths,
-								   original_scenes_dir, &rewritten)
-						       .toObject();
+			QJsonObject scene_object = scene_document.object();
+			// OBS would load these scripts as soon as the restored collection opens.
+			if (strip_scene_scripts(&scene_object))
+				scripts_skipped = true;
+			QJsonObject document =
+				rewrite_media_paths(scene_object, media_paths, original_scenes_dir, &rewritten)
+					.toObject();
 			const QString original_name =
 				document.value("name").toString(QFileInfo(file.path).completeBaseName());
 			const QString name = restored_name(original_name, today, collection_names);
@@ -2304,6 +2452,9 @@ private:
 					       .arg(media_count)
 					       .arg(media_count == 1 ? "" : "s")
 					       .arg(QDir::toNativeSeparators(media_dir)));
+		if (scripts_skipped)
+			summary.append(
+				"OBS scripts are not restored. Add any you use again in Tools → Scripts after checking where they came from.");
 		summary.append(
 			"Stream keys are never backed up: set your stream destination again in Settings → Stream, or use ‘Use this OBS as an output’.");
 		finish_restore({}, summary.join("\n\n"));
@@ -2323,7 +2474,7 @@ private:
 		QString original_name;
 		for (const restore_file &file : profiles) {
 			QByteArray contents;
-			if (!read_file(restore_dir->filePath(file.path), &contents))
+			if (!read_file(restore_file_path(file.path), &contents))
 				continue;
 			const QString name = ini_value(contents, "General", "Name");
 			if (ini.isEmpty() || (!restore_data.profile.isEmpty() && name == restore_data.profile)) {
@@ -2464,17 +2615,28 @@ private:
 		obs_enum_sources(collect_visp_path_ids, &collector);
 		path_ids.unite(collector.ids);
 
-		for (const qint64 path_id : path_ids) {
-			send(endpoint_url(value.control_url, QString("/api/obs/devices/%1/source").arg(path_id)),
-			     true, {}, value.token, [this](int status, const QByteArray &body) {
-				     media_source_response response;
-				     if (status < 200 || status >= 300 ||
-					 !parse_media_source_response(body, &response))
-					     return;
+		refresh_next_linked_media_source(QList<qint64>(path_ids.begin(), path_ids.end()),
+						 ++linked_media_refresh_generation);
+	}
+
+	// One request at a time: the first may mint the account's read secret, and parallel
+	// requests would each mint a new one, leaving only the last source with a working URL.
+	void refresh_next_linked_media_source(QList<qint64> path_ids, quint64 generation)
+	{
+		const plugin_config value = settings();
+		if (path_ids.isEmpty() || generation != linked_media_refresh_generation || value.token.isEmpty() ||
+		    !secure_url(value.control_url))
+			return;
+		const qint64 path_id = path_ids.takeFirst();
+		send(endpoint_url(value.control_url, QString("/api/obs/devices/%1/source").arg(path_id)), true, {},
+		     value.token, [this, path_ids, generation](int status, const QByteArray &body) {
+			     media_source_response response;
+			     if (status >= 200 && status < 300 && parse_media_source_response(body, &response)) {
 				     QString error;
 				     update_media_source(response, &error);
-			     });
-		}
+			     }
+			     refresh_next_linked_media_source(path_ids, generation);
+		     });
 	}
 
 	void load_devices()
@@ -2765,6 +2927,7 @@ private:
 	QFile restore_download_file;
 	QList<publishing_device> loaded_devices;
 	bool devices_loaded = false;
+	quint64 linked_media_refresh_generation = 0;
 	QNetworkAccessManager network;
 	QTimer auth_timer;
 	QTimer health_timer;
@@ -2869,6 +3032,10 @@ public:
 		if (ticket_reply) {
 			disconnect(ticket_reply, nullptr, this, nullptr);
 			ticket_reply->abort();
+		}
+		if (media_source_reply) {
+			disconnect(media_source_reply, nullptr, this, nullptr);
+			media_source_reply->abort();
 		}
 		socket.abort();
 	}
@@ -3050,30 +3217,43 @@ private:
 	{
 		path_id_collector collector;
 		obs_enum_sources(collect_visp_path_ids, &collector);
-		for (const qint64 path_id : collector.ids) {
-			QNetworkRequest request(
-				endpoint_url(control_url, QString("/api/obs/devices/%1/source").arg(path_id)));
-			request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
-			request.setRawHeader("Authorization", authorization);
-			request.setTransferTimeout(5000);
-			request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
-					     QNetworkRequest::ManualRedirectPolicy);
-			QNetworkReply *reply = network.post(request, "{}");
-			connect(reply, &QNetworkReply::finished, this, [reply]() {
-				const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-				const QByteArray body = reply->readAll();
-				const bool transport_ok = reply->error() == QNetworkReply::NoError;
-				reply->deleteLater();
-				media_source_response response;
-				if (!transport_ok || status < 200 || status >= 300 ||
-				    !parse_media_source_response(body, &response))
-					return;
+		// A refresh asked for mid-run replaces the rest of the queue.
+		media_source_queue = QList<qint64>(collector.ids.begin(), collector.ids.end());
+		if (!media_source_reply)
+			refresh_next_media_source();
+	}
+
+	// One request at a time: the first may mint the account's read secret, and parallel
+	// requests would each mint a new one, leaving only the last source with a working URL.
+	void refresh_next_media_source()
+	{
+		if (stopping || media_source_queue.isEmpty())
+			return;
+		const qint64 path_id = media_source_queue.takeFirst();
+		QNetworkRequest request(endpoint_url(control_url, QString("/api/obs/devices/%1/source").arg(path_id)));
+		request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+		request.setRawHeader("Authorization", authorization);
+		request.setTransferTimeout(5000);
+		request.setAttribute(QNetworkRequest::RedirectPolicyAttribute, QNetworkRequest::ManualRedirectPolicy);
+		QNetworkReply *reply = network.post(request, "{}");
+		media_source_reply = reply;
+		connect(reply, &QNetworkReply::finished, this, [this, reply]() {
+			const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+			const QByteArray body = reply->readAll();
+			const bool transport_ok = reply->error() == QNetworkReply::NoError;
+			reply->deleteLater();
+			if (media_source_reply == reply)
+				media_source_reply = nullptr;
+			media_source_response response;
+			if (transport_ok && status >= 200 && status < 300 &&
+			    parse_media_source_response(body, &response)) {
 				QString error;
 				if (!update_media_source(response, &error))
 					obs_log(LOG_WARNING, "VISP Media Source refresh failed: %s",
 						error.toUtf8().constData());
-			});
-		}
+			}
+			refresh_next_media_source();
+		});
 	}
 
 	void schedule_stream_retry(const char *reason)
@@ -3280,6 +3460,8 @@ private:
 	QByteArray read_buffer;
 	QByteArray write_buffer;
 	QNetworkReply *ticket_reply = nullptr;
+	QNetworkReply *media_source_reply = nullptr;
+	QList<qint64> media_source_queue;
 	control_response pending_command = {};
 	uint64_t applied_version = 0;
 	int64_t media_sources_revision = -1;
