@@ -1049,20 +1049,30 @@ final class VispSrtView: ExpoView {
   /// relay never gets the data, and ABR reads the drops as congestion and winds
   /// the encoder down. Two seconds of glass-to-glass buys back both.
   private static let srtLatencyMilliseconds = 2_000
+  private static let minimumSrtLatencyMilliseconds = 20
 
   /// SRTHaishinKit turns recognised query items into socket options, so this is
   /// how SRTO_LATENCY (milliseconds) gets set. The relay honours it without any
   /// change of its own: SRT negotiates the larger of the two sides' latencies.
+  ///
+  /// Low-latency mode puts a shorter window in the URL; it is kept when it is a
+  /// sane millisecond value no longer than the standard window. Anything else
+  /// (including FFmpeg-style microseconds pasted into a manual URL) is replaced.
   private func withSrtLatency(_ url: URL) -> URL {
     guard var components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
       return url
     }
-    let query = components.percentEncodedQuery ?? ""
-    guard !query.contains("latency=") else {
+    let parts = (components.percentEncodedQuery ?? "")
+      .split(separator: "&", omittingEmptySubsequences: true)
+      .map(String.init)
+    if let requested = parts.first(where: { $0.hasPrefix("latency=") })
+      .flatMap({ Int($0.dropFirst("latency=".count)) }),
+      (Self.minimumSrtLatencyMilliseconds...Self.srtLatencyMilliseconds).contains(requested) {
       return url
     }
-    let latency = "latency=\(Self.srtLatencyMilliseconds)"
-    components.percentEncodedQuery = query.isEmpty ? latency : "\(query)&\(latency)"
+    let kept = parts.filter { !$0.hasPrefix("latency=") }
+    components.percentEncodedQuery = (kept + ["latency=\(Self.srtLatencyMilliseconds)"])
+      .joined(separator: "&")
     return components.url ?? url
   }
 
