@@ -72,7 +72,12 @@ export type AdvancedSettings = {
 
 export type NetworkSettings = {
 	bondingMode: BondingMode;
+	/** Undefined when this phone has no account device to switch. */
+	lowLatency?: boolean;
+	/** Direct outputs run from this device, so they get the low-latency feed. */
+	lowLatencyHasDirect: boolean;
 	onUpdateBondingMode: (mode: BondingMode) => Promise<void>;
+	onUpdateLowLatency: (enabled: boolean) => Promise<void>;
 };
 
 export function AdvancedSection({

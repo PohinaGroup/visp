@@ -18,8 +18,7 @@ type YoutubeChatDependencies = {
 
 const defaultDependencies: YoutubeChatDependencies = {
 	fetch: globalThis.fetch,
-	getAccessToken: (userId) =>
-		getProviderAccessToken("google", userId),
+	getAccessToken: (userId) => getProviderAccessToken("google", userId),
 };
 
 type YoutubeChatPage = {
