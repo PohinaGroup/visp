@@ -38,6 +38,7 @@ describe("OBS control status", () => {
 			obsCommandVersion: 3,
 			obsAppliedVersion: 2,
 			obsLastSeenAt: lastSeenAt,
+			obsMediaSourcesRevision: 0,
 		};
 		expect(obsControlStatus(row, lastSeenAt.getTime() + 9_999)).toEqual({
 			configured: true,
