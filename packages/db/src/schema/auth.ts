@@ -8,22 +8,27 @@ import {
 	timestamp,
 } from "drizzle-orm/pg-core";
 
-export const user = pgTable("user", {
-	id: text("id").primaryKey(),
-	name: text("name").notNull(),
-	email: text("email").notNull().unique(),
-	emailVerified: boolean("email_verified").default(false).notNull(),
-	image: text("image"),
-	role: text("role").default("user").notNull(),
-	banned: boolean("banned").default(false).notNull(),
-	banReason: text("ban_reason"),
-	banExpires: timestamp("ban_expires"),
-	createdAt: timestamp("created_at").defaultNow().notNull(),
-	updatedAt: timestamp("updated_at")
-		.defaultNow()
-		.$onUpdate(() => /* @__PURE__ */ new Date())
-		.notNull(),
-});
+export const user = pgTable(
+	"user",
+	{
+		id: text("id").primaryKey(),
+		name: text("name").notNull(),
+		email: text("email").notNull().unique(),
+		emailVerified: boolean("email_verified").default(false).notNull(),
+		image: text("image"),
+		role: text("role").default("user").notNull(),
+		banned: boolean("banned").default(false).notNull(),
+		banReason: text("ban_reason"),
+		banExpires: timestamp("ban_expires"),
+		createdAt: timestamp("created_at").defaultNow().notNull(),
+		updatedAt: timestamp("updated_at")
+			.defaultNow()
+			.$onUpdate(() => /* @__PURE__ */ new Date())
+			.notNull(),
+	},
+	// Admin signup counts and activation cohorts range-scan by created_at.
+	(table) => [index("user_created_at_idx").on(table.createdAt)],
+);
 
 export const session = pgTable(
 	"session",
