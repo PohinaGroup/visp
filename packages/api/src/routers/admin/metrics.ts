@@ -3,6 +3,7 @@ import { TRPCError } from "@trpc/server";
 import { type SQL, sql } from "drizzle-orm";
 import { z } from "zod";
 import { adminProcedure, router } from "../../index";
+import { kpisProcedure } from "./metrics-kpis";
 import {
 	bucketOf,
 	bucketSeriesSql,
@@ -252,4 +253,5 @@ export const adminMetricsRouter = router({
 		const { rows } = await db.execute<Row>(query);
 		return { ...result, buckets: toBuckets(rows) };
 	}),
+	kpis: kpisProcedure({ activeStreamersSql, liveAggregateSql, signupsSql }),
 });
