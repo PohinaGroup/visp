@@ -56,6 +56,7 @@ import {
 	rotatePublishPath,
 	rotateReadSecret,
 	setAdvancedMode,
+	setPathLowLatency,
 	submitRtt,
 } from "../relay";
 import { movePublishDevice } from "../relay-move";
@@ -310,6 +311,7 @@ export const relayRoutes = {
 					directTwitch: path.directTwitch,
 					directKick: path.directKick,
 					directYoutube: path.directYoutube,
+					lowLatency: path.lowLatency,
 					publishing: path.publishing,
 					readerCount: path.readerCount,
 					sourceType: path.sourceType,
@@ -394,6 +396,19 @@ export const relayRoutes = {
 					ctx.relayUser.id,
 					input.pathId,
 					input.label,
+				);
+				if (!path) {
+					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });
+				}
+				return path;
+			}),
+		setLowLatency: relayProcedure
+			.input(pathIdInput.extend({ enabled: z.boolean() }))
+			.mutation(async ({ ctx, input }) => {
+				const path = await setPathLowLatency(
+					ctx.relayUser.id,
+					input.pathId,
+					input.enabled,
 				);
 				if (!path) {
 					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });

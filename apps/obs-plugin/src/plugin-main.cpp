@@ -25,6 +25,8 @@ struct control_response {
 	bool desired_replay_buffer;
 	bool desired_record_paused;
 	QString desired_scene;
+	// -1 when the server does not send one (older VISP).
+	int64_t media_sources_revision;
 };
 
 struct ticket_response {
@@ -332,7 +334,18 @@ static bool parse_control_response(const QByteArray &json, struct control_respon
 	response->desired_replay_buffer = object.value("desiredReplayBuffer").toBool(false);
 	response->desired_record_paused = object.value("desiredRecordPaused").toBool(false);
 	response->desired_scene = scene_value.isString() ? scene_value.toString() : QString();
+	const double revision = object.value("mediaSourcesRevision").toDouble(-1);
+	response->media_sources_revision =
+		revision >= 0 && std::floor(revision) == revision ? static_cast<int64_t>(revision) : -1;
 	return true;
+}
+
+// The server bumps mediaSourcesRevision when a VISP media source's settings
+// change (e.g. a device switched to low-latency mode). The first revision seen
+// also triggers a refresh, so changes made while OBS was closed are picked up.
+static bool media_sources_refresh_needed(int64_t known, int64_t received)
+{
+	return received >= 0 && received != known;
 }
 
 static bool parse_ticket_response(const QByteArray &json, struct ticket_response *response)
@@ -883,6 +896,17 @@ int main(void)
 				     &response));
 	CHECK(response.command_version == 8 && !response.desired_streaming && response.desired_scene.isNull());
 	CHECK(!parse_control_response("{\"commandVersion\":9}", &response));
+	CHECK(parse_control_response(
+		"{\"commandVersion\":11,\"desiredStreaming\":false,\"desiredScene\":null,\"mediaSourcesRevision\":4}",
+		&response));
+	CHECK(response.media_sources_revision == 4);
+	CHECK(parse_control_response("{\"commandVersion\":12,\"desiredStreaming\":false,\"desiredScene\":null}",
+				     &response));
+	CHECK(response.media_sources_revision == -1);
+	CHECK(media_sources_refresh_needed(-1, 0));
+	CHECK(media_sources_refresh_needed(3, 4));
+	CHECK(!media_sources_refresh_needed(4, 4));
+	CHECK(!media_sources_refresh_needed(4, -1));
 	struct ticket_response ticket = {};
 	CHECK(parse_ticket_response("{\"ticket\":\"one use + secret\",\"expiresAt\":\"2026-07-26T12:00:00Z\"}",
 				    &ticket));
@@ -1322,6 +1346,28 @@ static QString unique_source_name(const QString &base)
 	}
 }
 
+// OBS restarts a network Media Source on every update, even an identical one,
+// which drops the picture for a reconnect. Only update when VISP changed it.
+static bool source_has_settings(obs_source_t *source, const QJsonObject &wanted)
+{
+	obs_data_t *current = obs_source_get_settings(source);
+	bool same = true;
+	for (auto it = wanted.begin(); same && it != wanted.end(); ++it) {
+		const QByteArray key = it.key().toUtf8();
+		const QJsonValue value = it.value();
+		if (value.isString())
+			same = QString::fromUtf8(obs_data_get_string(current, key.constData())) == value.toString();
+		else if (value.isBool())
+			same = obs_data_get_bool(current, key.constData()) == value.toBool();
+		else if (value.isDouble())
+			same = obs_data_get_int(current, key.constData()) == static_cast<long long>(value.toDouble());
+		else
+			same = false;
+	}
+	obs_data_release(current);
+	return same;
+}
+
 static bool add_media_source(const media_source_response &value, QString *error)
 {
 	if (value.id != "ffmpeg_source") {
@@ -1339,7 +1385,8 @@ static bool add_media_source(const media_source_response &value, QString *error)
 	obs_enum_sources(find_visp_source, &lookup);
 	obs_source_t *source = lookup.source;
 	if (source) {
-		obs_source_update(source, settings);
+		if (!source_has_settings(source, value.settings))
+			obs_source_update(source, settings);
 		obs_data_release(settings);
 		obs_source_release(source);
 		return true;
@@ -1415,7 +1462,8 @@ static bool update_media_source(const media_source_response &value, QString *err
 		obs_data_release(settings);
 		return true;
 	}
-	obs_source_update(source, settings);
+	if (!source_has_settings(source, value.settings))
+		obs_source_update(source, settings);
 	obs_data_release(settings);
 	obs_source_release(source);
 	return true;
@@ -2976,6 +3024,11 @@ private:
 			reconnect("received an invalid VISP command");
 			return;
 		}
+		// Not an intent with an applied version: checked before the version gate.
+		if (media_sources_refresh_needed(media_sources_revision, response.media_sources_revision)) {
+			media_sources_revision = response.media_sources_revision;
+			refresh_media_sources();
+		}
 		if (response.command_version <= applied_version ||
 		    (has_pending_command && response.command_version <= pending_command.command_version))
 			return;
@@ -2989,6 +3042,38 @@ private:
 			stream_start_inflight = false;
 		}
 		apply_pending_command();
+	}
+
+	// Refetches the settings of every VISP Media Source in this OBS profile and
+	// applies the ones that changed (see source_has_settings).
+	void refresh_media_sources()
+	{
+		path_id_collector collector;
+		obs_enum_sources(collect_visp_path_ids, &collector);
+		for (const qint64 path_id : collector.ids) {
+			QNetworkRequest request(
+				endpoint_url(control_url, QString("/api/obs/devices/%1/source").arg(path_id)));
+			request.setHeader(QNetworkRequest::ContentTypeHeader, "application/json");
+			request.setRawHeader("Authorization", authorization);
+			request.setTransferTimeout(5000);
+			request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,
+					     QNetworkRequest::ManualRedirectPolicy);
+			QNetworkReply *reply = network.post(request, "{}");
+			connect(reply, &QNetworkReply::finished, this, [reply]() {
+				const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
+				const QByteArray body = reply->readAll();
+				const bool transport_ok = reply->error() == QNetworkReply::NoError;
+				reply->deleteLater();
+				media_source_response response;
+				if (!transport_ok || status < 200 || status >= 300 ||
+				    !parse_media_source_response(body, &response))
+					return;
+				QString error;
+				if (!update_media_source(response, &error))
+					obs_log(LOG_WARNING, "VISP Media Source refresh failed: %s",
+						error.toUtf8().constData());
+			});
+		}
 	}
 
 	void schedule_stream_retry(const char *reason)
@@ -3197,6 +3282,7 @@ private:
 	QNetworkReply *ticket_reply = nullptr;
 	control_response pending_command = {};
 	uint64_t applied_version = 0;
+	int64_t media_sources_revision = -1;
 	uint64_t ticket_generation = 0;
 	int reconnect_attempt = 0;
 	int stream_retry_attempt = 0;
