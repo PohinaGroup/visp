@@ -39,8 +39,7 @@ export async function createTwitchChatSubscription(
 	input: { broadcasterId: string; sessionId: string; userId: string },
 	dependencies: TwitchSubscriptionDependencies = {
 		fetch: globalThis.fetch,
-		getAccessToken: (userId) =>
-			getProviderAccessToken("twitch", userId),
+		getAccessToken: (userId) => getProviderAccessToken("twitch", userId),
 	},
 ) {
 	const token = await dependencies.getAccessToken(input.userId);
