@@ -691,6 +691,10 @@ class VispSrtView(context: Context, appContext: AppContext) :
         requestNotificationPermission()
         StreamForegroundService.start(context)
         if (bondingMode == "off") {
+          // Low-latency mode asks for a shorter window in the URL. RootEncoder
+          // ignores the query parameter, so it is applied to the client here;
+          // anything else gets the standard window back.
+          (current as? SrtStream)?.getStreamClient()?.setLatency(publishLatencyMs(url))
           current.startStream(url)
           promise.resolve()
         } else {
@@ -1959,6 +1963,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
     }
   }
 
+  /** SRT latency (ms) for a single-link publish: the URL's, if sane. */
+  private fun publishLatencyMs(value: String): Int =
+    Uri.parse(value).getQueryParameter("latency")?.toIntOrNull()
+      ?.takeIf { it in MIN_SRT_LATENCY_MS..SRT_LATENCY_MS }
+      ?: SRT_LATENCY_MS
+
   private fun localSrtUrl(value: String, port: Int): String =
     Uri.parse(value).buildUpon().encodedAuthority("127.0.0.1:$port").build().toString()
 
@@ -2108,6 +2118,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     const val AUDIO_SAMPLE_RATE = 44_100
     const val KEYFRAME_INTERVAL = 2
     const val SRT_LATENCY_MS = 2_000
+    const val MIN_SRT_LATENCY_MS = 20
     const val VIDEO_BITRATE = 3_500_000
     const val CAMERA_UNAVAILABLE = "The camera or microphone is unavailable."
     const val CONFIGURATION_UNAVAILABLE = "That camera setting is not available on this device."
