@@ -50,7 +50,7 @@ export const audioIsolationRoutes = new Elysia({
 		}
 
 		try {
-			const isolated = await isolateAudioChunk(audio);
+			const isolated = await isolateAudioChunk(audio, session.user.id);
 			return new Response(isolated, {
 				headers: {
 					"Content-Type": "application/octet-stream",
