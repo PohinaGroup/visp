@@ -62,6 +62,27 @@ bonding**, then pick a **Mode**:
 The app shows Wi-Fi and cellular separately and warns when bonding is running
 on one link. If bonding is off, publishing continues directly to UDP 8890.
 
+## Low-latency OBS mode
+
+By default the app sends with a 2-second SRT window, so a phone uplink has time
+to retransmit a burst of lost packets. That is right for platforms, but in OBS
+it means you see yourself about three seconds late.
+
+Signed in to a VISP account, open **Settings → Network** and turn on
+**Low-latency OBS mode** for this device. When you go live, the app measures the
+round trip to your relay and picks the shortest window that connection can take
+(about 300 ms on Wi-Fi, 600 ms on cellular). The OBS plugin switches that
+device's Media Source to a 150 ms read with no network buffering within a few
+seconds. Expect roughly half a second phone-to-OBS on good Wi-Fi.
+
+- Network bonding is off while low-latency mode is on.
+- Direct keeps working from the same feed, but on a weak uplink the shorter
+  window can drop or smear frames on Twitch, Kick, or YouTube. The dashboard
+  and the app say so when both are on.
+- Older OBS plugin versions apply the change when you open **VISP for OBS**
+  and press **Refresh devices**. A scene collection downloaded from the
+  dashboard includes the same settings.
+
 ## While live
 
 - **Floating chat** overlays Twitch, Kick, and YouTube messages on the capture screen.

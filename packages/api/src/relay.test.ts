@@ -4,6 +4,7 @@ import { describe, expect, test } from "bun:test";
 
 const {
 	buildMaskedPathUrls,
+	buildObsMediaSource,
 	buildSceneCollection,
 	buildStudioPreviewUrls,
 	decryptPublishSecret,
@@ -100,7 +101,6 @@ describe("relay guidance", () => {
 	test("generates OBS ffmpeg media sources with the required settings", () => {
 		const collection = buildSceneCollection({
 			handle: "streamer",
-			latencyMicros: 300_000,
 			paths: [
 				{
 					id: 1,
@@ -128,5 +128,30 @@ describe("relay guidance", () => {
 		expect(source.settings.input).toStartWith("srt://eu-relay.test:8890");
 		expect(source.settings.input).toContain("latency=300000");
 		expect(source.settings.visp_path_id).toBe("1");
+	});
+
+	test("reads low-latency devices with a short SRT window and no buffering", () => {
+		const standard = buildObsMediaSource({
+			handle: "streamer",
+			path: { id: 1, label: "main", relayHost: "relay.test", slug: "s-1" },
+			readSecret: "read-secret",
+		});
+		const low = buildObsMediaSource({
+			handle: "streamer",
+			path: {
+				id: 2,
+				label: "phone",
+				lowLatency: true,
+				relayHost: "relay.test",
+				slug: "s-2",
+			},
+			readSecret: "read-secret",
+		});
+		expect(standard.settings.input).toEndWith("latency=300000");
+		expect(standard.settings.buffering_mb).toBe(1);
+		expect(low.settings.input).toEndWith("latency=150000");
+		// buffering_mb 0 is what makes OBS set AVFMT_FLAG_NOBUFFER.
+		expect(low.settings.buffering_mb).toBe(0);
+		expect(low.settings.input_format).toBe("mpegts");
 	});
 });

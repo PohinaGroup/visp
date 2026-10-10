@@ -52,6 +52,11 @@ export const finnishUi: Record<string, string> = {
 	BRB: "BRB",
 	Manage: "Hallitse",
 	"Platform rules": "Alustojen säännöt",
+	"Low latency": "Matala viive",
+	"Direct runs on a low-latency feed":
+		"Direct käyttää matalan viiveen syötettä",
+	"Low-latency mode is on for this device. Direct will still work, but the shorter retransmit window means a weak uplink can drop or smear frames on Twitch, Kick, or YouTube.":
+		"Matalan viiveen tila on päällä tässä laitteessa. Direct toimii edelleen, mutta lyhyempi uudelleenlähetysikkuna tarkoittaa, että heikko yhteys voi pudottaa tai sotkea kuvia Twitchissä, Kickissä tai YouTubessa.",
 	"No platform connected yet.": "Yhtään alustaa ei ole vielä yhdistetty.",
 	"Your phone streams straight to Twitch, Kick, or YouTube.":
 		"Puhelimesi striimaa suoraan Twitchiin, Kickiin tai YouTubeen.",
