@@ -25,11 +25,20 @@
 	--border: oklch(0.922 0 0);
 	--input: oklch(0.922 0 0);
 	--ring: oklch(0.708 0 0);
-	--chart-1: oklch(0.809 0.105 251.813);
-	--chart-2: oklch(0.623 0.214 259.815);
-	--chart-3: oklch(0.546 0.245 262.881);
-	--chart-4: oklch(0.488 0.243 264.376);
-	--chart-5: oklch(0.424 0.199 265.638);
+	/*
+	 * Categorical series slots (blue, orange, aqua, yellow, magenta), assigned in
+	 * this fixed order. The previous values were five steps of one blue ramp, which
+	 * reads as magnitude and cannot tell series apart; this order is CVD-validated
+	 * on adjacent pairs (worst ΔE 9.1 light / 8.4 dark). Light aqua/yellow/magenta
+	 * sit below 3:1 on white, so charts always pair them with a legend + tooltip.
+	 */
+	--chart-1: oklch(0.575 0.163 255.5); /* #2a78d6 */
+	--chart-2: oklch(0.671 0.175 40.6); /* #eb6834 */
+	--chart-3: oklch(0.669 0.141 162.1); /* #1baf7a */
+	--chart-4: oklch(0.764 0.161 75.1); /* #eda100 */
+	--chart-5: oklch(0.716 0.141 357.4); /* #e87ba4 */
+	/* Text colour for "good" deltas (KPI tiles); "bad" uses --destructive. */
+	--success: oklch(0.433 0.147 142.5); /* #006300 */
 	--radius: 0.625rem;
 	--sidebar: oklch(0.985 0 0);
 	--sidebar-foreground: oklch(0.145 0 0);
@@ -39,6 +48,24 @@
 	--sidebar-accent-foreground: oklch(0.205 0 0);
 	--sidebar-border: oklch(0.922 0 0);
 	--sidebar-ring: oklch(0.708 0 0);
+}
+
+/*
+ * Apps that are dark-only via `color-scheme: dark` on :root (apps/admin) never get
+ * the `.dark` class, so they would otherwise draw series with the light steps.
+ * light-dark() picks the step from the used colour scheme; `.dark` below still
+ * wins for class-toggled apps because it comes later. Browsers without
+ * light-dark() keep the plain light values above.
+ */
+@supports (color: light-dark(#000, #fff)) {
+	:root {
+		--chart-1: light-dark(oklch(0.575 0.163 255.5), oklch(0.622 0.161 255.1));
+		--chart-2: light-dark(oklch(0.671 0.175 40.6), oklch(0.622 0.173 40.1));
+		--chart-3: light-dark(oklch(0.669 0.141 162.1), oklch(0.621 0.128 163.1));
+		--chart-4: light-dark(oklch(0.764 0.161 75.1), oklch(0.67 0.143 73.2));
+		--chart-5: light-dark(oklch(0.716 0.141 357.4), oklch(0.622 0.171 0.8));
+		--success: light-dark(oklch(0.433 0.147 142.5), oklch(0.621 0.207 142.6));
+	}
 }
 
 .dark {
@@ -60,11 +87,13 @@
 	--border: oklch(1 0 0 / 10%);
 	--input: oklch(1 0 0 / 15%);
 	--ring: oklch(0.556 0 0);
-	--chart-1: oklch(0.809 0.105 251.813);
-	--chart-2: oklch(0.623 0.214 259.815);
-	--chart-3: oklch(0.546 0.245 262.881);
-	--chart-4: oklch(0.488 0.243 264.376);
-	--chart-5: oklch(0.424 0.199 265.638);
+	/* Same hues re-stepped for the dark surface (all >= 3:1), not a flip. */
+	--chart-1: oklch(0.622 0.161 255.1); /* #3987e5 */
+	--chart-2: oklch(0.622 0.173 40.1); /* #d95926 */
+	--chart-3: oklch(0.621 0.128 163.1); /* #199e70 */
+	--chart-4: oklch(0.67 0.143 73.2); /* #c98500 */
+	--chart-5: oklch(0.622 0.171 0.8); /* #d55181 */
+	--success: oklch(0.621 0.207 142.6); /* #0ca30c */
 	--sidebar: oklch(0.205 0 0);
 	--sidebar-foreground: oklch(0.985 0 0);
 	--sidebar-primary: oklch(0.488 0.243 264.376);
@@ -93,6 +122,7 @@
 	--color-ring: var(--ring);
 	--color-input: var(--input);
 	--color-border: var(--border);
+	--color-success: var(--success);
 	--color-destructive: var(--destructive);
 	--color-accent-foreground: var(--accent-foreground);
 	--color-accent: var(--accent);

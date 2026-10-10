@@ -11,7 +11,8 @@
 		"./postcss.config": "./postcss.config.mjs"
 	},
 	"scripts": {
-		"check-types": "tsc --noEmit"
+		"check-types": "tsc --noEmit && tsc --noEmit -p tsconfig.test.json",
+		"test": "bun test src"
 	},
 	"dependencies": {
 		"@base-ui/react": "^1.6.0",
@@ -25,6 +26,8 @@
 		"next-themes": "catalog:",
 		"react": "catalog:",
 		"react-dom": "catalog:",
+		"react-is": "19.2.7",
+		"recharts": "3.10.1",
 		"shadcn": "^4.12.0",
 		"sonner": "catalog:",
 		"tailwind-merge": "^3.6.0",
@@ -33,6 +36,7 @@
 	"devDependencies": {
 		"@VISP/config": "workspace:*",
 		"@tailwindcss/postcss": "^4.3.2",
+		"@types/bun": "catalog:",
 		"@types/react": "catalog:",
 		"@types/react-dom": "catalog:",
 		"tailwindcss": "catalog:",
