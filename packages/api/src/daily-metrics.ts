@@ -258,15 +258,68 @@ export async function runDailyMetricsJob(
 	}
 }
 
-/** Whether yesterday's rollup is missing, so a restarted server catches up. */
-export async function isDailyMetricsDue(now: Date = new Date()) {
+/** How often each server instance asks whether the nightly job is due. */
+export const DAILY_METRICS_CHECK_INTERVAL_MS = 15 * 60 * 1000;
+
+/**
+ * Whether a scheduler tick at `now` should run the nightly job, given when
+ * yesterday's rows were last computed (null: yesterday has no rows).
+ *
+ * Pure, so the schedule is testable without a clock. The job is due once
+ * `DAILY_METRICS_HOUR_UTC` has passed today and yesterday was not rolled up
+ * since then — a level check rather than "is it 03:xx now", so a timer that
+ * drifts past the hour, a server that was down at 03:00, or a run that
+ * failed is picked up on the next tick instead of skipping a night. Because
+ * it reads the stored `computed_at`, a restart or a second instance after
+ * the night's run sees it done and does not run it again.
+ *
+ * On startup a missing yesterday is caught up immediately even before the
+ * hour (deploys, restarts); a running server waits for the hour, so a
+ * normal night is one run after late sessions closed, not one at midnight
+ * and another at 03:00.
+ */
+export function isDailyMetricsRunDue({
+	now,
+	yesterdayComputedAt,
+	startup = false,
+}: {
+	now: Date;
+	yesterdayComputedAt: Date | null;
+	startup?: boolean;
+}): boolean {
+	if (yesterdayComputedAt === null && startup) return true;
+	const runAt = new Date(
+		floorToBucket(now, "day").getTime() +
+			DAILY_METRICS_HOUR_UTC * 60 * 60 * 1000,
+	);
+	if (now < runAt) return false;
+	return yesterdayComputedAt === null || yesterdayComputedAt < runAt;
+}
+
+/** When yesterday's rows were last computed, or null when it has none. */
+export async function yesterdayComputedAt(now: Date = new Date()) {
 	const yesterday = utcDay(
 		new Date(floorToBucket(now, "day").getTime() - DAY_MS),
 	);
-	const { rows } = await db.execute<{ present: boolean }>(sql`
-		select exists (
-			select 1 from daily_metrics where day = ${yesterday}::date
-		) as present
+	const { rows } = await db.execute<{ computed_at: Date | string | null }>(sql`
+		select max(computed_at) as computed_at
+		from daily_metrics where day = ${yesterday}::date
 	`);
-	return !rows[0]?.present;
+	const value = rows[0]?.computed_at;
+	return value == null ? null : new Date(value);
+}
+
+/**
+ * Whether the nightly job should run now (see `isDailyMetricsRunDue`). Pass
+ * `startup` on the first check after the server starts.
+ */
+export async function isDailyMetricsDue(
+	now: Date = new Date(),
+	{ startup = false }: { startup?: boolean } = {},
+) {
+	return isDailyMetricsRunDue({
+		now,
+		yesterdayComputedAt: await yesterdayComputedAt(now),
+		startup,
+	});
 }

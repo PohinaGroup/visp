@@ -17,6 +17,7 @@ import { tryAdvisoryLock } from "./advisory-lock";
 import {
 	type DailyMetricRow,
 	isDailyMetricsDue,
+	isDailyMetricsRunDue,
 	rollupDailyMetrics,
 	runDailyMetricsJob,
 } from "./daily-metrics";
@@ -25,6 +26,56 @@ import { ensureDefaultRelay } from "./relays";
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
 
 const at = (value: string) => new Date(value);
+
+describe("nightly schedule", () => {
+	const due = (
+		now: string,
+		yesterdayComputedAt: string | null,
+		startup = false,
+	) =>
+		isDailyMetricsRunDue({
+			now: at(now),
+			yesterdayComputedAt:
+				yesterdayComputedAt === null ? null : at(yesterdayComputedAt),
+			startup,
+		});
+
+	test("runs once the hour has passed, whenever the tick lands", () => {
+		// Last night's run computed 09-19 at 03:07 on 09-20.
+		const lastNight = "2026-09-20T03:07:00Z";
+		expect(due("2026-09-21T02:59:59Z", lastNight)).toBe(false);
+		expect(due("2026-09-21T03:00:00Z", lastNight)).toBe(true);
+		// A timer that drifted past 03:59 still runs the night (the old
+		// "hour === 3" check skipped it).
+		expect(due("2026-09-21T04:00:30Z", lastNight)).toBe(true);
+		expect(due("2026-09-21T23:59:00Z", lastNight)).toBe(true);
+		// Yesterday (09-20) has no rows yet on 09-21: same answer.
+		expect(due("2026-09-21T04:00:30Z", null)).toBe(true);
+	});
+
+	test("does not repeat a night that already ran, across restarts and instances", () => {
+		const ranAt = "2026-09-21T03:04:00Z";
+		expect(due("2026-09-21T03:15:00Z", ranAt)).toBe(false);
+		expect(due("2026-09-21T12:00:00Z", ranAt)).toBe(false);
+		// A restart later that day finds it done too.
+		expect(due("2026-09-21T12:00:00Z", ranAt, true)).toBe(false);
+	});
+
+	test("a run before the hour does not count as the night's run", () => {
+		// Caught up at 01:10 after a deploy; sessions open at midnight were
+		// measured at day end, so the 03:00 run still re-rolls.
+		expect(due("2026-09-21T03:15:00Z", "2026-09-21T01:10:00Z")).toBe(true);
+	});
+
+	test("startup catches up a missing yesterday at once; ticks wait for the hour", () => {
+		expect(due("2026-09-21T00:20:00Z", null, true)).toBe(true);
+		expect(due("2026-09-21T00:20:00Z", null)).toBe(false);
+		// Startup with yesterday present before the hour waits like a tick.
+		expect(due("2026-09-21T00:20:00Z", "2026-09-21T00:05:00Z", true)).toBe(
+			false,
+		);
+	});
+});
 
 type SeedUser = {
 	id: string;
@@ -273,6 +324,12 @@ integration("daily metrics rollup", () => {
 		});
 		expect(await stored(DAY)).toEqual(EXPECTED_DAY);
 		expect(await isDailyMetricsDue(at("2026-09-20T05:00:00Z"))).toBe(false);
+		// 09-20 is not rolled up yet: due after the hour, or at once on startup.
+		expect(await isDailyMetricsDue(at("2026-09-21T05:00:00Z"))).toBe(true);
+		expect(await isDailyMetricsDue(at("2026-09-21T01:00:00Z"))).toBe(false);
+		expect(
+			await isDailyMetricsDue(at("2026-09-21T01:00:00Z"), { startup: true }),
+		).toBe(true);
 
 		expect(await runDailyMetricsJob(at("2026-09-21T03:00:00Z"))).toEqual({
 			from: "2026-09-18",
