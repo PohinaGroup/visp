@@ -51,6 +51,7 @@ export function StreamCameraControls({
 	chatVisible,
 	configuration,
 	destinationError,
+	destinationHint,
 	destinationStatus,
 	errorCode,
 	exposureBias,
@@ -94,6 +95,8 @@ export function StreamCameraControls({
 	chatVisible: boolean;
 	configuration?: VideoConfiguration;
 	destinationError?: string;
+	/** Tappable nudge that opens Settings when no platform output exists. */
+	destinationHint?: string;
 	destinationStatus?: string;
 	errorCode?: string;
 	exposureBias: number;
@@ -249,6 +252,15 @@ export function StreamCameraControls({
 						{message ? <Text style={styles.message}>{message}</Text> : null}
 						{destinationStatus ? (
 							<Text style={styles.destinationStatus}>{destinationStatus}</Text>
+						) : null}
+						{destinationHint ? (
+							<Pressable
+								accessibilityHint="Open Settings to add Twitch, Kick, or YouTube"
+								accessibilityRole="button"
+								onPress={onOpenSettings}
+							>
+								<Text style={styles.destinationStatus}>{destinationHint}</Text>
+							</Pressable>
 						) : null}
 						{destinationError ? (
 							<Pressable
