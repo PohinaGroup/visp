@@ -84,6 +84,19 @@ export async function deleteBrbHighlightUploadsForUser(
 	await Promise.all(keys.map((key) => client.delete(key)));
 }
 
+/** Every OBS backup the plugin uploaded, finished or not. */
+export async function deleteObsBackupsForUser(
+	userId: string,
+	client: Pick<ObjectStore, "delete" | "list"> = snapshots,
+) {
+	const keys = await client.list(`obs-backups/${userId}/`);
+	for (let index = 0; index < keys.length; index += 16) {
+		await Promise.all(
+			keys.slice(index, index + 16).map((key) => client.delete(key)),
+		);
+	}
+}
+
 export function createAuth() {
 	const db = createDb();
 
@@ -175,6 +188,7 @@ export function createAuth() {
 							highlights.map(({ storageKey }) => storageKey),
 						);
 						await deleteBrbHighlightUploadsForUser(user.id);
+						await deleteObsBackupsForUser(user.id);
 					} catch (cause) {
 						await db.transaction(async (tx) => {
 							await tx.execute(
