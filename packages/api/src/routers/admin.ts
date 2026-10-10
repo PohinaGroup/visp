@@ -20,6 +20,7 @@ import { writeAdminAudit } from "../admin-audit";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
 import { probeRelayApi } from "../relay-health";
+import { adminAlertsRouter } from "./admin/alerts";
 import { adminAuditRouter } from "./admin/audit";
 import { adminGrowthRouter } from "./admin/growth";
 import { adminMetricsRouter } from "./admin/metrics";
@@ -361,6 +362,7 @@ export const adminRouter = router({
 	spend: adminSpendRouter,
 	relayForecast: adminRelayForecastRouter,
 	usage: adminUsageRouter,
+	alerts: adminAlertsRouter,
 
 	users: router({
 		list: adminProcedure

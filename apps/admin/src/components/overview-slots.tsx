@@ -1,14 +1,27 @@
+import { Button } from "@VISP/ui/components/button";
+import {
+	Card,
+	CardContent,
+	CardDescription,
+	CardHeader,
+	CardTitle,
+} from "@VISP/ui/components/card";
 import { KpiTile } from "@VISP/ui/components/kpi-tile";
+import { Skeleton } from "@VISP/ui/components/skeleton";
+import { cn } from "@VISP/ui/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { CircleCheck } from "lucide-react";
 import {
 	type ApiRange,
 	pickDateRangeSearch,
 	useDateRange,
 } from "../app/date-range";
+import { findNavItem } from "../app/nav";
 import { trpc } from "../lib";
 import { comparisonLabel } from "../lib/overview";
 import { formatEur } from "../lib/usage";
+import { type AdminAlert, useAdminAlerts } from "./alerts";
 
 /**
  * Placeholders for Overview panels other tasks build. The Overview page
@@ -22,12 +35,110 @@ export type OverviewSlotProps = {
 	range: ApiRange;
 };
 
+const SEVERITY_DOT: Record<AdminAlert["severity"], string> = {
+	critical: "bg-destructive",
+	warning: "bg-amber-500",
+};
+
+const SEVERITY_LABEL: Record<AdminAlert["severity"], string> = {
+	critical: "Critical",
+	warning: "Warning",
+};
+
+/** Links into dashboards keep the date range; Tools pages start clean. */
+function alertSearch(href: string) {
+	return findNavItem(href)?.group === "Dashboards"
+		? (prev: Record<string, unknown>) => pickDateRangeSearch(prev)
+		: {};
+}
+
+function AlertItem({ alert }: { alert: AdminAlert }) {
+	return (
+		<li className="flex gap-3 py-2.5">
+			<span
+				aria-hidden
+				className={cn(
+					"mt-1.5 size-2 shrink-0 rounded-full",
+					SEVERITY_DOT[alert.severity],
+				)}
+			/>
+			<div className="min-w-0">
+				<Link
+					className="font-medium text-sm underline-offset-4 hover:underline"
+					search={alertSearch(alert.href)}
+					to={alert.href}
+				>
+					<span className="sr-only">{SEVERITY_LABEL[alert.severity]}: </span>
+					{alert.title}
+				</Link>
+				<p className="text-muted-foreground text-xs">{alert.detail}</p>
+			</div>
+		</li>
+	);
+}
+
 /**
- * SLOT (T23): "Needs attention" panel (failing relays, error spikes, spend
- * over budget). Rendered in the lower row, next to the spend tile.
+ * T23: "Needs attention" from `admin.alerts.list` (relays full, dark or out
+ * of disk, capacity running out, Direct sessions failing, spend over
+ * budget), critical first. Not tied to the date range: alerts are about now.
+ * Polls every minute, sharing its query with the nav badge.
  */
 export function OverviewAttention(_props: OverviewSlotProps) {
-	return null;
+	const alerts = useAdminAlerts();
+	const critical =
+		alerts.data?.filter((alert) => alert.severity === "critical").length ?? 0;
+	const warnings = (alerts.data?.length ?? 0) - critical;
+	return (
+		<Card className="border border-border/60">
+			<CardHeader>
+				<CardTitle>
+					<h2 className="text-lg">Needs attention</h2>
+				</CardTitle>
+				<CardDescription>
+					{alerts.data?.length
+						? [
+								critical ? `${critical} critical` : null,
+								warnings
+									? `${warnings} ${warnings === 1 ? "warning" : "warnings"}`
+									: null,
+							]
+								.filter(Boolean)
+								.join(", ")
+						: "Relay health and capacity, session success and spend, checked every minute."}
+				</CardDescription>
+			</CardHeader>
+			<CardContent>
+				{alerts.isPending ? (
+					<div className="grid gap-2" aria-busy>
+						<Skeleton className="h-9" />
+						<Skeleton className="h-9" />
+					</div>
+				) : alerts.isError ? (
+					<div className="flex items-center justify-between gap-3 text-sm">
+						<p className="text-destructive">Could not load alerts.</p>
+						<Button
+							size="sm"
+							variant="outline"
+							onClick={() => void alerts.refetch()}
+						>
+							Retry
+						</Button>
+					</div>
+				) : alerts.data.length === 0 ? (
+					<p className="flex items-center gap-2 text-muted-foreground text-sm">
+						<CircleCheck className="size-4 text-success" />
+						All clear
+					</p>
+				) : (
+					<ul className="-my-2.5 divide-y divide-border/60">
+						{alerts.data.map((alert) => (
+							<AlertItem alert={alert} key={alert.id} />
+						))}
+					</ul>
+				)}
+			</CardContent>
+		</Card>
+	);
 }
 
 /**

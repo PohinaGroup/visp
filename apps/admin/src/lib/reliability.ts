@@ -10,8 +10,12 @@ import {
  * the maths behind the page can be unit-tested.
  */
 
-/** The share of Direct sessions that should reach live; the chart's target line. */
-export const SUCCESS_RATE_TARGET = 0.95;
+/**
+ * The share of Direct sessions that should reach live; the chart's target
+ * line. Defined next to the `admin.alerts` rules so the chart and the
+ * "Needs attention" alert always use the same target.
+ */
+export { SUCCESS_RATE_TARGET } from "@VISP/api/routers/admin/alerts-rules";
 
 /** `admin.relayHistory.history` with `day` buckets covers at most 400 days. */
 export const RELAY_PEAK_MAX_DAYS = 400;

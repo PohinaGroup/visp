@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { LogOut, Menu, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { CriticalAlertsBadge } from "../components/alerts";
 import { DateRangeControl } from "../components/date-range-control";
 import { authClient } from "../lib";
 import { pickDateRangeSearch } from "./date-range";
@@ -42,6 +43,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 						>
 							<item.icon className="size-4 shrink-0" />
 							{item.label}
+							{item.path === "/" && <CriticalAlertsBadge />}
 						</Link>
 					))}
 				</div>
