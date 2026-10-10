@@ -10,7 +10,7 @@ import {
 	obsLiveTickets,
 } from "@VISP/api/obs-live";
 import { Elysia, status, t } from "elysia";
-import { nodeAdapter } from "./node-adapter";
+import { nodeAdapter, socketKey } from "./node-adapter";
 
 const connections = new Map<
 	string,
@@ -81,7 +81,7 @@ export const obsLiveRoutes = new Elysia({
 								send(ws, value);
 							}
 						});
-			connections.set(ws.id, {
+			connections.set(socketKey(ws), {
 				peer,
 				reports: Promise.resolve(),
 				unsubscribe,
@@ -104,7 +104,7 @@ export const obsLiveRoutes = new Elysia({
 			}
 		},
 		async message(ws, message) {
-			const connection = connections.get(ws.id);
+			const connection = connections.get(socketKey(ws));
 			const peer = connection?.peer;
 			if (!connection || peer?.role !== "machine") {
 				ws.close(1008, "Only an OBS machine may report state");
@@ -129,7 +129,7 @@ export const obsLiveRoutes = new Elysia({
 			await connection.reports;
 		},
 		close(ws) {
-			connections.get(ws.id)?.unsubscribe();
-			connections.delete(ws.id);
+			connections.get(socketKey(ws))?.unsubscribe();
+			connections.delete(socketKey(ws));
 		},
 	});

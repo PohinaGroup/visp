@@ -7,7 +7,7 @@ import "@VISP/api/chat/twitch";
 import "@VISP/api/chat/youtube";
 import { fixedWindow } from "@VISP/api/rate-limit";
 import { Elysia, status, t } from "elysia";
-import { nodeAdapter } from "./node-adapter";
+import { nodeAdapter, socketKey } from "./node-adapter";
 
 const subscriptions = new Map<string, () => void>();
 
@@ -53,7 +53,7 @@ export const chatRoutes = new Elysia({
 					// Media streaming is intentionally independent from chat delivery.
 				}
 			});
-			subscriptions.set(ws.id, unsubscribe);
+			subscriptions.set(socketKey(ws), unsubscribe);
 			void listChatConnections(userId)
 				.then((connections) => {
 					if (
@@ -76,8 +76,8 @@ export const chatRoutes = new Elysia({
 				);
 		},
 		close(ws) {
-			subscriptions.get(ws.id)?.();
-			subscriptions.delete(ws.id);
+			subscriptions.get(socketKey(ws))?.();
+			subscriptions.delete(socketKey(ws));
 		},
 	})
 	.post(
