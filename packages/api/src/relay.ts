@@ -8,7 +8,7 @@ import {
 	rttSample,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { and, count, eq, isNull, max, sql } from "drizzle-orm";
 import { type CacheInvalidation, publishInvalidation } from "./cache-bus";
 import {
@@ -26,6 +26,9 @@ import { hasStreamKeyScope } from "./scopes";
 export { applyPathHook, reconcilePathState } from "./path-hooks";
 
 const AUTH_CACHE_TTL_MS = 60_000;
+// Successful checks per cached credential: one publish and one read secret,
+// plus headroom for a legacy publish hash.
+const MAX_VERIFIED_SECRETS = 4;
 
 type AuthCacheEntry = {
 	expiresAt: number;
@@ -34,6 +37,13 @@ type AuthCacheEntry = {
 	publishSecretHash: string | null;
 	readSecretHash: string | null;
 	userId: string;
+	/**
+	 * Digests of secrets that already passed Argon2 against this entry's hashes.
+	 * OBS retries an offline SRT feed every second; without this each retry
+	 * costs a full Argon2 check. It lives and dies with the entry, so rotation
+	 * and revocation (which invalidate the entry) clear it too.
+	 */
+	verified: Set<string>;
 };
 
 type MediaAction = "publish" | "read";
@@ -41,6 +51,41 @@ type NetworkProfile = "wired" | "wifi" | "cellular";
 type PublishOrigin = "native" | "web";
 
 const authCache = new Map<string, AuthCacheEntry>();
+let secretVerifications = 0;
+
+function verifiedSecretKey(
+	action: MediaAction,
+	secretHash: string,
+	password: string,
+) {
+	return createHash("sha256")
+		.update(action)
+		.update("\0")
+		.update(secretHash)
+		.update("\0")
+		.update(password)
+		.digest("base64url");
+}
+
+async function verifyMediaSecret(
+	credential: AuthCacheEntry,
+	action: MediaAction,
+	password: string,
+	secretHash: string,
+) {
+	const key = verifiedSecretKey(action, secretHash, password);
+	if (credential.verified.has(key)) {
+		return true;
+	}
+	secretVerifications += 1;
+	if (!(await verifySecret(password, secretHash))) {
+		return false;
+	}
+	if (credential.verified.size < MAX_VERIFIED_SECRETS) {
+		credential.verified.add(key);
+	}
+	return true;
+}
 
 function slugify(value: string) {
 	return (
@@ -328,7 +373,7 @@ async function credentialForSlug(slug: string) {
 		return null;
 	}
 
-	const entry = {
+	const entry: AuthCacheEntry = {
 		expiresAt: Date.now() + AUTH_CACHE_TTL_MS,
 		handle: record.handle,
 		pathId: record.pathId,
@@ -336,6 +381,7 @@ async function credentialForSlug(slug: string) {
 			record.pathPublishSecretHash ?? record.legacyPublishSecretHash,
 		readSecretHash: record.readSecretHash,
 		userId: record.userId,
+		verified: new Set(),
 	};
 	authCache.set(slug, entry);
 	return entry;
@@ -365,7 +411,12 @@ export async function authenticateMedia(input: {
 	if (!hash) {
 		return false;
 	}
-	const authenticated = await verifySecret(input.password, hash);
+	const authenticated = await verifyMediaSecret(
+		credential,
+		input.action,
+		input.password,
+		hash,
+	);
 	if (!authenticated) {
 		return false;
 	}
@@ -1190,4 +1241,10 @@ export async function submitRtt(input: {
 
 export function clearAuthCacheForTests() {
 	authCache.clear();
+	secretVerifications = 0;
+}
+
+/** Argon2 checks run by media auth since the last clearAuthCacheForTests. */
+export function mediaSecretVerificationsForTests() {
+	return secretVerifications;
 }
