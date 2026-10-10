@@ -36,6 +36,7 @@ type ObsControlRow = Pick<
 	| "obsCommandVersion"
 	| "obsAppliedVersion"
 	| "obsLastSeenAt"
+	| "obsMediaSourcesRevision"
 >;
 
 // The appUser "desired" column each toggle writes to.
@@ -102,7 +103,30 @@ function controlCommand(owner: ObsControlRow): ObsCommand {
 		desiredReplayBuffer: owner.obsDesiredReplayBuffer,
 		desiredRecordPaused: owner.obsDesiredRecordPaused,
 		desiredScene: owner.obsDesiredScene,
+		mediaSourcesRevision: owner.obsMediaSourcesRevision,
 	};
+}
+
+/**
+ * Tells a connected OBS plugin to refetch the media sources it manages. The
+ * revision also rides on every heartbeat reply, so a plugin that misses this
+ * push (another app instance, a reconnect) still catches up within seconds.
+ */
+export async function notifyObsMediaSourcesChanged(userId: string) {
+	const [owner] = await db
+		.update(appUser)
+		.set({
+			obsMediaSourcesRevision: sql`${appUser.obsMediaSourcesRevision} + 1`,
+		})
+		.where(eq(appUser.id, userId))
+		.returning();
+	if (owner?.obsControlTokenId) {
+		obsLiveHub.publishCommand(
+			userId,
+			owner.obsControlTokenId,
+			controlCommand(owner),
+		);
+	}
 }
 
 export async function getObsControlStatus(userId: string) {

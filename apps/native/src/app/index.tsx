@@ -75,6 +75,7 @@ import {
 	resolvePublishPathId,
 } from "../lib/configure-video-capture";
 import { useLiveChat } from "../lib/live-chat";
+import { lowLatencyStreamUrl } from "../lib/low-latency";
 import { IS_WEB } from "../lib/platform";
 import { isPublishing, isStreamSession } from "../lib/stream-state";
 import {
@@ -332,6 +333,12 @@ export default function Index() {
 		[publishDevices, streamUrl],
 	);
 	const publishPath = publishDevices.find(({ id }) => id === publishPathId);
+	// Low-latency OBS mode is a server-side device setting, so OBS reads it too.
+	// It always sends on one link: bonding needs retransmit headroom.
+	const lowLatency = !IS_WEB && Boolean(publishPath?.lowLatency);
+	const effectiveBondingMode: BondingMode = lowLatency
+		? "off"
+		: (bondingMode ?? "off");
 	const directProviders = useMemo(() => {
 		const providers: DirectProvider[] = [];
 		if (publishPath?.directTwitch) providers.push("twitch");
@@ -460,7 +467,7 @@ export default function Index() {
 					cameraRef.current,
 					selected,
 					contributionMode,
-					bondingMode ?? "off",
+					effectiveBondingMode,
 				);
 				setAudioInputs(capabilities.audioInputs);
 				setCameras(capabilities.cameras);
@@ -476,7 +483,7 @@ export default function Index() {
 		} finally {
 			setStarting(false);
 		}
-	}, [contributionMode, imageStabilizationEnabled, bondingMode]);
+	}, [contributionMode, imageStabilizationEnabled, effectiveBondingMode]);
 
 	const prepareRef = useRef(prepare);
 	useEffect(() => {
@@ -695,7 +702,7 @@ export default function Index() {
 	const confirmBondingDataUse = useCallback(async () => {
 		if (
 			IS_WEB ||
-			bondingMode !== "broadcast" ||
+			effectiveBondingMode !== "broadcast" ||
 			(await hasSeenBondingWarning())
 		) {
 			return true;
@@ -716,7 +723,7 @@ export default function Index() {
 				],
 			);
 		});
-	}, [bondingMode]);
+	}, [effectiveBondingMode]);
 
 	const toggleStream = useCallback(async () => {
 		if (!streamUrl) {
@@ -792,12 +799,18 @@ export default function Index() {
 						cameraRef.current,
 						configuration,
 						prepared?.contributionMode ?? contributionMode,
-						bondingMode ?? "off",
+						effectiveBondingMode,
 					);
+				}
+				let startUrl = streamUrl;
+				if (lowLatency) {
+					startUrl = (
+						await lowLatencyStreamUrl(streamUrl, publishPath?.relay.pingUrl)
+					).url;
 				}
 				await lockCurrentOrientation();
 				restoreOrientationOnFailure = true;
-				await cameraRef.current?.start(streamUrl);
+				await cameraRef.current?.start(startUrl);
 				restoreOrientationOnFailure = false;
 				if (prepared) {
 					await Promise.all([refreshDirectOutputs(), refreshPublishDevices()]);
@@ -816,13 +829,15 @@ export default function Index() {
 			setPreflighting(false);
 		}
 	}, [
-		bondingMode,
 		brb?.enabled,
 		confirmBondingDataUse,
 		configuration,
 		contributionMode,
 		directProviders.length,
+		effectiveBondingMode,
 		endBrb,
+		lowLatency,
+		publishPath?.relay.pingUrl,
 		publishPathId,
 		refreshDirectOutputs,
 		refreshPublishDevices,
@@ -860,7 +875,7 @@ export default function Index() {
 					cameraRef.current,
 					next,
 					contributionMode,
-					bondingMode ?? "off",
+					effectiveBondingMode,
 				);
 				return true;
 			} catch {
@@ -869,7 +884,7 @@ export default function Index() {
 				return false;
 			}
 		},
-		[bondingMode, configuration, contributionMode],
+		[configuration, contributionMode, effectiveBondingMode],
 	);
 
 	const updateBondingMode = useCallback(
@@ -886,6 +901,33 @@ export default function Index() {
 			await saveBondingMode(mode);
 		},
 		[configuration, contributionMode],
+	);
+
+	const updateLowLatency = useCallback(
+		async (enabled: boolean) => {
+			if (!publishPathId) return;
+			await apiClient.paths.setLowLatency.mutate({
+				pathId: publishPathId,
+				enabled,
+			});
+			if (configuration) {
+				// Bonding and single-link SRT are different native streams.
+				await configureVideoCapture(
+					cameraRef.current,
+					configuration,
+					contributionMode,
+					enabled ? "off" : (bondingMode ?? "off"),
+				);
+			}
+			await refreshPublishDevices();
+		},
+		[
+			bondingMode,
+			configuration,
+			contributionMode,
+			publishPathId,
+			refreshPublishDevices,
+		],
 	);
 
 	const applyAudioInput = useCallback(
@@ -1101,7 +1143,7 @@ export default function Index() {
 
 	const settingsModel = useStreamSettingsModel({
 		audioInputs,
-		bondingMode: bondingMode ?? "off",
+		bondingMode: effectiveBondingMode,
 		camera: cameraNode,
 		cameraSwitchDisabled,
 		cameras,
@@ -1121,8 +1163,18 @@ export default function Index() {
 			setSettingsOpen(false);
 			setPromptSignIn(true);
 		},
+		lowLatency:
+			!IS_WEB && publishPath && publishPathId ? lowLatency : undefined,
+		lowLatencyHasDirect:
+			directContribution ||
+			Boolean(
+				streamAccount.directOutputs?.customOutputs.some(
+					(output) => output.pathId === publishPathId,
+				),
+			),
 		onUpdateBondingMode: updateBondingMode,
 		onUpdateImageStabilization: updateImageStabilization,
+		onUpdateLowLatency: updateLowLatency,
 		publishPathId,
 		selectedAudioInputId,
 		sessionUser: session?.user,
@@ -1214,7 +1266,7 @@ export default function Index() {
 				activeMicrophoneName={selectedAudioInputName}
 				audioTier={audioTier}
 				audioWarning={audioWarning}
-				bondingMode={bondingMode}
+				bondingMode={effectiveBondingMode}
 				cameraSwitchDisabled={cameraSwitchDisabled}
 				cameras={cameras}
 				chatVisible={Boolean(session && chatOverlayMode !== "hidden")}
