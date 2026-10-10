@@ -5,8 +5,11 @@ import { Elysia } from "elysia";
 
 const { machineRoutes, studioScopedCredential } = await import("./machine");
 const { createApp, LOG_REDACTION_PATHS } = await import("./app");
-const { deleteBrbHighlightUploadsForUser, deleteSnapshotsForPathIds } =
-	await import("@VISP/auth");
+const {
+	deleteBrbHighlightUploadsForUser,
+	deleteObsBackupsForUser,
+	deleteSnapshotsForPathIds,
+} = await import("@VISP/auth");
 const app = new Elysia().use(machineRoutes);
 
 function authRequest(overrides: Record<string, unknown> = {}) {
@@ -326,6 +329,27 @@ describe("machine endpoints", () => {
 		expect(deleted).toEqual([
 			"brb/user-a/highlights/uploads/first.mp4",
 			"brb/user-a/highlights/uploads/second.mp4",
+		]);
+	});
+
+	test("deletes every OBS backup object for an account", async () => {
+		const deleted: string[] = [];
+		let listedPrefix = "";
+		await deleteObsBackupsForUser("user-a", {
+			list: async (prefix) => {
+				listedPrefix = prefix;
+				return [
+					`${prefix}backup-1/manifest.json`,
+					`${prefix}backup-2/media/000001`,
+				];
+			},
+			delete: async (key) => void deleted.push(key),
+		});
+
+		expect(listedPrefix).toBe("obs-backups/user-a/");
+		expect(deleted).toEqual([
+			"obs-backups/user-a/backup-1/manifest.json",
+			"obs-backups/user-a/backup-2/media/000001",
 		]);
 	});
 });
