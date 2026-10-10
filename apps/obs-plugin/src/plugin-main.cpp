@@ -205,7 +205,9 @@ static bool parse_device_code_response(const QByteArray &json, struct device_cod
 	if (!document.isObject())
 		return false;
 	const QJsonObject object = document.object();
-	const QUrl verification(object.value("verification_uri_complete").toString());
+	// Open the page without the code: the user types the code OBS shows, so a
+	// link carrying someone else's code is never enough to approve it.
+	const QUrl verification(object.value("verification_uri").toString());
 	const int expires = object.value("expires_in").toInt(0);
 	const int interval = object.value("interval").toInt(0);
 	const bool local_http = verification.scheme() == "http" &&
@@ -221,6 +223,13 @@ static bool parse_device_code_response(const QByteArray &json, struct device_cod
 	response->expires_in = expires;
 	response->interval = interval;
 	return true;
+}
+
+/* Better Auth's eight-character codes read more easily as ABCD-EFGH; the
+ * approval page ignores case and dashes. */
+static QString format_user_code(const QString &code)
+{
+	return code.size() == 8 ? code.left(4) + "-" + code.mid(4) : code;
 }
 
 static bool parse_device_token_response(const QByteArray &json, struct device_token_response *response)
@@ -930,11 +939,16 @@ int main(void)
 	CHECK(!parse_devices_response("{\"account\":{},\"devices\":[]}", &devices));
 	struct device_code_response code = {};
 	CHECK(parse_device_code_response(
-		"{\"device_code\":\"secret\",\"user_code\":\"ABCD-1234\",\"verification_uri_complete\":\"https://visp.example/device?user_code=ABCD-1234\",\"expires_in\":1800,\"interval\":5}",
+		"{\"device_code\":\"secret\",\"user_code\":\"ABCD1234\",\"verification_uri\":\"https://visp.example/device\",\"verification_uri_complete\":\"https://visp.example/device?user_code=ABCD1234\",\"expires_in\":1800,\"interval\":5}",
 		&code));
-	CHECK(code.interval == 5 && code.user_code == "ABCD-1234");
+	CHECK(code.interval == 5 && code.user_code == "ABCD1234");
+	CHECK(code.verification_url == QUrl("https://visp.example/device") && !code.verification_url.hasQuery());
+	CHECK(format_user_code(code.user_code) == "ABCD-1234" && format_user_code("ABC") == "ABC");
 	CHECK(!parse_device_code_response(
-		"{\"device_code\":\"secret\",\"user_code\":\"ABCD\",\"verification_uri_complete\":\"http://visp.example/device\",\"expires_in\":1,\"interval\":1}",
+		"{\"device_code\":\"secret\",\"user_code\":\"ABCD\",\"verification_uri_complete\":\"https://visp.example/device?user_code=ABCD\",\"expires_in\":1,\"interval\":1}",
+		&code));
+	CHECK(!parse_device_code_response(
+		"{\"device_code\":\"secret\",\"user_code\":\"ABCD\",\"verification_uri\":\"http://visp.example/device\",\"expires_in\":1,\"interval\":1}",
 		&code));
 	struct device_token_response device_token = {};
 	CHECK(parse_device_token_response("{\"access_token\":\"temporary-session\"}", &device_token));
@@ -1058,6 +1072,7 @@ int main(void)
 #include <QFileDialog>
 #include <QFile>
 #include <QFileInfo>
+#include <QFontDatabase>
 #include <QFormLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -1451,6 +1466,12 @@ public:
 		token.setPlaceholderText("Legacy pairing token");
 		account_status.setWordWrap(true);
 		connection_status.setWordWrap(true);
+		// A widget stylesheet, so OBS themes that style every QLabel cannot shrink it.
+		pairing_code.setStyleSheet(
+			QString("QLabel { font-family: \"%1\"; font-size: 20pt; font-weight: bold; }")
+				.arg(QFontDatabase::systemFont(QFontDatabase::FixedFont).family()));
+		pairing_code.setTextInteractionFlags(Qt::TextSelectableByMouse);
+		pairing_code.hide();
 		account_identity = settings.token.isEmpty() ? QString() : QString("Checking VISP account...");
 
 		sign_in_button = new QPushButton("Sign in with browser");
@@ -1469,6 +1490,7 @@ public:
 		account_actions->addStretch();
 		auto *account_layout = new QVBoxLayout;
 		account_layout->addWidget(&account_status);
+		account_layout->addWidget(&pairing_code);
 		account_layout->addWidget(&connection_status);
 		account_layout->addLayout(account_actions);
 		auto *account_group = new QGroupBox("Account");
@@ -1566,6 +1588,13 @@ public:
 
 private:
 	using ReplyHandler = std::function<void(int, const QByteArray &)>;
+
+	/* The code the user types on the approval page; hidden when none is pending. */
+	void show_pairing_code(const QString &code)
+	{
+		pairing_code.setText(code);
+		pairing_code.setVisible(!code.isEmpty());
+	}
 
 	void set_account_status(const QString &message)
 	{
@@ -2434,6 +2463,7 @@ private:
 			return;
 		}
 		auth_timer.stop();
+		show_pairing_code({});
 		token.clear();
 		loaded_devices.clear();
 		devices_loaded = false;
@@ -2451,10 +2481,11 @@ private:
 			     auth_device_code = response.device_code;
 			     auth_interval = response.interval;
 			     auth_expires_at = QDateTime::currentMSecsSinceEpoch() + qint64(response.expires_in) * 1000;
-			     set_account_status(QString("Approve code %1 in your browser.").arg(response.user_code));
+			     show_pairing_code(format_user_code(response.user_code));
+			     set_account_status("Type this code on the VISP page in your browser, then approve:");
 			     if (!QDesktopServices::openUrl(response.verification_url))
-				     set_account_status(QString("Open %1 and approve code %2.")
-							   .arg(response.verification_url.toString(), response.user_code));
+				     set_account_status(QString("Open %1, type this code, then approve:")
+								.arg(response.verification_url.toString()));
 			     auth_timer.start(auth_interval * 1000);
 		     });
 	}
@@ -2463,6 +2494,7 @@ private:
 	{
 		if (device_poll_expired(QDateTime::currentMSecsSinceEpoch(), auth_expires_at)) {
 			auth_timer.stop();
+			show_pairing_code({});
 			set_account_status("Browser sign-in expired. Try again.");
 			return;
 		}
@@ -2475,6 +2507,7 @@ private:
 			     device_token_response response;
 			     switch (parse_device_poll_response(status, body, &response)) {
 			     case device_poll_state::token:
+				     show_pairing_code({});
 				     exchange_session(response.access_token);
 				     break;
 			     case device_poll_state::pending:
@@ -2485,6 +2518,7 @@ private:
 				     auth_timer.start(auth_interval * 1000);
 				     break;
 			     case device_poll_state::terminal:
+				     show_pairing_code({});
 				     set_account_status(response_error(body, "Browser sign-in failed."));
 				     break;
 			     }
@@ -2654,6 +2688,7 @@ private:
 	QLineEdit url;
 	QLineEdit token;
 	QLabel account_status;
+	QLabel pairing_code;
 	QLabel connection_status;
 	QString account_identity;
 	QPushButton *sign_in_button = nullptr;

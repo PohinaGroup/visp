@@ -1191,6 +1191,9 @@ final class VispSrtView: ExpoView {
 
     UIApplication.shared.isIdleTimerDisabled = true
     startStatsLoop()
+    // Each drop gets the full half minute, as on Android. Without this a long
+    // IRL stream gave up after its fifth reconnect of the session.
+    retryPolicy.reset()
     emit(.live)
   }
 

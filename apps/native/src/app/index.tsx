@@ -349,6 +349,16 @@ export default function Index() {
 	const directPath = streamAccount.directOutputs?.paths.find(
 		({ id }) => id === publishPathId,
 	);
+	// A signed-in phone streams to the relay and nowhere else until a platform is
+	// added. Most first sessions ended within a minute with nothing telling the
+	// user why their channel stayed offline.
+	const directOutputs = streamAccount.directOutputs;
+	const noPlatformOutput = Boolean(
+		directOutputs &&
+			!directContribution &&
+			directOutputs.destinations.length === 0 &&
+			directOutputs.customOutputs.length === 0,
+	);
 	const holdingProviders = useMemo(
 		() => (directPath ? brbHoldingProviders(directPath) : []),
 		[directPath],
@@ -472,6 +482,10 @@ export default function Index() {
 	useEffect(() => {
 		prepareRef.current = prepare;
 	});
+
+	useEffect(() => {
+		void refreshDirectOutputs().catch(() => undefined);
+	}, [refreshDirectOutputs]);
 
 	useEffect(() => {
 		loadImageStabilizationPreference()
@@ -1208,8 +1222,15 @@ export default function Index() {
 				destinationError={
 					directPath ? directFailureSummary(directPath) : undefined
 				}
+				destinationHint={
+					noPlatformOutput
+						? state === "live"
+							? "Only VISP receives this stream. To go live on Twitch, Kick, or YouTube, stop, then tap here and add it under Stream to. Streaming through OBS? Nothing to do."
+							: "Not connected to Twitch, Kick, or YouTube yet. Tap to add one under Stream to. Streaming through OBS? Nothing to do."
+						: undefined
+				}
 				destinationStatus={
-					state === "live"
+					state === "live" && !noPlatformOutput
 						? directPath &&
 							directStateSummary(directPath) !== "No direct output"
 							? directStateSummary(directPath)

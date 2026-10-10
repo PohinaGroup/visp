@@ -34,6 +34,7 @@ import {
 	issueChatOverlayToken,
 	revokeChatOverlayToken,
 } from "@VISP/api/chat/overlay-token";
+import { createContext } from "@VISP/api/context";
 import {
 	applyDirectState,
 	directDestinationActive,
@@ -1696,6 +1697,189 @@ integration("relay PostgreSQL integration", () => {
 		).toBe(401);
 	});
 
+	test("limits the OBS device-flow session to connecting OBS", async () => {
+		const { createContext } = await import("@VISP/api/context");
+		const { getUserSession } = await import("@VISP/auth");
+		const { authCache } = await import("@VISP/db/schema/index");
+		const { makeSignature } = await import("better-auth/crypto");
+		const { typographyRoutes } = await import("./typography");
+		await seed();
+		await db.insert(authSession).values({
+			id: "browser-session",
+			token: "browser-session-token",
+			userId: "user-a",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		const authRequest = (
+			path: string,
+			init: {
+				body?: Record<string, unknown>;
+				headers?: Record<string, string>;
+			} = {},
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: init.body ? "POST" : "GET",
+					headers: {
+						...(init.body ? { "content-type": "application/json" } : {}),
+						...init.headers,
+					},
+					body: init.body ? JSON.stringify(init.body) : undefined,
+				}),
+			);
+		const browser = { authorization: "Bearer browser-session-token" };
+
+		const code = (await (
+			await authRequest("/device/code", {
+				body: { client_id: "visp-obs", scope: "obs" },
+			})
+		).json()) as { device_code: string; user_code: string };
+		expect(
+			(
+				await authRequest(
+					`/device?user_code=${encodeURIComponent(code.user_code)}`,
+					{ headers: browser },
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest("/device/approve", {
+					body: { userCode: code.user_code },
+					headers: browser,
+				})
+			).status,
+		).toBe(200);
+		const tokenResponse = await authRequest("/device/token", {
+			body: {
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+				device_code: code.device_code,
+				client_id: "visp-obs",
+			},
+		});
+		expect(tokenResponse.status).toBe(200);
+		const pairing = (await tokenResponse.json()) as {
+			access_token: string;
+			expires_in: number;
+		};
+		const pairingHeaders = { authorization: `Bearer ${pairing.access_token}` };
+		const fifteenMinutes = () => Date.now() + 15 * 60_000;
+
+		// Short-lived in both stores Better Auth reads, and no full session is left.
+		expect(pairing.expires_in).toBeLessThanOrEqual(15 * 60);
+		const sessions = await db.query.session.findMany({
+			where: eq(authSession.userId, "user-a"),
+		});
+		expect(sessions.map((row) => row.token).sort()).toEqual(
+			["browser-session-token", pairing.access_token].sort(),
+		);
+		const stored = sessions.find((row) => row.token === pairing.access_token);
+		expect(stored?.expiresAt.getTime()).toBeLessThanOrEqual(fifteenMinutes());
+		const cached = await db.query.authCache.findFirst({
+			where: eq(authCache.key, pairing.access_token),
+		});
+		expect(cached?.expiresAt.getTime()).toBeLessThanOrEqual(fifteenMinutes());
+
+		// The server-side read used by /api/obs/connect does not extend it, and
+		// the helper every other route uses refuses it.
+		const serverRead = await auth.api.getSession({
+			headers: new Headers(pairingHeaders),
+		});
+		expect(serverRead?.user.id).toBe("user-a");
+		expect(serverRead?.session.expiresAt.getTime()).toBeLessThanOrEqual(
+			fifteenMinutes(),
+		);
+		expect(await getUserSession(new Headers(pairingHeaders))).toBeNull();
+
+		const trpc = async (headers: Record<string, string>) =>
+			appRouter.createCaller(
+				await createContext({
+					context: {
+						request: new Request("http://localhost/trpc", { headers }),
+					} as never,
+				}),
+			);
+		const pairingCaller = await trpc(pairingHeaders);
+		await expect(pairingCaller.privateData()).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+		});
+		await expect(pairingCaller.paths.list()).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+		});
+		expect((await (await trpc(browser)).privateData()).user.id).toBe("user-a");
+
+		const signedCookie = async (token: string) =>
+			`better-auth.session_token=${encodeURIComponent(
+				`${token}.${await makeSignature(token, process.env.BETTER_AUTH_SECRET ?? "")}`,
+			)}`;
+		const pairingCookie = { cookie: await signedCookie(pairing.access_token) };
+		const authProbes: [string, Record<string, unknown>?][] = [
+			["/get-session"],
+			["/list-sessions"],
+			["/list-accounts"],
+			["/update-user", { name: "Mallory" }],
+			["/link-social", { provider: "google", callbackURL: "/" }],
+			["/revoke-sessions", {}],
+			["/delete-user", {}],
+			["/device/approve", { userCode: "ABCDEFGH" }],
+		];
+		for (const [path, body] of authProbes) {
+			for (const headers of [pairingHeaders, pairingCookie]) {
+				const response = await authRequest(path, { body, headers });
+				expect({ path, status: response.status }).toEqual({
+					path,
+					status: 401,
+				});
+			}
+		}
+		const typography = new Elysia().use(typographyRoutes);
+		expect(
+			(
+				await typography.handle(
+					new Request("http://localhost/api/typography/projects", {
+						headers: pairingHeaders,
+					}),
+				)
+			).status,
+		).toBe(401);
+
+		// The browser session that approved OBS is unaffected, by bearer or cookie.
+		for (const headers of [
+			browser,
+			{ cookie: await signedCookie("browser-session-token") },
+		]) {
+			const current = await authRequest("/get-session", { headers });
+			expect(current.status).toBe(200);
+			expect(((await current.json()) as { user: { id: string } }).user.id).toBe(
+				"user-a",
+			);
+		}
+		expect(
+			(await authRequest("/list-sessions", { headers: browser })).status,
+		).toBe(200);
+		expect(
+			(
+				await db.query.user.findFirst({
+					columns: { name: true },
+					where: eq(user.id, "user-a"),
+				})
+			)?.name,
+		).toBe("Alpha");
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: pairingHeaders,
+			}),
+		);
+		expect(connect.status).toBe(200);
+		expect(await connect.json()).toMatchObject({
+			account: { handle: "alpha" },
+			token: expect.any(String),
+		});
+	});
+
 	test("reconciles drift and preserves timestamps when the API fails", async () => {
 		const data = await seed();
 		const oldTimestamp = new Date("2024-01-01T00:00:00.000Z");
@@ -2159,6 +2343,254 @@ integration("relay PostgreSQL integration", () => {
 		expect(ensureRelayUser("no-accounts", "No Accounts")).rejects.toThrow(
 			"Streaming account required",
 		);
+	});
+
+	/** A session made the way sign-in makes one: a row plus a cache entry. */
+	async function cachedSession(userId: string) {
+		const ctx = await auth.$context;
+		const created = await ctx.internalAdapter.createSession(userId);
+		if (!created) throw new Error(`session for ${userId} was not created`);
+		expect(await ctx.secondaryStorage?.get(created.token)).toBeTruthy();
+		return created.token;
+	}
+
+	/** The tRPC caller a request carrying this bearer token would get. */
+	async function callerFor(token: string) {
+		const request = new Request("http://localhost/trpc", {
+			headers: { authorization: `Bearer ${token}` },
+		});
+		return appRouter.createCaller(
+			await createContext({
+				context: { request } as unknown as Parameters<
+					typeof createContext
+				>[0]["context"],
+			}),
+		);
+	}
+
+	async function sessionFor(token: string) {
+		return auth.api.getSession({
+			headers: new Headers({ authorization: `Bearer ${token}` }),
+		});
+	}
+
+	test("ends cached sessions when an admin bans a user or revokes their sessions", async () => {
+		await db.insert(user).values([
+			{ id: "ban-admin", name: "Admin", email: "ban-admin@example.test" },
+			{ id: "ban-target", name: "Target", email: "ban-target@example.test" },
+			{ id: "revoke-target", name: "Revoked", email: "revoke@example.test" },
+			{ id: "bystander", name: "Bystander", email: "bystander@example.test" },
+		]);
+		await db
+			.update(user)
+			.set({ role: "admin" })
+			.where(eq(user.id, "ban-admin"));
+		const adminToken = await cachedSession("ban-admin");
+		const bystanderToken = await cachedSession("bystander");
+		const banned = [
+			await cachedSession("ban-target"),
+			await cachedSession("ban-target"),
+		];
+		// A row that was never cached, and a cached token whose row is already
+		// gone (what the old raw delete left behind).
+		await db.insert(authSession).values({
+			id: "ban-target-db-only",
+			token: "ban-target-db-only-token",
+			userId: "ban-target",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		banned.push("ban-target-db-only-token");
+		const orphan = await cachedSession("ban-target");
+		await db.delete(authSession).where(eq(authSession.token, orphan));
+		banned.push(orphan);
+		for (const token of banned) {
+			expect((await sessionFor(token))?.user.id).toBe("ban-target");
+			expect((await (await callerFor(token)).privateData()).user.id).toBe(
+				"ban-target",
+			);
+		}
+
+		const admin = await callerFor(adminToken);
+		await admin.admin.users.ban({ userId: "ban-target", reason: "abuse" });
+		const ctx = await auth.$context;
+		for (const token of banned) {
+			expect(await sessionFor(token)).toBeNull();
+			expect(await ctx.secondaryStorage?.get(token)).toBeNull();
+			await expect(
+				(await callerFor(token)).privateData(),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		}
+		expect(
+			await ctx.secondaryStorage?.get("active-sessions-ban-target"),
+		).toBeNull();
+
+		const revoked = [
+			await cachedSession("revoke-target"),
+			await cachedSession("revoke-target"),
+		];
+		expect(
+			await admin.admin.users.revokeSessions({ userId: "revoke-target" }),
+		).toEqual({ revoked: 2 });
+		for (const token of revoked) {
+			expect(await sessionFor(token)).toBeNull();
+			await expect(
+				(await callerFor(token)).privateData(),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		}
+
+		// Nobody else is signed out.
+		expect(
+			(await (await callerFor(bystanderToken)).privateData()).user.id,
+		).toBe("bystander");
+		expect((await admin.admin.overview()).totalUsers).toBe(4);
+
+		// A ban written straight to the database still stops a session that
+		// survived it, once that session is served from the session table.
+		const survivor = await cachedSession("bystander");
+		await ctx.secondaryStorage?.delete(survivor);
+		await db.update(user).set({ banned: true }).where(eq(user.id, "bystander"));
+		await expect(
+			(await callerFor(survivor)).privateData(),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	});
+
+	test("takes admin access away from a demoted admin's existing sessions", async () => {
+		await db.insert(user).values([
+			{
+				id: "head-admin",
+				name: "Head",
+				email: "head@example.test",
+				role: "admin",
+			},
+			{
+				id: "demoted",
+				name: "Demoted",
+				email: "demoted@example.test",
+				role: "admin",
+			},
+			{ id: "promoted", name: "Promoted", email: "promoted@example.test" },
+		]);
+		const headToken = await cachedSession("head-admin");
+		const demotedToken = await cachedSession("demoted");
+		const promotedToken = await cachedSession("promoted");
+		const staleSession = await sessionFor(demotedToken);
+		if (!staleSession) throw new Error("demoted session was not created");
+		expect(staleSession.user.role).toBe("admin");
+		expect(
+			(await (await callerFor(demotedToken)).admin.overview()).totalUsers,
+		).toBe(3);
+
+		const head = await callerFor(headToken);
+		await head.admin.users.setRole({ userId: "demoted", role: "user" });
+		expect(await sessionFor(demotedToken)).toBeNull();
+		await expect(
+			(await callerFor(demotedToken)).admin.users.setRole({
+				userId: "demoted",
+				role: "admin",
+			}),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		// Even a session object that still says "admin" is checked against the
+		// user row, so a copy that escaped revocation cannot re-promote itself.
+		await expect(
+			appRouter
+				.createCaller({
+					auth: null,
+					headers: new Headers({ authorization: `Bearer ${demotedToken}` }),
+					session: staleSession,
+				})
+				.admin.users.setRole({ userId: "demoted", role: "admin" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(
+			(await db.query.user.findFirst({ where: eq(user.id, "demoted") }))?.role,
+		).toBe("user");
+
+		// Promotion keeps the session and updates its cached user.
+		await head.admin.users.setRole({ userId: "promoted", role: "admin" });
+		expect((await sessionFor(promotedToken))?.user.role).toBe("admin");
+		expect(
+			(await (await callerFor(promotedToken)).admin.overview()).totalUsers,
+		).toBe(3);
+		expect((await head.admin.overview()).totalUsers).toBe(3);
+	});
+
+	test("ends the device-flow session once OBS has its control token", async () => {
+		await seed();
+		const bystanderToken = await cachedSession("user-b");
+		const authRequest = (
+			path: string,
+			body: Record<string, unknown>,
+			authorization?: string,
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						...(authorization ? { authorization } : {}),
+					},
+					body: JSON.stringify(body),
+				}),
+			);
+		const code = (await (
+			await authRequest("/device/code", { client_id: "visp-obs", scope: "obs" })
+		).json()) as { device_code: string; user_code: string };
+		const browserToken = await cachedSession("user-a");
+		expect(
+			(
+				await auth.handler(
+					new Request(
+						`http://127.0.0.1:3000/api/auth/device?user_code=${encodeURIComponent(code.user_code)}`,
+						{ headers: { authorization: `Bearer ${browserToken}` } },
+					),
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest(
+					"/device/approve",
+					{ userCode: code.user_code },
+					`Bearer ${browserToken}`,
+				)
+			).status,
+		).toBe(200);
+		const temporary = (await (
+			await authRequest("/device/token", {
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+				device_code: code.device_code,
+				client_id: "visp-obs",
+			})
+		).json()) as { access_token: string };
+		const ctx = await auth.$context;
+		expect(
+			await ctx.secondaryStorage?.get(temporary.access_token),
+		).toBeTruthy();
+		expect((await sessionFor(temporary.access_token))?.user.id).toBe("user-a");
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(connect.status).toBe(200);
+		expect(await sessionFor(temporary.access_token)).toBeNull();
+		expect(await ctx.secondaryStorage?.get(temporary.access_token)).toBeNull();
+		await expect(
+			(await callerFor(temporary.access_token)).privateData(),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		const replay = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(replay.status).toBe(401);
+
+		// The browser that approved it and other users stay signed in.
+		expect((await sessionFor(browserToken))?.user.id).toBe("user-a");
+		expect((await sessionFor(bystanderToken))?.user.id).toBe("user-b");
 	});
 
 	test("scopes the chat overlay token to its owner and drops it on revoke", async () => {
@@ -3866,6 +4298,10 @@ integration("VISP Direct boundaries", () => {
 	test("a missing provider scope returns reauthorize without exposing tokens", async () => {
 		const data = await seedDirect();
 		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
 			.update(relayPath)
 			.set({ directTwitch: true })
 			.where(eq(relayPath.id, data.pathB.id));
@@ -3899,6 +4335,55 @@ integration("VISP Direct boundaries", () => {
 			"Twitch stream key permission is required",
 		);
 		expect(state?.directTwitchError).not.toContain("token");
+		// The token cannot read the key, so the UI must stop saying "Authorized".
+		const [linked] = await db
+			.select({ scope: account.scope })
+			.from(account)
+			.where(eq(account.id, "direct-twitch-b"));
+		expect(linked?.scope).not.toContain("channel:read:stream_key");
+	});
+
+	test("a provider outage keeps stream-key consent", async () => {
+		const data = await seedDirect();
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true })
+			.where(eq(relayPath.id, data.pathB.id));
+		await db
+			.insert(pathState)
+			.values({
+				pathId: data.pathB.id,
+				directTwitchReservedUntil: new Date(Date.now() + 60_000),
+			})
+			.onConflictDoUpdate({
+				target: pathState.pathId,
+				set: { directTwitchReservedUntil: new Date(Date.now() + 60_000) },
+			});
+
+		await resolveDirectDestinations("beta-1", {
+			...directDeps(),
+			fetch: (async () =>
+				new Response("unavailable", {
+					status: 503,
+				})) as unknown as typeof fetch,
+		});
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathB.id));
+		expect(state?.directTwitchError).toBe(
+			"Twitch stream key request failed (503)",
+		);
+		const [linked] = await db
+			.select({ scope: account.scope })
+			.from(account)
+			.where(eq(account.id, "direct-twitch-b"));
+		expect(linked?.scope).toContain("channel:read:stream_key");
 	});
 
 	test("a provider failure frees only its reservation", async () => {

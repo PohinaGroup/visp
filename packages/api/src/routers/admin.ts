@@ -1,3 +1,4 @@
+import { refreshCachedUser, revokeAllUserSessions } from "@VISP/auth/sessions";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -571,14 +572,39 @@ export const adminRouter = router({
 						message: "You cannot remove your own administrator role",
 					});
 				}
-				const [result] = await db
-					.update(user)
-					.set({ role: input.role })
-					.where(eq(user.id, input.userId))
-					.returning({ id: user.id, role: user.role });
-				if (!result) {
-					throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-				}
+				// Sessions carry a cached copy of the user. Taking admin away ends
+				// them in the same transaction, so a demoted admin cannot keep using
+				// (or re-promote themselves from) a session that still says "admin".
+				// Granting it only refreshes the cached copy.
+				const result = await db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select({ role: user.role })
+						.from(user)
+						.where(eq(user.id, input.userId))
+						.for("update");
+					if (!previous) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "User not found",
+						});
+					}
+					const [updated] = await tx
+						.update(user)
+						.set({ role: input.role })
+						.where(eq(user.id, input.userId))
+						.returning({ id: user.id, role: user.role });
+					if (!updated) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "User not found",
+						});
+					}
+					if (previous.role !== input.role && input.role !== "admin") {
+						await revokeAllUserSessions(input.userId, { tx });
+					}
+					return updated;
+				});
+				if (input.role === "admin") await refreshCachedUser(input.userId);
 				audit(ctx.session.user.id, input.userId, `set_role:${input.role}`);
 				return result;
 			}),
@@ -650,7 +676,8 @@ export const adminRouter = router({
 							message: "User not found",
 						});
 					}
-					await tx.delete(session).where(eq(session.userId, input.userId));
+					// Clears cached tokens too; a failure there rolls the ban back.
+					await revokeAllUserSessions(input.userId, { tx });
 					return updated;
 				});
 				audit(ctx.session.user.id, input.userId, "ban");
@@ -668,6 +695,7 @@ export const adminRouter = router({
 				if (!result) {
 					throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
 				}
+				await refreshCachedUser(input.userId);
 				audit(ctx.session.user.id, input.userId, "unban");
 				return result;
 			}),
@@ -675,12 +703,9 @@ export const adminRouter = router({
 		revokeSessions: adminProcedure
 			.input(z.object({ userId: z.string().min(1) }))
 			.mutation(async ({ ctx, input }) => {
-				const result = await db
-					.delete(session)
-					.where(eq(session.userId, input.userId))
-					.returning({ id: session.id });
+				const revoked = await revokeAllUserSessions(input.userId);
 				audit(ctx.session.user.id, input.userId, "revoke_sessions");
-				return { revoked: result.length };
+				return { revoked };
 			}),
 	}),
 });
