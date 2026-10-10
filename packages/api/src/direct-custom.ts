@@ -26,6 +26,7 @@ import {
 import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
 import { DEFAULT_PORTRAIT_CROP, portraitFilterValue } from "./direct-portrait";
 import { encryptSecret } from "./encrypted-secret";
+import { recordForwarderTransition } from "./forwarder-sessions";
 import { uniqueViolation } from "./pg-errors";
 
 export type CustomDestinationSummary = {
@@ -642,6 +643,7 @@ export async function applyCustomDirectState(input: {
 		await db
 			.delete(customDirectOutput)
 			.where(eq(customDirectOutput.id, row.id));
+		await recordForwarderTransition([row.pathId]);
 		return true;
 	}
 	await db
@@ -660,6 +662,7 @@ export async function applyCustomDirectState(input: {
 				: {}),
 		})
 		.where(eq(customDirectOutput.id, row.id));
+	await recordForwarderTransition([row.pathId]);
 	if (input.state === "live")
 		await recordPlatformLive(row.userId, row.pathId, "custom");
 	return true;
