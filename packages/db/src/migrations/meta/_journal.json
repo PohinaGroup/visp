@@ -232,6 +232,13 @@
 			"when": 1791634007000,
 			"tag": "0032_spend_budget",
 			"breakpoints": true
+		},
+		{
+			"idx": 33,
+			"version": "7",
+			"when": 1791634008000,
+			"tag": "0033_auth_cache_cleanup",
+			"breakpoints": true
 		}
 	]
 }
