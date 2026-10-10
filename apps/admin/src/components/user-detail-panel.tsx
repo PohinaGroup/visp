@@ -13,7 +13,8 @@ import {
 	NativeSelect,
 	NativeSelectOption,
 } from "@VISP/ui/components/native-select";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "@tanstack/react-router";
 import {
 	Ban,
 	ChevronLeft,
@@ -25,6 +26,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "../lib";
 import { formatDate, formatDuration, localDateTimeInput } from "../lib/format";
+import { AuditActionBadge, AuditDiff, auditActorName } from "./audit-log";
 import { DetailItem } from "./detail-item";
 
 export type UserDetail = Awaited<ReturnType<typeof trpc.admin.users.get.query>>;
@@ -78,6 +80,7 @@ export function UserDetailPanel({
 	const [reason, setReason] = useState("");
 	const [expiresAt, setExpiresAt] = useState("");
 	const [pending, setPending] = useState<string>();
+	const queryClient = useQueryClient();
 	const [streamPages, setStreamPages] = useState<string[]>(["0"]);
 	const streamCursor = streamPages.at(-1);
 	const streams = useQuery({
@@ -87,6 +90,16 @@ export function UserDetailPanel({
 				userId: detail.identity.id,
 				cursor: streamCursor,
 				limit: 20,
+			}),
+	});
+
+	const recentActions = useQuery({
+		queryKey: ["admin-audit", "user", detail.identity.id],
+		queryFn: () =>
+			trpc.admin.audit.list.query({
+				targetType: "user",
+				targetId: detail.identity.id,
+				limit: 10,
 			}),
 	});
 
@@ -106,7 +119,10 @@ export function UserDetailPanel({
 		try {
 			await action();
 			toast.success(message);
-			await onChanged();
+			await Promise.all([
+				onChanged(),
+				queryClient.invalidateQueries({ queryKey: ["admin-audit"] }),
+			]);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : "Action failed");
 		} finally {
@@ -351,7 +367,7 @@ export function UserDetailPanel({
 				<CardHeader>
 					<CardTitle>Support actions</CardTitle>
 					<CardDescription>
-						Actions are recorded with administrator and target IDs.
+						Every action is recorded in the audit log.
 					</CardDescription>
 				</CardHeader>
 				<CardContent className="grid gap-5">
@@ -548,6 +564,54 @@ export function UserDetailPanel({
 							Revoke all
 						</Button>
 					</div>
+				</CardContent>
+			</Card>
+
+			<Card className="border border-border/60">
+				<CardHeader>
+					<div className="flex items-start justify-between gap-4">
+						<div>
+							<CardTitle>Recent actions</CardTitle>
+							<CardDescription>
+								The last admin actions taken on this account.
+							</CardDescription>
+						</div>
+						<Link
+							className="shrink-0 text-primary text-xs underline-offset-4 hover:underline"
+							search={{ targetType: "user", target: identity.id }}
+							to="/audit"
+						>
+							View all
+						</Link>
+					</div>
+				</CardHeader>
+				<CardContent>
+					{recentActions.isPending ? (
+						<p className="py-4 text-center text-muted-foreground">Loading…</p>
+					) : recentActions.data?.items.length ? (
+						<ul className="grid">
+							{recentActions.data.items.map((row) => (
+								<li
+									className="grid gap-1 border-border/60 border-b py-2 last:border-0"
+									key={row.id}
+								>
+									<div className="flex flex-wrap items-center justify-between gap-2">
+										<AuditActionBadge action={row.action} />
+										<span className="text-muted-foreground text-xs">
+											{auditActorName(row)} · {formatDate(row.createdAt)}
+										</span>
+									</div>
+									<AuditDiff after={row.after} before={row.before} />
+								</li>
+							))}
+						</ul>
+					) : (
+						<p className="py-4 text-center text-muted-foreground">
+							{recentActions.isError
+								? recentActions.error.message
+								: "No admin actions recorded for this user."}
+						</p>
+					)}
 				</CardContent>
 			</Card>
 		</div>

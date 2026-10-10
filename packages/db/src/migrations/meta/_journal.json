@@ -169,6 +169,13 @@
 			"when": 1790000000000,
 			"tag": "0023_relay_health",
 			"breakpoints": true
+		},
+		{
+			"idx": 30,
+			"version": "7",
+			"when": 1791634005000,
+			"tag": "0030_admin_audit_log",
+			"breakpoints": true
 		}
 	]
 }
