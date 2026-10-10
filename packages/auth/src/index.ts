@@ -17,6 +17,7 @@ import { eq, sql } from "drizzle-orm";
 import { agentAuthPlugin } from "./agent";
 import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
+import { isObsPairingToken, obsPairingScope } from "./obs-pairing";
 import { adminAccess, adminRoles } from "./permissions";
 import { createDatabaseSecondaryStorage } from "./secondary-storage";
 
@@ -233,6 +234,8 @@ export function createAuth() {
 			},
 		},
 		plugins: [
+			// First, so no other plugin's hook sees an OBS pairing session.
+			obsPairingScope(),
 			agentAuthPlugin,
 			adminPlugin({
 				ac: adminAccess,
@@ -274,3 +277,13 @@ export function createAuth() {
 }
 
 export const auth: ReturnType<typeof createAuth> = createAuth();
+
+/**
+ * The signed-in user's session for API routes. Sessions from OBS pairing
+ * (Better Auth's device flow) are refused here: they exist only so the plugin
+ * can call `POST /api/obs/connect`, the one caller of `auth.api.getSession`.
+ */
+export async function getUserSession(headers: Headers) {
+	const session = await auth.api.getSession({ headers });
+	return session && !isObsPairingToken(session.session.token) ? session : null;
+}

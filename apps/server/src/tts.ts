@@ -2,7 +2,7 @@ import { betterFeatures } from "@VISP/api/better-features";
 import { LANGUAGE_CODES } from "@VISP/api/languages";
 import { fixedWindow } from "@VISP/api/rate-limit";
 import { betterTtsConfigured, synthesizeSpeech } from "@VISP/api/tts";
-import { auth } from "@VISP/auth";
+import { getUserSession } from "@VISP/auth";
 import { Elysia } from "elysia";
 import { z } from "zod";
 
@@ -28,7 +28,7 @@ export function resetTtsRateLimit() {
 export const ttsRoutes = new Elysia({ name: "tts-routes" }).post(
 	"/api/tts",
 	async ({ request, status }) => {
-		const session = await auth.api.getSession({ headers: request.headers });
+		const session = await getUserSession(request.headers);
 		if (!session) return status(401, { error: "Authentication required" });
 
 		// The client switch is an affordance; this is the gate.

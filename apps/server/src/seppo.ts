@@ -1,5 +1,5 @@
 import { fixedWindow } from "@VISP/api/rate-limit";
-import { auth } from "@VISP/auth";
+import { getUserSession } from "@VISP/auth";
 import {
 	convertToModelMessages,
 	createUIMessageStream,
@@ -279,7 +279,7 @@ export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 
 		let userId: string | undefined;
 		if (context !== "landing") {
-			const session = await auth.api.getSession({ headers: request.headers });
+			const session = await getUserSession(request.headers);
 			if (!session) return status(401, { error: "Authentication required" });
 			userId = session.user.id;
 		}

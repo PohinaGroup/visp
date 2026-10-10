@@ -1399,6 +1399,189 @@ integration("relay PostgreSQL integration", () => {
 		).toBe(401);
 	});
 
+	test("limits the OBS device-flow session to connecting OBS", async () => {
+		const { createContext } = await import("@VISP/api/context");
+		const { getUserSession } = await import("@VISP/auth");
+		const { authCache } = await import("@VISP/db/schema/index");
+		const { makeSignature } = await import("better-auth/crypto");
+		const { typographyRoutes } = await import("./typography");
+		await seed();
+		await db.insert(authSession).values({
+			id: "browser-session",
+			token: "browser-session-token",
+			userId: "user-a",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		const authRequest = (
+			path: string,
+			init: {
+				body?: Record<string, unknown>;
+				headers?: Record<string, string>;
+			} = {},
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: init.body ? "POST" : "GET",
+					headers: {
+						...(init.body ? { "content-type": "application/json" } : {}),
+						...init.headers,
+					},
+					body: init.body ? JSON.stringify(init.body) : undefined,
+				}),
+			);
+		const browser = { authorization: "Bearer browser-session-token" };
+
+		const code = (await (
+			await authRequest("/device/code", {
+				body: { client_id: "visp-obs", scope: "obs" },
+			})
+		).json()) as { device_code: string; user_code: string };
+		expect(
+			(
+				await authRequest(
+					`/device?user_code=${encodeURIComponent(code.user_code)}`,
+					{ headers: browser },
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest("/device/approve", {
+					body: { userCode: code.user_code },
+					headers: browser,
+				})
+			).status,
+		).toBe(200);
+		const tokenResponse = await authRequest("/device/token", {
+			body: {
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+				device_code: code.device_code,
+				client_id: "visp-obs",
+			},
+		});
+		expect(tokenResponse.status).toBe(200);
+		const pairing = (await tokenResponse.json()) as {
+			access_token: string;
+			expires_in: number;
+		};
+		const pairingHeaders = { authorization: `Bearer ${pairing.access_token}` };
+		const fifteenMinutes = () => Date.now() + 15 * 60_000;
+
+		// Short-lived in both stores Better Auth reads, and no full session is left.
+		expect(pairing.expires_in).toBeLessThanOrEqual(15 * 60);
+		const sessions = await db.query.session.findMany({
+			where: eq(authSession.userId, "user-a"),
+		});
+		expect(sessions.map((row) => row.token).sort()).toEqual(
+			["browser-session-token", pairing.access_token].sort(),
+		);
+		const stored = sessions.find((row) => row.token === pairing.access_token);
+		expect(stored?.expiresAt.getTime()).toBeLessThanOrEqual(fifteenMinutes());
+		const cached = await db.query.authCache.findFirst({
+			where: eq(authCache.key, pairing.access_token),
+		});
+		expect(cached?.expiresAt.getTime()).toBeLessThanOrEqual(fifteenMinutes());
+
+		// The server-side read used by /api/obs/connect does not extend it, and
+		// the helper every other route uses refuses it.
+		const serverRead = await auth.api.getSession({
+			headers: new Headers(pairingHeaders),
+		});
+		expect(serverRead?.user.id).toBe("user-a");
+		expect(serverRead?.session.expiresAt.getTime()).toBeLessThanOrEqual(
+			fifteenMinutes(),
+		);
+		expect(await getUserSession(new Headers(pairingHeaders))).toBeNull();
+
+		const trpc = async (headers: Record<string, string>) =>
+			appRouter.createCaller(
+				await createContext({
+					context: {
+						request: new Request("http://localhost/trpc", { headers }),
+					} as never,
+				}),
+			);
+		const pairingCaller = await trpc(pairingHeaders);
+		await expect(pairingCaller.privateData()).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+		});
+		await expect(pairingCaller.paths.list()).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+		});
+		expect((await (await trpc(browser)).privateData()).user.id).toBe("user-a");
+
+		const signedCookie = async (token: string) =>
+			`better-auth.session_token=${encodeURIComponent(
+				`${token}.${await makeSignature(token, process.env.BETTER_AUTH_SECRET ?? "")}`,
+			)}`;
+		const pairingCookie = { cookie: await signedCookie(pairing.access_token) };
+		const authProbes: [string, Record<string, unknown>?][] = [
+			["/get-session"],
+			["/list-sessions"],
+			["/list-accounts"],
+			["/update-user", { name: "Mallory" }],
+			["/link-social", { provider: "google", callbackURL: "/" }],
+			["/revoke-sessions", {}],
+			["/delete-user", {}],
+			["/device/approve", { userCode: "ABCDEFGH" }],
+		];
+		for (const [path, body] of authProbes) {
+			for (const headers of [pairingHeaders, pairingCookie]) {
+				const response = await authRequest(path, { body, headers });
+				expect({ path, status: response.status }).toEqual({
+					path,
+					status: 401,
+				});
+			}
+		}
+		const typography = new Elysia().use(typographyRoutes);
+		expect(
+			(
+				await typography.handle(
+					new Request("http://localhost/api/typography/projects", {
+						headers: pairingHeaders,
+					}),
+				)
+			).status,
+		).toBe(401);
+
+		// The browser session that approved OBS is unaffected, by bearer or cookie.
+		for (const headers of [
+			browser,
+			{ cookie: await signedCookie("browser-session-token") },
+		]) {
+			const current = await authRequest("/get-session", { headers });
+			expect(current.status).toBe(200);
+			expect(((await current.json()) as { user: { id: string } }).user.id).toBe(
+				"user-a",
+			);
+		}
+		expect(
+			(await authRequest("/list-sessions", { headers: browser })).status,
+		).toBe(200);
+		expect(
+			(
+				await db.query.user.findFirst({
+					columns: { name: true },
+					where: eq(user.id, "user-a"),
+				})
+			)?.name,
+		).toBe("Alpha");
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: pairingHeaders,
+			}),
+		);
+		expect(connect.status).toBe(200);
+		expect(await connect.json()).toMatchObject({
+			account: { handle: "alpha" },
+			token: expect.any(String),
+		});
+	});
+
 	test("reconciles drift and preserves timestamps when the API fails", async () => {
 		const data = await seed();
 		const oldTimestamp = new Date("2024-01-01T00:00:00.000Z");
