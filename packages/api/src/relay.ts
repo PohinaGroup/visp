@@ -18,12 +18,20 @@ import {
 	stopDirectForPaths,
 } from "./direct";
 import { decryptSecret, encryptSecret } from "./encrypted-secret";
+import { notifyObsMediaSourcesChanged } from "./obs-control";
 import { hashSecret, verifySecret } from "./password";
 import { uniqueViolation } from "./pg-errors";
 import { chooseRelay } from "./relays";
 import { hasStreamKeyScope } from "./scopes";
+import {
+	LOW_LATENCY_OBS_READ_LATENCY_MS,
+	type NetworkProfile,
+	recommendLatency,
+	STANDARD_OBS_READ_LATENCY_MS,
+} from "./srt-latency";
 
 export { applyPathHook, reconcilePathState } from "./path-hooks";
+export { recommendLatency } from "./srt-latency";
 
 const AUTH_CACHE_TTL_MS = 60_000;
 // Successful checks per cached credential: one publish and one read secret,
@@ -47,7 +55,6 @@ type AuthCacheEntry = {
 };
 
 type MediaAction = "publish" | "read";
-type NetworkProfile = "wired" | "wifi" | "cellular";
 type PublishOrigin = "native" | "web";
 
 const authCache = new Map<string, AuthCacheEntry>();
@@ -234,6 +241,7 @@ export async function listPaths(userId: string) {
 			directTwitch: relayPath.directTwitch,
 			directKick: relayPath.directKick,
 			directYoutube: relayPath.directYoutube,
+			lowLatency: relayPath.lowLatency,
 			publishing: pathState.publishing,
 			readerCount: pathState.readerCount,
 			sourceType: pathState.sourceType,
@@ -319,6 +327,28 @@ export async function renamePath(
 			),
 		)
 		.returning();
+	return updated;
+}
+
+export async function setPathLowLatency(
+	userId: string,
+	pathId: number,
+	lowLatency: boolean,
+) {
+	const [updated] = await db
+		.update(relayPath)
+		.set({ lowLatency })
+		.where(
+			and(
+				eq(relayPath.id, pathId),
+				eq(relayPath.userId, userId),
+				isNull(relayPath.revokedAt),
+			),
+		)
+		.returning({ id: relayPath.id, lowLatency: relayPath.lowLatency });
+	if (!updated) return null;
+	// The OBS media source for this device now needs other read settings.
+	await notifyObsMediaSourcesChanged(userId);
 	return updated;
 }
 
@@ -580,6 +610,7 @@ function buildPublishUrls(
 
 export function buildMaskedPathUrls(
 	path: {
+		lowLatency?: boolean;
 		relayHost: string;
 		slug: string;
 		publishRevealable: boolean;
@@ -600,7 +631,7 @@ export function buildMaskedPathUrls(
 						path.slug,
 						handle,
 						"*****",
-						300_000,
+						obsReadLatencyMs(Boolean(path.lowLatency)) * 1000,
 					),
 					rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, "*****"),
 				}
@@ -616,6 +647,7 @@ async function ownedPath(userId: string, pathId: number) {
 			slug: relayPath.slug,
 			publishOrigin: relayPath.publishOrigin,
 			publishSecretEncrypted: relayPath.publishSecretEncrypted,
+			lowLatency: relayPath.lowLatency,
 			handle: appUser.handle,
 			readSecretHash: appUser.readSecretHash,
 			readSecretEncrypted: appUser.readSecretEncrypted,
@@ -769,7 +801,7 @@ export async function createPublishDevice(
 					path.slug,
 					owner.handle,
 					readSecret,
-					300_000,
+					obsReadLatencyMs(assigned.lowLatency) * 1000,
 				),
 				rtmp: buildRtmpUrl(
 					assigned.relayHost,
@@ -920,12 +952,25 @@ async function assignUnusedPath(
 	});
 }
 
+/** SRT read latency OBS uses for a device, in milliseconds. */
+export function obsReadLatencyMs(lowLatency: boolean) {
+	return lowLatency
+		? LOW_LATENCY_OBS_READ_LATENCY_MS
+		: STANDARD_OBS_READ_LATENCY_MS;
+}
+
 export function buildObsMediaSource(input: {
 	handle: string;
-	latencyMicros: number;
-	path: { id: number; label: string; relayHost: string; slug: string };
+	path: {
+		id: number;
+		label: string;
+		lowLatency?: boolean;
+		relayHost: string;
+		slug: string;
+	};
 	readSecret: string;
 }) {
+	const lowLatency = Boolean(input.path.lowLatency);
 	return {
 		name: `${input.path.label} feed`,
 		id: "ffmpeg_source",
@@ -937,14 +982,18 @@ export function buildObsMediaSource(input: {
 				input.path.slug,
 				input.handle,
 				input.readSecret,
-				input.latencyMicros,
+				// FFmpeg's libsrt takes latency in microseconds.
+				obsReadLatencyMs(lowLatency) * 1000,
 			),
 			input_format: "mpegts",
 			reconnect_delay_sec: 1,
 			restart_on_activate: false,
 			clear_on_media_end: true,
 			hw_decode: true,
-			buffering_mb: 1,
+			// OBS sets AVFMT_FLAG_NOBUFFER only when network buffering is 0. Without
+			// it, everything FFmpeg reads while probing the stream is queued and
+			// played late, and that lag never drains.
+			buffering_mb: lowLatency ? 0 : 1,
 			visp_path_id: String(input.path.id),
 		},
 	};
@@ -952,10 +1001,10 @@ export function buildObsMediaSource(input: {
 
 export function buildSceneCollection(input: {
 	handle: string;
-	latencyMicros: number;
 	paths: Array<{
 		id: number;
 		label: string;
+		lowLatency?: boolean;
 		relayHost: string;
 		slug: string;
 	}>;
@@ -979,7 +1028,6 @@ export function buildSceneCollection(input: {
 			...input.paths.map((path) =>
 				buildObsMediaSource({
 					handle: input.handle,
-					latencyMicros: input.latencyMicros,
 					path,
 					readSecret: input.readSecret,
 				}),
@@ -1011,7 +1059,6 @@ export async function getObsMediaSource(userId: string, pathId: number) {
 		pathId: path.id,
 		source: buildObsMediaSource({
 			handle: path.handle,
-			latencyMicros: 300_000,
 			path,
 			readSecret,
 		}),
@@ -1032,7 +1079,7 @@ async function buildReadBundle(
 			path.slug,
 			handle,
 			readSecret,
-			300_000,
+			obsReadLatencyMs(path.lowLatency) * 1000,
 		),
 		rtmp: buildRtmpUrl(path.relayHost, path.slug, handle, readSecret),
 	}));
@@ -1045,7 +1092,6 @@ async function buildReadBundle(
 			filename: `${handle}-relay.json`,
 			json: buildSceneCollection({
 				handle,
-				latencyMicros: 300_000,
 				paths,
 				readSecret,
 			}),
@@ -1198,21 +1244,6 @@ export async function completeOnboarding(
 	return {
 		...read,
 		urls: { ...read.urls, publish: device ? [device.urls] : [] },
-	};
-}
-
-export function recommendLatency(rttMs: number, profile: NetworkProfile) {
-	const multiplier = { wired: 3, wifi: 4, cellular: 6 }[profile];
-	const floor = { wired: 120, wifi: 300, cellular: 600 }[profile];
-	const ms = Math.max(floor, Math.ceil((rttMs * multiplier) / 50) * 50);
-	return {
-		ms,
-		micros: ms * 1000,
-		larixMs: ms,
-		note:
-			profile === "cellular"
-				? "Cellular jitter is large and bursty; do not tune this down."
-				: undefined,
 	};
 }
 

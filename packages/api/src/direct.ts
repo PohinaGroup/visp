@@ -486,6 +486,7 @@ export async function listDirectOutputs(userId: string) {
 				twitch: relayPath.directTwitch,
 				kick: relayPath.directKick,
 				youtube: relayPath.directYoutube,
+				lowLatency: relayPath.lowLatency,
 				publishing: pathState.publishing,
 				twitchState: pathState.directTwitchState,
 				twitchError: pathState.directTwitchError,
@@ -597,6 +598,7 @@ export async function listDirectOutputs(userId: string) {
 		paths: paths.map((path) => ({
 			id: path.id,
 			label: path.label,
+			lowLatency: path.lowLatency,
 			publishing: path.publishing ?? false,
 			twitch: path.twitch,
 			kick: path.kick,

@@ -176,6 +176,13 @@
 			"when": 1791624576240,
 			"tag": "0024_obs_backup",
 			"breakpoints": true
+		},
+		{
+			"idx": 25,
+			"version": "7",
+			"when": 1791630046646,
+			"tag": "0025_low_latency",
+			"breakpoints": true
 		}
 	]
 }
