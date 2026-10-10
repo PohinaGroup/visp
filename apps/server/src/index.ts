@@ -3,9 +3,10 @@ import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
 import { reconcileKickSubscriptions } from "@VISP/api/chat/kick";
 import { startMultiChatSources } from "@VISP/api/multichat/connectors";
-import { deleteExpiredTypographyProjects } from "@VISP/api/typography";
 import { applyInvalidation } from "@VISP/api/relay";
+import { rollupAndPruneRelayHealth } from "@VISP/api/relay-health-retention";
 import { ensureDefaultRelay } from "@VISP/api/relays";
+import { deleteExpiredTypographyProjects } from "@VISP/api/typography";
 import { env } from "@VISP/env/server";
 import { app } from "./app";
 import { startReconciler } from "./machine";
@@ -35,6 +36,16 @@ const cleanupTypography = async () => {
 };
 void cleanupTypography();
 setInterval(() => void cleanupTypography(), 60 * 60_000);
+// Every instance runs this; the advisory lock inside lets only one roll up.
+const retainRelayHealth = async () => {
+	try {
+		await rollupAndPruneRelayHealth();
+	} catch (error) {
+		console.error("Relay health rollup failed", error);
+	}
+};
+void retainRelayHealth();
+setInterval(() => void retainRelayHealth(), 60 * 60_000);
 const reconcileKick = async () => {
 	try {
 		if (!(await reconcileKickSubscriptions())) {

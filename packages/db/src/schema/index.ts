@@ -4,5 +4,6 @@ export * from "./auth";
 export * from "./chat";
 export * from "./multichat";
 export * from "./relay";
+export * from "./relay-health-sample";
 export * from "./studio";
 export * from "./typography";
