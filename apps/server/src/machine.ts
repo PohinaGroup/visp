@@ -20,8 +20,16 @@ import {
 	customDirectOutputActive,
 } from "@VISP/api/direct-custom";
 import {
-	getObsBackupUploadUrl,
+	completeObsBackup,
+	createObsBackup,
+	deleteObsBackup,
+	getObsBackupDownloadUrls,
+	getObsBackupManifest,
+	listObsBackups,
+	OBS_BACKUP_DOWNLOAD_BATCH,
 	OBS_BACKUP_FILE_MAX_BYTES,
+	ObsBackupError,
+	prepareObsBackupUpload,
 } from "@VISP/api/obs-backup";
 import {
 	authenticateObsControlToken,
@@ -51,7 +59,7 @@ import {
 import { auth } from "@VISP/auth";
 import { revokeSessionByToken } from "@VISP/auth/sessions";
 import { env } from "@VISP/env/server";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { Elysia, status, t } from "elysia";
 import {
 	directDestinationJsonResponse,
@@ -102,6 +110,12 @@ function matchesStudioToken(value: string | undefined, path: string) {
 		value,
 		studioScopedCredential(env.HOOK_SECRET, path, "hook"),
 	);
+}
+
+function obsBackupFailure(error: unknown) {
+	return error instanceof ObsBackupError
+		? status(error.status, error.message)
+		: status(503, "backup unavailable");
 }
 
 export const machineRoutes = new Elysia({ name: "machine-routes" })
@@ -216,15 +230,36 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			return status(503, "disconnect unavailable");
 		}
 	})
-	.post("/api/obs/backups", async ({ headers }) => {
+	.get("/api/obs/backups", async ({ headers }) => {
 		try {
 			const owner = await authenticateObsControlToken(headers.authorization);
 			if (!owner) return status(401, "unauthorized");
-			return { id: randomUUID() };
-		} catch {
-			return status(503, "backup unavailable");
+			return { backups: await listObsBackups(owner.id) };
+		} catch (error) {
+			return obsBackupFailure(error);
 		}
 	})
+	.post(
+		"/api/obs/backups",
+		async ({ body, headers }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				return await createObsBackup(owner.id, body ?? {});
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{
+			body: t.Optional(
+				t.Object({
+					label: t.Optional(t.String({ maxLength: 256 })),
+					os: t.Optional(t.String({ maxLength: 256 })),
+					obsVersion: t.Optional(t.String({ maxLength: 256 })),
+				}),
+			),
+		},
+	)
 	.post(
 		"/api/obs/backups/:backupId/files",
 		async ({ body, headers, params }) => {
@@ -234,19 +269,14 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				if (body.byteSize > OBS_BACKUP_FILE_MAX_BYTES)
 					return status(413, "Backup files must be 4 GB or smaller");
 				return {
-					uploadUrl: await getObsBackupUploadUrl(
+					uploadUrl: await prepareObsBackupUpload(
 						owner.id,
 						params.backupId,
 						body.path,
 					),
 				};
 			} catch (error) {
-				return status(
-					error instanceof Error && error.message === "Invalid backup file path"
-						? 400
-						: 503,
-					error instanceof Error ? error.message : "backup unavailable",
-				);
+				return obsBackupFailure(error);
 			}
 		},
 		{
@@ -256,6 +286,73 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			}),
 			params: t.Object({ backupId: t.String({ format: "uuid" }) }),
 		},
+	)
+	.post(
+		"/api/obs/backups/:backupId/complete",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				return await completeObsBackup(owner.id, params.backupId);
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{ params: t.Object({ backupId: t.String({ format: "uuid" }) }) },
+	)
+	.get(
+		"/api/obs/backups/:backupId/manifest",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				return await getObsBackupManifest(owner.id, params.backupId);
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{ params: t.Object({ backupId: t.String({ format: "uuid" }) }) },
+	)
+	.post(
+		"/api/obs/backups/:backupId/download-urls",
+		async ({ body, headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				return {
+					files: await getObsBackupDownloadUrls(
+						owner.id,
+						params.backupId,
+						body.paths,
+					),
+				};
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{
+			body: t.Object({
+				paths: t.Array(t.String({ minLength: 1, maxLength: 512 }), {
+					minItems: 1,
+					maxItems: OBS_BACKUP_DOWNLOAD_BATCH,
+				}),
+			}),
+			params: t.Object({ backupId: t.String({ format: "uuid" }) }),
+		},
+	)
+	.delete(
+		"/api/obs/backups/:backupId",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				await deleteObsBackup(owner.id, params.backupId);
+				return status(204);
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{ params: t.Object({ backupId: t.String({ format: "uuid" }) }) },
 	)
 	.post(
 		"/api/obs/control",
