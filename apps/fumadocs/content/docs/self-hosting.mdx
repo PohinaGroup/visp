@@ -122,6 +122,10 @@ remain disabled.
    - Set Twitch, Kick, and Google credentials and the snapshot bucket settings.
    - Point `MEDIAMTX_API_URL` at the relay's Tailscale Control API
      (`http://100.x.x.x:9997`).
+   - With relays in more than one region, optionally set
+     `DEFAULT_RELAY_REGION` to the region new accounts should use when the
+     client sent no relay measurement. Unset, it is the `default` relay's
+     region. See `deploy/REGIONS.md` for adding a region.
    - Generate `PUBLISH_URL_ENCRYPTION_KEY` with `openssl rand -base64 32` and
      back it up with the other secrets.
    - Set `NATIVE_WEB_ORIGIN` to the browser publisher's public origin
