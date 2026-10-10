@@ -980,8 +980,9 @@ function SetupWizard() {
 			onError: (error) => toast.error(error.message),
 		}),
 	);
+	const [probingAdvanced, setProbingAdvanced] = useState(false);
 	const openingAdvanced =
-		completeAdvanced.isPending || enableAdvanced.isPending;
+		probingAdvanced || completeAdvanced.isPending || enableAdvanced.isPending;
 
 	const resetSimpleSetup = useCallback(() => {
 		setStep(redo ? "redo" : "destination");
@@ -1007,14 +1008,29 @@ function SetupWizard() {
 				enableAdvanced.mutate({ advancedMode: true });
 				return;
 			}
-			completeAdvanced.mutate(ADVANCED_SETUP_DEFAULTS);
+			// Advanced setup creates the first device, so measure relays first.
+			// A failed probe leaves the choice to the server's default region.
+			setProbingAdvanced(true);
+			void (async () => {
+				const fastest = await queryClient
+					.fetchQuery(trpc.relays.list.queryOptions())
+					.then(fastestRelay)
+					.catch(() => undefined);
+				setProbingAdvanced(false);
+				completeAdvanced.mutate({
+					...ADVANCED_SETUP_DEFAULTS,
+					relayId: fastest?.id,
+				});
+			})();
 		},
 		[
 			completeAdvanced,
 			enableAdvanced,
 			openingAdvanced,
+			queryClient,
 			resetSimpleSetup,
 			status.data,
+			trpc,
 		],
 	);
 

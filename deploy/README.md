@@ -423,8 +423,9 @@ needed.
 
 ## Adding relay N
 
-For the Finland + US rollout, follow [REGIONS.md](REGIONS.md), including release
-targets, disabled registration, and moving existing devices.
+To add a relay in a new region (US East, Singapore, Tokyo, …), follow
+[REGIONS.md](REGIONS.md), including how new devices pick a relay, sizing,
+release targets, disabled registration, and moving existing devices.
 
 Provision every additional relay from the same `relay/mediamtx.yml`, Caddyfile,
 systemd units, firewall rules, and Tailscale ACLs described above. Give it a
@@ -465,7 +466,8 @@ Use a private UpCloud Managed Object Storage bucket with its public HTTPS S3
 endpoint. The app credential needs GET, HEAD, PUT, and DELETE access only to the
 `snapshots/`, `brb/`, `obs-backups/`, `typography/`, and (with Cloud Studio)
 `studio-staging/` and `studio-verified/` object prefixes, plus bucket listing restricted to
-`brb/*/highlights/uploads/` so account deletion can remove abandoned uploads.
+`brb/*/highlights/uploads/` and `obs-backups/` so account deletion can remove abandoned
+uploads and OBS backups, and pruning can remove old OBS backups.
 Keep bucket versioning disabled so overwrites do not retain history.
 
 Configure this lifecycle rule through the UpCloud control panel or a compatible
