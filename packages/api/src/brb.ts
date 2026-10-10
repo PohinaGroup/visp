@@ -20,6 +20,7 @@ import {
 	RESERVATION_MS,
 	stopDirectForPaths,
 } from "./direct";
+import { recordForwarderTransition } from "./forwarder-sessions";
 import { snapshotKey, snapshotReads, snapshotUploads } from "./snapshots";
 
 export {
@@ -350,6 +351,7 @@ export async function brbTick(
 						},
 		)
 		.where(eq(pathState.pathId, row.pathId));
+	await recordForwarderTransition([row.pathId]);
 
 	const key = brbBackgroundKey({
 		source: row.source,

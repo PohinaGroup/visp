@@ -45,6 +45,7 @@ import {
 	portraitFilterValue,
 } from "./direct-portrait";
 import { decryptSecret } from "./encrypted-secret";
+import { recordForwarderTransition } from "./forwarder-sessions";
 import { hasStreamKeyScope, PROVIDER_SCOPES, parseScopes } from "./scopes";
 
 export type { DirectCrop } from "./direct-crop";
@@ -1433,6 +1434,7 @@ export async function applyDirectState(input: {
 			input,
 			sanitizeDirectError,
 		);
+		if (applied) await recordForwarderTransition([path.id]);
 		if (applied && input.state === "live")
 			await recordPlatformLive(path.userId, path.id, input.provider);
 		return applied;
@@ -1466,6 +1468,7 @@ export async function applyDirectState(input: {
 		.insert(pathState)
 		.values({ pathId: path.id, lastEventAt: new Date(), ...columns })
 		.onConflictDoUpdate({ target: pathState.pathId, set: columns });
+	await recordForwarderTransition([path.id]);
 	if (input.state === "live")
 		await recordPlatformLive(path.userId, path.id, input.provider);
 	return true;
@@ -1882,6 +1885,7 @@ export async function stopDirectForPaths(pathIds: number[]) {
 		.update(customDirectOutput)
 		.set({ state: "stopped", reservedRelayId: null, reservedUntil: null })
 		.where(inArray(customDirectOutput.pathId, pathIds));
+	await recordForwarderTransition(pathIds);
 	await Promise.all(
 		pathIds.map((pathId) =>
 			cleanupDeletedBrbHighlightsForPath(pathId).catch(() => undefined),

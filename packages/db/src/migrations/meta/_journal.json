@@ -169,6 +169,13 @@
 			"when": 1790000000000,
 			"tag": "0023_relay_health",
 			"breakpoints": true
+		},
+		{
+			"idx": 28,
+			"version": "7",
+			"when": 1791634003000,
+			"tag": "0028_forwarder_session",
+			"breakpoints": true
 		}
 	]
 }
