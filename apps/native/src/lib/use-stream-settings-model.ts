@@ -28,6 +28,8 @@ export function useStreamSettingsModel({
 	directContribution,
 	imageStabilizationEnabled,
 	isPresented,
+	lowLatency,
+	lowLatencyHasDirect,
 	onApplyAudioInput,
 	onApplyConfiguration,
 	onRemoveDestination,
@@ -36,6 +38,7 @@ export function useStreamSettingsModel({
 	onSignIn,
 	onUpdateBondingMode,
 	onUpdateImageStabilization,
+	onUpdateLowLatency,
 	publishPathId,
 	selectedAudioInputId,
 	sessionUser,
@@ -60,6 +63,9 @@ export function useStreamSettingsModel({
 	directContribution: boolean;
 	imageStabilizationEnabled: boolean;
 	isPresented: boolean;
+	/** Undefined when this phone has no account device to switch. */
+	lowLatency?: boolean;
+	lowLatencyHasDirect: boolean;
 	onApplyAudioInput: (audioInputId: string) => void;
 	onApplyConfiguration: (configuration: VideoConfiguration) => void;
 	onRemoveDestination: () => void;
@@ -68,6 +74,7 @@ export function useStreamSettingsModel({
 	onSignIn: () => void;
 	onUpdateBondingMode: (mode: BondingMode) => Promise<void>;
 	onUpdateImageStabilization: (enabled: boolean) => void;
+	onUpdateLowLatency: (enabled: boolean) => Promise<void>;
 	publishPathId?: number;
 	selectedAudioInputId: string;
 	sessionUser?: { email: string; name: string };
@@ -213,6 +220,15 @@ export function useStreamSettingsModel({
 					await onUpdateBondingMode(mode);
 				} catch {
 					showToast("Network bonding could not be changed");
+				}
+			},
+			lowLatency,
+			lowLatencyHasDirect,
+			onUpdateLowLatency: async (enabled) => {
+				try {
+					await onUpdateLowLatency(enabled);
+				} catch {
+					showToast("Low-latency mode could not be changed");
 				}
 			},
 		},
