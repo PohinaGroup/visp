@@ -1,10 +1,10 @@
 import { expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { captionSubtitles } from "./typography-captions";
 import type { TypographyDocument } from "./typography";
+import { captionSubtitles } from "./typography-captions";
 
 const document: TypographyDocument = {
 	version: 1,
