@@ -19,6 +19,7 @@ import { z } from "zod";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
 import { probeRelayApi } from "../relay-health";
+import { adminGrowthRouter } from "./admin/growth";
 import { adminMetricsRouter } from "./admin/metrics";
 
 const PAGE_SIZE = 50;
@@ -92,6 +93,7 @@ const isLive = sql<boolean>`exists (
 
 export const adminRouter = router({
 	metrics: adminMetricsRouter,
+	growth: adminGrowthRouter,
 	overview: adminProcedure.query(async () => {
 		const recentSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 		const [result] = await db
