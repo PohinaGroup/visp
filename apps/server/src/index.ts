@@ -2,6 +2,11 @@ import { subscribeInvalidations } from "@VISP/api/cache-bus";
 import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
 import { reconcileKickSubscriptions } from "@VISP/api/chat/kick";
+import {
+	DAILY_METRICS_HOUR_UTC,
+	isDailyMetricsDue,
+	runDailyMetricsJob,
+} from "@VISP/api/daily-metrics";
 import { flushHostedUsageOnShutdown } from "@VISP/api/hosted-usage";
 import { startMultiChatSources } from "@VISP/api/multichat/connectors";
 import { applyInvalidation } from "@VISP/api/relay";
@@ -48,6 +53,28 @@ const retainRelayHealth = async () => {
 };
 void retainRelayHealth();
 setInterval(() => void retainRelayHealth(), 60 * 60_000);
+// Nightly rollup at 03:00 UTC, plus once at startup when yesterday is missing
+// (deploys and restarts). Every instance checks; the advisory lock inside
+// lets only one roll up, and a missed night is filled by the next run.
+let dailyMetricsRanOn: string | null = null;
+const rollupDailyMetricsNightly = async (startup: boolean) => {
+	const now = new Date();
+	const today = now.toISOString().slice(0, 10);
+	try {
+		if (startup) {
+			if (!(await isDailyMetricsDue(now))) return;
+		} else {
+			if (now.getUTCHours() !== DAILY_METRICS_HOUR_UTC) return;
+			if (dailyMetricsRanOn === today) return;
+			dailyMetricsRanOn = today;
+		}
+		await runDailyMetricsJob(now);
+	} catch (error) {
+		console.error("Daily metrics rollup failed", error);
+	}
+};
+void rollupDailyMetricsNightly(true);
+setInterval(() => void rollupDailyMetricsNightly(false), 60 * 60_000);
 const reconcileKick = async () => {
 	try {
 		if (!(await reconcileKickSubscriptions())) {

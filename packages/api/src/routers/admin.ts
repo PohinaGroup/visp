@@ -21,6 +21,7 @@ import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
 import { probeRelayApi } from "../relay-health";
 import { adminAuditRouter } from "./admin/audit";
+import { adminGrowthRouter } from "./admin/growth";
 import { adminMetricsRouter } from "./admin/metrics";
 import { adminRelayHistoryRouter } from "./admin/relay-history";
 import { adminReliabilityRouter } from "./admin/reliability";
@@ -151,6 +152,7 @@ export const adminRouter = router({
 	audit: adminAuditRouter,
 	metrics: adminMetricsRouter,
 	reliability: adminReliabilityRouter,
+	growth: adminGrowthRouter,
 	overview: adminProcedure.query(async () => {
 		const recentSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 		const [result] = await db
