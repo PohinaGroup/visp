@@ -1,6 +1,7 @@
 import { db } from "@VISP/db";
-import { relay, relayHealth } from "@VISP/db/schema/index";
-import { eq } from "drizzle-orm";
+import { relay, relayHealth, relayHealthSample } from "@VISP/db/schema/index";
+import { eq, sql } from "drizzle-orm";
+import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
 
 export type RelayHealthReport = {
 	relay: string;
@@ -28,14 +29,67 @@ export async function reportRelayHealth(report: RelayHealthReport) {
 		.limit(1);
 	if (!target) return false;
 	const { relay: _name, ...metrics } = report;
+	const reportedAt = new Date();
 	await db
 		.insert(relayHealth)
-		.values({ relayId: target.id, reportedAt: new Date(), ...metrics })
+		.values({ relayId: target.id, reportedAt, ...metrics })
 		.onConflictDoUpdate({
 			target: relayHealth.relayId,
-			set: { reportedAt: new Date(), ...metrics },
+			set: { reportedAt, ...metrics },
 		});
+	// History row. A duplicate (same relay, same instant) is a retried push of
+	// the same sample, so it is dropped rather than overwriting.
+	await db
+		.insert(relayHealthSample)
+		.values({
+			relayId: target.id,
+			reportedAt,
+			load1: report.load1,
+			cpuCount: report.cpuCount,
+			memUsedPct: usedPct(report.memTotalKb, report.memAvailableKb),
+			diskUsedPct: usedPct(report.diskTotalKb, report.diskAvailableKb),
+			livePaths: sql`(
+				select count(*)::int from "path" sample_path
+				join path_state sample_state on sample_state.path_id = sample_path.id
+				where sample_path.relay_id = ${target.id}
+					and sample_path.revoked_at is null
+					and sample_state.publishing
+			)`,
+			activeForwarders: relayActiveForwarders(target.id),
+		})
+		.onConflictDoNothing();
 	return true;
+}
+
+/** Share of a kb total in use, 0–100. A zero total (bad probe) reads as 0. */
+export function usedPct(totalKb: number, availableKb: number) {
+	if (!(totalKb > 0)) return 0;
+	const pct = ((totalKb - availableKb) / totalKb) * 100;
+	return Math.min(100, Math.max(0, pct));
+}
+
+/**
+ * Forwarders running on a relay, counted exactly like the admin relay list's
+ * "active forwarders" column (legacy provider forwarders plus portrait
+ * destinations in an occupied state) so a chart and the live number agree.
+ */
+function relayActiveForwarders(relayId: number) {
+	return sql<number>`(
+		select (
+			count(*) filter (where sample_state.direct_twitch_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
+			count(*) filter (where sample_state.direct_kick_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
+			count(*) filter (where sample_state.direct_youtube_state in ${DIRECT_OCCUPIED_STATES_SQL}) +
+			(select count(*) from direct_destination sample_portrait
+				join "path" sample_portrait_path on sample_portrait_path.id = sample_portrait.path_id
+				where sample_portrait_path.relay_id = ${relayId}
+					and sample_portrait_path.revoked_at is null
+					and sample_portrait.state in ${DIRECT_OCCUPIED_STATES_SQL})
+		)::int
+		from "path" sample_path
+		join path_state sample_state on sample_state.path_id = sample_path.id
+		where sample_path.relay_id = ${relayId}
+			and sample_path.revoked_at is null
+	)`;
 }
 
 export type RelayApiProbe = {
