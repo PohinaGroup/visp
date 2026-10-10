@@ -240,7 +240,8 @@ Admin. Draining prevents new assignments without moving existing paths.
 Use a private S3-compatible bucket (UpCloud Managed Object Storage works) with
 its public HTTPS endpoint. Grant the app credential GET, HEAD, PUT, and DELETE
 only on the prefixes VISP writes: `snapshots/`, `brb/`, `obs-backups/`,
-`typography/`, and (with Cloud Studio) `studio-staging/` and `studio-verified/`.
+`typography/`, and (with Cloud Studio) `studio-staging/` and `studio-verified/`,
+plus listing under `brb/*/highlights/uploads/` and `obs-backups/` so cleanup works.
 Keep versioning disabled. `deploy/README.md` lists the BRB upload lifecycle rule
 and the Typography CORS policy.
 
