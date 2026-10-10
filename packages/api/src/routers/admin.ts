@@ -23,6 +23,7 @@ import { probeRelayApi } from "../relay-health";
 import { adminAuditRouter } from "./admin/audit";
 import { adminGrowthRouter } from "./admin/growth";
 import { adminMetricsRouter } from "./admin/metrics";
+import { adminRelayForecastRouter } from "./admin/relay-forecast";
 import { adminRelayHistoryRouter } from "./admin/relay-history";
 import { adminReliabilityRouter } from "./admin/reliability";
 import { adminSpendRouter } from "./admin/spend";
@@ -358,6 +359,7 @@ export const adminRouter = router({
 	}),
 	relayHistory: adminRelayHistoryRouter,
 	spend: adminSpendRouter,
+	relayForecast: adminRelayForecastRouter,
 	usage: adminUsageRouter,
 
 	users: router({
