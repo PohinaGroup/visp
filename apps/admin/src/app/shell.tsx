@@ -3,9 +3,21 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { LogOut, Menu, RefreshCw, ShieldCheck, X } from "lucide-react";
 import { useEffect, useState } from "react";
+import { DateRangeControl } from "../components/date-range-control";
 import { authClient } from "../lib";
-import { findNavItem, NAV_GROUPS, NAV_ITEMS } from "./nav";
+import { pickDateRangeSearch } from "./date-range";
+import { findNavItem, NAV_GROUPS, NAV_ITEMS, type NavItem } from "./nav";
 import { useAdminSession } from "./session";
+
+/**
+ * Dashboards share the global date range, so links between them carry its
+ * query keys (and nothing page-local); Tools links start from a clean URL.
+ */
+function navSearch(item: NavItem) {
+	return item.group === "Dashboards"
+		? (prev: Record<string, unknown>) => pickDateRangeSearch(prev)
+		: {};
+}
 
 /** Grouped nav links; the same list serves the sidebar and the narrow menu. */
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
@@ -24,6 +36,7 @@ function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
 							}}
 							className="flex items-center gap-2.5 px-3 py-2 text-muted-foreground text-sm transition-colors hover:bg-accent/60 hover:text-foreground data-[status=active]:bg-accent data-[status=active]:text-foreground"
 							key={item.path}
+							search={navSearch(item)}
 							to={item.path}
 							onClick={onNavigate}
 						>
@@ -50,6 +63,8 @@ export function Shell() {
 		select: (state) => state.location.pathname,
 	});
 
+	const isDashboard = findNavItem(pathname)?.group === "Dashboards";
+
 	useEffect(() => {
 		const page = findNavItem(pathname);
 		document.title = page ? `${page.label} · VISP Admin` : "VISP Admin";
@@ -62,8 +77,13 @@ export function Shell() {
 	return (
 		<div className="min-h-screen">
 			<header className="sticky top-0 z-20 border-border/70 border-b bg-background/90 backdrop-blur">
-				<div className="mx-auto flex h-14 max-w-[1800px] items-center justify-between px-4 lg:px-6">
-					<div className="flex items-center gap-3">
+				{/*
+				 * The date range sits inline on wide screens and wraps to its own
+				 * row below `lg`; the sidebar offset (`top-14`) only applies at
+				 * `lg`, where the header stays one 3.5rem row.
+				 */}
+				<div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-x-4 px-4 lg:flex-nowrap lg:px-6">
+					<div className="flex h-14 shrink-0 items-center gap-3">
 						<Button
 							aria-controls="admin-mobile-nav"
 							aria-expanded={menuOpen}
@@ -75,7 +95,13 @@ export function Shell() {
 						>
 							{menuOpen ? <X /> : <Menu />}
 						</Button>
-						<Link className="flex items-center gap-3" to="/">
+						<Link
+							className="flex items-center gap-3"
+							search={(prev: Record<string, unknown>) =>
+								pickDateRangeSearch(prev)
+							}
+							to="/"
+						>
 							<div className="flex size-8 items-center justify-center bg-primary text-primary-foreground">
 								<ShieldCheck className="size-4" />
 							</div>
@@ -87,7 +113,12 @@ export function Shell() {
 							</div>
 						</Link>
 					</div>
-					<div className="flex items-center gap-2">
+					{isDashboard && (
+						<div className="order-last flex w-full min-w-0 pb-3 lg:order-none lg:w-auto lg:flex-1 lg:justify-end lg:pb-0">
+							<DateRangeControl />
+						</div>
+					)}
+					<div className="flex h-14 shrink-0 items-center gap-2">
 						<div className="hidden text-right sm:block">
 							<p className="text-xs">{session.user.name}</p>
 							<p className="text-muted-foreground text-xs">
