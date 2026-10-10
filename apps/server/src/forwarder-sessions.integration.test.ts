@@ -2,9 +2,14 @@ import "./test-env";
 
 import { applyDirectState, stopDirectForPaths } from "@VISP/api/direct";
 import { applyCustomDirectState } from "@VISP/api/direct-custom";
-import { reconcileForwarderSessions } from "@VISP/api/forwarder-sessions";
+import {
+	FORWARDER_SESSION_LOCK_FAMILY,
+	reconcileForwarderSessions,
+	recordForwarderTransition,
+	syncForwarderSessions,
+} from "@VISP/api/forwarder-sessions";
 import { ensureDefaultRelay } from "@VISP/api/relays";
-import { db } from "@VISP/db";
+import { db, pool } from "@VISP/db";
 import {
 	appUser,
 	customDirectDestination,
@@ -22,11 +27,13 @@ import { asc, eq } from "drizzle-orm";
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
 const test = bunTest.serial;
 
-async function seedPath() {
-	await db
-		.insert(user)
-		.values({ id: "fwd-user", name: "Fwd", email: "fwd@example.test" });
-	await db.insert(appUser).values({ id: "fwd-user", handle: "fwd" });
+async function seedPath(seq = 1) {
+	if (seq === 1) {
+		await db
+			.insert(user)
+			.values({ id: "fwd-user", name: "Fwd", email: "fwd@example.test" });
+		await db.insert(appUser).values({ id: "fwd-user", handle: "fwd" });
+	}
 	const defaultRelay = await db.query.relay.findFirst({
 		where: eq(relay.name, "default"),
 	});
@@ -36,8 +43,8 @@ async function seedPath() {
 		.values({
 			relayId: defaultRelay.id,
 			userId: "fwd-user",
-			seq: 1,
-			slug: "fwd-1",
+			seq,
+			slug: `fwd-${seq}`,
 			label: "main",
 		})
 		.returning();
@@ -214,5 +221,75 @@ integration("Direct forwarder sessions", () => {
 		expect(
 			(await sessionsFor(path.id)).every((row) => row.endedAt !== null),
 		).toBe(true);
+	});
+
+	test("a sync waits for a running reconcile and then reads fresh state", async () => {
+		const { path } = await seedPath();
+		await db
+			.insert(pathState)
+			.values({ pathId: path.id, directTwitchState: "live" });
+		// Stand in for a reconcile in flight: hold the global gate.
+		const reconciler = await pool.connect();
+		let synced = false;
+		let pending: Promise<void> | undefined;
+		try {
+			await reconciler.query("begin");
+			await reconciler.query("select pg_advisory_xact_lock($1, 0)", [
+				FORWARDER_SESSION_LOCK_FAMILY,
+			]);
+			pending = recordForwarderTransition([path.id]).then(() => {
+				synced = true;
+			});
+			await Bun.sleep(150);
+			expect(synced).toBe(false);
+			expect(await sessionsFor(path.id)).toHaveLength(0);
+			// The forwarder stops while the hook's sync is queued.
+			await db
+				.update(pathState)
+				.set({ directTwitchState: "stopped" })
+				.where(eq(pathState.pathId, path.id));
+		} finally {
+			await reconciler.query("commit");
+			reconciler.release();
+		}
+		await pending;
+		expect(synced).toBe(true);
+		// The sync took its snapshot after the lock, so it saw the stop and
+		// did not open a row for a forwarder that is already gone.
+		expect(await sessionsFor(path.id)).toHaveLength(0);
+	});
+
+	test("overlapping per-path syncs and reconciles neither fail nor duplicate", async () => {
+		const seeded = [];
+		for (const seq of [1, 2, 3]) seeded.push((await seedPath(seq)).path);
+		await db.insert(pathState).values(
+			seeded.map((path) => ({
+				pathId: path.id,
+				directTwitchState: "live" as const,
+				directKickState: "live" as const,
+			})),
+		);
+		const ids = seeded.map((path) => path.id);
+		// Unwrapped syncs, so a deadlock or lock error fails the test instead
+		// of being logged and swallowed like on the hook path.
+		const runs: Promise<unknown>[] = [];
+		for (let round = 0; round < 8; round += 1) {
+			runs.push(
+				syncForwarderSessions(db, ids),
+				syncForwarderSessions(db, [...ids].reverse()),
+				syncForwarderSessions(db, [ids[round % ids.length] ?? 0]),
+				reconcileForwarderSessions(),
+			);
+		}
+		await Promise.all(runs);
+		for (const path of seeded) {
+			const rows = await sessionsFor(path.id);
+			expect(
+				rows.map((row) => [row.destination, row.endedAt === null]).sort(),
+			).toEqual([
+				["kick", true],
+				["twitch", true],
+			]);
+		}
 	});
 });
