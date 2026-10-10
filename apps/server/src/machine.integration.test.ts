@@ -49,6 +49,10 @@ import {
 	customDirectOutputActive,
 } from "@VISP/api/direct-custom";
 import {
+	OBS_BACKUP_MAX_PENDING,
+	OBS_BACKUP_RETENTION,
+} from "@VISP/api/obs-backup";
+import {
 	getObsControlStatus,
 	rotateObsControlToken,
 	setObsScene,
@@ -97,6 +101,7 @@ import {
 	customDirectDestination,
 	customDirectOutput,
 	directDestination,
+	obsBackup,
 	pathState,
 	relay,
 	relayPath,
@@ -261,6 +266,44 @@ function machineAuth(input: {
 			body: JSON.stringify({ ...input, ip: "127.0.0.1" }),
 		}),
 	);
+}
+
+/**
+ * In-memory S3 behind the aws4fetch client, enough for OBS backup reads,
+ * stats, listings and deletes. Uploads are simulated by writing the map.
+ */
+function fakeObjectStore() {
+	const objects = new Map<string, Uint8Array>();
+	const bucketPath = `/${process.env.S3_BUCKET}`;
+	globalThis.fetch = (async (
+		input: Request | string | URL,
+		init?: RequestInit,
+	) => {
+		const request =
+			input instanceof Request ? input : new Request(String(input), init);
+		const url = new URL(request.url);
+		if (url.origin !== new URL(process.env.S3_ENDPOINT ?? "").origin)
+			return originalFetch(input, init);
+		if (url.searchParams.get("list-type") === "2") {
+			const prefix = url.searchParams.get("prefix") ?? "";
+			const keys = [...objects.keys()].filter((key) => key.startsWith(prefix));
+			return new Response(
+				`<ListBucketResult>${keys.map((key) => `<Key>${key}</Key>`).join("")}<IsTruncated>false</IsTruncated></ListBucketResult>`,
+			);
+		}
+		const key = decodeURIComponent(url.pathname.slice(bucketPath.length + 1));
+		if (request.method === "DELETE") {
+			objects.delete(key);
+			return new Response(null, { status: 204 });
+		}
+		const object = objects.get(key);
+		if (!object) return new Response(null, { status: 404 });
+		const headers = { "content-length": String(object.length) };
+		return request.method === "HEAD"
+			? new Response(null, { headers })
+			: new Response(object, { headers });
+	}) as typeof fetch;
+	return objects;
 }
 
 integration("relay PostgreSQL integration", () => {
@@ -1017,6 +1060,260 @@ integration("relay PostgreSQL integration", () => {
 		});
 	});
 
+	test("stores, lists, restores and prunes OBS backups for their owner only", async () => {
+		await seed();
+		const objects = fakeObjectStore();
+		const pairingA = await rotateObsControlToken("user-a");
+		const pairingB = await rotateObsControlToken("user-b");
+		const call = (
+			token: string,
+			path: string,
+			method = "GET",
+			body?: Record<string, unknown>,
+		) =>
+			app.handle(
+				new Request(`http://localhost${path}`, {
+					method,
+					headers: {
+						authorization: `Bearer ${token}`,
+						...(body ? { "content-type": "application/json" } : {}),
+					},
+					...(body ? { body: JSON.stringify(body) } : {}),
+				}),
+			);
+		const created = await call(pairingA.token, "/api/obs/backups", "POST", {
+			obsVersion: "31.1.0",
+		});
+		expect(created.status).toBe(200);
+		const { id } = (await created.json()) as { id: string };
+		const prefix = `obs-backups/user-a/${id}/`;
+
+		const crossTenant = await call(
+			pairingB.token,
+			`/api/obs/backups/${id}/files`,
+			"POST",
+			{ path: "scenes/Main.json", byteSize: 4 },
+		);
+		expect(crossTenant.status).toBe(404);
+		const upload = await call(
+			pairingA.token,
+			`/api/obs/backups/${id}/files`,
+			"POST",
+			{ path: "scenes/Main.json", byteSize: 4 },
+		);
+		expect(upload.status).toBe(200);
+		expect(
+			((await upload.json()) as { uploadUrl: string }).uploadUrl,
+		).toContain(`${prefix}scenes/Main.json`);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${id}/complete`, "POST"))
+				.status,
+		).toBe(422);
+		expect(
+			await (await call(pairingA.token, "/api/obs/backups")).json(),
+		).toEqual({ backups: [] });
+
+		const scene = new TextEncoder().encode('{"sources":[]}');
+		const media = new Uint8Array([1, 2, 3, 4, 5]);
+		const manifest = {
+			version: 2,
+			createdAt: "2026-10-10T10:00:00Z",
+			os: "windows",
+			obsVersion: "31.1.0",
+			sceneCollection: "Main",
+			profile: "Streaming",
+			files: [
+				{
+					path: "scenes/Main.json",
+					originalPath: "C:/obs/basic/scenes/Main.json",
+					byteSize: scene.length,
+					sha256: "a".repeat(64),
+				},
+				{
+					path: "media/000001.png",
+					originalPath: "C:/media/logo.png",
+					byteSize: media.length,
+					sha256: "b".repeat(64),
+				},
+			],
+		};
+		objects.set(`${prefix}scenes/Main.json`, scene);
+		objects.set(
+			`${prefix}manifest.json`,
+			new TextEncoder().encode(JSON.stringify(manifest)),
+		);
+		// A manifest that lists a file never uploaded cannot seal the backup.
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${id}/complete`, "POST"))
+				.status,
+		).toBe(422);
+		objects.set(`${prefix}media/000001.png`, media);
+		expect(
+			(await call(pairingB.token, `/api/obs/backups/${id}/complete`, "POST"))
+				.status,
+		).toBe(404);
+		const complete = await call(
+			pairingA.token,
+			`/api/obs/backups/${id}/complete`,
+			"POST",
+		);
+		expect(complete.status).toBe(200);
+		expect(await complete.json()).toMatchObject({
+			id,
+			fileCount: 2,
+			totalBytes: scene.length + media.length,
+			label: "Main",
+			os: "windows",
+			obsVersion: "31.1.0",
+		});
+		expect(
+			(
+				await call(pairingA.token, `/api/obs/backups/${id}/files`, "POST", {
+					path: "media/000002",
+					byteSize: 1,
+				})
+			).status,
+		).toBe(409);
+
+		const listed = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string }[] };
+		expect(listed.backups.map((backup) => backup.id)).toEqual([id]);
+		expect(
+			await (await call(pairingB.token, "/api/obs/backups")).json(),
+		).toEqual({ backups: [] });
+
+		const read = await call(pairingA.token, `/api/obs/backups/${id}/manifest`);
+		expect(read.status).toBe(200);
+		expect(await read.json()).toMatchObject({
+			backup: { id, fileCount: 2 },
+			manifest: { version: 2, sceneCollection: "Main" },
+		});
+		expect(
+			(await call(pairingB.token, `/api/obs/backups/${id}/manifest`)).status,
+		).toBe(404);
+
+		const downloadUrls = (paths: string[], token = pairingA.token) =>
+			call(token, `/api/obs/backups/${id}/download-urls`, "POST", { paths });
+		expect((await downloadUrls(["media/000002"])).status).toBe(404);
+		expect((await downloadUrls(["../user-b/secret"])).status).toBe(400);
+		expect(
+			(await downloadUrls(["media/000001.png"], pairingB.token)).status,
+		).toBe(404);
+		const urls = await downloadUrls(["scenes/Main.json", "media/000001.png"]);
+		expect(urls.status).toBe(200);
+		const { files } = (await urls.json()) as {
+			files: { path: string; url: string }[];
+		};
+		expect(files.map((file) => file.path)).toEqual([
+			"scenes/Main.json",
+			"media/000001.png",
+		]);
+		expect(files[1]?.url).toContain(`${prefix}media/000001.png`);
+		expect(files[1]?.url).toContain("X-Amz-Signature=");
+
+		expect(
+			(await call(pairingB.token, `/api/obs/backups/${id}`, "DELETE")).status,
+		).toBe(404);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${id}`, "DELETE")).status,
+		).toBe(204);
+		expect([...objects.keys()].some((key) => key.startsWith(prefix))).toBe(
+			false,
+		);
+		expect(
+			await db.query.obsBackup.findFirst({ where: eq(obsBackup.id, id) }),
+		).toBeUndefined();
+
+		// Plugins from before restore never call complete; listing seals them.
+		const legacy = (await (
+			await call(pairingA.token, "/api/obs/backups", "POST", {})
+		).json()) as { id: string };
+		objects.set(`obs-backups/user-a/${legacy.id}/scenes/Main.json`, scene);
+		objects.set(
+			`obs-backups/user-a/${legacy.id}/manifest.json`,
+			new TextEncoder().encode(
+				JSON.stringify({
+					version: 1,
+					createdAt: "2026-10-10T10:00:00Z",
+					files: [
+						{
+							path: "scenes/Main.json",
+							originalPath: "/obs/Main.json",
+							byteSize: scene.length,
+						},
+					],
+				}),
+			),
+		);
+		const settled = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string; fileCount: number }[] };
+		expect(settled.backups).toEqual([
+			expect.objectContaining({ id: legacy.id, fileCount: 1 }),
+		]);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${legacy.id}`, "DELETE"))
+				.status,
+		).toBe(204);
+
+		// Retention keeps the newest completed backups and drops older objects.
+		const ids: string[] = [];
+		for (let index = 0; index <= OBS_BACKUP_RETENTION; index += 1) {
+			const response = await call(pairingA.token, "/api/obs/backups", "POST");
+			const backup = (await response.json()) as { id: string };
+			ids.push(backup.id);
+			const backupPrefix = `obs-backups/user-a/${backup.id}/`;
+			objects.set(`${backupPrefix}scenes/Main.json`, scene);
+			objects.set(
+				`${backupPrefix}manifest.json`,
+				new TextEncoder().encode(
+					JSON.stringify({
+						version: 1,
+						createdAt: "2026-10-10T10:00:00Z",
+						files: [
+							{
+								path: "scenes/Main.json",
+								originalPath: "/obs/Main.json",
+								byteSize: scene.length,
+							},
+						],
+					}),
+				),
+			);
+			expect(
+				(
+					await call(
+						pairingA.token,
+						`/api/obs/backups/${backup.id}/complete`,
+						"POST",
+					)
+				).status,
+			).toBe(200);
+		}
+		const retained = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string }[] };
+		expect(retained.backups).toHaveLength(OBS_BACKUP_RETENTION);
+		expect(retained.backups[0]?.id).toBe(ids.at(-1));
+		expect(retained.backups.map((backup) => backup.id)).not.toContain(ids[0]);
+		expect(
+			[...objects.keys()].some((key) =>
+				key.startsWith(`obs-backups/user-a/${ids[0]}/`),
+			),
+		).toBe(false);
+
+		// Unfinished uploads are capped so a client cannot open them forever.
+		for (let index = 0; index < OBS_BACKUP_MAX_PENDING; index += 1) {
+			expect(
+				(await call(pairingA.token, "/api/obs/backups", "POST")).status,
+			).toBe(200);
+		}
+		expect(
+			(await call(pairingA.token, "/api/obs/backups", "POST")).status,
+		).toBe(429);
+	});
+
 	test("authenticates and pushes commands over the OBS WebSocket", async () => {
 		await seed();
 		const pairing = await rotateObsControlToken("user-a");
@@ -1729,7 +2026,8 @@ integration("relay PostgreSQL integration", () => {
 
 		expect((await chooseRelay("new-user", relayB.id))?.id).toBe(relayB.id);
 		expect((await chooseRelay("user-a"))?.id).toBe(data.pathA.relayId);
-		expect((await chooseRelay("new-user"))?.id).toBe(relayA.id);
+		// No preference: the default relay's region wins over the emptier relays.
+		expect((await chooseRelay("new-user"))?.id).toBe(data.pathA.relayId);
 
 		await db
 			.update(relay)
