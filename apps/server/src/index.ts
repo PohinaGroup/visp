@@ -1,3 +1,4 @@
+import { isolationUsage } from "@VISP/api/audio-isolation";
 import { subscribeInvalidations } from "@VISP/api/cache-bus";
 import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
@@ -23,6 +24,11 @@ try {
 	console.error("Failed to ensure default relay", error);
 }
 
+// Registered first so open audio meters hand over their last seconds before
+// the shutdown flush below writes the buffer (signal listeners run in order).
+for (const signal of ["SIGTERM", "SIGINT"] as const) {
+	process.once(signal, () => isolationUsage.endAll());
+}
 flushHostedUsageOnShutdown();
 startReconciler();
 subscribeInvalidations(applyInvalidation);
