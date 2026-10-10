@@ -36,6 +36,24 @@ Sovellus näyttää Wi-Fin ja mobiiliyhteyden erikseen ja ilmoittaa, jos vain
 toinen on käytettävissä. Kun toiminto ei ole käytössä, julkaisu menee suoraan
 UDP-porttiin 8890.
 
+## Matalan viiveen OBS-tila
+
+Oletuksena sovellus lähettää kahden sekunnin SRT-ikkunalla, jotta puhelinyhteys
+ehtii lähettää kadonneet paketit uudelleen. Alustoille se on oikea valinta,
+mutta OBS:ssä näet itsesi noin kolme sekuntia myöhässä.
+
+Kun olet kirjautunut VISP-tilille, avaa **Settings → Network** ja ota käyttöön
+**Low-latency OBS mode** tälle laitteelle. Lähetyksen alkaessa sovellus mittaa
+viiveen välityspalvelimelle ja valitsee lyhimmän ikkunan, jonka yhteys kestää
+(noin 300 ms Wi-Fillä, 600 ms mobiiliverkossa). OBS-liitännäinen vaihtaa
+laitteen medialähteen 150 ms:n lukuun ilman verkkopuskurointia muutamassa
+sekunnissa. Hyvällä Wi-Fillä viive puhelimesta OBS:ään on noin puoli sekuntia.
+
+- Verkkoyhteyksien yhdistäminen on pois päältä matalan viiveen tilassa.
+- Direct toimii samasta syötteestä, mutta heikolla yhteydellä lyhyempi ikkuna
+  voi pudottaa tai sotkea kuvia Twitchissä, Kickissä tai YouTubessa.
+  Hallintapaneeli ja sovellus kertovat tästä, kun molemmat ovat päällä.
+
 ## Lähetyksen aikana
 
 Kelluva chat näyttää Twitchin, Kickin ja YouTuben viestit samassa näkymässä.
