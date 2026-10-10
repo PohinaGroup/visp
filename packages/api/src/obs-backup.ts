@@ -3,7 +3,7 @@ import { obsBackup } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createObjectStore, type ObjectStore } from "@VISP/object-store";
 import { randomUUID } from "node:crypto";
-import { and, desc, eq, isNotNull, isNull, lt } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 
 export const OBS_BACKUP_FILE_MAX_BYTES = 4 * 1024 * 1024 * 1024;
@@ -17,8 +17,15 @@ export const OBS_BACKUP_MANIFEST_MAX_BYTES = 4 * 1024 * 1024;
 export const OBS_BACKUP_MANIFEST_MAX_FILES = 10_000;
 export const OBS_BACKUP_DOWNLOAD_BATCH = 100;
 export const OBS_BACKUP_MANIFEST_PATH = "manifest.json";
-const URL_TTL_SECONDS = 60 * 60;
+/** Listing seals at most this many legacy backups per request. */
+export const OBS_BACKUP_SETTLE_PER_REQUEST = 1;
+/** A legacy backup that failed to seal is not retried sooner than this. */
+export const OBS_BACKUP_SETTLE_RETRY_MS = 10 * 60 * 1000;
+/** The plugin asks for each upload URL right before it starts that PUT. */
+const UPLOAD_URL_TTL_SECONDS = 15 * 60;
+const DOWNLOAD_URL_TTL_SECONDS = 60 * 60;
 const STAT_CONCURRENCY = 8;
+const SETTLE_ATTEMPTS_MAX = 10_000;
 
 /** Server-side reads, listings and deletes. */
 const storage = createObjectStore({
@@ -66,13 +73,45 @@ export function obsBackupKey(userId: string, backupId: string, path: string) {
 	return `${obsBackupPrefix(userId, backupId)}${path}`;
 }
 
+/** Device names Windows resolves anywhere, even with an extension (CON.json). */
+const WINDOWS_RESERVED_NAME =
+	/^(con|prn|aux|nul|com[0-9¹²³]|lpt[0-9¹²³])(\..*)?$/i;
+/** Drive letters and streams (`:`), wildcards, pipes and quotes Windows rejects. */
+const WINDOWS_RESERVED_CHARACTERS = '<>:"|?*';
+
+function safePathCharacter(character: string) {
+	const code = character.charCodeAt(0);
+	return (
+		code >= 0x20 &&
+		code !== 0x7f &&
+		character !== "\\" &&
+		!WINDOWS_RESERVED_CHARACTERS.includes(character)
+	);
+}
+
+function safePathSegment(part: string) {
+	return (
+		part.length > 0 &&
+		part !== "." &&
+		part !== ".." &&
+		// Windows drops trailing dots and spaces, so "a." would land on "a".
+		!part.endsWith(".") &&
+		!part.endsWith(" ") &&
+		!WINDOWS_RESERVED_NAME.test(part)
+	);
+}
+
+/**
+ * A relative path that stays inside the restore folder on every OS the plugin
+ * runs on: no drive letters (`C:/...`), no absolute or parent segments, and
+ * nothing Windows would reinterpret. Mirrored by valid_backup_path in the plugin.
+ */
 export function validObsBackupPath(path: string) {
 	return (
 		path.length > 0 &&
 		path.length <= 512 &&
-		!path.includes("\\") &&
-		!path.includes("\0") &&
-		path.split("/").every((part) => part && part !== "." && part !== "..")
+		[...path].every(safePathCharacter) &&
+		path.split("/").every(safePathSegment)
 	);
 }
 
@@ -193,12 +232,13 @@ async function removeBackup(
 	await db
 		.delete(obsBackup)
 		.where(and(eq(obsBackup.id, backupId), eq(obsBackup.userId, userId)));
+	settleAttempts.delete(backupId);
 }
 
-export async function createObsBackup(
+/** Unfinished backups past OBS_BACKUP_PENDING_TTL_MS are abandoned uploads. */
+async function removeAbandonedObsBackups(
 	userId: string,
-	input: { label?: string; os?: string; obsVersion?: string } = {},
-	client: Pick<ObjectStore, "list" | "delete"> = storage,
+	client: Pick<ObjectStore, "list" | "delete">,
 ) {
 	const abandoned = await db.query.obsBackup.findMany({
 		columns: { id: true },
@@ -209,26 +249,42 @@ export async function createObsBackup(
 		),
 	});
 	for (const { id } of abandoned) await removeBackup(userId, id, client);
-	await settlePendingObsBackups(userId);
-	const pending = await db.$count(
-		obsBackup,
-		and(eq(obsBackup.userId, userId), isNull(obsBackup.completedAt)),
-	);
-	if (pending >= OBS_BACKUP_MAX_PENDING)
-		throw new ObsBackupError(
-			429,
-			"Another backup is still uploading. Try again later.",
+}
+
+export async function createObsBackup(
+	userId: string,
+	input: { label?: string; os?: string; obsVersion?: string } = {},
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+) {
+	await removeAbandonedObsBackups(userId, client);
+	await settlePendingObsBackups(userId, client);
+	// Count and insert under one per-account lock so parallel creates cannot
+	// both see room for one more pending backup.
+	const row = await db.transaction(async (tx) => {
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtext(${`obs-backup:${userId}`}))`,
 		);
-	const [row] = await db
-		.insert(obsBackup)
-		.values({
-			id: randomUUID(),
-			userId,
-			label: input.label?.trim().slice(0, 256) || null,
-			os: input.os?.trim().slice(0, 256) || null,
-			obsVersion: input.obsVersion?.trim().slice(0, 256) || null,
-		})
-		.returning();
+		const [pending] = await tx
+			.select({ value: count() })
+			.from(obsBackup)
+			.where(and(eq(obsBackup.userId, userId), isNull(obsBackup.completedAt)));
+		if ((pending?.value ?? 0) >= OBS_BACKUP_MAX_PENDING)
+			throw new ObsBackupError(
+				429,
+				"Another backup is still uploading. Try again later.",
+			);
+		const [inserted] = await tx
+			.insert(obsBackup)
+			.values({
+				id: randomUUID(),
+				userId,
+				label: input.label?.trim().slice(0, 256) || null,
+				os: input.os?.trim().slice(0, 256) || null,
+				obsVersion: input.obsVersion?.trim().slice(0, 256) || null,
+			})
+			.returning();
+		return inserted;
+	});
 	if (!row) throw new Error("Backup was not created");
 	return { id: row.id };
 }
@@ -241,7 +297,7 @@ export async function getObsBackupUploadUrl(
 ) {
 	if (!validObsBackupPath(path)) throw new Error("Invalid backup file path");
 	return client.presign(obsBackupKey(userId, backupId, path), {
-		expiresIn: URL_TTL_SECONDS,
+		expiresIn: UPLOAD_URL_TTL_SECONDS,
 		method: "PUT",
 	});
 }
@@ -335,7 +391,12 @@ export async function completeObsBackup(
 		.where(and(eq(obsBackup.id, backupId), eq(obsBackup.userId, userId)))
 		.returning();
 	if (!completed) throw new ObsBackupError(404, "Backup not found");
-	await pruneObsBackups(userId, client);
+	settleAttempts.delete(backupId);
+	// The backup is sealed either way; a storage hiccup here only delays
+	// retention until the next completion.
+	await pruneObsBackups(userId, client).catch((error) => {
+		console.error("Failed to prune old OBS backups", error);
+	});
 	return summarize(completed);
 }
 
@@ -355,29 +416,70 @@ export async function pruneObsBackups(
 	return stale.length;
 }
 
+/** Backup id -> when listing last tried to seal it (per process). */
+const settleAttempts = new Map<string, number>();
+
+function rememberSettleAttempt(backupId: string, now: number) {
+	if (settleAttempts.size >= SETTLE_ATTEMPTS_MAX) {
+		for (const [id, at] of settleAttempts) {
+			if (now - at >= OBS_BACKUP_SETTLE_RETRY_MS) settleAttempts.delete(id);
+		}
+		if (settleAttempts.size >= SETTLE_ATTEMPTS_MAX) {
+			const oldest = settleAttempts.keys().next().value;
+			if (oldest) settleAttempts.delete(oldest);
+		}
+	}
+	settleAttempts.set(backupId, now);
+}
+
+export function resetObsBackupSettleAttemptsForTests() {
+	settleAttempts.clear();
+}
+
 /**
  * Plugins released before restore never call the complete endpoint. Seal any
  * of their backups whose manifest has landed so they can still be restored
  * and do not count against the pending limit.
+ *
+ * Only those plugins need it: they create backups without an `os`, which
+ * every newer plugin sends. Sealing reads the manifest and stats every file,
+ * so each request seals at most OBS_BACKUP_SETTLE_PER_REQUEST backups and a
+ * backup that failed is left alone for OBS_BACKUP_SETTLE_RETRY_MS. Anything
+ * still unsealed is removed once it passes OBS_BACKUP_PENDING_TTL_MS.
  */
 export async function settlePendingObsBackups(
 	userId: string,
 	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+	now = Date.now(),
 ) {
 	const pending = await db.query.obsBackup.findMany({
 		columns: { id: true },
-		where: and(eq(obsBackup.userId, userId), isNull(obsBackup.completedAt)),
+		where: and(
+			eq(obsBackup.userId, userId),
+			isNull(obsBackup.completedAt),
+			isNull(obsBackup.os),
+		),
 		orderBy: [obsBackup.createdAt],
 	});
+	let attempted = 0;
 	for (const { id } of pending) {
+		if (attempted >= OBS_BACKUP_SETTLE_PER_REQUEST) break;
+		const last = settleAttempts.get(id);
+		if (last !== undefined && now - last < OBS_BACKUP_SETTLE_RETRY_MS) continue;
+		rememberSettleAttempt(id, now);
+		attempted += 1;
 		await completeObsBackup(userId, id, client).catch((error) => {
 			if (!(error instanceof ObsBackupError)) throw error;
 		});
 	}
 }
 
-export async function listObsBackups(userId: string) {
-	await settlePendingObsBackups(userId);
+export async function listObsBackups(
+	userId: string,
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+) {
+	await removeAbandonedObsBackups(userId, client);
+	await settlePendingObsBackups(userId, client);
 	const rows = await db.query.obsBackup.findMany({
 		where: and(eq(obsBackup.userId, userId), isNotNull(obsBackup.completedAt)),
 		orderBy: [desc(obsBackup.completedAt), desc(obsBackup.createdAt)],
@@ -417,7 +519,7 @@ export async function getObsBackupDownloadUrls(
 		[...new Set(paths)].map(async (path) => ({
 			path,
 			url: await client.presign(obsBackupKey(userId, backupId, path), {
-				expiresIn: URL_TTL_SECONDS,
+				expiresIn: DOWNLOAD_URL_TTL_SECONDS,
 				method: "GET",
 			}),
 		})),
