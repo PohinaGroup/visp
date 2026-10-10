@@ -102,7 +102,9 @@ export function AuditPage() {
 	const [target, setTarget] = useSearchParam("target");
 	const [action, setAction] = useSearchParam("action");
 	const targetType =
-		targetTypeParam === "user" || targetTypeParam === "relay"
+		targetTypeParam === "user" ||
+		targetTypeParam === "relay" ||
+		targetTypeParam === "setting"
 			? targetTypeParam
 			: undefined;
 	const navigate = useNavigate();
@@ -172,6 +174,7 @@ export function AuditPage() {
 							<NativeSelectOption value="">All targets</NativeSelectOption>
 							<NativeSelectOption value="user">Users</NativeSelectOption>
 							<NativeSelectOption value="relay">Relays</NativeSelectOption>
+							<NativeSelectOption value="setting">Settings</NativeSelectOption>
 						</NativeSelect>
 						<form
 							className="flex min-w-0 flex-1 gap-2 sm:max-w-xs"

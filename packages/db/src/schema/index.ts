@@ -9,5 +9,6 @@ export * from "./metrics";
 export * from "./multichat";
 export * from "./relay";
 export * from "./relay-health-sample";
+export * from "./spend-budget";
 export * from "./studio";
 export * from "./typography";

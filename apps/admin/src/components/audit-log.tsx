@@ -17,6 +17,7 @@ export const AUDIT_ACTION_FILTERS = [
 	{ value: "set_flag:", label: "Feature flag" },
 	{ value: "revoke_sessions", label: "Revoke sessions" },
 	{ value: "relay_", label: "Relay change" },
+	{ value: "spend_budget_", label: "Budget change" },
 ] as const;
 
 const ACTION_LABELS: Record<string, string> = {
@@ -26,6 +27,8 @@ const ACTION_LABELS: Record<string, string> = {
 	revoke_sessions: "Revoke sessions",
 	relay_create: "Create relay",
 	relay_update: "Update relay",
+	spend_budget_set: "Set budget",
+	spend_budget_clear: "Clear budget",
 };
 
 export function AuditActionBadge({ action }: { action: string }) {
@@ -121,6 +124,14 @@ const linkClass = "text-primary underline-offset-4 hover:underline";
  * are null once the user or relay is deleted, so the ID is the fallback.
  */
 export function AuditTarget({ row }: { row: AuditRow }) {
+	if (row.targetType === "setting") {
+		// Settings are named by their key, e.g. `spend_budget:tts`.
+		return (
+			<Link className={linkClass} to="/usage">
+				<span className="font-mono text-xs">{row.targetId}</span>
+			</Link>
+		);
+	}
 	if (row.targetType === "relay") {
 		return (
 			<Link className={linkClass} to="/relays">

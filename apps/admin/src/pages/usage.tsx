@@ -13,6 +13,7 @@ import { TriangleAlert } from "lucide-react";
 import type { ReactNode } from "react";
 import { toApiRange, useDateRange } from "../app/date-range";
 import { PageHeader } from "../components/page-header";
+import { WeeklyBudgetsCard } from "../components/weekly-budgets";
 import { trpc } from "../lib";
 import {
 	bucketLabel,
@@ -440,6 +441,8 @@ export function UsagePage() {
 				<PricingBanner hosted={hosted} />
 				<HostedChart hosted={hosted} loading={now.hosted.isPending} />
 			</Section>
+
+			<WeeklyBudgetsCard />
 
 			<Section
 				description="Direct forwarder time per destination, clipped to each bucket. Open forwarders count until now."
