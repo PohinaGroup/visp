@@ -1,5 +1,6 @@
 "use client";
 
+import { Button } from "@VISP/ui/components/button";
 import {
 	type ChartConfig,
 	ChartContainer,
@@ -12,7 +13,9 @@ import {
 } from "@VISP/ui/components/chart";
 import { Skeleton } from "@VISP/ui/components/skeleton";
 import { formatAxisTick, formatChartNumber } from "@VISP/ui/lib/chart-format";
+import { type CsvColumn, downloadCsv, toCsv } from "@VISP/ui/lib/csv";
 import { cn } from "@VISP/ui/lib/utils";
+import { Download } from "lucide-react";
 import type * as React from "react";
 import {
 	Bar,
@@ -62,6 +65,16 @@ type BaseChartProps<T extends object> = {
 	/** Header for the category column of that table; defaults to the key. */
 	categoryLabel?: string;
 	className?: string;
+	/**
+	 * Show a "Download CSV" button that saves the plotted rows under this
+	 * file name (`.csv` is appended when missing). Off when absent.
+	 */
+	exportFilename?: string;
+	/**
+	 * Override the exported columns. Defaults to the x/category key (headed by
+	 * `categoryLabel`) followed by each series headed by its label.
+	 */
+	exportColumns?: readonly CsvColumn<T>[];
 };
 
 function readValue(row: object, key: string): unknown {
@@ -94,6 +107,31 @@ function buildConfig(series: readonly ChartSeries[]): ChartConfig {
 	return config;
 }
 
+/**
+ * The CSV a chart's download button produces: exactly the rows passed in
+ * `data`, raw (unformatted) values so the file can be re-charted, with a BOM
+ * so Excel reads UTF-8 category names correctly.
+ */
+export function chartToCsv<T extends object>({
+	data,
+	series,
+	labelKey,
+	categoryLabel,
+	exportColumns,
+}: {
+	data: readonly T[];
+	series: readonly ChartSeries<StringKey<T>>[];
+	labelKey: StringKey<T>;
+	categoryLabel?: string;
+	exportColumns?: readonly CsvColumn<T>[];
+}): string {
+	const columns: readonly CsvColumn<T>[] = exportColumns ?? [
+		{ key: labelKey, header: categoryLabel ?? labelKey },
+		...series.map((s) => ({ key: s.key, header: s.label })),
+	];
+	return toCsv(data, columns, { bom: true });
+}
+
 function ChartFrame<T extends object>({
 	ariaLabel,
 	description,
@@ -108,6 +146,8 @@ function ChartFrame<T extends object>({
 	valueFormatter,
 	srTable,
 	config,
+	exportFilename,
+	exportColumns,
 	children,
 }: {
 	ariaLabel: string;
@@ -117,12 +157,14 @@ function ChartFrame<T extends object>({
 	height: number;
 	className?: string;
 	data: readonly T[] | null | undefined;
-	series: readonly ChartSeries[];
-	labelKey: string;
+	series: readonly ChartSeries<StringKey<T>>[];
+	labelKey: StringKey<T>;
 	categoryLabel?: string;
 	valueFormatter: (value: number) => string;
 	srTable: boolean;
 	config: ChartConfig;
+	exportFilename?: string;
+	exportColumns?: readonly CsvColumn<T>[];
 	children: React.ComponentProps<typeof ChartContainer>["children"];
 }) {
 	if (loading) {
@@ -167,6 +209,34 @@ function ChartFrame<T extends object>({
 		>
 			{description ? (
 				<figcaption className="sr-only">{description}</figcaption>
+			) : null}
+			{exportFilename && data ? (
+				// A toolbar row rather than an overlay: the top-right of the plot is
+				// where the latest (often highest) point and reference labels sit.
+				<div data-slot="chart-toolbar" className="flex justify-end">
+					<Button
+						type="button"
+						variant="ghost"
+						size="icon-xs"
+						aria-label={`Download CSV: ${ariaLabel}`}
+						title="Download CSV"
+						className="text-muted-foreground"
+						onClick={() =>
+							downloadCsv(
+								exportFilename,
+								chartToCsv({
+									data,
+									series,
+									labelKey,
+									categoryLabel,
+									exportColumns,
+								}),
+							)
+						}
+					>
+						<Download aria-hidden="true" />
+					</Button>
+				</div>
 			) : null}
 			<ChartContainer
 				config={config}
@@ -278,6 +348,8 @@ export function TrendLineChart<T extends object>({
 	srTable = true,
 	categoryLabel,
 	className,
+	exportFilename,
+	exportColumns,
 }: TrendLineChartProps<T>) {
 	const { format, tick } = chartFormatters(locale, valueFormatter);
 	const config = buildConfig(series);
@@ -299,6 +371,8 @@ export function TrendLineChart<T extends object>({
 			srTable={srTable}
 			categoryLabel={categoryLabel}
 			config={config}
+			exportFilename={exportFilename}
+			exportColumns={exportColumns}
 		>
 			<LineChart
 				data={data ? [...data] : []}
@@ -423,6 +497,8 @@ export function BarSeriesChart<T extends object>({
 	srTable = true,
 	categoryLabel,
 	className,
+	exportFilename,
+	exportColumns,
 }: BarSeriesChartProps<T>) {
 	const { format, tick } = chartFormatters(locale, valueFormatter);
 	const config = buildConfig(series);
@@ -442,6 +518,8 @@ export function BarSeriesChart<T extends object>({
 			srTable={srTable}
 			categoryLabel={categoryLabel}
 			config={config}
+			exportFilename={exportFilename}
+			exportColumns={exportColumns}
 		>
 			<BarChart
 				data={data ? [...data] : []}
@@ -527,6 +605,8 @@ export function HorizontalBarChart<T extends object>({
 	srTable = true,
 	categoryLabel,
 	className,
+	exportFilename,
+	exportColumns,
 }: HorizontalBarChartProps<T>) {
 	const { format } = chartFormatters(locale, valueFormatter);
 	const config = buildConfig(series);
@@ -551,6 +631,8 @@ export function HorizontalBarChart<T extends object>({
 			srTable={srTable}
 			categoryLabel={categoryLabel}
 			config={config}
+			exportFilename={exportFilename}
+			exportColumns={exportColumns}
 		>
 			<BarChart
 				data={data ? [...data] : []}
