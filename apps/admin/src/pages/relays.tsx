@@ -13,6 +13,10 @@ import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "../components/page-header";
 import {
+	RelayCapacityForecast,
+	useRelayForecasts,
+} from "../components/relay-forecast";
+import {
 	RelayHistoryDetail,
 	RelaySparklines,
 } from "../components/relay-history";
@@ -119,6 +123,7 @@ function RelayAdmin() {
 			},
 		]),
 	);
+	const forecasts = useRelayForecasts(relays.data);
 	const [expandedRelayId, setExpandedRelayId] = useState<number | null>(null);
 	const [draft, setDraft] = useState({
 		name: "",
@@ -162,6 +167,7 @@ function RelayAdmin() {
 								<th>Load</th>
 								<th>Forwarders</th>
 								<th>Last 7 days</th>
+								<th>Capacity</th>
 								<th>Status</th>
 								<th>Actions</th>
 							</tr>
@@ -252,6 +258,13 @@ function RelayAdmin() {
 												/>
 											</td>
 											<td>
+												<RelayCapacityForecast
+													days={forecasts.days}
+													forecast={forecasts.byRelay.get(relay.id)}
+													loading={forecasts.loading}
+												/>
+											</td>
+											<td>
 												{relay.drainedAt ? (
 													<Badge variant="outline">draining</Badge>
 												) : relay.enabled ? (
@@ -303,7 +316,7 @@ function RelayAdmin() {
 										</tr>
 										{expanded && relayHistory ? (
 											<tr className="cursor-default! hover:bg-transparent!">
-												<td colSpan={8}>
+												<td colSpan={9}>
 													<RelayHistoryDetail
 														history={relayHistory.row}
 														points={relayHistory.points}
