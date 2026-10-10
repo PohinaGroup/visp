@@ -57,6 +57,13 @@ authentication. This is the accepted failure mode.
 - A path always belongs to exactly one user and one capacity-managed relay.
   MediaMTX accepts one publisher per path: the first connection wins until it
   disconnects. Per-user active-path quotas bound provisioning abuse.
+- With relays in several regions, the phone app, browser publisher, and portal
+  measure each relay's round-trip time before creating a device and ask for the
+  fastest one. Without a measurement the app keeps the device near the user:
+  a relay they already use, then another relay in their region, then the
+  operator's default region (`DEFAULT_RELAY_REGION`, else the `default`
+  relay's region). It only goes elsewhere when that region is full, drained,
+  or disabled. An active Direct session keeps every new device on its relay.
 
 ## Path state and reconciliation
 
