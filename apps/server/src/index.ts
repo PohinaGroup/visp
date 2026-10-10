@@ -2,10 +2,11 @@ import { subscribeInvalidations } from "@VISP/api/cache-bus";
 import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
 import { reconcileKickSubscriptions } from "@VISP/api/chat/kick";
+import { flushHostedUsageOnShutdown } from "@VISP/api/hosted-usage";
 import { startMultiChatSources } from "@VISP/api/multichat/connectors";
-import { deleteExpiredTypographyProjects } from "@VISP/api/typography";
 import { applyInvalidation } from "@VISP/api/relay";
 import { ensureDefaultRelay } from "@VISP/api/relays";
+import { deleteExpiredTypographyProjects } from "@VISP/api/typography";
 import { env } from "@VISP/env/server";
 import { app } from "./app";
 import { startReconciler } from "./machine";
@@ -21,6 +22,7 @@ try {
 	console.error("Failed to ensure default relay", error);
 }
 
+flushHostedUsageOnShutdown();
 startReconciler();
 subscribeInvalidations(applyInvalidation);
 startChatFanout();
