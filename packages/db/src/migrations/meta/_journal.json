@@ -197,6 +197,13 @@
 			"when": 1791634004000,
 			"tag": "0029_relay_health_sample",
 			"breakpoints": true
+		},
+		{
+			"idx": 31,
+			"version": "7",
+			"when": 1791634006000,
+			"tag": "0031_daily_metrics",
+			"breakpoints": true
 		}
 	]
 }
