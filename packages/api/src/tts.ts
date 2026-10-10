@@ -7,6 +7,8 @@ import type { LanguageCode } from "./languages";
  * much and cannot be pinned to a language.
  */
 export const TTS_MODEL_ID = "eleven_flash_v2_5";
+/** Recorded with hosted usage so per-provider prices can apply. */
+export const TTS_PROVIDER = "elevenlabs";
 /** Speech out of a phone speaker; the 44.1 kHz default is wasted bytes. */
 const TTS_OUTPUT_FORMAT = "mp3_22050_32";
 export type TtsLanguage = LanguageCode;
