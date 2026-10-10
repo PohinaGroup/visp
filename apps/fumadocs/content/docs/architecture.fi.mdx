@@ -12,10 +12,15 @@ Jokaisella julkaisevalla laitteella on oma peruutettava polku. OBS käyttää er
 Tilapäiset yhteyskatkot näkyvät tapahtumina, joista palvelu muodostaa viimeisimmän tilannekuvan. Asiakasohjelmat sovittavat tilan uudelleen yhteyden palautuessa. Erillinen OBS Remote käyttää samaa VISP-tiliä kuin muut asiakkaat. Se ja OBS-lisäosa avaavat omat lyhytikäisillä kertakäyttölipuilla todennetut ulospäin suuntautuvat WebSocket-yhteytensä. Etäohjaus ei avaa OBS:ään tulevaa porttia eikä muuta median käyttöoikeuksia.
 
 Polku kuuluu aina yhdelle käyttäjälle ja yhdelle kapasiteetin perusteella
-valitulle relaylle. VISP voi käyttää useita eri alueiden relay-palvelimia,
-mittaa selaimesta niiden viiveen uutta laitetta luotaessa ja sovittaa jokaisen
-käytössä olevan relayn tilan erikseen. Käyttäjäkohtainen aktiivisten polkujen
-kiintiö rajoittaa väärinkäyttöä.
+valitulle relaylle. VISP voi käyttää useita eri alueiden relay-palvelimia ja
+sovittaa jokaisen käytössä olevan relayn tilan erikseen. Puhelinsovellus,
+selainjulkaisija ja portaali mittaavat relayden viiveen ennen uuden laitteen
+luomista ja pyytävät nopeinta. Ilman mittausta laite pysyy käyttäjän lähellä:
+ensin relay, jota hän jo käyttää, sitten muu saman alueen relay ja lopuksi
+ylläpitäjän oletusalue (`DEFAULT_RELAY_REGION` tai `default`-relayn alue).
+Muulle alueelle laite päätyy vain, jos alue on täynnä, tyhjennetty tai pois
+käytöstä. Käynnissä oleva Direct-istunto pitää uudet laitteet samalla relaylla.
+Käyttäjäkohtainen aktiivisten polkujen kiintiö rajoittaa väärinkäyttöä.
 
 OBS-tila ja -komennot käyttävät sovellusinstanssien välillä tietokantakyselyä,
 joten niiden välitys voi olla paikallista WebSocket-päivitystä hitaampaa.

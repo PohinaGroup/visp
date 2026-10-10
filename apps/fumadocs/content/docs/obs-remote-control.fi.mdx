@@ -14,3 +14,13 @@ Lisäosa luo Media Source -lähteen oikeilla lukuasetuksilla. Nimeä lähde lait
 Kun lisäosa on yhdistetty, erillinen VISP OBS Remote, portaali tai Native-sovellus voi vaihtaa kohtauksia sekä käynnistää tai pysäyttää lähetyksen. Lisäosa ja ohjain todentavat ulospäin suuntautuvat WebSocket-yhteytensä lyhytikäisillä kertakäyttölipuilla. OBS:ään ei avata tulevaa porttia, eikä VISP saa suoratoistopalvelusi lähetysavainta.
 
 Jos laite ei näy, tarkista ensin portaalista, että kamera julkaisee. Jos kuva näkyy portaalissa mutta ei OBS:ssä, kierrätä OBS:n lukutunnukset ja yhdistä lisäosa uudelleen.
+
+## Varmuuskopio ja palautus
+
+**Back up to VISP** lähettää kohtauskokoelmasi, profiilin asetukset ja niihin linkitetyt paikalliset mediatiedostot VISPiin. Lähetysavaimet ja VISP-tunnukset eivät tallennu varmuuskopioon. VISP säilyttää 10 uusinta varmuuskopiota ja poistaa vanhemmat automaattisesti; VISP-tilin poistaminen poistaa ne kaikki.
+
+**Restore from VISP** palauttaa varmuuskopion samalle tai uudelle tietokoneelle. Pysäytä ensin lähetys, tallennus, toistopuskuri ja virtuaalikamera, ja valitse sitten varmuuskopio listasta. Lisäosa lataa jokaisen tiedoston ja tarkistaa sen koon ja tarkistussumman ennen kuin se muuttaa OBS:ää.
+
+Jokainen kohtauskokoelma palautuu uutena kokoelmana nimellä `<nimi> (restored VVVV-KK-PP)`, ja profiili uutena profiilina samalla päätteellä. Olemassa olevia kohtauskokoelmia tai profiileja ei koskaan korvata. OBS vaihtaa palautettuun profiiliin ja kohtauskokoelmaan; jos profiili ei lataudu heti, käynnistä OBS uudelleen ja valitse se **Profile**-valikosta. Mediatiedostot kopioidaan lisäosan omaan kansioon (`plugin_config/visp-obs/restored/<varmuuskopion tunnus>/media` OBS:n asetuskansiossa), ja palautetut kohtaukset osoittavat näihin kopioihin.
+
+Koska lähetysavaimia ei varmuuskopioida, aseta lähetyskohde palautuksen jälkeen uudelleen kohdassa **Settings → Stream** tai valitse **Use this OBS as an output**. Jos varmuuskopio on tehty toisella käyttöjärjestelmällä, lisäosa varoittaa ensin: kohtaukset ja media palautuvat, mutta kaappauslaitteet, fontit ja tallennuspolut voi joutua asettamaan uudelleen.

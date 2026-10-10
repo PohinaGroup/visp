@@ -6,6 +6,7 @@ export * from "./chat";
 export * from "./forwarder";
 export * from "./metrics";
 export * from "./multichat";
+export * from "./obs-backup";
 export * from "./relay";
 export * from "./relay-health-sample";
 export * from "./studio";
