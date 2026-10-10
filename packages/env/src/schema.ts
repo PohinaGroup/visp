@@ -23,6 +23,12 @@ export const serverEnvSchema = {
 	 * can segfault when a custom CA PEM is combined with other TLS clients).
 	 */
 	DATABASE_SSL_CA: z.string().min(1).optional(),
+	/**
+	 * Region (relay.region, case-insensitive) that new accounts and devices
+	 * land in when the client sent no measured relay preference. Unset: the
+	 * region of the `default` relay.
+	 */
+	DEFAULT_RELAY_REGION: z.string().trim().min(1).optional(),
 	/** Bootstrap value for the database-backed default relay. */
 	DIRECT_MAX_FORWARDERS: z.coerce.number().int().min(0).default(2),
 	/** Rollout flag and independent ops kill switch for managed composition. */
