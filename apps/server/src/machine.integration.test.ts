@@ -1545,7 +1545,8 @@ integration("relay PostgreSQL integration", () => {
 
 		expect((await chooseRelay("new-user", relayB.id))?.id).toBe(relayB.id);
 		expect((await chooseRelay("user-a"))?.id).toBe(data.pathA.relayId);
-		expect((await chooseRelay("new-user"))?.id).toBe(relayA.id);
+		// No preference: the default relay's region wins over the emptier relays.
+		expect((await chooseRelay("new-user"))?.id).toBe(data.pathA.relayId);
 
 		await db
 			.update(relay)
