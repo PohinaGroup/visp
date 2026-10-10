@@ -3,6 +3,7 @@ export * from "./agent";
 export * from "./audit";
 export * from "./auth";
 export * from "./chat";
+export * from "./daily-metrics";
 export * from "./forwarder";
 export * from "./metrics";
 export * from "./multichat";
