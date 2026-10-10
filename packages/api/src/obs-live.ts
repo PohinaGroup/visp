@@ -32,7 +32,14 @@ export type ObsCommand = Pick<
 	| "desiredReplayBuffer"
 	| "desiredRecordPaused"
 	| "desiredScene"
->;
+> & {
+	/**
+	 * Changes whenever a VISP-managed OBS media source should be refetched
+	 * (e.g. a device switched to low-latency mode). Independent of
+	 * commandVersion: it is not an intent the plugin applies and reports back.
+	 */
+	mediaSourcesRevision: number;
+};
 
 export type ObsStateReport = Pick<
 	ObsStatus,
