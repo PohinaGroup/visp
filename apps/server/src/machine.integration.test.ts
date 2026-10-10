@@ -70,6 +70,7 @@ import {
 	ensureRelayUser,
 	getStudioPreviewUrls,
 	listPaths,
+	mediaSecretVerificationsForTests,
 	reconcilePathState,
 	revealPublishPath,
 	revokePath,
@@ -395,6 +396,45 @@ integration("relay PostgreSQL integration", () => {
 				user: "alpha",
 			}),
 		).toBe(false);
+	});
+
+	test("skips Argon2 for repeated successful checks until the secret rotates", async () => {
+		const data = await seed();
+		const read = (password: string) =>
+			authenticateMedia({
+				action: "read",
+				password,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+
+		// An offline OBS feed retries every second with the same secret.
+		for (let attempt = 0; attempt < 5; attempt++) {
+			expect(await read(data.readA)).toBe(true);
+		}
+		expect(mediaSecretVerificationsForTests()).toBe(1);
+
+		// Failures are never cached, and a wrong secret never rides on a hit.
+		expect(await read("wrong")).toBe(false);
+		expect(await read("wrong")).toBe(false);
+		expect(mediaSecretVerificationsForTests()).toBe(3);
+
+		// Publish and read are cached separately, against their own hashes.
+		expect(
+			await authenticateMedia({
+				action: "publish",
+				password: data.readA,
+				path: data.pathA.slug,
+				user: "alpha",
+			}),
+		).toBe(false);
+		expect(mediaSecretVerificationsForTests()).toBe(4);
+
+		const rotated = await rotateReadSecret("user-a");
+		expect(await read(data.readA)).toBe(false);
+		expect(await read(rotated.revealed.read ?? "")).toBe(true);
+		expect(await read(rotated.revealed.read ?? "")).toBe(true);
+		expect(mediaSecretVerificationsForTests()).toBe(6);
 	});
 
 	test("delivers cache invalidations through a dedicated Postgres listener", async () => {
