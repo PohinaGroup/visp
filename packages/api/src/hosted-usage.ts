@@ -12,7 +12,10 @@ export type { HostedUsageFeature, HostedUsageUnit };
 export type HostedUsageEvent = {
 	userId: string;
 	feature: HostedUsageFeature;
-	/** Positive amount in `unit`; fractions are summed, then rounded up on write. */
+	/**
+	 * Positive amount in `unit`. Fractions are summed; whole units are written
+	 * and the fraction carries into the next flush (see the buffer below).
+	 */
 	units: number;
 	unit: HostedUsageUnit;
 	/** Who billed it (e.g. "elevenlabs"), so prices can differ per provider. */
@@ -44,6 +47,8 @@ export const HOSTED_USAGE_FLUSH_INTERVAL_MS = 60_000;
  * at that point dropping the oldest usage beats growing without bound.
  */
 export const HOSTED_USAGE_MAX_KEYS = 10_000;
+/** Float slack when splitting a sum into whole units and a carried fraction. */
+const UNIT_EPSILON = 1e-9;
 
 const FEATURES = new Set<string>(HOSTED_USAGE_FEATURES);
 const UNITS = new Set<string>(HOSTED_USAGE_UNITS);
@@ -52,6 +57,14 @@ const UNITS = new Set<string>(HOSTED_USAGE_UNITS);
  * The buffer with its writer injected, so aggregation, retry and the bound can
  * be tested without a database. Production code uses the module-level
  * `recordHostedUsage` / `flushHostedUsage` below.
+ *
+ * The column holds whole units, but usage arrives in fractions (seconds of
+ * audio per chunk). Each flush writes the whole part of every sum and carries
+ * the fraction to the next flush for the same key, so a long session bills
+ * exactly what it used instead of gaining up to one unit per flush. The final
+ * flush on shutdown rounds what is left to the nearest whole unit. A carried
+ * fraction is always under one unit; if a process collects more than
+ * `maxKeys` of them (idle users), the oldest are dropped.
  */
 export function createHostedUsageBuffer({
 	write,
@@ -63,18 +76,19 @@ export function createHostedUsageBuffer({
 	log?: Logger;
 }) {
 	let pending = new Map<string, HostedUsageRow>();
+	/** Fractions (< 1 unit) left over by earlier flushes, oldest first. */
+	let carry = new Map<string, HostedUsageRow>();
 	let dropped = 0;
 	// Flushes run one at a time so a retry merge never races a newer flush.
 	let chain: Promise<void> = Promise.resolve();
 
+	function keyOf(row: HostedUsageRow) {
+		return JSON.stringify([row.userId, row.feature, row.unit, row.provider]);
+	}
+
 	/** Adds into `target`, keeping Map insertion order as oldest-first. */
 	function add(target: Map<string, HostedUsageRow>, row: HostedUsageRow) {
-		const key = JSON.stringify([
-			row.userId,
-			row.feature,
-			row.unit,
-			row.provider,
-		]);
+		const key = keyOf(row);
 		const existing = target.get(key);
 		if (existing) {
 			existing.units += row.units;
@@ -130,15 +144,34 @@ export function createHostedUsageBuffer({
 		}
 	}
 
-	async function flushOnce() {
-		if (pending.size === 0) return;
-		const batch = pending;
+	async function flushOnce(final: boolean) {
+		if (pending.size === 0 && !(final && carry.size > 0)) return;
+		// Carried fractions are older than anything pending, so they go first.
+		const sums = new Map<string, HostedUsageRow>();
+		for (const row of carry.values()) add(sums, row);
+		for (const row of pending.values()) add(sums, row);
 		pending = new Map();
-		const rows = [...batch.values()].map((row) => ({
-			...row,
-			// Providers bill partial units as whole ones; the column is bigint.
-			units: Math.ceil(row.units),
-		}));
+		carry = new Map();
+		const batch = new Map<string, HostedUsageRow>();
+		for (const [key, row] of sums) {
+			// The column is a whole-unit bigint: write the whole part now and
+			// carry the fraction, or on the last flush round it to nearest.
+			const whole = final
+				? Math.round(row.units)
+				: Math.floor(row.units + UNIT_EPSILON);
+			const fraction = row.units - whole;
+			if (whole >= 1) batch.set(key, { ...row, units: whole });
+			if (!final && fraction > UNIT_EPSILON) {
+				carry.set(key, { ...row, units: fraction });
+			}
+		}
+		while (carry.size > maxKeys) {
+			const oldest = carry.keys().next().value;
+			if (oldest === undefined) break;
+			carry.delete(oldest);
+		}
+		if (batch.size === 0) return;
+		const rows = [...batch.values()];
 		try {
 			await write(rows);
 			if (dropped > 0) {
@@ -162,17 +195,24 @@ export function createHostedUsageBuffer({
 		}
 	}
 
-	/** Resolves once everything recorded before the call was attempted. Never rejects. */
-	function flush(): Promise<void> {
-		chain = chain.then(flushOnce, flushOnce);
+	/**
+	 * Resolves once everything recorded before the call was attempted. Never
+	 * rejects. `final` (shutdown) also writes carried fractions, rounded to
+	 * the nearest whole unit, instead of keeping them for a next flush.
+	 */
+	function flush({ final = false }: { final?: boolean } = {}): Promise<void> {
+		const run = () => flushOnce(final);
+		chain = chain.then(run, run);
 		return chain;
 	}
 
 	return {
 		record,
 		flush,
-		/** Buffered keys, for tests and diagnostics. */
+		/** Buffered keys awaiting a write, for tests and diagnostics. */
 		size: () => pending.size,
+		/** Keys holding a carried fraction, for tests and diagnostics. */
+		carried: () => carry.size,
 	};
 }
 
@@ -210,7 +250,7 @@ function ensureTimer() {
 	// The meter must not be the reason a process stays up.
 	timer.unref?.();
 	// An idle process (tests, scripts) exits via beforeExit; flush there too.
-	process.once("beforeExit", () => void buffer.flush());
+	process.once("beforeExit", () => void buffer.flush({ final: true }));
 }
 
 /**
@@ -224,9 +264,13 @@ export function recordHostedUsage(event: HostedUsageEvent): void {
 	ensureTimer();
 }
 
-/** Writes buffered usage now. For tests and shutdown; never rejects. */
-export function flushHostedUsage(): Promise<void> {
-	return buffer.flush();
+/**
+ * Writes buffered usage now. For tests and shutdown; never rejects. Pass
+ * `final` when the process is about to exit so carried fractions are written
+ * (rounded to nearest) rather than kept for a flush that will never come.
+ */
+export function flushHostedUsage(options?: { final?: boolean }): Promise<void> {
+	return buffer.flush(options);
 }
 
 /**
@@ -238,7 +282,7 @@ export function flushHostedUsageOnShutdown(timeoutMs = 5_000) {
 	for (const signal of ["SIGTERM", "SIGINT"] as const) {
 		process.once(signal, () => {
 			void Promise.race([
-				buffer.flush(),
+				buffer.flush({ final: true }),
 				new Promise((resolve) => setTimeout(resolve, timeoutMs)),
 			]).finally(() => process.exit(0));
 		});

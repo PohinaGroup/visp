@@ -84,19 +84,157 @@ describe("hosted usage buffer", () => {
 				unit: "characters",
 				provider: null,
 			},
-			// Fractions are summed first, then billed as a whole unit.
+			// Fractions are summed first; the whole part is written and the
+			// remaining half second carries to the next flush.
 			{
 				userId: "u2",
 				feature: "subtitles",
-				units: 2,
+				units: 1,
 				unit: "seconds",
 				provider: "deepgram",
 			},
 		]);
 		expect(buffer.size()).toBe(0);
+		expect(buffer.carried()).toBe(1);
 
+		// A carried fraction alone is not a write.
 		await buffer.flush();
 		expect(writes).toHaveLength(1);
+	});
+
+	test("carries fractions between flushes so long sessions bill exactly", async () => {
+		const writes: HostedUsageRow[][] = [];
+		const buffer = createHostedUsageBuffer({
+			write: async (rows) => void writes.push(rows),
+		});
+		// An hour of audio isolation in 0.1 s chunks, flushed every "minute"
+		// with 59.3 s of audio each: ceil-per-flush would bill 3,600 s for
+		// 3,558 s used.
+		for (let minute = 0; minute < 60; minute += 1) {
+			for (let chunk = 0; chunk < 593; chunk += 1) {
+				buffer.record({
+					userId: "u1",
+					feature: "audio_isolation",
+					units: 0.1,
+					unit: "seconds",
+				});
+			}
+			await buffer.flush();
+		}
+		await buffer.flush({ final: true });
+
+		const billed = writes.flat().reduce((total, row) => total + row.units, 0);
+		expect(billed).toBe(3558);
+		expect(writes.flat().every((row) => Number.isInteger(row.units))).toBe(
+			true,
+		);
+		expect(buffer.carried()).toBe(0);
+	});
+
+	test("the final flush rounds carried fractions to the nearest unit", async () => {
+		const writes: HostedUsageRow[][] = [];
+		const buffer = createHostedUsageBuffer({
+			write: async (rows) => void writes.push(rows),
+		});
+		buffer.record({
+			userId: "up",
+			feature: "audio_isolation",
+			units: 2.6,
+			unit: "seconds",
+		});
+		buffer.record({
+			userId: "down",
+			feature: "audio_isolation",
+			units: 0.4,
+			unit: "seconds",
+		});
+		await buffer.flush();
+		expect(writes).toEqual([
+			[
+				{
+					userId: "up",
+					feature: "audio_isolation",
+					units: 2,
+					unit: "seconds",
+					provider: null,
+				},
+			],
+		]);
+		expect(buffer.carried()).toBe(2);
+
+		await buffer.flush({ final: true });
+		// 0.6 rounds up to one more second; 0.4 rounds away.
+		expect(writes[1]).toEqual([
+			{
+				userId: "up",
+				feature: "audio_isolation",
+				units: 1,
+				unit: "seconds",
+				provider: null,
+			},
+		]);
+		expect(buffer.carried()).toBe(0);
+		expect(buffer.size()).toBe(0);
+	});
+
+	test("a carried fraction survives a failed write", async () => {
+		const writes: HostedUsageRow[][] = [];
+		let fail = true;
+		const { log } = quiet();
+		const buffer = createHostedUsageBuffer({
+			write: async (rows) => {
+				if (fail) throw new Error("database is down");
+				writes.push(rows);
+			},
+			log,
+		});
+		buffer.record({
+			userId: "u1",
+			feature: "subtitles",
+			units: 1.75,
+			unit: "seconds",
+		});
+		await buffer.flush();
+		expect(buffer.size()).toBe(1);
+		expect(buffer.carried()).toBe(1);
+
+		fail = false;
+		buffer.record({
+			userId: "u1",
+			feature: "subtitles",
+			units: 0.5,
+			unit: "seconds",
+		});
+		await buffer.flush();
+		// 1 (retried) + 0.75 (carried) + 0.5 (new) = 2 whole, 0.25 carried.
+		expect(writes.flat().map((row) => row.units)).toEqual([2]);
+		expect(buffer.carried()).toBe(1);
+	});
+
+	test("carried fractions beyond the key bound drop the oldest", async () => {
+		const writes: HostedUsageRow[][] = [];
+		const { log, warnings } = quiet();
+		const buffer = createHostedUsageBuffer({
+			write: async (rows) => void writes.push(rows),
+			maxKeys: 2,
+			log,
+		});
+		for (const batch of [["a", "b"], ["c"]]) {
+			for (const userId of batch) {
+				buffer.record({
+					userId,
+					feature: "subtitles",
+					units: 0.9,
+					unit: "seconds",
+				});
+			}
+			await buffer.flush();
+		}
+		expect(buffer.carried()).toBe(2);
+		await buffer.flush({ final: true });
+		expect(writes.flat().map((row) => row.userId)).toEqual(["b", "c"]);
+		// Losing under a unit per idle key is not worth an operator warning.
+		expect(warnings).toHaveLength(0);
 	});
 
 	test("ignores invalid events without throwing into the caller", async () => {
