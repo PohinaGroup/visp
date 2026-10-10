@@ -1,4 +1,4 @@
-import { auth } from "@VISP/auth";
+import { getUserSession } from "@VISP/auth";
 import type { Context as ElysiaContext } from "elysia";
 
 export type CreateContextOptions = {
@@ -6,9 +6,7 @@ export type CreateContextOptions = {
 };
 
 export async function createContext({ context }: CreateContextOptions) {
-	const session = await auth.api.getSession({
-		headers: context.request.headers,
-	});
+	const session = await getUserSession(context.request.headers);
 	return {
 		auth: null,
 		headers: context.request.headers,

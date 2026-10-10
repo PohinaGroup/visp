@@ -6,7 +6,7 @@ import {
 	createScribeToken,
 	SubtitlesError,
 } from "@VISP/api/subtitles";
-import { auth } from "@VISP/auth";
+import { getUserSession } from "@VISP/auth";
 import { Elysia } from "elysia";
 import { z } from "zod";
 
@@ -26,7 +26,7 @@ export function resetSubtitlesRateLimit() {
 export const subtitlesRoutes = new Elysia({ name: "subtitles-routes" }).post(
 	"/api/subtitles/token",
 	async ({ request, status }) => {
-		const session = await auth.api.getSession({ headers: request.headers });
+		const session = await getUserSession(request.headers);
 		if (!session) return status(401, { error: "Authentication required" });
 
 		if (!(await betterFeatures(session.user.id)).betterSubtitles) {

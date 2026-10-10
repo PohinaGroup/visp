@@ -9,7 +9,7 @@ const { typographyRoutes } = await import("./typography");
 describe("Typography routes", () => {
 	test("reports pending exports without a 404 and exposes render failures", async () => {
 		const id = "6dd0339b-d53c-4be6-a4c3-e8b4dd628779";
-		const session = spyOn(auth.api, "getSession").mockResolvedValue({ user: { id: "owner" } } as never);
+		const session = spyOn(auth.api, "getSession").mockResolvedValue({ session: { token: "browser-token" }, user: { id: "owner" } } as never);
 		const project = spyOn(db.query.typographyProject, "findFirst").mockResolvedValue({ id, exportKey: null } as never);
 		const job = spyOn(db.query.typographyJob, "findFirst").mockResolvedValue({ state: "queued" } as never);
 		const poll = () => typographyRoutes.handle(new Request(`http://localhost/api/typography/projects/${id}/export`));
