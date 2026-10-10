@@ -14,11 +14,24 @@ import {
 } from "@VISP/db/schema/index";
 import { cpus, freemem, loadavg, totalmem, uptime } from "node:os";
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	ilike,
+	isNull,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import { writeAdminAudit } from "../admin-audit";
+import { stopDirectForPaths } from "../direct";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
+import { revokeObsControlToken } from "../obs-control";
+import { invalidateAuthCacheForUser } from "../relay";
 import { probeRelayApi } from "../relay-health";
 import { adminAlertsRouter } from "./admin/alerts";
 import { adminAuditRouter } from "./admin/audit";
@@ -108,6 +121,33 @@ const RELAY_AUDIT_FIELDS = [
 	"enabled",
 	"drainedAt",
 ] as const;
+
+/**
+ * What a ban ends beyond the sessions revoked inside its transaction. Runs
+ * after the ban commits; each step is idempotent, so a failed ban request can
+ * simply be retried.
+ *
+ * - Sessions again: a sign-in that passed Better Auth's ban check before the
+ *   ban committed may have created its session after the in-transaction
+ *   revocation (the session-create hook in packages/auth covers the rest).
+ * - The OBS control token, which is not a session. A connected plugin's live
+ *   socket closes on its next state report.
+ * - Cached media auth on every instance, so publish and read (and Direct
+ *   restreams admitted by publish) are refused within one request. The cache
+ *   entry carries the ban, but only from its next load.
+ * - Direct and BRB outputs of the user's paths. An ingest that is already
+ *   connected stays up until it reconnects; nothing here can kick it.
+ */
+async function endBannedUserAccess(userId: string) {
+	await revokeAllUserSessions(userId);
+	await revokeObsControlToken(userId);
+	await invalidateAuthCacheForUser(userId);
+	const paths = await db
+		.select({ id: relayPath.id })
+		.from(relayPath)
+		.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
+	await stopDirectForPaths(paths.map(({ id }) => id));
+}
 
 /** The ban columns, read before and after a ban change for the audit log. */
 const BAN_FIELDS = {
@@ -783,7 +823,7 @@ export const adminRouter = router({
 						message: "Ban expiry must be in the future",
 					});
 				}
-				return db.transaction(async (tx) => {
+				const result = await db.transaction(async (tx) => {
 					const [previous] = await tx
 						.select(BAN_FIELDS)
 						.from(user)
@@ -819,6 +859,8 @@ export const adminRouter = router({
 					);
 					return { id: updated.id };
 				});
+				await endBannedUserAccess(input.userId);
+				return result;
 			}),
 
 		unban: adminProcedure
@@ -855,13 +897,18 @@ export const adminRouter = router({
 					return { id: updated.id };
 				});
 				await refreshCachedUser(input.userId);
+				// Cached media auth carries the ban; reload it now, not in 60 s.
+				await invalidateAuthCacheForUser(input.userId);
 				return result;
 			}),
 
+		// "Sign out everywhere": Better Auth sessions and the OBS control token,
+		// which outlives sessions by design.
 		revokeSessions: adminProcedure
 			.input(z.object({ userId: z.string().min(1) }))
 			.mutation(async ({ ctx, input }) => {
 				const revoked = await revokeAllUserSessions(input.userId);
+				await revokeObsControlToken(input.userId);
 				await writeAdminAudit({
 					actorId: ctx.session.user.id,
 					targetType: "user",

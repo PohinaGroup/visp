@@ -177,15 +177,4 @@ export async function refreshCachedUser(userId: string) {
 	);
 }
 
-/**
- * Better Auth's admin plugin treats a ban whose expiry has passed as lifted
- * (it clears it on the next sign-in), so access checks do the same.
- */
-export function isBanActive(user: {
-	banned?: boolean | null;
-	banExpires?: Date | string | number | null;
-}) {
-	if (!user.banned) return false;
-	if (user.banExpires == null) return true;
-	return new Date(user.banExpires).getTime() > Date.now();
-}
+export { isBanActive } from "./ban";

@@ -14,7 +14,9 @@ import {
 	genericOAuth,
 } from "better-auth/plugins";
 import { eq, sql } from "drizzle-orm";
+import { routerOwnedAdminEndpoints } from "./admin-endpoints";
 import { agentAuthPlugin } from "./agent";
+import { isBanActive } from "./ban";
 import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { isObsPairingToken, obsPairingScope } from "./obs-pairing";
@@ -104,6 +106,37 @@ export function createAuth() {
 	return betterAuth({
 		secondaryStorage: createDatabaseSecondaryStorage(db),
 		session: { storeSessionInDatabase: true },
+		databaseHooks: {
+			session: {
+				create: {
+					// The admin plugin refuses banned users before a session is created.
+					// A ban that commits between that check and the insert revokes
+					// sessions before this one exists, so check again once it does: a
+					// ban committed before this read is seen here, and one committed
+					// after it finds this session when the ban revokes again post-commit
+					// (packages/api/src/routers/admin.ts). OAuth sign-in writes the cache
+					// entry after this hook; that entry's user is read later still, so
+					// it says banned and getUserSession refuses it.
+					async after(created) {
+						const [owner] = await db
+							.select({
+								banned: schema.user.banned,
+								banExpires: schema.user.banExpires,
+							})
+							.from(schema.user)
+							.where(eq(schema.user.id, created.userId))
+							.limit(1);
+						if (!owner || !isBanActive(owner)) return;
+						await db
+							.delete(schema.authCache)
+							.where(eq(schema.authCache.key, created.token));
+						await db
+							.delete(schema.session)
+							.where(eq(schema.session.token, created.token));
+					},
+				},
+			},
+		},
 		verification: { storeInDatabase: true },
 		account: {
 			// Direct fetches provider stream keys with these tokens, so they stop
@@ -251,6 +284,9 @@ export function createAuth() {
 			// First, so no other plugin's hook sees an OBS pairing session.
 			obsPairingScope(),
 			agentAuthPlugin,
+			// Bans, role changes and session revocation go through the tRPC admin
+			// router, which also ends the user's non-session credentials.
+			routerOwnedAdminEndpoints(),
 			adminPlugin({
 				ac: adminAccess,
 				adminRoles: ["admin"],
@@ -296,8 +332,17 @@ export const auth: ReturnType<typeof createAuth> = createAuth();
  * The signed-in user's session for API routes. Sessions from OBS pairing
  * (Better Auth's device flow) are refused here: they exist only so the plugin
  * can call `POST /api/obs/connect`, the one caller of `auth.api.getSession`.
+ *
+ * So is a session whose cached user is banned. That copy is not current (see
+ * packages/auth/src/sessions.ts), so this is a free backstop, not the ban
+ * check: bans revoke sessions. It catches a session created while a ban was
+ * committing, whose cache entry was written after the ban.
  */
 export async function getUserSession(headers: Headers) {
 	const session = await auth.api.getSession({ headers });
-	return session && !isObsPairingToken(session.session.token) ? session : null;
+	return session &&
+		!isObsPairingToken(session.session.token) &&
+		!isBanActive(session.user)
+		? session
+		: null;
 }
