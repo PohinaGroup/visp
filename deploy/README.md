@@ -423,8 +423,9 @@ needed.
 
 ## Adding relay N
 
-For the Finland + US rollout, follow [REGIONS.md](REGIONS.md), including release
-targets, disabled registration, and moving existing devices.
+To add a relay in a new region (US East, Singapore, Tokyo, …), follow
+[REGIONS.md](REGIONS.md), including how new devices pick a relay, sizing,
+release targets, disabled registration, and moving existing devices.
 
 Provision every additional relay from the same `relay/mediamtx.yml`, Caddyfile,
 systemd units, firewall rules, and Tailscale ACLs described above. Give it a
