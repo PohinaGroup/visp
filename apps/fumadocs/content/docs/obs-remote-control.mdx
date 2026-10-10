@@ -58,12 +58,34 @@ Remote start/stop uses the active OBS profile. Configuring this OBS installation
 as a VISP publishing device replaces that profile's current service and key;
 VISP never receives the replaced provider key.
 
-## Back up OBS (optional)
+## Back up and restore OBS (optional)
 
 **Back up to VISP** in the plugin dialog uploads your scene collections,
 profile settings, and linked local media to VISP. Stream keys and VISP
-credentials are excluded. Backups are upload-only; VISP has no restore flow
-yet.
+credentials are excluded. VISP keeps your 10 newest backups and deletes older
+ones automatically; deleting your VISP account deletes all of them.
+
+**Restore from VISP** brings a backup back, on the same computer or a new one:
+
+1. Stop streaming, recording, the replay buffer, and the virtual camera.
+2. Select **Restore from VISP** and choose a backup from the list.
+3. The plugin downloads every file and checks its size and checksum before it
+   changes anything in OBS.
+4. Each scene collection comes back as a new collection named
+   `<name> (restored YYYY-MM-DD)`, and the profile as a new profile with the
+   same suffix. Your existing scene collections and profiles are never
+   overwritten. OBS switches to the restored profile and scene collection;
+   if it cannot load the profile right away, restart OBS and pick it from the
+   **Profile** menu.
+5. Linked media is copied to the plugin's own folder
+   (`plugin_config/visp-obs/restored/<backup id>/media` in your OBS
+   configuration folder), and the restored scenes point at those copies.
+
+Because stream keys are never backed up, set your stream destination again in
+**Settings → Stream** (or use **Use this OBS as an output**) after restoring.
+If the backup was made on a different operating system, the plugin warns you
+first: scenes and media come back, but capture devices, fonts, and output paths
+may need to be set up again.
 
 ## Security model
 

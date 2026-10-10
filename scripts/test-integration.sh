@@ -49,4 +49,5 @@ MEDIAMTX_API_URL="http://127.0.0.1:9997" \
 	TWITCH_CLIENT_SECRET="integration-secret" \
 	NODE_ENV="test" \
 	bun test apps/server/src/machine.integration.test.ts \
+		apps/server/src/relays.integration.test.ts \
 		apps/server/src/forwarder-sessions.integration.test.ts
