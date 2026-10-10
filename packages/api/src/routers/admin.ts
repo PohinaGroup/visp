@@ -22,6 +22,7 @@ import { adminProcedure, router } from "../index";
 import { probeRelayApi } from "../relay-health";
 import { adminAuditRouter } from "./admin/audit";
 import { adminMetricsRouter } from "./admin/metrics";
+import { adminRelayHistoryRouter } from "./admin/relay-history";
 
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -349,6 +350,7 @@ export const adminRouter = router({
 				});
 			}),
 	}),
+	relayHistory: adminRelayHistoryRouter,
 
 	users: router({
 		list: adminProcedure

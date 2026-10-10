@@ -9,9 +9,13 @@ import {
 } from "@VISP/ui/components/card";
 import { Input } from "@VISP/ui/components/input";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { toast } from "sonner";
 import { PageHeader } from "../components/page-header";
+import {
+	RelayHistoryDetail,
+	RelaySparklines,
+} from "../components/relay-history";
 import { trpc } from "../lib";
 import {
 	formatAge,
@@ -21,6 +25,7 @@ import {
 	percent,
 	usageTone,
 } from "../lib/format";
+import { hourlyUtilisation, relayHistoryWindow } from "../lib/relay-history";
 
 type RelayRow = Awaited<
 	ReturnType<typeof trpc.admin.relays.list.query>
@@ -93,6 +98,28 @@ function RelayAdmin() {
 		queryFn: () => trpc.admin.relays.list.query(),
 		refetchInterval: 15_000,
 	});
+	// One request for the whole fleet; the window ends on the next whole hour
+	// so the key (and the hourly buckets) only change once an hour.
+	const historyWindow = relayHistoryWindow();
+	const history = useQuery({
+		queryKey: ["admin-relay-history", historyWindow.from, historyWindow.to],
+		queryFn: () =>
+			trpc.admin.relayHistory.history.query({
+				...historyWindow,
+				bucket: "hour",
+			}),
+		refetchInterval: 5 * 60_000,
+	});
+	const historyByRelay = new Map(
+		history.data?.relays.map((row) => [
+			row.relayId,
+			{
+				row,
+				points: hourlyUtilisation(row, history.data.from, history.data.to),
+			},
+		]),
+	);
+	const [expandedRelayId, setExpandedRelayId] = useState<number | null>(null);
 	const [draft, setDraft] = useState({
 		name: "",
 		host: "",
@@ -134,129 +161,159 @@ function RelayAdmin() {
 								<th>Health</th>
 								<th>Load</th>
 								<th>Forwarders</th>
+								<th>Last 7 days</th>
 								<th>Status</th>
 								<th>Actions</th>
 							</tr>
 						</thead>
 						<tbody>
-							{relays.data?.map((relay) => (
-								<tr className="cursor-default!" key={relay.id}>
-									<td>
-										<p className="font-medium">{relay.name}</p>
-										<p className="text-muted-foreground text-xs">
-											{relay.host}
-										</p>
-									</td>
-									<td>{relay.region}</td>
-									<td>
-										<RelayHealth relay={relay} />
-									</td>
-									<td>
-										<Input
-											aria-label={`${relay.name} path capacity`}
-											className="w-24"
-											defaultValue={relay.capacityPaths}
-											type="number"
-											onBlur={(event) => {
-												const capacityPaths = Number(event.target.value);
-												if (
-													Number.isInteger(capacityPaths) &&
-													capacityPaths > 0 &&
-													capacityPaths !== relay.capacityPaths
-												) {
-													void run(
-														() =>
-															trpc.admin.relays.update.mutate({
-																id: relay.id,
-																capacityPaths,
-															}),
-														"Relay capacity updated",
-													);
-												}
-											}}
-										/>
-										<p className="text-muted-foreground text-xs">
-											{relay.assignedPaths} assigned
-										</p>
-									</td>
-									<td>
-										<Input
-											aria-label={`${relay.name} forwarder capacity`}
-											className="w-20"
-											defaultValue={relay.maxForwarders}
-											type="number"
-											onBlur={(event) => {
-												const maxForwarders = Number(event.target.value);
-												if (
-													Number.isInteger(maxForwarders) &&
-													maxForwarders >= 0 &&
-													maxForwarders !== relay.maxForwarders
-												) {
-													void run(
-														() =>
-															trpc.admin.relays.update.mutate({
-																id: relay.id,
-																maxForwarders,
-															}),
-														"Forwarder capacity updated",
-													);
-												}
-											}}
-										/>
-										<p className="text-muted-foreground text-xs">
-											{relay.activeForwarders} active ·{" "}
-											{relay.reservedForwarders} reserved
-										</p>
-									</td>
-									<td>
-										{relay.drainedAt ? (
-											<Badge variant="outline">draining</Badge>
-										) : relay.enabled ? (
-											<Badge variant="secondary">enabled</Badge>
-										) : (
-											<Badge variant="destructive">disabled</Badge>
-										)}
-									</td>
-									<td>
-										<div className="flex gap-1">
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={() =>
-													void run(
-														() =>
-															trpc.admin.relays.update.mutate({
-																id: relay.id,
-																enabled: !relay.enabled,
-															}),
-														relay.enabled ? "Relay disabled" : "Relay enabled",
-													)
-												}
-											>
-												{relay.enabled ? "Disable" : "Enable"}
-											</Button>
-											<Button
-												size="sm"
-												variant="outline"
-												onClick={() =>
-													void run(
-														() =>
-															trpc.admin.relays.update.mutate({
-																id: relay.id,
-																drained: !relay.drainedAt,
-															}),
-														relay.drainedAt
-															? "Drain cleared"
-															: "Relay draining",
-													)
-												}
-											>
-												{relay.drainedAt ? "Undrain" : "Drain"}
-											</Button>
-										</div>
-									</td>
-								</tr>
-							))}
+							{relays.data?.map((relay) => {
+								const relayHistory = historyByRelay.get(relay.id);
+								const expanded = expandedRelayId === relay.id;
+								return (
+									<Fragment key={relay.id}>
+										<tr className="cursor-default!">
+											<td>
+												<p className="font-medium">{relay.name}</p>
+												<p className="text-muted-foreground text-xs">
+													{relay.host}
+												</p>
+											</td>
+											<td>{relay.region}</td>
+											<td>
+												<RelayHealth relay={relay} />
+											</td>
+											<td>
+												<Input
+													aria-label={`${relay.name} path capacity`}
+													className="w-24"
+													defaultValue={relay.capacityPaths}
+													type="number"
+													onBlur={(event) => {
+														const capacityPaths = Number(event.target.value);
+														if (
+															Number.isInteger(capacityPaths) &&
+															capacityPaths > 0 &&
+															capacityPaths !== relay.capacityPaths
+														) {
+															void run(
+																() =>
+																	trpc.admin.relays.update.mutate({
+																		id: relay.id,
+																		capacityPaths,
+																	}),
+																"Relay capacity updated",
+															);
+														}
+													}}
+												/>
+												<p className="text-muted-foreground text-xs">
+													{relay.assignedPaths} assigned
+												</p>
+											</td>
+											<td>
+												<Input
+													aria-label={`${relay.name} forwarder capacity`}
+													className="w-20"
+													defaultValue={relay.maxForwarders}
+													type="number"
+													onBlur={(event) => {
+														const maxForwarders = Number(event.target.value);
+														if (
+															Number.isInteger(maxForwarders) &&
+															maxForwarders >= 0 &&
+															maxForwarders !== relay.maxForwarders
+														) {
+															void run(
+																() =>
+																	trpc.admin.relays.update.mutate({
+																		id: relay.id,
+																		maxForwarders,
+																	}),
+																"Forwarder capacity updated",
+															);
+														}
+													}}
+												/>
+												<p className="text-muted-foreground text-xs">
+													{relay.activeForwarders} active ·{" "}
+													{relay.reservedForwarders} reserved
+												</p>
+											</td>
+											<td>
+												<RelaySparklines
+													expanded={expanded}
+													loading={history.isPending}
+													name={relay.name}
+													points={relayHistory?.points}
+													onToggle={() =>
+														setExpandedRelayId(expanded ? null : relay.id)
+													}
+												/>
+											</td>
+											<td>
+												{relay.drainedAt ? (
+													<Badge variant="outline">draining</Badge>
+												) : relay.enabled ? (
+													<Badge variant="secondary">enabled</Badge>
+												) : (
+													<Badge variant="destructive">disabled</Badge>
+												)}
+											</td>
+											<td>
+												<div className="flex gap-1">
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() =>
+															void run(
+																() =>
+																	trpc.admin.relays.update.mutate({
+																		id: relay.id,
+																		enabled: !relay.enabled,
+																	}),
+																relay.enabled
+																	? "Relay disabled"
+																	: "Relay enabled",
+															)
+														}
+													>
+														{relay.enabled ? "Disable" : "Enable"}
+													</Button>
+													<Button
+														size="sm"
+														variant="outline"
+														onClick={() =>
+															void run(
+																() =>
+																	trpc.admin.relays.update.mutate({
+																		id: relay.id,
+																		drained: !relay.drainedAt,
+																	}),
+																relay.drainedAt
+																	? "Drain cleared"
+																	: "Relay draining",
+															)
+														}
+													>
+														{relay.drainedAt ? "Undrain" : "Drain"}
+													</Button>
+												</div>
+											</td>
+										</tr>
+										{expanded && relayHistory ? (
+											<tr className="cursor-default! hover:bg-transparent!">
+												<td colSpan={8}>
+													<RelayHistoryDetail
+														history={relayHistory.row}
+														points={relayHistory.points}
+													/>
+												</td>
+											</tr>
+										) : null}
+									</Fragment>
+								);
+							})}
 						</tbody>
 					</table>
 				</div>
