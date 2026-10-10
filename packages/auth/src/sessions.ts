@@ -1,6 +1,6 @@
 import { db } from "@VISP/db";
-import { session } from "@VISP/db/schema/auth";
-import { and, eq, ne } from "drizzle-orm";
+import { authCache, session } from "@VISP/db/schema/auth";
+import { and, eq, gt, ne } from "drizzle-orm";
 import { auth } from "./index";
 
 /**
@@ -141,22 +141,38 @@ export async function refreshCachedUser(userId: string) {
 	const now = Date.now();
 	await Promise.all(
 		[...tokens].map(async (token) => {
+			const raw = await storage.get(token);
+			if (typeof raw !== "string") return;
 			const cached = parse<{
 				session?: { userId?: string; expiresAt?: string | number };
-			}>(await storage.get(token));
+			}>(raw);
 			if (!cached?.session || cached.session.userId !== userId) return;
-			const ttl = Math.floor(
-				(new Date(cached.session.expiresAt ?? 0).getTime() - now) / 1000,
-			);
-			if (ttl <= 0) {
+			if (new Date(cached.session.expiresAt ?? 0).getTime() <= now) {
 				await storage.delete(token);
 				return;
 			}
-			await storage.set(
-				token,
-				JSON.stringify({ session: cached.session, user: current }),
-				ttl,
-			);
+			// Compare-and-swap on the `auth_cache` row (the table behind
+			// `secondaryStorage`): a plain set would recreate an entry that a
+			// sign-out or revocation deleted after the read above, bringing the
+			// session back until the entry expired. Updating only the exact value
+			// read never recreates a row and keeps its expiry.
+			const [swapped] = await db
+				.update(authCache)
+				.set({
+					value: JSON.stringify({ session: cached.session, user: current }),
+				})
+				.where(
+					and(
+						eq(authCache.key, token),
+						eq(authCache.value, raw),
+						gt(authCache.expiresAt, new Date()),
+					),
+				)
+				.returning({ key: authCache.key });
+			// The entry changed or went away meanwhile. Dropping it never leaves
+			// stale access: a session whose row exists is read back from the table
+			// with the current user, and one that was revoked stays revoked.
+			if (!swapped) await storage.delete(token);
 		}),
 	);
 }

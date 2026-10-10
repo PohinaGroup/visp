@@ -92,6 +92,7 @@ import {
 } from "@VISP/api/studio";
 import { DEFAULT_ALERT_APPEARANCE } from "@VISP/api/studio-alert";
 import { auth } from "@VISP/auth";
+import { refreshCachedUser, revokeSessionByToken } from "@VISP/auth/sessions";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -2622,6 +2623,45 @@ integration("relay PostgreSQL integration", () => {
 			(await (await callerFor(promotedToken)).admin.overview()).totalUsers,
 		).toBe(3);
 		expect((await head.admin.overview()).totalUsers).toBe(3);
+	});
+
+	test("refreshing a cached user never revives a session revoked meanwhile", async () => {
+		await db
+			.insert(user)
+			.values([
+				{ id: "refresh-a", name: "Refresh", email: "refresh-a@example.test" },
+			]);
+		const kept = await cachedSession("refresh-a");
+		const revoked = await cachedSession("refresh-a");
+		const ctx = await auth.$context;
+		const storage = ctx.secondaryStorage;
+		if (!storage) throw new Error("secondary storage is required");
+		await db
+			.update(user)
+			.set({ name: "Renamed" })
+			.where(eq(user.id, "refresh-a"));
+
+		// Sign the second session out between refreshCachedUser's read of its
+		// cache entry and its write-back.
+		const get = storage.get;
+		let signedOut = false;
+		storage.get = async (key: string) => {
+			const value = await get.call(storage, key);
+			if (key === revoked && !signedOut) {
+				signedOut = true;
+				await revokeSessionByToken(revoked);
+			}
+			return value;
+		};
+		try {
+			await refreshCachedUser("refresh-a");
+		} finally {
+			storage.get = get;
+		}
+
+		expect(await storage.get(revoked)).toBeNull();
+		expect(await sessionFor(revoked)).toBeNull();
+		expect((await sessionFor(kept))?.user.name).toBe("Renamed");
 	});
 
 	test("ends the device-flow session once OBS has its control token", async () => {
