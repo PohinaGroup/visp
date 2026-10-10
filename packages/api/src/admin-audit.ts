@@ -8,7 +8,7 @@ export type AuditTransaction = Parameters<
 
 export type AdminAuditEntry = {
 	actorId: string;
-	targetType: "user" | "relay";
+	targetType: "user" | "relay" | "setting";
 	targetId: string;
 	action: string;
 	before?: AdminAuditSnapshot | null;

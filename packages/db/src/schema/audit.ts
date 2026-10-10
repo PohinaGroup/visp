@@ -25,7 +25,9 @@ export const adminAuditLog = pgTable(
 	{
 		id: bigserial("id", { mode: "number" }).primaryKey(),
 		actorId: text("actor_id").notNull(),
-		targetType: text("target_type", { enum: ["user", "relay"] }).notNull(),
+		targetType: text("target_type", {
+			enum: ["user", "relay", "setting"],
+		}).notNull(),
 		targetId: text("target_id").notNull(),
 		action: text("action").notNull(),
 		before: jsonb("before").$type<AdminAuditSnapshot>(),
@@ -37,7 +39,7 @@ export const adminAuditLog = pgTable(
 	(table) => [
 		check(
 			"admin_audit_log_target_type",
-			sql`${table.targetType} in ('user', 'relay')`,
+			sql`${table.targetType} in ('user', 'relay', 'setting')`,
 		),
 		index("admin_audit_log_created_at_idx").on(table.createdAt.desc()),
 		index("admin_audit_log_target_created_at_idx").on(

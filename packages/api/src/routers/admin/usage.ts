@@ -82,7 +82,7 @@ const iso = (value: Date | string) => new Date(value).toISOString();
  * Usage recorded without a provider can only match the catch-all. No row in
  * effect yields NULL, i.e. "unpriced", never 0.
  */
-function priceInEffectSql(): SQL {
+export function priceInEffectSql(): SQL {
 	return sql`left join lateral (
 		select price_row.eur_per_unit
 		from unit_price price_row

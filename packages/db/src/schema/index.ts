@@ -10,5 +10,6 @@ export * from "./multichat";
 export * from "./obs-backup";
 export * from "./relay";
 export * from "./relay-health-sample";
+export * from "./spend-budget";
 export * from "./studio";
 export * from "./typography";

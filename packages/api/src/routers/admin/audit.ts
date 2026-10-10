@@ -32,7 +32,7 @@ export const adminAuditRouter = router({
 				cursor: z.string().regex(/^\d+$/).optional(),
 				limit: z.number().int().min(1).max(MAX_PAGE_SIZE).default(PAGE_SIZE),
 				actorId: z.string().trim().min(1).max(200).optional(),
-				targetType: z.enum(["user", "relay"]).optional(),
+				targetType: z.enum(["user", "relay", "setting"]).optional(),
 				targetId: z.string().trim().min(1).max(200).optional(),
 				action: z.string().trim().min(1).max(100).optional(),
 			}),

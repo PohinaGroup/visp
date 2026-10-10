@@ -225,6 +225,13 @@
 			"when": 1791634006000,
 			"tag": "0031_daily_metrics",
 			"breakpoints": true
+		},
+		{
+			"idx": 32,
+			"version": "7",
+			"when": 1791634007000,
+			"tag": "0032_spend_budget",
+			"breakpoints": true
 		}
 	]
 }
