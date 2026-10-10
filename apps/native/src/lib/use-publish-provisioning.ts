@@ -1,4 +1,5 @@
 import { fastestRelay } from "@VISP/api/relay-probe";
+import { relayRegionLabel } from "@VISP/api/relay-regions";
 import * as Device from "expo-device";
 import type { Dispatch, SetStateAction } from "react";
 import { useCallback, useEffect, useState } from "react";
@@ -50,7 +51,9 @@ export function usePublishProvisioning({
 				);
 			if (fastest.id === device.relay.id) {
 				await provisionDestination(true);
-				setMessage(`Already on the fastest relay: ${device.relay.region}.`);
+				setMessage(
+					`Already on the fastest relay: ${relayRegionLabel(device.relay.region)}.`,
+				);
 				return;
 			}
 			confirmDestructive(
@@ -71,7 +74,7 @@ export function usePublishProvisioning({
 						setStreamUrl(url);
 						await refreshPublishDevices();
 						setMessage(
-							`Relay changed to ${moved.path.relay.region}. Update your OBS receiving URL.`,
+							`Relay changed to ${relayRegionLabel(moved.path.relay.region)}. Update your OBS receiving URL.`,
 						);
 					} catch (error) {
 						setMessage(describeProvisionError(error));
