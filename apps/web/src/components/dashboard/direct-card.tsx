@@ -1,4 +1,5 @@
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
+import { LOW_LATENCY_DIRECT_WARNING } from "@VISP/api/srt-latency";
 import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
@@ -295,7 +296,23 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 										{path.publishing ? (
 											<Badge label={t("Publishing")} variant="success" />
 										) : null}
+										{path.lowLatency ? (
+											<Badge label={t("Low latency")} variant="info" />
+										) : null}
 									</HStack>
+									{path.lowLatency &&
+									(path.twitch ||
+										path.kick ||
+										path.youtube ||
+										direct.data.customOutputs.some(
+											(output) => output.pathId === path.id,
+										)) ? (
+										<Banner
+											description={t(LOW_LATENCY_DIRECT_WARNING)}
+											status="warning"
+											title={t("Direct runs on a low-latency feed")}
+										/>
+									) : null}
 									<VStack gap={2}>
 										{(["twitch", "kick", "youtube"] as const).map(
 											(provider) => {

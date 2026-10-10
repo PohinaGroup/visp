@@ -26,8 +26,7 @@ export async function loadTwitchBadges(
 	broadcasterId: string,
 	dependencies: TwitchBadgeDependencies = {
 		fetch: globalThis.fetch,
-		getAccessToken: (id) =>
-			getProviderAccessToken("twitch", id),
+		getAccessToken: (id) => getProviderAccessToken("twitch", id),
 	},
 ) {
 	const now = dependencies.now?.() ?? Date.now();

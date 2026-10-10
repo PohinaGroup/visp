@@ -1,3 +1,4 @@
+import { LOW_LATENCY_DIRECT_WARNING } from "@VISP/api/srt-latency";
 import * as UI from "@expo/ui";
 import { nativeApplicationVersion, nativeBuildVersion } from "expo-application";
 import type { ReactNode } from "react";
@@ -87,9 +88,22 @@ export function StreamSettingsSheet({
 				<AudioSection camera={camera} speech={speech} />
 				{!IS_WEB ? (
 					<UI.FieldGroup.Section title="Network">
+						{network.lowLatency !== undefined ? (
+							<SettingRow label="Low-latency OBS mode">
+								<UI.Switch
+									disabled={camera.settingsDisabled}
+									onValueChange={(enabled) =>
+										void network.onUpdateLowLatency(enabled)
+									}
+									value={network.lowLatency}
+								/>
+							</SettingRow>
+						) : null}
 						<SettingRow label="Network bonding">
 							<UI.Switch
-								disabled={camera.settingsDisabled}
+								disabled={
+									camera.settingsDisabled || Boolean(network.lowLatency)
+								}
 								onValueChange={(enabled) =>
 									void network.onUpdateBondingMode(enabled ? "srtla" : "off")
 								}
@@ -121,6 +135,15 @@ export function StreamSettingsSheet({
 								<UI.Text textStyle={SUBTLE_TEXT}>
 									Broadcast sends every packet over both links and can roughly
 									double mobile data use.
+								</UI.Text>
+							</UI.FieldGroup.SectionFooter>
+						) : null}
+						{network.lowLatency ? (
+							<UI.FieldGroup.SectionFooter>
+								<UI.Text textStyle={SUBTLE_TEXT}>
+									{network.lowLatencyHasDirect
+										? `Sends on one connection with a short retransmit window so OBS sees you in about half a second on Wi-Fi. Network bonding is off while this is on. ${LOW_LATENCY_DIRECT_WARNING}`
+										: "Sends on one connection with a short retransmit window so OBS sees you in about half a second on Wi-Fi. Network bonding is off while this is on."}
 								</UI.Text>
 							</UI.FieldGroup.SectionFooter>
 						) : null}
