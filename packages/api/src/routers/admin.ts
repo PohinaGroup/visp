@@ -25,6 +25,7 @@ import { adminGrowthRouter } from "./admin/growth";
 import { adminMetricsRouter } from "./admin/metrics";
 import { adminRelayHistoryRouter } from "./admin/relay-history";
 import { adminReliabilityRouter } from "./admin/reliability";
+import { adminUsageRouter } from "./admin/usage";
 
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -355,6 +356,7 @@ export const adminRouter = router({
 			}),
 	}),
 	relayHistory: adminRelayHistoryRouter,
+	usage: adminUsageRouter,
 
 	users: router({
 		list: adminProcedure
