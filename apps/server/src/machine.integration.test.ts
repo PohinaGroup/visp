@@ -1097,6 +1097,106 @@ integration("relay PostgreSQL integration", () => {
 		}
 	});
 
+	test("keeps two accounts' OBS WebSockets separate", async () => {
+		await seed();
+		const pairingA = await rotateObsControlToken("user-a");
+		const pairingB = await rotateObsControlToken("user-b");
+		const liveApp = new Elysia({ adapter: nodeAdapter }).use(obsLiveRoutes);
+		const liveServer = await new Promise<NonNullable<typeof liveApp.server>>(
+			(resolve) =>
+				liveApp.listen({ hostname: "127.0.0.1", port: 0 }, (server) =>
+					resolve(server),
+				),
+		);
+		const port = (
+			liveServer as unknown as {
+				raw?: { bun?: { server?: { address?: { port?: number } } } };
+			}
+		).raw?.bun?.server?.address?.port;
+		if (!port) throw new Error("OBS live test server did not start");
+		const connect = async (token: string) => {
+			const response = await fetch(
+				`http://127.0.0.1:${port}/api/obs/live-ticket`,
+				{ method: "POST", headers: { authorization: `Bearer ${token}` } },
+			);
+			const { ticket } = (await response.json()) as { ticket: string };
+			const socket = new WebSocket(
+				`ws://127.0.0.1:${port}/api/obs/live?ticket=${encodeURIComponent(ticket)}`,
+			);
+			const received: Record<string, unknown>[] = [];
+			const waiters: Array<(value: Record<string, unknown>) => void> = [];
+			socket.onmessage = ({ data }) => {
+				const value = JSON.parse(String(data)) as Record<string, unknown>;
+				const waiter = waiters.shift();
+				if (waiter) waiter(value);
+				else received.push(value);
+			};
+			await new Promise<void>((resolve, reject) => {
+				socket.onopen = () => resolve();
+				socket.onerror = () => reject(new Error("OBS WebSocket did not open"));
+			});
+			const next = () => {
+				const value = received.shift();
+				return value
+					? Promise.resolve(value)
+					: new Promise<Record<string, unknown>>((resolve) =>
+							waiters.push(resolve),
+						);
+			};
+			const report = (scenes: string[]) =>
+				socket.send(
+					JSON.stringify({
+						appliedVersion: 0,
+						streaming: false,
+						scenes,
+						currentScene: scenes[0],
+					}),
+				);
+			return { socket, next, report, received };
+		};
+		try {
+			const a = await connect(pairingA.token);
+			expect(await a.next()).toMatchObject({ commandVersion: 0 });
+			const b = await connect(pairingB.token);
+			expect(await b.next()).toMatchObject({ commandVersion: 0 });
+
+			// A reports after B connected: it must land on A, never on B.
+			a.report(["Alpha scene"]);
+			expect(await a.next()).toMatchObject({ commandVersion: 0 });
+			b.report(["Beta scene"]);
+			expect(await b.next()).toMatchObject({ commandVersion: 0 });
+			const ownerA = await db.query.appUser.findFirst({
+				where: eq(appUser.id, "user-a"),
+			});
+			const ownerB = await db.query.appUser.findFirst({
+				where: eq(appUser.id, "user-b"),
+			});
+			expect(ownerA?.obsScenes).toEqual(["Alpha scene"]);
+			expect(ownerB?.obsScenes).toEqual(["Beta scene"]);
+
+			// B's command reaches only B's OBS.
+			await setObsStreaming("user-b", true);
+			expect(await b.next()).toMatchObject({
+				commandVersion: 1,
+				desiredStreaming: true,
+			});
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			expect(a.received).toEqual([]);
+
+			// Closing B must not unsubscribe A.
+			b.socket.close();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			await setObsStreaming("user-a", true);
+			expect(await a.next()).toMatchObject({
+				commandVersion: 1,
+				desiredStreaming: true,
+			});
+			a.socket.close();
+		} finally {
+			liveServer.stop(true);
+		}
+	});
+
 	test("authorizes OBS in the browser and scopes device management to its owner", async () => {
 		const data = await seed();
 		const revoked = await createPath("user-a", "revoked");
