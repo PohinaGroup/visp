@@ -1224,6 +1224,38 @@ integration("relay PostgreSQL integration", () => {
 			await db.query.obsBackup.findFirst({ where: eq(obsBackup.id, id) }),
 		).toBeUndefined();
 
+		// Plugins from before restore never call complete; listing seals them.
+		const legacy = (await (
+			await call(pairingA.token, "/api/obs/backups", "POST", {})
+		).json()) as { id: string };
+		objects.set(`obs-backups/user-a/${legacy.id}/scenes/Main.json`, scene);
+		objects.set(
+			`obs-backups/user-a/${legacy.id}/manifest.json`,
+			new TextEncoder().encode(
+				JSON.stringify({
+					version: 1,
+					createdAt: "2026-10-10T10:00:00Z",
+					files: [
+						{
+							path: "scenes/Main.json",
+							originalPath: "/obs/Main.json",
+							byteSize: scene.length,
+						},
+					],
+				}),
+			),
+		);
+		const settled = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string; fileCount: number }[] };
+		expect(settled.backups).toEqual([
+			expect.objectContaining({ id: legacy.id, fileCount: 1 }),
+		]);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${legacy.id}`, "DELETE"))
+				.status,
+		).toBe(204);
+
 		// Retention keeps the newest completed backups and drops older objects.
 		const ids: string[] = [];
 		for (let index = 0; index <= OBS_BACKUP_RETENTION; index += 1) {

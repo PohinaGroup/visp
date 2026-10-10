@@ -209,6 +209,7 @@ export async function createObsBackup(
 		),
 	});
 	for (const { id } of abandoned) await removeBackup(userId, id, client);
+	await settlePendingObsBackups(userId);
 	const pending = await db.$count(
 		obsBackup,
 		and(eq(obsBackup.userId, userId), isNull(obsBackup.completedAt)),
@@ -354,7 +355,29 @@ export async function pruneObsBackups(
 	return stale.length;
 }
 
+/**
+ * Plugins released before restore never call the complete endpoint. Seal any
+ * of their backups whose manifest has landed so they can still be restored
+ * and do not count against the pending limit.
+ */
+export async function settlePendingObsBackups(
+	userId: string,
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+) {
+	const pending = await db.query.obsBackup.findMany({
+		columns: { id: true },
+		where: and(eq(obsBackup.userId, userId), isNull(obsBackup.completedAt)),
+		orderBy: [obsBackup.createdAt],
+	});
+	for (const { id } of pending) {
+		await completeObsBackup(userId, id, client).catch((error) => {
+			if (!(error instanceof ObsBackupError)) throw error;
+		});
+	}
+}
+
 export async function listObsBackups(userId: string) {
+	await settlePendingObsBackups(userId);
 	const rows = await db.query.obsBackup.findMany({
 		where: and(eq(obsBackup.userId, userId), isNotNull(obsBackup.completedAt)),
 		orderBy: [desc(obsBackup.completedAt), desc(obsBackup.createdAt)],
