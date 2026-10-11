@@ -52,7 +52,13 @@
 		},
 		"db:migrate": {
 			"cache": false,
-			"passThroughEnv": ["DATABASE_URL", "DATABASE_SSL_CA"]
+			"passThroughEnv": [
+				"DATABASE_URL",
+				"DATABASE_SSL_CA",
+				"MIGRATION_LOCK_TIMEOUT_MS",
+				"MIGRATION_LOCK_ATTEMPTS",
+				"MIGRATION_STATEMENT_TIMEOUT_MS"
+			]
 		},
 		"db:studio": {
 			"cache": false,
