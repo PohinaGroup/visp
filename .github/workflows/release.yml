@@ -52,6 +52,10 @@ jobs:
             apps/native/ios/VISP.xcodeproj/project.pbxproj)
           test -n "$marketing_versions"
           test "$(printf '%s\n' "$marketing_versions" | sort -u)" = "$version"
+          # Info.plist must defer to MARKETING_VERSION; a literal here silently overrides it.
+          short_version=$(sed -nE '/<key>CFBundleShortVersionString<\/key>/{n;s/.*<string>(.*)<\/string>.*/\1/p;}' \
+            apps/native/ios/VISP/Info.plist)
+          test "$short_version" = '$(MARKETING_VERSION)'
           test "$(jq -r .expo.ios.bundleIdentifier apps/native/app.json)" = com.pohinagroup.visp
           test "$(jq -r .expo.android.package apps/native/app.json)" = com.pohinagroup.visp
           test "$(jq -r .expo.ios.bundleIdentifier apps/obs-remote/app.json)" = com.pohinagroup.visp.obsremote
