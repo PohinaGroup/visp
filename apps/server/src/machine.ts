@@ -75,6 +75,19 @@ import {
 // ponytail: per-instance limit allows N× traffic on N app instances; move to
 // Postgres or the cache bus only if a strict global request cap is needed.
 const deviceMutations = fixedWindow(20, 60_000);
+// Listing, creating, reading a manifest and deleting each reach object storage.
+// Per-file upload and download URLs stay unlimited: a backup or restore asks
+// for one per file, back to back.
+const obsBackupRequests = fixedWindow(60, 60_000);
+// Completing reads the manifest and stats every file it lists.
+const obsBackupCompletions = fixedWindow(20, 60_000);
+const OBS_BACKUP_RATE_LIMITED =
+	"Too many backup requests. Try again in a minute.";
+
+export function resetObsBackupLimitsForTests() {
+	obsBackupRequests.reset();
+	obsBackupCompletions.reset();
+}
 
 chatHub.onPublished((userId, event) => {
 	if (event.type !== "alert") return;
@@ -247,6 +260,8 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		try {
 			const owner = await authenticateObsControlToken(headers.authorization);
 			if (!owner) return status(401, "unauthorized");
+			if (!obsBackupRequests.take(owner.id))
+				return status(429, OBS_BACKUP_RATE_LIMITED);
 			return { backups: await listObsBackups(owner.id) };
 		} catch (error) {
 			return obsBackupFailure(error);
@@ -258,6 +273,8 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			try {
 				const owner = await authenticateObsControlToken(headers.authorization);
 				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupRequests.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
 				return await createObsBackup(owner.id, body ?? {});
 			} catch (error) {
 				return obsBackupFailure(error);
@@ -306,6 +323,8 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			try {
 				const owner = await authenticateObsControlToken(headers.authorization);
 				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupCompletions.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
 				return await completeObsBackup(owner.id, params.backupId);
 			} catch (error) {
 				return obsBackupFailure(error);
@@ -319,6 +338,8 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			try {
 				const owner = await authenticateObsControlToken(headers.authorization);
 				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupRequests.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
 				return await getObsBackupManifest(owner.id, params.backupId);
 			} catch (error) {
 				return obsBackupFailure(error);
@@ -359,6 +380,8 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			try {
 				const owner = await authenticateObsControlToken(headers.authorization);
 				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupRequests.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
 				await deleteObsBackup(owner.id, params.backupId);
 				return status(204);
 			} catch (error) {

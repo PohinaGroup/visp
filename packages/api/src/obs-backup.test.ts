@@ -30,6 +30,55 @@ describe("OBS backups", () => {
 		expect(validObsBackupPath("scenes\\main.json")).toBe(false);
 	});
 
+	test("accepts every path the plugin writes", () => {
+		for (const path of [
+			"manifest.json",
+			"scenes/Main.json",
+			"scenes/My Scene.json",
+			"scenes/Ääkköset 台.json",
+			"profiles/Untitled/basic.ini",
+			"profiles/My Profile/basic.ini",
+			"media/000001",
+			"media/000002.png",
+			"media/000003.mp4",
+			"scenes/.hidden.json",
+			"media/console.png",
+		]) {
+			expect(validObsBackupPath(path)).toBe(true);
+		}
+	});
+
+	test("rejects paths Windows would resolve outside the restore folder", () => {
+		for (const path of [
+			"C:/Users/x/AppData/Roaming/Microsoft/Windows/Start Menu/Programs/Startup/x.bat",
+			"C:x.bat",
+			"c:/x",
+			"media/x:stream",
+			"/etc/passwd",
+			"//server/share/x",
+			"media/../../x",
+			"media/./x",
+			"media\\x",
+			"media/a\u0000b",
+			"media/a\nb",
+			"media/a\u007fb",
+			...["<", ">", '"', "|", "?", "*"].map((c) => `media/a${c}b`),
+			"media/trailing.",
+			"media/trailing ",
+			"media./x",
+			"CON",
+			"media/con",
+			"media/NUL.json",
+			"media/com1.png",
+			"media/LPT9",
+			"media/aux.tar.gz",
+			"x".repeat(513),
+			"",
+		]) {
+			expect(validObsBackupPath(path)).toBe(false);
+		}
+	});
+
 	test("reads version 1 manifests from older plugins", () => {
 		const manifest = parseObsBackupManifest({
 			version: 1,
@@ -74,6 +123,11 @@ describe("OBS backups", () => {
 			{ version: 3, createdAt: "x", files: [file] },
 			{ version: 1, createdAt: "x", files: [] },
 			{ version: 1, createdAt: "x", files: [{ ...file, path: "../a" }] },
+			{
+				version: 1,
+				createdAt: "x",
+				files: [{ ...file, path: "C:/Windows/System32/evil.dll" }],
+			},
 			{
 				version: 1,
 				createdAt: "x",

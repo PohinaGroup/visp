@@ -470,6 +470,28 @@ endpoint. The app credential needs GET, HEAD, PUT, and DELETE access only to the
 uploads and OBS backups, and pruning can remove old OBS backups.
 Keep bucket versioning disabled so overwrites do not retain history.
 
+> **Before deploying OBS backups:** grant the app credential LIST on
+> `obs-backups/` first. Account deletion lists `obs-backups/<userId>/` and
+> fails without it; backup pruning and expiry of abandoned uploads also list.
+
+Do not add an expiration rule for `obs-backups/`: completed backups must stay.
+The app keeps the newest 10 per account, and deletes unfinished backups once
+they are 24 hours old (on that account's next backup list or create) and on
+account deletion. As a safety net for interrupted uploads, add:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "AbortVispObsBackupMultipart",
+      "Status": "Enabled",
+      "Prefix": "obs-backups/",
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    }
+  ]
+}
+```
+
 Configure this lifecycle rule through the UpCloud control panel or a compatible
 S3 client so stopped paths disappear from storage after one day:
 
