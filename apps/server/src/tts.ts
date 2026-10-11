@@ -1,8 +1,13 @@
 import { betterFeatures } from "@VISP/api/better-features";
+import { recordHostedUsage } from "@VISP/api/hosted-usage";
 import { LANGUAGE_CODES } from "@VISP/api/languages";
 import { fixedWindow } from "@VISP/api/rate-limit";
-import { betterTtsConfigured, synthesizeSpeech } from "@VISP/api/tts";
-import { auth } from "@VISP/auth";
+import {
+	betterTtsConfigured,
+	synthesizeSpeech,
+	TTS_PROVIDER,
+} from "@VISP/api/tts";
+import { getUserSession } from "@VISP/auth";
 import { Elysia } from "elysia";
 import { z } from "zod";
 
@@ -21,6 +26,14 @@ const speechSchema = z.object({
 	language: z.enum(LANGUAGE_CODES),
 });
 
+/**
+ * Characters as the provider counts them: code points of the trimmed text that
+ * was sent, so an emoji is one character rather than two UTF-16 units.
+ */
+export function speechCharacters(text: string) {
+	return [...text].length;
+}
+
 export function resetTtsRateLimit() {
 	ttsRequests.reset();
 }
@@ -28,7 +41,7 @@ export function resetTtsRateLimit() {
 export const ttsRoutes = new Elysia({ name: "tts-routes" }).post(
 	"/api/tts",
 	async ({ request, status }) => {
-		const session = await auth.api.getSession({ headers: request.headers });
+		const session = await getUserSession(request.headers);
 		if (!session) return status(401, { error: "Authentication required" });
 
 		// The client switch is an affordance; this is the gate.
@@ -54,6 +67,15 @@ export const ttsRoutes = new Elysia({ name: "tts-routes" }).post(
 
 		try {
 			const audio = await synthesizeSpeech(parsed.data);
+			// Metered only once the provider produced audio: it does not bill a
+			// refused request, and the device-voice fallback costs nothing.
+			recordHostedUsage({
+				userId: session.user.id,
+				feature: "tts",
+				units: speechCharacters(parsed.data.text),
+				unit: "characters",
+				provider: TTS_PROVIDER,
+			});
 			return new Response(audio, {
 				headers: {
 					"Content-Type": "audio/mpeg",

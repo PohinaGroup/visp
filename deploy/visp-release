@@ -61,7 +61,15 @@ assert_clean "$repo has tracked changes"
 # Reuses the same createEnv the server runs at boot, so it can't drift.
 (cd "$repo" && run_with_env "$app_env" "$bun" -e 'await import("@VISP/env/server")')
 
-run_with_env "$app_env" "$bun" run --cwd "$repo" db:migrate
+# Migrate before building or restarting anything: on failure the old services
+# keep running untouched. The migrator gives up on a lock after
+# MIGRATION_LOCK_TIMEOUT_MS (default 5000) and retries MIGRATION_LOCK_ATTEMPTS
+# (default 3) times; each failed attempt rolls back completely. Runs the
+# package script directly because turbo's strict env mode would drop those
+# overrides from app.env.
+if ! run_with_env "$app_env" "$bun" run --cwd "$repo/packages/db" db:migrate; then
+	fail "database migration failed; services were not restarted"
+fi
 (
 	cd "$repo"
 	run_with_env "$web_env" "$bun" x turbo run build -F server -F web -F admin -F multichat

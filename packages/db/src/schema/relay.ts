@@ -181,6 +181,11 @@ export const appUser = pgTable(
 		brbHighlightsOverlay: boolean("brb_highlights_overlay")
 			.default(true)
 			.notNull(),
+		// Bumped whenever an OBS media source's settings change server-side, so
+		// the OBS plugin knows to refetch the VISP sources it manages.
+		obsMediaSourcesRevision: integer("obs_media_sources_revision")
+			.default(0)
+			.notNull(),
 		directProductionMode: text("direct_production_mode")
 			.default("obs")
 			.notNull(),
@@ -313,6 +318,11 @@ export const relayPath = pgTable(
 		directTwitch: boolean("direct_twitch").default(false).notNull(),
 		directKick: boolean("direct_kick").default(false).notNull(),
 		directYoutube: boolean("direct_youtube").default(false).notNull(),
+		// Low-latency OBS mode: the VISP app publishes with an RTT-sized SRT
+		// latency on a single link, and OBS reads it with a short latency and no
+		// demuxer buffering. Per device, because it changes what every reader of
+		// this path gets, Direct included.
+		lowLatency: boolean("low_latency").default(false).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -513,6 +523,12 @@ export const relayStreamSession = pgTable(
 		uniqueIndex("relay_stream_session_one_open_per_path")
 			.on(table.pathId)
 			.where(sql`${table.endedAt} is null`),
+		// Admin KPIs (weekly active streamers, streaming hours) range-scan by
+		// first_live_at across all paths; the path-leading index above cannot
+		// serve that. Partial because sessions that never went live never count.
+		index("relay_stream_session_first_live_idx")
+			.on(table.firstLiveAt)
+			.where(sql`${table.firstLiveAt} is not null`),
 		check(
 			"relay_stream_session_valid_range",
 			sql`${table.endedAt} is null or ${table.endedAt} >= ${table.startedAt}`,
@@ -674,8 +690,8 @@ export const relayStreamSessionRelations = relations(
 /**
  * Last host-metrics sample pushed by a relay's health timer. One row per relay,
  * upserted — admin shows "now", and a stale reportedAt is how a dark relay
- * announces itself. No time series: that's a metrics system's job, not this
- * table's.
+ * announces itself. History lives in `relay_health_sample` (raw, 30 days)
+ * and `relay_health_hourly` (13 months); this row is only "now".
  */
 export const relayHealth = pgTable("relay_health", {
 	relayId: integer("relay_id")

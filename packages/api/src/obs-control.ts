@@ -1,3 +1,4 @@
+import { isBanActive } from "@VISP/auth/ban";
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
 import { type AnyColumn, and, eq, lte, sql } from "drizzle-orm";
@@ -36,6 +37,7 @@ type ObsControlRow = Pick<
 	| "obsCommandVersion"
 	| "obsAppliedVersion"
 	| "obsLastSeenAt"
+	| "obsMediaSourcesRevision"
 >;
 
 // The appUser "desired" column each toggle writes to.
@@ -102,7 +104,30 @@ function controlCommand(owner: ObsControlRow): ObsCommand {
 		desiredReplayBuffer: owner.obsDesiredReplayBuffer,
 		desiredRecordPaused: owner.obsDesiredRecordPaused,
 		desiredScene: owner.obsDesiredScene,
+		mediaSourcesRevision: owner.obsMediaSourcesRevision,
 	};
+}
+
+/**
+ * Tells a connected OBS plugin to refetch the media sources it manages. The
+ * revision also rides on every heartbeat reply, so a plugin that misses this
+ * push (another app instance, a reconnect) still catches up within seconds.
+ */
+export async function notifyObsMediaSourcesChanged(userId: string) {
+	const [owner] = await db
+		.update(appUser)
+		.set({
+			obsMediaSourcesRevision: sql`${appUser.obsMediaSourcesRevision} + 1`,
+		})
+		.where(eq(appUser.id, userId))
+		.returning();
+	if (owner?.obsControlTokenId) {
+		obsLiveHub.publishCommand(
+			userId,
+			owner.obsControlTokenId,
+			controlCommand(owner),
+		);
+	}
 }
 
 export async function getObsControlStatus(userId: string) {
@@ -150,11 +175,17 @@ export async function authenticateObsControlToken(
 ) {
 	const token = parseObsControlToken(authorization);
 	if (!token) return null;
-	const owner = await db.query.appUser.findFirst({
+	const row = await db.query.appUser.findFirst({
 		where: eq(appUser.obsControlTokenId, token.id),
+		// A ban revokes this token, but the ban is checked here too (joined, no
+		// extra query): a ban written another way, or a token minted while one
+		// was committing, must not keep OBS control.
+		with: { user: { columns: { banned: true, banExpires: true } } },
 	});
-	if (!owner?.obsControlTokenHash) return null;
-	return tokenMatches(token.secret, owner.obsControlTokenHash) ? owner : null;
+	if (!row?.obsControlTokenHash) return null;
+	if (!tokenMatches(token.secret, row.obsControlTokenHash)) return null;
+	const { user: account, ...owner } = row;
+	return account && !isBanActive(account) ? owner : null;
 }
 
 export async function revokeObsControlToken(userId: string) {

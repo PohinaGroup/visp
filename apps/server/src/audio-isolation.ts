@@ -5,7 +5,7 @@ import {
 } from "@VISP/api/audio-isolation";
 import { betterFeatures } from "@VISP/api/better-features";
 import { fixedWindow } from "@VISP/api/rate-limit";
-import { auth } from "@VISP/auth";
+import { getUserSession } from "@VISP/auth";
 import { Elysia } from "elysia";
 
 /**
@@ -25,7 +25,7 @@ export const audioIsolationRoutes = new Elysia({
 }).post(
 	"/api/audio-isolation",
 	async ({ request, status }) => {
-		const session = await auth.api.getSession({ headers: request.headers });
+		const session = await getUserSession(request.headers);
 		if (!session) return status(401, { error: "Authentication required" });
 
 		if (!(await betterFeatures(session.user.id)).betterAudioIsolation) {
@@ -50,7 +50,7 @@ export const audioIsolationRoutes = new Elysia({
 		}
 
 		try {
-			const isolated = await isolateAudioChunk(audio);
+			const isolated = await isolateAudioChunk(audio, session.user.id);
 			return new Response(isolated, {
 				headers: {
 					"Content-Type": "application/octet-stream",

@@ -1,3 +1,4 @@
+import { relayRegionLabel } from "@VISP/api/relay-regions";
 import * as UI from "@expo/ui";
 import type { BondingMode } from "../../modules/visp-srt";
 import type { apiClient } from "../lib/backend";
@@ -22,6 +23,10 @@ import {
 	SUBTLE,
 	SUBTLE_TEXT,
 } from "./stream-settings-shared";
+
+function relayRegionText(region: string | undefined) {
+	return region ? relayRegionLabel(region) : "Not assigned";
+}
 
 type PublishDevices = Awaited<ReturnType<typeof apiClient.paths.list.query>>;
 type LinkedAccounts = Awaited<
@@ -67,7 +72,12 @@ export type AdvancedSettings = {
 
 export type NetworkSettings = {
 	bondingMode: BondingMode;
+	/** Undefined when this phone has no account device to switch. */
+	lowLatency?: boolean;
+	/** Direct outputs run from this device, so they get the low-latency feed. */
+	lowLatencyHasDirect: boolean;
 	onUpdateBondingMode: (mode: BondingMode) => Promise<void>;
+	onUpdateLowLatency: (enabled: boolean) => Promise<void>;
 };
 
 export function AdvancedSection({
@@ -208,10 +218,12 @@ export function AdvancedSection({
 				<>
 					<UI.FieldGroup.Section title="Relay region">
 						<UI.Text textStyle={SUBTLE_TEXT}>
-							{advanced.publishDevices.find(
-								(device) =>
-									device.nativeInstallationId === advanced.installationId,
-							)?.relay.region ?? "Not assigned"}
+							{relayRegionText(
+								advanced.publishDevices.find(
+									(device) =>
+										device.nativeInstallationId === advanced.installationId,
+								)?.relay.region,
+							)}
 						</UI.Text>
 						<UI.Button
 							label={

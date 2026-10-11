@@ -19,9 +19,18 @@ import {
 	applyCustomDirectState,
 	customDirectOutputActive,
 } from "@VISP/api/direct-custom";
+import { reconcileForwarderSessions } from "@VISP/api/forwarder-sessions";
 import {
-	getObsBackupUploadUrl,
+	completeObsBackup,
+	createObsBackup,
+	deleteObsBackup,
+	getObsBackupDownloadUrls,
+	getObsBackupManifest,
+	listObsBackups,
+	OBS_BACKUP_DOWNLOAD_BATCH,
 	OBS_BACKUP_FILE_MAX_BYTES,
+	ObsBackupError,
+	prepareObsBackupUpload,
 } from "@VISP/api/obs-backup";
 import {
 	authenticateObsControlToken,
@@ -49,11 +58,11 @@ import {
 	reportCompositorHealth,
 } from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
-import { db } from "@VISP/db";
-import { session as authSession } from "@VISP/db/schema/index";
+import { isBanActive } from "@VISP/auth/ban";
+import { isObsPairingToken } from "@VISP/auth/obs-pairing";
+import { revokeSessionByToken } from "@VISP/auth/sessions";
 import { env } from "@VISP/env/server";
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { Elysia, status, t } from "elysia";
 import {
 	directDestinationJsonResponse,
@@ -66,6 +75,19 @@ import {
 // ponytail: per-instance limit allows N× traffic on N app instances; move to
 // Postgres or the cache bus only if a strict global request cap is needed.
 const deviceMutations = fixedWindow(20, 60_000);
+// Listing, creating, reading a manifest and deleting each reach object storage.
+// Per-file upload and download URLs stay unlimited: a backup or restore asks
+// for one per file, back to back.
+const obsBackupRequests = fixedWindow(60, 60_000);
+// Completing reads the manifest and stats every file it lists.
+const obsBackupCompletions = fixedWindow(20, 60_000);
+const OBS_BACKUP_RATE_LIMITED =
+	"Too many backup requests. Try again in a minute.";
+
+export function resetObsBackupLimitsForTests() {
+	obsBackupRequests.reset();
+	obsBackupCompletions.reset();
+}
 
 chatHub.onPublished((userId, event) => {
 	if (event.type !== "alert") return;
@@ -106,6 +128,12 @@ function matchesStudioToken(value: string | undefined, path: string) {
 	);
 }
 
+function obsBackupFailure(error: unknown) {
+	return error instanceof ObsBackupError
+		? status(error.status, error.message)
+		: status(503, "backup unavailable");
+}
+
 export const machineRoutes = new Elysia({ name: "machine-routes" })
 	.post("/api/obs/connect", async ({ headers, request }) => {
 		if (!headers.authorization?.startsWith("Bearer ")) {
@@ -115,14 +143,22 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			const activeSession = await auth.api.getSession({
 				headers: request.headers,
 			});
-			if (!activeSession) return status(401, "unauthorized");
+			// Only the 10-minute session OBS gets from the device flow
+			// (packages/auth/src/obs-pairing.ts) may mint a control token. A
+			// stolen browser session must not buy a credential that outlives its
+			// revocation.
+			if (
+				!activeSession ||
+				!isObsPairingToken(activeSession.session.token) ||
+				isBanActive(activeSession.user)
+			) {
+				return status(401, "unauthorized");
+			}
 			const relayUser = await ensureRelayUser(
 				activeSession.user.id,
 				activeSession.user.name,
 			);
-			await db
-				.delete(authSession)
-				.where(eq(authSession.id, activeSession.session.id));
+			await revokeSessionByToken(activeSession.session.token);
 			const pairing = await rotateObsControlToken(relayUser.id);
 			return {
 				account: { handle: relayUser.handle, name: activeSession.user.name },
@@ -220,15 +256,40 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			return status(503, "disconnect unavailable");
 		}
 	})
-	.post("/api/obs/backups", async ({ headers }) => {
+	.get("/api/obs/backups", async ({ headers }) => {
 		try {
 			const owner = await authenticateObsControlToken(headers.authorization);
 			if (!owner) return status(401, "unauthorized");
-			return { id: randomUUID() };
-		} catch {
-			return status(503, "backup unavailable");
+			if (!obsBackupRequests.take(owner.id))
+				return status(429, OBS_BACKUP_RATE_LIMITED);
+			return { backups: await listObsBackups(owner.id) };
+		} catch (error) {
+			return obsBackupFailure(error);
 		}
 	})
+	.post(
+		"/api/obs/backups",
+		async ({ body, headers }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupRequests.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
+				return await createObsBackup(owner.id, body ?? {});
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{
+			body: t.Optional(
+				t.Object({
+					label: t.Optional(t.String({ maxLength: 256 })),
+					os: t.Optional(t.String({ maxLength: 256 })),
+					obsVersion: t.Optional(t.String({ maxLength: 256 })),
+				}),
+			),
+		},
+	)
 	.post(
 		"/api/obs/backups/:backupId/files",
 		async ({ body, headers, params }) => {
@@ -238,19 +299,14 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				if (body.byteSize > OBS_BACKUP_FILE_MAX_BYTES)
 					return status(413, "Backup files must be 4 GB or smaller");
 				return {
-					uploadUrl: await getObsBackupUploadUrl(
+					uploadUrl: await prepareObsBackupUpload(
 						owner.id,
 						params.backupId,
 						body.path,
 					),
 				};
 			} catch (error) {
-				return status(
-					error instanceof Error && error.message === "Invalid backup file path"
-						? 400
-						: 503,
-					error instanceof Error ? error.message : "backup unavailable",
-				);
+				return obsBackupFailure(error);
 			}
 		},
 		{
@@ -260,6 +316,79 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			}),
 			params: t.Object({ backupId: t.String({ format: "uuid" }) }),
 		},
+	)
+	.post(
+		"/api/obs/backups/:backupId/complete",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupCompletions.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
+				return await completeObsBackup(owner.id, params.backupId);
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{ params: t.Object({ backupId: t.String({ format: "uuid" }) }) },
+	)
+	.get(
+		"/api/obs/backups/:backupId/manifest",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupRequests.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
+				return await getObsBackupManifest(owner.id, params.backupId);
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{ params: t.Object({ backupId: t.String({ format: "uuid" }) }) },
+	)
+	.post(
+		"/api/obs/backups/:backupId/download-urls",
+		async ({ body, headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				return {
+					files: await getObsBackupDownloadUrls(
+						owner.id,
+						params.backupId,
+						body.paths,
+					),
+				};
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{
+			body: t.Object({
+				paths: t.Array(t.String({ minLength: 1, maxLength: 512 }), {
+					minItems: 1,
+					maxItems: OBS_BACKUP_DOWNLOAD_BATCH,
+				}),
+			}),
+			params: t.Object({ backupId: t.String({ format: "uuid" }) }),
+		},
+	)
+	.delete(
+		"/api/obs/backups/:backupId",
+		async ({ headers, params }) => {
+			try {
+				const owner = await authenticateObsControlToken(headers.authorization);
+				if (!owner) return status(401, "unauthorized");
+				if (!obsBackupRequests.take(owner.id))
+					return status(429, OBS_BACKUP_RATE_LIMITED);
+				await deleteObsBackup(owner.id, params.backupId);
+				return status(204);
+			} catch (error) {
+				return obsBackupFailure(error);
+			}
+		},
+		{ params: t.Object({ backupId: t.String({ format: "uuid" }) }) },
 	)
 	.post(
 		"/api/obs/control",
@@ -866,6 +995,13 @@ export function startReconciler() {
 			await reconcilePathState();
 		} catch (error) {
 			console.error("MediaMTX reconciliation failed", error);
+		}
+		// After the path pass so its stops are reflected. The first tick after
+		// a restart closes rows a crash left open.
+		try {
+			await reconcileForwarderSessions();
+		} catch (error) {
+			console.error("Forwarder session reconciliation failed", error);
 		} finally {
 			running = false;
 		}

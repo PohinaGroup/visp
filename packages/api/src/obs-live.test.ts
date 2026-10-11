@@ -33,6 +33,7 @@ const command = {
 	desiredReplayBuffer: false,
 	desiredRecordPaused: false,
 	desiredScene: null,
+	mediaSourcesRevision: 0,
 } satisfies ObsCommand;
 
 describe("OBS live hub", () => {

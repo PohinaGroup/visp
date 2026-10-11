@@ -1,8 +1,6 @@
 import { auth } from "@VISP/auth";
-import { db } from "@VISP/db";
-import { session as authSession } from "@VISP/db/schema/index";
+import { revokeAllUserSessions } from "@VISP/auth/sessions";
 import { TRPCError } from "@trpc/server";
-import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import {
 	DIRECT_PROVIDERS,
@@ -58,6 +56,7 @@ import {
 	rotatePublishPath,
 	rotateReadSecret,
 	setAdvancedMode,
+	setPathLowLatency,
 	submitRtt,
 } from "../relay";
 import { movePublishDevice } from "../relay-move";
@@ -312,6 +311,7 @@ export const relayRoutes = {
 					directTwitch: path.directTwitch,
 					directKick: path.directKick,
 					directYoutube: path.directYoutube,
+					lowLatency: path.lowLatency,
 					publishing: path.publishing,
 					readerCount: path.readerCount,
 					sourceType: path.sourceType,
@@ -396,6 +396,19 @@ export const relayRoutes = {
 					ctx.relayUser.id,
 					input.pathId,
 					input.label,
+				);
+				if (!path) {
+					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });
+				}
+				return path;
+			}),
+		setLowLatency: relayProcedure
+			.input(pathIdInput.extend({ enabled: z.boolean() }))
+			.mutation(async ({ ctx, input }) => {
+				const path = await setPathLowLatency(
+					ctx.relayUser.id,
+					input.pathId,
+					input.enabled,
 				);
 				if (!path) {
 					throw new TRPCError({ code: "NOT_FOUND", message: "Path not found" });
@@ -720,16 +733,11 @@ export const relayRoutes = {
 						await auth.api.revokeOtherSessions({ headers: ctx.headers });
 						// revokeOtherSessions only sees the secondary-storage
 						// session list. Rows that live only in the session table
-						// (created before that cache, or never written to it)
-						// would keep working.
-						await db
-							.delete(authSession)
-							.where(
-								and(
-									eq(authSession.userId, ctx.relayUser.id),
-									ne(authSession.token, ctx.session.session.token),
-								),
-							);
+						// (created before that cache, or never written to it), and
+						// cached tokens missing from that list, would keep working.
+						await revokeAllUserSessions(ctx.relayUser.id, {
+							except: ctx.session.session.token,
+						});
 					}
 					return result;
 				} catch (error) {

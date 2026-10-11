@@ -33,8 +33,17 @@ grep -q 'docs/get-started/index.html' "$root/visp-build-outputs"
 grep -q 'visp-build-outputs' "$root/visp-release"
 grep -q 'visp-build-outputs' "$root/visp-staging-release"
 
+# Migrations run (and abort the release on failure) before any restart, and
+# bypass turbo so MIGRATION_* overrides from app.env reach the migrator.
+migrate_line=$(grep -n 'db:migrate' "$root/visp-release" | grep -v '^[0-9]*:#' | head -1 | cut -d: -f1)
+restart_line=$(grep -n 'systemctl restart visp-server' "$root/visp-release" | head -1 | cut -d: -f1)
+test -n "$migrate_line"
+test "$migrate_line" -lt "$restart_line"
+grep -q 'if ! run_with_env "$app_env" "$bun" run --cwd "$repo/packages/db" db:migrate; then' "$root/visp-release"
+grep -q 'fail "database migration failed; services were not restarted"' "$root/visp-release"
+
 test -f "$root/visp-caddy-static-smoke.sh"
 grep -q -- '--resolve' "$root/visp-caddy-static-smoke.sh"
 grep -q -- '--retry-all-errors' "$root/visp-caddy-static-smoke.sh"
 
-printf 'ok: release waits for upstreams before Caddy reload and smoke-checks static vhosts\n'
+printf 'ok: release migrates before restarting, waits for upstreams before Caddy reload and smoke-checks static vhosts\n'

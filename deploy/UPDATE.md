@@ -6,7 +6,7 @@ The release workflow compares the release tag with the previous release and
 deploys only the changed relay components. The `production` environment must
 define `RELAY_DEPLOY_HOST` as the relay's Tailscale hostname, or set
 `RELAY_DEPLOY_TARGETS` to a JSON array of `{ "host": "tailscale-host", "url": "https://relay-host" }`
-objects for all relay hosts. See [REGIONS.md](REGIONS.md) for the Finland + US
+objects for all relay hosts. See [REGIONS.md](REGIONS.md) for multi-region
 setup. It uses the same
 `DEPLOY_USER`, SSH key, known-hosts entry, and Tailscale credentials as the app
 deployment.
@@ -166,7 +166,11 @@ before restarting any service. It validates Caddy before installing its
 configuration, then restarts `visp-server`, `visp-web`, and
 `visp-typography-worker`, reloads Caddy, and runs local smoke checks. Install, migration, or build failures therefore leave
 the currently running services untouched. Database rollback remains manual and
-migrations must stay backward-compatible.
+migrations must stay backward-compatible. All pending migrations apply in one
+transaction with a 5 s `lock_timeout` (so a blocked `ALTER` cannot queue live
+queries behind it) and are retried up to 3 times; tune with
+`MIGRATION_LOCK_TIMEOUT_MS`, `MIGRATION_LOCK_ATTEMPTS`, and
+`MIGRATION_STATEMENT_TIMEOUT_MS` (default 10 min) in `/etc/visp/app.env`.
 
 ## First-release acceptance
 

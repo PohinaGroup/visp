@@ -34,6 +34,7 @@ import {
 	issueChatOverlayToken,
 	revokeChatOverlayToken,
 } from "@VISP/api/chat/overlay-token";
+import { createContext } from "@VISP/api/context";
 import {
 	applyDirectState,
 	directDestinationActive,
@@ -47,6 +48,10 @@ import {
 	applyCustomDirectState,
 	customDirectOutputActive,
 } from "@VISP/api/direct-custom";
+import {
+	OBS_BACKUP_MAX_PENDING,
+	OBS_BACKUP_RETENTION,
+} from "@VISP/api/obs-backup";
 import {
 	getObsControlStatus,
 	rotateObsControlToken,
@@ -65,11 +70,13 @@ import {
 	ensureRelayUser,
 	getStudioPreviewUrls,
 	listPaths,
+	mediaSecretVerificationsForTests,
 	reconcilePathState,
 	revealPublishPath,
 	revokePath,
 	rotatePublishPath,
 	rotateReadSecret,
+	setPathLowLatency,
 } from "@VISP/api/relay";
 import { movePublishDevice } from "@VISP/api/relay-move";
 import { chooseRelay, ensureDefaultRelay } from "@VISP/api/relays";
@@ -85,6 +92,7 @@ import {
 } from "@VISP/api/studio";
 import { DEFAULT_ALERT_APPEARANCE } from "@VISP/api/studio-alert";
 import { auth } from "@VISP/auth";
+import { refreshCachedUser, revokeSessionByToken } from "@VISP/auth/sessions";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -96,6 +104,7 @@ import {
 	customDirectDestination,
 	customDirectOutput,
 	directDestination,
+	obsBackup,
 	pathState,
 	relay,
 	relayPath,
@@ -262,6 +271,44 @@ function machineAuth(input: {
 	);
 }
 
+/**
+ * In-memory S3 behind the aws4fetch client, enough for OBS backup reads,
+ * stats, listings and deletes. Uploads are simulated by writing the map.
+ */
+function fakeObjectStore() {
+	const objects = new Map<string, Uint8Array>();
+	const bucketPath = `/${process.env.S3_BUCKET}`;
+	globalThis.fetch = (async (
+		input: Request | string | URL,
+		init?: RequestInit,
+	) => {
+		const request =
+			input instanceof Request ? input : new Request(String(input), init);
+		const url = new URL(request.url);
+		if (url.origin !== new URL(process.env.S3_ENDPOINT ?? "").origin)
+			return originalFetch(input, init);
+		if (url.searchParams.get("list-type") === "2") {
+			const prefix = url.searchParams.get("prefix") ?? "";
+			const keys = [...objects.keys()].filter((key) => key.startsWith(prefix));
+			return new Response(
+				`<ListBucketResult>${keys.map((key) => `<Key>${key}</Key>`).join("")}<IsTruncated>false</IsTruncated></ListBucketResult>`,
+			);
+		}
+		const key = decodeURIComponent(url.pathname.slice(bucketPath.length + 1));
+		if (request.method === "DELETE") {
+			objects.delete(key);
+			return new Response(null, { status: 204 });
+		}
+		const object = objects.get(key);
+		if (!object) return new Response(null, { status: 404 });
+		const headers = { "content-length": String(object.length) };
+		return request.method === "HEAD"
+			? new Response(null, { headers })
+			: new Response(object, { headers });
+	}) as typeof fetch;
+	return objects;
+}
+
 integration("relay PostgreSQL integration", () => {
 	beforeEach(async () => {
 		clearAuthCacheForTests();
@@ -351,6 +398,45 @@ integration("relay PostgreSQL integration", () => {
 				user: "alpha",
 			}),
 		).toBe(false);
+	});
+
+	test("skips Argon2 for repeated successful checks until the secret rotates", async () => {
+		const data = await seed();
+		const read = (password: string) =>
+			authenticateMedia({
+				action: "read",
+				password,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+
+		// An offline OBS feed retries every second with the same secret.
+		for (let attempt = 0; attempt < 5; attempt++) {
+			expect(await read(data.readA)).toBe(true);
+		}
+		expect(mediaSecretVerificationsForTests()).toBe(1);
+
+		// Failures are never cached, and a wrong secret never rides on a hit.
+		expect(await read("wrong")).toBe(false);
+		expect(await read("wrong")).toBe(false);
+		expect(mediaSecretVerificationsForTests()).toBe(3);
+
+		// Publish and read are cached separately, against their own hashes.
+		expect(
+			await authenticateMedia({
+				action: "publish",
+				password: data.readA,
+				path: data.pathA.slug,
+				user: "alpha",
+			}),
+		).toBe(false);
+		expect(mediaSecretVerificationsForTests()).toBe(4);
+
+		const rotated = await rotateReadSecret("user-a");
+		expect(await read(data.readA)).toBe(false);
+		expect(await read(rotated.revealed.read ?? "")).toBe(true);
+		expect(await read(rotated.revealed.read ?? "")).toBe(true);
+		expect(mediaSecretVerificationsForTests()).toBe(6);
 	});
 
 	test("delivers cache invalidations through a dedicated Postgres listener", async () => {
@@ -1016,6 +1102,328 @@ integration("relay PostgreSQL integration", () => {
 		});
 	});
 
+	test("switches a device's OBS source to low latency and tells OBS to refetch", async () => {
+		const data = await seed();
+		const pairing = await rotateObsControlToken("user-a");
+		await db
+			.update(appUser)
+			.set({ readSecretHash: null })
+			.where(eq(appUser.id, "user-a"));
+		const report = async () => {
+			const response = await app.handle(
+				new Request("http://localhost/api/obs/control", {
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${pairing.token}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify({
+						appliedVersion: 0,
+						streaming: false,
+						scenes: ["Main"],
+						currentScene: "Main",
+					}),
+				}),
+			);
+			expect(response.status).toBe(200);
+			return (await response.json()) as { mediaSourcesRevision: number };
+		};
+		const source = async () => {
+			const response = await app.handle(
+				new Request(
+					`http://localhost/api/obs/devices/${data.pathA.id}/source`,
+					{
+						method: "POST",
+						headers: { authorization: `Bearer ${pairing.token}` },
+					},
+				),
+			);
+			expect(response.status).toBe(200);
+			return (await response.json()) as {
+				source: { settings: { buffering_mb: number; input: string } };
+			};
+		};
+
+		const before = await report();
+		expect((await source()).source.settings).toMatchObject({
+			buffering_mb: 1,
+			input: expect.stringContaining("latency=300000"),
+		});
+
+		expect(await setPathLowLatency("user-b", data.pathA.id, true)).toBeNull();
+		expect(await setPathLowLatency("user-a", data.pathA.id, true)).toEqual({
+			id: data.pathA.id,
+			lowLatency: true,
+		});
+		expect((await report()).mediaSourcesRevision).toBe(
+			before.mediaSourcesRevision + 1,
+		);
+		expect((await source()).source.settings).toMatchObject({
+			buffering_mb: 0,
+			input: expect.stringContaining("latency=150000"),
+		});
+		expect(
+			(await listPaths("user-a")).find((path) => path.id === data.pathA.id),
+		).toMatchObject({ lowLatency: true });
+
+		await setPathLowLatency("user-a", data.pathA.id, false);
+		expect((await source()).source.settings.buffering_mb).toBe(1);
+	});
+
+	test("stores, lists, restores and prunes OBS backups for their owner only", async () => {
+		await seed();
+		const objects = fakeObjectStore();
+		const pairingA = await rotateObsControlToken("user-a");
+		const pairingB = await rotateObsControlToken("user-b");
+		const call = (
+			token: string,
+			path: string,
+			method = "GET",
+			body?: Record<string, unknown>,
+		) =>
+			app.handle(
+				new Request(`http://localhost${path}`, {
+					method,
+					headers: {
+						authorization: `Bearer ${token}`,
+						...(body ? { "content-type": "application/json" } : {}),
+					},
+					...(body ? { body: JSON.stringify(body) } : {}),
+				}),
+			);
+		const created = await call(pairingA.token, "/api/obs/backups", "POST", {
+			obsVersion: "31.1.0",
+		});
+		expect(created.status).toBe(200);
+		const { id } = (await created.json()) as { id: string };
+		const prefix = `obs-backups/user-a/${id}/`;
+
+		const crossTenant = await call(
+			pairingB.token,
+			`/api/obs/backups/${id}/files`,
+			"POST",
+			{ path: "scenes/Main.json", byteSize: 4 },
+		);
+		expect(crossTenant.status).toBe(404);
+		const upload = await call(
+			pairingA.token,
+			`/api/obs/backups/${id}/files`,
+			"POST",
+			{ path: "scenes/Main.json", byteSize: 4 },
+		);
+		expect(upload.status).toBe(200);
+		expect(
+			((await upload.json()) as { uploadUrl: string }).uploadUrl,
+		).toContain(`${prefix}scenes/Main.json`);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${id}/complete`, "POST"))
+				.status,
+		).toBe(422);
+		expect(
+			await (await call(pairingA.token, "/api/obs/backups")).json(),
+		).toEqual({ backups: [] });
+
+		const scene = new TextEncoder().encode('{"sources":[]}');
+		const media = new Uint8Array([1, 2, 3, 4, 5]);
+		const manifest = {
+			version: 2,
+			createdAt: "2026-10-10T10:00:00Z",
+			os: "windows",
+			obsVersion: "31.1.0",
+			sceneCollection: "Main",
+			profile: "Streaming",
+			files: [
+				{
+					path: "scenes/Main.json",
+					originalPath: "C:/obs/basic/scenes/Main.json",
+					byteSize: scene.length,
+					sha256: "a".repeat(64),
+				},
+				{
+					path: "media/000001.png",
+					originalPath: "C:/media/logo.png",
+					byteSize: media.length,
+					sha256: "b".repeat(64),
+				},
+			],
+		};
+		objects.set(`${prefix}scenes/Main.json`, scene);
+		objects.set(
+			`${prefix}manifest.json`,
+			new TextEncoder().encode(JSON.stringify(manifest)),
+		);
+		// A manifest that lists a file never uploaded cannot seal the backup.
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${id}/complete`, "POST"))
+				.status,
+		).toBe(422);
+		objects.set(`${prefix}media/000001.png`, media);
+		expect(
+			(await call(pairingB.token, `/api/obs/backups/${id}/complete`, "POST"))
+				.status,
+		).toBe(404);
+		const complete = await call(
+			pairingA.token,
+			`/api/obs/backups/${id}/complete`,
+			"POST",
+		);
+		expect(complete.status).toBe(200);
+		expect(await complete.json()).toMatchObject({
+			id,
+			fileCount: 2,
+			totalBytes: scene.length + media.length,
+			label: "Main",
+			os: "windows",
+			obsVersion: "31.1.0",
+		});
+		expect(
+			(
+				await call(pairingA.token, `/api/obs/backups/${id}/files`, "POST", {
+					path: "media/000002",
+					byteSize: 1,
+				})
+			).status,
+		).toBe(409);
+
+		const listed = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string }[] };
+		expect(listed.backups.map((backup) => backup.id)).toEqual([id]);
+		expect(
+			await (await call(pairingB.token, "/api/obs/backups")).json(),
+		).toEqual({ backups: [] });
+
+		const read = await call(pairingA.token, `/api/obs/backups/${id}/manifest`);
+		expect(read.status).toBe(200);
+		expect(await read.json()).toMatchObject({
+			backup: { id, fileCount: 2 },
+			manifest: { version: 2, sceneCollection: "Main" },
+		});
+		expect(
+			(await call(pairingB.token, `/api/obs/backups/${id}/manifest`)).status,
+		).toBe(404);
+
+		const downloadUrls = (paths: string[], token = pairingA.token) =>
+			call(token, `/api/obs/backups/${id}/download-urls`, "POST", { paths });
+		expect((await downloadUrls(["media/000002"])).status).toBe(404);
+		expect((await downloadUrls(["../user-b/secret"])).status).toBe(400);
+		expect(
+			(await downloadUrls(["media/000001.png"], pairingB.token)).status,
+		).toBe(404);
+		const urls = await downloadUrls(["scenes/Main.json", "media/000001.png"]);
+		expect(urls.status).toBe(200);
+		const { files } = (await urls.json()) as {
+			files: { path: string; url: string }[];
+		};
+		expect(files.map((file) => file.path)).toEqual([
+			"scenes/Main.json",
+			"media/000001.png",
+		]);
+		expect(files[1]?.url).toContain(`${prefix}media/000001.png`);
+		expect(files[1]?.url).toContain("X-Amz-Signature=");
+
+		expect(
+			(await call(pairingB.token, `/api/obs/backups/${id}`, "DELETE")).status,
+		).toBe(404);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${id}`, "DELETE")).status,
+		).toBe(204);
+		expect([...objects.keys()].some((key) => key.startsWith(prefix))).toBe(
+			false,
+		);
+		expect(
+			await db.query.obsBackup.findFirst({ where: eq(obsBackup.id, id) }),
+		).toBeUndefined();
+
+		// Plugins from before restore never call complete; listing seals them.
+		const legacy = (await (
+			await call(pairingA.token, "/api/obs/backups", "POST", {})
+		).json()) as { id: string };
+		objects.set(`obs-backups/user-a/${legacy.id}/scenes/Main.json`, scene);
+		objects.set(
+			`obs-backups/user-a/${legacy.id}/manifest.json`,
+			new TextEncoder().encode(
+				JSON.stringify({
+					version: 1,
+					createdAt: "2026-10-10T10:00:00Z",
+					files: [
+						{
+							path: "scenes/Main.json",
+							originalPath: "/obs/Main.json",
+							byteSize: scene.length,
+						},
+					],
+				}),
+			),
+		);
+		const settled = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string; fileCount: number }[] };
+		expect(settled.backups).toEqual([
+			expect.objectContaining({ id: legacy.id, fileCount: 1 }),
+		]);
+		expect(
+			(await call(pairingA.token, `/api/obs/backups/${legacy.id}`, "DELETE"))
+				.status,
+		).toBe(204);
+
+		// Retention keeps the newest completed backups and drops older objects.
+		const ids: string[] = [];
+		for (let index = 0; index <= OBS_BACKUP_RETENTION; index += 1) {
+			const response = await call(pairingA.token, "/api/obs/backups", "POST");
+			const backup = (await response.json()) as { id: string };
+			ids.push(backup.id);
+			const backupPrefix = `obs-backups/user-a/${backup.id}/`;
+			objects.set(`${backupPrefix}scenes/Main.json`, scene);
+			objects.set(
+				`${backupPrefix}manifest.json`,
+				new TextEncoder().encode(
+					JSON.stringify({
+						version: 1,
+						createdAt: "2026-10-10T10:00:00Z",
+						files: [
+							{
+								path: "scenes/Main.json",
+								originalPath: "/obs/Main.json",
+								byteSize: scene.length,
+							},
+						],
+					}),
+				),
+			);
+			expect(
+				(
+					await call(
+						pairingA.token,
+						`/api/obs/backups/${backup.id}/complete`,
+						"POST",
+					)
+				).status,
+			).toBe(200);
+		}
+		const retained = (await (
+			await call(pairingA.token, "/api/obs/backups")
+		).json()) as { backups: { id: string }[] };
+		expect(retained.backups).toHaveLength(OBS_BACKUP_RETENTION);
+		expect(retained.backups[0]?.id).toBe(ids.at(-1));
+		expect(retained.backups.map((backup) => backup.id)).not.toContain(ids[0]);
+		expect(
+			[...objects.keys()].some((key) =>
+				key.startsWith(`obs-backups/user-a/${ids[0]}/`),
+			),
+		).toBe(false);
+
+		// Unfinished uploads are capped so a client cannot open them forever.
+		for (let index = 0; index < OBS_BACKUP_MAX_PENDING; index += 1) {
+			expect(
+				(await call(pairingA.token, "/api/obs/backups", "POST")).status,
+			).toBe(200);
+		}
+		expect(
+			(await call(pairingA.token, "/api/obs/backups", "POST")).status,
+		).toBe(429);
+	});
+
 	test("authenticates and pushes commands over the OBS WebSocket", async () => {
 		await seed();
 		const pairing = await rotateObsControlToken("user-a");
@@ -1399,6 +1807,199 @@ integration("relay PostgreSQL integration", () => {
 		).toBe(401);
 	});
 
+	test("limits the OBS device-flow session to connecting OBS", async () => {
+		const { createContext } = await import("@VISP/api/context");
+		const { getUserSession } = await import("@VISP/auth");
+		const { authCache } = await import("@VISP/db/schema/index");
+		const { makeSignature } = await import("better-auth/crypto");
+		const { typographyRoutes } = await import("./typography");
+		await seed();
+		await db.insert(authSession).values({
+			id: "browser-session",
+			token: "browser-session-token",
+			userId: "user-a",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		const authRequest = (
+			path: string,
+			init: {
+				body?: Record<string, unknown>;
+				headers?: Record<string, string>;
+			} = {},
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: init.body ? "POST" : "GET",
+					headers: {
+						...(init.body ? { "content-type": "application/json" } : {}),
+						...init.headers,
+					},
+					body: init.body ? JSON.stringify(init.body) : undefined,
+				}),
+			);
+		const browser = { authorization: "Bearer browser-session-token" };
+
+		const code = (await (
+			await authRequest("/device/code", {
+				body: { client_id: "visp-obs", scope: "obs" },
+			})
+		).json()) as { device_code: string; user_code: string };
+		expect(
+			(
+				await authRequest(
+					`/device?user_code=${encodeURIComponent(code.user_code)}`,
+					{ headers: browser },
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest("/device/approve", {
+					body: { userCode: code.user_code },
+					headers: browser,
+				})
+			).status,
+		).toBe(200);
+		const tokenResponse = await authRequest("/device/token", {
+			body: {
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+				device_code: code.device_code,
+				client_id: "visp-obs",
+			},
+		});
+		expect(tokenResponse.status).toBe(200);
+		const pairing = (await tokenResponse.json()) as {
+			access_token: string;
+			expires_in: number;
+		};
+		const pairingHeaders = { authorization: `Bearer ${pairing.access_token}` };
+		const fifteenMinutes = () => Date.now() + 15 * 60_000;
+
+		// Short-lived in both stores Better Auth reads, and no full session is left.
+		expect(pairing.expires_in).toBeLessThanOrEqual(15 * 60);
+		const sessions = await db.query.session.findMany({
+			where: eq(authSession.userId, "user-a"),
+		});
+		expect(sessions.map((row) => row.token).sort()).toEqual(
+			["browser-session-token", pairing.access_token].sort(),
+		);
+		const stored = sessions.find((row) => row.token === pairing.access_token);
+		expect(stored?.expiresAt.getTime()).toBeLessThanOrEqual(fifteenMinutes());
+		const cached = await db.query.authCache.findFirst({
+			where: eq(authCache.key, pairing.access_token),
+		});
+		expect(cached?.expiresAt.getTime()).toBeLessThanOrEqual(fifteenMinutes());
+
+		// The server-side read used by /api/obs/connect does not extend it, and
+		// the helper every other route uses refuses it.
+		const serverRead = await auth.api.getSession({
+			headers: new Headers(pairingHeaders),
+		});
+		expect(serverRead?.user.id).toBe("user-a");
+		expect(serverRead?.session.expiresAt.getTime()).toBeLessThanOrEqual(
+			fifteenMinutes(),
+		);
+		expect(await getUserSession(new Headers(pairingHeaders))).toBeNull();
+
+		const trpc = async (headers: Record<string, string>) =>
+			appRouter.createCaller(
+				await createContext({
+					context: {
+						request: new Request("http://localhost/trpc", { headers }),
+					} as never,
+				}),
+			);
+		const pairingCaller = await trpc(pairingHeaders);
+		await expect(pairingCaller.privateData()).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+		});
+		await expect(pairingCaller.paths.list()).rejects.toMatchObject({
+			code: "UNAUTHORIZED",
+		});
+		expect((await (await trpc(browser)).privateData()).user.id).toBe("user-a");
+
+		const signedCookie = async (token: string) =>
+			`better-auth.session_token=${encodeURIComponent(
+				`${token}.${await makeSignature(token, process.env.BETTER_AUTH_SECRET ?? "")}`,
+			)}`;
+		const pairingCookie = { cookie: await signedCookie(pairing.access_token) };
+		const authProbes: [string, Record<string, unknown>?][] = [
+			["/get-session"],
+			["/list-sessions"],
+			["/list-accounts"],
+			["/update-user", { name: "Mallory" }],
+			["/link-social", { provider: "google", callbackURL: "/" }],
+			["/revoke-sessions", {}],
+			["/delete-user", {}],
+			["/device/approve", { userCode: "ABCDEFGH" }],
+		];
+		for (const [path, body] of authProbes) {
+			for (const headers of [pairingHeaders, pairingCookie]) {
+				const response = await authRequest(path, { body, headers });
+				expect({ path, status: response.status }).toEqual({
+					path,
+					status: 401,
+				});
+			}
+		}
+		const typography = new Elysia().use(typographyRoutes);
+		expect(
+			(
+				await typography.handle(
+					new Request("http://localhost/api/typography/projects", {
+						headers: pairingHeaders,
+					}),
+				)
+			).status,
+		).toBe(401);
+
+		// The browser session that approved OBS is unaffected, by bearer or cookie.
+		for (const headers of [
+			browser,
+			{ cookie: await signedCookie("browser-session-token") },
+		]) {
+			const current = await authRequest("/get-session", { headers });
+			expect(current.status).toBe(200);
+			expect(((await current.json()) as { user: { id: string } }).user.id).toBe(
+				"user-a",
+			);
+		}
+		expect(
+			(await authRequest("/list-sessions", { headers: browser })).status,
+		).toBe(200);
+		expect(
+			(
+				await db.query.user.findFirst({
+					columns: { name: true },
+					where: eq(user.id, "user-a"),
+				})
+			)?.name,
+		).toBe("Alpha");
+
+		// A full browser session cannot mint an OBS control token; only the
+		// short-lived pairing session from the device flow can.
+		const fromBrowser = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: browser,
+			}),
+		);
+		expect(fromBrowser.status).toBe(401);
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: pairingHeaders,
+			}),
+		);
+		expect(connect.status).toBe(200);
+		expect(await connect.json()).toMatchObject({
+			account: { handle: "alpha" },
+			token: expect.any(String),
+		});
+	});
+
 	test("reconciles drift and preserves timestamps when the API fails", async () => {
 		const data = await seed();
 		const oldTimestamp = new Date("2024-01-01T00:00:00.000Z");
@@ -1545,7 +2146,8 @@ integration("relay PostgreSQL integration", () => {
 
 		expect((await chooseRelay("new-user", relayB.id))?.id).toBe(relayB.id);
 		expect((await chooseRelay("user-a"))?.id).toBe(data.pathA.relayId);
-		expect((await chooseRelay("new-user"))?.id).toBe(relayA.id);
+		// No preference: the default relay's region wins over the emptier relays.
+		expect((await chooseRelay("new-user"))?.id).toBe(data.pathA.relayId);
 
 		await db
 			.update(relay)
@@ -1862,6 +2464,497 @@ integration("relay PostgreSQL integration", () => {
 		expect(ensureRelayUser("no-accounts", "No Accounts")).rejects.toThrow(
 			"Streaming account required",
 		);
+	});
+
+	/** A session made the way sign-in makes one: a row plus a cache entry. */
+	async function cachedSession(userId: string) {
+		const ctx = await auth.$context;
+		const created = await ctx.internalAdapter.createSession(userId);
+		if (!created) throw new Error(`session for ${userId} was not created`);
+		expect(await ctx.secondaryStorage?.get(created.token)).toBeTruthy();
+		return created.token;
+	}
+
+	/** The tRPC caller a request carrying this bearer token would get. */
+	async function callerFor(token: string) {
+		const request = new Request("http://localhost/trpc", {
+			headers: { authorization: `Bearer ${token}` },
+		});
+		return appRouter.createCaller(
+			await createContext({
+				context: { request } as unknown as Parameters<
+					typeof createContext
+				>[0]["context"],
+			}),
+		);
+	}
+
+	async function sessionFor(token: string) {
+		return auth.api.getSession({
+			headers: new Headers({ authorization: `Bearer ${token}` }),
+		});
+	}
+
+	test("ends cached sessions when an admin bans a user or revokes their sessions", async () => {
+		await db.insert(user).values([
+			{ id: "ban-admin", name: "Admin", email: "ban-admin@example.test" },
+			{ id: "ban-target", name: "Target", email: "ban-target@example.test" },
+			{ id: "revoke-target", name: "Revoked", email: "revoke@example.test" },
+			{ id: "bystander", name: "Bystander", email: "bystander@example.test" },
+		]);
+		await db
+			.update(user)
+			.set({ role: "admin" })
+			.where(eq(user.id, "ban-admin"));
+		const adminToken = await cachedSession("ban-admin");
+		const bystanderToken = await cachedSession("bystander");
+		const banned = [
+			await cachedSession("ban-target"),
+			await cachedSession("ban-target"),
+		];
+		// A row that was never cached, and a cached token whose row is already
+		// gone (what the old raw delete left behind).
+		await db.insert(authSession).values({
+			id: "ban-target-db-only",
+			token: "ban-target-db-only-token",
+			userId: "ban-target",
+			expiresAt: new Date(Date.now() + 60_000),
+			updatedAt: new Date(),
+		});
+		banned.push("ban-target-db-only-token");
+		const orphan = await cachedSession("ban-target");
+		await db.delete(authSession).where(eq(authSession.token, orphan));
+		banned.push(orphan);
+		for (const token of banned) {
+			expect((await sessionFor(token))?.user.id).toBe("ban-target");
+			expect((await (await callerFor(token)).privateData()).user.id).toBe(
+				"ban-target",
+			);
+		}
+
+		const admin = await callerFor(adminToken);
+		await admin.admin.users.ban({ userId: "ban-target", reason: "abuse" });
+		const ctx = await auth.$context;
+		for (const token of banned) {
+			expect(await sessionFor(token)).toBeNull();
+			expect(await ctx.secondaryStorage?.get(token)).toBeNull();
+			await expect(
+				(await callerFor(token)).privateData(),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		}
+		expect(
+			await ctx.secondaryStorage?.get("active-sessions-ban-target"),
+		).toBeNull();
+
+		const revoked = [
+			await cachedSession("revoke-target"),
+			await cachedSession("revoke-target"),
+		];
+		expect(
+			await admin.admin.users.revokeSessions({ userId: "revoke-target" }),
+		).toEqual({ revoked: 2 });
+		for (const token of revoked) {
+			expect(await sessionFor(token)).toBeNull();
+			await expect(
+				(await callerFor(token)).privateData(),
+			).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		}
+
+		// Nobody else is signed out.
+		expect(
+			(await (await callerFor(bystanderToken)).privateData()).user.id,
+		).toBe("bystander");
+		expect((await admin.admin.overview()).totalUsers).toBe(4);
+
+		// A ban written straight to the database still stops a session that
+		// survived it, once that session is served from the session table.
+		const survivor = await cachedSession("bystander");
+		await ctx.secondaryStorage?.delete(survivor);
+		await db.update(user).set({ banned: true }).where(eq(user.id, "bystander"));
+		await expect(
+			(await callerFor(survivor)).privateData(),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+	});
+
+	test("takes admin access away from a demoted admin's existing sessions", async () => {
+		await db.insert(user).values([
+			{
+				id: "head-admin",
+				name: "Head",
+				email: "head@example.test",
+				role: "admin",
+			},
+			{
+				id: "demoted",
+				name: "Demoted",
+				email: "demoted@example.test",
+				role: "admin",
+			},
+			{ id: "promoted", name: "Promoted", email: "promoted@example.test" },
+		]);
+		const headToken = await cachedSession("head-admin");
+		const demotedToken = await cachedSession("demoted");
+		const promotedToken = await cachedSession("promoted");
+		const staleSession = await sessionFor(demotedToken);
+		if (!staleSession) throw new Error("demoted session was not created");
+		expect(staleSession.user.role).toBe("admin");
+		expect(
+			(await (await callerFor(demotedToken)).admin.overview()).totalUsers,
+		).toBe(3);
+
+		const head = await callerFor(headToken);
+		await head.admin.users.setRole({ userId: "demoted", role: "user" });
+		expect(await sessionFor(demotedToken)).toBeNull();
+		await expect(
+			(await callerFor(demotedToken)).admin.users.setRole({
+				userId: "demoted",
+				role: "admin",
+			}),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		// Even a session object that still says "admin" is checked against the
+		// user row, so a copy that escaped revocation cannot re-promote itself.
+		await expect(
+			appRouter
+				.createCaller({
+					auth: null,
+					headers: new Headers({ authorization: `Bearer ${demotedToken}` }),
+					session: staleSession,
+				})
+				.admin.users.setRole({ userId: "demoted", role: "admin" }),
+		).rejects.toMatchObject({ code: "FORBIDDEN" });
+		expect(
+			(await db.query.user.findFirst({ where: eq(user.id, "demoted") }))?.role,
+		).toBe("user");
+
+		// Promotion keeps the session and updates its cached user.
+		await head.admin.users.setRole({ userId: "promoted", role: "admin" });
+		expect((await sessionFor(promotedToken))?.user.role).toBe("admin");
+		expect(
+			(await (await callerFor(promotedToken)).admin.overview()).totalUsers,
+		).toBe(3);
+		expect((await head.admin.overview()).totalUsers).toBe(3);
+	});
+
+	/** GET /api/obs/devices with an OBS control token: 200 while it works. */
+	async function obsDevicesStatus(token: string) {
+		return (
+			await app.handle(
+				new Request("http://localhost/api/obs/devices", {
+					headers: { authorization: `Bearer ${token}` },
+				}),
+			)
+		).status;
+	}
+
+	test("a ban ends OBS control, media access and Direct, not just sessions", async () => {
+		const data = await seed();
+		await db.insert(user).values({
+			id: "media-admin",
+			name: "Admin",
+			email: "media-admin@example.test",
+			role: "admin",
+		});
+		const admin = await callerFor(await cachedSession("media-admin"));
+		const obsA = (await rotateObsControlToken("user-a")).token;
+		const obsB = (await rotateObsControlToken("user-b")).token;
+		expect(await obsDevicesStatus(obsA)).toBe(200);
+		await db.insert(pathState).values({
+			pathId: data.pathA.id,
+			publishing: true,
+			readerCount: 0,
+			lastEventAt: new Date(),
+			directTwitchState: "live",
+		});
+		const readA = () =>
+			authenticateMedia({
+				action: "read",
+				password: data.readA,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+		const publishA = () =>
+			authenticateMedia({
+				action: "publish",
+				password: data.publishA,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+		// Warm the verified-credential cache: the ban must invalidate it.
+		expect(await readA()).toBe(true);
+		const verifications = mediaSecretVerificationsForTests();
+		expect(await readA()).toBe(true);
+		expect(mediaSecretVerificationsForTests()).toBe(verifications);
+
+		await admin.admin.users.ban({ userId: "user-a", reason: "abuse" });
+
+		expect(await obsDevicesStatus(obsA)).toBe(401);
+		expect(
+			(await db.query.appUser.findFirst({ where: eq(appUser.id, "user-a") }))
+				?.obsControlTokenId,
+		).toBeNull();
+		expect(await readA()).toBe(false);
+		expect(await publishA()).toBe(false);
+		expect(
+			(
+				await machineAuth({
+					action: "publish",
+					password: data.publishA,
+					path: data.pathA.slug,
+					protocol: "srt",
+					user: "alpha",
+				})
+			).status,
+		).toBe(401);
+		expect(
+			(
+				await db.query.pathState.findFirst({
+					where: eq(pathState.pathId, data.pathA.id),
+				})
+			)?.directTwitchState,
+		).toBe("stopped");
+
+		// Another streamer keeps everything.
+		expect(await obsDevicesStatus(obsB)).toBe(200);
+		expect(
+			await authenticateMedia({
+				action: "read",
+				password: data.readB,
+				path: data.pathB.slug,
+				user: "beta",
+			}),
+		).toBe(true);
+
+		// Unbanning restores the stream keys at once; the OBS token stays gone
+		// and the plugin pairs again.
+		await admin.admin.users.unban({ userId: "user-a" });
+		expect(await readA()).toBe(true);
+		expect(await obsDevicesStatus(obsA)).toBe(401);
+
+		// "Revoke sessions" signs OBS out too.
+		await admin.admin.users.revokeSessions({ userId: "user-b" });
+		expect(await obsDevicesStatus(obsB)).toBe(401);
+	});
+
+	test("refuses OBS control and media for a ban written straight to the database", async () => {
+		const data = await seed();
+		const obsA = (await rotateObsControlToken("user-a")).token;
+		const readA = () =>
+			authenticateMedia({
+				action: "read",
+				password: data.readA,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+		expect(await readA()).toBe(true);
+
+		await db.update(user).set({ banned: true }).where(eq(user.id, "user-a"));
+		// No invalidation was published, so the cached credential lasts its TTL.
+		clearAuthCacheForTests();
+		expect(await obsDevicesStatus(obsA)).toBe(401);
+		expect(await readA()).toBe(false);
+
+		// A ban whose expiry has passed is lifted, as Better Auth treats it.
+		await db
+			.update(user)
+			.set({ banExpires: new Date(Date.now() - 1_000) })
+			.where(eq(user.id, "user-a"));
+		clearAuthCacheForTests();
+		expect(await obsDevicesStatus(obsA)).toBe(200);
+		expect(await readA()).toBe(true);
+	});
+
+	test("refuses Better Auth's own admin ban, role and revoke endpoints", async () => {
+		await db.insert(user).values([
+			{
+				id: "ba-admin",
+				name: "Admin",
+				email: "ba-admin@example.test",
+				role: "admin",
+			},
+			{ id: "ba-target", name: "Target", email: "ba-target@example.test" },
+		]);
+		const adminToken = await cachedSession("ba-admin");
+		const targetToken = await cachedSession("ba-target");
+		for (const [path, body] of [
+			["/admin/ban-user", { userId: "ba-target" }],
+			["/admin/unban-user", { userId: "ba-target" }],
+			["/admin/set-role", { userId: "ba-target", role: "admin" }],
+			["/admin/revoke-user-sessions", { userId: "ba-target" }],
+			["/admin/revoke-user-session", { sessionToken: targetToken }],
+		] as const) {
+			const response = await auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${adminToken}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
+				}),
+			);
+			expect({ path, status: response.status }).toEqual({ path, status: 403 });
+		}
+		const target = await db.query.user.findFirst({
+			where: eq(user.id, "ba-target"),
+		});
+		expect(target?.banned).toBe(false);
+		expect(target?.role).toBe("user");
+		expect((await sessionFor(targetToken))?.user.id).toBe("ba-target");
+		// Reads stay available.
+		const listed = await auth.handler(
+			new Request("http://127.0.0.1:3000/api/auth/admin/list-users", {
+				headers: { authorization: `Bearer ${adminToken}` },
+			}),
+		);
+		expect(listed.status).toBe(200);
+	});
+
+	test("drops a session created for a user banned after the sign-in check", async () => {
+		await db.insert(user).values({
+			id: "late-ban",
+			name: "Late",
+			email: "late-ban@example.test",
+			banned: true,
+		});
+		// Outside an endpoint the admin plugin skips its pre-create ban check,
+		// which stands in for a ban that commits right after that check.
+		const ctx = await auth.$context;
+		const created = await ctx.internalAdapter.createSession("late-ban");
+		if (!created) throw new Error("session was not created");
+		expect(await sessionFor(created.token)).toBeNull();
+		expect(await ctx.secondaryStorage?.get(created.token)).toBeNull();
+		expect(
+			await db.query.session.findFirst({
+				where: eq(authSession.token, created.token),
+			}),
+		).toBeUndefined();
+
+		// An expired ban does not block sign-in.
+		await db
+			.update(user)
+			.set({ banExpires: new Date(Date.now() - 1_000) })
+			.where(eq(user.id, "late-ban"));
+		const allowed = await ctx.internalAdapter.createSession("late-ban");
+		if (!allowed) throw new Error("session was not created");
+		expect((await sessionFor(allowed.token))?.user.id).toBe("late-ban");
+	});
+
+	test("refreshing a cached user never revives a session revoked meanwhile", async () => {
+		await db
+			.insert(user)
+			.values([
+				{ id: "refresh-a", name: "Refresh", email: "refresh-a@example.test" },
+			]);
+		const kept = await cachedSession("refresh-a");
+		const revoked = await cachedSession("refresh-a");
+		const ctx = await auth.$context;
+		const storage = ctx.secondaryStorage;
+		if (!storage) throw new Error("secondary storage is required");
+		await db
+			.update(user)
+			.set({ name: "Renamed" })
+			.where(eq(user.id, "refresh-a"));
+
+		// Sign the second session out between refreshCachedUser's read of its
+		// cache entry and its write-back.
+		const get = storage.get;
+		let signedOut = false;
+		storage.get = async (key: string) => {
+			const value = await get.call(storage, key);
+			if (key === revoked && !signedOut) {
+				signedOut = true;
+				await revokeSessionByToken(revoked);
+			}
+			return value;
+		};
+		try {
+			await refreshCachedUser("refresh-a");
+		} finally {
+			storage.get = get;
+		}
+
+		expect(await storage.get(revoked)).toBeNull();
+		expect(await sessionFor(revoked)).toBeNull();
+		expect((await sessionFor(kept))?.user.name).toBe("Renamed");
+	});
+
+	test("ends the device-flow session once OBS has its control token", async () => {
+		await seed();
+		const bystanderToken = await cachedSession("user-b");
+		const authRequest = (
+			path: string,
+			body: Record<string, unknown>,
+			authorization?: string,
+		) =>
+			auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: "POST",
+					headers: {
+						"content-type": "application/json",
+						...(authorization ? { authorization } : {}),
+					},
+					body: JSON.stringify(body),
+				}),
+			);
+		const code = (await (
+			await authRequest("/device/code", { client_id: "visp-obs", scope: "obs" })
+		).json()) as { device_code: string; user_code: string };
+		const browserToken = await cachedSession("user-a");
+		expect(
+			(
+				await auth.handler(
+					new Request(
+						`http://127.0.0.1:3000/api/auth/device?user_code=${encodeURIComponent(code.user_code)}`,
+						{ headers: { authorization: `Bearer ${browserToken}` } },
+					),
+				)
+			).status,
+		).toBe(200);
+		expect(
+			(
+				await authRequest(
+					"/device/approve",
+					{ userCode: code.user_code },
+					`Bearer ${browserToken}`,
+				)
+			).status,
+		).toBe(200);
+		const temporary = (await (
+			await authRequest("/device/token", {
+				grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+				device_code: code.device_code,
+				client_id: "visp-obs",
+			})
+		).json()) as { access_token: string };
+		const ctx = await auth.$context;
+		expect(
+			await ctx.secondaryStorage?.get(temporary.access_token),
+		).toBeTruthy();
+		expect((await sessionFor(temporary.access_token))?.user.id).toBe("user-a");
+
+		const connect = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(connect.status).toBe(200);
+		expect(await sessionFor(temporary.access_token)).toBeNull();
+		expect(await ctx.secondaryStorage?.get(temporary.access_token)).toBeNull();
+		await expect(
+			(await callerFor(temporary.access_token)).privateData(),
+		).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+		const replay = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: { authorization: `Bearer ${temporary.access_token}` },
+			}),
+		);
+		expect(replay.status).toBe(401);
+
+		// The browser that approved it and other users stay signed in.
+		expect((await sessionFor(browserToken))?.user.id).toBe("user-a");
+		expect((await sessionFor(bystanderToken))?.user.id).toBe("user-b");
 	});
 
 	test("scopes the chat overlay token to its owner and drops it on revoke", async () => {
@@ -3569,6 +4662,10 @@ integration("VISP Direct boundaries", () => {
 	test("a missing provider scope returns reauthorize without exposing tokens", async () => {
 		const data = await seedDirect();
 		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
 			.update(relayPath)
 			.set({ directTwitch: true })
 			.where(eq(relayPath.id, data.pathB.id));
@@ -3602,6 +4699,55 @@ integration("VISP Direct boundaries", () => {
 			"Twitch stream key permission is required",
 		);
 		expect(state?.directTwitchError).not.toContain("token");
+		// The token cannot read the key, so the UI must stop saying "Authorized".
+		const [linked] = await db
+			.select({ scope: account.scope })
+			.from(account)
+			.where(eq(account.id, "direct-twitch-b"));
+		expect(linked?.scope).not.toContain("channel:read:stream_key");
+	});
+
+	test("a provider outage keeps stream-key consent", async () => {
+		const data = await seedDirect();
+		await db
+			.update(account)
+			.set({ scope: "user:read:email openid channel:read:stream_key" })
+			.where(eq(account.id, "direct-twitch-b"));
+		await db
+			.update(relayPath)
+			.set({ directTwitch: true })
+			.where(eq(relayPath.id, data.pathB.id));
+		await db
+			.insert(pathState)
+			.values({
+				pathId: data.pathB.id,
+				directTwitchReservedUntil: new Date(Date.now() + 60_000),
+			})
+			.onConflictDoUpdate({
+				target: pathState.pathId,
+				set: { directTwitchReservedUntil: new Date(Date.now() + 60_000) },
+			});
+
+		await resolveDirectDestinations("beta-1", {
+			...directDeps(),
+			fetch: (async () =>
+				new Response("unavailable", {
+					status: 503,
+				})) as unknown as typeof fetch,
+		});
+
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathB.id));
+		expect(state?.directTwitchError).toBe(
+			"Twitch stream key request failed (503)",
+		);
+		const [linked] = await db
+			.select({ scope: account.scope })
+			.from(account)
+			.where(eq(account.id, "direct-twitch-b"));
+		expect(linked?.scope).toContain("channel:read:stream_key");
 	});
 
 	test("a provider failure frees only its reservation", async () => {

@@ -21,7 +21,10 @@ Uusi relay provisioidaan samalla MediaMTX-, Caddy-, palomuuri- ja
 Tailscale-mallilla kuin ensimmäinen. Anna sille oma julkinen verkkotunnus,
 Control API -osoite ja alue, lisää sen julkinen IP sovelluspalvelimen
 `RELAY_PUBLIC_IPS`-listaan ja rekisteröi kapasiteetti hallintakonsolissa.
-Tyhjennystila estää uudet polut siirtämättä olemassa olevia.
+Tyhjennystila estää uudet polut siirtämättä olemassa olevia. Jos relayta on
+usealla alueella, `DEFAULT_RELAY_REGION` valitsee alueen uusille tileille, kun
+asiakas ei lähettänyt viivemittausta; ilman sitä käytetään `default`-relayn
+aluetta. Uuden alueen lisäys on kuvattu tiedostossa `deploy/REGIONS.md`.
 
 ## Päivitys
 

@@ -49,7 +49,10 @@ async function twitchBot() {
 		),
 	});
 	if (!bot) throw new Error("VISP Twitch bot is not linked");
-	const token = await getProviderAccessToken("twitch", env.VISP_CHAT_BOT_USER_ID);
+	const token = await getProviderAccessToken(
+		"twitch",
+		env.VISP_CHAT_BOT_USER_ID,
+	);
 	return { accountId: bot.accountId, accessToken: token.accessToken };
 }
 

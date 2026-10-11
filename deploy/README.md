@@ -423,8 +423,9 @@ needed.
 
 ## Adding relay N
 
-For the Finland + US rollout, follow [REGIONS.md](REGIONS.md), including release
-targets, disabled registration, and moving existing devices.
+To add a relay in a new region (US East, Singapore, Tokyo, …), follow
+[REGIONS.md](REGIONS.md), including how new devices pick a relay, sizing,
+release targets, disabled registration, and moving existing devices.
 
 Provision every additional relay from the same `relay/mediamtx.yml`, Caddyfile,
 systemd units, firewall rules, and Tailscale ACLs described above. Give it a
@@ -465,8 +466,31 @@ Use a private UpCloud Managed Object Storage bucket with its public HTTPS S3
 endpoint. The app credential needs GET, HEAD, PUT, and DELETE access only to the
 `snapshots/`, `brb/`, `obs-backups/`, `typography/`, and (with Cloud Studio)
 `studio-staging/` and `studio-verified/` object prefixes, plus bucket listing restricted to
-`brb/*/highlights/uploads/` so account deletion can remove abandoned uploads.
+`brb/*/highlights/uploads/` and `obs-backups/` so account deletion can remove abandoned
+uploads and OBS backups, and pruning can remove old OBS backups.
 Keep bucket versioning disabled so overwrites do not retain history.
+
+> **Before deploying OBS backups:** grant the app credential LIST on
+> `obs-backups/` first. Account deletion lists `obs-backups/<userId>/` and
+> fails without it; backup pruning and expiry of abandoned uploads also list.
+
+Do not add an expiration rule for `obs-backups/`: completed backups must stay.
+The app keeps the newest 10 per account, and deletes unfinished backups once
+they are 24 hours old (on that account's next backup list or create) and on
+account deletion. As a safety net for interrupted uploads, add:
+
+```json
+{
+  "Rules": [
+    {
+      "ID": "AbortVispObsBackupMultipart",
+      "Status": "Enabled",
+      "Prefix": "obs-backups/",
+      "AbortIncompleteMultipartUpload": { "DaysAfterInitiation": 1 }
+    }
+  ]
+}
+```
 
 Configure this lifecycle rule through the UpCloud control panel or a compatible
 S3 client so stopped paths disappear from storage after one day:

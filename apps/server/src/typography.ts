@@ -8,7 +8,7 @@ import {
 	typographyExportUrl,
 	typographyVideoUrl,
 } from "@VISP/api/typography";
-import { auth } from "@VISP/auth";
+import { getUserSession } from "@VISP/auth";
 import { Elysia } from "elysia";
 import { z } from "zod";
 
@@ -22,7 +22,7 @@ const createInput = z.object({
 const saveInput = z.object({ document: typographyDocumentSchema });
 
 async function userId(headers: Headers) {
-	const session = await auth.api.getSession({ headers });
+	const session = await getUserSession(headers);
 	return session?.user.id ?? null;
 }
 

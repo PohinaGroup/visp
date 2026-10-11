@@ -1,5 +1,9 @@
 import { isAdminUser } from "@VISP/auth";
+import { isBanActive } from "@VISP/auth/ban";
+import { db } from "@VISP/db";
+import { user } from "@VISP/db/schema/index";
 import { initTRPC, TRPCError } from "@trpc/server";
+import { eq } from "drizzle-orm";
 
 import type { Context } from "./context";
 import { RateLimitedError } from "./rate-limit";
@@ -20,12 +24,30 @@ export const router = t.router;
 
 export const publicProcedure = t.procedure;
 
+// Not the enforcement point for bans. `ctx.session.user` is the copy cached with
+// the session in `auth_cache`, written at sign-in and refreshed only by
+// refreshCachedUser, so a ban written straight to the database is NOT seen here
+// while the session stays cached. Reading the user row instead would add a
+// query to every request, so bans are enforced where they are made:
+// `admin.users.ban` revokes every session and non-session credential, Better
+// Auth's own ban/role/revoke endpoints are refused
+// (packages/auth/src/admin-endpoints.ts), and a session created while a ban
+// commits is removed by the session-create hook in packages/auth/src/index.ts.
+// Ban users through the admin console, never with SQL. This check (also made
+// by getUserSession) only catches a session whose cached user says banned.
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 	if (!ctx.session) {
 		throw new TRPCError({
 			code: "UNAUTHORIZED",
 			message: "Authentication required",
 			cause: "No session",
+		});
+	}
+	if (isBanActive(ctx.session.user)) {
+		throw new TRPCError({
+			code: "UNAUTHORIZED",
+			message: "Authentication required",
+			cause: "Banned user",
 		});
 	}
 	return next({
@@ -36,8 +58,20 @@ export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 	});
 });
 
-export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-	if (!isAdminUser(ctx.session.user)) {
+// The session's user is a cached copy that can be days old, so admin access is
+// decided from the user row as it is now.
+export const adminProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+	const [current] = await db
+		.select({
+			id: user.id,
+			role: user.role,
+			banned: user.banned,
+			banExpires: user.banExpires,
+		})
+		.from(user)
+		.where(eq(user.id, ctx.session.user.id))
+		.limit(1);
+	if (!current || isBanActive(current) || !isAdminUser(current)) {
 		throw new TRPCError({
 			code: "FORBIDDEN",
 			message: "Administrator access required",

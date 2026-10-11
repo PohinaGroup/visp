@@ -1,3 +1,4 @@
+import { refreshCachedUser, revokeAllUserSessions } from "@VISP/auth/sessions";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -13,11 +14,34 @@ import {
 } from "@VISP/db/schema/index";
 import { cpus, freemem, loadavg, totalmem, uptime } from "node:os";
 import { TRPCError } from "@trpc/server";
-import { and, count, desc, eq, ilike, or, type SQL, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	ilike,
+	isNull,
+	or,
+	type SQL,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
+import { writeAdminAudit } from "../admin-audit";
+import { stopDirectForPaths } from "../direct";
 import { DIRECT_OCCUPIED_STATES_SQL } from "../direct-occupancy";
 import { adminProcedure, router } from "../index";
+import { revokeObsControlToken } from "../obs-control";
+import { invalidateAuthCacheForUser } from "../relay";
 import { probeRelayApi } from "../relay-health";
+import { adminAlertsRouter } from "./admin/alerts";
+import { adminAuditRouter } from "./admin/audit";
+import { adminGrowthRouter } from "./admin/growth";
+import { adminMetricsRouter } from "./admin/metrics";
+import { adminRelayForecastRouter } from "./admin/relay-forecast";
+import { adminRelayHistoryRouter } from "./admin/relay-history";
+import { adminReliabilityRouter } from "./admin/reliability";
+import { adminSpendRouter } from "./admin/spend";
+import { adminUsageRouter } from "./admin/usage";
 
 const PAGE_SIZE = 50;
 const MAX_PAGE_SIZE = 100;
@@ -58,10 +82,90 @@ function snakeCase(value: string) {
 	return value.replace(/[A-Z]/g, (letter) => `_${letter.toLowerCase()}`);
 }
 
-function audit(actorId: string, targetId: string, action: string) {
-	console.info(
-		JSON.stringify({ event: "admin_action", actorId, targetId, action }),
-	);
+/** JSON-safe audit value: dates as ISO strings, everything else as is. */
+function auditValue(value: unknown) {
+	return value instanceof Date ? value.toISOString() : (value ?? null);
+}
+
+/**
+ * The fields of `keys` whose value differs between two versions of a row, as
+ * the `before`/`after` pair the audit log stores. Unchanged fields are left
+ * out so the audit page only shows what the action actually did.
+ */
+function changedFields<Row extends Record<string, unknown>>(
+	previous: Row,
+	next: Row,
+	keys: readonly (keyof Row & string)[],
+) {
+	const before: Record<string, unknown> = {};
+	const after: Record<string, unknown> = {};
+	for (const key of keys) {
+		const old = auditValue(previous[key]);
+		const now = auditValue(next[key]);
+		if (old === now) continue;
+		before[key] = old;
+		after[key] = now;
+	}
+	return { before, after };
+}
+
+const RELAY_AUDIT_FIELDS = [
+	"name",
+	"host",
+	"apiUrl",
+	"pingUrl",
+	"region",
+	"capacityPaths",
+	"maxForwarders",
+	"publicIp",
+	"enabled",
+	"drainedAt",
+] as const;
+
+/**
+ * What a ban ends beyond the sessions revoked inside its transaction. Runs
+ * after the ban commits; each step is idempotent, so a failed ban request can
+ * simply be retried.
+ *
+ * - Sessions again: a sign-in that passed Better Auth's ban check before the
+ *   ban committed may have created its session after the in-transaction
+ *   revocation (the session-create hook in packages/auth covers the rest).
+ * - The OBS control token, which is not a session. A connected plugin's live
+ *   socket closes on its next state report.
+ * - Cached media auth on every instance, so publish and read (and Direct
+ *   restreams admitted by publish) are refused within one request. The cache
+ *   entry carries the ban, but only from its next load.
+ * - Direct and BRB outputs of the user's paths. An ingest that is already
+ *   connected stays up until it reconnects; nothing here can kick it.
+ */
+async function endBannedUserAccess(userId: string) {
+	await revokeAllUserSessions(userId);
+	await revokeObsControlToken(userId);
+	await invalidateAuthCacheForUser(userId);
+	const paths = await db
+		.select({ id: relayPath.id })
+		.from(relayPath)
+		.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
+	await stopDirectForPaths(paths.map(({ id }) => id));
+}
+
+/** The ban columns, read before and after a ban change for the audit log. */
+const BAN_FIELDS = {
+	banned: user.banned,
+	banReason: user.banReason,
+	banExpires: user.banExpires,
+};
+
+function banSnapshot(row: {
+	banned: boolean | null;
+	banReason: string | null;
+	banExpires: Date | null;
+}) {
+	return {
+		banned: Boolean(row.banned),
+		banReason: row.banReason,
+		banExpires: auditValue(row.banExpires),
+	};
 }
 
 const hasDevice = sql<boolean>`exists (
@@ -89,6 +193,10 @@ const isLive = sql<boolean>`exists (
 )`;
 
 export const adminRouter = router({
+	audit: adminAuditRouter,
+	metrics: adminMetricsRouter,
+	reliability: adminReliabilityRouter,
+	growth: adminGrowthRouter,
 	overview: adminProcedure.query(async () => {
 		const recentSince = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 		const [result] = await db
@@ -224,7 +332,15 @@ export const adminRouter = router({
 						message: "Could not create relay",
 					});
 				}
-				audit(ctx.session.user.id, `relay:${created.id}`, "create");
+				await writeAdminAudit({
+					actorId: ctx.session.user.id,
+					targetType: "relay",
+					targetId: String(created.id),
+					action: "relay_create",
+					after: Object.fromEntries(
+						RELAY_AUDIT_FIELDS.map((key) => [key, auditValue(created[key])]),
+					),
+				});
 				return created;
 			}),
 		update: adminProcedure
@@ -244,26 +360,49 @@ export const adminRouter = router({
 			)
 			.mutation(async ({ ctx, input }) => {
 				const { id, drained, ...fields } = input;
-				const [updated] = await db
-					.update(relay)
-					.set({
-						...fields,
-						...(drained === undefined
-							? {}
-							: { drainedAt: drained ? new Date() : null }),
-					})
-					.where(eq(relay.id, id))
-					.returning();
-				if (!updated) {
-					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "Relay not found",
-					});
-				}
-				audit(ctx.session.user.id, `relay:${id}`, "update");
-				return updated;
+				// The previous row is read under lock only so the audit log can
+				// say what changed; the update itself is unchanged.
+				return db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select()
+						.from(relay)
+						.where(eq(relay.id, id))
+						.for("update");
+					const [updated] = await tx
+						.update(relay)
+						.set({
+							...fields,
+							...(drained === undefined
+								? {}
+								: { drainedAt: drained ? new Date() : null }),
+						})
+						.where(eq(relay.id, id))
+						.returning();
+					if (!previous || !updated) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Relay not found",
+						});
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "relay",
+							targetId: String(id),
+							action: "relay_update",
+							...changedFields(previous, updated, RELAY_AUDIT_FIELDS),
+						},
+						tx,
+					);
+					return updated;
+				});
 			}),
 	}),
+	relayHistory: adminRelayHistoryRouter,
+	spend: adminSpendRouter,
+	relayForecast: adminRelayForecastRouter,
+	usage: adminUsageRouter,
+	alerts: adminAlertsRouter,
 
 	users: router({
 		list: adminProcedure
@@ -571,15 +710,50 @@ export const adminRouter = router({
 						message: "You cannot remove your own administrator role",
 					});
 				}
-				const [result] = await db
-					.update(user)
-					.set({ role: input.role })
-					.where(eq(user.id, input.userId))
-					.returning({ id: user.id, role: user.role });
-				if (!result) {
-					throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-				}
-				audit(ctx.session.user.id, input.userId, `set_role:${input.role}`);
+				// Sessions carry a cached copy of the user. Taking admin away ends
+				// them in the same transaction, so a demoted admin cannot keep using
+				// (or re-promote themselves from) a session that still says "admin".
+				// Granting it only refreshes the cached copy.
+				const result = await db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select({ role: user.role })
+						.from(user)
+						.where(eq(user.id, input.userId))
+						.for("update");
+					if (!previous) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "User not found",
+						});
+					}
+					const [updated] = await tx
+						.update(user)
+						.set({ role: input.role })
+						.where(eq(user.id, input.userId))
+						.returning({ id: user.id, role: user.role });
+					if (!updated) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "User not found",
+						});
+					}
+					if (previous.role !== input.role && input.role !== "admin") {
+						await revokeAllUserSessions(input.userId, { tx });
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: "set_role",
+							before: { role: previous.role ?? null },
+							after: { role: updated.role ?? null },
+						},
+						tx,
+					);
+					return updated;
+				});
+				if (input.role === "admin") await refreshCachedUser(input.userId);
 				return result;
 			}),
 
@@ -593,23 +767,38 @@ export const adminRouter = router({
 				}),
 			)
 			.mutation(async ({ ctx, input }) => {
-				const [result] = await db
-					.update(appUser)
-					.set({ [input.flag]: input.enabled })
-					.where(eq(appUser.id, input.userId))
-					.returning({ id: appUser.id, enabled: appUser[input.flag] });
-				if (!result) {
-					throw new TRPCError({
-						code: "NOT_FOUND",
-						message: "Relay user not found",
-					});
-				}
-				audit(
-					ctx.session.user.id,
-					input.userId,
-					`set_${snakeCase(input.flag)}:${input.enabled}`,
-				);
-				return result;
+				// Locked read of the old value so the audit row records a real
+				// before/after, including a no-op toggle.
+				return db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select({ enabled: appUser[input.flag] })
+						.from(appUser)
+						.where(eq(appUser.id, input.userId))
+						.for("update");
+					const [result] = await tx
+						.update(appUser)
+						.set({ [input.flag]: input.enabled })
+						.where(eq(appUser.id, input.userId))
+						.returning({ id: appUser.id, enabled: appUser[input.flag] });
+					if (!previous || !result) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "Relay user not found",
+						});
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: `set_flag:${snakeCase(input.flag)}`,
+							before: { [input.flag]: previous.enabled },
+							after: { [input.flag]: result.enabled },
+						},
+						tx,
+					);
+					return result;
+				});
 			}),
 
 		ban: adminProcedure
@@ -635,6 +824,11 @@ export const adminRouter = router({
 					});
 				}
 				const result = await db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select(BAN_FIELDS)
+						.from(user)
+						.where(eq(user.id, input.userId))
+						.for("update");
 					const [updated] = await tx
 						.update(user)
 						.set({
@@ -643,44 +837,86 @@ export const adminRouter = router({
 							banExpires: expiresAt,
 						})
 						.where(eq(user.id, input.userId))
-						.returning({ id: user.id });
-					if (!updated) {
+						.returning({ id: user.id, ...BAN_FIELDS });
+					if (!previous || !updated) {
 						throw new TRPCError({
 							code: "NOT_FOUND",
 							message: "User not found",
 						});
 					}
-					await tx.delete(session).where(eq(session.userId, input.userId));
-					return updated;
+					// Clears cached tokens too; a failure there rolls the ban back.
+					const revoked = await revokeAllUserSessions(input.userId, { tx });
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: "ban",
+							before: banSnapshot(previous),
+							after: { ...banSnapshot(updated), revokedSessions: revoked },
+						},
+						tx,
+					);
+					return { id: updated.id };
 				});
-				audit(ctx.session.user.id, input.userId, "ban");
+				await endBannedUserAccess(input.userId);
 				return result;
 			}),
 
 		unban: adminProcedure
 			.input(z.object({ userId: z.string().min(1) }))
 			.mutation(async ({ ctx, input }) => {
-				const [result] = await db
-					.update(user)
-					.set({ banned: false, banReason: null, banExpires: null })
-					.where(eq(user.id, input.userId))
-					.returning({ id: user.id });
-				if (!result) {
-					throw new TRPCError({ code: "NOT_FOUND", message: "User not found" });
-				}
-				audit(ctx.session.user.id, input.userId, "unban");
+				const result = await db.transaction(async (tx) => {
+					const [previous] = await tx
+						.select(BAN_FIELDS)
+						.from(user)
+						.where(eq(user.id, input.userId))
+						.for("update");
+					const [updated] = await tx
+						.update(user)
+						.set({ banned: false, banReason: null, banExpires: null })
+						.where(eq(user.id, input.userId))
+						.returning({ id: user.id, ...BAN_FIELDS });
+					if (!previous || !updated) {
+						throw new TRPCError({
+							code: "NOT_FOUND",
+							message: "User not found",
+						});
+					}
+					await writeAdminAudit(
+						{
+							actorId: ctx.session.user.id,
+							targetType: "user",
+							targetId: input.userId,
+							action: "unban",
+							before: banSnapshot(previous),
+							after: banSnapshot(updated),
+						},
+						tx,
+					);
+					return { id: updated.id };
+				});
+				await refreshCachedUser(input.userId);
+				// Cached media auth carries the ban; reload it now, not in 60 s.
+				await invalidateAuthCacheForUser(input.userId);
 				return result;
 			}),
 
+		// "Sign out everywhere": Better Auth sessions and the OBS control token,
+		// which outlives sessions by design.
 		revokeSessions: adminProcedure
 			.input(z.object({ userId: z.string().min(1) }))
 			.mutation(async ({ ctx, input }) => {
-				const result = await db
-					.delete(session)
-					.where(eq(session.userId, input.userId))
-					.returning({ id: session.id });
-				audit(ctx.session.user.id, input.userId, "revoke_sessions");
-				return { revoked: result.length };
+				const revoked = await revokeAllUserSessions(input.userId);
+				await revokeObsControlToken(input.userId);
+				await writeAdminAudit({
+					actorId: ctx.session.user.id,
+					targetType: "user",
+					targetId: input.userId,
+					action: "revoke_sessions",
+					after: { revokedSessions: revoked },
+				});
+				return { revoked };
 			}),
 	}),
 });
