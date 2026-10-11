@@ -166,7 +166,11 @@ before restarting any service. It validates Caddy before installing its
 configuration, then restarts `visp-server`, `visp-web`, and
 `visp-typography-worker`, reloads Caddy, and runs local smoke checks. Install, migration, or build failures therefore leave
 the currently running services untouched. Database rollback remains manual and
-migrations must stay backward-compatible.
+migrations must stay backward-compatible. All pending migrations apply in one
+transaction with a 5 s `lock_timeout` (so a blocked `ALTER` cannot queue live
+queries behind it) and are retried up to 3 times; tune with
+`MIGRATION_LOCK_TIMEOUT_MS`, `MIGRATION_LOCK_ATTEMPTS`, and
+`MIGRATION_STATEMENT_TIMEOUT_MS` (default 10 min) in `/etc/visp/app.env`.
 
 ## First-release acceptance
 

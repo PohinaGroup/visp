@@ -4,6 +4,7 @@ import { Pool } from "pg";
 
 export type { PoolClient } from "pg";
 
+import { POOL_CONNECTION_TIMEOUT_MS, poolMax } from "./pool-config";
 import * as schema from "./schema";
 
 const SSL_URL_PARAMS = [
@@ -60,12 +61,19 @@ function databaseSslConfig(): false | { rejectUnauthorized: true } {
 
 function createPool() {
 	const ssl = databaseSslConfig();
+	// Without a connection timeout pool.connect() waits forever when every
+	// connection is checked out; fail the request instead.
+	const sizing = {
+		max: poolMax(),
+		connectionTimeoutMillis: POOL_CONNECTION_TIMEOUT_MS,
+	};
 	if (!ssl) {
-		return new Pool({ connectionString: env.DATABASE_URL });
+		return new Pool({ connectionString: env.DATABASE_URL, ...sizing });
 	}
 	return new Pool({
 		connectionString: databaseUrlWithoutSslParams(env.DATABASE_URL),
 		ssl,
+		...sizing,
 	});
 }
 
