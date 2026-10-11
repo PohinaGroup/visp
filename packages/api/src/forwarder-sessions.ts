@@ -39,6 +39,45 @@ function occupiedForwarders(scope: SQL) {
 }
 
 /**
+ * Forwarders occupying an encoder on one relay right now, as a scalar
+ * subquery. The same rows `forwarder_session` tracks and that Direct's
+ * capacity checks count as occupied (legacy provider outputs, portrait
+ * destinations and custom outputs), minus reservations: a reserved slot has
+ * no encoder running yet. Reusing `occupiedForwarders` keeps relay-health
+ * samples, session history and admission from drifting apart.
+ */
+export function relayOccupiedForwarderCount(relayId: number | SQL) {
+	return sql<number>`(
+		select count(*)::int
+		from (${occupiedForwarders(sql`p.relay_id = ${relayId}`)}) relay_occupied
+	)`;
+}
+
+/**
+ * Two-key advisory lock family for session syncs. The two-key form lives in a
+ * separate key space from the single-key `hashtext(...)` locks used elsewhere,
+ * so it cannot collide with them. Key 0 is the global gate: the reconciler
+ * holds it exclusively, per-path syncs hold it shared and then lock their
+ * paths. Path ids are bigint; folding them into int4 can only make two paths
+ * share a lock (extra waiting), never let one sync skip another.
+ */
+export const FORWARDER_SESSION_LOCK_FAMILY = 0x46_53_45_53; // "FSES"
+const LOCK_KEY_MODULUS = 2_147_483_647;
+
+/** Distinct per-path lock keys, ascending, so concurrent syncs lock in one order. */
+export function forwarderSessionLockKeys(pathIds: readonly number[]) {
+	const keys = new Set<number>();
+	for (const id of pathIds) {
+		if (!Number.isSafeInteger(id) || id < 0) {
+			throw new Error(`invalid path id for forwarder session sync: ${id}`);
+		}
+		// 0 is the global gate; a path id that folds onto it moves to 1.
+		keys.add(id % LOCK_KEY_MODULUS || 1);
+	}
+	return [...keys].sort((a, b) => a - b);
+}
+
+/**
  * Makes `forwarder_session` agree with the live Direct state: opens a row for
  * every occupied forwarder that has none and closes every open row whose
  * forwarder is no longer occupied (left the occupied states, or its
@@ -47,9 +86,20 @@ function occupiedForwarders(scope: SQL) {
  * Diffing against current state instead of hooking each transition is
  * deliberate: Direct state is written from a dozen places (hooks, BRB ticks,
  * stop paths, reservation resets, row deletes) and an edge-triggered log would
- * drift the first time one of them was missed. This is idempotent, safe to run
- * concurrently (the partial unique index arbitrates duplicate opens), and the
+ * drift the first time one of them was missed. This is idempotent and the
  * same statement serves as the per-path hook update and the global reconciler.
+ *
+ * Concurrent syncs are serialised with transaction-scoped advisory locks
+ * taken in a statement *before* the sync, so the sync's snapshot always
+ * includes every sync that committed ahead of it. Without that, a reconcile
+ * reading a stale view could reopen a row a hook had just closed, and two
+ * overlapping updates could deadlock. Lock order is fixed (global gate, then
+ * path keys ascending), so syncs cannot deadlock each other.
+ *
+ * The locks and the sync go out as one multi-statement simple query, which
+ * Postgres runs as one implicit transaction: still a single round trip on the
+ * hook path. That protocol takes no bind parameters, so every value is
+ * inlined; the only values are validated integers and the constant state set.
  *
  * @param pathIds restrict to these paths; omit to reconcile every path.
  */
@@ -58,6 +108,7 @@ export async function syncForwarderSessions(
 	pathIds?: readonly number[],
 ) {
 	if (pathIds && pathIds.length === 0) return;
+	const lockKeys = pathIds ? forwarderSessionLockKeys(pathIds) : [];
 	const scope = pathIds
 		? sql`p.id in (${sql.join(
 				pathIds.map((id) => sql`${id}`),
@@ -70,8 +121,17 @@ export async function syncForwarderSessions(
 				sql`, `,
 			)})`
 		: sql`true`;
+	const locks = pathIds
+		? sql`select pg_advisory_xact_lock_shared(${FORWARDER_SESSION_LOCK_FAMILY}, 0);
+			select pg_advisory_xact_lock(${FORWARDER_SESSION_LOCK_FAMILY}, k)
+			from unnest(array[${sql.join(
+				lockKeys.map((key) => sql`${key}`),
+				sql`, `,
+			)}]::int[]) k`
+		: sql`select pg_advisory_xact_lock(${FORWARDER_SESSION_LOCK_FAMILY}, 0)`;
 	// The close and the open touch disjoint keys, so one snapshot serves both.
-	await executor.execute(sql`
+	await executor.execute(
+		sql`${locks};
 		with occupied as (${occupiedForwarders(scope)}),
 		closed as (
 			update forwarder_session f
@@ -92,8 +152,8 @@ export async function syncForwarderSessions(
 		select path_id, relay_id, destination, destination_ref, role from occupied
 		on conflict (path_id, destination, (coalesce(destination_ref, '')), role)
 			where ended_at is null
-			do nothing
-	`);
+			do nothing`.inlineParams(),
+	);
 }
 
 /**
