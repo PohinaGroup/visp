@@ -1,5 +1,5 @@
 import { isAdminUser } from "@VISP/auth";
-import { isBanActive } from "@VISP/auth/sessions";
+import { isBanActive } from "@VISP/auth/ban";
 import { db } from "@VISP/db";
 import { user } from "@VISP/db/schema/index";
 import { initTRPC, TRPCError } from "@trpc/server";
@@ -24,10 +24,17 @@ export const router = t.router;
 
 export const publicProcedure = t.procedure;
 
-// Bans end every session (packages/auth/src/sessions.ts), so this is the
-// backstop for a session that outlived one anyway, e.g. a ban written straight
-// to the database. It reads the user the session resolved with — current for a
-// session served from the session table — and adds no query per request.
+// Not the enforcement point for bans. `ctx.session.user` is the copy cached with
+// the session in `auth_cache`, written at sign-in and refreshed only by
+// refreshCachedUser, so a ban written straight to the database is NOT seen here
+// while the session stays cached. Reading the user row instead would add a
+// query to every request, so bans are enforced where they are made:
+// `admin.users.ban` revokes every session and non-session credential, Better
+// Auth's own ban/role/revoke endpoints are refused
+// (packages/auth/src/admin-endpoints.ts), and a session created while a ban
+// commits is removed by the session-create hook in packages/auth/src/index.ts.
+// Ban users through the admin console, never with SQL. This check (also made
+// by getUserSession) only catches a session whose cached user says banned.
 export const protectedProcedure = t.procedure.use(({ ctx, next }) => {
 	if (!ctx.session) {
 		throw new TRPCError({

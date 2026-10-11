@@ -92,6 +92,7 @@ import {
 } from "@VISP/api/studio";
 import { DEFAULT_ALERT_APPEARANCE } from "@VISP/api/studio-alert";
 import { auth } from "@VISP/auth";
+import { refreshCachedUser, revokeSessionByToken } from "@VISP/auth/sessions";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -1976,6 +1977,16 @@ integration("relay PostgreSQL integration", () => {
 			)?.name,
 		).toBe("Alpha");
 
+		// A full browser session cannot mint an OBS control token; only the
+		// short-lived pairing session from the device flow can.
+		const fromBrowser = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: browser,
+			}),
+		);
+		expect(fromBrowser.status).toBe(401);
+
 		const connect = await app.handle(
 			new Request("http://localhost/api/obs/connect", {
 				method: "POST",
@@ -2622,6 +2633,249 @@ integration("relay PostgreSQL integration", () => {
 			(await (await callerFor(promotedToken)).admin.overview()).totalUsers,
 		).toBe(3);
 		expect((await head.admin.overview()).totalUsers).toBe(3);
+	});
+
+	/** GET /api/obs/devices with an OBS control token: 200 while it works. */
+	async function obsDevicesStatus(token: string) {
+		return (
+			await app.handle(
+				new Request("http://localhost/api/obs/devices", {
+					headers: { authorization: `Bearer ${token}` },
+				}),
+			)
+		).status;
+	}
+
+	test("a ban ends OBS control, media access and Direct, not just sessions", async () => {
+		const data = await seed();
+		await db.insert(user).values({
+			id: "media-admin",
+			name: "Admin",
+			email: "media-admin@example.test",
+			role: "admin",
+		});
+		const admin = await callerFor(await cachedSession("media-admin"));
+		const obsA = (await rotateObsControlToken("user-a")).token;
+		const obsB = (await rotateObsControlToken("user-b")).token;
+		expect(await obsDevicesStatus(obsA)).toBe(200);
+		await db.insert(pathState).values({
+			pathId: data.pathA.id,
+			publishing: true,
+			readerCount: 0,
+			lastEventAt: new Date(),
+			directTwitchState: "live",
+		});
+		const readA = () =>
+			authenticateMedia({
+				action: "read",
+				password: data.readA,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+		const publishA = () =>
+			authenticateMedia({
+				action: "publish",
+				password: data.publishA,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+		// Warm the verified-credential cache: the ban must invalidate it.
+		expect(await readA()).toBe(true);
+		const verifications = mediaSecretVerificationsForTests();
+		expect(await readA()).toBe(true);
+		expect(mediaSecretVerificationsForTests()).toBe(verifications);
+
+		await admin.admin.users.ban({ userId: "user-a", reason: "abuse" });
+
+		expect(await obsDevicesStatus(obsA)).toBe(401);
+		expect(
+			(await db.query.appUser.findFirst({ where: eq(appUser.id, "user-a") }))
+				?.obsControlTokenId,
+		).toBeNull();
+		expect(await readA()).toBe(false);
+		expect(await publishA()).toBe(false);
+		expect(
+			(
+				await machineAuth({
+					action: "publish",
+					password: data.publishA,
+					path: data.pathA.slug,
+					protocol: "srt",
+					user: "alpha",
+				})
+			).status,
+		).toBe(401);
+		expect(
+			(
+				await db.query.pathState.findFirst({
+					where: eq(pathState.pathId, data.pathA.id),
+				})
+			)?.directTwitchState,
+		).toBe("stopped");
+
+		// Another streamer keeps everything.
+		expect(await obsDevicesStatus(obsB)).toBe(200);
+		expect(
+			await authenticateMedia({
+				action: "read",
+				password: data.readB,
+				path: data.pathB.slug,
+				user: "beta",
+			}),
+		).toBe(true);
+
+		// Unbanning restores the stream keys at once; the OBS token stays gone
+		// and the plugin pairs again.
+		await admin.admin.users.unban({ userId: "user-a" });
+		expect(await readA()).toBe(true);
+		expect(await obsDevicesStatus(obsA)).toBe(401);
+
+		// "Revoke sessions" signs OBS out too.
+		await admin.admin.users.revokeSessions({ userId: "user-b" });
+		expect(await obsDevicesStatus(obsB)).toBe(401);
+	});
+
+	test("refuses OBS control and media for a ban written straight to the database", async () => {
+		const data = await seed();
+		const obsA = (await rotateObsControlToken("user-a")).token;
+		const readA = () =>
+			authenticateMedia({
+				action: "read",
+				password: data.readA,
+				path: data.pathA.slug,
+				user: "alpha",
+			});
+		expect(await readA()).toBe(true);
+
+		await db.update(user).set({ banned: true }).where(eq(user.id, "user-a"));
+		// No invalidation was published, so the cached credential lasts its TTL.
+		clearAuthCacheForTests();
+		expect(await obsDevicesStatus(obsA)).toBe(401);
+		expect(await readA()).toBe(false);
+
+		// A ban whose expiry has passed is lifted, as Better Auth treats it.
+		await db
+			.update(user)
+			.set({ banExpires: new Date(Date.now() - 1_000) })
+			.where(eq(user.id, "user-a"));
+		clearAuthCacheForTests();
+		expect(await obsDevicesStatus(obsA)).toBe(200);
+		expect(await readA()).toBe(true);
+	});
+
+	test("refuses Better Auth's own admin ban, role and revoke endpoints", async () => {
+		await db.insert(user).values([
+			{
+				id: "ba-admin",
+				name: "Admin",
+				email: "ba-admin@example.test",
+				role: "admin",
+			},
+			{ id: "ba-target", name: "Target", email: "ba-target@example.test" },
+		]);
+		const adminToken = await cachedSession("ba-admin");
+		const targetToken = await cachedSession("ba-target");
+		for (const [path, body] of [
+			["/admin/ban-user", { userId: "ba-target" }],
+			["/admin/unban-user", { userId: "ba-target" }],
+			["/admin/set-role", { userId: "ba-target", role: "admin" }],
+			["/admin/revoke-user-sessions", { userId: "ba-target" }],
+			["/admin/revoke-user-session", { sessionToken: targetToken }],
+		] as const) {
+			const response = await auth.handler(
+				new Request(`http://127.0.0.1:3000/api/auth${path}`, {
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${adminToken}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
+				}),
+			);
+			expect({ path, status: response.status }).toEqual({ path, status: 403 });
+		}
+		const target = await db.query.user.findFirst({
+			where: eq(user.id, "ba-target"),
+		});
+		expect(target?.banned).toBe(false);
+		expect(target?.role).toBe("user");
+		expect((await sessionFor(targetToken))?.user.id).toBe("ba-target");
+		// Reads stay available.
+		const listed = await auth.handler(
+			new Request("http://127.0.0.1:3000/api/auth/admin/list-users", {
+				headers: { authorization: `Bearer ${adminToken}` },
+			}),
+		);
+		expect(listed.status).toBe(200);
+	});
+
+	test("drops a session created for a user banned after the sign-in check", async () => {
+		await db.insert(user).values({
+			id: "late-ban",
+			name: "Late",
+			email: "late-ban@example.test",
+			banned: true,
+		});
+		// Outside an endpoint the admin plugin skips its pre-create ban check,
+		// which stands in for a ban that commits right after that check.
+		const ctx = await auth.$context;
+		const created = await ctx.internalAdapter.createSession("late-ban");
+		if (!created) throw new Error("session was not created");
+		expect(await sessionFor(created.token)).toBeNull();
+		expect(await ctx.secondaryStorage?.get(created.token)).toBeNull();
+		expect(
+			await db.query.session.findFirst({
+				where: eq(authSession.token, created.token),
+			}),
+		).toBeUndefined();
+
+		// An expired ban does not block sign-in.
+		await db
+			.update(user)
+			.set({ banExpires: new Date(Date.now() - 1_000) })
+			.where(eq(user.id, "late-ban"));
+		const allowed = await ctx.internalAdapter.createSession("late-ban");
+		if (!allowed) throw new Error("session was not created");
+		expect((await sessionFor(allowed.token))?.user.id).toBe("late-ban");
+	});
+
+	test("refreshing a cached user never revives a session revoked meanwhile", async () => {
+		await db
+			.insert(user)
+			.values([
+				{ id: "refresh-a", name: "Refresh", email: "refresh-a@example.test" },
+			]);
+		const kept = await cachedSession("refresh-a");
+		const revoked = await cachedSession("refresh-a");
+		const ctx = await auth.$context;
+		const storage = ctx.secondaryStorage;
+		if (!storage) throw new Error("secondary storage is required");
+		await db
+			.update(user)
+			.set({ name: "Renamed" })
+			.where(eq(user.id, "refresh-a"));
+
+		// Sign the second session out between refreshCachedUser's read of its
+		// cache entry and its write-back.
+		const get = storage.get;
+		let signedOut = false;
+		storage.get = async (key: string) => {
+			const value = await get.call(storage, key);
+			if (key === revoked && !signedOut) {
+				signedOut = true;
+				await revokeSessionByToken(revoked);
+			}
+			return value;
+		};
+		try {
+			await refreshCachedUser("refresh-a");
+		} finally {
+			storage.get = get;
+		}
+
+		expect(await storage.get(revoked)).toBeNull();
+		expect(await sessionFor(revoked)).toBeNull();
+		expect((await sessionFor(kept))?.user.name).toBe("Renamed");
 	});
 
 	test("ends the device-flow session once OBS has its control token", async () => {

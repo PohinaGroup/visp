@@ -58,6 +58,8 @@ import {
 	reportCompositorHealth,
 } from "@VISP/api/studio";
 import { auth } from "@VISP/auth";
+import { isBanActive } from "@VISP/auth/ban";
+import { isObsPairingToken } from "@VISP/auth/obs-pairing";
 import { revokeSessionByToken } from "@VISP/auth/sessions";
 import { env } from "@VISP/env/server";
 import { createHmac, timingSafeEqual } from "node:crypto";
@@ -128,7 +130,17 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			const activeSession = await auth.api.getSession({
 				headers: request.headers,
 			});
-			if (!activeSession) return status(401, "unauthorized");
+			// Only the 10-minute session OBS gets from the device flow
+			// (packages/auth/src/obs-pairing.ts) may mint a control token. A
+			// stolen browser session must not buy a credential that outlives its
+			// revocation.
+			if (
+				!activeSession ||
+				!isObsPairingToken(activeSession.session.token) ||
+				isBanActive(activeSession.user)
+			) {
+				return status(401, "unauthorized");
+			}
 			const relayUser = await ensureRelayUser(
 				activeSession.user.id,
 				activeSession.user.name,

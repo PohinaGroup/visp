@@ -1,3 +1,4 @@
+import { isBanActive } from "@VISP/auth/ban";
 import { db } from "@VISP/db";
 import {
 	account,
@@ -6,6 +7,7 @@ import {
 	relay,
 	relayPath,
 	rttSample,
+	user,
 } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createHash, randomBytes } from "node:crypto";
@@ -39,6 +41,8 @@ const AUTH_CACHE_TTL_MS = 60_000;
 const MAX_VERIFIED_SECRETS = 4;
 
 type AuthCacheEntry = {
+	/** The owner's ban, checked on every request so an expiry takes effect. */
+	ban: { banned: boolean; banExpires: Date | null };
 	expiresAt: number;
 	handle: string;
 	pathId: number;
@@ -394,9 +398,12 @@ async function credentialForSlug(slug: string) {
 			pathPublishSecretHash: relayPath.publishSecretHash,
 			legacyPublishSecretHash: appUser.publishSecretHash,
 			readSecretHash: appUser.readSecretHash,
+			banned: user.banned,
+			banExpires: user.banExpires,
 		})
 		.from(relayPath)
 		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+		.innerJoin(user, eq(user.id, appUser.id))
 		.where(and(eq(relayPath.slug, slug), isNull(relayPath.revokedAt)))
 		.limit(1);
 	if (!record) {
@@ -404,6 +411,7 @@ async function credentialForSlug(slug: string) {
 	}
 
 	const entry: AuthCacheEntry = {
+		ban: { banned: record.banned, banExpires: record.banExpires },
 		expiresAt: Date.now() + AUTH_CACHE_TTL_MS,
 		handle: record.handle,
 		pathId: record.pathId,
@@ -429,6 +437,11 @@ export async function authenticateMedia(input: {
 			: input.path;
 	const credential = await credentialForSlug(slug);
 	if (!credential) {
+		return false;
+	}
+	// Read with the credential (no extra query). A ban invalidates the cached
+	// entry for every instance via invalidateAuthCacheForUser.
+	if (isBanActive(credential.ban)) {
 		return false;
 	}
 	if (input.user !== credential.handle) {
