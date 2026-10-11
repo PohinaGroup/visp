@@ -1977,6 +1977,16 @@ integration("relay PostgreSQL integration", () => {
 			)?.name,
 		).toBe("Alpha");
 
+		// A full browser session cannot mint an OBS control token; only the
+		// short-lived pairing session from the device flow can.
+		const fromBrowser = await app.handle(
+			new Request("http://localhost/api/obs/connect", {
+				method: "POST",
+				headers: browser,
+			}),
+		);
+		expect(fromBrowser.status).toBe(401);
+
 		const connect = await app.handle(
 			new Request("http://localhost/api/obs/connect", {
 				method: "POST",
