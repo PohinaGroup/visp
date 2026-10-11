@@ -42,11 +42,13 @@ export function captionSubtitles(document: TypographyDocument) {
 	];
 	// Match the preview: hold the active word through gaps until the next starts.
 	for (let index = 0; index < words.length; index++) {
-		const active = words[index]!;
+		const active = words[index];
+		if (!active) continue;
 		const stop = words[index + 1]?.start ?? end;
 		if (stop <= active.start) continue;
-		const phrase = groups
-			.get(active.group)!
+		const phraseWords = groups.get(active.group);
+		if (!phraseWords) continue;
+		const phrase = phraseWords
 			.map((word) => {
 				const emphasized = word.emphasis * 100 >= document.intensity;
 				const yellow =
@@ -63,5 +65,5 @@ export function captionSubtitles(document: TypographyDocument) {
 			`Dialogue: 1,${time(0)},${time(end)},Caption,,86,86,0,,{\\an8\\pos(540,173)\\fnBarlow Condensed\\fs68\\1c&HFFFFFF&}${literal(document.hook.toUpperCase())}`,
 		);
 	}
-	return lines.join("\n") + "\n";
+	return `${lines.join("\n")}\n`;
 }

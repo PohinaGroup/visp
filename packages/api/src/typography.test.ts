@@ -84,8 +84,12 @@ test.skipIf(!hasAss)(
 			const styled = render(document);
 			let yellow = 0;
 			for (let i = 0; i < styled.length; i += 3) {
-				if (styled[i]! > 150 && styled[i + 1]! > 150 && styled[i + 2]! < 130)
-					yellow++;
+				const red = styled[i];
+				const green = styled[i + 1];
+				const blue = styled[i + 2];
+				if (red === undefined || green === undefined || blue === undefined)
+					continue;
+				if (red > 150 && green > 150 && blue < 130) yellow++;
 			}
 			expect(yellow).toBeGreaterThan(100);
 			expect(render({ ...document, style: "Minimal" })).not.toEqual(styled);

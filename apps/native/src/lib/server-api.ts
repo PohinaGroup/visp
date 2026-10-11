@@ -6,7 +6,9 @@ export function normalizeServerOrigin(
 }
 
 export async function sessionCookie(
-	getCookie: (() => string | undefined | Promise<string | undefined>) | undefined,
+	getCookie:
+		| (() => string | undefined | Promise<string | undefined>)
+		| undefined,
 ): Promise<string | undefined> {
 	return typeof getCookie === "function" ? getCookie() : undefined;
 }

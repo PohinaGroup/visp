@@ -1,9 +1,7 @@
 import { env } from "@VISP/env/web";
 import { agentAuthClient } from "@better-auth/agent-auth/client";
 import { createAgentAuthClientAdapter } from "@better-auth-ui/core/plugins/agent-auth";
-import {
-	deviceAuthorizationClient,
-} from "better-auth/client/plugins";
+import { deviceAuthorizationClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 
 function getServerUrl(url: string) {
@@ -46,7 +44,10 @@ export const authClient = createAuthClient({
 });
 
 // The two device-authorization plugins collide in Better Auth's inferred client paths.
-export const agentClient = createAuthClient({ baseURL: authBaseURL, plugins: [agentAuthClient()] });
+export const agentClient = createAuthClient({
+	baseURL: authBaseURL,
+	plugins: [agentAuthClient()],
+});
 export const agentAuthAdapter = createAgentAuthClientAdapter(agentClient);
 
 export const authApiURL = (path: string) =>

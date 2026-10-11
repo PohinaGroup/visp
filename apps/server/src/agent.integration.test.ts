@@ -20,8 +20,14 @@ import { agentRoutes } from "./agent";
 import { handleAuthRequest } from "./auth-handler";
 
 const integration = process.env.TEST_DATABASE_URL ? describe : describe.skip;
-const origin = process.env.BETTER_AUTH_URL!;
-const browserOrigin = process.env.CORS_ORIGIN!;
+function requiredEnv(name: string) {
+	const value = process.env[name];
+	if (!value) throw new Error(`Missing ${name}`);
+	return value;
+}
+
+const origin = requiredEnv("BETTER_AUTH_URL");
+const browserOrigin = requiredEnv("CORS_ORIGIN");
 const app = new Elysia().use(agentRoutes);
 const encode = (value: unknown) =>
 	Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -219,8 +225,10 @@ integration("Agent authorization", () => {
 				"string",
 			);
 			expect(data.streams).toHaveLength(1);
-			expect(data.streams[0]!.label).toBe("My stream");
-			expect(Object.keys(data.streams[0]!).sort()).toEqual([
+			const stream = data.streams[0];
+			if (!stream) throw new Error("expected a stream");
+			expect(stream.label).toBe("My stream");
+			expect(Object.keys(stream).sort()).toEqual([
 				"id",
 				"label",
 				"lastEventAt",
@@ -499,8 +507,9 @@ integration("Agent authorization", () => {
 				where: (account, { and, eq }) =>
 					and(eq(account.userId, ownerId), eq(account.providerId, "twitch")),
 			});
+			if (!linked) throw new Error("expected a linked account");
 			expect(
-				(await authRequest("/unlink-account", other, { accountId: linked!.id }))
+				(await authRequest("/unlink-account", other, { accountId: linked.id }))
 					.status,
 			).toBe(400);
 			expect(

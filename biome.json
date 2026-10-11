@@ -24,6 +24,7 @@
 			"!**/.wrangler",
 			"!**/.alchemy",
 			"!**/.svelte-kit",
+			"!**/Pods",
 			"!**/wrangler.jsonc",
 			"!**/.source",
 			"!**/convex/_generated"
@@ -37,7 +38,7 @@
 	"linter": {
 		"enabled": true,
 		"rules": {
-			"recommended": true,
+			"preset": "recommended",
 			"correctness": {
 				"useExhaustiveDependencies": "info"
 			},

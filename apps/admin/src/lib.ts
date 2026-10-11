@@ -11,9 +11,7 @@ const serverUrl = (
 export const authClient = createAuthClient({
 	baseURL: `${serverUrl}/api/auth`,
 	fetchOptions: { credentials: "include" },
-	plugins: [
-		adminClient({ ac: adminAccess, roles: adminRoles }),
-	],
+	plugins: [adminClient({ ac: adminAccess, roles: adminRoles })],
 });
 
 export const trpc = createTRPCClient<AppRouter>({

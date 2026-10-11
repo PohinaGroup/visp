@@ -557,8 +557,11 @@ export function useStreamAccount({
 					});
 				}
 				const accounts = await authClient.listAccounts();
-				const provider = connection.provider === "youtube" ? "google" : connection.provider;
-				const linked = accounts.data?.find((account) => account.providerId === provider);
+				const provider =
+					connection.provider === "youtube" ? "google" : connection.provider;
+				const linked = accounts.data?.find(
+					(account) => account.providerId === provider,
+				);
 				if (!linked) throw new Error("Could not find the linked account");
 				const result = await authClient.unlinkAccount({ accountId: linked.id });
 				if (result.error)

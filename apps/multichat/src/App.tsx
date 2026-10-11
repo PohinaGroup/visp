@@ -70,13 +70,12 @@ function Overlay() {
 		[],
 	);
 	const [messages, setMessages] = useState<Message[]>([]);
-	const [state, setState] = useState("Connecting");
+	const [state, setState] = useState(
+		token ? "Connecting" : "Missing browser-source credential",
+	);
 
 	useEffect(() => {
-		if (!token) {
-			setState("Missing browser-source credential");
-			return;
-		}
+		if (!token) return;
 		let closed = false;
 		let socket: WebSocket | undefined;
 		let retry: ReturnType<typeof setTimeout> | undefined;

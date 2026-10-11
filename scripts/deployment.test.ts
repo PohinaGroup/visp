@@ -16,8 +16,9 @@ test("staging relay deployment declares SSH variables in its own step", async ()
 	};
 	const step = workflow.jobs.deploy.steps.find(
 		(step) => step.name === "Deploy changed relay components",
-	)!;
+	);
+	if (!step) throw new Error("Missing relay deploy step");
 	expect(step.if).toBe("needs.check.outputs.relay_components != ''");
-	expect(step.env?.DEPLOY_USER).toBe("${{ vars.DEPLOY_USER }}");
-	expect(step.env?.DEPLOY_HOST).toBe("${{ vars.DEPLOY_HOST }}");
+	expect(step.env?.DEPLOY_USER).toBe("$" + "{{ vars.DEPLOY_USER }}");
+	expect(step.env?.DEPLOY_HOST).toBe("$" + "{{ vars.DEPLOY_HOST }}");
 });

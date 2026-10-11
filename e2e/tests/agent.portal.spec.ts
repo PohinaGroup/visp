@@ -74,7 +74,7 @@ test("agent approval preserves login return, selection, and handles failed decis
 		.getByLabel("Password", { exact: true })
 		.fill("test-password-for-agent");
 	await page.getByRole("button", { name: "Sign in", exact: true }).click();
-	await expect(page).toHaveURL(new RegExp("/auth/agent-approval\\?"));
+	await expect(page).toHaveURL(/\/auth\/agent-approval\?/);
 	await expect(page.getByText("Status reader", { exact: true })).toBeVisible();
 	await expect(page.getByText("My laptop", { exact: true })).toBeVisible();
 	await page.getByRole("button", { name: "Necessary only" }).click();

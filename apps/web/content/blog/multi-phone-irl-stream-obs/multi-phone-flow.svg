@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <title>One device path per camera</title>
   <rect width="1600" height="900" fill="#0b0d10"/><text x="100" y="110" fill="#f2f3f5" font-family="Arial" font-size="50" font-weight="700">ONE DEVICE PATH PER CAMERA</text>
   <rect x="100" y="230" width="300" height="190" fill="none" stroke="#72d7ff" stroke-width="4"/><text x="250" y="315" fill="#f2f3f5" font-family="Arial" font-size="35" text-anchor="middle">ROAMING PHONE</text><text x="250" y="365" fill="#9299a3" font-family="monospace" font-size="24" text-anchor="middle">PATH / ROAMING</text>
   <rect x="100" y="520" width="300" height="190" fill="none" stroke="#d8ff52" stroke-width="4"/><text x="250" y="605" fill="#f2f3f5" font-family="Arial" font-size="35" text-anchor="middle">WIDE PHONE</text><text x="250" y="655" fill="#9299a3" font-family="monospace" font-size="24" text-anchor="middle">PATH / WIDE</text>
