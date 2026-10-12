@@ -1,10 +1,11 @@
 import { lookup } from "node:dns/promises";
-import { mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, rename, rm, writeFile } from "node:fs/promises";
 import {
 	isPublicAddress,
 	validateBrowserSourceUrl,
 } from "../../packages/api/src/studio-browser-url";
 import { validateBrowserRequest } from "./browser-security";
+import { openCdpPipe } from "./cdp-pipe";
 
 export type BrowserLayer = {
 	id: string;
@@ -26,6 +27,8 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 	const profile = `${work}/chrome-${id}`;
 	await rm(profile, { recursive: true, force: true });
 	await mkdir(profile, { mode: 0o700 });
+	// CDP over inherited pipes: no debugging port that other local processes
+	// (including sibling workers under the same uid) could connect to.
 	const chrome = Bun.spawn(
 		[
 			process.env.CHROMIUM_BIN ?? "chromium",
@@ -35,97 +38,40 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 			"--disable-sync",
 			"--enable-features=LocalNetworkAccessChecks,BlockInsecurePrivateNetworkRequests",
 			`--host-resolver-rules=MAP ${url.hostname} ${addresses[0]?.address}, MAP * ~NOTFOUND`,
-			"--remote-debugging-port=0",
+			"--remote-debugging-pipe",
 			`--user-data-dir=${profile}`,
 			"about:blank",
 		],
-		{ stdout: "ignore", stderr: "ignore" },
+		{ stdio: ["ignore", "ignore", "ignore", "pipe", "pipe"] },
 	);
-	let socket: WebSocket | undefined;
-	const close = async () => {
-		socket?.close();
+	let cdp: ReturnType<typeof openCdpPipe>;
+	try {
+		cdp = openCdpPipe(chrome);
+	} catch (error) {
 		chrome.kill();
 		await chrome.exited;
+		throw error;
+	}
+	const close = async () => {
+		chrome.kill();
+		await chrome.exited;
+		cdp.close();
 	};
 	try {
-		let port = "";
-		for (let attempt = 0; attempt < 40; attempt++) {
-			try {
-				port =
-					(await readFile(`${profile}/DevToolsActivePort`, "utf8")).split(
-						"\n",
-					)[0] ?? "";
-				if (port) break;
-			} catch {}
-			await Bun.sleep(50);
-		}
-		if (!port) throw new Error("browser debugging endpoint unavailable");
-		const targetResponse = await fetch(
-			`http://127.0.0.1:${port}/json/new?about:blank`,
-			{ method: "PUT" },
-		);
-		if (!targetResponse.ok) throw new Error("browser target unavailable");
-		const target = (await targetResponse.json()) as {
-			webSocketDebuggerUrl: string;
-		};
-		const cdp = new WebSocket(target.webSocketDebuggerUrl);
-		socket = cdp;
-		await new Promise<void>((resolve, reject) => {
-			cdp.addEventListener("open", () => resolve(), { once: true });
-			cdp.addEventListener(
-				"error",
-				() => reject(new Error("browser CDP unavailable")),
-				{ once: true },
-			);
-		});
-		let commandId = 0;
-		const pending = new Map<
-			number,
-			{
-				resolve: (value: unknown) => void;
-				reject: (error: Error) => void;
-				timer: ReturnType<typeof setTimeout>;
-			}
-		>();
+		let sessionId = "";
 		let blocked: Error | undefined;
 		const command = (method: string, params: object = {}) =>
-			new Promise<unknown>((resolve, reject) => {
-				const id = ++commandId;
-				const timer = setTimeout(() => {
-					pending.delete(id);
-					reject(new Error(`browser CDP command timed out: ${method}`));
-				}, 5_000);
-				pending.set(id, { resolve, reject, timer });
-				cdp.send(JSON.stringify({ id, method, params }));
-			});
-		const rejectPending = () => {
-			for (const { reject, timer } of pending.values()) {
-				clearTimeout(timer);
-				reject(new Error("browser CDP disconnected"));
-			}
-			pending.clear();
-		};
-		cdp.addEventListener("error", rejectPending);
-		cdp.addEventListener("close", rejectPending);
-		cdp.addEventListener("message", (message) => {
-			const payload = JSON.parse(String(message.data)) as {
-				id?: number;
-				method?: string;
-				params?: { requestId: string; request: { url: string } };
-				result?: unknown;
-				error?: { message: string };
-			};
-			if (payload.id) {
-				const command = pending.get(payload.id);
-				if (command) {
-					clearTimeout(command.timer);
-					if (payload.error) command.reject(new Error(payload.error.message));
-					else command.resolve(payload.result);
-				}
-				pending.delete(payload.id);
-			}
-			if (payload.method === "Fetch.requestPaused" && payload.params) {
-				const { requestId, request } = payload.params;
+			cdp.send(method, params, sessionId);
+		cdp.onEvent((event) => {
+			if (
+				event.sessionId === sessionId &&
+				event.method === "Fetch.requestPaused" &&
+				event.params
+			) {
+				const { requestId, request } = event.params as {
+					requestId: string;
+					request: { url: string };
+				};
 				void validateBrowserRequest(request.url, url.hostname)
 					.then(() => command("Fetch.continueRequest", { requestId }))
 					.catch((error) => {
@@ -140,6 +86,13 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 					});
 			}
 		});
+		const { targetId } = (await cdp.send("Target.createTarget", {
+			url: "about:blank",
+		})) as { targetId: string };
+		({ sessionId } = (await cdp.send("Target.attachToTarget", {
+			targetId,
+			flatten: true,
+		})) as { sessionId: string });
 		await command("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
 		await command("Page.enable");
 		await command("Emulation.setDeviceMetricsOverride", {
@@ -152,9 +105,10 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 		await Bun.sleep(1_500);
 		return {
 			close,
+			command,
 			async capture() {
 				if (blocked) throw blocked;
-				if (chrome.exitCode !== null || cdp.readyState !== WebSocket.OPEN)
+				if (chrome.exitCode !== null || cdp.closed)
 					throw new Error("browser exited");
 				const capture = (await command("Page.captureScreenshot", {
 					format: "png",
