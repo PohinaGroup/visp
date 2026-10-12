@@ -1047,10 +1047,12 @@ integration("relay PostgreSQL integration", () => {
 		await setObsStreaming("user-a", true);
 		const command = await report(launched);
 		expect(command.status).toBe(200);
+		// OBS already reported "Main" with nothing pending, so the desired
+		// scene followed the actual one.
 		expect(await command.json()).toMatchObject({
 			commandVersion: 1,
 			desiredStreaming: true,
-			desiredScene: null,
+			desiredScene: "Main",
 		});
 		expect(await setObsScene("user-a", "Missing")).toBeNull();
 		expect(await setObsScene("user-a", "Be right back")).toMatchObject({
