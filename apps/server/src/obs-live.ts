@@ -14,7 +14,13 @@ import { nodeAdapter, socketKey } from "./node-adapter";
 
 const connections = new Map<
 	string,
-	{ peer: ObsLivePeer; reports: Promise<void>; unsubscribe: () => void }
+	{
+		peer: ObsLivePeer;
+		reports: Promise<void>;
+		unsubscribe: () => void;
+		/** A state report has been received on this connection. */
+		reported: boolean;
+	}
 >();
 
 function send(ws: { send(data: string): unknown }, data: unknown) {
@@ -82,6 +88,7 @@ export const obsLiveRoutes = new Elysia({
 				peer,
 				reports: Promise.resolve(),
 				unsubscribe,
+				reported: false,
 			});
 
 			try {
@@ -110,12 +117,17 @@ export const obsLiveRoutes = new Elysia({
 				ws.close(1008, "Only an OBS machine may report state");
 				return;
 			}
+			// Decided on arrival, not when the queued report runs, so only the
+			// connection's very first message counts.
+			const firstOnConnection = !connection.reported;
+			connection.reported = true;
 			connection.reports = connection.reports.then(async () => {
 				try {
 					const command = await reportObsControlState(
 						peer.userId,
 						peer.tokenId,
 						message,
+						{ firstOnConnection },
 					);
 					if (!command) {
 						ws.close(1008, "OBS credential was revoked");
