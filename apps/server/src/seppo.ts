@@ -11,6 +11,7 @@ import {
 } from "ai";
 import { Elysia } from "elysia";
 import { z } from "zod";
+import { readBodyWithLimit } from "./body-limit";
 
 export const seppoContextSchema = z.enum(["landing", "setup", "dashboard"]);
 export type SeppoContext = z.infer<typeof seppoContextSchema>;
@@ -64,6 +65,11 @@ const MAX_PART_CHARACTERS = 2_000;
 const MAX_TRANSCRIPT_CHARACTERS = 20_000;
 const LANDING_LIMIT = 20;
 const LANDING_WINDOW_MS = 10 * 60_000;
+/**
+ * Comfortably above the largest transcript validateSeppoMessages accepts
+ * (20k characters, worst-case JSON escaping), so only junk is refused unread.
+ */
+export const SEPPO_MAX_BODY_BYTES = 256 * 1024;
 
 const useCaseSchema = z.enum([
 	"phone_to_obs",
@@ -262,9 +268,13 @@ export async function validateSeppoMessages(
 export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 	"/api/seppo",
 	async ({ request, status }) => {
+		// The context that decides whether auth applies lives in the body, so
+		// bound the read before anything is buffered or parsed.
+		const raw = await readBodyWithLimit(request, SEPPO_MAX_BODY_BYTES);
+		if (!raw) return status(413, { error: "Request too large" });
 		let body: unknown;
 		try {
-			body = await request.json();
+			body = JSON.parse(new TextDecoder().decode(raw));
 		} catch {
 			return status(400, { error: "Invalid request" });
 		}
@@ -284,6 +294,15 @@ export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 			userId = session.user.id;
 		}
 
+		// Rate limit before the costly transcript validation, not after it.
+		if (
+			!(userId
+				? takeAccountRequest(userId)
+				: takeLandingRequest(request.headers.get("x-real-ip") ?? "direct"))
+		) {
+			return status(429, { error: "Too many requests" });
+		}
+
 		const messages = await validateSeppoMessages(
 			"messages" in body ? body.messages : undefined,
 			context,
@@ -293,14 +312,6 @@ export const seppoRoutes = new Elysia({ name: "seppo-routes" }).post(
 		const fixedResponse =
 			context === "landing" ? landingSuggestionResponse(messages) : undefined;
 		if (fixedResponse) return fixedTextResponse(fixedResponse);
-
-		if (
-			!(userId
-				? takeAccountRequest(userId)
-				: takeLandingRequest(request.headers.get("x-real-ip") ?? "direct"))
-		) {
-			return status(429, { error: "Too many requests" });
-		}
 
 		try {
 			const config = contextConfig[context];
