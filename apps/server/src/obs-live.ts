@@ -76,10 +76,7 @@ export const obsLiveRoutes = new Elysia({
 							send(ws, { type: "status", status: value });
 						})
 					: obsLiveHub.subscribeCommands(peer.userId, (value, tokenId) => {
-							if (tokenId === peer.tokenId) {
-								delivered = true;
-								send(ws, value);
-							}
+							if (tokenId === peer.tokenId) send(ws, value);
 						});
 			connections.set(socketKey(ws), {
 				peer,
@@ -93,12 +90,15 @@ export const obsLiveRoutes = new Elysia({
 					if (!delivered) send(ws, { type: "status", status: current });
 					return;
 				}
-				const command = await getObsControlCommand(peer.userId, peer.tokenId);
-				if (!command) {
+				if (!(await getObsControlCommand(peer.userId, peer.tokenId))) {
 					ws.close(1008, "OBS credential was revoked");
 					return;
 				}
-				if (!delivered) send(ws, command);
+				// The stored command is not pushed on open: the plugin reports its
+				// state right after the handshake and gets the command in reply, by
+				// which point a desired flag left behind by a previous OBS session
+				// (a stream stopped from OBS, a crash) has been reconciled with the
+				// actual state. Pushing it first would start that stale stream.
 			} catch {
 				ws.close(1011, "OBS live state unavailable");
 			}

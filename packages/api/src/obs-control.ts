@@ -294,6 +294,8 @@ export async function reportObsControlState(
 	const appliedVersion = sql<number>`greatest(${appUser.obsAppliedVersion}, least(${input.appliedVersion}, ${appUser.obsCommandVersion}))`;
 	// Once the plugin has caught up, each desired flag follows the reported
 	// actual so a manual change in OBS is never fought (same idea as the scene).
+	// Streaming included: a stream stopped from OBS (or by closing OBS) must not
+	// stay "wanted" on the server, or the plugin starts it again on next launch.
 	const applied = sql`${appliedVersion} >= ${appUser.obsCommandVersion}`;
 	const followActual = (reported: boolean, current: AnyColumn) =>
 		sql<boolean>`case when ${applied} then ${reported} else ${current} end`;
@@ -305,6 +307,10 @@ export async function reportObsControlState(
 		.set({
 			obsAppliedVersion: appliedVersion,
 			obsStreaming: input.streaming,
+			obsDesiredStreaming: followActual(
+				input.streaming,
+				appUser.obsDesiredStreaming,
+			),
 			obsRecording: recording,
 			obsDesiredRecording: followActual(recording, appUser.obsDesiredRecording),
 			obsVirtualCam: virtualCam,
