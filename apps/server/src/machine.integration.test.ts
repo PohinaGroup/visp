@@ -54,6 +54,7 @@ import {
 } from "@VISP/api/obs-backup";
 import {
 	getObsControlStatus,
+	OBS_QUEUED_COMMAND_TTL_MS,
 	rotateObsControlToken,
 	setObsScene,
 	setObsStreaming,
@@ -1021,22 +1022,30 @@ integration("relay PostgreSQL integration", () => {
 	test("delivers and acknowledges authenticated OBS commands", async () => {
 		await seed();
 		const pairing = await rotateObsControlToken("user-a");
-		await setObsStreaming("user-a", true);
-		const command = await app.handle(
-			new Request("http://localhost/api/obs/control", {
-				method: "POST",
-				headers: {
-					authorization: `Bearer ${pairing.token}`,
-					"content-type": "application/json",
-				},
-				body: JSON.stringify({
-					appliedVersion: 0,
-					streaming: false,
-					scenes: ["Main", "Be right back"],
-					currentScene: "Main",
+		const report = (body: Record<string, unknown>) =>
+			app.handle(
+				new Request("http://localhost/api/obs/control", {
+					method: "POST",
+					headers: {
+						authorization: `Bearer ${pairing.token}`,
+						"content-type": "application/json",
+					},
+					body: JSON.stringify(body),
 				}),
-			}),
-		);
+			);
+		const launched = {
+			appliedVersion: 0,
+			streaming: false,
+			scenes: ["Main", "Be right back"],
+			currentScene: "Main",
+		};
+		// OBS connects first; a command sent while it is connected is delivered.
+		expect(await (await report(launched)).json()).toMatchObject({
+			commandVersion: 0,
+			desiredStreaming: false,
+		});
+		await setObsStreaming("user-a", true);
+		const command = await report(launched);
 		expect(command.status).toBe(200);
 		expect(await command.json()).toMatchObject({
 			commandVersion: 1,
@@ -1136,6 +1145,41 @@ integration("relay PostgreSQL integration", () => {
 		});
 		expect(await getObsControlStatus("user-a")).toMatchObject({
 			streaming: false,
+			desiredStreaming: false,
+			pending: false,
+		});
+
+		// A command queued while OBS is away is kept for a while...
+		await db
+			.update(appUser)
+			.set({
+				obsLastSeenAt: new Date(Date.now() - OBS_QUEUED_COMMAND_TTL_MS / 2),
+			})
+			.where(eq(appUser.id, "user-a"));
+		await setObsStreaming("user-a", true);
+		expect(await (await report(launched)).json()).toMatchObject({
+			commandVersion: 3,
+			desiredStreaming: true,
+		});
+		// ...but one older than the TTL is dropped when OBS next reports, so an
+		// old Go Live never starts a stream when OBS is opened later.
+		await report({ ...launched, appliedVersion: 3, streaming: false });
+		await db
+			.update(appUser)
+			.set({
+				obsLastSeenAt: new Date(Date.now() - OBS_QUEUED_COMMAND_TTL_MS - 1000),
+			})
+			.where(eq(appUser.id, "user-a"));
+		await setObsStreaming("user-a", true);
+		expect(await getObsControlStatus("user-a")).toMatchObject({
+			desiredStreaming: true,
+			pending: true,
+		});
+		expect(await (await report(launched)).json()).toMatchObject({
+			commandVersion: 4,
+			desiredStreaming: false,
+		});
+		expect(await getObsControlStatus("user-a")).toMatchObject({
 			desiredStreaming: false,
 			pending: false,
 		});

@@ -30,6 +30,19 @@ struct control_response {
 	int64_t media_sources_revision;
 };
 
+// Which flags of a command differ from the last acknowledged command (or, before
+// any acknowledgement, from the OBS state when the command arrived). Only those
+// flags are acted on: a desired value that merely restates what VISP already
+// knows must never be re-applied against a change the user made in OBS.
+struct command_edges {
+	bool streaming;
+	bool recording;
+	bool virtual_cam;
+	bool replay_buffer;
+	bool record_paused;
+	bool scene;
+};
+
 struct ticket_response {
 	QString ticket;
 	QDateTime expires_at;
@@ -2977,6 +2990,10 @@ static bool set_current_scene(const QString &name)
 	return found;
 }
 
+// OBS_FRONTEND_EVENT_FINISHED_LOADING has fired: the scene collection and
+// profile are loaded, so commands and media-source refreshes may touch OBS.
+static bool frontend_ready = false;
+
 class VispControl final : public QObject {
 public:
 	VispControl(const plugin_config &settings)
@@ -2987,12 +3004,14 @@ public:
 		  reconnect_timer(this),
 		  socket_timeout(this),
 		  report_timer(this),
-		  stream_retry_timer(this)
+		  stream_retry_timer(this),
+		  toggle_grace_timer(this)
 	{
 		current_control_state = control_connection_state::connecting;
 		reconnect_timer.setSingleShot(true);
 		socket_timeout.setSingleShot(true);
 		stream_retry_timer.setSingleShot(true);
+		toggle_grace_timer.setSingleShot(true);
 		report_timer.setInterval(5000);
 		connect(&reconnect_timer, &QTimer::timeout, this, [this]() { fetch_ticket(); });
 		connect(&socket_timeout, &QTimer::timeout, this,
@@ -3003,6 +3022,7 @@ public:
 			apply_pending_command();
 			report_state();
 		});
+		connect(&toggle_grace_timer, &QTimer::timeout, this, [this]() { check_acknowledgement(); });
 		connect(&socket, &QSslSocket::connected, this, [this]() {
 			if (live_url.scheme() == "ws")
 				send_handshake();
@@ -3029,6 +3049,7 @@ public:
 		socket_timeout.stop();
 		report_timer.stop();
 		stream_retry_timer.stop();
+		toggle_grace_timer.stop();
 		if (ticket_reply) {
 			disconnect(ticket_reply, nullptr, this, nullptr);
 			ticket_reply->abort();
@@ -3036,6 +3057,17 @@ public:
 		if (media_source_reply) {
 			disconnect(media_source_reply, nullptr, this, nullptr);
 			media_source_reply->abort();
+		}
+		// abort() would drop a report still in the write buffer (typically the
+		// "streaming stopped" one sent while OBS shuts down), leaving VISP with
+		// stale state until the next launch. Close the WebSocket properly, briefly.
+		if (handshake_complete && socket.state() == QAbstractSocket::ConnectedState) {
+			send_frame(8, {});
+			flush_writes();
+			socket.flush();
+			socket.disconnectFromHost();
+			if (socket.state() != QAbstractSocket::UnconnectedState)
+				socket.waitForDisconnected(1000);
 		}
 		socket.abort();
 	}
@@ -3047,15 +3079,53 @@ public:
 			stream_retry_attempt = 0;
 			stream_retry_timer.stop();
 		} else if (event == OBS_FRONTEND_EVENT_STREAMING_STOPPED) {
-			const bool wanted =
-				has_pending_command && pending_command.desired_streaming;
-			if (stream_start_inflight || wanted) {
+			if (stream_start_inflight || streaming_wanted()) {
 				stream_start_inflight = false;
 				schedule_stream_retry("OBS streaming stopped while VISP still wants it live");
 			}
+		} else if (event == OBS_FRONTEND_EVENT_SCENE_COLLECTION_CHANGED) {
+			// A different collection has its own VISP Media Sources; refetch
+			// their settings on the next command or heartbeat reply.
+			media_sources_revision = -1;
 		}
+		if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING && media_refresh_deferred)
+			refresh_media_sources();
 		apply_pending_command();
 		report_state();
+	}
+
+	// A pending command explicitly asked for the stream to be live. Only then
+	// is a stop fought with a retry; a stop the user made in OBS is otherwise
+	// reported and VISP's desired state follows it.
+	bool streaming_wanted() const
+	{
+		return has_pending_command && pending_edges.streaming && pending_command.desired_streaming;
+	}
+
+	// The OBS state expressed as a command, the reference a command is compared
+	// against before anything has been acknowledged in this OBS session.
+	static control_response actual_state_as_command()
+	{
+		control_response actual = {};
+		actual.desired_streaming = obs_frontend_streaming_active();
+		actual.desired_recording = obs_frontend_recording_active();
+		actual.desired_virtual_cam = obs_frontend_virtualcam_active();
+		actual.desired_replay_buffer = obs_frontend_replay_buffer_active();
+		actual.desired_record_paused = obs_frontend_recording_paused();
+		actual.desired_scene = current_scene_name();
+		return actual;
+	}
+
+	static command_edges edges_between(const control_response &reference, const control_response &command)
+	{
+		return command_edges{
+			reference.desired_streaming != command.desired_streaming,
+			reference.desired_recording != command.desired_recording,
+			reference.desired_virtual_cam != command.desired_virtual_cam,
+			reference.desired_replay_buffer != command.desired_replay_buffer,
+			reference.desired_record_paused != command.desired_record_paused,
+			!command.desired_scene.isNull() && command.desired_scene != reference.desired_scene,
+		};
 	}
 
 private:
@@ -3153,6 +3223,7 @@ private:
 				return;
 			}
 			handshake_complete = true;
+			reported_on_connection = false;
 			socket_timeout.stop();
 			reconnect_attempt = 0;
 			current_control_state = control_connection_state::connected;
@@ -3194,15 +3265,38 @@ private:
 		// Not an intent with an applied version: checked before the version gate.
 		if (media_sources_refresh_needed(media_sources_revision, response.media_sources_revision)) {
 			media_sources_revision = response.media_sources_revision;
-			refresh_media_sources();
+			media_refresh_deferred = true;
+			if (frontend_ready)
+				refresh_media_sources();
 		}
+		// Until this connection has reported OBS's state, VISP's desired flags
+		// may still describe a previous OBS session (one that crashed while
+		// live, say). The reply to the first report carries the reconciled
+		// command; a push arriving before that is ignored, not acted on.
+		if (!reported_on_connection)
+			return;
 		if (response.command_version <= applied_version ||
 		    (has_pending_command && response.command_version <= pending_command.command_version))
 			return;
 		const bool streaming_intent_changed =
 			!has_pending_command || pending_command.desired_streaming != response.desired_streaming;
+		// A toggle already flipped for the superseded command is not flipped
+		// again unless the new command asks for something else.
+		const command_edges attempted_before = has_pending_command ? toggles_attempted : command_edges{};
+		const control_response previous = pending_command;
 		pending_command = response;
 		has_pending_command = true;
+		pending_edges = edges_between(has_acknowledged_command ? acknowledged_command : actual_state_as_command(),
+					      response);
+		toggles_attempted = command_edges{};
+		toggles_attempted.recording = attempted_before.recording &&
+					      previous.desired_recording == response.desired_recording;
+		toggles_attempted.virtual_cam = attempted_before.virtual_cam &&
+						previous.desired_virtual_cam == response.desired_virtual_cam;
+		toggles_attempted.replay_buffer = attempted_before.replay_buffer &&
+						  previous.desired_replay_buffer == response.desired_replay_buffer;
+		toggles_attempted.record_paused = attempted_before.record_paused &&
+						  previous.desired_record_paused == response.desired_record_paused;
 		if (streaming_intent_changed) {
 			stream_retry_attempt = 0;
 			stream_retry_timer.stop();
@@ -3215,6 +3309,7 @@ private:
 	// applies the ones that changed (see source_has_settings).
 	void refresh_media_sources()
 	{
+		media_refresh_deferred = false;
 		path_id_collector collector;
 		obs_enum_sources(collect_visp_path_ids, &collector);
 		// A refresh asked for mid-run replaces the rest of the queue.
@@ -3258,8 +3353,7 @@ private:
 
 	void schedule_stream_retry(const char *reason)
 	{
-		if (stopping || !has_pending_command || !pending_command.desired_streaming ||
-		    stream_retry_timer.isActive() || obs_frontend_streaming_active())
+		if (stopping || !streaming_wanted() || stream_retry_timer.isActive() || obs_frontend_streaming_active())
 			return;
 		const int base = qMin(30'000, 1000 << qMin(stream_retry_attempt++, 5));
 		const int delay = base + QRandomGenerator::global()->bounded(251);
@@ -3267,31 +3361,29 @@ private:
 		stream_retry_timer.start(delay);
 	}
 
+	// Acts on the flags the pending command changed (pending_edges), never on
+	// the rest: those restate VISP's view and may already have been changed by
+	// the user in OBS. Nothing touches OBS before it has finished loading.
 	void apply_pending_command()
 	{
-		if (!has_pending_command || applying_command)
+		if (!has_pending_command || applying_command || !frontend_ready)
 			return;
 		applying_command = true;
-		if (!pending_command.desired_scene.isNull() && pending_command.desired_scene != current_scene_name() &&
+		if (pending_edges.scene && pending_command.desired_scene != current_scene_name() &&
 		    !set_current_scene(pending_command.desired_scene)) {
 			obs_log(LOG_WARNING, "requested scene is no longer available: %s",
 				pending_command.desired_scene.toUtf8().constData());
-			// Acknowledge so remotes unlock; desired scene follows the report.
-			applied_version = pending_command.command_version;
-			has_pending_command = false;
-			applying_command = false;
-			report_state();
-			return;
+			// Treated as satisfied so the rest of the command still applies and
+			// remotes unlock; the desired scene follows the report.
+			pending_edges.scene = false;
 		}
 		const bool active = obs_frontend_streaming_active();
-		if (pending_command.desired_streaming != active) {
+		if (pending_edges.streaming && pending_command.desired_streaming != active) {
 			if (pending_command.desired_streaming) {
-				if (stream_start_inflight || stream_retry_timer.isActive()) {
-					applying_command = false;
-					return;
+				if (!stream_start_inflight && !stream_retry_timer.isActive()) {
+					stream_start_inflight = true;
+					obs_frontend_streaming_start();
 				}
-				stream_start_inflight = true;
-				obs_frontend_streaming_start();
 			} else {
 				stream_retry_timer.stop();
 				stream_retry_attempt = 0;
@@ -3304,59 +3396,105 @@ private:
 		check_acknowledgement();
 	}
 
-	// Non-streaming toggles: flip once toward desired, no retry. OBS emits a
-	// frontend event on completion which re-runs apply + report to acknowledge.
+	// Non-streaming toggles: flip once toward desired, no retry. The command is
+	// acknowledged when OBS reaches the desired state or, failing that, once a
+	// short grace period after the attempt has passed; OBS then reports the
+	// actual outcome and VISP's desired flag follows it, so a toggle OBS cannot
+	// satisfy (replay buffer disabled, recording output failing) is dropped
+	// instead of re-fired on every frontend event.
+	static constexpr int TOGGLE_GRACE_MS = 3000;
+
+	void note_toggle_attempt()
+	{
+		if (!toggle_grace_timer.isActive())
+			toggle_grace_timer.start(TOGGLE_GRACE_MS);
+	}
+
+	bool toggle_satisfied(bool edge, bool attempted, bool desired, bool actual) const
+	{
+		return !edge || desired == actual || (attempted && !toggle_grace_timer.isActive());
+	}
+
 	void apply_toggles()
 	{
-		if (pending_command.desired_recording != obs_frontend_recording_active()) {
-			if (pending_command.desired_recording)
-				obs_frontend_recording_start();
-			else
-				obs_frontend_recording_stop();
+		if (pending_edges.recording && !toggles_attempted.recording) {
+			toggles_attempted.recording = true;
+			note_toggle_attempt();
+			if (pending_command.desired_recording != obs_frontend_recording_active()) {
+				if (pending_command.desired_recording)
+					obs_frontend_recording_start();
+				else
+					obs_frontend_recording_stop();
+			}
 		}
-		if (pending_command.desired_virtual_cam != obs_frontend_virtualcam_active()) {
-			if (pending_command.desired_virtual_cam)
-				obs_frontend_start_virtualcam();
-			else
-				obs_frontend_stop_virtualcam();
+		if (pending_edges.virtual_cam && !toggles_attempted.virtual_cam) {
+			toggles_attempted.virtual_cam = true;
+			note_toggle_attempt();
+			if (pending_command.desired_virtual_cam != obs_frontend_virtualcam_active()) {
+				if (pending_command.desired_virtual_cam)
+					obs_frontend_start_virtualcam();
+				else
+					obs_frontend_stop_virtualcam();
+			}
 		}
-		if (pending_command.desired_replay_buffer != obs_frontend_replay_buffer_active()) {
-			if (pending_command.desired_replay_buffer)
-				obs_frontend_replay_buffer_start();
-			else
-				obs_frontend_replay_buffer_stop();
+		if (pending_edges.replay_buffer && !toggles_attempted.replay_buffer) {
+			toggles_attempted.replay_buffer = true;
+			note_toggle_attempt();
+			if (pending_command.desired_replay_buffer != obs_frontend_replay_buffer_active()) {
+				if (pending_command.desired_replay_buffer)
+					obs_frontend_replay_buffer_start();
+				else
+					obs_frontend_replay_buffer_stop();
+			}
 		}
 		// Pause is only meaningful while recording; otherwise the intent is
 		// treated as satisfied (see record_paused_reconciled).
-		if (obs_frontend_recording_active() &&
-		    pending_command.desired_record_paused != obs_frontend_recording_paused())
-			obs_frontend_recording_pause(pending_command.desired_record_paused);
+		if (pending_edges.record_paused && !toggles_attempted.record_paused && obs_frontend_recording_active()) {
+			toggles_attempted.record_paused = true;
+			note_toggle_attempt();
+			if (pending_command.desired_record_paused != obs_frontend_recording_paused())
+				obs_frontend_recording_pause(pending_command.desired_record_paused);
+		}
 	}
 
 	bool record_paused_reconciled() const
 	{
 		return !obs_frontend_recording_active() ||
-		       pending_command.desired_record_paused == obs_frontend_recording_paused();
+		       toggle_satisfied(pending_edges.record_paused, toggles_attempted.record_paused,
+					pending_command.desired_record_paused, obs_frontend_recording_paused());
 	}
 
 	void check_acknowledgement()
 	{
-		if (!has_pending_command || pending_command.desired_streaming != obs_frontend_streaming_active() ||
-		    pending_command.desired_recording != obs_frontend_recording_active() ||
-		    pending_command.desired_virtual_cam != obs_frontend_virtualcam_active() ||
-		    pending_command.desired_replay_buffer != obs_frontend_replay_buffer_active() ||
+		if (!has_pending_command ||
+		    (pending_edges.streaming && pending_command.desired_streaming != obs_frontend_streaming_active()) ||
+		    !toggle_satisfied(pending_edges.recording, toggles_attempted.recording,
+				      pending_command.desired_recording, obs_frontend_recording_active()) ||
+		    !toggle_satisfied(pending_edges.virtual_cam, toggles_attempted.virtual_cam,
+				      pending_command.desired_virtual_cam, obs_frontend_virtualcam_active()) ||
+		    !toggle_satisfied(pending_edges.replay_buffer, toggles_attempted.replay_buffer,
+				      pending_command.desired_replay_buffer, obs_frontend_replay_buffer_active()) ||
 		    !record_paused_reconciled() ||
-		    (!pending_command.desired_scene.isNull() && pending_command.desired_scene != current_scene_name()))
+		    (pending_edges.scene && pending_command.desired_scene != current_scene_name()))
 			return;
 		applied_version = pending_command.command_version;
+		acknowledged_command = pending_command;
+		has_acknowledged_command = true;
 		has_pending_command = false;
+		pending_edges = {};
+		toggles_attempted = {};
+		toggle_grace_timer.stop();
 		report_state();
 	}
 
 	void report_state()
 	{
-		if (!handshake_complete)
+		// Before OBS has finished loading the scene list is empty and the
+		// outputs are not up yet; a report then would mislead VISP (and its
+		// reply would be a command this plugin is not ready to apply).
+		if (!handshake_complete || !frontend_ready)
 			return;
+		reported_on_connection = true;
 		send_frame(1, make_control_request(obs_frontend_streaming_active(), obs_frontend_recording_active(),
 						   obs_frontend_virtualcam_active(), obs_frontend_replay_buffer_active(),
 						   obs_frontend_recording_paused(), applied_version, scene_names(),
@@ -3455,6 +3593,7 @@ private:
 	QTimer socket_timeout;
 	QTimer report_timer;
 	QTimer stream_retry_timer;
+	QTimer toggle_grace_timer;
 	QUrl live_url;
 	QByteArray websocket_key;
 	QByteArray read_buffer;
@@ -3463,13 +3602,19 @@ private:
 	QNetworkReply *media_source_reply = nullptr;
 	QList<qint64> media_source_queue;
 	control_response pending_command = {};
+	control_response acknowledged_command = {};
+	command_edges pending_edges = {};
+	command_edges toggles_attempted = {};
 	uint64_t applied_version = 0;
 	int64_t media_sources_revision = -1;
 	uint64_t ticket_generation = 0;
 	int reconnect_attempt = 0;
 	int stream_retry_attempt = 0;
 	bool handshake_complete = false;
+	bool reported_on_connection = false;
 	bool has_pending_command = false;
+	bool has_acknowledged_command = false;
+	bool media_refresh_deferred = false;
 	bool applying_command = false;
 	bool stream_start_inflight = false;
 	bool awaiting_pong = false;
@@ -3507,6 +3652,8 @@ static void open_settings(void *private_data)
 static void frontend_event(enum obs_frontend_event event, void *private_data)
 {
 	UNUSED_PARAMETER(private_data);
+	if (event == OBS_FRONTEND_EVENT_FINISHED_LOADING)
+		frontend_ready = true;
 	if (!control)
 		return;
 	if (event == OBS_FRONTEND_EVENT_STREAMING_STARTED || event == OBS_FRONTEND_EVENT_STREAMING_STOPPED ||
