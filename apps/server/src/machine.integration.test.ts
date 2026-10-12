@@ -1573,7 +1573,10 @@ integration("relay PostgreSQL integration", () => {
 				socket.onopen = () => resolve();
 				socket.onerror = () => reject(new Error("OBS WebSocket did not open"));
 			});
-			expect(await nextMessage()).toMatchObject({ commandVersion: 0 });
+			// Nothing is pushed on open: the plugin reports first and gets the
+			// command in reply, so a stale desired flag never starts a stream.
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			expect(buffered).toEqual([]);
 
 			socket.send(
 				JSON.stringify({
@@ -1654,9 +1657,10 @@ integration("relay PostgreSQL integration", () => {
 		};
 		try {
 			const a = await connect(pairingA.token);
-			expect(await a.next()).toMatchObject({ commandVersion: 0 });
 			const b = await connect(pairingB.token);
-			expect(await b.next()).toMatchObject({ commandVersion: 0 });
+			await new Promise((resolve) => setTimeout(resolve, 100));
+			expect(a.received).toEqual([]);
+			expect(b.received).toEqual([]);
 
 			// A reports after B connected: it must land on A, never on B.
 			a.report(["Alpha scene"]);
