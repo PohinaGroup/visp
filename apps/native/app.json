@@ -2,7 +2,7 @@
 	"expo": {
 		"name": "VISP",
 		"slug": "visp",
-		"version": "1.9.7",
+		"version": "1.9.8",
 		"orientation": "default",
 		"icon": "./assets/images/icon.png",
 		"scheme": "visp",
@@ -14,6 +14,7 @@
 			},
 			"deploymentTarget": "16.4",
 			"infoPlist": {
+				"CFBundleShortVersionString": "$(MARKETING_VERSION)",
 				"NSCameraUsageDescription": "VISP uses the camera to broadcast your video.",
 				"NSMicrophoneUsageDescription": "VISP uses the microphone to include audio in your broadcast.",
 				"NSPhotoLibraryUsageDescription": "VISP may save stream recordings and related media to your photo library.",
