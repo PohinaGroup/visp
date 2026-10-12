@@ -6,7 +6,7 @@ OBS Remote Expo clients, and database. The OBS plugin has additional platform to
 
 ## Prerequisites
 
-- Bun 1.3.14 or newer (the pinned version is in `package.json`)
+- Bun 1.3.14 or newer(the pinned version is in `package.json`)
 - Node.js 24 or newer (required by Portless)
 - Docker with Compose
 - A Twitch application for Twitch login
