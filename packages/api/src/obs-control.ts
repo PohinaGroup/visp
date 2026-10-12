@@ -293,7 +293,14 @@ export async function reportObsControlState(
 	userId: string,
 	tokenId: string,
 	input: ObsStateReportInput,
-	now = Date.now(),
+	{
+		now = Date.now(),
+		firstOnConnection = false,
+	}: {
+		now?: number;
+		/** First report on a newly opened OBS WebSocket. */
+		firstOnConnection?: boolean;
+	} = {},
 ) {
 	const recording = input.recording ?? false;
 	const virtualCam = input.virtualCam ?? false;
@@ -303,6 +310,18 @@ export async function reportObsControlState(
 	// seen): whatever is still unapplied is expired and the desired flags are
 	// reconciled with what OBS reports now.
 	const queueExpired = sql`(${appUser.obsLastSeenAt} is null or ${appUser.obsLastSeenAt} < ${new Date(now - OBS_QUEUED_COMMAND_TTL_MS).toISOString()}::timestamptz)`;
+	// A plugin keeps its applied version across reconnects, so the first report
+	// of a connection at version 0 is a freshly started plugin (OBS relaunched,
+	// or the plugin restarted after a settings change). If nothing is pending,
+	// the desired flags only mirror what the previous OBS session was doing (a
+	// stream that was live when OBS crashed, or whose "stopped" report was lost
+	// on shutdown). That report must land so they follow the actual state now,
+	// or the reply would carry them back and start that stream again. A command
+	// still pending within the TTL is left alone and delivered as before.
+	const relaunchedWithNothingPending =
+		firstOnConnection && input.appliedVersion === 0
+			? sql`${appUser.obsAppliedVersion} >= ${appUser.obsCommandVersion}`
+			: sql`false`;
 	const appliedVersion = sql<number>`case when ${queueExpired} then ${appUser.obsCommandVersion} else greatest(${appUser.obsAppliedVersion}, least(${input.appliedVersion}, ${appUser.obsCommandVersion})) end`;
 	// Once the plugin has caught up, each desired flag follows the reported
 	// actual so a manual change in OBS is never fought (same idea as the scene).
@@ -352,8 +371,13 @@ export async function reportObsControlState(
 				// A report older than one already applied is ignored so it cannot
 				// roll the actual state back, but a relaunched OBS reports version 0
 				// again: once the queue has expired its report must land, or the
-				// expired command is never reconciled and still fires.
-				or(lte(appUser.obsAppliedVersion, input.appliedVersion), queueExpired),
+				// expired command is never reconciled and still fires. The same goes
+				// for a relaunch with nothing pending, whatever the queue's age.
+				or(
+					lte(appUser.obsAppliedVersion, input.appliedVersion),
+					queueExpired,
+					relaunchedWithNothingPending,
+				),
 			),
 		)
 		.returning();
