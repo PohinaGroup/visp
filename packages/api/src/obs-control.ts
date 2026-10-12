@@ -12,6 +12,13 @@ import { obsLiveHub } from "./obs-live";
 import { createToken, parseToken, tokenMatches } from "./token-secret";
 
 const CONNECTED_FOR_MS = 10_000;
+/**
+ * A command sent while OBS was away is kept for this long so a plugin that
+ * went heartbeat-stale mid-command, or reconnected after a short drop, still
+ * picks it up. Beyond it the intent is dropped when OBS next reports: a Go
+ * Live pressed hours ago must not start a stream when OBS is opened.
+ */
+export const OBS_QUEUED_COMMAND_TTL_MS = 5 * 60_000;
 
 export function parseObsControlToken(value: string | undefined) {
 	if (!value?.startsWith("Bearer ")) return null;
@@ -286,12 +293,17 @@ export async function reportObsControlState(
 	userId: string,
 	tokenId: string,
 	input: ObsStateReportInput,
+	now = Date.now(),
 ) {
 	const recording = input.recording ?? false;
 	const virtualCam = input.virtualCam ?? false;
 	const replayBuffer = input.replayBuffer ?? false;
 	const recordPaused = input.recordPaused ?? false;
-	const appliedVersion = sql<number>`greatest(${appUser.obsAppliedVersion}, least(${input.appliedVersion}, ${appUser.obsCommandVersion}))`;
+	// OBS has been away longer than a queued command is kept (or was never
+	// seen): whatever is still unapplied is expired and the desired flags are
+	// reconciled with what OBS reports now.
+	const queueExpired = sql`(${appUser.obsLastSeenAt} is null or ${appUser.obsLastSeenAt} < ${new Date(now - OBS_QUEUED_COMMAND_TTL_MS).toISOString()}::timestamptz)`;
+	const appliedVersion = sql<number>`case when ${queueExpired} then ${appUser.obsCommandVersion} else greatest(${appUser.obsAppliedVersion}, least(${input.appliedVersion}, ${appUser.obsCommandVersion})) end`;
 	// Once the plugin has caught up, each desired flag follows the reported
 	// actual so a manual change in OBS is never fought (same idea as the scene).
 	// Streaming included: a stream stopped from OBS (or by closing OBS) must not
