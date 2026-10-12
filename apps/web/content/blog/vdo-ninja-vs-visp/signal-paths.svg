@@ -1,4 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900">
+  <title>Two ways to bring a remote camera into OBS</title>
   <rect width="1600" height="900" fill="#0b0d10"/><text x="100" y="105" fill="#f2f3f5" font-family="Arial" font-size="46" font-weight="700">TWO WAYS TO BRING A REMOTE CAMERA INTO OBS</text>
   <text x="100" y="210" fill="#d8ff52" font-family="monospace" font-size="30">VDO.NINJA — INTERACTIVE SESSION</text>
   <g fill="none" stroke="#f2f3f5" stroke-width="3"><rect x="100" y="260" width="300" height="130"/><rect x="650" y="260" width="300" height="130"/><rect x="1200" y="260" width="300" height="130"/></g>

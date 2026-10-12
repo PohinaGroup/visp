@@ -154,6 +154,27 @@ export default function App() {
 		);
 	}
 
+	async function waitForExport(id: string) {
+		for (;;) {
+			await new Promise((resolve) => window.setTimeout(resolve, 3_000));
+			const response = await fetch(
+				`${apiUrl}/api/typography/projects/${id}/export`,
+				{
+					credentials: "include",
+				},
+			);
+			if (response.status === 202) continue;
+			if (!response.ok) {
+				const result = (await response.json()) as { error?: string };
+				throw new Error(result.error ?? "Export failed. Please try again.");
+			}
+			const result = (await response.json()) as { url: string };
+			setExportUrl(result.url);
+			setNotice("Your H.264 MP4 is ready.");
+			return;
+		}
+	}
+
 	useEffect(() => {
 		void fetch(`${apiUrl}/api/typography/projects`, { credentials: "include" })
 			.then(async (response) => {
@@ -425,27 +446,6 @@ export default function App() {
 				setNotice(error instanceof Error ? error.message : "Export failed."),
 			)
 			.finally(() => setExporting(false));
-	}
-
-	async function waitForExport(id: string) {
-		for (;;) {
-			await new Promise((resolve) => window.setTimeout(resolve, 3_000));
-			const response = await fetch(
-				`${apiUrl}/api/typography/projects/${id}/export`,
-				{
-					credentials: "include",
-				},
-			);
-			if (response.status === 202) continue;
-			if (!response.ok) {
-				const result = (await response.json()) as { error?: string };
-				throw new Error(result.error ?? "Export failed. Please try again.");
-			}
-			const result = (await response.json()) as { url: string };
-			setExportUrl(result.url);
-			setNotice("Your H.264 MP4 is ready.");
-			return;
-		}
 	}
 
 	const previewClass = `phone-preview style-${style.toLowerCase().replaceAll(" ", "-")}`;

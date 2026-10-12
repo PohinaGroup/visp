@@ -1094,6 +1094,52 @@ integration("relay PostgreSQL integration", () => {
 			scenes: ["Main", "Renamed scene"],
 		});
 
+		// The stream is stopped from OBS itself: desired follows actual, so a
+		// fresh OBS launch (appliedVersion resets to 0) is not told to go live.
+		const stopped = await app.handle(
+			new Request("http://localhost/api/obs/control", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${pairing.token}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					appliedVersion: 2,
+					streaming: false,
+					scenes: ["Main", "Renamed scene"],
+					currentScene: "Main",
+				}),
+			}),
+		);
+		expect(await stopped.json()).toMatchObject({
+			commandVersion: 2,
+			desiredStreaming: false,
+		});
+		const relaunched = await app.handle(
+			new Request("http://localhost/api/obs/control", {
+				method: "POST",
+				headers: {
+					authorization: `Bearer ${pairing.token}`,
+					"content-type": "application/json",
+				},
+				body: JSON.stringify({
+					appliedVersion: 0,
+					streaming: false,
+					scenes: ["Main", "Renamed scene"],
+					currentScene: "Main",
+				}),
+			}),
+		);
+		expect(await relaunched.json()).toMatchObject({
+			commandVersion: 2,
+			desiredStreaming: false,
+		});
+		expect(await getObsControlStatus("user-a")).toMatchObject({
+			streaming: false,
+			desiredStreaming: false,
+			pending: false,
+		});
+
 		await rotateObsControlToken("user-a");
 		expect(await getObsControlStatus("user-a")).toMatchObject({
 			currentScene: null,

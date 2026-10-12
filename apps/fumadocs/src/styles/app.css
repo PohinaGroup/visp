@@ -7,6 +7,8 @@ html {
 }
 
 html > body[data-scroll-locked] {
+  /* biome-ignore lint/complexity/noImportantStyles: override the scroll-lock library */
   margin-right: 0px !important;
+  /* biome-ignore lint/complexity/noImportantStyles: override the scroll-lock library */
   --removed-body-scroll-bar-size: 0px !important;
 }

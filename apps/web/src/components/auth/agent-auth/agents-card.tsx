@@ -25,14 +25,18 @@ export function AgentsCard() {
 				name: "VISP agent host",
 				default_capabilities: [],
 			});
-			if (result.error || !result.data?.enrollmentToken)
+			const data = result.data;
+			if (
+				result.error ||
+				!data?.enrollmentToken ||
+				data.enrollmentTokenExpiresAt == null
+			) {
 				throw new Error("Enrollment failed");
+			}
 			setEnrollment({
-				hostId: result.data.hostId,
-				token: result.data.enrollmentToken,
-				expiresAt: new Date(
-					result.data.enrollmentTokenExpiresAt!,
-				).toLocaleString(),
+				hostId: data.hostId,
+				token: data.enrollmentToken,
+				expiresAt: new Date(data.enrollmentTokenExpiresAt).toLocaleString(),
 			});
 		} catch {
 			setError(true);

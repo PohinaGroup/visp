@@ -102,7 +102,7 @@ export async function createTypographyProject(
 	if (input.byteSize < 1 || input.byteSize > MAX_UPLOAD_BYTES)
 		throw new Error("Video must be 1 GB or smaller");
 	const id = randomUUID();
-	const sourceKey = "typography/" + userId + "/" + id + "/source";
+	const sourceKey = `typography/${userId}/${id}/source`;
 	const expiresAt = new Date(Date.now() + RETENTION_MS);
 	const [project] = await db
 		.insert(typographyProject)
@@ -225,7 +225,7 @@ async function designTypography(words: TypographyDocument["words"]) {
 		const response = await fetch("https://ai-gateway.vercel.sh/v1/responses", {
 			method: "POST",
 			headers: {
-				Authorization: "Bearer " + env.AI_GATEWAY_API_KEY,
+				Authorization: `Bearer ${env.AI_GATEWAY_API_KEY}`,
 				"Content-Type": "application/json",
 			},
 			body: JSON.stringify({
@@ -320,8 +320,7 @@ export async function requestTypographyExport(
 	projectId: string,
 ) {
 	const project = await requireProject(userId, projectId);
-	if (!project || project.state !== "ready")
-		throw new Error("Project is not ready");
+	if (project?.state !== "ready") throw new Error("Project is not ready");
 	await queueTypographyJob(project.id, "export");
 	return { ok: true };
 }
@@ -425,11 +424,10 @@ export async function runTypographyWorker() {
 						gt(typographyProject.expiresAt, new Date()),
 					),
 				});
-				if (!project || project.state !== "ready")
-					throw new Error("Project is not ready");
+				if (project?.state !== "ready") throw new Error("Project is not ready");
 				await renderTypographyExport(
 					project.sourceKey,
-					"typography/" + project.userId + "/" + project.id + "/export.mp4",
+					`typography/${project.userId}/${project.id}/export.mp4`,
 					typographyDocumentSchema.parse(project.document),
 					project.id,
 				);

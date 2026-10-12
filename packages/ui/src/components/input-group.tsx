@@ -7,8 +7,15 @@ import { cn } from "@VISP/ui/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import type * as React from "react";
 
+function focusGroupControl(addon: HTMLElement) {
+	addon.parentElement
+		?.querySelector<HTMLInputElement | HTMLTextAreaElement>("input, textarea")
+		?.focus();
+}
+
 function InputGroup({ className, ...props }: React.ComponentProps<"div">) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: input chrome is an ARIA group, not a fieldset
 		<div
 			data-slot="input-group"
 			role="group"
@@ -53,20 +60,23 @@ function InputGroupAddon({
 	...props
 }: React.ComponentProps<"div"> & VariantProps<typeof inputGroupAddonVariants>) {
 	return (
+		// biome-ignore lint/a11y/useSemanticElements: addon slot groups buttons and text, not a fieldset
 		<div
 			role="group"
 			data-slot="input-group-addon"
 			data-align={align}
 			className={cn(inputGroupAddonVariants({ align }), className)}
-			onClick={(e) => {
-				if ((e.target as HTMLElement).closest("button")) {
+			onClick={(event) => {
+				if ((event.target as HTMLElement).closest("button")) {
 					return;
 				}
-				e.currentTarget.parentElement
-					?.querySelector<HTMLInputElement | HTMLTextAreaElement>(
-						"input, textarea",
-					)
-					?.focus();
+				focusGroupControl(event.currentTarget);
+			}}
+			onKeyDown={(event) => {
+				if (event.key !== "Enter" && event.key !== " ") return;
+				if ((event.target as HTMLElement).closest("button")) return;
+				event.preventDefault();
+				focusGroupControl(event.currentTarget);
 			}}
 			{...props}
 		/>

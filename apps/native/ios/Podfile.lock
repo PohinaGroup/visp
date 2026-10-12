@@ -2959,7 +2959,7 @@ SPEC CHECKSUMS:
   ExpoKeepAwake: 72af0b3be3615e59bc819d26061ff4e06b155ee0
   ExpoLinking: 15c8ddb0eb4a778950712ea4a6feedf021778852
   ExpoLogBox: 80957303325cd4439137765c90a87d7f22aaf2ff
-  ExpoModulesCore: 0ba1d6fbc72277ba78356c2530b14275a282a4fe
+  ExpoModulesCore: 4d1a8edf7f7ff5b4ae382029e7e878df52d3d0a3
   ExpoModulesJSI: 9df8e7c9719f59e8c001ec33611774137fc1484a
   ExpoModulesWorklets: 986cf72c18400743869b4642d243115f831e404d
   ExpoModulesWorkletsAdapter: 750ce6eea263d1c039eede05bf408d6ace99247c

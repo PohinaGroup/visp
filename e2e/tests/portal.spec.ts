@@ -88,9 +88,11 @@ test("signed-in setup and dashboard distinguish failed output and unavailable st
 		}),
 	);
 	await page.route("**/trpc/**", async (route) => {
-		const procedures = new URL(route.request().url()).pathname
-			.split("/trpc/")[1]!
-			.split(",");
+		const procedurePath = new URL(route.request().url()).pathname.split(
+			"/trpc/",
+		)[1];
+		if (!procedurePath) throw new Error("Missing tRPC path");
+		const procedures = procedurePath.split(",");
 		const path = {
 			id: 1,
 			label: "Phone",
