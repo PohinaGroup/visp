@@ -1600,6 +1600,130 @@ integration("relay PostgreSQL integration", () => {
 		}
 	});
 
+	test("a relaunched OBS does not restart the previous session's stream", async () => {
+		await seed();
+		const pairing = await rotateObsControlToken("user-a");
+		const liveApp = new Elysia({ adapter: nodeAdapter }).use(obsLiveRoutes);
+		const liveServer = await new Promise<NonNullable<typeof liveApp.server>>(
+			(resolve) =>
+				liveApp.listen({ hostname: "127.0.0.1", port: 0 }, (server) =>
+					resolve(server),
+				),
+		);
+		const port = (
+			liveServer as unknown as {
+				raw?: { bun?: { server?: { address?: { port?: number } } } };
+			}
+		).raw?.bun?.server?.address?.port;
+		if (!port) throw new Error("OBS live test server did not start");
+		const connect = async () => {
+			const response = await fetch(
+				`http://127.0.0.1:${port}/api/obs/live-ticket`,
+				{
+					method: "POST",
+					headers: { authorization: `Bearer ${pairing.token}` },
+				},
+			);
+			const { ticket } = (await response.json()) as { ticket: string };
+			const socket = new WebSocket(
+				`ws://127.0.0.1:${port}/api/obs/live?ticket=${encodeURIComponent(ticket)}`,
+			);
+			const received: Record<string, unknown>[] = [];
+			const waiters: Array<(value: Record<string, unknown>) => void> = [];
+			socket.onmessage = ({ data }) => {
+				const value = JSON.parse(String(data)) as Record<string, unknown>;
+				const waiter = waiters.shift();
+				if (waiter) waiter(value);
+				else received.push(value);
+			};
+			await new Promise<void>((resolve, reject) => {
+				socket.onopen = () => resolve();
+				socket.onerror = () => reject(new Error("OBS WebSocket did not open"));
+			});
+			const next = () => {
+				const value = received.shift();
+				return value
+					? Promise.resolve(value)
+					: new Promise<Record<string, unknown>>((resolve) =>
+							waiters.push(resolve),
+						);
+			};
+			const report = (appliedVersion: number, streaming: boolean) => {
+				socket.send(
+					JSON.stringify({
+						appliedVersion,
+						streaming,
+						scenes: ["Main"],
+						currentScene: "Main",
+					}),
+				);
+				return next();
+			};
+			return { socket, next, report };
+		};
+		const closed = async (socket: WebSocket) => {
+			socket.close();
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		};
+		try {
+			// OBS goes live from VISP and acknowledges it.
+			const first = await connect();
+			expect(await first.report(0, false)).toMatchObject({ commandVersion: 0 });
+			await setObsStreaming("user-a", true);
+			expect(await first.next()).toMatchObject({
+				commandVersion: 1,
+				desiredStreaming: true,
+			});
+			expect(await first.report(1, true)).toMatchObject({
+				commandVersion: 1,
+				desiredStreaming: true,
+			});
+			// OBS crashes (or its "stopped" report is lost on shutdown) and is
+			// reopened well within the queued-command TTL. The plugin starts again
+			// at version 0 and reports it is not streaming: the reply must follow
+			// that, not carry the old session's "streaming" back to start it again.
+			await closed(first.socket);
+			const relaunched = await connect();
+			expect(await relaunched.report(0, false)).toMatchObject({
+				commandVersion: 1,
+				desiredStreaming: false,
+			});
+			expect(await getObsControlStatus("user-a")).toMatchObject({
+				desiredStreaming: false,
+				pending: false,
+			});
+			// Only the first report of a connection is a relaunch: a later report
+			// at version 0 on it is still too old to land.
+			await setObsStreaming("user-a", true);
+			expect(await relaunched.next()).toMatchObject({
+				commandVersion: 2,
+				desiredStreaming: true,
+			});
+			expect(await relaunched.report(2, true)).toMatchObject({
+				commandVersion: 2,
+				desiredStreaming: true,
+			});
+			expect(await relaunched.report(0, false)).toMatchObject({
+				commandVersion: 2,
+				desiredStreaming: true,
+			});
+			await relaunched.report(2, false);
+
+			// A Go Live pressed while OBS was closed, shortly before opening it,
+			// is still a pending command and is still delivered.
+			await closed(relaunched.socket);
+			await setObsStreaming("user-a", true);
+			const opened = await connect();
+			expect(await opened.report(0, false)).toMatchObject({
+				commandVersion: 3,
+				desiredStreaming: true,
+			});
+			await closed(opened.socket);
+		} finally {
+			liveServer.stop(true);
+		}
+	});
+
 	test("keeps two accounts' OBS WebSockets separate", async () => {
 		await seed();
 		const pairingA = await rotateObsControlToken("user-a");
