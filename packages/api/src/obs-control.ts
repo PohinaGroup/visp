@@ -1,7 +1,7 @@
 import { isBanActive } from "@VISP/auth/ban";
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
-import { type AnyColumn, and, eq, lte, sql } from "drizzle-orm";
+import { type AnyColumn, and, eq, lte, or, sql } from "drizzle-orm";
 import type {
 	ObsCommand,
 	ObsStateReportInput,
@@ -349,7 +349,11 @@ export async function reportObsControlState(
 			and(
 				eq(appUser.id, userId),
 				eq(appUser.obsControlTokenId, tokenId),
-				lte(appUser.obsAppliedVersion, input.appliedVersion),
+				// A report older than one already applied is ignored so it cannot
+				// roll the actual state back, but a relaunched OBS reports version 0
+				// again: once the queue has expired its report must land, or the
+				// expired command is never reconciled and still fires.
+				or(lte(appUser.obsAppliedVersion, input.appliedVersion), queueExpired),
 			),
 		)
 		.returning();
