@@ -6,18 +6,22 @@ import { tryAdvisoryLock } from "./advisory-lock";
 export const RELAY_HEALTH_RAW_RETENTION_DAYS = 30;
 /** Hourly rollups cover a year plus a month, so year-over-year compares work. */
 export const RELAY_HEALTH_HOURLY_RETENTION_MONTHS = 13;
+/** Setup RTT probes feed the admin RTT chart; same horizon as the rollups. */
+export const RTT_SAMPLE_RETENTION_MONTHS = 13;
 
 export type RelayHealthRetentionResult = {
 	rolledSamples: number;
 	hourlyRows: number;
 	prunedHourly: number;
+	prunedRtt: number;
 };
 
 /**
  * Folds raw `relay_health_sample` rows older than the raw window into
- * `relay_health_hourly`, deletes them, then drops hourly rows past their own
- * window. Returns null when another server instance holds the lock — every
- * app host runs the same timer, and one roller per hour is enough.
+ * `relay_health_hourly`, deletes them, then drops hourly rows and
+ * `rtt_sample` rows past their own windows. Returns null when another server
+ * instance holds the lock — every app host runs the same timer, and one
+ * roller per hour is enough.
  *
  * The cutoff is aligned to the hour so an hour is normally rolled in one go;
  * the upsert still merges (weighted mean, greatest peaks, summed counts) so a
@@ -78,10 +82,15 @@ export async function rollupAndPruneRelayHealth(
 			delete from relay_health_hourly
 			where hour < ${now.toISOString()}::timestamptz - make_interval(months => ${RELAY_HEALTH_HOURLY_RETENTION_MONTHS})
 		`);
+		const prunedRtt = await db.execute(sql`
+			delete from rtt_sample
+			where created_at < ${now.toISOString()}::timestamptz - make_interval(months => ${RTT_SAMPLE_RETENTION_MONTHS})
+		`);
 		return {
 			rolledSamples: Number(rolled.rows[0]?.rolled_samples ?? 0),
 			hourlyRows: Number(rolled.rows[0]?.hourly_rows ?? 0),
 			prunedHourly: pruned.rowCount ?? 0,
+			prunedRtt: prunedRtt.rowCount ?? 0,
 		};
 	} finally {
 		await lock.release();

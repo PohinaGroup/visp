@@ -24,7 +24,10 @@ import {
 	type DirectState,
 } from "./direct-model";
 import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
-import { DEFAULT_PORTRAIT_CROP, portraitFilterValue } from "./direct-portrait";
+import {
+	DEFAULT_PORTRAIT_CROP,
+	portraitFilterMatches,
+} from "./direct-portrait";
 import { encryptSecret } from "./encrypted-secret";
 import { recordForwarderTransition } from "./forwarder-sessions";
 import { uniqueViolation } from "./pg-errors";
@@ -611,8 +614,7 @@ export async function customDirectOutputActive(
 	return Boolean(
 		row &&
 			row.state !== "stopping" &&
-			(row.role !== "portrait" ||
-				(row.crop && portraitFilterValue(row.crop) === filter)),
+			(row.role !== "portrait" || portraitFilterMatches(row.crop, filter)),
 	);
 }
 

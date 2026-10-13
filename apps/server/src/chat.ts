@@ -1,15 +1,72 @@
 import { listChatConnections } from "@VISP/api/chat/connections";
 import { chatHub } from "@VISP/api/chat/hub";
 import { handleKickWebhook } from "@VISP/api/chat/kick";
-import { authenticateChatOverlayToken } from "@VISP/api/chat/overlay-token";
+import {
+	authenticateChatOverlayToken,
+	parseChatOverlayToken,
+} from "@VISP/api/chat/overlay-token";
 import { chatTickets } from "@VISP/api/chat/tickets";
 import "@VISP/api/chat/twitch";
 import "@VISP/api/chat/youtube";
 import { fixedWindow } from "@VISP/api/rate-limit";
+import { db } from "@VISP/db";
+import { appUser } from "@VISP/db/schema/index";
+import { inArray } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 import { nodeAdapter, socketKey } from "./node-adapter";
 
 const subscriptions = new Map<string, () => void>();
+
+// Overlay sockets remember which overlay token minted their ticket, so a
+// revoke or rotate can end them. Dashboard tickets come from a session and
+// are not tracked here.
+const overlayTickets = new Map<
+	string,
+	{ tokenId: string; expiresAt: number }
+>();
+const overlaySockets = new Map<
+	string,
+	{
+		userId: string;
+		tokenId: string;
+		close: (code?: number, reason?: string) => void;
+	}
+>();
+
+/** How often open overlay sockets are checked against the current token. */
+export const CHAT_OVERLAY_REVALIDATE_MS = 60_000;
+
+/**
+ * Nothing announces a revoke or rotate to this process, so open overlay
+ * sockets are re-checked on a timer and closed once their token is gone.
+ */
+export async function revalidateChatOverlaySockets() {
+	const userIds = [
+		...new Set([...overlaySockets.values()].map(({ userId }) => userId)),
+	];
+	if (!userIds.length) return;
+	let current: Map<string, string | null>;
+	try {
+		const rows = await db
+			.select({ id: appUser.id, tokenId: appUser.chatOverlayTokenId })
+			.from(appUser)
+			.where(inArray(appUser.id, userIds));
+		current = new Map(rows.map((row) => [row.id, row.tokenId]));
+	} catch {
+		// A database blip must not drop every overlay; retry on the next tick.
+		return;
+	}
+	for (const { userId, tokenId, close } of overlaySockets.values()) {
+		if (current.get(userId) !== tokenId) {
+			close(1008, "Chat overlay credential was revoked");
+		}
+	}
+}
+
+setInterval(
+	() => void revalidateChatOverlaySockets(),
+	CHAT_OVERLAY_REVALIDATE_MS,
+).unref?.();
 
 // The browser source remints on every reconnect, so this only has to be loose
 // enough for a backoff loop and tight enough to blunt token guessing.
@@ -39,10 +96,19 @@ export const chatRoutes = new Elysia({
 			alerts: t.Optional(t.String()),
 		}),
 		open(ws) {
+			const overlay = overlayTickets.get(ws.data.query.ticket);
+			overlayTickets.delete(ws.data.query.ticket);
 			const userId = chatTickets.consume(ws.data.query.ticket);
 			if (!userId) {
 				ws.close(1008, "Invalid or expired chat ticket");
 				return;
+			}
+			if (overlay) {
+				overlaySockets.set(socketKey(ws), {
+					userId,
+					tokenId: overlay.tokenId,
+					close: (code, reason) => ws.close(code, reason),
+				});
 			}
 			const wantsAlerts = ws.data.query.alerts === "1";
 			const unsubscribe = chatHub.subscribe(userId, (event) => {
@@ -78,6 +144,7 @@ export const chatRoutes = new Elysia({
 		close(ws) {
 			subscriptions.get(socketKey(ws))?.();
 			subscriptions.delete(socketKey(ws));
+			overlaySockets.delete(socketKey(ws));
 		},
 	})
 	.post(
@@ -89,7 +156,19 @@ export const chatRoutes = new Elysia({
 				if (!overlayMints.take(userId)) {
 					return status(429, "too many overlay tickets");
 				}
-				return chatTickets.issue(userId);
+				const issued = chatTickets.issue(userId);
+				const tokenId = parseChatOverlayToken(body.token)?.id;
+				const now = Date.now();
+				for (const [ticket, entry] of overlayTickets) {
+					if (entry.expiresAt <= now) overlayTickets.delete(ticket);
+				}
+				if (tokenId) {
+					overlayTickets.set(issued.ticket, {
+						tokenId,
+						expiresAt: Date.parse(issued.expiresAt),
+					});
+				}
+				return issued;
 			} catch {
 				return status(503, "overlay ticket unavailable");
 			}
