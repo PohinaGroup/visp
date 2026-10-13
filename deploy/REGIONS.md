@@ -221,7 +221,8 @@ cancel the others.
 Release the app, portal, and browser broadcaster with the normal production
 release workflow; the region-aware assignment and relay probes ship with them.
 Existing media component updates restart relay services, so schedule them
-outside active broadcasts.
+outside active broadcasts. The relay helper refuses to restart while a relay
+has live paths, forwarders or BRB holds unless it is given `--force`.
 
 Check **Actions > Mobile > Build and submit VISP** after merging to `main`.
 That workflow detects `apps/native` changes and submits Android to Google Play
@@ -261,7 +262,30 @@ curl --fail --max-time 5 -I -H 'Origin: https://stream.visp-stream.com' https://
 ```
 
 Expect valid API JSON and HTTP 204 with `Access-Control-Allow-Origin: *` for
-the public probe. Enable the relay, then publish with a pilot account in that
+the public probe.
+
+**Control API reachability.** The MediaMTX Control API on TCP 9997 has no
+authentication of its own: anyone who reaches it can add, change and delete
+paths, kick publishers and read every path's configuration. Its only
+protection is the Tailscale bind, the Tailscale ACL and the host firewall, so
+confirm the ACL before enabling the relay:
+
+1. In the Tailscale ACL policy, the only rule granting `<RELAY>:9997` names the
+   app host (its tag or address). No `*`, `autogroup:member`, `tag:ci` or
+   other relay may match it. Use the admin console's **Preview rules** for the
+   relay to list every source allowed on 9997.
+2. From a tailnet device that is **not** the app host (for example a laptop or
+   the CI tag), this must time out or be refused:
+
+   ```sh
+   curl --max-time 5 http://<RELAY_TAILSCALE_IP>:9997/v3/paths/list
+   ```
+
+3. From the app host the same command must succeed (the first command above).
+4. On the relay, `ss -ltn 'sport = :9997'` shows a listener on the Tailscale
+   address only, never `0.0.0.0` or the public interface.
+
+Repeat steps 1 and 2 whenever the ACL policy changes. Enable the relay, then publish with a pilot account in that
 region. Check SRT, bonded SRT/SRTLA where used, browser publishing, OBS reads,
 authenticated previews, Direct output, Cloud Studio (if enabled), and BRB
 recovery. Verify the new host carries the media and runs its own encoders.

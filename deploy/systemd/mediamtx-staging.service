@@ -15,6 +15,11 @@ LimitNOFILE=1048576
 # locks, publisher markers, and snapshot files never collide. visp-snapshot
 # picks it up through VISP_RUN_DIR in the environment file.
 RuntimeDirectory=visp-staging
+RuntimeDirectoryMode=0700
+# Highlight clips on disk, not tmpfs; see mediamtx.service.
+CacheDirectory=visp-staging
+CacheDirectoryMode=0700
+ExecStartPre=-/usr/bin/find /var/cache/visp-staging -mindepth 1 -delete
 KillMode=mixed
 
 [Install]
