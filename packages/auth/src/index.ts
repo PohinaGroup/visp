@@ -21,6 +21,7 @@ import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { isObsPairingToken, obsPairingScope } from "./obs-pairing";
 import { adminAccess, adminRoles } from "./permissions";
+import { reservedEmailDomains } from "./reserved-email";
 import { createDatabaseSecondaryStorage } from "./secondary-storage";
 
 /**
@@ -284,6 +285,8 @@ export function createAuth() {
 			// First, so no other plugin's hook sees an OBS pairing session.
 			obsPairingScope(),
 			agentAuthPlugin,
+			// Placeholder provider addresses can only come from provider sign-in.
+			reservedEmailDomains(),
 			// Bans, role changes and session revocation go through the tRPC admin
 			// router, which also ends the user's non-session credentials.
 			routerOwnedAdminEndpoints(),
