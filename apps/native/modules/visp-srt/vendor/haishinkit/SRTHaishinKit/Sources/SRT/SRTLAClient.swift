@@ -210,7 +210,13 @@ final class SRTLAClient: @unchecked Sendable {
       }
       listener.newConnectionHandler = { [weak self] connection in
         guard let self else { return }
-        self.localConnection?.forceCancel()
+        // Loopback is reachable by every app on the device. Each SRTConnection
+        // attempt gets its own client, so the first local flow is ours; a later
+        // one is another app trying to inject into or hijack the broadcast.
+        guard self.localConnection == nil else {
+          connection.cancel()
+          return
+        }
         self.localConnection = connection
         connection.start(queue: srtlaQueue)
         self.receiveLocal(connection)

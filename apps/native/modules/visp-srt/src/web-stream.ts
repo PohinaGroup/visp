@@ -8,24 +8,47 @@ export type WebPublishTarget = {
 	whipUrl: string;
 };
 
+/**
+ * Whether `host` is a VISP relay: the configured relay itself or a sibling
+ * under the same parent domain (relay-us.visp-stream.com next to
+ * relay.visp-stream.com). Bare IPs and single-label hosts only match exactly.
+ */
+export function isAllowedRelayHost(host: string, configuredHost: string) {
+	const candidate = host.toLowerCase();
+	const configured = configuredHost.toLowerCase();
+	if (!candidate || !configured) return false;
+	if (candidate === configured) return true;
+	if (/^[\d.]+$/.test(configured) || configured.includes(":")) return false;
+	const labels = configured.split(".");
+	if (labels.length < 3) return false;
+	const parent = labels.slice(1).join(".");
+	return candidate.endsWith(`.${parent}`);
+}
+
 export function webPublishTarget(
 	streamUrl: string,
 	relayWebRtcUrl?: string,
 ): WebPublishTarget {
 	const { password, path, user } = parsePublishCredentials(streamUrl);
-	let relay: URL;
+	let configured: URL;
+	let assignedHost: string;
 	try {
-		const assignedHost = new URL(streamUrl).hostname;
-		const configured = relayWebRtcUrl ? new URL(relayWebRtcUrl) : null;
-		// Keep same-host overrides for staging ports; never send a regional
-		// device's media to the build-time default relay.
-		relay =
-			configured?.hostname === assignedHost
-				? configured
-				: new URL(`https://${assignedHost}`);
+		assignedHost = new URL(streamUrl).hostname;
+		configured = new URL(relayWebRtcUrl ?? "");
 	} catch {
 		throw new Error("Browser streaming is not configured.");
 	}
+	// publisher.js is executable code, and the stream URL can be pasted by
+	// the user: only load it from a VISP relay.
+	if (!isAllowedRelayHost(assignedHost, configured.hostname)) {
+		throw new Error("This stream URL does not point to a VISP relay.");
+	}
+	// Keep same-host overrides for staging ports; never send a regional
+	// device's media to the build-time default relay.
+	const relay =
+		configured.hostname === assignedHost
+			? configured
+			: new URL(`https://${assignedHost}`);
 	if (relay.protocol !== "https:") {
 		throw new Error("Browser streaming requires an HTTPS relay.");
 	}

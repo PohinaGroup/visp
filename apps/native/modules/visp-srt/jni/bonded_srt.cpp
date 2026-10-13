@@ -253,10 +253,37 @@ Java_com_visp_mobile_srt_BondedSrtNative_nativeStart(JNIEnv *env, jobject,
   state.running = true;
   state.reader = std::thread([] {
     char buffer[2048];
+    // Loopback is reachable by every app on the device, so only the encoder
+    // may feed the group: lock to the first MPEG-TS sender, then connect() so
+    // the kernel drops everyone else. RootEncoder's UdpStream keeps one
+    // socket per startStream and this relay is recreated for every start, so
+    // the lock never has to move.
+    sockaddr_in encoder{};
+    bool locked = false;
     while (state.running) {
-      const ssize_t size = recv(state.udp, buffer, sizeof(buffer), 0);
+      sockaddr_in peer{};
+      socklen_t peer_length = sizeof(peer);
+      const ssize_t size =
+          recvfrom(state.udp, buffer, sizeof(buffer), 0,
+                   reinterpret_cast<sockaddr *>(&peer), &peer_length);
       if (size <= 0)
         break;
+      if (peer_length != sizeof(peer) || peer.sin_family != AF_INET)
+        continue;
+      if (!locked) {
+        // Ignore scanner junk; the encoder's datagrams are TS packets.
+        if (size < 188 || static_cast<unsigned char>(buffer[0]) != 0x47)
+          continue;
+        if (connect(state.udp, reinterpret_cast<sockaddr *>(&peer),
+                    sizeof(peer)) != 0)
+          break;
+        encoder = peer;
+        locked = true;
+      } else if (peer.sin_addr.s_addr != encoder.sin_addr.s_addr ||
+                 peer.sin_port != encoder.sin_port) {
+        // Queued before connect() took effect.
+        continue;
+      }
       if (srt_sendmsg(state.group, buffer, static_cast<int>(size), -1, 0) ==
           SRT_ERROR) {
         break;

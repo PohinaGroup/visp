@@ -1,7 +1,7 @@
 import type { ChatProvider } from "@VISP/api/chat/contract";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import type { Dispatch, SetStateAction } from "react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { apiClient, authCallbackURL, authClient } from "./backend";
 import {
 	type ChatPreferences,
@@ -57,6 +57,27 @@ export function useStreamAccount({
 	>({});
 	const [chatBusy, setChatBusy] = useState<"twitch" | "kick" | "youtube">();
 	const streamOwner = streamOwnerId(userId);
+	const settledUserId = useRef(userId);
+
+	/** Drops this account's publish credentials from the device and memory. */
+	const clearAccountCredentials = useCallback(async () => {
+		setRevealedDeviceUrls({});
+		setDirectOutputs(undefined);
+		await deleteStreamUrl().catch(() => {});
+	}, []);
+
+	// Sign-out, account deletion and a user switch (including a server-side
+	// session revoke) all land here: the previous account's SRT secrets must
+	// not outlive it on the device.
+	useEffect(() => {
+		if (sessionPending) return;
+		const previous = settledUserId.current;
+		settledUserId.current = userId;
+		if (previous === userId) return;
+		setRevealedDeviceUrls({});
+		setDirectOutputs(undefined);
+		if (previous) void deleteStreamUrl().catch(() => {});
+	}, [sessionPending, userId]);
 
 	useEffect(() => {
 		if (sessionPending) return;
@@ -591,6 +612,7 @@ export function useStreamAccount({
 		chatBusy,
 		chatConnections,
 		chatPreferences,
+		clearAccountCredentials,
 		directOutputs,
 		directSnapshots,
 		endBrb,

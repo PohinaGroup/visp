@@ -86,6 +86,9 @@ final actor SRTSocket {
   private(set) var isRunning = false
   private var perf: CBytePerfMon = .init()
   private var socket: SRTSOCKET = SRT_INVALID_SOCK
+  /// The handle this actor was created with. Immutable and Sendable, so
+  /// abort() can reach it while open() holds the actor inside srt_connect.
+  private let handle: SRTSOCKET
   private let bondingMode: String
   private var cellularKeeper: NWConnection?
   private var outputs: AsyncStream<Data>.Continuation? {
@@ -101,17 +104,21 @@ final actor SRTSocket {
 
   init(bondingMode: String = "off") {
     self.bondingMode = bondingMode
+    let created: SRTSOCKET
     if bondingMode == "broadcast" {
-      socket = srt_create_group(SRT_GTYPE_BROADCAST)
+      created = srt_create_group(SRT_GTYPE_BROADCAST)
     } else if bondingMode == "backup" {
-      socket = srt_create_group(SRT_GTYPE_BACKUP)
+      created = srt_create_group(SRT_GTYPE_BACKUP)
     } else {
-      socket = srt_create_socket()
+      created = srt_create_socket()
     }
+    socket = created
+    handle = created
   }
 
   init(socket: SRTSOCKET, options: [SRTSocketOption]) async throws {
     self.socket = socket
+    self.handle = socket
     self.bondingMode = "off"
     guard configure(options, restriction: .post) else {
       throw makeSocketError()
@@ -127,6 +134,16 @@ final actor SRTSocket {
 
   func setSocketOption(_ option: SRTSocketOption) throws {
     try option.setSockflag(socket)
+  }
+
+  /// Closes the handle without waiting for the actor. srt_close wakes a
+  /// blocking srt_connect, which then fails; a second srt_close later from
+  /// stopRunning() or makeSocketError() is a harmless EINVSOCK.
+  nonisolated func abort() {
+    guard handle != SRT_INVALID_SOCK else {
+      return
+    }
+    srt_close(handle)
   }
 
   func open(_ url: SRTSocketURL) async throws {
