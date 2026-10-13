@@ -41,6 +41,7 @@ import { docs } from "@/lib/docs";
 import { localeSearch, useLocale, useT } from "@/lib/i18n";
 import { legalEntity } from "@/lib/legal";
 import type { ObsPluginRelease } from "@/lib/obs-releases";
+import { pollWithBackoff } from "@/lib/query-resilience";
 import { fastestRelay } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 
@@ -762,10 +763,10 @@ function TestStreamStep({
 	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
 	const paths = useQuery(
-		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5_000 }),
+		trpc.paths.list.queryOptions(undefined, pollWithBackoff(5_000)),
 	);
 	const direct = useQuery(
-		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3_000 }),
+		trpc.direct.list.queryOptions(undefined, pollWithBackoff(3_000)),
 	);
 	const provider = destination === "other" ? null : destination;
 	const directPath = direct.data?.paths.find((entry) =>
