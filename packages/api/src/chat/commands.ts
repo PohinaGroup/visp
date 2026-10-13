@@ -14,6 +14,8 @@ const MOD_ONLY_BUILTINS = new Set<BuiltinCommand>(["title"]);
 
 export const MAX_COMMAND_RESPONSE_LENGTH = 200;
 export const COMMAND_NAME_PATTERN = /^[a-z0-9_-]{1,24}$/;
+/** Twitch and Kick reject longer titles; YouTube is cut to 100 downstream. */
+export const MAX_TITLE_LENGTH = 140;
 
 export type CustomCommand = {
 	name: string;
@@ -91,7 +93,7 @@ export function resolveCommand(input: ResolveInput): CommandIntent | null {
 
 	if (custom) return { kind: "reply", text: custom.response };
 	if (builtin === "title") {
-		const title = rest.join(" ").trim();
+		const title = rest.join(" ").trim().slice(0, MAX_TITLE_LENGTH).trim();
 		return title ? { kind: "title", title } : null;
 	}
 	if (builtin === "commands") {

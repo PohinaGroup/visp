@@ -6,7 +6,7 @@ import {
 	relayPath,
 	relayStreamSession,
 } from "@VISP/db/schema/index";
-import { and, desc, eq, isNotNull, isNull, or } from "drizzle-orm";
+import { and, count, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
 import { getViewerCounts, updateStreamInfo } from "../channel/stream-info";
 import { formatLinkStats, linkStatsFromPath } from "../link-stats";
@@ -39,6 +39,48 @@ export type AlertEvent = keyof typeof DEFAULT_ALERT_MESSAGES;
 export const ALERT_EVENTS = Object.keys(DEFAULT_ALERT_MESSAGES) as AlertEvent[];
 
 export const MAX_ALERT_MESSAGE_LENGTH = 200;
+/** Every command is matched against each chat line, so keep the set small. */
+export const MAX_BOT_COMMANDS = 100;
+/**
+ * How long a bot trusts its cached settings and commands. Writes on this
+ * instance invalidate at once; another instance's write shows up within this.
+ */
+const BOT_CONFIG_TTL_MS = 30_000;
+
+export class BotCommandLimitError extends Error {
+	constructor() {
+		super(`You can have up to ${MAX_BOT_COMMANDS} custom commands`);
+		this.name = "BotCommandLimitError";
+	}
+}
+
+type Cached<T> = { value: Promise<T>; expiresAt: number };
+const settingsCache = new Map<string, Cached<BotSettings>>();
+const commandsCache = new Map<string, Cached<CustomCommand[]>>();
+
+function cached<T>(
+	cache: Map<string, Cached<T>>,
+	userId: string,
+	load: () => Promise<T>,
+) {
+	const now = Date.now();
+	const hit = cache.get(userId);
+	if (hit && hit.expiresAt > now) return hit.value;
+	// Concurrent chat lines share one in-flight query.
+	const value = load();
+	const entry = { value, expiresAt: now + BOT_CONFIG_TTL_MS };
+	cache.set(userId, entry);
+	value.catch(() => {
+		if (cache.get(userId) === entry) cache.delete(userId);
+	});
+	return value;
+}
+
+/** Drops this instance's cached bot settings and commands for `userId`. */
+export function invalidateBotConfig(userId: string) {
+	settingsCache.delete(userId);
+	commandsCache.delete(userId);
+}
 
 export type BotSettings = {
 	enabled: boolean;
@@ -130,6 +172,7 @@ export async function setBotSettings(userId: string, input: BotSettings) {
 		.values(values)
 		.onConflictDoUpdate({ target: chatBot.userId, set: values })
 		.returning();
+	invalidateBotConfig(userId);
 	return toSettings(row, canSelectSender);
 }
 
@@ -138,7 +181,8 @@ export async function listBotCommands(userId: string) {
 		.select()
 		.from(chatBotCommand)
 		.where(eq(chatBotCommand.userId, userId))
-		.orderBy(chatBotCommand.name);
+		.orderBy(chatBotCommand.name)
+		.limit(MAX_BOT_COMMANDS);
 }
 
 export async function upsertBotCommand(
@@ -153,14 +197,39 @@ export async function upsertBotCommand(
 		enabled: input.enabled ?? true,
 		cooldownSeconds: input.cooldownSeconds,
 	};
-	const [row] = await db
-		.insert(chatBotCommand)
-		.values(values)
-		.onConflictDoUpdate({
-			target: [chatBotCommand.userId, chatBotCommand.name],
-			set: values,
-		})
-		.returning();
+	const row = await db.transaction(async (tx) => {
+		// Serialises this user's creates so two at once cannot both pass the cap.
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtextextended(${`chat:bot-commands:${userId}`}, 0))`,
+		);
+		const [existing] = await tx
+			.select({ id: chatBotCommand.id })
+			.from(chatBotCommand)
+			.where(
+				and(
+					eq(chatBotCommand.userId, userId),
+					eq(chatBotCommand.name, values.name),
+				),
+			);
+		if (!existing) {
+			const [total] = await tx
+				.select({ count: count() })
+				.from(chatBotCommand)
+				.where(eq(chatBotCommand.userId, userId));
+			if ((total?.count ?? 0) >= MAX_BOT_COMMANDS)
+				throw new BotCommandLimitError();
+		}
+		const [saved] = await tx
+			.insert(chatBotCommand)
+			.values(values)
+			.onConflictDoUpdate({
+				target: [chatBotCommand.userId, chatBotCommand.name],
+				set: values,
+			})
+			.returning();
+		return saved;
+	});
+	invalidateBotConfig(userId);
 	return row;
 }
 
@@ -174,6 +243,7 @@ export async function deleteBotCommand(userId: string, name: string) {
 			),
 		)
 		.returning({ name: chatBotCommand.name });
+	invalidateBotConfig(userId);
 	return Boolean(row);
 }
 
@@ -268,6 +338,7 @@ class UserBot {
 
 	async stop() {
 		this.unsubscribe();
+		invalidateBotConfig(this.userId);
 		await this.lock.release();
 	}
 
@@ -278,15 +349,23 @@ class UserBot {
 	}
 
 	private async onMessage(message: ChatMessage) {
+		// Most chat lines are not commands: settings come from a short cache and
+		// commands load only once the prefix matches.
+		const text = messageText(message);
 		if (this.isEcho(message)) return;
-		const settings = await getBotSettings(this.userId);
+		const settings = await cached(settingsCache, this.userId, () =>
+			getBotSettings(this.userId),
+		);
 		if (!settings.enabled || !settings.commandsEnabled) return;
 		if (!settings.targets[message.provider]) return;
+		if (!text.startsWith(settings.prefix)) return;
 		const intent = resolveCommand({
 			message,
 			prefix: settings.prefix,
 			commandsEnabled: settings.commandsEnabled,
-			commands: await listBotCommands(this.userId),
+			commands: await cached(commandsCache, this.userId, () =>
+				listBotCommands(this.userId),
+			),
 			cooldowns: this.cooldowns,
 		});
 		if (!intent) return;

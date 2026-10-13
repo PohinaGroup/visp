@@ -107,6 +107,11 @@ describe("chat command resolution", () => {
 		expect(resolve("!title", { badges: MOD })).toBeNull();
 	});
 
+	test("cuts !title to what Twitch and Kick accept", () => {
+		const intent = resolve(`!title ${"a".repeat(500)}`, { badges: MOD });
+		expect(intent).toEqual({ kind: "title", title: "a".repeat(140) });
+	});
+
 	test("rate limits viewers but never the moderators testing it", () => {
 		const cooldowns = new Map<string, number>();
 		expect(resolve("!discord", { cooldowns, now: 1_000 })).not.toBeNull();
