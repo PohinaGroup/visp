@@ -46,6 +46,7 @@ import {
 } from "./direct-portrait";
 import { decryptSecret } from "./encrypted-secret";
 import { recordForwarderTransition } from "./forwarder-sessions";
+import { withProviderTimeout } from "./provider-timeout";
 import { hasStreamKeyScope, PROVIDER_SCOPES, parseScopes } from "./scopes";
 
 export type { DirectCrop } from "./direct-crop";
@@ -85,14 +86,38 @@ export function portraitFilter(crop: DirectCrop) {
 }
 
 /**
+ * Shapes of a stream key that survive the relay's own scrubbing, which strips
+ * `/`, `?` and `=` and so glues a URL into one word such as
+ * `rtmps:live.twitch.tvapplive_123_abc`.
+ */
+const SECRET_LIKE = [
+	// Twitch keys, whatever got glued in front of them.
+	/live_\d+_\w+/i,
+	// YouTube stream names: dash-separated groups of four.
+	/[a-z0-9]{4}(?:-[a-z0-9]{4}){3,}/i,
+	// Any other long token mixing letters and digits (Kick keys, custom
+	// destination secrets). Plain words such as ffmpeg function names have no
+	// digits and are kept for diagnosis.
+	/(?=[\w-]*\d)(?=[\w-]*[a-z])[\w-]{16,}/i,
+];
+
+/**
  * Destination URLs and stream keys must never reach a log line or an error
- * message. Anything that looks like a URL is dropped rather than masked.
+ * message. Anything that looks like a URL, or a word carrying something
+ * key-shaped, is dropped rather than masked. The key itself is never known
+ * here: it lives only in memory while a destination is resolved.
  */
 export function sanitizeDirectError(value: string | null | undefined) {
 	if (!value) return null;
 	const cleaned = value
 		.replace(/\b[a-z][a-z0-9+.-]*:\/\/\S*/gi, "[url]")
-		.replace(/\s+/g, " ")
+		// The relay's scrubbing leaves `rtmps:host...` without the slashes.
+		.replace(/\b(?:rtmps?|rtsps?|srt|https?):\S+/gi, "[url]")
+		.split(/\s+/)
+		.map((word) =>
+			SECRET_LIKE.some((pattern) => pattern.test(word)) ? "[redacted]" : word,
+		)
+		.join(" ")
 		.trim();
 	return cleaned.slice(0, 200) || null;
 }
@@ -115,7 +140,8 @@ function authProvider(provider: DirectProvider): AuthProvider {
 }
 
 const defaultDependencies: DirectDependencies = {
-	fetch: (...args) => globalThis.fetch(...args),
+	// Bounded so a stalled provider cannot hold a relay hook open.
+	fetch: (input, init) => globalThis.fetch(input, withProviderTimeout(init)),
 	getAccessToken: (providerId, userId) =>
 		getProviderAccessToken(providerId, userId),
 	resolveHost,
@@ -1497,6 +1523,57 @@ export type DirectDestination = {
 	url: string;
 };
 
+async function youtubeSettings(
+	executor: Pick<typeof db, "select">,
+	pathId: number,
+	userId: string,
+) {
+	const [settings] = await executor
+		.select({
+			broadcastId: pathState.directYoutubeBroadcastId,
+			streamId: appUser.directYoutubeStreamId,
+			title: appUser.directYoutubeTitle,
+		})
+		.from(relayPath)
+		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+		.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+		.where(
+			and(
+				eq(relayPath.id, pathId),
+				eq(relayPath.userId, userId),
+				isNull(relayPath.revokedAt),
+			),
+		)
+		.limit(1);
+	if (!settings) {
+		throw new DirectError("not-found", "Publishing device not found");
+	}
+	return settings;
+}
+
+async function deleteYoutubeBroadcast(
+	dependencies: DirectDependencies,
+	accessToken: string,
+	broadcastId: string,
+) {
+	await dependencies
+		.fetch(
+			`${YOUTUBE_API}/liveBroadcasts?id=${encodeURIComponent(broadcastId)}`,
+			{
+				method: "DELETE",
+				headers: { Authorization: `Bearer ${accessToken}` },
+			},
+		)
+		.catch(() => undefined);
+}
+
+/**
+ * The YouTube calls run outside any transaction so a stalled API cannot pin a
+ * pool connection. The ids are then stored with a compare-and-set against what
+ * was read: a concurrent go-live for the same path that stored first wins, and
+ * the loser drops its own broadcast and retries on top of the winner's, so a
+ * race never leaves two broadcasts behind.
+ */
 async function youtubeDirectDestination(
 	pathId: number,
 	userId: string,
@@ -1506,73 +1583,82 @@ async function youtubeDirectDestination(
 		YOUTUBE_AUTH_PROVIDER,
 		userId,
 	);
-	let orphanBroadcastId: string | undefined;
-	try {
-		return await db.transaction(async (tx) => {
-			await tx.execute(sql`select pg_advisory_xact_lock(${pathId})`);
-			const [settings] = await tx
-				.select({
-					broadcastId: pathState.directYoutubeBroadcastId,
-					streamId: appUser.directYoutubeStreamId,
-					title: appUser.directYoutubeTitle,
-				})
-				.from(relayPath)
-				.innerJoin(appUser, eq(appUser.id, relayPath.userId))
-				.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
-				.where(
-					and(
-						eq(relayPath.id, pathId),
-						eq(relayPath.userId, userId),
-						isNull(relayPath.revokedAt),
-					),
-				)
-				.limit(1);
-			if (!settings) {
-				throw new DirectError("not-found", "Publishing device not found");
-			}
-			const destination = await createYoutubeDestination(
-				{
-					accessToken,
-					broadcastId: settings.broadcastId,
-					streamId: settings.streamId,
-					title: settings.title,
-				},
-				dependencies,
-			);
+	for (let attempt = 1; ; attempt++) {
+		const settings = await youtubeSettings(db, pathId, userId);
+		const destination = await createYoutubeDestination(
+			{
+				accessToken,
+				broadcastId: settings.broadcastId,
+				streamId: settings.streamId,
+				title: settings.title,
+			},
+			dependencies,
+		);
+		let stored: boolean;
+		try {
+			stored = await db.transaction(async (tx) => {
+				await tx.execute(sql`select pg_advisory_xact_lock(${pathId})`);
+				// Re-checked so a device revoked meanwhile is still refused.
+				await youtubeSettings(tx, pathId, userId);
+				// Conditional in SQL, not just under the lock: stopDirectForPaths
+				// clears the broadcast id without taking it.
+				const [claimed] = await tx
+					.insert(pathState)
+					.values({
+						pathId,
+						directYoutubeBroadcastId: destination.broadcastId,
+					})
+					.onConflictDoUpdate({
+						target: pathState.pathId,
+						set: { directYoutubeBroadcastId: destination.broadcastId },
+						setWhere: sql`${pathState.directYoutubeBroadcastId} is not distinct from ${settings.broadcastId}`,
+					})
+					.returning({ pathId: pathState.pathId });
+				if (!claimed) return false;
+				if (destination.streamId !== settings.streamId) {
+					// The stream is per user, so another device may have stored one
+					// meanwhile. Keep theirs; ours is reusable and already bound to
+					// this broadcast, so this go-live works either way.
+					await tx
+						.update(appUser)
+						.set({ directYoutubeStreamId: destination.streamId })
+						.where(
+							and(
+								eq(appUser.id, userId),
+								settings.streamId === null
+									? isNull(appUser.directYoutubeStreamId)
+									: eq(appUser.directYoutubeStreamId, settings.streamId),
+							),
+						);
+				}
+				return true;
+			});
+		} catch (error) {
 			if (destination.createdBroadcast) {
-				orphanBroadcastId = destination.broadcastId;
+				await deleteYoutubeBroadcast(
+					dependencies,
+					accessToken,
+					destination.broadcastId,
+				);
 			}
-			if (destination.streamId !== settings.streamId) {
-				await tx
-					.update(appUser)
-					.set({ directYoutubeStreamId: destination.streamId })
-					.where(eq(appUser.id, userId));
-			}
-			await tx
-				.insert(pathState)
-				.values({
-					pathId,
-					directYoutubeBroadcastId: destination.broadcastId,
-				})
-				.onConflictDoUpdate({
-					target: pathState.pathId,
-					set: { directYoutubeBroadcastId: destination.broadcastId },
-				});
-			return destination.url;
-		});
-	} catch (error) {
-		if (orphanBroadcastId) {
-			await dependencies
-				.fetch(
-					`${YOUTUBE_API}/liveBroadcasts?id=${encodeURIComponent(orphanBroadcastId)}`,
-					{
-						method: "DELETE",
-						headers: { Authorization: `Bearer ${accessToken}` },
-					},
-				)
-				.catch(() => undefined);
+			throw error;
 		}
-		throw error;
+		if (stored) return destination.url;
+		if (destination.createdBroadcast) {
+			await deleteYoutubeBroadcast(
+				dependencies,
+				accessToken,
+				destination.broadcastId,
+			);
+		}
+		// One retry reuses the winner's broadcast; churn beyond that is a
+		// publisher reconnecting in a loop, and the next hook resolves again.
+		if (attempt >= 2) {
+			throw new DirectError(
+				"path-live",
+				"YouTube destination changed while starting, try again",
+			);
+		}
 	}
 }
 

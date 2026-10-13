@@ -1,5 +1,6 @@
 import { env } from "@VISP/env/server";
 import type { LanguageCode } from "./languages";
+import { withProviderTimeout } from "./provider-timeout";
 
 /**
  * ~75 ms, 32 languages including Finnish, and the only flagship model that
@@ -45,7 +46,9 @@ export async function synthesizeSpeech(
 
 	const response = await request(
 		`https://api.elevenlabs.io/v1/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${TTS_OUTPUT_FORMAT}`,
-		{
+		// A 240-character utterance comes back in well under a second; past
+		// this the app is better off with the device voice.
+		withProviderTimeout({
 			method: "POST",
 			headers: { "xi-api-key": apiKey, "Content-Type": "application/json" },
 			body: JSON.stringify({
@@ -53,7 +56,7 @@ export async function synthesizeSpeech(
 				model_id: TTS_MODEL_ID,
 				language_code: language,
 			}),
-		},
+		}),
 	);
 	// The upstream body can echo account details, so only the status travels.
 	if (!response.ok) {

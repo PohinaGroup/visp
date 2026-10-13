@@ -58,6 +58,8 @@ describe("createScribeToken", () => {
 		expect((call.init.headers as Record<string, string>)["xi-api-key"]).toBe(
 			"test-elevenlabs-key",
 		);
+		expect(call.init.signal).toBeInstanceOf(AbortSignal);
+		expect(call.init.signal?.aborted).toBe(false);
 	});
 
 	test("reports an upstream failure without repeating what it said", async () => {

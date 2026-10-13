@@ -1,9 +1,11 @@
 import { env } from "@VISP/env/server";
 import type { LanguageCode } from "./languages";
+import { withProviderTimeout } from "./provider-timeout";
 
 export const SCRIBE_MODEL_ID = "scribe_v2_realtime";
 export const SCRIBE_AUDIO_FORMAT = "pcm_16000";
 export type SubtitleLanguage = LanguageCode;
+export const SCRIBE_TOKEN_TIMEOUT_MS = 5_000;
 
 export class SubtitlesError extends Error {}
 
@@ -38,10 +40,11 @@ export async function createScribeToken(
 
 	const response = await request(
 		"https://api.elevenlabs.io/v1/single-use-token/realtime_scribe",
-		{
-			method: "POST",
-			headers: { "xi-api-key": apiKey },
-		},
+		// Minting a token is a tiny call; a stalled one should fail fast.
+		withProviderTimeout(
+			{ method: "POST", headers: { "xi-api-key": apiKey } },
+			SCRIBE_TOKEN_TIMEOUT_MS,
+		),
 	);
 	if (!response.ok) {
 		throw new SubtitlesError(`Subtitles provider returned ${response.status}`);

@@ -55,6 +55,42 @@ describe("sanitizeDirectError", () => {
 		expect(sanitizeDirectError(null)).toBeNull();
 	});
 
+	test("drops keys the relay already stripped of URL punctuation", () => {
+		for (const [input, expected] of [
+			[
+				"Error opening output rtmps:live.twitch.tvapplive_123_abc",
+				"Error opening output [url]",
+			],
+			[
+				"Error opening output rtmpslive.twitch.tvapplive_123456789_AbCdEfGh",
+				"Error opening output [redacted]",
+			],
+			["Key live_1_x rejected", "Key [redacted] rejected"],
+			[
+				"a.rtmp.youtube.comlive2abcd-1234-efgh-5678-ijkl: I/O error",
+				"[redacted] I/O error",
+			],
+			[
+				"stream.kick.com:443appsk_us-west-2_Xy12AbCdEf9 refused",
+				"[redacted] refused",
+			],
+			["srt:203.0.113.5:9000streamid:secret timed out", "[url] timed out"],
+		] as const) {
+			expect(sanitizeDirectError(input)).toBe(expected);
+		}
+	});
+
+	test("keeps ordinary diagnostics readable", () => {
+		for (const message of [
+			"av_interleaved_write_frame(): Broken pipe",
+			"Server returned 403 Forbidden (access denied)",
+			"Input/output error",
+			"YouTube streaming permission or live access is required (403)",
+		]) {
+			expect(sanitizeDirectError(message)).toBe(message);
+		}
+	});
+
 	test("bounds the stored length", () => {
 		expect(sanitizeDirectError("x".repeat(500))?.length).toBe(200);
 	});
