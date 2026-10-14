@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 const {
 	landingSuggestionResponse,
 	resetSeppoRateLimit,
+	SEPPO_MAX_BODY_BYTES,
 	seppoRoutes,
 	takeLandingRequest,
 	validateSeppoMessages,
@@ -252,5 +253,65 @@ describe("Seppo assistant", () => {
 				},
 			]),
 		).toBeNull();
+	});
+
+	test("refuses an oversized body before parsing it", async () => {
+		const oversized = JSON.stringify({
+			context: "landing",
+			messages: [],
+			padding: "x".repeat(SEPPO_MAX_BODY_BYTES),
+		});
+		const declared = await seppoRoutes.handle(
+			new Request("http://localhost/api/seppo", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: oversized,
+			}),
+		);
+		expect(declared.status).toBe(413);
+
+		// No Content-Length: the streamed read stops at the cap instead.
+		const bytes = new TextEncoder().encode(oversized);
+		const streamed = await seppoRoutes.handle(
+			new Request("http://localhost/api/seppo", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: new ReadableStream({
+					start(controller) {
+						for (let i = 0; i < bytes.length; i += 16_384)
+							controller.enqueue(bytes.subarray(i, i + 16_384));
+						controller.close();
+					},
+				}),
+				duplex: "half",
+			} as RequestInit),
+		);
+		expect(streamed.status).toBe(413);
+	});
+
+	test("the largest accepted transcript fits under the body cap", async () => {
+		// Control characters are the worst case: six bytes each once escaped.
+		const messages = Array.from({ length: 10 }, (_, index) => ({
+			id: String(index),
+			role: "user" as const,
+			parts: [{ type: "text" as const, text: "\u0001".repeat(2_000) }],
+		}));
+		expect(await validateSeppoMessages(messages, "landing")).not.toBeNull();
+		expect(
+			new TextEncoder().encode(JSON.stringify({ context: "landing", messages }))
+				.byteLength,
+		).toBeLessThan(SEPPO_MAX_BODY_BYTES);
+	});
+
+	test("rate limits anonymous callers before validating messages", async () => {
+		for (let request = 0; request < 20; request++) takeLandingRequest("direct");
+		const response = await seppoRoutes.handle(
+			new Request("http://localhost/api/seppo", {
+				method: "POST",
+				headers: { "content-type": "application/json" },
+				body: JSON.stringify({ context: "landing", messages: [] }),
+			}),
+		);
+		expect(response.status).toBe(429);
 	});
 });

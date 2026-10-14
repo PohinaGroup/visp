@@ -4,8 +4,58 @@
 # caddy.env drop-in on the app box carries production values, and a shared
 # variable name would leak between the two environments.
 
+# Snippet names carry a staging_ prefix: this file is imported into the
+# production Caddyfile, which defines its own, and is also validated alone.
+(staging_security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
+(staging_deny_framing) {
+	header {
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+}
+
+# Mirrors api_body_limits in deploy/app/Caddyfile.
+(staging_api_body_limits) {
+	@json_api {
+		path /api/* /trpc/* /.well-known/agent-configuration
+		not path /api/audio-isolation /api/typography/*
+	}
+	request_body @json_api {
+		max_size 1MiB
+	}
+	request_body /api/typography/* {
+		max_size 8MiB
+	}
+	request_body /api/audio-isolation {
+		max_size 64KiB
+	}
+}
+
 staging.visp-stream.com {
+	import staging_security_headers
+	# OBS loads /overlay as a top-level browser source, but the Cloud Studio
+	# editor previews browser layers in an iframe on this origin.
+	@overlay path /overlay
+	header @overlay {
+		X-Frame-Options SAMEORIGIN
+		Content-Security-Policy "frame-ancestors 'self'"
+	}
+	@not_overlay not path /overlay
+	header @not_overlay {
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+
 	route {
+		import staging_api_body_limits
+
 		# Hooks arrive from the staging relay on this same box (loopback) or
 		# from the box's own public address; the hook secret is checked by the
 		# app regardless.
@@ -23,6 +73,12 @@ staging.visp-stream.com {
 		}
 
 		handle /api/auth/* {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /api/agent/* {
+			reverse_proxy 127.0.0.1:3100
+		}
+		handle /.well-known/agent-configuration {
 			reverse_proxy 127.0.0.1:3100
 		}
 		handle /trpc/* {
@@ -70,6 +126,8 @@ staging.visp-stream.com {
 }
 
 admin.staging.visp-stream.com {
+	import staging_security_headers
+	import staging_deny_framing
 	root * /opt/visp-staging/apps/admin/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -77,6 +135,8 @@ admin.staging.visp-stream.com {
 }
 
 typography.staging.visp-stream.com {
+	import staging_security_headers
+	import staging_deny_framing
 	root * /opt/visp-staging/apps/typography/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -84,6 +144,10 @@ typography.staging.visp-stream.com {
 }
 
 multichat.staging.visp-stream.com {
+	import staging_security_headers
+	# The overlay is an OBS browser source and may be previewed in the Cloud
+	# Studio editor on the app origin; nothing else may frame it.
+	header Content-Security-Policy "frame-ancestors https://staging.visp-stream.com"
 	root * /opt/visp-staging/apps/multichat/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -91,6 +155,8 @@ multichat.staging.visp-stream.com {
 }
 
 stream.staging.visp-stream.com {
+	import staging_security_headers
+	import staging_deny_framing
 	root * /opt/visp-staging/apps/native/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -98,6 +164,8 @@ stream.staging.visp-stream.com {
 }
 
 remote.staging.visp-stream.com {
+	import staging_security_headers
+	import staging_deny_framing
 	root * /opt/visp-staging/apps/obs-remote/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -105,6 +173,8 @@ remote.staging.visp-stream.com {
 }
 
 docs.staging.visp-stream.com {
+	import staging_security_headers
+	import staging_deny_framing
 	root * /opt/visp-staging/apps/fumadocs/.output/public
 	encode zstd gzip
 

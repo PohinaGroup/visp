@@ -7,6 +7,7 @@ import { betterFeatures } from "@VISP/api/better-features";
 import { fixedWindow } from "@VISP/api/rate-limit";
 import { getUserSession } from "@VISP/auth";
 import { Elysia } from "elysia";
+import { readBodyWithLimit } from "./body-limit";
 
 /**
  * At 16 kHz mono s16le, 32 KB is one second of audio. Two chunks per second is
@@ -44,10 +45,10 @@ export const audioIsolationRoutes = new Elysia({
 			return status(400, { error: "Invalid request" });
 		}
 
-		const audio = await request.arrayBuffer();
-		if (audio.byteLength === 0 || audio.byteLength > ISOLATION_MAX_BYTES) {
-			return status(400, { error: "Invalid request" });
-		}
+		const body = await readBodyWithLimit(request, ISOLATION_MAX_BYTES);
+		if (!body) return status(413, { error: "Audio chunk too large" });
+		if (body.byteLength === 0) return status(400, { error: "Invalid request" });
+		const audio = body.buffer as ArrayBuffer;
 
 		try {
 			const isolated = await isolateAudioChunk(audio, session.user.id);

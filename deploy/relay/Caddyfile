@@ -1,4 +1,18 @@
+{
+	# Keep the admin API off TCP, where any local user (including the
+	# compositor) could rewrite the config. The socket is mode 0200 for the
+	# caddy user; deploy/systemd/caddy-relay.conf reloads through it.
+	admin "unix//var/lib/caddy/admin.sock|0200"
+}
+
 {$RELAY_DOMAIN} {
+	# No frame denial: WHEP players and MediaMTX pages may be embedded.
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+
 	@ping path /ping
 	# Public, credential-free probe used by both portal and browser broadcaster.
 	header @ping Access-Control-Allow-Origin "*"
