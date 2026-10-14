@@ -34,6 +34,7 @@ import {
 } from "@VISP/api/obs-backup";
 import {
 	authenticateObsControlToken,
+	parseObsControlToken,
 	pollObsControl,
 	revokeObsControlToken,
 	rotateObsControlToken,
@@ -81,6 +82,9 @@ const deviceMutations = fixedWindow(20, 60_000);
 const obsBackupRequests = fixedWindow(60, 60_000);
 // Completing reads the manifest and stats every file it lists.
 const obsBackupCompletions = fixedWindow(20, 60_000);
+// The HTTP fallback polls every 2 s and reports on OBS events; keyed by token
+// id before the database lookup, so a flood never reaches it.
+const obsControlPolls = fixedWindow(120, 60_000);
 const OBS_BACKUP_RATE_LIMITED =
 	"Too many backup requests. Try again in a minute.";
 
@@ -393,6 +397,9 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 	.post(
 		"/api/obs/control",
 		async ({ body, headers }) => {
+			const tokenId = parseObsControlToken(headers.authorization)?.id;
+			if (tokenId && !obsControlPolls.take(tokenId))
+				return status(429, "too many control requests");
 			try {
 				const command = await pollObsControl(headers.authorization, body);
 				return command ? command : status(401, "unauthorized");
@@ -611,9 +618,13 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
 				return status(401, "unauthorized");
 			}
-			return (await reportRelayHealth(body))
-				? status(204)
-				: status(404, "relay not registered");
+			try {
+				return (await reportRelayHealth(body))
+					? status(204)
+					: status(404, "relay not registered");
+			} catch {
+				return status(503, "relay health unavailable");
+			}
 		},
 		{
 			body: t.Object({
@@ -809,13 +820,18 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
 				return status(401, "unauthorized");
 			}
-			return (await customDirectOutputActive(
-				body.path,
-				body.outputId,
-				body.filter,
-			))
-				? status(204)
-				: status(410, "stopped");
+			// Only a definite answer may say 410; a failed lookup is a 503.
+			try {
+				return (await customDirectOutputActive(
+					body.path,
+					body.outputId,
+					body.filter,
+				))
+					? status(204)
+					: status(410, "stopped");
+			} catch {
+				return status(503, "direct state unavailable");
+			}
 		},
 		{
 			body: t.Object({
@@ -831,9 +847,14 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 			if (!matchesHookSecret(headers["x-hook-secret"])) {
 				return status(401, "unauthorized");
 			}
-			return (await directDestinationActive({ ...body, slug: body.path }))
-				? status(204)
-				: status(410, "stopped");
+			// Only a definite answer may say 410; a failed lookup is a 503.
+			try {
+				return (await directDestinationActive({ ...body, slug: body.path }))
+					? status(204)
+					: status(410, "stopped");
+			} catch {
+				return status(503, "direct state unavailable");
+			}
 		},
 		{
 			body: t.Object({

@@ -6,6 +6,11 @@ export type DirectCrop = {
 	aspect: string;
 };
 
+/** The portrait framings the web and native editors offer. */
+export const DIRECT_CROP_ASPECTS = ["9:16"] as const;
+/** Upper bound for either side of the scaled portrait output. */
+export const DIRECT_CROP_MAX_OUTPUT_SIDE = 3840;
+
 export function directCropError(crop: DirectCrop) {
 	const values = [crop.x, crop.y, crop.w, crop.h];
 	const match = /^(\d+):(\d+)$/.exec(crop.aspect);
@@ -21,6 +26,11 @@ export function directCropError(crop: DirectCrop) {
 	) {
 		return "Crop must stay within the source frame";
 	}
+	// The aspect sizes the ffmpeg scale on the relay, so only known framings
+	// may reach it.
+	if (!(DIRECT_CROP_ASPECTS as readonly string[]).includes(crop.aspect)) {
+		return "Crop must match its target aspect";
+	}
 	const target = Number(match[1]) / Number(match[2]);
 	const actual = (crop.w * 16) / (crop.h * 9);
 	return !target || Math.abs(actual / target - 1) > 0.01
@@ -28,9 +38,19 @@ export function directCropError(crop: DirectCrop) {
 		: null;
 }
 
+function evenSide(value: number) {
+	return Math.max(
+		2,
+		Math.min(DIRECT_CROP_MAX_OUTPUT_SIDE, Math.round(value / 2) * 2),
+	);
+}
+
 export function buildPortraitFilter(crop: DirectCrop) {
 	const [width = 9, height = 16] = crop.aspect.split(":").map(Number);
-	const outputHeight = 1920;
-	const outputWidth = Math.round((outputHeight * width) / height / 2) * 2;
+	const ratio = width / height;
+	// 1920 tall for portrait; a wider framing keeps its long side at 1920 so
+	// neither side can exceed the cap.
+	const outputHeight = evenSide(ratio <= 1 ? 1920 : 1920 / ratio);
+	const outputWidth = evenSide(outputHeight * ratio);
 	return `crop=iw*${crop.w}:ih*${crop.h}:iw*${crop.x}:ih*${crop.y},scale=${outputWidth}:${outputHeight}`;
 }

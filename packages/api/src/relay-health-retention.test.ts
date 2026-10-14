@@ -11,6 +11,7 @@ import {
 	relayHealthHourly,
 	relayHealthSample,
 	relayPath,
+	rttSample,
 	user,
 } from "@VISP/db/schema/index";
 import { afterAll, beforeAll, describe, expect, spyOn, test } from "bun:test";
@@ -271,7 +272,12 @@ integration("relay health history", () => {
 		});
 
 		const again = await rollupAndPruneRelayHealth(now);
-		expect(again).toEqual({ rolledSamples: 0, hourlyRows: 0, prunedHourly: 0 });
+		expect(again).toEqual({
+			rolledSamples: 0,
+			hourlyRows: 0,
+			prunedHourly: 0,
+			prunedRtt: 0,
+		});
 		expect(await hourly()).toEqual(rolled);
 
 		// A straggler in an already-rolled hour merges instead of replacing it.
@@ -289,6 +295,33 @@ integration("relay health history", () => {
 			samples: 3,
 		});
 		expect(merged?.avgLoad1).toBeCloseTo(3, 5);
+	});
+
+	test("rollup drops RTT probes past their retention", async () => {
+		const now = new Date("2026-10-10T12:20:00Z");
+		await db.insert(rttSample).values([
+			{
+				relayId,
+				userId,
+				rttMs: 40,
+				method: "manual",
+				createdAt: new Date("2025-09-01T00:00:00Z"),
+			},
+			{
+				relayId,
+				userId,
+				rttMs: 41,
+				method: "manual",
+				createdAt: new Date("2026-01-01T00:00:00Z"),
+			},
+		]);
+		const result = await rollupAndPruneRelayHealth(now);
+		expect(result?.prunedRtt).toBeGreaterThanOrEqual(1);
+		const kept = await db
+			.select({ rttMs: rttSample.rttMs })
+			.from(rttSample)
+			.where(eq(rttSample.userId, userId));
+		expect(kept).toEqual([{ rttMs: 41 }]);
 	});
 
 	test("a second instance skips while one holds the lock", async () => {

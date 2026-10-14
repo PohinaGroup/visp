@@ -61,11 +61,15 @@ export const multiChatRoutes = new Elysia({
 	.post(
 		"/api/multichat/overlay/ticket",
 		async ({ body }) => {
-			const userId = await authenticateMultiChatOverlayToken(body.token);
-			if (!userId) return status(401, "unauthorized");
-			if (!ticketMints.take(userId))
-				return status(429, "too many overlay tickets");
-			return multiChatTickets.issue(userId);
+			try {
+				const userId = await authenticateMultiChatOverlayToken(body.token);
+				if (!userId) return status(401, "unauthorized");
+				if (!ticketMints.take(userId))
+					return status(429, "too many overlay tickets");
+				return multiChatTickets.issue(userId);
+			} catch {
+				return status(503, "overlay ticket unavailable");
+			}
 		},
 		{ body: t.Object({ token: t.String({ minLength: 1, maxLength: 128 }) }) },
 	);

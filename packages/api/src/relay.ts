@@ -1260,6 +1260,8 @@ export async function completeOnboarding(
 	};
 }
 
+export const RTT_SAMPLE_MIN_INTERVAL_SECONDS = 10;
+
 export async function submitRtt(input: {
 	method: "browser-probe" | "manual";
 	profile: NetworkProfile;
@@ -1267,12 +1269,17 @@ export async function submitRtt(input: {
 	rttMs: number;
 	userId: string;
 }) {
-	await db.insert(rttSample).values({
-		relayId: input.relayId,
-		userId: input.userId,
-		rttMs: input.rttMs,
-		method: input.method,
-	});
+	// At most one stored probe per user per window: the guidance is still
+	// returned, but a scripted client cannot grow rtt_sample without bound.
+	await db.execute(sql`
+		insert into ${rttSample} (relay_id, user_id, rtt_ms, method)
+		select ${input.relayId}::int, ${input.userId}, ${input.rttMs}::int, ${input.method}
+		where not exists (
+			select 1 from ${rttSample}
+			where ${rttSample.userId} = ${input.userId}
+				and ${rttSample.createdAt} > now() - make_interval(secs => ${RTT_SAMPLE_MIN_INTERVAL_SECONDS})
+		)
+	`);
 	return {
 		...recommendLatency(input.rttMs, input.profile),
 		bitrateKbps: {
