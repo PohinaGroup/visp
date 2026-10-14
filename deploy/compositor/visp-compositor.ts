@@ -1,6 +1,5 @@
 #!/usr/bin/env bun
 
-import { createHash } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import type { StudioAlertAppearance } from "../../packages/api/src/studio-alert";
 import {
@@ -10,6 +9,7 @@ import {
 import { renderStudioAlertPng, studioAlertFilters } from "./alert";
 import { openBrowser } from "./browser";
 import { CompositorPipeline } from "./pipeline";
+import { reserveStudioPorts, studioLoopbackUrls } from "./ports";
 import {
 	authenticatedProgramUrls,
 	authenticatedRtspUrl,
@@ -132,21 +132,19 @@ let appliedSceneId: string | undefined;
 let lastBrowserRefresh = 0;
 let activeFeedSlot: 0 | 1 | undefined;
 let requestedMode: "program" | "passthrough" = "passthrough";
-const pathHash = createHash("sha256").update(path).digest();
-const programPort = 20_000 + (pathHash.readUInt16BE(0) % 20_000);
-const feedPort = 40_000 + (pathHash.readUInt16BE(2) % 10_000) * 2;
-const feedHost = "127.0.0.1";
-const programOutputUrl = `udp://127.0.0.1:${programPort}?pkt_size=1316`;
-const publisherInputUrl = studioReceiveUrl(programOutputUrl);
+// Held for the worker's lifetime. Receivers bind without `reuse`, so a port
+// another session somehow holds makes FFmpeg exit instead of mixing programs.
+const {
+	ports: [programPort = 0, ...feedPorts],
+} = await reserveStudioPorts(3);
+const programOutputUrl = studioLoopbackUrls(programPort).output;
+const publisherInputUrl = studioReceiveUrl(
+	studioLoopbackUrls(programPort).input,
+);
 
 function rendererFeed(slot: 0 | 1) {
-	const port = feedPort + slot;
-	return {
-		input: studioReceiveUrl(
-			`udp://${feedHost}:${port}?localaddr=127.0.0.1&reuse=1`,
-		),
-		output: `udp://${feedHost}:${port}?localaddr=127.0.0.1&pkt_size=1316`,
-	};
+	const urls = studioLoopbackUrls(feedPorts[slot] ?? 0);
+	return { input: studioReceiveUrl(urls.input), output: urls.output };
 }
 
 function relayArgs(inputUrl: string) {

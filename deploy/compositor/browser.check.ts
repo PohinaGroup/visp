@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { existsSync } from "node:fs";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -10,7 +11,6 @@ import { studioImageArgs } from "./state";
 const work = await mkdtemp(join(tmpdir(), "visp-browser-check-"));
 let browser: Awaited<ReturnType<typeof openBrowser>> | undefined;
 let encoder: ReturnType<typeof Bun.spawn> | undefined;
-let socket: WebSocket | undefined;
 try {
 	browser = await openBrowser(work, {
 		id: "widget",
@@ -18,41 +18,14 @@ try {
 		width: 320,
 		height: 180,
 	});
-	const [port] = (
-		await readFile(join(work, "chrome-widget/DevToolsActivePort"), "utf8")
-	).split("\n");
-	const targets = (await (
-		await fetch(`http://127.0.0.1:${port}/json/list`)
-	).json()) as { type: string; webSocketDebuggerUrl: string }[];
-	const target = targets.find((target) => target.type === "page");
-	assert(target);
-	const cdp = new WebSocket(target.webSocketDebuggerUrl);
-	socket = cdp;
-	await new Promise<void>((resolve, reject) => {
-		cdp.onopen = () => resolve();
-		cdp.onerror = reject;
-	});
-	let id = 0;
+	assert.equal(
+		existsSync(join(work, "chrome-widget/DevToolsActivePort")),
+		false,
+		"CDP runs over pipes, not a local debugging port",
+	);
 	async function color(value: string) {
-		const commandId = ++id;
-		await new Promise<void>((resolve, reject) => {
-			const timer = setTimeout(() => reject(new Error("CDP timeout")), 5000);
-			cdp.onmessage = (event) => {
-				const result = JSON.parse(String(event.data));
-				if (result.id !== commandId) return;
-				clearTimeout(timer);
-				if (result.error) reject(new Error(result.error.message));
-				else resolve();
-			};
-			cdp.send(
-				JSON.stringify({
-					id: commandId,
-					method: "Runtime.evaluate",
-					params: {
-						expression: `document.documentElement.innerHTML = '<body style="margin:0;background:${value}"></body>'`,
-					},
-				}),
-			);
+		await browser?.command("Runtime.evaluate", {
+			expression: `document.documentElement.innerHTML = '<body style="margin:0;background:${value}"></body>'`,
 		});
 		await Bun.sleep(100);
 	}
@@ -109,17 +82,10 @@ try {
 		pixels.some((p) => p.readUInt8(2) > 200 && p.readUInt8(0) < 50),
 		"FFmpeg reads updated pixels without restarting",
 	);
-	assert.equal(
-		(
-			await readFile(join(work, "chrome-widget/DevToolsActivePort"), "utf8")
-		).split("\n")[0],
-		port,
-	);
 	console.log(
 		"ok: persistent browser refresh reaches a running FFmpeg input without restarting either process",
 	);
 } finally {
-	socket?.close();
 	encoder?.kill();
 	await encoder?.exited;
 	await browser?.close();

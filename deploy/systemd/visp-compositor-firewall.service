@@ -4,8 +4,11 @@ Before=visp-compositor@.service
 
 [Service]
 Type=oneshot
+# The ruleset replaces its own table in one transaction, so start and reload
+# are idempotent and never leave a gap without the rules.
 ExecStart=/usr/sbin/nft -f /etc/visp/visp-compositor.nft
-ExecStop=/usr/sbin/nft delete table inet visp_compositor
+ExecReload=/usr/sbin/nft -f /etc/visp/visp-compositor.nft
+ExecStop=-/usr/sbin/nft delete table inet visp_compositor
 RemainAfterExit=yes
 
 [Install]

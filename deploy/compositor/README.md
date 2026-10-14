@@ -40,14 +40,28 @@ STUDIO_WORKER_TOKEN=... bun visp-compositor.ts https://api.visp.example path-1 \
 
 The worker polls the last saved desired state every second. One stable FFmpeg
 publisher owns the local MediaMTX Studio namespace; replaceable renderers feed
-it over a per-path loopback MPEG-TS socket, so Save, scene transitions, alerts,
-and browser refreshes do not disconnect the program publisher. Health is
+it over loopback MPEG-TS UDP sockets, so Save, scene transitions, alerts,
+and browser refreshes do not disconnect the program publisher. Each worker
+reserves three ports from 20000-29999 for its lifetime (an abstract Unix lock
+per port, so two workers can never share one), and receivers bind without
+`reuse`, so any other collision makes FFmpeg exit instead of mixing programs. Health is
 reported only while both the stable publisher and its renderer are running and
 the RTSP program has become readable. Direct forwarders use that program while
 the rollout flag, account mode, and health all permit it; otherwise they use raw
 ingest. Chromium keeps its OS sandbox and gets a DNS-pinned public host with all
-other host resolution blocked. Production units must additionally deny private
-network egress for the compositor service account.
+other host resolution blocked. The worker drives it over
+`--remote-debugging-pipe`, so there is no local debugging port.
+
+`visp-compositor.nft` denies the service account private-network egress and
+all of loopback except the systemd-resolved stub (`127.0.0.53:53`), RTSP
+(`127.0.0.1:8554`), and the feed ports, which keeps it away from the Caddy
+admin API, the MediaMTX API and WebRTC, and anything else bound to loopback.
+The unit's pre-start check refuses to run unless that table is loaded,
+`/etc/resolv.conf` names `127.0.0.53` or a public resolver, and
+`net.ipv4.ip_local_port_range` does not overlap 20000-29999 (the default
+32768-60999 does not). Reloading the firewall unit replaces the table in one
+transaction. The unit also hides other users' processes (`ProtectProc`), so a
+compromised page cannot read forwarder command lines.
 
 The shipped unit caps each worker at 2 GiB, three CPU cores, and 256 tasks.
 Calibrate those values using a systemd drop-in after measuring the largest
