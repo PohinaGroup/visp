@@ -7,7 +7,11 @@ import {
 } from "./ports";
 import { studioReceiveUrl } from "./state";
 
-test("concurrent workers never share a loopback feed port", async () => {
+// The port lock is an abstract Unix socket, which only Linux has; the worker
+// never runs anywhere else.
+const linuxOnly = test.skipIf(process.platform !== "linux");
+
+linuxOnly("concurrent workers never share a loopback feed port", async () => {
 	const workers = await Promise.all(
 		Array.from({ length: 40 }, () => reserveStudioPorts(3)),
 	);
@@ -26,26 +30,29 @@ test("concurrent workers never share a loopback feed port", async () => {
 	}
 });
 
-test("a port held by another worker is skipped even while its UDP socket is unbound", async () => {
-	// Force both workers onto the same candidate sequence.
-	const sequence = () => {
-		let call = 0;
-		return () => [0.5, 0.5, 0.25, 0.75][call++ % 4] ?? 0;
-	};
-	const first = await reserveStudioPorts(1, { random: sequence() });
-	try {
-		const second = await reserveStudioPorts(1, { random: sequence() });
+linuxOnly(
+	"a port held by another worker is skipped even while its UDP socket is unbound",
+	async () => {
+		// Force both workers onto the same candidate sequence.
+		const sequence = () => {
+			let call = 0;
+			return () => [0.5, 0.5, 0.25, 0.75][call++ % 4] ?? 0;
+		};
+		const first = await reserveStudioPorts(1, { random: sequence() });
 		try {
-			expect(second.ports[0]).not.toBe(first.ports[0]);
+			const second = await reserveStudioPorts(1, { random: sequence() });
+			try {
+				expect(second.ports[0]).not.toBe(first.ports[0]);
+			} finally {
+				second.release();
+			}
 		} finally {
-			second.release();
+			first.release();
 		}
-	} finally {
-		first.release();
-	}
-});
+	},
+);
 
-test("a port bound by an unrelated process is not reserved", async () => {
+linuxOnly("a port bound by an unrelated process is not reserved", async () => {
 	const first = await reserveStudioPorts(1, { random: () => 0.5 });
 	const port = first.ports[0] ?? 0;
 	first.release();
@@ -72,50 +79,53 @@ test("releases partial reservations when the range is exhausted", async () => {
 	expect(released).toEqual([STUDIO_PORT_MIN]);
 });
 
-test("receivers bind loopback only and refuse a port already in use", async () => {
-	const { ports, release } = await reserveStudioPorts(1);
-	const port = ports[0];
-	expect(studioLoopbackUrls(port ?? 0).input).not.toContain("reuse");
-	const listen = () =>
-		Bun.spawn(
-			[
-				"ffmpeg",
-				"-nostdin",
-				"-v",
-				"error",
-				"-i",
-				studioReceiveUrl(studioLoopbackUrls(port ?? 0).input, "8192"),
-				"-f",
-				"null",
-				"-",
-			],
-			{ stdout: "ignore", stderr: "ignore" },
-		);
-	if (!Bun.which("ffmpeg")) {
-		release();
-		return;
-	}
-	const first = listen();
-	try {
-		const hex = (port ?? 0).toString(16).toUpperCase().padStart(4, "0");
-		let bound = "";
-		for (let attempt = 0; attempt < 50 && !bound; attempt++) {
-			await Bun.sleep(50);
-			bound =
-				(await Bun.file("/proc/net/udp").text())
-					.split("\n")
-					.map((line) => line.trim().split(/\s+/)[1] ?? "")
-					.find((address) => address.endsWith(`:${hex}`)) ?? "";
+linuxOnly(
+	"receivers bind loopback only and refuse a port already in use",
+	async () => {
+		const { ports, release } = await reserveStudioPorts(1);
+		const port = ports[0];
+		expect(studioLoopbackUrls(port ?? 0).input).not.toContain("reuse");
+		const listen = () =>
+			Bun.spawn(
+				[
+					"ffmpeg",
+					"-nostdin",
+					"-v",
+					"error",
+					"-i",
+					studioReceiveUrl(studioLoopbackUrls(port ?? 0).input, "8192"),
+					"-f",
+					"null",
+					"-",
+				],
+				{ stdout: "ignore", stderr: "ignore" },
+			);
+		if (!Bun.which("ffmpeg")) {
+			release();
+			return;
 		}
-		expect(bound).toBe(`0100007F:${hex}`);
-		const second = listen();
-		const timer = setTimeout(() => second.kill(), 5_000);
-		expect(await second.exited).not.toBe(0);
-		clearTimeout(timer);
-		expect(first.exitCode).toBeNull();
-	} finally {
-		first.kill();
-		await first.exited;
-		release();
-	}
-});
+		const first = listen();
+		try {
+			const hex = (port ?? 0).toString(16).toUpperCase().padStart(4, "0");
+			let bound = "";
+			for (let attempt = 0; attempt < 50 && !bound; attempt++) {
+				await Bun.sleep(50);
+				bound =
+					(await Bun.file("/proc/net/udp").text())
+						.split("\n")
+						.map((line) => line.trim().split(/\s+/)[1] ?? "")
+						.find((address) => address.endsWith(`:${hex}`)) ?? "";
+			}
+			expect(bound).toBe(`0100007F:${hex}`);
+			const second = listen();
+			const timer = setTimeout(() => second.kill(), 5_000);
+			expect(await second.exited).not.toBe(0);
+			clearTimeout(timer);
+			expect(first.exitCode).toBeNull();
+		} finally {
+			first.kill();
+			await first.exited;
+			release();
+		}
+	},
+);
