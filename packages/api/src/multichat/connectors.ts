@@ -16,25 +16,14 @@ import {
 import { normalizeTwitchMessage } from "../chat/normalize";
 import type { MultiChatProvider } from "./contract";
 import { multiChatHub } from "./hub";
+import { type EventSubSocket, SharedTwitchEventSub } from "./twitch-eventsub";
 
-const TWITCH_EVENTSUB_URL =
-	"wss://eventsub.wss.twitch.tv/ws?keepalive_timeout_seconds=30";
 const RETRY_DELAYS = [1_000, 2_000, 5_000, 10_000, 20_000];
+/** Coalesces a burst of saves into one rebuild of the provider connections. */
+const REFRESH_DEBOUNCE_MS = 1_500;
 
 type Stop = () => void | Promise<void>;
 type Source = typeof multiChatSource.$inferSelect;
-type TwitchEnvelope = {
-	metadata?: {
-		message_type?: string;
-		message_timestamp?: string;
-		subscription_type?: string;
-	};
-	payload?: {
-		event?: Record<string, unknown>;
-		session?: { id?: string; reconnect_url?: string | null };
-		subscription?: { status?: string };
-	};
-};
 
 function sourceError(error: unknown) {
 	return error instanceof Error ? error.message : "Could not connect to chat";
@@ -72,14 +61,14 @@ async function resolveTwitchChannel(login: string) {
 	const payload = (await response.json()) as { data?: Array<{ id?: string }> };
 	const id = payload.data?.[0]?.id;
 	if (!id) throw new Error("Twitch channel was not found");
-	return { broadcasterId: id, bot };
+	return id;
 }
 
 async function createTwitchSubscription(
 	broadcasterId: string,
 	sessionId: string,
-	bot: { accountId: string; accessToken: string },
 ) {
+	const bot = await twitchBot();
 	const response = await fetch(
 		"https://api.twitch.tv/helix/eventsub/subscriptions",
 		{
@@ -100,28 +89,59 @@ async function createTwitchSubscription(
 			}),
 		},
 	);
-	if (response.ok) return;
 	const payload = (await response.json().catch(() => null)) as {
 		message?: string;
+		data?: Array<{ id?: string }>;
 	} | null;
+	const id = payload?.data?.[0]?.id;
+	if (response.ok && id) return id;
 	throw new Error(
 		payload?.message ?? `Twitch subscription failed (${response.status})`,
 	);
 }
 
+async function deleteTwitchSubscription(subscriptionId: string) {
+	const bot = await twitchBot();
+	await fetch(
+		`https://api.twitch.tv/helix/eventsub/subscriptions?id=${encodeURIComponent(subscriptionId)}`,
+		{
+			method: "DELETE",
+			headers: {
+				Authorization: `Bearer ${bot.accessToken}`,
+				"Client-Id": env.TWITCH_CLIENT_ID,
+			},
+		},
+	);
+}
+
+const twitchEventSub = new SharedTwitchEventSub({
+	connect: (url) => {
+		const ws = new WebSocket(url);
+		const socket: EventSubSocket = {
+			onmessage: null,
+			onclose: null,
+			onerror: null,
+			close: () => ws.close(),
+		};
+		ws.onmessage = (event) => socket.onmessage?.({ data: event.data });
+		ws.onclose = () => socket.onclose?.();
+		ws.onerror = () => socket.onerror?.();
+		return socket;
+	},
+	subscribe: createTwitchSubscription,
+	unsubscribe: deleteTwitchSubscription,
+});
+
 function startTwitch(userId: string, source: Source): Stop {
-	let socket: WebSocket | undefined;
+	let running = true;
 	let retry = 0;
 	let timer: ReturnType<typeof setTimeout> | undefined;
-	let running = true;
-	let subscribed = false;
-	const connect = async (url = TWITCH_EVENTSUB_URL) => {
+	let release: (() => void) | undefined;
+	const connect = async () => {
 		if (!running) return;
 		multiChatHub.status(userId, "twitch", "connecting");
 		try {
-			const { broadcasterId, bot } = await resolveTwitchChannel(
-				source.channelLogin,
-			);
+			const broadcasterId = await resolveTwitchChannel(source.channelLogin);
 			await db
 				.update(multiChatSource)
 				.set({ channelId: broadcasterId })
@@ -131,94 +151,45 @@ function startTwitch(userId: string, source: Source): Stop {
 						eq(multiChatSource.provider, "twitch"),
 					),
 				);
-			const nextSocket = new WebSocket(url);
-			socket = nextSocket;
-			nextSocket.onerror = () => nextSocket.close();
-			nextSocket.onclose = () => {
-				if (socket === nextSocket) schedule();
-			};
-			nextSocket.onmessage = ({ data }) => {
-				if (typeof data !== "string") return;
-				void handle(data, broadcasterId, bot);
-			};
+			if (!running) return;
+			release = twitchEventSub.add(broadcasterId, {
+				onStatus: (state, error) =>
+					multiChatHub.status(userId, "twitch", state, error),
+				onMessage: (event, sentAt) => {
+					const message = normalizeTwitchMessage({
+						...event,
+						sent_at: sentAt,
+					});
+					if (!message) return;
+					multiChatHub.publish(userId, {
+						type: "message",
+						message: {
+							id: message.id,
+							provider: "twitch",
+							sentAt: message.sentAt,
+							sender: message.sender.name,
+							color: message.sender.color,
+							text: message.fragments.map((fragment) => fragment.text).join(""),
+						},
+					});
+				},
+			});
 		} catch (error) {
 			multiChatHub.status(userId, "twitch", "error", sourceError(error));
-			schedule();
+			if (!running) return;
+			const delay = RETRY_DELAYS[Math.min(retry, RETRY_DELAYS.length - 1)];
+			retry += 1;
+			timer = setTimeout(() => {
+				timer = undefined;
+				void connect();
+			}, delay);
 		}
-	};
-	const schedule = () => {
-		if (!running || timer) return;
-		multiChatHub.status(userId, "twitch", "disconnected");
-		const delay = RETRY_DELAYS[Math.min(retry, RETRY_DELAYS.length - 1)];
-		retry += 1;
-		timer = setTimeout(() => {
-			timer = undefined;
-			subscribed = false;
-			void connect();
-		}, delay);
-	};
-	const handle = async (
-		raw: string,
-		broadcasterId: string,
-		bot: { accountId: string; accessToken: string },
-	) => {
-		let envelope: TwitchEnvelope;
-		try {
-			envelope = JSON.parse(raw) as TwitchEnvelope;
-		} catch {
-			return;
-		}
-		if (envelope.metadata?.message_type === "session_welcome") {
-			const sessionId = envelope.payload?.session?.id;
-			if (!sessionId || subscribed) return;
-			try {
-				await createTwitchSubscription(broadcasterId, sessionId, bot);
-				subscribed = true;
-				retry = 0;
-				multiChatHub.status(userId, "twitch", "connected");
-			} catch (error) {
-				multiChatHub.status(userId, "twitch", "error", sourceError(error));
-				socket?.close();
-			}
-			return;
-		}
-		if (envelope.metadata?.message_type === "session_reconnect") {
-			const reconnectUrl = envelope.payload?.session?.reconnect_url;
-			if (reconnectUrl?.startsWith("wss://eventsub.wss.twitch.tv/")) {
-				const old = socket;
-				subscribed = true;
-				void connect(reconnectUrl);
-				setTimeout(() => old?.close(), 5_000);
-			}
-			return;
-		}
-		if (
-			envelope.metadata?.message_type !== "notification" ||
-			envelope.metadata.subscription_type !== "channel.chat.message"
-		)
-			return;
-		const message = normalizeTwitchMessage({
-			...envelope.payload?.event,
-			sent_at: envelope.metadata.message_timestamp,
-		});
-		if (!message) return;
-		multiChatHub.publish(userId, {
-			type: "message",
-			message: {
-				id: message.id,
-				provider: "twitch",
-				sentAt: message.sentAt,
-				sender: message.sender.name,
-				color: message.sender.color,
-				text: message.fragments.map((fragment) => fragment.text).join(""),
-			},
-		});
 	};
 	void connect();
 	return () => {
 		running = false;
 		clearTimeout(timer);
-		socket?.close();
+		release?.();
 		multiChatHub.status(userId, "twitch", "disconnected");
 	};
 }
@@ -304,6 +275,7 @@ async function startKick(userId: string, source: Source): Promise<Stop> {
 	multiChatHub.status(userId, "kick", "connected");
 	return async () => {
 		await deleteKickSubscription(subscriptionId).catch(() => undefined);
+		// Compare-and-set: a newer start may already have stored its own id.
 		await db
 			.update(multiChatSource)
 			.set({ kickSubscriptionId: null })
@@ -311,48 +283,103 @@ async function startKick(userId: string, source: Source): Promise<Stop> {
 				and(
 					eq(multiChatSource.userId, userId),
 					eq(multiChatSource.provider, "kick"),
+					eq(multiChatSource.kickSubscriptionId, subscriptionId),
 				),
 			);
 		multiChatHub.status(userId, "kick", "disconnected");
 	};
 }
 
+type Running = { channelLogin: string; stop: Stop };
+
+/** What `refresh` must change to make `running` match `wanted`. */
+export function planSourceChanges<
+	T extends { provider: MultiChatProvider; channelLogin: string },
+>(
+	running: ReadonlyMap<MultiChatProvider, { channelLogin: string }>,
+	wanted: readonly T[],
+) {
+	const wantedBy = new Map(wanted.map((source) => [source.provider, source]));
+	const stop = [...running].flatMap(([provider, current]) =>
+		wantedBy.get(provider)?.channelLogin === current.channelLogin
+			? []
+			: [provider],
+	);
+	const start = wanted.filter(
+		(source) =>
+			running.get(source.provider)?.channelLogin !== source.channelLogin,
+	);
+	return { stop, start };
+}
+
 class MultiChatSourceManager {
 	private readonly audiences = new Map<string, number>();
-	private readonly active = new Map<string, Map<MultiChatProvider, Stop>>();
+	private readonly active = new Map<string, Map<MultiChatProvider, Running>>();
+	/** Per-user tail of queued work: a stop and a later start never overlap. */
+	private readonly queues = new Map<string, Promise<void>>();
+	private readonly refreshTimers = new Map<
+		string,
+		ReturnType<typeof setTimeout>
+	>();
 
 	constructor() {
-		multiChatHub.onAudienceChanged(
-			(userId, count) => void this.audienceChanged(userId, count),
+		multiChatHub.onAudienceChanged((userId, count) => {
+			this.audiences.set(userId, count);
+			if (count === 0) this.audiences.delete(userId);
+			this.enqueue(userId, () => this.sync(userId));
+		});
+		multiChatHub.onRefresh((userId) => this.requestRefresh(userId));
+	}
+
+	private requestRefresh(userId: string) {
+		clearTimeout(this.refreshTimers.get(userId));
+		this.refreshTimers.set(
+			userId,
+			setTimeout(() => {
+				this.refreshTimers.delete(userId);
+				this.enqueue(userId, () => this.sync(userId));
+			}, REFRESH_DEBOUNCE_MS),
 		);
-		multiChatHub.onRefresh((userId) => void this.refresh(userId));
 	}
 
-	private async audienceChanged(userId: string, count: number) {
-		this.audiences.set(userId, count);
-		if (count === 0) return this.stop(userId);
-		await this.start(userId);
+	private enqueue(userId: string, task: () => Promise<void>) {
+		const next = (this.queues.get(userId) ?? Promise.resolve())
+			.then(task)
+			.catch((error) => console.error("Multichat sources failed", error));
+		this.queues.set(userId, next);
+		void next.finally(() => {
+			if (this.queues.get(userId) === next) this.queues.delete(userId);
+		});
 	}
 
-	private async refresh(userId: string) {
-		await this.stop(userId);
-		if ((this.audiences.get(userId) ?? 0) > 0) await this.start(userId);
-	}
-
-	private async start(userId: string) {
-		if (this.active.has(userId)) return;
-		const sources = await db
-			.select()
-			.from(multiChatSource)
-			.where(
-				and(
-					eq(multiChatSource.userId, userId),
-					eq(multiChatSource.enabled, true),
-				),
-			);
-		const active = new Map<MultiChatProvider, Stop>();
-		this.active.set(userId, active);
-		for (const source of sources) {
+	/**
+	 * Brings the running connections in line with the saved sources. Unchanged
+	 * sources keep their connection, so a repeated save costs one SELECT and no
+	 * provider calls; a source whose start failed is not running and is retried.
+	 */
+	private async sync(userId: string) {
+		const active = this.active.get(userId) ?? new Map();
+		const wanted =
+			(this.audiences.get(userId) ?? 0) > 0
+				? await db
+						.select()
+						.from(multiChatSource)
+						.where(
+							and(
+								eq(multiChatSource.userId, userId),
+								eq(multiChatSource.enabled, true),
+							),
+						)
+				: [];
+		const plan = planSourceChanges(active, wanted);
+		await Promise.all(
+			plan.stop.map(async (provider) => {
+				const running = active.get(provider);
+				active.delete(provider);
+				await running?.stop();
+			}),
+		);
+		for (const source of plan.start) {
 			try {
 				const stop =
 					source.provider === "twitch"
@@ -360,7 +387,10 @@ class MultiChatSourceManager {
 						: source.provider === "tiktok"
 							? startTikTok(userId, source)
 							: await startKick(userId, source);
-				active.set(source.provider, stop);
+				active.set(source.provider, {
+					channelLogin: source.channelLogin,
+					stop,
+				});
 			} catch (error) {
 				multiChatHub.status(
 					userId,
@@ -370,12 +400,8 @@ class MultiChatSourceManager {
 				);
 			}
 		}
-	}
-
-	private async stop(userId: string) {
-		const active = this.active.get(userId);
-		this.active.delete(userId);
-		await Promise.all([...(active?.values() ?? [])].map((stop) => stop()));
+		if (active.size > 0) this.active.set(userId, active);
+		else this.active.delete(userId);
 	}
 }
 
