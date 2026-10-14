@@ -4,6 +4,19 @@ declare global {
 	}
 }
 
+// Routes that carry a secret in the URL: the overlay token (?t=) and the
+// OBS pairing code. Analytics never loads on them.
+const ANALYTICS_EXCLUDED_PATHS = new Set(["/overlay", "/device"]);
+
+export function analyticsAllowed(pathname: string | undefined) {
+	if (!pathname) return true;
+	const normalized =
+		pathname.length > 1 && pathname.endsWith("/")
+			? pathname.slice(0, -1)
+			: pathname;
+	return !ANALYTICS_EXCLUDED_PATHS.has(normalized);
+}
+
 export function trackEvent(
 	eventName: string,
 	properties?: Record<string, unknown>,

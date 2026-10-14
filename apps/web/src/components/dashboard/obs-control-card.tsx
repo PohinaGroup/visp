@@ -15,6 +15,7 @@ import { RevealedValue } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
 import { localeSearch, useLocale, useT } from "@/lib/i18n";
+import { pollWithBackoff } from "@/lib/query-resilience";
 import { useTRPC } from "@/utils/trpc";
 import { obsStatusMessage } from "./format";
 import type { ObsPairing } from "./types";
@@ -39,7 +40,7 @@ export function ObsControlCard() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const statusQuery = useQuery(
-		trpc.obs.status.queryOptions(undefined, { refetchInterval: 3000 }),
+		trpc.obs.status.queryOptions(undefined, pollWithBackoff(3000)),
 	);
 	const [pairing, setPairing] = useState<ObsPairing | null>(null);
 	const pair = useMutation(

@@ -144,7 +144,95 @@ function RelayAdmin() {
 			toast.error(
 				error instanceof Error ? error.message : "Relay update failed",
 			);
+			// A precondition conflict means this view is stale; show the real state.
+			await queryClient.invalidateQueries({ queryKey: ["admin-relays"] });
 		}
+	};
+	// Capacity edits commit on blur or Enter, but only after a confirm; a
+	// cancelled edit puts the stored value back.
+	const saveCapacity = (
+		input: HTMLInputElement,
+		relay: RelayRow,
+		field: "capacityPaths" | "maxForwarders",
+	) => {
+		const value = Number(input.value);
+		const current = relay[field];
+		const valid =
+			Number.isInteger(value) &&
+			(field === "capacityPaths" ? value > 0 : value >= 0);
+		if (!valid || value === current) {
+			input.value = String(current);
+			return;
+		}
+		const label =
+			field === "capacityPaths" ? "path capacity" : "forwarder capacity";
+		if (
+			!window.confirm(
+				`Change ${relay.name} ${label} from ${current} to ${value}?`,
+			)
+		) {
+			input.value = String(current);
+			return;
+		}
+		void run(
+			() =>
+				trpc.admin.relays.update.mutate(
+					field === "capacityPaths"
+						? {
+								id: relay.id,
+								capacityPaths: value,
+								expected: { capacityPaths: current },
+							}
+						: {
+								id: relay.id,
+								maxForwarders: value,
+								expected: { maxForwarders: current },
+							},
+				),
+			field === "capacityPaths"
+				? "Relay capacity updated"
+				: "Forwarder capacity updated",
+		);
+	};
+	const setEnabled = (relay: RelayRow, enabled: boolean) => {
+		if (
+			!window.confirm(
+				enabled
+					? `Enable ${relay.name}? New streams can be assigned to it.`
+					: `Disable ${relay.name}? It stops receiving new assignments.`,
+			)
+		) {
+			return;
+		}
+		void run(
+			() =>
+				trpc.admin.relays.update.mutate({
+					id: relay.id,
+					enabled,
+					expected: { enabled: relay.enabled },
+				}),
+			enabled ? "Relay enabled" : "Relay disabled",
+		);
+	};
+	const setDrained = (relay: RelayRow, drained: boolean) => {
+		if (
+			!window.confirm(
+				drained
+					? `Drain ${relay.name}? No new streams are placed on it.`
+					: `Clear the drain on ${relay.name}? It can take new streams again.`,
+			)
+		) {
+			return;
+		}
+		void run(
+			() =>
+				trpc.admin.relays.update.mutate({
+					id: relay.id,
+					drained,
+					expected: { drained: relay.drainedAt !== null },
+				}),
+			drained ? "Relay draining" : "Drain cleared",
+		);
 	};
 
 	return (
@@ -194,23 +282,15 @@ function RelayAdmin() {
 													aria-label={`${relay.name} path capacity`}
 													className="w-24"
 													defaultValue={relay.capacityPaths}
+													// Remount when the stored value changes elsewhere.
+													key={`capacity-${relay.capacityPaths}`}
 													type="number"
-													onBlur={(event) => {
-														const capacityPaths = Number(event.target.value);
-														if (
-															Number.isInteger(capacityPaths) &&
-															capacityPaths > 0 &&
-															capacityPaths !== relay.capacityPaths
-														) {
-															void run(
-																() =>
-																	trpc.admin.relays.update.mutate({
-																		id: relay.id,
-																		capacityPaths,
-																	}),
-																"Relay capacity updated",
-															);
-														}
+													onBlur={(event) =>
+														saveCapacity(event.target, relay, "capacityPaths")
+													}
+													onKeyDown={(event) => {
+														if (event.key === "Enter")
+															event.currentTarget.blur();
 													}}
 												/>
 												<p className="text-muted-foreground text-xs">
@@ -222,23 +302,14 @@ function RelayAdmin() {
 													aria-label={`${relay.name} forwarder capacity`}
 													className="w-20"
 													defaultValue={relay.maxForwarders}
+													key={`forwarders-${relay.maxForwarders}`}
 													type="number"
-													onBlur={(event) => {
-														const maxForwarders = Number(event.target.value);
-														if (
-															Number.isInteger(maxForwarders) &&
-															maxForwarders >= 0 &&
-															maxForwarders !== relay.maxForwarders
-														) {
-															void run(
-																() =>
-																	trpc.admin.relays.update.mutate({
-																		id: relay.id,
-																		maxForwarders,
-																	}),
-																"Forwarder capacity updated",
-															);
-														}
+													onBlur={(event) =>
+														saveCapacity(event.target, relay, "maxForwarders")
+													}
+													onKeyDown={(event) => {
+														if (event.key === "Enter")
+															event.currentTarget.blur();
 													}}
 												/>
 												<p className="text-muted-foreground text-xs">
@@ -278,36 +349,14 @@ function RelayAdmin() {
 													<Button
 														size="sm"
 														variant="outline"
-														onClick={() =>
-															void run(
-																() =>
-																	trpc.admin.relays.update.mutate({
-																		id: relay.id,
-																		enabled: !relay.enabled,
-																	}),
-																relay.enabled
-																	? "Relay disabled"
-																	: "Relay enabled",
-															)
-														}
+														onClick={() => setEnabled(relay, !relay.enabled)}
 													>
 														{relay.enabled ? "Disable" : "Enable"}
 													</Button>
 													<Button
 														size="sm"
 														variant="outline"
-														onClick={() =>
-															void run(
-																() =>
-																	trpc.admin.relays.update.mutate({
-																		id: relay.id,
-																		drained: !relay.drainedAt,
-																	}),
-																relay.drainedAt
-																	? "Drain cleared"
-																	: "Relay draining",
-															)
-														}
+														onClick={() => setDrained(relay, !relay.drainedAt)}
 													>
 														{relay.drainedAt ? "Undrain" : "Drain"}
 													</Button>

@@ -396,8 +396,17 @@ export function UserDetailPanel({
 								role === identity.role ||
 								(identity.id === currentUserId && role !== "admin")
 							}
-							onClick={() =>
-								run(
+							onClick={() => {
+								if (
+									!window.confirm(
+										role === "admin"
+											? `Make ${identity.name} an admin? They get full access to this console, including roles, bans and relays.`
+											: `Remove admin access from ${identity.name}?`,
+									)
+								) {
+									return;
+								}
+								void run(
 									"role",
 									() =>
 										trpc.admin.users.setRole.mutate({
@@ -405,8 +414,8 @@ export function UserDetailPanel({
 											role,
 										}),
 									"Role updated",
-								)
-							}
+								);
+							}}
 						>
 							Save role
 						</Button>
@@ -416,7 +425,8 @@ export function UserDetailPanel({
 						<div>
 							<p className="font-medium">Feature access</p>
 							<p className="text-muted-foreground text-xs">
-								Each toggle saves on its own and is recorded separately.
+								Each toggle asks for confirmation, then saves on its own and is
+								recorded separately.
 							</p>
 						</div>
 						{USER_FLAGS.map(({ key, label, hint }) => (
@@ -429,7 +439,15 @@ export function UserDetailPanel({
 									checked={identity[key] ?? false}
 									disabled={pending === key}
 									id={`flag-${key}`}
-									onCheckedChange={(enabled) =>
+									onCheckedChange={(enabled) => {
+										// A stray click shouldn't change someone's billing or features.
+										if (
+											!window.confirm(
+												`${enabled ? "Enable" : "Disable"} ${label} for ${identity.name}?`,
+											)
+										) {
+											return;
+										}
 										void run(
 											key,
 											() =>
@@ -439,8 +457,8 @@ export function UserDetailPanel({
 													enabled,
 												}),
 											`${label} ${enabled ? "enabled" : "disabled"}`,
-										)
-									}
+										);
+									}}
 								/>
 								<span className="grid gap-0.5 leading-tight">
 									<span className="font-medium text-sm">{label}</span>

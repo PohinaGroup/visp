@@ -79,6 +79,14 @@ function Overlay() {
 		let closed = false;
 		let socket: WebSocket | undefined;
 		let retry: ReturnType<typeof setTimeout> | undefined;
+		let attempt = 0;
+		// Same backoff as the web overlay: 1 s doubling to 15 s, reset once live.
+		const reconnect = () => {
+			if (closed) return;
+			const delay = Math.min(15_000, 1_000 * 2 ** Math.min(attempt, 4));
+			attempt += 1;
+			retry = setTimeout(() => void connect(), delay);
+		};
 		const connect = async () => {
 			try {
 				const response = await fetch(
@@ -99,11 +107,12 @@ function Overlay() {
 				url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
 				url.searchParams.set("ticket", ticket);
 				socket = new WebSocket(url);
-				socket.onopen = () => setState("Live");
-				socket.onerror = () => socket?.close();
-				socket.onclose = () => {
-					if (!closed) retry = setTimeout(() => void connect(), 2_000);
+				socket.onopen = () => {
+					attempt = 0;
+					setState("Live");
 				};
+				socket.onerror = () => socket?.close();
+				socket.onclose = reconnect;
 				socket.onmessage = ({ data }) => {
 					if (typeof data !== "string") return;
 					try {
@@ -130,7 +139,7 @@ function Overlay() {
 					}
 				};
 			} catch {
-				if (!closed) retry = setTimeout(() => void connect(), 2_000);
+				reconnect();
 			}
 		};
 		void connect();

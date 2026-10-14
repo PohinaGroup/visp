@@ -16,6 +16,7 @@ import { SimpleUrl, UrlWithFallback } from "@/components/credential-reveal";
 import { DocsHelpLink } from "@/components/docs-help-link";
 import { docs } from "@/lib/docs";
 import { useT } from "@/lib/i18n";
+import { pollWithBackoff } from "@/lib/query-resilience";
 import { fastestRelay } from "@/lib/relay";
 import { useTRPC } from "@/utils/trpc";
 import { PathRow } from "./path-row";
@@ -43,7 +44,7 @@ export function PublishingDevicesCard({
 		}),
 	);
 	const pathsQuery = useQuery(
-		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
+		trpc.paths.list.queryOptions(undefined, pollWithBackoff(5000)),
 	);
 	const directQuery = useQuery(trpc.direct.list.queryOptions());
 	const relaysQuery = useQuery(trpc.relays.list.queryOptions());

@@ -39,6 +39,10 @@ import { adminGrowthRouter } from "./admin/growth";
 import { adminMetricsRouter } from "./admin/metrics";
 import { adminRelayForecastRouter } from "./admin/relay-forecast";
 import { adminRelayHistoryRouter } from "./admin/relay-history";
+import {
+	relayExpectedState,
+	relayPreconditionMismatches,
+} from "./admin/relay-precondition";
 import { adminReliabilityRouter } from "./admin/reliability";
 import { adminSpendRouter } from "./admin/spend";
 import { adminUsageRouter } from "./admin/usage";
@@ -351,23 +355,34 @@ export const adminRouter = router({
 						id: z.number().int().positive(),
 						enabled: z.boolean().optional(),
 						drained: z.boolean().optional(),
+						expected: relayExpectedState,
 					})
 					.refine(
-						({ id: _id, ...changes }) =>
+						({ id: _id, expected: _expected, ...changes }) =>
 							Object.values(changes).some((value) => value !== undefined),
 						"At least one relay field is required",
 					),
 			)
 			.mutation(async ({ ctx, input }) => {
-				const { id, drained, ...fields } = input;
-				// The previous row is read under lock only so the audit log can
-				// say what changed; the update itself is unchanged.
+				const { id, drained, expected, ...fields } = input;
+				// The previous row is read under lock so the audit log can say what
+				// changed and so a stale admin view can't flip the relay back.
 				return db.transaction(async (tx) => {
 					const [previous] = await tx
 						.select()
 						.from(relay)
 						.where(eq(relay.id, id))
 						.for("update");
+					if (
+						previous &&
+						relayPreconditionMismatches(previous, expected).length > 0
+					) {
+						throw new TRPCError({
+							code: "CONFLICT",
+							message:
+								"This relay changed since the page loaded. Refresh and try again.",
+						});
+					}
 					const [updated] = await tx
 						.update(relay)
 						.set({
