@@ -259,6 +259,7 @@ describe("createYoutubeDestination", () => {
 		expect(result).toEqual({
 			broadcastId: "broadcast-1",
 			createdBroadcast: true,
+			createdStream: true,
 			streamId: "stream-1",
 			url: "rtmps://youtube.test/live2/secret-key",
 		});

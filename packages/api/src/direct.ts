@@ -340,6 +340,7 @@ export async function createYoutubeDestination(
 		}
 	}
 
+	let createdStream = false;
 	if (!stream) {
 		const response = await youtubeRequest(
 			dependencies,
@@ -359,6 +360,7 @@ export async function createYoutubeDestination(
 			},
 		);
 		stream = (await response.json()) as YoutubeStream;
+		createdStream = true;
 	}
 	const url = youtubeIngest(stream);
 	if (input.broadcastId) {
@@ -392,6 +394,7 @@ export async function createYoutubeDestination(
 				streamId: stream.id,
 				broadcastId: current.id,
 				createdBroadcast: false,
+				createdStream,
 			};
 		}
 	}
@@ -432,18 +435,30 @@ export async function createYoutubeDestination(
 			`/liveBroadcasts/bind?part=id&streamId=${encodeURIComponent(stream.id)}&id=${encodeURIComponent(broadcastId)}`,
 			{ method: "POST" },
 		);
-		return { url, streamId: stream.id, broadcastId, createdBroadcast: true };
+		return {
+			url,
+			streamId: stream.id,
+			broadcastId,
+			createdBroadcast: true,
+			createdStream,
+		};
 	} catch (error) {
 		if (broadcastId) {
-			await dependencies
-				.fetch(
-					`${YOUTUBE_API}/liveBroadcasts?id=${encodeURIComponent(broadcastId)}`,
-					{
-						method: "DELETE",
-						headers: { Authorization: `Bearer ${input.accessToken}` },
-					},
-				)
-				.catch(() => undefined);
+			await deleteYoutubeResource(
+				dependencies,
+				input.accessToken,
+				"liveBroadcasts",
+				broadcastId,
+			);
+		}
+		// Nothing will store a stream whose broadcast never came to be.
+		if (createdStream) {
+			await deleteYoutubeResource(
+				dependencies,
+				input.accessToken,
+				"liveStreams",
+				stream.id,
+			);
 		}
 		throw error;
 	}
@@ -1551,28 +1566,53 @@ async function youtubeSettings(
 	return settings;
 }
 
-async function deleteYoutubeBroadcast(
+async function deleteYoutubeResource(
 	dependencies: DirectDependencies,
 	accessToken: string,
-	broadcastId: string,
+	kind: "liveBroadcasts" | "liveStreams",
+	id: string,
 ) {
 	await dependencies
-		.fetch(
-			`${YOUTUBE_API}/liveBroadcasts?id=${encodeURIComponent(broadcastId)}`,
-			{
-				method: "DELETE",
-				headers: { Authorization: `Bearer ${accessToken}` },
-			},
-		)
+		.fetch(`${YOUTUBE_API}/${kind}?id=${encodeURIComponent(id)}`, {
+			method: "DELETE",
+			headers: { Authorization: `Bearer ${accessToken}` },
+		})
 		.catch(() => undefined);
+}
+
+/**
+ * Drops what one attempt created once nothing will store it. An existing
+ * broadcast was only rebound, so it and whatever stream it is bound to stay:
+ * deleting that stream would leave the broadcast bound to nothing.
+ */
+async function discardYoutubeDestination(
+	dependencies: DirectDependencies,
+	accessToken: string,
+	destination: Awaited<ReturnType<typeof createYoutubeDestination>>,
+) {
+	if (!destination.createdBroadcast) return;
+	await deleteYoutubeResource(
+		dependencies,
+		accessToken,
+		"liveBroadcasts",
+		destination.broadcastId,
+	);
+	if (destination.createdStream) {
+		await deleteYoutubeResource(
+			dependencies,
+			accessToken,
+			"liveStreams",
+			destination.streamId,
+		);
+	}
 }
 
 /**
  * The YouTube calls run outside any transaction so a stalled API cannot pin a
  * pool connection. The ids are then stored with a compare-and-set against what
  * was read: a concurrent go-live for the same path that stored first wins, and
- * the loser drops its own broadcast and retries on top of the winner's, so a
- * race never leaves two broadcasts behind.
+ * the loser drops its own broadcast (and the stream it minted for it) and
+ * retries on top of the winner's, so a race never leaves two behind.
  */
 async function youtubeDirectDestination(
 	pathId: number,
@@ -1634,23 +1674,11 @@ async function youtubeDirectDestination(
 				return true;
 			});
 		} catch (error) {
-			if (destination.createdBroadcast) {
-				await deleteYoutubeBroadcast(
-					dependencies,
-					accessToken,
-					destination.broadcastId,
-				);
-			}
+			await discardYoutubeDestination(dependencies, accessToken, destination);
 			throw error;
 		}
 		if (stored) return destination.url;
-		if (destination.createdBroadcast) {
-			await deleteYoutubeBroadcast(
-				dependencies,
-				accessToken,
-				destination.broadcastId,
-			);
-		}
+		await discardYoutubeDestination(dependencies, accessToken, destination);
 		// One retry reuses the winner's broadcast; churn beyond that is a
 		// publisher reconnecting in a loop, and the next hook resolves again.
 		if (attempt >= 2) {

@@ -55,6 +55,7 @@ async function seedYoutubePath() {
 type YoutubeFake = {
 	broadcastCreates: number;
 	deleted: string[];
+	deletedStreams: string[];
 	/** Resolves once every awaited broadcast create has arrived. */
 	beforeCreateReturns?: () => Promise<void>;
 };
@@ -75,6 +76,10 @@ function youtubeFake(state: YoutubeFake) {
 			const url = new URL(String(input));
 			const method = init?.method ?? "GET";
 			if (url.pathname.endsWith("/liveStreams")) {
+				if (method === "DELETE") {
+					state.deletedStreams.push(url.searchParams.get("id") ?? "");
+					return new Response(null, { status: 204 });
+				}
 				if (method === "POST") {
 					streams += 1;
 					return Response.json(ingest(`stream-${streams}`));
@@ -147,6 +152,7 @@ integration("YouTube Direct provider calls", () => {
 		const state: YoutubeFake = {
 			broadcastCreates: 0,
 			deleted: [],
+			deletedStreams: [],
 			beforeCreateReturns: async () => {
 				reached();
 				await stalled;
@@ -191,6 +197,7 @@ integration("YouTube Direct provider calls", () => {
 		const state: YoutubeFake = {
 			broadcastCreates: 0,
 			deleted: [],
+			deletedStreams: [],
 			beforeCreateReturns: async () => {
 				if (state.broadcastCreates >= 2) bothCreating();
 				await barrier;
@@ -208,6 +215,9 @@ integration("YouTube Direct provider calls", () => {
 		expect(state.deleted).toHaveLength(1);
 		expect(["broadcast-1", "broadcast-2"]).toContain(stored?.broadcastId ?? "");
 		expect(state.deleted[0]).not.toBe(stored?.broadcastId ?? "");
+		// The loser minted a stream for that broadcast; it goes with it.
+		expect(state.deletedStreams).toHaveLength(1);
+		expect(state.deletedStreams[0]).not.toBe(stored?.streamId ?? "");
 		expect(stored?.state).toBe("starting");
 		expect(first.destinations).toHaveLength(1);
 		expect(second.destinations).toHaveLength(1);
@@ -222,6 +232,7 @@ integration("YouTube Direct provider calls", () => {
 		const state: YoutubeFake = {
 			broadcastCreates: 0,
 			deleted: [],
+			deletedStreams: [],
 			beforeCreateReturns: async () => {
 				await db
 					.update(relayPath)
@@ -231,6 +242,7 @@ integration("YouTube Direct provider calls", () => {
 		};
 		await resolveDirectDestinations(path.slug, youtubeFake(state));
 		expect(state.deleted).toEqual(["broadcast-1"]);
+		expect(state.deletedStreams).toEqual(["stream-1"]);
 		expect(await storedYoutube(path.id)).toMatchObject({
 			broadcastId: null,
 			streamId: null,
