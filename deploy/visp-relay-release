@@ -6,6 +6,14 @@ fail() {
 	exit 1
 }
 
+# Nothing was installed or restarted; the bootstrap keys on this code to put
+# the checkout back where it was.
+readonly REFUSED=75
+refuse() {
+	echo "visp-relay-release: $*" >&2
+	exit "$REFUSED"
+}
+
 [[ $EUID -eq 0 ]] || fail "run as root"
 [[ $# -ge 2 ]] || fail "usage: visp-relay-release <production|staging> [--force] <component>..."
 
@@ -27,8 +35,6 @@ case $environment in
 		;;
 	*) fail "invalid environment: $environment" ;;
 esac
-readonly run_dir=/run/visp${suffix}
-
 if [[ $environment == staging ]]; then
 	exec 9>/run/lock/visp-relay-release.lock
 	flock -w 1800 9 || fail "another relay release is still running"
@@ -87,6 +93,14 @@ api_address=$(
 	printf '%s' "${MTX_APIADDRESS:-127.0.0.1:9997}"
 )
 readonly api_address
+# The ingest hook keeps its locks where the unit's environment file says.
+run_dir=$(
+	set -a
+	# shellcheck disable=SC1090
+	source "$env_file"
+	printf '%s' "${VISP_RUN_DIR:-/run/visp$suffix}"
+)
+readonly run_dir
 
 # Ingest paths only: studio/ and direct/ follow their ingest. Every page, since
 # MediaMTX paginates the list.
@@ -115,20 +129,34 @@ held_forwarders() {
 	printf '%s' "$count"
 }
 
-if $restarts; then
+# Checked before the build and again right before anything is installed: the
+# build takes minutes, long enough for a stream to start.
+occupancy_gate() {
+	local live held
+	# A fresh relay (or one mid-install) has nothing to drop.
+	if ! systemctl is-active --quiet "mediamtx${suffix}"; then
+		echo "visp-relay-release: mediamtx${suffix} is not running; nothing live"
+		return
+	fi
 	if live=$(active_paths); then
 		echo "visp-relay-release: $live active ingest path(s) on $api_address"
-	else
+	elif [[ $force == 1 ]]; then
 		live=0
-		echo "visp-relay-release: MediaMTX API at $api_address did not answer; assuming no live paths" >&2
+		echo "visp-relay-release: MediaMTX API at $api_address did not answer; --force given" >&2
+	else
+		refuse "MediaMTX API at $api_address did not answer, so live paths cannot be counted; rerun with --force"
 	fi
 	held=$(held_forwarders)
 	echo "visp-relay-release: $held running forwarder(s) or BRB hold(s)"
 	if ((live + held > 0)); then
 		[[ $force == 1 ]] ||
-			fail "restart would drop $live live path(s) and $held forwarder(s); rerun with --force"
+			refuse "restart would drop $live live path(s) and $held forwarder(s); rerun with --force"
 		echo "visp-relay-release: --force given; live streams will be dropped" >&2
 	fi
+}
+
+if $restarts; then
+	occupancy_gate
 fi
 
 work=$(mktemp -d /var/tmp/visp-relay-release.XXXXXX)
@@ -202,6 +230,10 @@ if $bond; then
 		-DSRT_INCLUDE_DIR="$work/srt" \
 		-DSRT_LIBRARY="$work/srt/build/libsrt.so"
 	cmake --build "$work/visp-bond" --parallel 2
+fi
+
+if $restarts; then
+	occupancy_gate
 fi
 
 if $mediamtx; then

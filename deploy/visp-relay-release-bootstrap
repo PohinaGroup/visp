@@ -42,9 +42,18 @@ readonly actual_sha
 [[ $actual_sha == "$expected_sha" ]] ||
 	fail "$tag resolves to $actual_sha, expected $expected_sha"
 
+previous_sha=$(git -C "$repo" rev-parse HEAD)
+readonly previous_sha
 git -C "$repo" checkout --detach "$expected_sha"
 assert_clean "$repo checkout left tracked changes;" \
 	"repair its ownership and permissions"
 
 install -D -m 0755 "$repo/deploy/visp-relay-release" "$helper"
-exec "$helper" production "$@"
+status=0
+"$helper" production "$@" || status=$?
+# A refused release (live streams, no --force) installed nothing, so the
+# checkout goes back to match what is still running.
+if [[ $status -eq 75 ]]; then
+	git -C "$repo" checkout --detach "$previous_sha"
+fi
+exit "$status"

@@ -296,6 +296,9 @@ jobs:
           RELEASE_TAG: ${{ needs.verify.outputs.tag }}
           RELEASE_SHA: ${{ needs.verify.outputs.sha }}
           RELAY_COMPONENTS: ${{ needs.verify.outputs.relay_components }}
+          # The relay helper refuses to restart media services while streams
+          # are live. Put "[relay-force]" in the release notes to drop them.
+          RELAY_FORCE: ${{ contains(github.event.release.body, '[relay-force]') && '--force' || '' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -306,7 +309,7 @@ jobs:
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
           ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo /usr/local/sbin/visp-relay-release $RELEASE_TAG $RELEASE_SHA $RELAY_COMPONENTS"
+            "sudo /usr/local/sbin/visp-relay-release $RELEASE_TAG $RELEASE_SHA $RELAY_FORCE $RELAY_COMPONENTS"
 
       - name: Smoke-check relay
         env:

@@ -222,7 +222,8 @@ Release the app, portal, and browser broadcaster with the normal production
 release workflow; the region-aware assignment and relay probes ship with them.
 Existing media component updates restart relay services, so schedule them
 outside active broadcasts. The relay helper refuses to restart while a relay
-has live paths, forwarders or BRB holds unless it is given `--force`.
+has live paths, forwarders or BRB holds unless it is given `--force`; a
+release whose notes contain `[relay-force]` passes it.
 
 Check **Actions > Mobile > Build and submit VISP** after merging to `main`.
 That workflow detects `apps/native` changes and submits Android to Google Play

@@ -133,8 +133,11 @@ disconnecting either side behaves as expected. Only then install
 
 	`visp-relay-release` refuses to restart MediaMTX, `srtla-rec` or
 	`visp-bond` while the relay has live ingest paths or running forwarders
-	and BRB holds. It prints both counts; pass `--force` (or set
-	`VISP_RELAY_RELEASE_FORCE=1`) to restart anyway.
+	and BRB holds, or while the MediaMTX API does not answer. It prints both
+	counts and exits 75; the bootstrap then puts `/opt/visp` back on the
+	previous commit. Pass `--force` (or set `VISP_RELAY_RELEASE_FORCE=1`) to
+	restart anyway. From CI: put `[relay-force]` in the GitHub release notes,
+	or tick **force** on a manual staging run.
 
 	Deploy this relay script before enabling the per-user **BRB highlights**
 	flag. Roll back by disabling that flag: new holds use the still card, uploaded

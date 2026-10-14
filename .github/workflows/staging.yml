@@ -6,6 +6,11 @@ name: Staging
 #  pull_request:
 #    branches: [main]
 #  workflow_dispatch:
+#    inputs:
+#      force:
+#        description: Restart relay media services even while streams are live
+#        type: boolean
+#        default: false
 
 permissions:
   contents: read
@@ -117,11 +122,14 @@ jobs:
           DEPLOY_HOST: ${{ vars.DEPLOY_HOST }}
           DEPLOY_USER: ${{ vars.DEPLOY_USER }}
           RELAY_COMPONENTS: ${{ needs.check.outputs.relay_components }}
+          # The relay helper refuses to restart media services while streams
+          # are live; the manual run's "force" input drops them.
+          RELAY_FORCE: ${{ inputs.force == true && '--force' || '' }}
         shell: bash
         run: |
           set -euo pipefail
           ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
-            "sudo /opt/visp-staging/deploy/visp-relay-release staging $RELAY_COMPONENTS"
+            "sudo /opt/visp-staging/deploy/visp-relay-release staging $RELAY_FORCE $RELAY_COMPONENTS"
 
       - name: Smoke-check public sites
         env:
