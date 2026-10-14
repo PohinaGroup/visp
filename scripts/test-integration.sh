@@ -21,6 +21,9 @@ trap cleanup EXIT INT TERM
 # The bonded-SRT gateway must let systemd stop it without a forced kill.
 ./deploy/relay/visp-bond.test.sh
 
+# Every *.integration.test.ts skips itself without TEST_DATABASE_URL, so the
+# plain `bun test` in CI never runs them; this is the only place they execute.
+
 docker compose --project-name "$compose_project" -f "$compose_file" up --detach --wait
 
 (
@@ -48,6 +51,4 @@ MEDIAMTX_API_URL="http://127.0.0.1:9997" \
 	TWITCH_CLIENT_ID="integration-client" \
 	TWITCH_CLIENT_SECRET="integration-secret" \
 	NODE_ENV="test" \
-	bun test apps/server/src/machine.integration.test.ts \
-		apps/server/src/relays.integration.test.ts \
-		apps/server/src/forwarder-sessions.integration.test.ts
+	bun test $(git ls-files '*.integration.test.ts')
