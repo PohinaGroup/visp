@@ -35,6 +35,12 @@ constexpr int kWindowMinimum = 1'000;
 constexpr int kWindowMaximum = 60'000;
 constexpr auto kLinkTimeout = std::chrono::seconds(4);
 constexpr auto kKeepaliveInterval = std::chrono::seconds(1);
+// RootEncoder's SRT client opens a new socket (new source port) when it
+// retries, and waits at least a second first (RETRY_DELAYS), while this relay
+// keeps running. A new local peer may take over only after the locked one has
+// been quiet this long; a live encoder sends far more often.
+constexpr auto kLocalPeerRelock = std::chrono::milliseconds(500);
+constexpr size_t kHandshakeSize = 64;
 
 using Clock = std::chrono::steady_clock;
 
@@ -59,6 +65,7 @@ struct State {
   sockaddr_storage local_peer{};
   socklen_t local_peer_length = 0;
   bool has_local_peer = false;
+  Clock::time_point local_peer_at = Clock::now();
   std::vector<Link> links;
   std::deque<std::pair<uint32_t, size_t>> packet_log;
   std::thread worker;
@@ -241,6 +248,39 @@ void handle_nak(const uint8_t *data, size_t size) {
   }
 }
 
+bool same_local_peer(const sockaddr_storage &peer, socklen_t length) {
+  if (!state.has_local_peer || length != state.local_peer_length ||
+      peer.ss_family != AF_INET || state.local_peer.ss_family != AF_INET)
+    return false;
+  const auto &candidate = reinterpret_cast<const sockaddr_in &>(peer);
+  const auto &locked = reinterpret_cast<const sockaddr_in &>(state.local_peer);
+  return candidate.sin_addr.s_addr == locked.sin_addr.s_addr &&
+         candidate.sin_port == locked.sin_port;
+}
+
+// Loopback is reachable by every app on the device. Only the encoder may
+// feed the links and receive relay replies, so lock to the peer that opened
+// the SRT session and drop datagrams from anyone else.
+bool accept_local_peer(const sockaddr_storage &peer, socklen_t length,
+                       const uint8_t *data, size_t size) {
+  const auto now = Clock::now();
+  if (same_local_peer(peer, length)) {
+    state.local_peer_at = now;
+    return true;
+  }
+  const bool handshake = size >= kHandshakeSize && !is_data(data, size) &&
+                         control_type(data, size) == 0;
+  if (!handshake || peer.ss_family != AF_INET)
+    return false;
+  if (state.has_local_peer && now - state.local_peer_at < kLocalPeerRelock)
+    return false;
+  state.local_peer = peer;
+  state.local_peer_length = length;
+  state.has_local_peer = true;
+  state.local_peer_at = now;
+  return true;
+}
+
 void forward_local(const uint8_t *data, size_t size) {
   if (!state.has_local_peer)
     return;
@@ -383,10 +423,9 @@ void run() {
                                     reinterpret_cast<sockaddr *>(&peer), &length);
       if (size > 0) {
         std::lock_guard<std::mutex> lock(state.data_mutex);
-        state.local_peer = peer;
-        state.local_peer_length = length;
-        state.has_local_peer = true;
-        handle_local(buffer.data(), static_cast<size_t>(size));
+        if (accept_local_peer(peer, length, buffer.data(),
+                              static_cast<size_t>(size)))
+          handle_local(buffer.data(), static_cast<size_t>(size));
       }
     }
     if (ready > 0) {

@@ -165,6 +165,9 @@ final class VispSrtView: ExpoView {
   private var currentState: StreamState = .idle
   private var desiredURL: URL?
   private var intentionalStop = true
+  /// Bumped by start() and stop(). Work that awaited a blocking connect checks
+  /// it so a Stop pressed mid-connect is never followed by .live or .error.
+  private var sessionGeneration = 0
   private var imageStabilizationEnabled = true
   private var lastPktSndLossTotal: Int32 = 0
   private var lastPktSndDropTotal: Int32 = 0
@@ -1092,6 +1095,8 @@ final class VispSrtView: ExpoView {
     }
 
     intentionalStop = false
+    sessionGeneration += 1
+    let generation = sessionGeneration
     backgroundStopErrorPending = false
     desiredURL = url
     retryPolicy.reset()
@@ -1106,14 +1111,18 @@ final class VispSrtView: ExpoView {
 
     emit(.connecting)
     do {
-      try await openConnection(to: url)
+      try await openConnection(to: url, generation: generation)
     } catch {
+      guard isCurrentSession(generation) else {
+        return
+      }
       beginRetries()
     }
   }
 
   func stop() async {
     intentionalStop = true
+    sessionGeneration += 1
     retryPolicy.cancel()
     retryTask?.cancel()
     retryTask = nil
@@ -1135,7 +1144,11 @@ final class VispSrtView: ExpoView {
     emit(.idle)
   }
 
-  private func openConnection(to url: URL) async throws {
+  private func isCurrentSession(_ generation: Int) -> Bool {
+    !intentionalStop && generation == sessionGeneration
+  }
+
+  private func openConnection(to url: URL, generation: Int) async throws {
     guard let mixer else {
       throw VispSrtFailure.cameraUnavailable
     }
@@ -1179,16 +1192,26 @@ final class VispSrtView: ExpoView {
       await stream.setExpectedMedias([.video, .audio])
       await mixer.addOutput(stream)
       try await connection.connect(url)
+      guard isCurrentSession(generation) else {
+        throw CancellationError()
+      }
       await stream.publish()
       guard await connection.connected else {
         throw VispSrtFailure.connectionFailed
       }
+      guard isCurrentSession(generation) else {
+        throw CancellationError()
+      }
     } catch {
-      await closeConnection()
-      throw VispSrtFailure.connectionFailed
+      if isCurrentSession(generation) {
+        await closeConnection()
+        throw VispSrtFailure.connectionFailed
+      }
+      await discardStaleAttempt(connection: connection, stream: stream, mixer: mixer)
+      throw CancellationError()
     }
 
-    connectionCancellable = await connection.$connected
+    let cancellable = await connection.$connected
       .receive(on: DispatchQueue.main)
       .sink { [weak self] connected in
         guard !connected else {
@@ -1198,6 +1221,12 @@ final class VispSrtView: ExpoView {
           await self?.handleUnexpectedDisconnect()
         }
       }
+    guard isCurrentSession(generation) else {
+      cancellable.cancel()
+      await discardStaleAttempt(connection: connection, stream: stream, mixer: mixer)
+      throw CancellationError()
+    }
+    connectionCancellable = cancellable
 
     UIApplication.shared.isIdleTimerDisabled = true
     startStatsLoop()
@@ -1205,6 +1234,26 @@ final class VispSrtView: ExpoView {
     // IRL stream gave up after its fifth reconnect of the session.
     retryPolicy.reset()
     emit(.live)
+  }
+
+  /// Stopped (or restarted) while connecting: close this attempt's own
+  /// connection, which stop() may already have dropped, and never touch a
+  /// newer session's connection.
+  private func discardStaleAttempt(
+    connection: SRTConnection,
+    stream: SRTStream,
+    mixer: MediaMixer
+  ) async {
+    await mixer.removeOutput(stream)
+    await stream.close()
+    await connection.close()
+    if self.connection === connection {
+      stopStatsLoop()
+      connectionCancellable?.cancel()
+      connectionCancellable = nil
+      self.stream = nil
+      self.connection = nil
+    }
   }
 
   private func closeConnection() async {
@@ -1230,6 +1279,7 @@ final class VispSrtView: ExpoView {
 
   private func beginRetries() {
     retryTask?.cancel()
+    let generation = sessionGeneration
     retryTask = Task { @MainActor [weak self] in
       guard let self else {
         return
@@ -1241,15 +1291,21 @@ final class VispSrtView: ExpoView {
         } catch {
           return
         }
-        guard !intentionalStop, let desiredURL else {
+        guard isCurrentSession(generation), let desiredURL else {
           return
         }
         do {
-          try await openConnection(to: desiredURL)
+          try await openConnection(to: desiredURL, generation: generation)
           return
         } catch {
+          guard isCurrentSession(generation) else {
+            return
+          }
           continue
         }
+      }
+      guard isCurrentSession(generation) else {
+        return
       }
       UIApplication.shared.isIdleTimerDisabled = false
       emit(.error, code: "connection-failed", message: VispSrtFailure.connectionFailed.localizedDescription)

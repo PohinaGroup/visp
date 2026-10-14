@@ -44,6 +44,11 @@ public actor SRTConnection: NetworkConnection {
   private var networkMonitor: NetworkMonitor?
   private let bondingMode: String
   private var srtlaClient: SRTLAClient?
+  /// Bumped by every close(). connect() compares it after the blocking open,
+  /// so a close() that arrives mid-connect (when uri is still nil) still wins.
+  private var closeGeneration = 0
+  /// The socket a connect() is opening, so close() can abort it.
+  private var connectingSocket: SRTSocket?
 
   /// Creates an object.
   public init(bondingMode: String = "off") {
@@ -87,6 +92,7 @@ public actor SRTConnection: NetworkConnection {
   /// - srt://:9000?mode=listener
   ///   - Wait for connections as a server.
   public func connect(_ uri: URL?) async throws {
+    let generation = closeGeneration
     var socketURI = uri
     if bondingMode == "srtla" {
       guard
@@ -98,11 +104,24 @@ public actor SRTConnection: NetworkConnection {
         throw Error.unsupportedUri(uri)
       }
       let client = SRTLAClient()
-      let localPort = try await client.start(host: host, port: UInt16(remotePort))
+      // Visible to close() while start() is pending; stop() fails the start.
+      srtlaClient = client
+      let localPort: UInt16
+      do {
+        localPort = try await client.start(host: host, port: UInt16(remotePort))
+      } catch {
+        client.stop()
+        if srtlaClient === client { srtlaClient = nil }
+        throw error
+      }
+      guard generation == closeGeneration else {
+        client.stop()
+        if srtlaClient === client { srtlaClient = nil }
+        throw Error.invalidState
+      }
       components.host = "127.0.0.1"
       components.port = Int(localPort)
       socketURI = components.url
-      srtlaClient = client
     }
     guard let url = SRTSocketURL(socketURI) else {
       throw Error.unsupportedUri(uri)
@@ -111,8 +130,23 @@ public actor SRTConnection: NetworkConnection {
       try await withCheckedThrowingContinuation {
         (continuation: CheckedContinuation<Void, Swift.Error>) in
         Task {
+          let opening = socket
+          connectingSocket = opening
+          defer {
+            if connectingSocket === opening { connectingSocket = nil }
+          }
           do {
-            try await socket?.open(url)
+            try await opening?.open(url)
+            guard generation == closeGeneration else {
+              // close() ran while srt_connect was blocking: tear down the
+              // socket it could not reach instead of reporting a connection.
+              await opening?.stopRunning()
+              socket = SRTSocket(bondingMode: bondingMode)
+              srtlaClient?.stop()
+              srtlaClient = nil
+              continuation.resume(throwing: Error.invalidState)
+              return
+            }
             self.uri = uri
             switch url.mode {
             case .caller:
@@ -164,7 +198,15 @@ public actor SRTConnection: NetworkConnection {
 
   /// Closes a connection.
   public func close() async {
+    closeGeneration += 1
     guard uri != nil else {
+      // A connect may be in flight with its socket actor busy inside
+      // srt_connect. Abort the handle so it fails now; connect() sees the
+      // bumped generation and cleans up either way.
+      connectingSocket?.abort()
+      connectingSocket = nil
+      srtlaClient?.stop()
+      srtlaClient = nil
       return
     }
     await networkMonitor?.stopRunning()
