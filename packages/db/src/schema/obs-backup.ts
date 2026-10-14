@@ -27,6 +27,8 @@ export const obsBackup = pgTable(
 			.defaultNow()
 			.notNull(),
 		completedAt: timestamp("completed_at", { withTimezone: true }),
+		/** Sealed backups are checked again once their upload URLs expired. */
+		reconcileAfter: timestamp("reconcile_after", { withTimezone: true }),
 		fileCount: integer("file_count").default(0).notNull(),
 		totalBytes: bigint("total_bytes", { mode: "number" }).default(0).notNull(),
 		label: text("label"),

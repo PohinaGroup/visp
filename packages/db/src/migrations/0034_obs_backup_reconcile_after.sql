@@ -1,0 +1,1 @@
+ALTER TABLE "obs_backup" ADD COLUMN "reconcile_after" timestamp with time zone;

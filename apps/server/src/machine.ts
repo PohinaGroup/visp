@@ -297,7 +297,7 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 				const owner = await authenticateObsControlToken(headers.authorization);
 				if (!owner) return status(401, "unauthorized");
 				if (body.byteSize > OBS_BACKUP_FILE_MAX_BYTES)
-					return status(413, "Backup files must be 4 GB or smaller");
+					return status(413, "Backup files must be 1 GB or smaller");
 				return {
 					uploadUrl: await prepareObsBackupUpload(
 						owner.id,

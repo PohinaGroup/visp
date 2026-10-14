@@ -3,7 +3,17 @@ import { obsBackup } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createObjectStore, type ObjectStore } from "@VISP/object-store";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	isNotNull,
+	isNull,
+	lt,
+	lte,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
 const GIB = 1024 * 1024 * 1024;
@@ -303,6 +313,7 @@ export async function createObsBackup(
 ) {
 	await removeAbandonedObsBackups(userId, client);
 	await settlePendingObsBackups(userId, client);
+	await reconcileDueObsBackups(userId, client);
 	// Count and insert under one per-account lock so parallel creates cannot
 	// both see room for one more pending backup.
 	const row = await db.transaction(async (tx) => {
@@ -485,16 +496,46 @@ export async function reconcileSealedObsBackup(
 	if (!intact) await removeBackup(userId, backupId, client);
 }
 
+/**
+ * Runs the delayed check for every sealed backup whose time has come. The
+ * due time lives on the row, so a restart between sealing and the check only
+ * postpones it to this account's next listing or backup. Claiming the row
+ * first keeps two instances from checking the same backup.
+ */
+export async function reconcileDueObsBackups(
+	userId: string,
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+	now = Date.now(),
+) {
+	const due = await db
+		.update(obsBackup)
+		.set({ reconcileAfter: null })
+		.where(
+			and(
+				eq(obsBackup.userId, userId),
+				isNotNull(obsBackup.completedAt),
+				lte(obsBackup.reconcileAfter, new Date(now)),
+			),
+		)
+		.returning({ id: obsBackup.id });
+	for (const { id } of due) {
+		await reconcileSealedObsBackup(userId, id, client).catch((error) => {
+			console.error("Failed to reconcile OBS backup objects", error);
+		});
+	}
+	return due.length;
+}
+
+/** Best effort: runs the due check promptly when this process is still up. */
 function scheduleReconcile(
 	userId: string,
-	backupId: string,
 	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete">,
 ) {
 	const timer = setTimeout(() => {
-		reconcileSealedObsBackup(userId, backupId, client).catch((error) => {
+		reconcileDueObsBackups(userId, client).catch((error) => {
 			console.error("Failed to reconcile OBS backup objects", error);
 		});
-	}, RECONCILE_DELAY_MS);
+	}, RECONCILE_DELAY_MS + 1_000);
 	timer.unref?.();
 }
 
@@ -585,6 +626,7 @@ export async function completeObsBackup(
 				.update(obsBackup)
 				.set({
 					completedAt: new Date(),
+					reconcileAfter: new Date(Date.now() + RECONCILE_DELAY_MS),
 					fileCount: manifest.files.length,
 					totalBytes,
 					label: row.label ?? v2?.sceneCollection ?? null,
@@ -612,7 +654,7 @@ export async function completeObsBackup(
 	}).catch((error) => {
 		console.error("Failed to remove unlisted OBS backup objects", error);
 	});
-	scheduleReconcile(userId, backupId, client);
+	scheduleReconcile(userId, client);
 	await pruneObsBackups(userId, client).catch((error) => {
 		console.error("Failed to prune old OBS backups", error);
 	});
@@ -699,6 +741,7 @@ export async function listObsBackups(
 ) {
 	await removeAbandonedObsBackups(userId, client);
 	await settlePendingObsBackups(userId, client);
+	await reconcileDueObsBackups(userId, client);
 	const rows = await db.query.obsBackup.findMany({
 		where: and(eq(obsBackup.userId, userId), isNotNull(obsBackup.completedAt)),
 		orderBy: [desc(obsBackup.completedAt), desc(obsBackup.createdAt)],

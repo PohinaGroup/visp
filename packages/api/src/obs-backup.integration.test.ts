@@ -27,6 +27,7 @@ import {
 	obsBackupKey,
 	obsBackupPrefix,
 	prepareObsBackupUpload,
+	reconcileDueObsBackups,
 	reconcileSealedObsBackup,
 	resetObsBackupSettleAttemptsForTests,
 	settlePendingObsBackups,
@@ -389,6 +390,31 @@ integration("OBS backups (PostgreSQL)", () => {
 				key.startsWith(obsBackupPrefix(userId, id)),
 			),
 		).toBe(false);
+	});
+
+	test("the delayed check survives a restart: it runs from the row's due time", async () => {
+		const { objects, store } = memoryStore();
+		const { id } = await createObsBackup(userId, { os: "linux" }, store);
+		writeLegacyBackup(objects, userId, id);
+		await completeObsBackup(userId, id, store);
+		const sealed = await db.query.obsBackup.findFirst({
+			where: eq(obsBackup.id, id),
+		});
+		expect(sealed?.reconcileAfter?.getTime()).toBeGreaterThan(Date.now());
+		// Not due yet: a listing leaves it alone.
+		expect(await reconcileDueObsBackups(userId, store)).toBe(0);
+
+		// Tampered inside the upload-URL window, then the process restarted.
+		objects.set(
+			obsBackupKey(userId, id, "scenes/Main.json"),
+			new Uint8Array(1024),
+		);
+		const later = (sealed?.reconcileAfter?.getTime() ?? 0) + 1;
+		expect(await reconcileDueObsBackups(userId, store, later)).toBe(1);
+		expect(
+			await db.query.obsBackup.findFirst({ where: eq(obsBackup.id, id) }),
+		).toBeUndefined();
+		expect(await reconcileDueObsBackups(userId, store, later)).toBe(0);
 	});
 
 	test("a replaced manifest after sealing removes the backup", async () => {

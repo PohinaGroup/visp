@@ -1921,8 +1921,10 @@ private:
 			const QFileInfo media(path);
 			if (media.size() == 0)
 				continue;
-			if (media.size() > 4LL * 1024 * 1024 * 1024) {
-				*error = QString("%1 is larger than the 4 GB per-file backup limit.").arg(media.fileName());
+			// Matches OBS_BACKUP_FILE_MAX_BYTES on the server; restore still reads
+			// older manifests up to 4 GB.
+			if (media.size() > 1LL * 1024 * 1024 * 1024) {
+				*error = QString("%1 is larger than the 1 GB per-file backup limit.").arg(media.fileName());
 				backup_files.clear();
 				return false;
 			}
