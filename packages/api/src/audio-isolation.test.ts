@@ -59,6 +59,8 @@ describe("isolateAudioChunk", () => {
 		const body = call.init.body as FormData;
 		expect(body.get("file_format")).toBe("pcm_s16le_16");
 		expect(body.get("audio")).toBeInstanceOf(Blob);
+		expect(call.init.signal).toBeInstanceOf(AbortSignal);
+		expect(call.init.signal?.aborted).toBe(false);
 	});
 
 	test("reports an upstream failure without repeating what it said", async () => {
