@@ -93,7 +93,12 @@ export function resolveCommand(input: ResolveInput): CommandIntent | null {
 
 	if (custom) return { kind: "reply", text: custom.response };
 	if (builtin === "title") {
-		const title = rest.join(" ").trim().slice(0, MAX_TITLE_LENGTH).trim();
+		// Code points, not UTF-16 units: a cut inside an emoji sends Twitch a
+		// lone surrogate.
+		const title = Array.from(rest.join(" ").trim())
+			.slice(0, MAX_TITLE_LENGTH)
+			.join("")
+			.trim();
 		return title ? { kind: "title", title } : null;
 	}
 	if (builtin === "commands") {

@@ -32,7 +32,7 @@ function harness() {
 	const subscribed: Array<{ broadcasterId: string; sessionId: string }> = [];
 	const unsubscribed: string[] = [];
 	let nextId = 0;
-	let fail = false;
+	let fail: boolean | string = false;
 	const eventSub = new SharedTwitchEventSub({
 		connect: (url) => {
 			const socket = new FakeSocket(url);
@@ -40,7 +40,7 @@ function harness() {
 			return socket;
 		},
 		subscribe: async (broadcasterId, sessionId) => {
-			if (fail) throw new Error("nope");
+			if (fail === true || fail === broadcasterId) throw new Error("nope");
 			subscribed.push({ broadcasterId, sessionId });
 			nextId += 1;
 			return `sub-${nextId}`;
@@ -54,7 +54,8 @@ function harness() {
 		sockets,
 		subscribed,
 		unsubscribed,
-		failSubscribe(value: boolean) {
+		/** `true` fails every subscribe, a broadcaster id only that one. */
+		failSubscribe(value: boolean | string) {
 			fail = value;
 		},
 	};
@@ -176,13 +177,43 @@ describe("shared Twitch EventSub session", () => {
 	test("a failed subscription errors only that broadcaster", async () => {
 		const h = harness();
 		const a = listener();
-		h.failSubscribe(true);
-		const release = h.eventSub.add("100", a.value);
+		const b = listener();
+		h.failSubscribe("100");
+		const releaseA = h.eventSub.add("100", a.value);
+		const releaseB = h.eventSub.add("200", b.value);
 		h.sockets[0]?.welcome("session-1");
 		await flush();
 		expect(a.statuses.at(-1)).toBe("error");
+		expect(b.statuses.at(-1)).toBe("connected");
 		expect(h.sockets[0]?.closed).toBe(false);
-		release();
+		releaseA();
+		releaseB();
+	});
+
+	test("a session nothing subscribes on is dropped with growing backoff", async () => {
+		const h = harness();
+		const a = listener();
+		h.failSubscribe(true);
+		h.eventSub.add("100", a.value);
+		h.sockets[0]?.welcome("session-1");
+		await flush();
+		expect(a.statuses.at(-1)).toBe("disconnected");
+		expect(h.sockets[0]?.closed).toBe(true);
+		await new Promise((resolve) => setTimeout(resolve, 1_050));
+		expect(h.sockets).toHaveLength(2);
+		h.sockets[1]?.welcome("session-2");
+		await flush();
+		expect(h.sockets[1]?.closed).toBe(true);
+		// The welcome did not reset the backoff: the next try waits 2 s.
+		await new Promise((resolve) => setTimeout(resolve, 1_050));
+		expect(h.sockets).toHaveLength(2);
+		await new Promise((resolve) => setTimeout(resolve, 1_050));
+		expect(h.sockets).toHaveLength(3);
+		h.failSubscribe(false);
+		h.sockets[2]?.welcome("session-3");
+		await flush();
+		expect(a.statuses.at(-1)).toBe("connected");
+		expect(h.sockets[2]?.closed).toBe(false);
 	});
 
 	test("drops a subscription that finished after its last listener left", async () => {

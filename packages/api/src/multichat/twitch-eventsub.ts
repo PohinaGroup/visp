@@ -202,7 +202,6 @@ export class SharedTwitchEventSub {
 				return;
 			}
 			this.sessionId = sessionId;
-			this.retry = 0;
 			this.resetKeepalive(envelope.payload?.session?.keepalive_timeout_seconds);
 			for (const [broadcasterId, entry] of this.entries) {
 				void this.subscribeEntry(broadcasterId, entry);
@@ -279,6 +278,8 @@ export class SharedTwitchEventSub {
 			entry.subscriptionId = subscriptionId;
 			entry.generation = generation;
 			entry.retry = 0;
+			// A session is only good once something subscribed on it.
+			this.retry = 0;
 			for (const listener of entry.listeners) listener.onStatus("connected");
 		} catch (error) {
 			if (generation !== this.generation) return;
@@ -286,6 +287,13 @@ export class SharedTwitchEventSub {
 			entry.subscribing = undefined;
 			for (const listener of entry.listeners) {
 				listener.onStatus("error", errorMessage(error));
+			}
+			// A session nothing subscribed on (dead bot token, session cap) is one
+			// Twitch closes in 10 s anyway: drop it now and let the session
+			// backoff grow, instead of per-entry retries racing that close.
+			if (!this.anySubscribed(generation)) {
+				this.socket?.close();
+				return;
 			}
 			// Retry this broadcaster only; the shared socket stays up for the rest.
 			const delay =
@@ -297,6 +305,14 @@ export class SharedTwitchEventSub {
 					void this.subscribeEntry(broadcasterId, entry);
 			}, delay);
 		}
+	}
+
+	private anySubscribed(generation: number) {
+		for (const entry of this.entries.values()) {
+			if (entry.generation === generation || entry.subscribing === generation)
+				return true;
+		}
+		return false;
 	}
 
 	private resetKeepalive(seconds?: number | null) {

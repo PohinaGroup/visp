@@ -148,7 +148,7 @@ export const chatRouter = router({
 						.regex(COMMAND_NAME_PATTERN, "Letters, numbers, - and _ only"),
 					response: z.string().trim().min(1).max(MAX_COMMAND_RESPONSE_LENGTH),
 					modOnly: z.boolean().default(false),
-					enabled: z.boolean().default(true),
+					enabled: z.boolean().optional(),
 					cooldownSeconds: z.number().int().min(0).max(3600).default(10),
 				}),
 			)

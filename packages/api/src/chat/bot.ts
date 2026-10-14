@@ -189,13 +189,15 @@ export async function upsertBotCommand(
 	userId: string,
 	input: Omit<CustomCommand, "enabled"> & { enabled?: boolean },
 ) {
+	// `enabled` is written only when sent, so an edit that omits it cannot
+	// re-enable a command the user switched off.
 	const values = {
 		userId,
 		name: input.name.toLowerCase(),
 		response: input.response,
 		modOnly: input.modOnly,
-		enabled: input.enabled ?? true,
 		cooldownSeconds: input.cooldownSeconds,
+		...(input.enabled === undefined ? {} : { enabled: input.enabled }),
 	};
 	const row = await db.transaction(async (tx) => {
 		// Serialises this user's creates so two at once cannot both pass the cap.
@@ -221,7 +223,7 @@ export async function upsertBotCommand(
 		}
 		const [saved] = await tx
 			.insert(chatBotCommand)
-			.values(values)
+			.values({ enabled: true, ...values })
 			.onConflictDoUpdate({
 				target: [chatBotCommand.userId, chatBotCommand.name],
 				set: values,

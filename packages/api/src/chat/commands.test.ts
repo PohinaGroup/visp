@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
 	type CustomCommand,
 	formatDuration,
+	MAX_TITLE_LENGTH,
 	renderTemplate,
 	resolveCommand,
 } from "./commands";
@@ -103,6 +104,12 @@ describe("chat command resolution", () => {
 			title: "New title",
 		});
 		expect(resolve("!title New title")).toBeNull();
+		// The cut counts code points, so an emoji on the boundary stays whole.
+		const long = `${"x".repeat(MAX_TITLE_LENGTH - 1)}🎉 tail`;
+		expect(resolve(`!title ${long}`, { badges: MOD })).toEqual({
+			kind: "title",
+			title: `${"x".repeat(MAX_TITLE_LENGTH - 1)}🎉`,
+		});
 		// A bare !title has nothing to set.
 		expect(resolve("!title", { badges: MOD })).toBeNull();
 	});
