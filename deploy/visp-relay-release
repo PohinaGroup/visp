@@ -6,8 +6,16 @@ fail() {
 	exit 1
 }
 
+# Nothing was installed or restarted; the bootstrap keys on this code to put
+# the checkout back where it was.
+readonly REFUSED=75
+refuse() {
+	echo "visp-relay-release: $*" >&2
+	exit "$REFUSED"
+}
+
 [[ $EUID -eq 0 ]] || fail "run as root"
-[[ $# -ge 2 ]] || fail "usage: visp-relay-release <production|staging> <component>..."
+[[ $# -ge 2 ]] || fail "usage: visp-relay-release <production|staging> [--force] <component>..."
 
 readonly environment=$1
 shift
@@ -27,7 +35,6 @@ case $environment in
 		;;
 	*) fail "invalid environment: $environment" ;;
 esac
-
 if [[ $environment == staging ]]; then
 	exec 9>/run/lock/visp-relay-release.lock
 	flock -w 1800 9 || fail "another relay release is still running"
@@ -37,15 +44,26 @@ mediamtx=false
 srtla=false
 bond=false
 caddy=false
+# Restarting MediaMTX, srtla-rec or visp-bond drops every live stream and BRB
+# hold on this relay; --force (or VISP_RELAY_RELEASE_FORCE=1) accepts that.
+force=${VISP_RELAY_RELEASE_FORCE:-0}
+components=()
 for component in "$@"; do
 	case $component in
+		--force) force=1; continue ;;
 		mediamtx) mediamtx=true ;;
 		srtla-rec) srtla=true ;;
 		visp-bond) bond=true ;;
 		caddy) caddy=true ;;
 		*) fail "invalid component: $component" ;;
 	esac
+	components+=("$component")
 done
+((${#components[@]} > 0)) || fail "no component given"
+restarts=false
+if $mediamtx || $srtla || $bond; then
+	restarts=true
+fi
 
 for path in "$repo/.git" "$env_file"; do
 	[[ -e $path ]] || fail "missing prerequisite: $path"
@@ -53,6 +71,93 @@ done
 for command in cmake cc curl git make sha256sum systemctl; do
 	command -v "$command" >/dev/null 2>&1 || fail "missing prerequisite: $command"
 done
+if $restarts; then
+	command -v jq >/dev/null 2>&1 || fail "missing prerequisite: jq"
+fi
+
+# Forwarders put destination URLs (stream keys) in FFmpeg argv. hidepid is
+# defence in depth per deploy/README.md, so its absence warns, not fails.
+proc_options=$(awk '$2 == "/proc" && $3 == "proc" { print $4; exit }' /proc/mounts)
+if ! [[ $proc_options =~ (^|,)hidepid=(1|2|noaccess|invisible)(,|$) ]]; then
+	{
+		echo "visp-relay-release: WARNING: /proc is not mounted with hidepid."
+		echo "visp-relay-release: WARNING: local users can read stream keys from FFmpeg argv."
+		echo "visp-relay-release: WARNING: see deploy/README.md (hidepid=invisible)."
+	} >&2
+fi
+
+api_address=$(
+	set -a
+	# shellcheck disable=SC1090
+	source "$env_file"
+	printf '%s' "${MTX_APIADDRESS:-127.0.0.1:9997}"
+)
+readonly api_address
+# The ingest hook keeps its locks where the unit's environment file says.
+run_dir=$(
+	set -a
+	# shellcheck disable=SC1090
+	source "$env_file"
+	printf '%s' "${VISP_RUN_DIR:-/run/visp$suffix}"
+)
+readonly run_dir
+
+# Ingest paths only: studio/ and direct/ follow their ingest. Every page, since
+# MediaMTX paginates the list.
+active_paths() {
+	local page=0 pages=1 body found count=0
+	while ((page < pages)); do
+		body=$(curl --fail --silent --max-time 5 \
+			"http://$api_address/v3/paths/list?page=$page&itemsPerPage=1000") || return 1
+		pages=$(jq -er '.pageCount // 1' <<<"$body") || return 1
+		found=$(jq -e '[.items[]? | select(.name | test("^[A-Za-z0-9_-]+$"))
+			| select(.ready or .source != null)] | length' <<<"$body") || return 1
+		count=$((count + found))
+		page=$((page + 1))
+	done
+	printf '%s' "$count"
+}
+
+# BRB cards outlive their path, so the API alone misses them.
+held_forwarders() {
+	local lock holder count=0
+	for lock in "$run_dir"/fwd-*.lock; do
+		[[ -d $lock ]] || continue
+		holder=$(cat "$lock/pid" 2>/dev/null) || continue
+		[[ -n $holder ]] && kill -0 "$holder" 2>/dev/null && count=$((count + 1))
+	done
+	printf '%s' "$count"
+}
+
+# Checked before the build and again right before anything is installed: the
+# build takes minutes, long enough for a stream to start.
+occupancy_gate() {
+	local live held
+	# A fresh relay (or one mid-install) has nothing to drop.
+	if ! systemctl is-active --quiet "mediamtx${suffix}"; then
+		echo "visp-relay-release: mediamtx${suffix} is not running; nothing live"
+		return
+	fi
+	if live=$(active_paths); then
+		echo "visp-relay-release: $live active ingest path(s) on $api_address"
+	elif [[ $force == 1 ]]; then
+		live=0
+		echo "visp-relay-release: MediaMTX API at $api_address did not answer; --force given" >&2
+	else
+		refuse "MediaMTX API at $api_address did not answer, so live paths cannot be counted; rerun with --force"
+	fi
+	held=$(held_forwarders)
+	echo "visp-relay-release: $held running forwarder(s) or BRB hold(s)"
+	if ((live + held > 0)); then
+		[[ $force == 1 ]] ||
+			refuse "restart would drop $live live path(s) and $held forwarder(s); rerun with --force"
+		echo "visp-relay-release: --force given; live streams will be dropped" >&2
+	fi
+}
+
+if $restarts; then
+	occupancy_gate
+fi
 
 work=$(mktemp -d /var/tmp/visp-relay-release.XXXXXX)
 readonly work
@@ -127,6 +232,10 @@ if $bond; then
 	cmake --build "$work/visp-bond" --parallel 2
 fi
 
+if $restarts; then
+	occupancy_gate
+fi
+
 if $mediamtx; then
 	install -m 0755 "$work/mediamtx" /usr/local/bin/mediamtx
 	install -D -m 0755 "$repo/deploy/relay/visp-snapshot" \
@@ -173,12 +282,7 @@ fi
 
 systemctl is-active --quiet "mediamtx${suffix}" \
 	"srtla-rec${suffix}" "visp-bond${suffix}"
-set -a
-# shellcheck disable=SC1090
-source "$env_file"
-set +a
-readonly api_address=${MTX_APIADDRESS:-127.0.0.1:9997}
 curl --retry 20 --retry-delay 1 --retry-connrefused --fail --silent \
 	"http://$api_address/v3/paths/list" >/dev/null
 
-echo "VISP relay ($environment): $* deployed"
+echo "VISP relay ($environment): ${components[*]} deployed"

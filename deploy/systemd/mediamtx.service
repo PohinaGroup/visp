@@ -15,6 +15,16 @@ LimitNOFILE=1048576
 # that backs the BRB card. systemd creates it and clears it on stop, which is
 # what makes a leaked lock survive nothing worse than a service restart.
 RuntimeDirectory=visp
+# The hooks write per-path credentials here (compositor env files, forwarder
+# state). Only root needs it: the compositor units run as visp-compositor but
+# read their EnvironmentFile through systemd (PID 1), never directly.
+RuntimeDirectoryMode=0700
+# BRB highlight clips are downloaded and re-encoded here rather than in the
+# /run tmpfs; visp-snapshot finds it through CACHE_DIRECTORY. Held cards end
+# with MediaMTX, so anything left over from the previous run is garbage.
+CacheDirectory=visp
+CacheDirectoryMode=0700
+ExecStartPre=-/usr/bin/find /var/cache/visp -mindepth 1 -delete
 # BRB forwarders outlive the path they were started for, so they must not be
 # killed when MediaMTX restarts a runOnAvailable script. They are still in this
 # unit's cgroup: restarting MediaMTX itself does end every held card.
