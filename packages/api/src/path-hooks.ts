@@ -22,6 +22,7 @@ import { cleanupDeletedBrbHighlightsForPath } from "./brb-highlights";
 import { announceStreamEvent } from "./chat/alerts";
 import { formatDuration } from "./chat/commands";
 import { CLEARED_LINK_STATS } from "./link-stats";
+import { fetchMediaMtxPaths } from "./mediamtx-paths";
 
 export async function applyPathHook(
 	event: "ready" | "not-ready" | "read" | "unread",
@@ -197,13 +198,6 @@ export async function applyPathHook(
 	return true;
 }
 
-type MediaMtxPath = {
-	name?: string;
-	readers?: unknown[];
-	ready?: boolean;
-	source?: { type?: string } | null;
-};
-
 async function directGonePathIds(pathIds: number[]) {
 	if (pathIds.length === 0) return [];
 	const rows = await db.execute<{
@@ -255,19 +249,12 @@ async function directGonePathIds(pathIds: number[]) {
 }
 
 async function reconcileRelay(relayId: number, apiUrl: string) {
-	const response = await fetch(`${apiUrl.replace(/\/$/, "")}/v3/paths/list`, {
-		signal: AbortSignal.timeout(2000),
-	});
-	if (!response.ok) {
-		throw new Error(`MediaMTX reconciliation failed with ${response.status}`);
-	}
-	const payload = (await response.json()) as { items?: MediaMtxPath[] };
-	if (!Array.isArray(payload.items)) {
-		throw new Error("MediaMTX reconciliation returned an invalid payload");
-	}
+	// Throws on any missing or inconsistent page, before any write: a path
+	// absent from a partial list would otherwise be marked stopped.
+	const items = await fetchMediaMtxPaths(apiUrl, 5000);
 
 	const live = new Map(
-		payload.items.flatMap((item) => (item.name ? [[item.name, item]] : [])),
+		items.flatMap((item) => (item.name ? [[item.name, item]] : [])),
 	);
 	const liveSlugs = [...live.keys()];
 	const paths = await db
