@@ -8,7 +8,7 @@ import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { promisify } from "node:util";
-import { and, desc, eq, gt, lte } from "drizzle-orm";
+import { and, count, desc, eq, gt, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { captionSubtitles } from "./typography-captions";
 
@@ -16,6 +16,36 @@ const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
 const RETENTION_MS = 14 * 24 * 60 * 60_000;
 const videoTypes = new Set(["video/mp4", "video/quicktime", "video/webm"]);
 const AI_MODEL = "openai/gpt-4.1-mini";
+/** Live (non-expired) projects per user; each holds up to 1 GB for 14 days. */
+export const MAX_TYPOGRAPHY_PROJECTS = 20;
+/**
+ * Scribe transcribes a long source synchronously, so this is minutes, not
+ * seconds; it only has to stop a hung request from holding the worker forever.
+ */
+const TRANSCRIPTION_TIMEOUT_MS = 30 * 60_000;
+/** Caption design is optional: on timeout the plain transcript is kept. */
+const DESIGN_TIMEOUT_MS = 5 * 60_000;
+/** A veryfast 1080x1920 encode of a short-form source takes a few minutes. */
+const EXPORT_TIMEOUT_MS = 30 * 60_000;
+/** How often a running job proves its worker is alive. */
+const JOB_HEARTBEAT_MS = 60_000;
+/**
+ * A `processing` job whose heartbeat is older than this lost its worker. Many
+ * heartbeats long, so a slow database write never hands a live job to a
+ * second worker.
+ */
+export const JOB_LEASE_MS = 10 * 60_000;
+
+/** Expected refusals; `status` is the HTTP status the route should answer. */
+export class TypographyError extends Error {
+	constructor(
+		message: string,
+		readonly status: 400 | 404 | 409 | 429,
+	) {
+		super(message);
+		this.name = "TypographyError";
+	}
+}
 
 export const typographyDocumentSchema = z.object({
 	version: z.literal(1),
@@ -98,24 +128,44 @@ export async function createTypographyProject(
 	},
 ) {
 	if (!videoTypes.has(input.contentType))
-		throw new Error("Unsupported video type");
+		throw new TypographyError("Unsupported video type", 400);
 	if (input.byteSize < 1 || input.byteSize > MAX_UPLOAD_BYTES)
-		throw new Error("Video must be 1 GB or smaller");
+		throw new TypographyError("Video must be 1 GB or smaller", 400);
 	const id = randomUUID();
 	const sourceKey = `typography/${userId}/${id}/source`;
-	const expiresAt = new Date(Date.now() + RETENTION_MS);
-	const [project] = await db
-		.insert(typographyProject)
-		.values({
-			id,
-			userId,
-			title: titleFromFilename(input.filename),
-			language: input.language,
-			sourceKey,
-			document: emptyDocument,
-			expiresAt,
-		})
-		.returning();
+	const now = new Date();
+	const expiresAt = new Date(now.getTime() + RETENTION_MS);
+	const project = await db.transaction(async (tx) => {
+		// The per-user lock serialises concurrent creates so both cannot pass the cap.
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+		const [live] = await tx
+			.select({ total: count() })
+			.from(typographyProject)
+			.where(
+				and(
+					eq(typographyProject.userId, userId),
+					gt(typographyProject.expiresAt, now),
+				),
+			);
+		if ((live?.total ?? 0) >= MAX_TYPOGRAPHY_PROJECTS)
+			throw new TypographyError(
+				`You can keep ${MAX_TYPOGRAPHY_PROJECTS} projects at a time. Older projects are removed after 14 days.`,
+				429,
+			);
+		const [row] = await tx
+			.insert(typographyProject)
+			.values({
+				id,
+				userId,
+				title: titleFromFilename(input.filename),
+				language: input.language,
+				sourceKey,
+				document: emptyDocument,
+				expiresAt,
+			})
+			.returning();
+		return row;
+	});
 	const uploadUrl = await uploads.presign(sourceKey, {
 		method: "PUT",
 		expiresIn: 15 * 60,
@@ -146,18 +196,40 @@ export async function finalizeTypographyUpload(
 	projectId: string,
 ) {
 	const project = await requireProject(userId, projectId);
-	if (!project) throw new Error("Project not found");
+	if (!project) throw new TypographyError("Project not found", 404);
+	// Each transcription posts the whole source to the provider, so it runs
+	// once per upload rather than once per call.
+	if (project.state !== "uploading") throw uploadAlreadyFinalized();
 	const asset = await objects.stat(project.sourceKey);
 	if (
 		!videoTypes.has(asset.contentType ?? "") ||
 		asset.byteSize > MAX_UPLOAD_BYTES
 	)
-		throw new Error("Uploaded file is not a supported video");
-	await db
+		throw new TypographyError("Uploaded file is not a supported video", 400);
+	if (!(await claimTypographyUpload(userId, project.id)))
+		throw uploadAlreadyFinalized();
+	await queueTypographyJob(project.id, "transcription");
+}
+
+function uploadAlreadyFinalized() {
+	return new TypographyError("This upload is already being processed", 409);
+}
+
+/** Compare-and-set so concurrent finalize calls queue one transcription. */
+export async function claimTypographyUpload(userId: string, projectId: string) {
+	const [claimed] = await db
 		.update(typographyProject)
 		.set({ state: "processing", updatedAt: new Date() })
-		.where(eq(typographyProject.id, project.id));
-	await queueTypographyJob(project.id, "transcription");
+		.where(
+			and(
+				eq(typographyProject.id, projectId),
+				eq(typographyProject.userId, userId),
+				eq(typographyProject.state, "uploading"),
+				gt(typographyProject.expiresAt, new Date()),
+			),
+		)
+		.returning({ id: typographyProject.id });
+	return Boolean(claimed);
 }
 
 async function transcribeTypographyProject(projectId: string) {
@@ -182,6 +254,7 @@ async function transcribeTypographyProject(projectId: string) {
 		method: "POST",
 		headers: { "xi-api-key": env.ELEVENLABS_API_KEY },
 		body: form,
+		signal: AbortSignal.timeout(TRANSCRIPTION_TIMEOUT_MS),
 	});
 	if (!response.ok) throw new Error("Transcription provider failed");
 	const body = (await response.json()) as {
@@ -228,6 +301,7 @@ async function designTypography(words: TypographyDocument["words"]) {
 				Authorization: `Bearer ${env.AI_GATEWAY_API_KEY}`,
 				"Content-Type": "application/json",
 			},
+			signal: AbortSignal.timeout(DESIGN_TIMEOUT_MS),
 			body: JSON.stringify({
 				model: AI_MODEL,
 				input: [
@@ -308,7 +382,12 @@ export async function typographyVideoUrl(userId: string, projectId: string) {
 }
 
 function runFfmpeg(args: string[]) {
-	return promisify(execFile)("ffmpeg", args, { maxBuffer: 1024 * 1024 })
+	return promisify(execFile)("ffmpeg", args, {
+		maxBuffer: 1024 * 1024,
+		timeout: EXPORT_TIMEOUT_MS,
+		// A hung decode can ignore SIGTERM; the worker must get the slot back.
+		killSignal: "SIGKILL",
+	})
 		.then(() => undefined)
 		.catch(() => {
 			throw new Error("FFmpeg export failed");
@@ -320,8 +399,11 @@ export async function requestTypographyExport(
 	projectId: string,
 ) {
 	const project = await requireProject(userId, projectId);
-	if (project?.state !== "ready") throw new Error("Project is not ready");
-	await queueTypographyJob(project.id, "export");
+	if (!project) throw new TypographyError("Project not found", 404);
+	if (project.state !== "ready")
+		throw new TypographyError("Project is not ready", 409);
+	if (!(await queueTypographyJob(project.id, "export")))
+		throw new TypographyError("An export is already in progress", 409);
 	return { ok: true };
 }
 
@@ -376,17 +458,55 @@ async function renderTypographyExport(
 	}
 }
 
+/** False when a job of this kind is already queued or processing. */
 async function queueTypographyJob(
 	projectId: string,
 	kind: "transcription" | "export",
 ) {
-	await db
+	const [queued] = await db
 		.insert(typographyJob)
 		.values({ id: randomUUID(), projectId, kind, state: "queued" })
 		.onConflictDoUpdate({
 			target: [typographyJob.projectId, typographyJob.kind],
 			set: { state: "queued", updatedAt: new Date() },
-		});
+			// Re-queueing a running job would render it twice.
+			setWhere: sql`${typographyJob.state} not in ('queued', 'processing')`,
+		})
+		.returning({ id: typographyJob.id });
+	return Boolean(queued);
+}
+
+/**
+ * Hands jobs whose worker stopped heartbeating back to the queue. Only stale
+ * rows: another worker's live job keeps its fresh `updated_at`.
+ */
+export async function requeueStaleTypographyJobs(now = new Date()) {
+	const stale = await db
+		.update(typographyJob)
+		.set({ state: "queued", updatedAt: now })
+		.where(
+			and(
+				eq(typographyJob.state, "processing"),
+				lt(typographyJob.updatedAt, new Date(now.getTime() - JOB_LEASE_MS)),
+			),
+		)
+		.returning({ id: typographyJob.id });
+	return stale.length;
+}
+
+function heartbeat(jobId: string) {
+	const timer = setInterval(() => {
+		void db
+			.update(typographyJob)
+			.set({ updatedAt: new Date() })
+			.where(
+				and(eq(typographyJob.id, jobId), eq(typographyJob.state, "processing")),
+			)
+			.catch((error: unknown) =>
+				console.error("Typography job heartbeat failed", error),
+			);
+	}, JOB_HEARTBEAT_MS);
+	return () => clearInterval(timer);
 }
 
 async function claimTypographyJob() {
@@ -404,16 +524,20 @@ async function claimTypographyJob() {
 }
 
 export async function runTypographyWorker() {
-	await db
-		.update(typographyJob)
-		.set({ state: "queued", updatedAt: new Date() })
-		.where(eq(typographyJob.state, "processing"));
+	let requeuedAt = 0;
 	for (;;) {
+		if (Date.now() - requeuedAt >= JOB_HEARTBEAT_MS) {
+			requeuedAt = Date.now();
+			await requeueStaleTypographyJobs().catch((error: unknown) =>
+				console.error("Typography stale job requeue failed", error),
+			);
+		}
 		const job = await claimTypographyJob();
 		if (!job) {
 			await new Promise((resolve) => setTimeout(resolve, 1_000));
 			continue;
 		}
+		const stopHeartbeat = heartbeat(job.id);
 		try {
 			if (job.kind === "transcription")
 				await transcribeTypographyProject(job.projectId);
@@ -459,6 +583,8 @@ export async function runTypographyWorker() {
 					.set({ state: "failed", updatedAt: new Date() })
 					.where(eq(typographyProject.id, job.projectId));
 			}
+		} finally {
+			stopHeartbeat();
 		}
 	}
 }

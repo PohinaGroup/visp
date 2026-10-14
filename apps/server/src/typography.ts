@@ -1,9 +1,12 @@
+import { betterFeatures } from "@VISP/api/better-features";
+import { fixedWindow } from "@VISP/api/rate-limit";
 import {
 	createTypographyProject,
 	finalizeTypographyUpload,
 	listTypographyProjects,
 	requestTypographyExport,
 	saveTypographyProject,
+	TypographyError,
 	typographyDocumentSchema,
 	typographyExportUrl,
 	typographyVideoUrl,
@@ -25,9 +28,41 @@ const createInput = z.object({
 });
 const saveInput = z.object({ document: typographyDocumentSchema });
 
+/**
+ * Per-user ceilings on the calls that spend: create reserves up to 1 GB of
+ * storage, finalize bills a Scribe transcription, export takes the single
+ * render worker. Generous for someone editing by hand.
+ */
+const createRequests = fixedWindow(10, 60 * 60_000);
+const finalizeRequests = fixedWindow(10, 60 * 60_000);
+const exportRequests = fixedWindow(30, 60 * 60_000);
+
+export function resetTypographyRateLimits() {
+	createRequests.reset();
+	finalizeRequests.reset();
+	exportRequests.reset();
+}
+
 async function userId(headers: Headers) {
 	const session = await getUserSession(headers);
 	return session?.user.id ?? null;
+}
+
+/**
+ * Typography transcribes with the same ElevenLabs Scribe account as hosted
+ * subtitles, so the same admin switch admits it.
+ */
+async function typographyEnabled(id: string) {
+	return (await betterFeatures(id)).betterSubtitles;
+}
+
+function failure(error: unknown, fallback: string) {
+	if (error instanceof TypographyError)
+		return { code: error.status, error: error.message };
+	return {
+		code: 400 as const,
+		error: error instanceof Error ? error.message : fallback,
+	};
 }
 
 export const typographyRoutes = new Elysia({ name: "typography-routes" })
@@ -48,14 +83,17 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 	.post("/api/typography/projects", async ({ request, body, status }) => {
 		const id = await userId(request.headers);
 		if (!id) return status(401, { error: "Authentication required" });
+		if (!(await typographyEnabled(id)))
+			return status(403, { error: "Typography is not enabled" });
 		const parsed = createInput.safeParse(body);
 		if (!parsed.success) return status(400, { error: "Invalid project" });
+		if (!createRequests.take(id))
+			return status(429, { error: "Too many requests" });
 		try {
 			return await createTypographyProject(id, parsed.data);
 		} catch (error) {
-			return status(400, {
-				error: error instanceof Error ? error.message : "Project failed",
-			});
+			const { code, error: message } = failure(error, "Project failed");
+			return status(code, { error: message });
 		}
 	})
 	.put(
@@ -80,15 +118,18 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 		async ({ request, params, status }) => {
 			const id = await userId(request.headers);
 			if (!id) return status(401, { error: "Authentication required" });
+			if (!(await typographyEnabled(id)))
+				return status(403, { error: "Typography is not enabled" });
 			const project = projectId.safeParse(params);
 			if (!project.success) return status(400, { error: "Invalid project" });
+			if (!finalizeRequests.take(id))
+				return status(429, { error: "Too many requests" });
 			try {
 				await finalizeTypographyUpload(id, project.data.id);
 				return { ok: true };
 			} catch (error) {
-				return status(400, {
-					error: error instanceof Error ? error.message : "Upload failed",
-				});
+				const { code, error: message } = failure(error, "Upload failed");
+				return status(code, { error: message });
 			}
 		},
 	)
@@ -97,14 +138,17 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 		async ({ request, params, status }) => {
 			const id = await userId(request.headers);
 			if (!id) return status(401, { error: "Authentication required" });
+			if (!(await typographyEnabled(id)))
+				return status(403, { error: "Typography is not enabled" });
 			const project = projectId.safeParse(params);
 			if (!project.success) return status(400, { error: "Invalid project" });
+			if (!exportRequests.take(id))
+				return status(429, { error: "Too many requests" });
 			try {
 				return await requestTypographyExport(id, project.data.id);
 			} catch (error) {
-				return status(400, {
-					error: error instanceof Error ? error.message : "Export failed",
-				});
+				const { code, error: message } = failure(error, "Export failed");
+				return status(code, { error: message });
 			}
 		},
 	)
