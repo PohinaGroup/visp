@@ -54,6 +54,16 @@ describe("mapKickProfileToAuthUser", () => {
 		});
 	});
 
+	test("never takes another account's placeholder address from Kick", () => {
+		expect(
+			mapKickProfileToAuthUser({
+				user_id: 8,
+				name: "Claimer",
+				email: " KICK-12345@users.noreply.visp-stream.com ",
+			})?.email,
+		).toBe(kickPlaceholderEmail("8"));
+	});
+
 	test("returns null without a usable user_id", () => {
 		expect(mapKickProfileToAuthUser(undefined)).toBeNull();
 		expect(mapKickProfileToAuthUser({})).toBeNull();

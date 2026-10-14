@@ -1,3 +1,5 @@
+import { isPlaceholderEmail, PLACEHOLDER_EMAIL_DOMAIN } from "./reserved-email";
+
 export type KickProfile = {
 	email?: string | null;
 	name?: string | null;
@@ -15,7 +17,7 @@ export type KickAuthUser = {
 
 /** Stable placeholder when Kick omits email (common for some accounts). */
 export function kickPlaceholderEmail(userId: string) {
-	return `kick-${userId}@users.noreply.visp-stream.com`;
+	return `kick-${userId}@${PLACEHOLDER_EMAIL_DOMAIN}`;
 }
 
 export function mapKickProfileToAuthUser(
@@ -25,7 +27,10 @@ export function mapKickProfileToAuthUser(
 	const id = String(profile.user_id).trim();
 	if (!id) return null;
 
-	const email = profile.email?.trim();
+	// A placeholder from Kick itself would let one Kick account claim another's
+	// address, so only the one derived from this account's id is used.
+	const reported = profile.email?.trim();
+	const email = isPlaceholderEmail(reported) ? undefined : reported;
 	const name = profile.name?.trim() || `Kick ${id}`;
 
 	return {
