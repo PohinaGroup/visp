@@ -2,7 +2,10 @@ import { describe, expect, test } from "bun:test";
 
 import "./test-env";
 import {
+	checkObsBackupManifestLimits,
 	getObsBackupUploadUrl,
+	OBS_BACKUP_FILE_MAX_BYTES,
+	OBS_BACKUP_MAX_BYTES,
 	ObsBackupError,
 	obsBackupKey,
 	obsBackupPrefix,
@@ -144,5 +147,40 @@ describe("OBS backups", () => {
 		]) {
 			expect(() => parseObsBackupManifest(manifest)).toThrow(ObsBackupError);
 		}
+	});
+	test("caps file and backup sizes when sealing but still reads older backups", () => {
+		const file = (path: string, byteSize: number) => ({
+			path,
+			originalPath: path,
+			byteSize,
+		});
+		const manifest = (files: ReturnType<typeof file>[]) =>
+			parseObsBackupManifest({ version: 1, createdAt: "x", files });
+		const stored = manifest([file("media/000001", 3 * 1024 ** 3)]);
+		expect(stored.files[0]?.byteSize).toBe(3 * 1024 ** 3);
+		expect(() => checkObsBackupManifestLimits(stored)).toThrow("1 GB per-file");
+		expect(() =>
+			checkObsBackupManifestLimits(
+				manifest([file("media/000001", OBS_BACKUP_FILE_MAX_BYTES)]),
+			),
+		).not.toThrow();
+		const tooMuch = manifest([
+			file("media/000001", OBS_BACKUP_FILE_MAX_BYTES),
+			file("media/000002", OBS_BACKUP_FILE_MAX_BYTES),
+			file(
+				"media/000003",
+				OBS_BACKUP_MAX_BYTES - 2 * OBS_BACKUP_FILE_MAX_BYTES + 1,
+			),
+		]);
+		try {
+			checkObsBackupManifestLimits(tooMuch);
+			throw new Error("expected a size error");
+		} catch (error) {
+			expect(error).toBeInstanceOf(ObsBackupError);
+			expect((error as ObsBackupError).status).toBe(413);
+		}
+		expect(() => manifest([file("media/000001", 4 * 1024 ** 3 + 1)])).toThrow(
+			ObsBackupError,
+		);
 	});
 });

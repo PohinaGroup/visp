@@ -3,10 +3,32 @@ import { obsBackup } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { createObjectStore, type ObjectStore } from "@VISP/object-store";
 import { randomUUID } from "node:crypto";
-import { and, count, desc, eq, isNotNull, isNull, lt, sql } from "drizzle-orm";
+import {
+	and,
+	count,
+	desc,
+	eq,
+	isNotNull,
+	isNull,
+	lt,
+	lte,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
 
-export const OBS_BACKUP_FILE_MAX_BYTES = 4 * 1024 * 1024 * 1024;
+const GIB = 1024 * 1024 * 1024;
+/**
+ * Largest file a new backup may hold. OBS backups are scene JSON, profile
+ * ini files and linked local media (images, stingers, video loops), so 1 GiB
+ * leaves room for long video loops while keeping storage bounded.
+ */
+export const OBS_BACKUP_FILE_MAX_BYTES = GIB;
+/** Largest total a new backup may hold. */
+export const OBS_BACKUP_MAX_BYTES = 2 * GIB;
+/** Sealed backups an account keeps (after retention) may hold at most this. */
+export const OBS_BACKUP_ACCOUNT_MAX_BYTES = 5 * GIB;
+/** Backups sealed before the caps above could hold files up to 4 GiB. */
+const STORED_FILE_MAX_BYTES = 4 * GIB;
 /** Completed backups kept per account; older ones are pruned on completion. */
 export const OBS_BACKUP_RETENTION = 10;
 /** Unfinished backups an account may have open at once. */
@@ -23,6 +45,15 @@ export const OBS_BACKUP_SETTLE_PER_REQUEST = 1;
 export const OBS_BACKUP_SETTLE_RETRY_MS = 10 * 60 * 1000;
 /** The plugin asks for each upload URL right before it starts that PUT. */
 const UPLOAD_URL_TTL_SECONDS = 15 * 60;
+/**
+ * Upload URLs a backup may mint beyond one per manifest file plus the manifest
+ * itself. The plugin asks exactly once per file, so this is only headroom.
+ */
+const UPLOAD_URL_SLACK = 16;
+export const OBS_BACKUP_MAX_UPLOAD_URLS =
+	OBS_BACKUP_MANIFEST_MAX_FILES + 1 + UPLOAD_URL_SLACK;
+/** Re-check a sealed backup once every upload URL it handed out has expired. */
+const RECONCILE_DELAY_MS = (UPLOAD_URL_TTL_SECONDS + 60) * 1000;
 const DOWNLOAD_URL_TTL_SECONDS = 60 * 60;
 const STAT_CONCURRENCY = 8;
 const SETTLE_ATTEMPTS_MAX = 10_000;
@@ -124,7 +155,7 @@ const manifestFile = z.object({
 			(path) => validObsBackupPath(path) && path !== OBS_BACKUP_MANIFEST_PATH,
 		),
 	originalPath: z.string().max(4096),
-	byteSize: z.number().int().min(1).max(OBS_BACKUP_FILE_MAX_BYTES),
+	byteSize: z.number().int().min(1).max(STORED_FILE_MAX_BYTES),
 	sha256: z
 		.string()
 		.regex(/^[0-9a-f]{64}$/i)
@@ -168,6 +199,30 @@ export function parseObsBackupManifest(value: unknown): ObsBackupManifest {
 	if (!parsed.success)
 		throw new ObsBackupError(422, "The backup manifest is invalid");
 	return parsed.data;
+}
+
+/**
+ * Sealing applies tighter limits than reading, so backups sealed before the
+ * caps existed stay restorable.
+ */
+export function checkObsBackupManifestLimits(manifest: ObsBackupManifest) {
+	const tooLarge = manifest.files.find(
+		(file) => file.byteSize > OBS_BACKUP_FILE_MAX_BYTES,
+	);
+	if (tooLarge)
+		throw new ObsBackupError(
+			413,
+			`${tooLarge.path} is larger than the 1 GB per-file backup limit`,
+		);
+	if (obsBackupManifestBytes(manifest) > OBS_BACKUP_MAX_BYTES)
+		throw new ObsBackupError(
+			413,
+			"Backups must be 2 GB or smaller. Remove large media from your scenes and try again.",
+		);
+}
+
+function obsBackupManifestBytes(manifest: ObsBackupManifest) {
+	return manifest.files.reduce((sum, file) => sum + file.byteSize, 0);
 }
 
 export type ObsBackupSummary = {
@@ -258,6 +313,7 @@ export async function createObsBackup(
 ) {
 	await removeAbandonedObsBackups(userId, client);
 	await settlePendingObsBackups(userId, client);
+	await reconcileDueObsBackups(userId, client);
 	// Count and insert under one per-account lock so parallel creates cannot
 	// both see room for one more pending backup.
 	const row = await db.transaction(async (tx) => {
@@ -311,9 +367,26 @@ export async function prepareObsBackupUpload(
 ) {
 	if (!validObsBackupPath(path))
 		throw new ObsBackupError(400, "Invalid backup file path");
-	const row = await ownedBackup(userId, backupId);
-	if (row.completedAt)
-		throw new ObsBackupError(409, "Backup is already complete");
+	// A pending backup's fileCount counts the upload URLs handed out; sealing
+	// overwrites it with the manifest's file count.
+	const [counted] = await db
+		.update(obsBackup)
+		.set({ fileCount: sql`${obsBackup.fileCount} + 1` })
+		.where(
+			and(
+				eq(obsBackup.id, backupId),
+				eq(obsBackup.userId, userId),
+				isNull(obsBackup.completedAt),
+				lt(obsBackup.fileCount, OBS_BACKUP_MAX_UPLOAD_URLS),
+			),
+		)
+		.returning({ id: obsBackup.id });
+	if (!counted) {
+		const row = await ownedBackup(userId, backupId);
+		if (row.completedAt)
+			throw new ObsBackupError(409, "Backup is already complete");
+		throw new ObsBackupError(429, "This backup has too many files");
+	}
 	return getObsBackupUploadUrl(userId, backupId, path, client);
 }
 
@@ -346,8 +419,145 @@ async function readManifest(
 }
 
 /**
+ * Deletes every object under the backup's prefix that its manifest does not
+ * list. Returns false when a listed file no longer has its declared size,
+ * which only happens if a still-valid upload URL overwrote it after sealing.
+ */
+async function reconcileObsBackupObjects(
+	userId: string,
+	backupId: string,
+	manifest: ObsBackupManifest,
+	client: Pick<ObjectStore, "stat" | "list" | "delete">,
+	{ checkSizes }: { checkSizes: boolean },
+) {
+	const prefix = obsBackupPrefix(userId, backupId);
+	const sizes = new Map(
+		manifest.files.map((file) => [`${prefix}${file.path}`, file.byteSize]),
+	);
+	const manifestKey = obsBackupKey(userId, backupId, OBS_BACKUP_MANIFEST_PATH);
+	const keys = await client.list(prefix);
+	const unlisted = keys.filter((key) => key !== manifestKey && !sizes.has(key));
+	for (let index = 0; index < unlisted.length; index += STAT_CONCURRENCY) {
+		await Promise.all(
+			unlisted
+				.slice(index, index + STAT_CONCURRENCY)
+				.map((key) => client.delete(key)),
+		);
+	}
+	if (!checkSizes) return true;
+	const listed = [...sizes];
+	let intact = true;
+	for (let index = 0; index < listed.length; index += STAT_CONCURRENCY) {
+		await Promise.all(
+			listed
+				.slice(index, index + STAT_CONCURRENCY)
+				.map(async ([key, byteSize]) => {
+					// A failed stat is not proof of tampering; only a wrong size is.
+					const stat = await client.stat(key).catch(() => null);
+					if (stat && stat.byteSize !== byteSize) intact = false;
+				}),
+		);
+	}
+	return intact;
+}
+
+/**
+ * Upload URLs stay valid for UPLOAD_URL_TTL_SECONDS after sealing, so check
+ * again once they have all expired: drop objects added since, and remove the
+ * backup if its manifest or a listed file was overwritten (restore would
+ * reject it anyway). A storage error only skips the check.
+ */
+export async function reconcileSealedObsBackup(
+	userId: string,
+	backupId: string,
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+) {
+	const row = await db.query.obsBackup.findFirst({
+		where: and(eq(obsBackup.id, backupId), eq(obsBackup.userId, userId)),
+	});
+	if (!row?.completedAt) return;
+	let manifest: ObsBackupManifest;
+	try {
+		manifest = await readManifest(userId, backupId, client);
+	} catch (error) {
+		const tampered =
+			error instanceof ObsBackupError &&
+			(error.status === 413 ||
+				error.message === "The backup manifest is invalid");
+		if (tampered) await removeBackup(userId, backupId, client);
+		return;
+	}
+	const intact =
+		manifest.files.length === row.fileCount &&
+		obsBackupManifestBytes(manifest) === row.totalBytes &&
+		(await reconcileObsBackupObjects(userId, backupId, manifest, client, {
+			checkSizes: true,
+		}));
+	if (!intact) await removeBackup(userId, backupId, client);
+}
+
+/**
+ * Runs the delayed check for every sealed backup whose time has come. The
+ * due time lives on the row, so a restart between sealing and the check only
+ * postpones it to this account's next listing or backup. Claiming the row
+ * first keeps two instances from checking the same backup.
+ */
+export async function reconcileDueObsBackups(
+	userId: string,
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
+	now = Date.now(),
+) {
+	const due = await db
+		.update(obsBackup)
+		.set({ reconcileAfter: null })
+		.where(
+			and(
+				eq(obsBackup.userId, userId),
+				isNotNull(obsBackup.completedAt),
+				lte(obsBackup.reconcileAfter, new Date(now)),
+			),
+		)
+		.returning({ id: obsBackup.id });
+	for (const { id } of due) {
+		await reconcileSealedObsBackup(userId, id, client).catch((error) => {
+			console.error("Failed to reconcile OBS backup objects", error);
+		});
+	}
+	return due.length;
+}
+
+/** Best effort: runs the due check promptly when this process is still up. */
+function scheduleReconcile(
+	userId: string,
+	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete">,
+) {
+	const timer = setTimeout(() => {
+		reconcileDueObsBackups(userId, client).catch((error) => {
+			console.error("Failed to reconcile OBS backup objects", error);
+		});
+	}, RECONCILE_DELAY_MS + 1_000);
+	timer.unref?.();
+}
+
+/** Sum of the sealed backups retention keeps once one more is sealed. */
+async function retainedBytes(
+	tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+	userId: string,
+) {
+	const rows = await tx
+		.select({ totalBytes: obsBackup.totalBytes })
+		.from(obsBackup)
+		.where(and(eq(obsBackup.userId, userId), isNotNull(obsBackup.completedAt)))
+		.orderBy(desc(obsBackup.completedAt), desc(obsBackup.createdAt))
+		.limit(OBS_BACKUP_RETENTION - 1);
+	return rows.reduce((sum, row) => sum + row.totalBytes, 0);
+}
+
+/**
  * Seals a backup once the plugin has uploaded the manifest: every listed file
  * must exist at its declared size, so a listed backup is always restorable.
+ * Sealing also enforces the per-file, per-backup and per-account size caps
+ * and deletes anything uploaded under the backup that the manifest omits.
  */
 export async function completeObsBackup(
 	userId: string,
@@ -357,6 +567,18 @@ export async function completeObsBackup(
 	const row = await ownedBackup(userId, backupId);
 	if (row.completedAt) return summarize(row);
 	const manifest = await readManifest(userId, backupId, client);
+	try {
+		checkObsBackupManifestLimits(manifest);
+		if (row.fileCount > manifest.files.length + 1 + UPLOAD_URL_SLACK)
+			throw new ObsBackupError(
+				413,
+				"This backup requested more uploads than its manifest lists",
+			);
+	} catch (error) {
+		// It can never be sealed, so free its storage now rather than in a day.
+		await removeBackup(userId, backupId, client).catch(() => {});
+		throw error;
+	}
 	for (
 		let index = 0;
 		index < manifest.files.length;
@@ -378,26 +600,65 @@ export async function completeObsBackup(
 		);
 	}
 	const v2 = manifest.version === 2 ? manifest : null;
-	const [completed] = await db
-		.update(obsBackup)
-		.set({
-			completedAt: new Date(),
-			fileCount: manifest.files.length,
-			totalBytes: manifest.files.reduce((sum, file) => sum + file.byteSize, 0),
-			label: row.label ?? v2?.sceneCollection ?? null,
-			os: row.os ?? v2?.os ?? null,
-			obsVersion: row.obsVersion ?? v2?.obsVersion ?? null,
+	const totalBytes = obsBackupManifestBytes(manifest);
+	// Check the quota and seal under the per-account lock so two completions
+	// cannot each see room for themselves.
+	const sealed = await db
+		.transaction(async (tx) => {
+			await tx.execute(
+				sql`select pg_advisory_xact_lock(hashtext(${`obs-backup:${userId}`}))`,
+			);
+			const [current] = await tx
+				.select()
+				.from(obsBackup)
+				.where(and(eq(obsBackup.id, backupId), eq(obsBackup.userId, userId)));
+			if (!current) throw new ObsBackupError(404, "Backup not found");
+			if (current.completedAt) return { row: current, sealedNow: false };
+			if (
+				(await retainedBytes(tx, userId)) + totalBytes >
+				OBS_BACKUP_ACCOUNT_MAX_BYTES
+			)
+				throw new ObsBackupError(
+					413,
+					"This backup would put your VISP backups over the 5 GB storage limit. Delete older backups and try again.",
+				);
+			const [completed] = await tx
+				.update(obsBackup)
+				.set({
+					completedAt: new Date(),
+					reconcileAfter: new Date(Date.now() + RECONCILE_DELAY_MS),
+					fileCount: manifest.files.length,
+					totalBytes,
+					label: row.label ?? v2?.sceneCollection ?? null,
+					os: row.os ?? v2?.os ?? null,
+					obsVersion: row.obsVersion ?? v2?.obsVersion ?? null,
+				})
+				.where(and(eq(obsBackup.id, backupId), eq(obsBackup.userId, userId)))
+				.returning();
+			if (!completed) throw new ObsBackupError(404, "Backup not found");
+			return { row: completed, sealedNow: true };
 		})
-		.where(and(eq(obsBackup.id, backupId), eq(obsBackup.userId, userId)))
-		.returning();
-	if (!completed) throw new ObsBackupError(404, "Backup not found");
+		.catch(async (error) => {
+			// Over quota: the plugin starts a fresh backup after the user frees
+			// space, so this one's objects only cost storage.
+			if (error instanceof ObsBackupError && error.status === 413)
+				await removeBackup(userId, backupId, client).catch(() => {});
+			throw error;
+		});
+	if (!sealed.sealedNow) return summarize(sealed.row);
 	settleAttempts.delete(backupId);
 	// The backup is sealed either way; a storage hiccup here only delays
-	// retention until the next completion.
+	// cleanup until the delayed reconcile or the next completion.
+	await reconcileObsBackupObjects(userId, backupId, manifest, client, {
+		checkSizes: false,
+	}).catch((error) => {
+		console.error("Failed to remove unlisted OBS backup objects", error);
+	});
+	scheduleReconcile(userId, client);
 	await pruneObsBackups(userId, client).catch((error) => {
 		console.error("Failed to prune old OBS backups", error);
 	});
-	return summarize(completed);
+	return summarize(sealed.row);
 }
 
 /** Keeps the newest OBS_BACKUP_RETENTION completed backups. */
@@ -480,6 +741,7 @@ export async function listObsBackups(
 ) {
 	await removeAbandonedObsBackups(userId, client);
 	await settlePendingObsBackups(userId, client);
+	await reconcileDueObsBackups(userId, client);
 	const rows = await db.query.obsBackup.findMany({
 		where: and(eq(obsBackup.userId, userId), isNotNull(obsBackup.completedAt)),
 		orderBy: [desc(obsBackup.completedAt), desc(obsBackup.createdAt)],
