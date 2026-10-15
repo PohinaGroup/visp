@@ -22,6 +22,10 @@
 		"@ai-sdk/react": "^3.0.0",
 		"@astryxdesign/core": "^0.1.6",
 		"@astryxdesign/theme-neutral": "^0.1.6",
+		"@better-auth-ui/core": "1.7.23",
+		"@better-auth-ui/react": "1.7.23",
+		"@better-auth/agent-auth": "0.6.2",
+		"@fontsource-variable/archivo": "5.3.0",
 		"@fontsource/barlow": "^5.2.8",
 		"@fontsource/barlow-condensed": "^5.2.8",
 		"@fontsource/ibm-plex-mono": "^5.2.7",
@@ -48,10 +52,7 @@
 		"sonner": "catalog:",
 		"streamdown": "^2.5.0",
 		"tailwindcss": "catalog:",
-		"zod": "catalog:",
-		"@better-auth/agent-auth": "0.6.2",
-		"@better-auth-ui/core": "1.7.23",
-		"@better-auth-ui/react": "1.7.23"
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@VISP/config": "workspace:*",

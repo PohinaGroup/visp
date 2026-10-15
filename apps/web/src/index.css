@@ -5,6 +5,7 @@
 @import "@fontsource/barlow-condensed/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
+@import "@fontsource-variable/archivo/wdth.css";
 
 @import "@VISP/ui/globals.css";
 
@@ -196,11 +197,79 @@ html.dark [data-astryx-theme="neutral"] {
 	--font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
 	--font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
 	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
+	--font-marketing: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
+
+	/*
+	 * Marketing palette (vars live on .mkt). Tailwind `signal` stays the app's
+	 * green above; on marketing pages use bg-(--signal) / text-(--signal) /
+	 * fill-(--signal) / stroke-(--signal) for the marketing signal green.
+	 */
+	--color-paper: var(--paper);
+	--color-surface: var(--surface);
+	--color-ink: var(--ink);
+	--color-ink-muted: var(--ink-muted);
+	--color-on-air: var(--on-air);
+	--color-weak: var(--weak);
 
 	/* Signal-state colors: tally = live, caution = unknown, signal = ok */
 	--color-tally: oklch(0.63 0.21 27);
 	--color-caution: oklch(0.78 0.13 80);
 	--color-signal: oklch(0.72 0.15 155);
+}
+
+/*
+ * Marketing pages. Unlayered so the tokens and base type are not overridden by
+ * astryx's layered reset; the layered rule below only undoes that reset's
+ * forced font/color on text elements.
+ */
+.mkt {
+	--paper: #e9edf0;
+	--surface: #ffffff;
+	--ink: #12263b;
+	--ink-muted: #4b5d70;
+	--on-air: #e5352b;
+	--signal: #2e9b5c;
+	--weak: #e9a23b;
+
+	background: var(--paper);
+	color: var(--ink);
+	font-family: var(--font-marketing);
+	font-size: 1.0625rem;
+}
+
+html.dark .mkt {
+	--paper: #0e1a28;
+	--surface: #152536;
+	--ink: #e9edf0;
+	--ink-muted: #9fb0c0;
+	--on-air: #f0483d;
+	--signal: #3fbf74;
+	--weak: #f0b44c;
+}
+
+@layer components {
+	.mkt :is(h1, h2, h3, h4, h5, h6, p, small) {
+		font: inherit;
+		color: inherit;
+	}
+}
+
+.mkt :is(h1, h2, h3) {
+	overflow-wrap: anywhere;
+	hyphens: auto;
+	text-wrap: balance;
+}
+
+.mkt :focus-visible {
+	outline: 2px solid var(--ink);
+	outline-offset: 3px;
+}
+
+.mkt-display {
+	font-stretch: 118%;
+	font-weight: 800;
+	line-height: 0.98;
+	letter-spacing: -0.02em;
 }
 
 .tally-pulse {
