@@ -4,6 +4,7 @@ import { appUser } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
 import { and, eq, lt, sql } from "drizzle-orm";
 import { tryAdvisoryLock } from "./advisory-lock";
+import { PROVIDER_TIMEOUT_MS } from "./provider-timeout";
 
 export type PlanState = {
 	plan: "free" | "plus";
@@ -52,12 +53,17 @@ export async function fetchPlan(userId: string): Promise<PlanState> {
 	if (!polarApi || !env.POLAR_PRODUCT_ID) {
 		throw new Error("Polar is not configured");
 	}
-	const page = await polarApi.subscriptions.list({
-		external_customer_id: userId,
-		product_id: env.POLAR_PRODUCT_ID,
-		status: [...PLUS_STATUSES],
-		limit: 10,
-	});
+	// Runs under syncUserPlan's lock and pool slot, so it must not outlive the
+	// provider budget. The SDK aborts the request itself; timeout is in seconds.
+	const page = await polarApi.subscriptions.list(
+		{
+			external_customer_id: userId,
+			product_id: env.POLAR_PRODUCT_ID,
+			status: [...PLUS_STATUSES],
+			limit: 10,
+		},
+		{ timeout: PROVIDER_TIMEOUT_MS / 1000 },
+	);
 	return planFromSubscriptions(page.items, env.POLAR_PRODUCT_ID);
 }
 
