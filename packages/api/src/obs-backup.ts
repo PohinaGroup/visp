@@ -505,7 +505,7 @@ export async function reconcileSealedObsBackup(
 /**
  * Runs the delayed check for every sealed backup whose time has come. The
  * due time lives on the row, so a restart between sealing and the check only
- * postpones it to this account's next listing or backup. Claiming the row
+ * postpones it to this account's next listing or backup. Leasing the row
  * first keeps two instances from checking the same backup.
  */
 export async function reconcileDueObsBackups(
@@ -513,9 +513,11 @@ export async function reconcileDueObsBackups(
 	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
 	now = Date.now(),
 ) {
+	// The claim is a lease, not a clear: a check that throws (or a process
+	// that dies mid-check) leaves the row due again after the retry delay.
 	const due = await db
 		.update(obsBackup)
-		.set({ reconcileAfter: null })
+		.set({ reconcileAfter: new Date(now + OBS_BACKUP_SETTLE_RETRY_MS) })
 		.where(
 			and(
 				eq(obsBackup.userId, userId),
@@ -525,9 +527,15 @@ export async function reconcileDueObsBackups(
 		)
 		.returning({ id: obsBackup.id });
 	for (const { id } of due) {
-		await reconcileSealedObsBackup(userId, id, client).catch((error) => {
+		try {
+			await reconcileSealedObsBackup(userId, id, client);
+			await db
+				.update(obsBackup)
+				.set({ reconcileAfter: null })
+				.where(eq(obsBackup.id, id));
+		} catch (error) {
 			console.error("Failed to reconcile OBS backup objects", error);
-		});
+		}
 	}
 	return due.length;
 }
