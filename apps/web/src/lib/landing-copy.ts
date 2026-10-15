@@ -453,7 +453,7 @@ const en = {
 				"Bring your phone into the OBS you already run, over the internet from anywhere. Switch scenes from the phone with no open ports. A free cloud OBS alternative.",
 		},
 		noPcNote: {
-			text: "Don't have a studio PC? You don't need one. Phone only does never-drop, highlights (Plus), and overlays (beta) too. No computer needed.",
+			text: "No studio PC? Phone only keeps you on air with highlights (Plus) and overlays (beta), no computer needed.",
 			link: "See phone only",
 		},
 		hero: {
@@ -970,7 +970,7 @@ const fi: typeof en = {
 				"Tuo puhelimesi kuva kotona pyörivään OBS:ään internetin yli mistä tahansa. Vaihda kohtauksia puhelimesta avaamatta portteja. Ilmainen vaihtoehto pilvi-OBS:lle.",
 		},
 		noPcNote: {
-			text: "Eikö sinulla ole studiokonetta? Et tarvitse sitä. Pelkkä puhelin hoitaa katkottoman lähetyksen, klipit (Plus) ja grafiikat (beta). Tietokonetta ei tarvita.",
+			text: "Ei studiokonetta? Pelkkä puhelin pitää sinut lähetyksessä klipein (Plus) ja grafiikoin (beta), ilman tietokonetta.",
 			link: "Katso pelkkä puhelin",
 		},
 		hero: {

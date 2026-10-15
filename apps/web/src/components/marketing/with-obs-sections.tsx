@@ -21,27 +21,25 @@ import { CostChart } from "./cost-chart";
 import { Faq } from "./faq";
 import { SituationList } from "./situation-list";
 import { StepList } from "./step-list";
-import { mktButton, mktH2 } from "./styles";
+import { mktButton, mktH2, mktTextLink } from "./styles";
 
 const LEAD = "mt-6 max-w-[62ch] leading-relaxed md:text-[1.1875rem]";
-const TEXT_LINK =
-	"inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink";
 
 /** Above the hero: no studio PC needed, phone only does it too. */
 export function WithObsNote({ locale }: { locale: Locale }) {
 	const { noPcNote } = landingCopy[locale].withObs;
 	return (
-		<div className="border-ink/15 border-l-2 pl-4">
-			<p className="max-w-[62ch] text-ink-muted leading-relaxed">
-				{noPcNote.text}
-			</p>
+		// The link stays inline to keep the note short above the H1; its vertical
+		// padding gives it a 44px tap target without growing the line.
+		<p className="max-w-[62ch] border-ink/15 border-l-2 pl-4 text-ink-muted leading-relaxed">
+			{noPcNote.text}{" "}
 			<Link
 				to={locale === "fi" ? "/fi/phone-only" : "/phone-only"}
-				className={TEXT_LINK}
+				className="whitespace-nowrap py-3.5 font-semibold text-ink underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
 			>
 				{noPcNote.link}
 			</Link>
-		</div>
+		</p>
 	);
 }
 
@@ -71,20 +69,20 @@ export function WithObsSections({
 					<h2 className={mktH2}>{plugin.title}</h2>
 					<p className={LEAD}>{plugin.body}</p>
 				</div>
-				<ol className="mt-10 grid list-decimal gap-5 rounded-xl bg-surface py-6 pr-6 pl-12 leading-relaxed marker:font-semibold sm:py-8 sm:pr-8 sm:pl-14 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-start">
+				<ul className="mt-10 grid list-disc gap-5 rounded-xl bg-surface py-6 pr-6 pl-11 leading-relaxed marker:text-ink-muted sm:py-8 sm:pr-8 sm:pl-13 lg:col-start-2 lg:row-span-2 lg:row-start-1 lg:mt-0 lg:self-start">
 					{plugin.steps.map((step) => (
 						<li key={step} className="pl-1">
 							{step}
 						</li>
 					))}
-				</ol>
+				</ul>
 				<div className="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3 self-start">
 					<PluginDownload release={release} label={plugin.download} />
 					<a
 						href={docs.obsRemoteControl}
 						target="_blank"
 						rel="noreferrer"
-						className={TEXT_LINK}
+						className={mktTextLink}
 					>
 						{plugin.docs}
 					</a>

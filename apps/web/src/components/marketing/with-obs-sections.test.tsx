@@ -6,7 +6,11 @@ import {
 	RouterContextProvider,
 } from "@tanstack/react-router";
 import { renderToStaticMarkup } from "react-dom/server";
-import { comparisonRows, comparisonRowsFi } from "@/lib/comparison";
+import {
+	COMPARISON_CHECKED,
+	comparisonRows,
+	comparisonRowsFi,
+} from "@/lib/comparison";
 import { docs } from "@/lib/docs";
 import type { Locale } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
@@ -60,7 +64,13 @@ for (const locale of ["en", "fi"] as Locale[]) {
 		const { plugin } = page;
 		expect(html).toContain(`>${esc(plugin.title)}</h2>`);
 		expect(html).toContain(esc(plugin.body));
-		const list = html.slice(html.indexOf("<ol"), html.indexOf("</ol>"));
+		// Plain list: numbered markers belong to the "How it works" steps only.
+		const block = html.slice(
+			html.indexOf(esc(plugin.title)),
+			html.indexOf(esc(page.situationsTitle)),
+		);
+		expect(block).not.toContain("<ol");
+		const list = block.slice(block.indexOf("<ul"), block.indexOf("</ul>"));
 		let last = -1;
 		for (const step of plugin.steps) {
 			const at = list.indexOf(`>${esc(step)}</li>`);
@@ -109,7 +119,9 @@ for (const locale of ["en", "fi"] as Locale[]) {
 			expect(compare).toContain(`>${esc(row.label)}</th>`);
 			for (const cell of row.cells) expect(compare).toContain(esc(cell));
 		}
-		expect(compare).toContain(esc(page.cost.checked));
+		expect(compare).toContain(
+			`${esc(page.cost.checked)} ${COMPARISON_CHECKED}.`,
+		);
 	});
 
 	test(`${locale}: steps and every FAQ answer ship in the HTML`, () => {

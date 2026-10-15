@@ -51,7 +51,10 @@ export function LandingPage({
 			<main className="mkt">
 				<div className="mx-auto flex max-w-[1200px] flex-col gap-24 px-4 pb-24 sm:px-6 md:gap-32 md:pb-32">
 					<section className="grid gap-10 pt-8 md:pt-16 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:gap-16">
-						{topNote ? <div className="lg:col-span-2">{topNote}</div> : null}
+						{topNote ? (
+							// Pulled closer to the H1 on phones so the hero CTA stays in the first screen.
+							<div className="-mb-4 lg:col-span-2 lg:mb-0">{topNote}</div>
+						) : null}
 						<div>
 							<h1 className="mkt-display text-[clamp(2.5rem,7vw,5.5rem)]">
 								{hero.title}

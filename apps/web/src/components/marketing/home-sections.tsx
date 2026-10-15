@@ -6,7 +6,7 @@ import { landingCopy } from "@/lib/landing-copy";
 import { Faq } from "./faq";
 import { SignalStrip } from "./signal-strip";
 import { Stories } from "./stories";
-import { mktH2 } from "./styles";
+import { mktH2, mktTextLink } from "./styles";
 
 const TILE = "flex flex-col rounded-xl p-6 transition-colors sm:p-8";
 const TILE_TITLE = "mkt-display text-[clamp(1.75rem,4.5vw,2.5rem)]";
@@ -57,10 +57,7 @@ export function HomeSections({ locale }: { locale: Locale }) {
 						<li key={line}>{line}</li>
 					))}
 				</ul>
-				<Link
-					to={phoneTo}
-					className="mt-8 inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
-				>
+				<Link to={phoneTo} className={`${mktTextLink} mt-8`}>
 					{home.noObs.link}
 				</Link>
 			</section>

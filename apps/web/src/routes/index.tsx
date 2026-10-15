@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { HeroVideo } from "@/components/marketing/hero-video";
 import { HomeSections } from "@/components/marketing/home-sections";
 import { LandingPage } from "@/components/marketing/landing-page";
+import { mktTextLink } from "@/components/marketing/styles";
 import { trackEvent } from "@/lib/analytics";
 import { type Locale, landingHead, localeSearch } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
@@ -52,7 +53,7 @@ export function HomePage({ locale }: { locale: Locale }) {
 					onClick={() =>
 						trackEvent("lander_cta", { action: "download", locale })
 					}
-					className="inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+					className={mktTextLink}
 				>
 					{shared.downloadLink}
 				</Link>

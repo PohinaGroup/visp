@@ -1,6 +1,6 @@
 import type { Story } from "@/lib/landing-copy";
 
-import { mktH2 } from "./styles";
+import { mktH2, mktTextLink } from "./styles";
 
 /** Real creator stories only; nothing renders until there is one. */
 export function Stories({
@@ -36,7 +36,7 @@ export function Stories({
 									<a
 										href={story.channelUrl}
 										rel="noreferrer"
-										className="inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+										className={mktTextLink}
 									>
 										{story.name}
 									</a>

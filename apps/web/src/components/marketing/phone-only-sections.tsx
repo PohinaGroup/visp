@@ -9,7 +9,7 @@ import { Faq } from "./faq";
 import { SignalStrip } from "./signal-strip";
 import { SituationList } from "./situation-list";
 import { StepList } from "./step-list";
-import { mktH2 } from "./styles";
+import { mktH2, mktTextLink } from "./styles";
 
 const LEAD = "mt-6 max-w-[62ch] leading-relaxed md:text-[1.1875rem]";
 
@@ -88,7 +88,7 @@ export function PhoneOnlySections({ locale }: { locale: Locale }) {
 				<p className="mt-14 max-w-[62ch] leading-relaxed">{obsNote.text}</p>
 				<Link
 					to={locale === "fi" ? "/fi/with-obs" : "/with-obs"}
-					className="mt-1 inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+					className={`${mktTextLink} mt-1`}
 				>
 					{obsNote.link}
 				</Link>

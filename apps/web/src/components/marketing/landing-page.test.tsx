@@ -8,6 +8,7 @@ import {
 } from "@tanstack/react-router";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
 import { renderToStaticMarkup } from "react-dom/server";
+import { landingCopy } from "@/lib/landing-copy";
 
 // The shell's header, TryCta, and Seppo read VITE_SERVER_URL at import time.
 // A default URL (no module mock, so nothing leaks to other files).
@@ -47,6 +48,8 @@ test("the shell wraps the sections with the hero CTA and the closing CTA", () =>
 	);
 
 	expect(html.match(/<h1[ >]/g)).toHaveLength(1);
+	expect(html.match(/id="hero-cta"/g)).toHaveLength(1);
+	expect(html.match(/id="closing"/g)).toHaveLength(1);
 	const order = [
 		"Top note",
 		"Hero title",
@@ -62,4 +65,10 @@ test("the shell wraps the sections with the hero CTA and the closing CTA", () =>
 	const start = html.indexOf('id="closing"');
 	const closingHtml = html.slice(start, html.indexOf("</section>", start));
 	expect(closingHtml).toContain("Start free");
+	// After main: the footer, then the sticky CTA bar and the Seppo launcher.
+	const footer = html.indexOf("<footer", html.indexOf("</main>"));
+	expect(footer).toBeGreaterThan(-1);
+	for (const link of landingCopy.en.shared.footer)
+		expect(html.slice(footer)).toContain(esc(link.label));
+	expect(html.slice(footer)).toContain('aria-label="Open Seppo chat"');
 });
