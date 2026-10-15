@@ -31,7 +31,7 @@ import { CredentialsCard } from "./credentials-card";
 import { DestinationsSummary, DirectCard } from "./direct-card";
 import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
-import { PlanLine, PlanUsageSection } from "./plan-card";
+import { PastDueBanner, PlanLine, PlanUsageSection } from "./plan-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
 import { SetupCard } from "./setup-card";
 import {
@@ -363,6 +363,7 @@ export function DashboardPage() {
 							))}
 						</TabList>
 					</div>
+					<PastDueBanner />
 					{statusError ? (
 						<Banner
 							status="warning"

@@ -128,22 +128,28 @@ VAT-inclusive display.
   VISP renders no billing forms.
 - `apps/server/src/billing.ts`: `POST /api/webhooks/polar`, next to the Kick
   webhook and already covered by the `/api/webhooks/**` exclusion from
-  `identifyUser`. Raw body, signature checked with the Polar SDK's
-  `validateEvent`, 401 on bad signature. It subscribes to one event,
-  `customer.state_changed`, a full snapshot of the customer's subscriptions,
-  so handling is idempotent and order-insensitive: `plan = 'plus'` if any
-  subscription for the Plus product is `active` or `past_due`, else `'free'`;
-  copy `status` and `current_period_end`. Replays are harmless; the endpoint
-  returns 204 on duplicates.
-- `packages/api/src/billing.ts`: `applyCustomerState(userId, state)` (the
-  update above) and `syncPlans()`: the daily job, under the advisory lock,
-  that re-fetches customer state for users whose `plan_period_end` is more
-  than three days in the past and are still `plus`. That is the only guard
-  against a missed webhook.
+  `identifyUser`. Raw body, signature checked with the SDK's
+  `webhooks.validateEvent` (`@polar-sh/sdk/2026-10`), 401 on bad signature.
+  Polar sends `customer.state_changed`; the payload is only a trigger. The
+  handler takes `external_id` and re-reads the user's subscriptions to the
+  Plus product (`subscriptions.list`, status `active`, `trialing` or
+  `past_due`), so replays and out-of-order deliveries are harmless, and past
+  due is seen whether or not Polar's customer state lists it. Other events
+  get 204; a failed re-read gets 502 so Polar retries.
+- `packages/api/src/billing.ts`: `planFromSubscriptions` (the mapping:
+  `plus` while any such subscription exists, `status` `past_due` or
+  `active`, `current_period_end`), `syncUserPlan(userId)`, and `syncPlans()`:
+  every 6 h, under `tryAdvisoryLock("plan-sync")`, it re-reads users still
+  `plus` whose `plan_period_end` is more than three days past. That is the
+  only guard against a missed webhook.
+- `packages/auth/src/polar.ts`: the client (`POLAR_ACCESS_TOKEN`,
+  `POLAR_SERVER` sandbox or production) and the plugin, enabled only when
+  `POLAR_ACCESS_TOKEN` and `POLAR_PRODUCT_ID` are set.
 - tRPC `plan.me` returns plan, status, period end, `comped`, per-feature
-  `remaining`, checkout URL and portal URL. Comped users get no checkout URL.
-  The native app and OBS plugin read this; they never open checkout
-  themselves.
+  quota and `remaining`, and `canCheckout` / `canManage`. The web dashboard
+  calls the plugin's `POST /api/auth/checkout {slug: "plus"}` and
+  `/api/auth/customer/portal` and follows the returned Polar URL. Comped
+  users get no checkout. The native app and OBS plugin never open checkout.
 
 **Failed payment.** Polar moves the subscription to `past_due`, emails the
 customer and retries over 21 days. VISP keeps Plus through all of `past_due`

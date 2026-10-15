@@ -15,7 +15,7 @@ const en = {
 	meta: {
 		title: "VISP — Stop Paying for Cloud OBS. Stream Your Phone into Your OBS",
 		description:
-			"Bring your phone camera into the OBS you already run and stop paying $120–180 a month for cloud OBS. No computer? Go Direct to Twitch, Kick, or YouTube. Free during beta.",
+			"Bring your phone camera into the OBS you already run and stop paying $120–180 a month for cloud OBS. No computer? Go Direct to Twitch, Kick, or YouTube. Free, with €9/mo for hosted extras.",
 	},
 	nav: [
 		{ label: "Download", href: "/download", external: false },
@@ -25,7 +25,7 @@ const en = {
 	tryCta: "Try VISP free",
 	downloadLink: "Download the app",
 	hero: {
-		eyebrow: "Free during beta",
+		eyebrow: "Free · €9/mo for hosted extras",
 		title: "Stop paying for cloud OBS.",
 		body: "Stream from your phone into the OBS you already run at home. Your scenes, overlays, alerts, and plugins keep working — without a $120–180 monthly bill.",
 		videoLabel: "A VISP stream goes live and arrives in OBS",
@@ -45,12 +45,16 @@ const en = {
 	cost: {
 		eyebrow: "The math",
 		title: "Keep $1,440–$2,160 a year",
-		body: "Unlimited cloud OBS plans in this comparison cost $120–180 a month. If you already have a computer that runs OBS, VISP brings the feed to it free during beta. If you need a managed cloud studio or true cellular bonding, a paid service can still be the right choice.",
+		body: "Unlimited cloud OBS plans in this comparison cost $120–180 a month. If you already have a computer that runs OBS, VISP brings the feed to it free. If you need a managed cloud studio or true cellular bonding, a paid service can still be the right choice.",
 		chartTitle: "12-month software cost",
 		chartSubtitle: "When you already own a computer that can run OBS.",
 		chartNote: "Excludes hardware, electricity, and internet service.",
+		affiliateNote:
+			"Creators with an audience can apply to the Affiliate program and get every feature free.*",
+		affiliateLink: "Apply",
+		affiliateFootnote: "* Plus quotas apply.",
 		rows: [
-			{ product: "VISP + your OBS", cost: "$0 during beta", width: "4%" },
+			{ product: "VISP + your OBS", cost: "Free", width: "4%" },
 			{ product: "IRLToolkit", cost: "$1,548–$2,148", width: "99.4%" },
 			{ product: "Streamable.run", cost: "$1,440–$2,160", width: "100%" },
 		],
@@ -135,7 +139,7 @@ const en = {
 			},
 			{
 				q: "How much can I save?",
-				a: "Unlimited cloud OBS plans in this comparison cost $120–180 per month, or $1,440–$2,160 over 12 months. VISP is free during beta. Your hardware, electricity, and internet costs are separate.",
+				a: "Unlimited cloud OBS plans in this comparison cost $120–180 per month, or $1,440–$2,160 over 12 months. VISP is free; Plus adds hosted voice, captions, isolation and highlights for €9 a month. Creators with an audience can apply to the Affiliate program and get every feature free (Plus quotas apply). Your hardware, electricity, and internet costs are separate.",
 			},
 			{
 				q: "Do I have to paste a stream key into my phone?",
@@ -158,7 +162,7 @@ const en = {
 	closing: {
 		eyebrow: "Your OBS or Direct",
 		title: "Keep the studio. Drop the bill.",
-		body: "VISP is free during beta. Get the phone apps, browser publisher, and OBS plugin — ",
+		body: "VISP is free. Get the phone apps, browser publisher, and OBS plugin — ",
 		link: "see Download & beta",
 	},
 	footer: [
@@ -190,7 +194,7 @@ const fi: typeof en = {
 	meta: {
 		title: "VISP — Lopeta pilvi-OBS:n vuokraaminen. Puhelin omaan OBS:ään",
 		description:
-			"Tuo puhelimen kuva jo omistamaasi OBS:ään ja lopeta 120–180 dollarin kuukausimaksu pilvi-OBS:stä. Ei tietokonetta? Lähetä Directillä suoraan Twitchiin, Kickiin tai YouTubeen. Ilmainen betan ajan.",
+			"Tuo puhelimen kuva jo omistamaasi OBS:ään ja lopeta 120–180 dollarin kuukausimaksu pilvi-OBS:stä. Ei tietokonetta? Lähetä Directillä suoraan Twitchiin, Kickiin tai YouTubeen. Ilmainen, palvelinlisät 9 €/kk.",
 	},
 	nav: [
 		{
@@ -205,7 +209,7 @@ const fi: typeof en = {
 	tryCta: "Kokeile VISPiä ilmaiseksi",
 	downloadLink: "Lataa sovellus",
 	hero: {
-		eyebrow: "Ilmainen betan ajan",
+		eyebrow: "Ilmainen · palvelinlisät 9 €/kk",
 		title: "Lopeta pilvi-OBS:n vuokraaminen.",
 		body: "Lähetä puhelimesta kotona jo pyörivään OBS:ään. Kohtaukset, grafiikat, hälytykset ja lisäosat toimivat edelleen — ilman 120–180 dollarin kuukausilaskua.",
 		videoLabel: "VISP-lähetys käynnistyy ja kuva saapuu OBS:ään",
@@ -225,12 +229,16 @@ const fi: typeof en = {
 	cost: {
 		eyebrow: "Laskelma",
 		title: "Säästä 1 440–2 160 $ vuodessa",
-		body: "Vertailun rajattomat pilvi-OBS-tilaukset maksavat 120–180 dollaria kuukaudessa. Jos sinulla on jo OBS:ää pyörittävä tietokone, VISP tuo syötteen siihen betan ajan ilmaiseksi. Jos tarvitset hallitun pilvistudion tai aitoa mobiiliyhteyksien niputusta, maksullinen palvelu voi silti olla oikea valinta.",
+		body: "Vertailun rajattomat pilvi-OBS-tilaukset maksavat 120–180 dollaria kuukaudessa. Jos sinulla on jo OBS:ää pyörittävä tietokone, VISP tuo syötteen siihen ilmaiseksi. Jos tarvitset hallitun pilvistudion tai aitoa mobiiliyhteyksien niputusta, maksullinen palvelu voi silti olla oikea valinta.",
 		chartTitle: "12 kuukauden ohjelmistokulut",
 		chartSubtitle: "Kun omistat jo OBS:ää pyörittävän tietokoneen.",
 		chartNote: "Ei sisällä laitteistoa, sähköä tai internetyhteyttä.",
+		affiliateNote:
+			"Yleisöä keränneet tekijät voivat hakea Affiliate-ohjelmaan ja saada kaikki ominaisuudet ilmaiseksi.*",
+		affiliateLink: "Hae",
+		affiliateFootnote: "* Plus-kiintiöt pätevät.",
 		rows: [
-			{ product: "VISP + oma OBS", cost: "0 $ betan ajan", width: "4%" },
+			{ product: "VISP + oma OBS", cost: "Ilmainen", width: "4%" },
 			{ product: "IRLToolkit", cost: "1 548–2 148 $", width: "99.4%" },
 			{ product: "Streamable.run", cost: "1 440–2 160 $", width: "100%" },
 		],
@@ -318,7 +326,7 @@ const fi: typeof en = {
 			},
 			{
 				q: "Kuinka paljon voin säästää?",
-				a: "Vertailun rajattomat pilvi-OBS-tilaukset maksavat 120–180 dollaria kuukaudessa eli 1 440–2 160 dollaria vuodessa. VISP on betan ajan ilmainen. Laitteisto, sähkö ja internetyhteys eivät sisälly laskelmaan.",
+				a: "Vertailun rajattomat pilvi-OBS-tilaukset maksavat 120–180 dollaria kuukaudessa eli 1 440–2 160 dollaria vuodessa. VISP on ilmainen; Plus lisää palvelimen äänen, tekstityksen, äänen eristyksen ja koosteet 9 eurolla kuukaudessa. Yleisöä keränneet tekijät voivat hakea Affiliate-ohjelmaan ja saada kaikki ominaisuudet ilmaiseksi (Plus-kiintiöt pätevät). Laitteisto, sähkö ja internetyhteys eivät sisälly laskelmaan.",
 			},
 			{
 				q: "Pitääkö lähetysavain liittää puhelimeen?",
@@ -341,7 +349,7 @@ const fi: typeof en = {
 	closing: {
 		eyebrow: "Oma OBS tai Direct",
 		title: "Pidä studio. Luovu laskusta.",
-		body: "VISP on betan ajan ilmainen. Hanki puhelinsovellus, selainjulkaisija ja OBS-lisäosa: ",
+		body: "VISP on ilmainen. Hanki puhelinsovellus, selainjulkaisija ja OBS-lisäosa: ",
 		link: "katso Lataus ja beta",
 	},
 	footer: [
