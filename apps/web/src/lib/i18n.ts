@@ -330,6 +330,7 @@ export const finnishUi: Record<string, string> = {
 	"Show day": "Lähetyspäivä",
 	"Setup and controls": "Käyttöönotto ja hallinta",
 	"Almost ready": "Melkein valmis",
+	"No picture": "Ei kuvaa",
 	"Preview appears when you go live from the app.":
 		"Esikatselu näkyy, kun aloitat lähetyksen sovelluksesta.",
 	"Your stream is on air.": "Lähetyksesi on suorana.",

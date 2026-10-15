@@ -1,16 +1,18 @@
+/* VISP identity: control-room desk tokens, scope-cyan for selection/focus,
+   color otherwise reserved for signal state. */
 .editor {
-	--studio-border: var(--color-border, #303640);
+	--studio-border: var(--border);
 	display: flex;
 	flex-direction: column;
 	min-width: 0;
 	width: 100%;
 	min-height: 640px;
 	height: calc(100dvh - 64px);
-	color: var(--color-text-primary, #e5e7eb);
-	background: var(--color-background, #14171c);
+	color: var(--foreground);
+	background: var(--background);
 }
 .header {
-	padding: 12px 16px 0;
+	padding: 16px 20px 0;
 	border-bottom: 1px solid var(--studio-border);
 }
 .toolbar,
@@ -26,9 +28,12 @@
 	flex-wrap: wrap;
 }
 .toolbar h1 {
-	font-size: 18px;
+	font-size: 28px;
+	font-weight: 700;
+	line-height: 1;
 }
 .sceneTitle {
+	color: var(--muted-foreground);
 	max-width: 160px;
 	overflow: hidden;
 	text-overflow: ellipsis;
@@ -39,8 +44,28 @@
 }
 .statusbar {
 	font-size: 12px;
-	opacity: 0.85;
+	color: var(--muted-foreground);
 	justify-content: space-between;
+	padding: 10px 0;
+}
+.tally {
+	display: inline-flex;
+	align-items: center;
+	gap: 8px;
+	color: var(--foreground);
+}
+.onAir {
+	display: inline-flex;
+	align-items: center;
+	gap: 6px;
+	padding: 2px 8px;
+	border: 1px solid var(--color-tally);
+	color: var(--color-tally);
+	font-family: var(--font-display);
+	font-weight: 700;
+	font-size: 13px;
+	letter-spacing: 0.04em;
+	text-transform: uppercase;
 }
 .notices {
 	display: grid;
@@ -78,9 +103,9 @@
 .editor select,
 .layerRename {
 	color: inherit;
-	background: var(--color-neutral, #222831);
+	background: var(--card);
 	border: 1px solid var(--studio-border);
-	border-radius: 4px;
+	border-radius: var(--radius);
 	padding: 6px;
 	min-width: 0;
 	max-width: 100%;
@@ -97,12 +122,12 @@
 	margin-top: 8px;
 }
 .layerHeading h2 {
-	font-size: 14px;
+	font-size: 18px;
 }
 .hint {
 	margin: 0;
 	font-size: 12px;
-	opacity: 0.7;
+	color: var(--muted-foreground);
 }
 .layerList {
 	list-style: none;
@@ -115,13 +140,13 @@
 	display: grid;
 	grid-template-columns: minmax(0, 1fr) 30px 30px;
 	border: 1px solid transparent;
-	border-radius: 5px;
+	border-radius: var(--radius);
 	padding: 2px;
 	align-items: center;
 }
 .layerRow[data-selected="true"] {
-	border-color: #60a5fa;
-	background: #60a5fa15;
+	border-color: var(--ring);
+	background: color-mix(in oklch, var(--ring) 10%, transparent);
 }
 .layerSelect {
 	justify-content: flex-start;
@@ -135,7 +160,7 @@
 .layerError {
 	grid-column: 1 / -1;
 	font-size: 12px;
-	color: #f87171;
+	color: var(--color-tally);
 	padding: 4px;
 }
 .layerActions {
@@ -160,17 +185,17 @@
 }
 .canvasToolbar input {
 	border: 1px solid var(--studio-border);
-	border-radius: 4px;
+	border-radius: var(--radius);
 	padding: 4px 6px;
-	background: #14171c;
+	background: var(--background);
 	color: inherit;
 }
 .canvasViewport {
 	flex: 1;
 	min-height: 180px;
 	overflow: auto;
-	background: #0d1015;
-	padding: 16px;
+	background: color-mix(in oklch, var(--background) 70%, black);
+	padding: 24px;
 	display: flex;
 }
 .canvasFrame {
@@ -180,8 +205,12 @@
 	isolation: isolate;
 	container-type: size;
 	background:
-		repeating-conic-gradient(#262b33 0% 25%, #20252c 0% 50%) 0 0 / 24px 24px;
-	box-shadow: 0 0 0 1px #414957;
+		repeating-conic-gradient(
+			oklch(0.2 0.012 255) 0% 25%,
+			oklch(0.17 0.012 255) 0% 50%
+		)
+		0 0 / 24px 24px;
+	box-shadow: 0 0 0 1px var(--border);
 }
 .cameraBackground {
 	position: absolute;
@@ -201,7 +230,7 @@
 	height: 100%;
 }
 .canvasDeselect:focus-visible {
-	outline: 2px solid #facc15;
+	outline: 2px solid var(--ring);
 	outline-offset: -2px;
 }
 .canvasLayer {
@@ -223,7 +252,7 @@
 	pointer-events: auto;
 }
 .layerMove:focus-visible {
-	outline: 2px solid #facc15;
+	outline: 2px solid var(--ring);
 	outline-offset: 2px;
 }
 .resizeHandle {
@@ -232,14 +261,14 @@
 	height: 12px;
 	padding: 0;
 	transform: translate(-50%, -50%);
-	border: 1px solid #111827;
-	background: #93c5fd;
+	border: 1px solid var(--background);
+	background: var(--ring);
 	touch-action: none;
 	pointer-events: auto;
 	z-index: 2;
 }
 .resizeHandle:focus-visible {
-	outline: 2px solid #facc15;
+	outline: 2px solid var(--foreground);
 }
 .guide {
 	position: absolute;
@@ -252,7 +281,7 @@
 	display: grid;
 	place-items: center;
 	pointer-events: none;
-	color: #cbd5e1;
+	color: var(--muted-foreground);
 	font-size: 13px;
 	padding: 16px;
 	text-align: center;
@@ -262,6 +291,11 @@
 	font-size: 11px;
 	justify-content: space-between;
 	border-top: 1px solid var(--studio-border);
+	color: var(--muted-foreground);
+}
+/* Canvas size and zoom are spec data. */
+.canvasFooter > :first-child {
+	font-family: var(--font-mono);
 }
 .monitors {
 	padding: 16px;
@@ -297,7 +331,7 @@
 		top: 64px;
 		bottom: 0;
 		width: min(320px, 90vw);
-		background: var(--color-background, #14171c);
+		background: var(--background);
 		box-shadow: 0 0 32px #0008;
 	}
 	.sidebar[data-open="true"] {
