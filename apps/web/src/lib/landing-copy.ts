@@ -52,7 +52,6 @@ export type CostCopy = {
 	affiliateLink: string;
 	affiliateFootnote: string;
 	rows: { product: string; cost: string; width: string }[];
-	tableToggle: string;
 	tableCaption: string;
 	checked: string;
 };
@@ -90,7 +89,6 @@ const enCostShared = {
 	affiliateLink: "Apply",
 	affiliateFootnote: "* Plus quotas apply.",
 	rows: enCostRows,
-	tableToggle: "See full comparison",
 	tableCaption:
 		"VISP compared with IRLToolkit, Streamable.run, IRLServer, and BELABOX",
 	checked: "Public list prices, checked",
@@ -595,10 +593,17 @@ const fiCostShared = {
 	rows: [
 		{ product: "VISP, pelkkä puhelin", cost: "Ilmainen", width: "4%" },
 		{ product: "VISP + oma OBS", cost: "Ilmainen", width: "4%" },
-		{ product: "IRLToolkit", cost: "1 548–2 148 $", width: "99.4%" },
-		{ product: "Streamable.run", cost: "1 440–2 160 $", width: "100%" },
+		{
+			product: "IRLToolkit",
+			cost: "1\u00a0548–2\u00a0148\u00a0$",
+			width: "99.4%",
+		},
+		{
+			product: "Streamable.run",
+			cost: "1\u00a0440–2\u00a0160\u00a0$",
+			width: "100%",
+		},
 	],
-	tableToggle: "Näytä koko vertailu",
 	tableCaption:
 		"VISPin, IRLToolkitin, Streamable.runin, IRLServerin ja BELABOXin vertailu",
 	checked: "Julkiset listahinnat, tarkistettu",
@@ -901,7 +906,7 @@ const fi: typeof en = {
 			],
 		},
 		cost: {
-			heading: "Säästä 1 440–2 160 $ vuodessa",
+			heading: "Säästä 1\u00a0440–2\u00a0160\u00a0$ vuodessa",
 			body: "Pilvi-OBS-palvelut veloittavat 120–180 dollaria kuussa siitä, että pysyt lähetyksessä ja grafiikkasi pyörivät. Pelkkä puhelin tekee saman VISPin palvelimella: Älä koskaan katkea, BRB-kortti ja grafiikat (beta) ilman tietokonetta ja ilman vuokrattavaa pilvi-OBS:ää. VISP on ilmainen. Plus lisää palvelimen lisäpalvelut, kuten BRB-koosteet, 9 eurolla kuukaudessa.",
 			chartSubtitle:
 				"VISP niiden pilvi-OBS-palveluiden rinnalla, jotka se korvaa.",
@@ -1023,7 +1028,7 @@ const fi: typeof en = {
 			],
 		},
 		cost: {
-			heading: "Säästä 1 440–2 160 $ vuodessa",
+			heading: "Säästä 1\u00a0440–2\u00a0160\u00a0$ vuodessa",
 			body: "Pilvi-OBS-tilaukset maksavat 120–180 dollaria kuussa. Jos sinulla on jo OBS:ää pyörittävä kone, VISP tuo puhelimesi siihen ilmaiseksi, ja oma OBS:si tekee työn, josta maksoit vuokraa. Etkö halua pitää konetta päällä? Pelkkä puhelin pitää sinut lähetyksessä BRB-kortilla ja grafiikoilla (beta). Tietokonetta ei tarvita.",
 			chartSubtitle:
 				"VISP pilvi-OBS:n rinnalla. OBS-rivi olettaa, että sinulla on jo OBS:ää pyörittävä kone.",

@@ -90,10 +90,10 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Hinta",
 		cells: [
-			"Ilmainen; Plus 9 € / kk koosteisiin ja palvelimen lisäominaisuuksiin",
-			"129–179 $ / kk",
-			"120–180 $ / kk",
-			"10–20 $ / kk",
+			"Ilmainen; Plus 9\u00a0€ / kk koosteisiin ja palvelimen lisäominaisuuksiin",
+			"129–179\u00a0$ / kk",
+			"120–180\u00a0$ / kk",
+			"10–20\u00a0$ / kk",
 			"Laitteisto + oma palvelin",
 		],
 	},

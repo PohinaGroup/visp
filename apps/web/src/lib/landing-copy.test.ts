@@ -1,5 +1,6 @@
 import { expect, test } from "bun:test";
 
+import { comparisonRowsFi } from "./comparison";
 import { landingCopy } from "./landing-copy";
 
 const all = (o: unknown): string[] =>
@@ -151,4 +152,10 @@ test("en: Wi-Fi and cellular answer says the app can combine both", () => {
 	expect(item?.a).toMatch(/combine/);
 	expect(item?.a).toMatch(/every packet over both/);
 	expect(item?.a).toMatch(/Network bonding/);
+});
+
+test("fi: thousands separators are non-breaking", () => {
+	for (const s of [...all(landingCopy.fi), ...all(comparisonRowsFi)]) {
+		expect(s).not.toMatch(/\d \d{3}/);
+	}
 });
