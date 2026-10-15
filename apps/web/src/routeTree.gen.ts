@@ -9,10 +9,12 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WithObsRouteImport } from './routes/with-obs'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RequestDeleteRouteImport } from './routes/request-delete'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PhoneOnlyRouteImport } from './routes/phone-only'
 import { Route as OverlayRouteImport } from './routes/overlay'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
@@ -25,8 +27,10 @@ import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as FiIndexRouteImport } from './routes/fi/index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
+import { Route as FiWithObsRouteImport } from './routes/fi/with-obs'
 import { Route as FiTermsRouteImport } from './routes/fi/terms'
 import { Route as FiPrivacyRouteImport } from './routes/fi/privacy'
+import { Route as FiPhoneOnlyRouteImport } from './routes/fi/phone-only'
 import { Route as FiCookiesRouteImport } from './routes/fi/cookies'
 import { Route as FiContactRouteImport } from './routes/fi/contact'
 import { Route as FiAffiliateRouteImport } from './routes/fi/affiliate'
@@ -38,6 +42,11 @@ import { Route as AuthDashboardRouteImport } from './routes/_auth/dashboard'
 import { Route as FiBlogIndexRouteImport } from './routes/fi/blog/index'
 import { Route as FiBlogSlugRouteImport } from './routes/fi/blog/$slug'
 
+const WithObsRoute = WithObsRouteImport.update({
+  id: '/with-obs',
+  path: '/with-obs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
@@ -56,6 +65,11 @@ const RequestDeleteRoute = RequestDeleteRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PhoneOnlyRoute = PhoneOnlyRouteImport.update({
+  id: '/phone-only',
+  path: '/phone-only',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OverlayRoute = OverlayRouteImport.update({
@@ -117,6 +131,11 @@ const BlogIndexRoute = BlogIndexRouteImport.update({
   path: '/blog/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FiWithObsRoute = FiWithObsRouteImport.update({
+  id: '/fi/with-obs',
+  path: '/fi/with-obs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FiTermsRoute = FiTermsRouteImport.update({
   id: '/fi/terms',
   path: '/fi/terms',
@@ -125,6 +144,11 @@ const FiTermsRoute = FiTermsRouteImport.update({
 const FiPrivacyRoute = FiPrivacyRouteImport.update({
   id: '/fi/privacy',
   path: '/fi/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FiPhoneOnlyRoute = FiPhoneOnlyRouteImport.update({
+  id: '/fi/phone-only',
+  path: '/fi/phone-only',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FiCookiesRoute = FiCookiesRouteImport.update({
@@ -188,10 +212,12 @@ export interface FileRoutesByFullPath {
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
+  '/phone-only': typeof PhoneOnlyRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/with-obs': typeof WithObsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
   '/studio': typeof AuthStudioRoute
@@ -200,8 +226,10 @@ export interface FileRoutesByFullPath {
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
+  '/fi/phone-only': typeof FiPhoneOnlyRoute
   '/fi/privacy': typeof FiPrivacyRoute
   '/fi/terms': typeof FiTermsRoute
+  '/fi/with-obs': typeof FiWithObsRoute
   '/blog/': typeof BlogIndexRoute
   '/fi/': typeof FiIndexRoute
   '/fi/blog/$slug': typeof FiBlogSlugRoute
@@ -217,10 +245,12 @@ export interface FileRoutesByTo {
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
+  '/phone-only': typeof PhoneOnlyRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/with-obs': typeof WithObsRoute
   '/dashboard': typeof AuthDashboardRoute
   '/setup': typeof AuthSetupRoute
   '/studio': typeof AuthStudioRoute
@@ -229,8 +259,10 @@ export interface FileRoutesByTo {
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
+  '/fi/phone-only': typeof FiPhoneOnlyRoute
   '/fi/privacy': typeof FiPrivacyRoute
   '/fi/terms': typeof FiTermsRoute
+  '/fi/with-obs': typeof FiWithObsRoute
   '/blog': typeof BlogIndexRoute
   '/fi': typeof FiIndexRoute
   '/fi/blog/$slug': typeof FiBlogSlugRoute
@@ -248,10 +280,12 @@ export interface FileRoutesById {
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
+  '/phone-only': typeof PhoneOnlyRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
+  '/with-obs': typeof WithObsRoute
   '/_auth/dashboard': typeof AuthDashboardRoute
   '/_auth/setup': typeof AuthSetupRoute
   '/_auth/studio': typeof AuthStudioRoute
@@ -260,8 +294,10 @@ export interface FileRoutesById {
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
+  '/fi/phone-only': typeof FiPhoneOnlyRoute
   '/fi/privacy': typeof FiPrivacyRoute
   '/fi/terms': typeof FiTermsRoute
+  '/fi/with-obs': typeof FiWithObsRoute
   '/blog/': typeof BlogIndexRoute
   '/fi/': typeof FiIndexRoute
   '/fi/blog/$slug': typeof FiBlogSlugRoute
@@ -279,10 +315,12 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/login'
     | '/overlay'
+    | '/phone-only'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
     | '/terms'
+    | '/with-obs'
     | '/dashboard'
     | '/setup'
     | '/studio'
@@ -291,8 +329,10 @@ export interface FileRouteTypes {
     | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
+    | '/fi/phone-only'
     | '/fi/privacy'
     | '/fi/terms'
+    | '/fi/with-obs'
     | '/blog/'
     | '/fi/'
     | '/fi/blog/$slug'
@@ -308,10 +348,12 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/login'
     | '/overlay'
+    | '/phone-only'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
     | '/terms'
+    | '/with-obs'
     | '/dashboard'
     | '/setup'
     | '/studio'
@@ -320,8 +362,10 @@ export interface FileRouteTypes {
     | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
+    | '/fi/phone-only'
     | '/fi/privacy'
     | '/fi/terms'
+    | '/fi/with-obs'
     | '/blog'
     | '/fi'
     | '/fi/blog/$slug'
@@ -338,10 +382,12 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/login'
     | '/overlay'
+    | '/phone-only'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
     | '/terms'
+    | '/with-obs'
     | '/_auth/dashboard'
     | '/_auth/setup'
     | '/_auth/studio'
@@ -350,8 +396,10 @@ export interface FileRouteTypes {
     | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
+    | '/fi/phone-only'
     | '/fi/privacy'
     | '/fi/terms'
+    | '/fi/with-obs'
     | '/blog/'
     | '/fi/'
     | '/fi/blog/$slug'
@@ -369,17 +417,21 @@ export interface RootRouteChildren {
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   OverlayRoute: typeof OverlayRoute
+  PhoneOnlyRoute: typeof PhoneOnlyRoute
   PrivacyRoute: typeof PrivacyRoute
   RequestDeleteRoute: typeof RequestDeleteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
+  WithObsRoute: typeof WithObsRoute
   AuthAgentApprovalRoute: typeof AuthAgentApprovalRoute
   BlogSlugRoute: typeof BlogSlugRoute
   FiAffiliateRoute: typeof FiAffiliateRoute
   FiContactRoute: typeof FiContactRoute
   FiCookiesRoute: typeof FiCookiesRoute
+  FiPhoneOnlyRoute: typeof FiPhoneOnlyRoute
   FiPrivacyRoute: typeof FiPrivacyRoute
   FiTermsRoute: typeof FiTermsRoute
+  FiWithObsRoute: typeof FiWithObsRoute
   BlogIndexRoute: typeof BlogIndexRoute
   FiIndexRoute: typeof FiIndexRoute
   FiBlogSlugRoute: typeof FiBlogSlugRoute
@@ -388,6 +440,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/with-obs': {
+      id: '/with-obs'
+      path: '/with-obs'
+      fullPath: '/with-obs'
+      preLoaderRoute: typeof WithObsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/terms': {
       id: '/terms'
       path: '/terms'
@@ -414,6 +473,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/phone-only': {
+      id: '/phone-only'
+      path: '/phone-only'
+      fullPath: '/phone-only'
+      preLoaderRoute: typeof PhoneOnlyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/overlay': {
@@ -500,6 +566,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof BlogIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/fi/with-obs': {
+      id: '/fi/with-obs'
+      path: '/fi/with-obs'
+      fullPath: '/fi/with-obs'
+      preLoaderRoute: typeof FiWithObsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/fi/terms': {
       id: '/fi/terms'
       path: '/fi/terms'
@@ -512,6 +585,13 @@ declare module '@tanstack/react-router' {
       path: '/fi/privacy'
       fullPath: '/fi/privacy'
       preLoaderRoute: typeof FiPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/phone-only': {
+      id: '/fi/phone-only'
+      path: '/fi/phone-only'
+      fullPath: '/fi/phone-only'
+      preLoaderRoute: typeof FiPhoneOnlyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fi/cookies': {
@@ -614,17 +694,21 @@ const rootRouteChildren: RootRouteChildren = {
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   OverlayRoute: OverlayRoute,
+  PhoneOnlyRoute: PhoneOnlyRoute,
   PrivacyRoute: PrivacyRoute,
   RequestDeleteRoute: RequestDeleteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
+  WithObsRoute: WithObsRoute,
   AuthAgentApprovalRoute: AuthAgentApprovalRoute,
   BlogSlugRoute: BlogSlugRoute,
   FiAffiliateRoute: FiAffiliateRoute,
   FiContactRoute: FiContactRoute,
   FiCookiesRoute: FiCookiesRoute,
+  FiPhoneOnlyRoute: FiPhoneOnlyRoute,
   FiPrivacyRoute: FiPrivacyRoute,
   FiTermsRoute: FiTermsRoute,
+  FiWithObsRoute: FiWithObsRoute,
   BlogIndexRoute: BlogIndexRoute,
   FiIndexRoute: FiIndexRoute,
   FiBlogSlugRoute: FiBlogSlugRoute,

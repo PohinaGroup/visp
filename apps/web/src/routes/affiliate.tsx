@@ -19,20 +19,20 @@ import { useTRPC } from "@/utils/trpc";
 
 const copy = {
 	en: {
-		title: "VISP Founding Creator Program",
+		title: "VISP Affiliate program",
 		description:
-			"Five IRL streaming creators get VISP Pro free for life in exchange for testing VISP on real hardware and publishing an honest verdict. No script, no commission promises.",
-		eyebrow: "Founding creators",
-		heading: "VISP founding creator program",
+			"Creators with an audience get every VISP feature free, Plus quotas apply. The current intake is five founding creators who test VISP on real hardware and publish an honest verdict. No script, no commission promises.",
+		eyebrow: "Affiliate program",
+		heading: "VISP Affiliate program",
 		intro:
-			"Five creators get VISP Pro free for life. In exchange: test VISP on your own rig and tell us — and your viewers — the truth about it.",
-		cta: "Apply to the pilot",
-		offerEyebrow: "The pilot offer",
+			"Creators with an audience get every VISP feature free, Plus quotas apply. The current intake is five founding creators: test VISP on your own rig and tell us and your viewers the truth about it.",
+		cta: "Apply",
+		offerEyebrow: "The offer",
 		offerHeading: "Built for people who actually test gear",
 		offers: [
 			[
-				"Free Pro, for life",
-				"When VISP Pro launches, founding creators keep it free permanently. No renewal, no expiry, no card on file.",
+				"Every feature free",
+				"Plus costs €9 a month. Affiliate creators get it free, and the five founding creators keep it free permanently: no renewal, no expiry, no card on file. Plus quotas apply.",
 			],
 			[
 				"Real hardware, early",
@@ -53,7 +53,7 @@ const copy = {
 			"Creators with engaged setup and buying questions",
 		],
 		fitNote:
-			"A focused audience beats a large generic one. There is no minimum subscriber count for the pilot.",
+			"A focused audience beats a large generic one. There is no minimum subscriber count.",
 		processHeading: "How it works",
 		process: [
 			["01", "Apply", "Share your channel and one relevant build or review."],
@@ -65,43 +65,48 @@ const copy = {
 			[
 				"03",
 				"Tell us what breaks",
-				"The point of a pilot is finding the problems before launch, not after.",
+				"The founding intake exists to find the problems while the group is small.",
 			],
 			[
 				"04",
-				"Keep Pro",
-				"Free for as long as VISP exists, whatever you conclude about it.",
+				"Keep every feature",
+				"Free for as long as VISP exists, whatever you conclude about it. Plus quotas apply.",
 			],
 		],
 		moneyHeading: "What about commission?",
 		moneyBody: [
-			"There is no revenue share today. VISP Pro is not built yet, there is no billing behind it, and we are not going to promise you a percentage of a number that does not exist.",
-			"If VISP launches an affiliate program later, founding creators hear about it first. Until then the deal is exactly what is above: free Pro for life, early hardware access, and your own honest verdict.",
+			"There is no revenue share today. Plus costs €9 a month, but we have chosen not to pay commission on it yet, and we are not going to promise you a percentage before we know what a fair one is.",
+			"If VISP starts paying commission later, Affiliate creators hear about it first. Until then the deal is exactly what is above: every feature free, early hardware access, and your own honest verdict.",
 		],
-		applyHeading: "Apply to the founding creator pilot",
+		applyHeading: "Apply to the Affiliate program",
 		applyIntro:
-			"The pilot is limited to five creators. Tell us about your channel and one relevant build or review.",
-		faqHeading: "Founding creator FAQ",
+			"The current intake is five founding creators. Tell us about your channel and one relevant build or review.",
+		faqHeading: "Affiliate program FAQ",
 		faq: [
 			{
-				question: "Who can apply to the VISP founding creator program?",
+				question: "Who can apply to the VISP Affiliate program?",
 				answer:
 					"YouTube creators who publish hands-on IRL streaming backpacks, mobile bonding, SRT, remote OBS, or related hardware and setup content can apply. Audience fit and trust matter more than subscriber count.",
 			},
 			{
-				question: "Do founding creators earn commission?",
+				question: "Does the program pay commission?",
 				answer:
-					"Not today. VISP Pro does not exist yet and there is no billing to pay commission from, so we do not advertise a rate. Founding creators get VISP Pro free for life instead, and hear first if an affiliate program launches later.",
+					"Not today. We have chosen not to pay commission yet, so we do not advertise a rate. Affiliate creators get every feature free instead, Plus quotas apply, and hear first if that changes.",
+			},
+			{
+				question: "What are the five founding slots?",
+				answer:
+					"The first intake of the Affiliate program. Five creators get onboarded now, before the program opens wider, and keep every feature free for as long as VISP exists. Later intakes get the same offer, Plus quotas apply.",
 			},
 			{
 				question: "Do I have to publish a positive review?",
 				answer:
-					"No. VISP does not require a script or a positive conclusion. We may check factual details, but your review and recommendation remain yours. You keep free Pro either way.",
+					"No. VISP does not require a script or a positive conclusion. We may check factual details, but your review and recommendation remain yours. You keep every feature free either way.",
 			},
 			{
-				question: "Is VISP Pro available now?",
+				question: "What does VISP cost?",
 				answer:
-					"Not yet — VISP is free during the beta and Pro is upcoming. We are selecting a small group of creators now so they have time to test VISP on real streaming hardware before launch.",
+					"VISP is free, and Direct stays free with no usage cap. Plus costs €9 a month (VAT included) and adds hosted voice, captions, and audio isolation, and lets your BRB card play your uploaded highlight clips. Affiliate creators get every feature free, Plus quotas apply.",
 			},
 		],
 		form: {
@@ -113,7 +118,7 @@ const copy = {
 			setup: "Tell us about your audience and streaming setup",
 			setupPlaceholder: "What do you build, test, and help viewers choose?",
 			disclosure:
-				"I will clearly disclose that I received VISP Pro for free in any content covering VISP, and follow YouTube’s paid-promotion rules.",
+				"I will clearly disclose that I received VISP Plus for free in any content covering VISP, and follow YouTube’s paid-promotion rules.",
 			submit: "Send application",
 			sending: "Sending…",
 			privacy:
@@ -125,20 +130,20 @@ const copy = {
 		},
 	},
 	fi: {
-		title: "VISPin perustajaohjelma sisällöntuottajille",
+		title: "VISPin Affiliate-ohjelma",
 		description:
-			"Viisi IRL-striimauksen sisällöntuottajaa saa VISP Pron pysyvästi maksutta vastineeksi testauksesta oikealla kalustolla ja rehellisestä arviosta. Ei käsikirjoitusta eikä komissiolupauksia.",
-		eyebrow: "Perustajakumppanit",
-		heading: "VISPin perustajaohjelma",
+			"Yleisöä keränneet tekijät saavat kaikki VISPin ominaisuudet maksutta, Plus-kiintiöt pätevät. Nyt haussa on viisi perustajaa, jotka testaavat VISPiä oikealla kalustolla ja julkaisevat rehellisen arvion. Ei käsikirjoitusta eikä komissiolupauksia.",
+		eyebrow: "Affiliate-ohjelma",
+		heading: "VISPin Affiliate-ohjelma",
 		intro:
-			"Viisi tekijää saa VISP Pron pysyvästi maksutta. Vastineeksi: testaat VISPiä omalla kalustollasi ja kerrot meille — ja katsojillesi — totuuden siitä.",
-		cta: "Hae pilottiin",
-		offerEyebrow: "Pilotin tarjous",
+			"Yleisöä keränneet tekijät saavat kaikki VISPin ominaisuudet maksutta, Plus-kiintiöt pätevät. Nyt haussa on viisi perustajaa: testaa VISPiä omalla kalustollasi ja kerro meille ja katsojillesi totuus siitä.",
+		cta: "Hae",
+		offerEyebrow: "Tarjous",
 		offerHeading: "Tehty niille, jotka oikeasti testaavat kalustoa",
 		offers: [
 			[
-				"Pro maksutta, pysyvästi",
-				"Kun VISP Pro julkaistaan, perustajat pitävät sen pysyvästi maksutta. Ei uusimista, ei vanhenemista, ei korttitietoja.",
+				"Kaikki ominaisuudet maksutta",
+				"Plus maksaa 9 euroa kuukaudessa. Affiliate-tekijät saavat sen maksutta, ja viisi perustajaa pitävät sen pysyvästi: ei uusimista, ei vanhenemista, ei korttitietoja. Plus-kiintiöt pätevät.",
 			],
 			[
 				"Oikea kalusto, ensimmäisenä",
@@ -159,7 +164,7 @@ const copy = {
 			"Tekijät, joiden yleisö kysyy kalusto- ja hankintakysymyksiä",
 		],
 		fitNote:
-			"Tarkkaan rajattu yleisö on parempi kuin suuri ja yleinen. Pilotissa ei ole tilaajamäärän alarajaa.",
+			"Tarkkaan rajattu yleisö on parempi kuin suuri ja yleinen. Tilaajamäärälle ei ole alarajaa.",
 		processHeading: "Näin se toimii",
 		process: [
 			[
@@ -175,43 +180,48 @@ const copy = {
 			[
 				"03",
 				"Kerro mikä hajoaa",
-				"Pilotin tarkoitus on löytää ongelmat ennen julkaisua, ei sen jälkeen.",
+				"Perustajahaun tarkoitus on löytää ongelmat, kun joukko on vielä pieni.",
 			],
 			[
 				"04",
-				"Pidä Pro",
-				"Maksutta niin kauan kuin VISP on olemassa, päädyit arviossasi mihin tahansa.",
+				"Pidä kaikki ominaisuudet",
+				"Maksutta niin kauan kuin VISP on olemassa, päädyit arviossasi mihin tahansa. Plus-kiintiöt pätevät.",
 			],
 		],
 		moneyHeading: "Entä komissio?",
 		moneyBody: [
-			"Tulonjakoa ei tällä hetkellä ole. VISP Prota ei ole vielä rakennettu, sen takana ei ole laskutusta, emmekä lupaa sinulle prosenttiosuutta luvusta jota ei ole olemassa.",
-			"Jos VISP käynnistää affiliate-ohjelman myöhemmin, perustajat kuulevat siitä ensimmäisenä. Siihen asti sopimus on täsmälleen yllä kuvattu: Pro maksutta pysyvästi, kalusto käyttöön ensimmäisenä ja oma rehellinen arviosi.",
+			"Tulonjakoa ei tällä hetkellä ole. Plus maksaa 9 euroa kuukaudessa, mutta olemme päättäneet olla maksamatta siitä komissiota toistaiseksi, emmekä lupaa sinulle prosenttiosuutta ennen kuin tiedämme, mikä olisi reilu.",
+			"Jos VISP alkaa maksaa komissiota myöhemmin, Affiliate-tekijät kuulevat siitä ensimmäisenä. Siihen asti sopimus on täsmälleen yllä kuvattu: kaikki ominaisuudet maksutta, kalusto käyttöön ensimmäisenä ja oma rehellinen arviosi.",
 		],
-		applyHeading: "Hae perustajapilottiin",
+		applyHeading: "Hae Affiliate-ohjelmaan",
 		applyIntro:
-			"Pilottiin otetaan viisi tekijää. Kerro kanavastasi ja yhdestä olennaisesta rakennus- tai arviovideosta.",
-		faqHeading: "Usein kysyttyä perustajaohjelmasta",
+			"Nyt haussa on viisi perustajaa. Kerro kanavastasi ja yhdestä olennaisesta rakennus- tai arviovideosta.",
+		faqHeading: "Usein kysyttyä Affiliate-ohjelmasta",
 		faq: [
 			{
-				question: "Kuka voi hakea VISPin perustajaohjelmaan?",
+				question: "Kuka voi hakea VISPin Affiliate-ohjelmaan?",
 				answer:
 					"Hakea voivat YouTube-tekijät, jotka julkaisevat käytännönläheistä sisältöä IRL-strimausrepuista, mobiilibondingista, SRT:stä, etä-OBS:stä tai muusta vastaavasta kalustosta ja käyttöönotosta. Yleisön sopivuus ja luottamus painavat enemmän kuin tilaajamäärä.",
 			},
 			{
-				question: "Saavatko perustajat komissiota?",
+				question: "Maksetaanko ohjelmassa komissiota?",
 				answer:
-					"Eivät tällä hetkellä. VISP Prota ei vielä ole eikä laskutusta, josta komissio maksettaisiin, joten emme mainosta mitään prosenttia. Perustajat saavat sen sijaan VISP Pron pysyvästi maksutta ja kuulevat ensimmäisenä, jos affiliate-ohjelma joskus käynnistyy.",
+					"Ei tällä hetkellä. Olemme päättäneet olla maksamatta komissiota toistaiseksi, joten emme mainosta mitään prosenttia. Affiliate-tekijät saavat sen sijaan kaikki ominaisuudet maksutta, Plus-kiintiöt pätevät, ja kuulevat ensimmäisenä, jos tämä muuttuu.",
+			},
+			{
+				question: "Mitä viisi perustajapaikkaa tarkoittavat?",
+				answer:
+					"Affiliate-ohjelman ensimmäistä hakua. Viisi tekijää perehdytetään nyt, ennen kuin ohjelma avautuu laajemmin, ja he pitävät kaikki ominaisuudet maksutta niin kauan kuin VISP on olemassa. Myöhemmät haut saavat saman tarjouksen, Plus-kiintiöt pätevät.",
 			},
 			{
 				question: "Pitääkö arvion olla positiivinen?",
 				answer:
-					"Ei. VISP ei vaadi käsikirjoitusta eikä tiettyä lopputulosta. Voimme tarkistaa tuotetietojen paikkansapitävyyden, mutta arvio ja suositus ovat sinun. Pro pysyy maksuttomana lopputuloksesta riippumatta.",
+					"Ei. VISP ei vaadi käsikirjoitusta eikä tiettyä lopputulosta. Voimme tarkistaa tuotetietojen paikkansapitävyyden, mutta arvio ja suositus ovat sinun. Kaikki ominaisuudet pysyvät maksuttomina lopputuloksesta riippumatta.",
 			},
 			{
-				question: "Onko VISP Pro jo saatavilla?",
+				question: "Mitä VISP maksaa?",
 				answer:
-					"Ei vielä — VISP on betan ajan maksuton ja Pro on tulossa. Valitsemme tekijät nyt, jotta heillä on aikaa testata VISPiä oikealla striimauskalustolla ennen julkaisua.",
+					"VISP on ilmainen, ja Direct pysyy ilmaisena ilman käyttörajaa. Plus maksaa 9 euroa kuukaudessa (sis. ALV) ja lisää palvelimella toimivan puheäänen, tekstityksen ja äänen eristyksen sekä BRB-kortille omat koosteesi. Affiliate-tekijät saavat kaikki ominaisuudet maksutta, Plus-kiintiöt pätevät.",
 			},
 		],
 		form: {
@@ -224,7 +234,7 @@ const copy = {
 			setupPlaceholder:
 				"Mitä rakennat, mitä testaat ja missä autat katsojia valitsemaan?",
 			disclosure:
-				"Kerron VISPiä käsittelevässä sisällössäni selkeästi saaneeni VISP Pron maksutta ja noudatan YouTuben kaupallisen yhteistyön sääntöjä.",
+				"Kerron VISPiä käsittelevässä sisällössäni selkeästi saaneeni VISP Plussan maksutta ja noudatan YouTuben kaupallisen yhteistyön sääntöjä.",
 			submit: "Lähetä hakemus",
 			sending: "Lähetetään…",
 			privacy:
@@ -368,8 +378,8 @@ export function AffiliatePage({ locale }: { locale: Locale }) {
 				</section>
 			</div>
 
-			{/* The old page led with "25% recurring" on a tier that does not exist
-			    yet. Saying so plainly is the point of this section. */}
+			{/* The old page led with "25% recurring". No commission is paid today;
+			    saying so plainly is the point of this section. */}
 			<section
 				aria-labelledby="money-title"
 				className="border-border border-l-2 pl-6"

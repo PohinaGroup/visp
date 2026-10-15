@@ -167,7 +167,10 @@ export function SeppoWidget({
 	}
 
 	return (
-		<div className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-end p-4 sm:p-5">
+		<div
+			data-seppo-dock
+			className="pointer-events-none fixed inset-x-0 bottom-0 z-50 flex justify-end p-4 sm:p-5"
+		>
 			<div className="pointer-events-auto relative flex flex-col items-end gap-3">
 				<div
 					ref={panelRef}

@@ -27,7 +27,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Price",
 		cells: [
-			"Free during beta",
+			"Free; Plus €9 / mo for highlights and hosted extras",
 			"$129–179 / mo",
 			"$120–180 / mo",
 			"$10–20 / mo",
@@ -38,10 +38,10 @@ export const comparisonRows: readonly ComparisonRow[] = [
 		label: "Computer at home",
 		cells: [
 			"Use your own OBS, or Direct without it",
-			"Not needed — cloud OBS",
-			"Not needed — cloud OBS",
-			"Required — you run OBS",
-			"Required — you run OBS",
+			"Not needed, cloud OBS runs it",
+			"Not needed, cloud OBS runs it",
+			"Required, you run OBS",
+			"Required, you run OBS",
 		],
 	},
 	{
@@ -57,17 +57,17 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Cellular bonding",
 		cells: [
-			"Yes — SRTLA ingest, optional Wi-Fi + cellular in the app",
-			"Yes — SRTLA ingest",
-			"Yes — SRTLA ingest",
-			"Yes — SRTLA ingest",
-			"Yes — SRTLA, its own protocol",
+			"Optional bonding in the app: combine Wi-Fi + cellular, or send on both",
+			"Yes, SRTLA ingest",
+			"Yes, SRTLA ingest",
+			"Yes, SRTLA ingest",
+			"Yes, SRTLA, its own protocol",
 		],
 	},
 	{
 		label: "Scenes and overlays",
 		cells: [
-			"Chat overlay; scenes in your own OBS",
+			"Cloud Studio (beta): up to 3 scenes in the browser, no computer needed, or your own OBS",
 			"Cloud OBS included",
 			"Cloud OBS included",
 			"Your own OBS",
@@ -90,10 +90,10 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Hinta",
 		cells: [
-			"Ilmainen betan ajan",
-			"129–179 $ / kk",
-			"120–180 $ / kk",
-			"10–20 $ / kk",
+			"Ilmainen; Plus 9\u00a0€ / kk koosteisiin ja palvelimen lisäominaisuuksiin",
+			"129–179\u00a0$ / kk",
+			"120–180\u00a0$ / kk",
+			"10–20\u00a0$ / kk",
 			"Laitteisto + oma palvelin",
 		],
 	},
@@ -101,10 +101,10 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 		label: "Kotikone",
 		cells: [
 			"Oma OBS tai Direct ilman sitä",
-			"Ei tarvita — pilvi-OBS",
-			"Ei tarvita — pilvi-OBS",
-			"Tarvitaan — ajat OBS:n itse",
-			"Tarvitaan — ajat OBS:n itse",
+			"Ei tarvita, pilvi-OBS hoitaa sen",
+			"Ei tarvita, pilvi-OBS hoitaa sen",
+			"Tarvitaan, ajat OBS:n itse",
+			"Tarvitaan, ajat OBS:n itse",
 		],
 	},
 	{
@@ -120,17 +120,17 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Mobiiliyhteyksien niputus",
 		cells: [
-			"Kyllä — SRTLA, valinnainen Wi-Fi + mobiili sovelluksessa",
-			"Kyllä — SRTLA",
-			"Kyllä — SRTLA",
-			"Kyllä — SRTLA",
-			"Kyllä — SRTLA, oma protokolla",
+			"Valinnainen niputus sovelluksessa: yhdistä Wi-Fi ja mobiili, tai lähetä molempia pitkin",
+			"Kyllä, SRTLA",
+			"Kyllä, SRTLA",
+			"Kyllä, SRTLA",
+			"Kyllä, SRTLA, oma protokolla",
 		],
 	},
 	{
 		label: "Kohtaukset ja grafiikat",
 		cells: [
-			"Chat-grafiikka; kohtaukset omassa OBS:ssä",
+			"Cloud Studio (beta): enintään 3 näkymää selaimessa ilman tietokonetta, tai oma OBS",
 			"Pilvi-OBS mukana",
 			"Pilvi-OBS mukana",
 			"Oma OBS",
