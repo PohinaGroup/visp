@@ -1,6 +1,7 @@
 import { polarConfigured } from "@VISP/auth/polar";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { syncUserPlan } from "../billing";
 import { recordHostedUsage } from "../hosted-usage";
 import { protectedProcedure, router } from "../index";
 import {
@@ -17,6 +18,8 @@ import { SUBTITLES_PROVIDER, SUBTITLES_REPORT_MAX_SECONDS } from "../subtitles";
 
 /** One report a minute is expected; two leaves room for a reconnect. */
 const subtitleReports = fixedWindow(2, 60_000);
+/** Each call reads Polar; the dashboard calls it once after checkout. */
+const planSyncs = fixedWindow(3, 60_000);
 
 export const planRouter = router({
 	/** Plan, status and this month's quota per feature, for every client. */
@@ -49,6 +52,19 @@ export const planRouter = router({
 				return { feature, ...access, quota };
 			}),
 		};
+	}),
+	/**
+	 * Re-reads the plan from Polar. The dashboard calls it when checkout lands
+	 * on /dashboard?plus=1, so a missed `customer.state_changed` webhook never
+	 * leaves a paying customer on Free.
+	 */
+	sync: protectedProcedure.mutation(async ({ ctx }) => {
+		const userId = ctx.session.user.id;
+		if (!polarConfigured()) return { ok: false };
+		if (!planSyncs.take(userId)) {
+			throw new TRPCError({ code: "TOO_MANY_REQUESTS" });
+		}
+		return { ok: await syncUserPlan(userId) };
 	}),
 	/**
 	 * Caption audio goes from the app to ElevenLabs directly, so the app reports

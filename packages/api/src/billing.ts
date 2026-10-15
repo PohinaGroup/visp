@@ -84,8 +84,9 @@ const STALE_PERIOD_MS = 3 * 24 * 60 * 60_000;
 export const PLAN_SYNC_INTERVAL_MS = 6 * 60 * 60_000;
 
 /**
- * The only guard against a missed webhook: Plus users whose period ended more
+ * Guard against a missed renewal webhook: Plus users whose period ended more
  * than three days ago are re-read from Polar. One instance runs it at a time.
+ * A missed first-payment webhook is covered by `plan.sync` from the dashboard.
  */
 export async function syncPlans(now = new Date()) {
 	if (!polarApi) return null;

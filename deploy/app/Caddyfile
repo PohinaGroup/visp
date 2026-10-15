@@ -109,7 +109,7 @@
 		handle /api/audio-isolation {
 			reverse_proxy 127.0.0.1:3000
 		}
-		handle /api/webhooks/kick {
+		handle /api/webhooks/* {
 			reverse_proxy 127.0.0.1:3000
 		}
 		handle {

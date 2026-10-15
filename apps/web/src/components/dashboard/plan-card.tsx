@@ -3,7 +3,8 @@ import { Button } from "@astryxdesign/core/Button";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
 import { Text } from "@astryxdesign/core/Text";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth-client";
 import { useLocale, useT } from "@/lib/i18n";
@@ -94,10 +95,31 @@ function usePlan() {
 	return useQuery(trpc.plan.me.queryOptions());
 }
 
+/**
+ * Polar's checkout returns to /dashboard?plus=1. Re-read the plan from Polar
+ * right away instead of waiting for the webhook, which may never arrive.
+ */
+function useSyncAfterCheckout() {
+	const trpc = useTRPC();
+	const queryClient = useQueryClient();
+	const { mutate } = useMutation(
+		trpc.plan.sync.mutationOptions({
+			onSettled: () =>
+				queryClient.invalidateQueries(trpc.plan.me.queryFilter()),
+		}),
+	);
+	useEffect(() => {
+		if (new URLSearchParams(window.location.search).get("plus") === "1") {
+			mutate();
+		}
+	}, [mutate]);
+}
+
 /** The one plan line on Home: Free, Plus with renewal, or Plus (Affiliate). */
 export function PlanLine() {
 	const t = useT();
 	const locale = useLocale();
+	useSyncAfterCheckout();
 	const plan = usePlan().data;
 	if (!plan) return null;
 	const label = plan.comped
