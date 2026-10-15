@@ -28,7 +28,7 @@ export function TryCta({
 				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
 			}`}
 		>
-			{landingCopy[locale].tryCta}
+			{landingCopy[locale].shared.tryCta}
 		</button>
 	);
 }

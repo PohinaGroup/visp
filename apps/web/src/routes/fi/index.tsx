@@ -2,15 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { landingHead } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
-import { faqFi, HomeComponent } from "@/routes/index";
+import { HomePage } from "@/routes/index";
 
 export const Route = createFileRoute("/fi/")({
 	head: () =>
 		landingHead(
 			"fi",
-			landingCopy.fi.meta.title,
-			landingCopy.fi.meta.description,
-			faqFi,
+			landingCopy.fi.home.meta.title,
+			landingCopy.fi.home.meta.description,
+			landingCopy.fi.home.faq.items,
 		),
-	component: () => <HomeComponent locale="fi" />,
+	component: () => <HomePage locale="fi" />,
 });
