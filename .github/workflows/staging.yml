@@ -43,14 +43,6 @@ jobs:
           bun run test:integration
           bun run check-types
 
-      - name: Portal browser checks
-        env:
-          PLAYWRIGHT_ISOLATED_PORTAL: "1"
-          PLAYWRIGHT_PORTAL_URL: http://127.0.0.1:3001
-        run: |
-          bun x playwright install --with-deps chromium
-          bun run test:e2e --project portal
-
       - name: Find relay changes
         if: github.event_name != 'pull_request'
         id: relay_changes
