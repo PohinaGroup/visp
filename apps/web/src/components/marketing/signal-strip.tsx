@@ -128,117 +128,128 @@ export function SignalStrip({
 				))}
 			</svg>
 
+			{/* Below md the top padding holds the vertical legend, which the SVG
+			    draws above its own box (negative y) so the beats keep their % rows. */}
 			<div
-				className={`relative md:mt-3 ${compact ? "mt-12" : "mt-20"}`}
+				className={`pt-14 md:mt-3 md:pt-0 ${compact ? "" : "mt-6"}`}
 				style={
 					{
 						"--strip-rows": V_ROWS.map((n) => `${n}fr`).join(" "),
-						"--strip-cols": RUNS.map((r, i) => `${runW(r, i)}fr`).join(" "),
+						"--strip-cols": RUNS.map(
+							(r, i) => `minmax(0,${runW(r, i)}fr)`,
+						).join(" "),
 					} as CSSProperties
 				}
 			>
-				<svg
-					role="img"
-					aria-labelledby={`${id}v-t ${id}v-d`}
-					className="pointer-events-none absolute inset-y-0 left-0 h-full w-16 overflow-visible md:hidden"
-				>
-					<title id={`${id}v-t`}>{copy.label}</title>
-					<desc id={`${id}v-d`}>{desc}</desc>
-					<rect
-						x={0}
-						y={-46}
-						width={16}
-						height={V_THICK}
-						className="fill-(--signal)"
-					/>
-					<text x={24} y={-38} className="fill-ink-muted font-medium text-sm">
-						{copy.signalTrack}
-					</text>
-					<path
-						d="M0 -16H16"
-						className="fill-none stroke-on-air"
-						strokeWidth={3}
-					/>
-					<text x={24} y={-11} className="fill-ink-muted font-medium text-sm">
-						{copy.viewerTrack}
-					</text>
-					<g className="strip-play strip-play-y">
-						{RUNS.flatMap((r, ri) =>
-							LEVELS.slice(r.start, r.end).map((level, k) => {
-								const y = `${vTop(ri)}%`;
-								const dy = 8 + k * V_SLOT;
-								return level === 0 ? (
-									<rect
-										key={r.start + k}
-										x={0.75}
-										y={y}
-										transform={`translate(0 ${dy + 0.75})`}
-										width={MAX * V_UNIT - 1.5}
-										height={V_THICK - 1.5}
-										className={ghost}
-										strokeWidth={1.5}
-										strokeDasharray="3 3"
-									/>
-								) : (
-									<rect
-										key={r.start + k}
-										x={0}
-										y={y}
-										transform={`translate(0 ${dy})`}
-										width={level * V_UNIT}
-										height={V_THICK}
-										className={barFill(level)}
-									/>
-								);
-							}),
-						)}
-					</g>
-					{/* A path can't take % coordinates, so it lives in a nested svg
-					    that stretches to the full height; the stroke stays 3px. */}
+				<div className="relative">
 					<svg
-						aria-hidden="true"
-						x={V_LINE_X - 2}
-						width={4}
-						height="100%"
-						viewBox="0 0 4 100"
-						preserveAspectRatio="none"
+						role="img"
+						aria-labelledby={`${id}v-t ${id}v-d`}
+						className="pointer-events-none absolute inset-y-0 left-0 h-full w-16 overflow-visible md:hidden"
 					>
+						<title id={`${id}v-t`}>{copy.label}</title>
+						<desc id={`${id}v-d`}>{desc}</desc>
+						<rect
+							x={0}
+							y={-46}
+							width={16}
+							height={V_THICK}
+							className="fill-(--signal)"
+						/>
+						<text x={24} y={-38} className="fill-ink-muted font-medium text-sm">
+							{copy.signalTrack}
+						</text>
 						<path
-							data-on-air
-							d="M2 0V100"
+							d="M0 -16H16"
 							className="fill-none stroke-on-air"
 							strokeWidth={3}
-							vectorEffect="non-scaling-stroke"
 						/>
-					</svg>
-					{RUNS.map((r, ri) => (
-						<g key={r.start} transform="translate(0 12)">
-							<Dot live={r.live} r={4} cx={V_TEXT_X + 4} cy={`${vTop(ri)}%`} />
-							<text
-								x={V_TEXT_X + 14}
-								y={`${vTop(ri)}%`}
-								dy={5}
-								className="fill-ink font-semibold text-sm"
-							>
-								{r.live ? copy.live : copy.brb}
-							</text>
+						<text x={24} y={-11} className="fill-ink-muted font-medium text-sm">
+							{copy.viewerTrack}
+						</text>
+						<g className="strip-play strip-play-y">
+							{RUNS.flatMap((r, ri) =>
+								LEVELS.slice(r.start, r.end).map((level, k) => {
+									const y = `${vTop(ri)}%`;
+									const dy = 8 + k * V_SLOT;
+									return level === 0 ? (
+										<rect
+											key={r.start + k}
+											x={0.75}
+											y={y}
+											transform={`translate(0 ${dy + 0.75})`}
+											width={MAX * V_UNIT - 1.5}
+											height={V_THICK - 1.5}
+											className={ghost}
+											strokeWidth={1.5}
+											strokeDasharray="3 3"
+										/>
+									) : (
+										<rect
+											key={r.start + k}
+											x={0}
+											y={y}
+											transform={`translate(0 ${dy})`}
+											width={level * V_UNIT}
+											height={V_THICK}
+											className={barFill(level)}
+										/>
+									);
+								}),
+							)}
 						</g>
-					))}
-				</svg>
-
-				<ol className="grid grid-rows-(--strip-rows) pl-[4.75rem] md:grid-cols-(--strip-cols) md:grid-rows-none md:pl-0">
-					{copy.beats.map((beat, i) => (
-						<li
-							key={beat}
-							className="pt-7 pb-8 last:pb-0 md:pt-0 md:pr-6 md:pb-0"
+						{/* A path can't take % coordinates, so it lives in a nested svg
+					    that stretches to the full height; the stroke stays 3px. */}
+						<svg
+							aria-hidden="true"
+							x={V_LINE_X - 2}
+							width={4}
+							height="100%"
+							viewBox="0 0 4 100"
+							preserveAspectRatio="none"
 						>
-							<p className="font-semibold text-ink leading-snug">{beat}</p>
-							<p className="mt-1.5 max-w-[46ch] text-ink-muted leading-normal md:text-[0.9375rem] lg:text-[1.0625rem]">
-								{copy.details[i]}
-							</p>
-						</li>
-					))}
-				</ol>
+							<path
+								data-on-air
+								d="M2 0V100"
+								className="fill-none stroke-on-air"
+								strokeWidth={3}
+								vectorEffect="non-scaling-stroke"
+							/>
+						</svg>
+						{RUNS.map((r, ri) => (
+							<g key={r.start} transform="translate(0 12)">
+								<Dot
+									live={r.live}
+									r={4}
+									cx={V_TEXT_X + 4}
+									cy={`${vTop(ri)}%`}
+								/>
+								<text
+									x={V_TEXT_X + 14}
+									y={`${vTop(ri)}%`}
+									dy={5}
+									className="fill-ink font-semibold text-sm"
+								>
+									{r.live ? copy.live : copy.brb}
+								</text>
+							</g>
+						))}
+					</svg>
+
+					<ol className="grid grid-rows-(--strip-rows) pl-[4.75rem] md:grid-cols-(--strip-cols) md:grid-rows-none md:pl-0">
+						{copy.beats.map((beat, i) => (
+							<li
+								key={beat}
+								className="pt-7 pb-8 last:pb-0 md:pt-0 md:pr-6 md:pb-0"
+							>
+								<p className="font-semibold text-ink leading-snug">{beat}</p>
+								<p className="mt-1.5 max-w-[46ch] text-ink-muted leading-normal md:text-[0.9375rem] lg:text-[1.0625rem]">
+									{copy.details[i]}
+								</p>
+							</li>
+						))}
+					</ol>
+				</div>
 			</div>
 		</div>
 	);

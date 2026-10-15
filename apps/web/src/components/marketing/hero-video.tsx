@@ -8,7 +8,8 @@ const HEIGHT = 1213;
  * Product footage, played once, muted. SSR ships the poster with
  * preload="none". After mount: wide screens fetch metadata and autoplay;
  * phones and Save-Data play once it scrolls into view; reduced motion never
- * autoplays and gets native controls instead.
+ * autoplays. Native controls are always on: the clip runs 8s, so viewers
+ * need a way to pause it (WCAG 2.2.2).
  */
 export function HeroVideo({
 	src,
@@ -24,10 +25,7 @@ export function HeroVideo({
 	useEffect(() => {
 		const video = ref.current;
 		if (!video) return;
-		if (matchMedia("(prefers-reduced-motion: reduce)").matches) {
-			video.controls = true;
-			return;
-		}
+		if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
 		const play = () => {
 			video.muted = true;
 			video.play().catch(() => {});
@@ -54,6 +52,7 @@ export function HeroVideo({
 	return (
 		<video
 			ref={ref}
+			controls
 			muted
 			playsInline
 			poster={poster}

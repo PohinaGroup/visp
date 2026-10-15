@@ -36,7 +36,7 @@ export function Stories({
 									<a
 										href={story.channelUrl}
 										rel="noreferrer"
-										className="font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
+										className="inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
 									>
 										{story.name}
 									</a>

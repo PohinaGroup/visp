@@ -110,6 +110,7 @@ test("hero video ships poster and no autoplay attribute in SSR", () => {
 	);
 	expect(html).toContain('poster="/p.jpg"');
 	expect(html).not.toContain("autoplay");
+	expect(html).toMatch(/<video[^>]*\scontrols/);
 	expect(html).not.toMatch(/<video[^>]*\sloop/);
 	expect(html).toContain('preload="none"');
 	expect(html).toMatch(/width="\d+"/);
