@@ -14,7 +14,7 @@ import type { ApiRange, DateRange, RangeInterval } from "../app/date-range";
 
 const DAY_MS = 86_400_000;
 
-/** Signups count towards the first-live rate once they are this old. */
+/** Signups count towards the first-stream rate once they are this old. */
 const ACTIVATION_WINDOW_MS = 7 * DAY_MS;
 
 /**
@@ -104,7 +104,7 @@ export function formatKpiValue(unit: KpiUnit, value: number): string {
 }
 
 /**
- * Text for a null signup → first-live rate. The API's cohort is the range's
+ * Text for a null signup → first-stream rate. The API's cohort is the range's
  * signups from the data start, minus the last 7 days before the range end
  * (or before now, if the range reaches it), whose signups have not had their
  * full 7 days; the rate is null when that cohort is empty or has no signups.

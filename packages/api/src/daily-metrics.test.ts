@@ -109,8 +109,8 @@ const USERS: SeedUser[] = [
 		createdAt: "2026-09-15T20:00:00Z",
 		provider: "google",
 		sessions: [
-			// Connected but never live: started, not live.
-			[null, "2026-09-15T12:30:00Z", "2026-09-15T12:00:00Z"],
+			// A 30 s reconnect blip: started, not a stream.
+			[null, "2026-09-15T12:00:30Z", "2026-09-15T12:00:00Z"],
 			["2026-09-12T18:00:00Z", "2026-09-12T19:00:00Z"],
 		],
 	},
@@ -190,9 +190,7 @@ async function seed() {
 			});
 		}
 		for (const [firstLiveAt, endedAt, startedAt] of seedUser.sessions) {
-			const start = startedAt
-				? at(startedAt)
-				: new Date(at(firstLiveAt ?? "").getTime() - 60_000);
+			const start = at(startedAt ?? firstLiveAt ?? "");
 			await db.insert(relayStreamSession).values({
 				pathId: path.id,
 				startedAt: start,
@@ -284,11 +282,10 @@ integration("daily metrics rollup", () => {
 	});
 
 	test("days before the data start only get signups", async () => {
-		expect(await rollupDailyMetrics({ day: "2026-09-01" })).toEqual([
-			{ metric: "signups", segment: "all", value: 1 },
-			{ metric: "signups", segment: "unknown", value: 1 },
+		expect(await rollupDailyMetrics({ day: "2026-07-20" })).toEqual([
+			{ metric: "signups", segment: "all", value: 0 },
 		]);
-		// The trailing week is clamped to the data start (09-07).
+		// The trailing week is clamped to the data start: only dave on 09-08.
 		const [wau] = (await rollupDailyMetrics({ day: "2026-09-08" })).filter(
 			(row) => row.metric === "wau_trailing_7d",
 		);
@@ -300,11 +297,12 @@ integration("daily metrics rollup", () => {
 		expect(await isDailyMetricsDue(at("2026-09-20T05:00:00Z"))).toBe(true);
 
 		const first = await runDailyMetricsJob(at("2026-09-20T03:00:00Z"));
-		// Carol (09-01) is the first eligible signup; the banned 08-20 one isn't.
+		// Carol (09-01) is the first eligible signup, but the data start
+		// (07-27) is earlier, so the backfill covers sessions from there.
 		expect(first).toEqual({
-			from: "2026-09-01",
+			from: "2026-07-27",
 			to: "2026-09-19",
-			days: 19,
+			days: 55,
 			backfill: true,
 		});
 		const { rows } = await db.execute<{
@@ -317,10 +315,10 @@ integration("daily metrics rollup", () => {
 			min(day) filter (where metric = 'live_streamers')::text as first_live
 			from daily_metrics`);
 		expect(rows[0]).toEqual({
-			days: 19,
-			first: "2026-09-01",
+			days: 55,
+			first: "2026-07-27",
 			last: "2026-09-19",
-			first_live: "2026-09-07",
+			first_live: "2026-07-27",
 		});
 		expect(await stored(DAY)).toEqual(EXPECTED_DAY);
 		expect(await isDailyMetricsDue(at("2026-09-20T05:00:00Z"))).toBe(false);

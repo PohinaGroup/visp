@@ -13,9 +13,9 @@ import {
 	eligibleUserWhere,
 	hoursInterval,
 	instant,
-	liveHoursOf,
-	liveSessionsSql,
 	type MetricInterval,
+	streamHoursOf,
+	streamSessionsSql,
 } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
 
@@ -390,8 +390,8 @@ export const adminUsageRouter = router({
 		}),
 
 	/**
-	 * Share of active streamers (eligible users with a `live_session` whose
-	 * `first_live_at` is in the range, clamped to `METRICS_DATA_START`) who
+	 * Share of active streamers (eligible users with a stream session that
+	 * started in the range, clamped to `METRICS_DATA_START`) who
 	 * used each feature. Definitions, each limited to what the schema records:
 	 * - `direct`: a `forwarder_session` on one of their paths overlapping the
 	 *   range (VISP Direct actually forwarded).
@@ -448,7 +448,7 @@ export const adminUsageRouter = router({
 			const { rows } = await db.execute<Record<string, unknown>>(sql`
 				with active as (
 					select distinct ls.user_id
-					from (${liveSessionsSql({ from, to })}) ls
+					from (${streamSessionsSql({ from, to })}) ls
 				)
 				select count(*)::int as active,
 					count(*) filter (where exists (
@@ -503,7 +503,7 @@ export const adminUsageRouter = router({
 	 * the table still ranks something useful before any price is entered.
 	 * Users with neither hosted usage nor forwarder time are not candidates.
 	 * `hoursStreamed` follows the streaming-hours KPI (live sessions by
-	 * `first_live_at`, from `METRICS_DATA_START`); `encoderMinutes` is clipped
+	 * `started_at`, from `METRICS_DATA_START`); `encoderMinutes` is clipped
 	 * to the range like `encoderSeries`. Name and email only: no tokens, IPs
 	 * or stream details.
 	 */
@@ -564,12 +564,12 @@ export const adminUsageRouter = router({
 						encoder_minutes desc, u.id
 					limit ${TOP_USERS_LIMIT}
 				),
-				live as (${liveSessionsSql({ from: liveFrom(from), to })})
+				live as (${streamSessionsSql({ from: liveFrom(from), to })})
 				select r.user_id, r.name, r.email,
 					r.cost_eur::float8 as cost_eur, r.usage,
 					r.encoder_minutes::float8 as encoder_minutes,
 					coalesce((
-						select sum(${liveHoursOf("ls")}) from live ls
+						select sum(${streamHoursOf("ls")}) from live ls
 						where ls.user_id = r.user_id
 					), 0)::float8 as hours_streamed
 				from ranked r

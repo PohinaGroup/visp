@@ -14,12 +14,13 @@ import {
 	bucketOf,
 	bucketSeriesSql,
 	eligibleUserWhere,
+	firstStreamSql,
 	fromUtcTimestamp,
 	hoursInterval,
 	instant,
-	liveHoursOf,
-	liveSessionsSql,
 	type MetricInterval,
+	streamHoursOf,
+	streamSessionsSql,
 	utcTimestamp,
 } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
@@ -73,17 +74,16 @@ const META: Record<KpiKey, { label: string; unit: KpiUnit }> = {
 	streaming_hours: { label: "Streaming hours", unit: "hours" },
 	signups: { label: "Signups", unit: "count" },
 	signup_to_first_live_rate: {
-		label: "Signup → first live (7 days)",
+		label: "Signup → first stream (7 days)",
 		unit: "percent",
 	},
 	sessions_per_streamer: { label: "Sessions per streamer", unit: "ratio" },
 };
 
 /**
- * KPIs that depend on `first_live_at`, which is not recorded before
- * `METRICS_DATA_START`: their windows are clamped to it, and a comparison
- * window starting before it gets no delta (docs/admin-kpis.md, "Legacy
- * sessions"). Only signups have full history.
+ * KPIs built from stream sessions, which exist from `METRICS_DATA_START`:
+ * their windows are clamped to it, and a comparison window starting before
+ * it gets no delta (docs/admin-kpis.md, "Data start"). Signups are older.
  */
 const LIVE_KPIS = new Set<KpiKey>([
 	"weekly_active_streamers",
@@ -195,18 +195,18 @@ function cohortWindow(w: Window, now: Date): Window {
 }
 
 /**
- * Rows of KPI 5's cohort in `w` (created_at, converted): `converted` when
- * `app_user.first_live_at` falls within 7 days of signup; no `app_user` row
- * means not live.
+ * Rows of KPI 5's cohort in `w` (created_at, converted): `converted` when the
+ * user's first stream session started within 7 days of signup; a user with no
+ * stream session is not converted.
  */
 function cohortSql(w: Window): SQL {
 	return sql`select u.created_at,
 			coalesce(
-				a.first_live_at < ${fromUtcTimestamp(sql`u.created_at`)} + ${hoursInterval(ACTIVATION_WINDOW_HOURS)},
+				fs.first_streamed_at < ${fromUtcTimestamp(sql`u.created_at`)} + ${hoursInterval(ACTIVATION_WINDOW_HOURS)},
 				false
 			) as converted
 		from "user" u
-		left join app_user a on a.id = u.id
+		left join (${firstStreamSql()}) fs on fs.user_id = u.id
 		where ${eligibleUserWhere("u")}
 			and ${within(sql`u.created_at`, w, utcTimestamp)}`;
 }
@@ -274,8 +274,8 @@ function scalarsSql(w: Windows): SQL {
 					from: liveWindows.map((entry) => entry.from).reduce(earliest),
 					to: liveWindows.map((entry) => entry.to).reduce(latest),
 				};
-	const cur = within(sql`ls.first_live_at`, w.liveCurrent, instant);
-	const prev = within(sql`ls.first_live_at`, w.livePrevious, instant);
+	const cur = within(sql`ls.started_at`, w.liveCurrent, instant);
+	const prev = within(sql`ls.started_at`, w.livePrevious, instant);
 	const curSignup = within(sql`u.created_at`, w.current, utcTimestamp);
 	const prevSignup = within(sql`u.created_at`, w.previous, utcTimestamp);
 	const curCohort = within(sql`c.created_at`, w.cohortCurrent, utcTimestamp);
@@ -292,11 +292,11 @@ function scalarsSql(w: Windows): SQL {
 			select
 				count(distinct ls.user_id) filter (where ${cur}) as cur_streamers,
 				count(*) filter (where ${cur}) as cur_sessions,
-				coalesce(sum(${liveHoursOf("ls")}) filter (where ${cur}), 0) as cur_hours,
+				coalesce(sum(${streamHoursOf("ls")}) filter (where ${cur}), 0) as cur_hours,
 				count(distinct ls.user_id) filter (where ${prev}) as prev_streamers,
 				count(*) filter (where ${prev}) as prev_sessions,
-				coalesce(sum(${liveHoursOf("ls")}) filter (where ${prev}), 0) as prev_hours
-			from (${liveSessionsSql(scan)}) ls
+				coalesce(sum(${streamHoursOf("ls")}) filter (where ${prev}), 0) as prev_hours
+			from (${streamSessionsSql(scan)}) ls
 		) live
 		cross join (
 			select
@@ -338,7 +338,7 @@ function sparklinesSql(
 					interval,
 					live.from,
 					live.to,
-					sql`sum(${liveHoursOf("ls")})`,
+					sql`sum(${streamHoursOf("ls")})`,
 				),
 			],
 			[

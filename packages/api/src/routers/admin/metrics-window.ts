@@ -1,6 +1,7 @@
 /**
- * First instant from which `relay_stream_session.first_live_at` is recorded
- * (migration 0014). Live-based KPIs are not computed before it; see
- * docs/admin-kpis.md, "Legacy sessions".
+ * First instant the KPIs are computed from: the Monday of the week
+ * `relay_stream_session` was created (migration 0000, 2026-07-29), so every
+ * publisher session there is counts. Earlier ranges have no data, not zero;
+ * see docs/admin-kpis.md, "Data start".
  */
-export const METRICS_DATA_START = new Date("2026-09-07T00:00:00Z");
+export const METRICS_DATA_START = new Date("2026-07-27T00:00:00Z");

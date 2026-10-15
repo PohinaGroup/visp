@@ -9,7 +9,10 @@
  */
 import type { RelayForecast } from "../../relay-forecast";
 
-/** The share of Direct sessions that should reach live (Reliability target). */
+/**
+ * The share of started sessions that should be stable, i.e. last at least
+ * `MIN_STREAM_SECONDS` (Reliability target, docs/admin-kpis.md KPI 9).
+ */
 export const SUCCESS_RATE_TARGET = 0.95;
 
 /**
@@ -36,11 +39,11 @@ export const RELAY_HEALTH_STALE_MS = 2 * 60 * 1000;
 /** Forecast to reach 80 % in fewer than this many weeks warns (exclusive). */
 export const RELAY_FORECAST_WARNING_WEEKS = 4;
 
-/** Session success is judged over this trailing window. */
+/** Session stability is judged over this trailing window. */
 export const SESSION_SUCCESS_WINDOW_MS = 24 * 60 * 60 * 1000;
 /**
- * Fewer Direct sessions than this in the window raise nothing: at 3 sessions
- * one failure is 67 %, which is noise, not an incident.
+ * Fewer sessions than this in the window raise nothing: at 3 sessions one
+ * blip is 67 %, which is noise, not an incident.
  */
 export const SESSION_SUCCESS_MIN_SESSIONS = 10;
 /**
@@ -232,27 +235,28 @@ export function forecastAlerts(input: {
 }
 
 /**
- * Rule 4: Direct-session success rate over the trailing window. Nothing
- * below `SESSION_SUCCESS_MIN_SESSIONS` sessions.
+ * Rule 4: stable-session rate (sessions that lasted at least a minute, of
+ * those started) over the trailing window. Nothing below
+ * `SESSION_SUCCESS_MIN_SESSIONS` sessions.
  */
 export function sessionSuccessAlert(
-	{ started, live }: { started: number; live: number },
+	{ started, stable }: { started: number; stable: number },
 	target = SUCCESS_RATE_TARGET,
 ): AdminAlert | null {
 	if (started < SESSION_SUCCESS_MIN_SESSIONS) return null;
-	// `live * 100 < started * pct` rather than `live / started < target -
+	// `stable * 100 < started * pct` rather than `stable / started < target -
 	// 0.1`: 0.95 - 0.1 is 0.8499… in floating point, which would make exactly
 	// 85 % read as "not below 85 %" only by accident.
-	const ratePct = (live / started) * 100;
+	const ratePct = (stable / started) * 100;
 	const targetPct = Math.round(target * 10_000) / 100;
 	const criticalPct = targetPct - SESSION_SUCCESS_CRITICAL_MARGIN_PP;
-	if (live * 100 >= started * targetPct) return null;
+	if (stable * 100 >= started * targetPct) return null;
 	return {
 		id: "session_success",
-		severity: live * 100 < started * criticalPct ? "critical" : "warning",
+		severity: stable * 100 < started * criticalPct ? "critical" : "warning",
 		kind: "session_success",
-		title: `Session success ${pct(ratePct)} in the last 24 h`,
-		detail: `${live} of ${plural(started, "Direct session")} reached live; target ${pct(targetPct)}.`,
+		title: `Stable sessions ${pct(ratePct)} in the last 24 h`,
+		detail: `${stable} of ${plural(started, "session")} lasted a minute or more; target ${pct(targetPct)}.`,
 		href: "/reliability",
 	};
 }

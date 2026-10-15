@@ -6,21 +6,17 @@ import { MAX_SERIES_RANGE_DAYS } from "./metrics";
 import {
 	bucketOf,
 	bucketSeriesSql,
-	eligibleUserIdsSql,
 	eligibleUserWhere,
 	floorToBucket,
 	instant,
+	isStreamSql,
 	type MetricInterval,
+	MIN_STREAM_SECONDS,
+	sessionsSql,
 } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Open sessions younger than this that have not gone live yet are still
- * connecting, not failures (docs/admin-kpis.md, KPI 9).
- */
-export const STILL_CONNECTING_MINUTES = 10;
 
 const RTT_METHODS = ["browser-probe", "manual"] as const;
 
@@ -63,68 +59,35 @@ export const rttInput = boundedRange(
 );
 
 /**
- * "Direct session" condition on a `path` row aliased `alias`: the path has a
- * Direct output configured right now, through a legacy provider flag
- * (`path.direct_*`), a `direct_destination` (portrait) or a
- * `custom_direct_output`. `first_live_at` is only ever set by Direct outputs,
- * so on any other path every session would look like a failure; see
- * docs/admin-kpis.md, KPI 9 and "Legacy sessions". It is the path's current
- * configuration, not what it had during the session, because Direct config
- * has no history.
+ * Publisher sessions of eligible users started in `[from, to)` that can be
+ * judged: an open session younger than `MIN_STREAM_SECONDS` is still
+ * connecting and left out. Columns: `started_at`, `stable` (it lasted at
+ * least `MIN_STREAM_SECONDS`; docs/admin-kpis.md, KPI 9).
  */
-export function directPathWhere(alias: string): SQL {
-	const p = sql.identifier(alias);
-	return sql`(${p}.direct_twitch or ${p}.direct_kick or ${p}.direct_youtube
-		or exists (select 1 from direct_destination dd where dd.path_id = ${p}.id)
-		or exists (select 1 from custom_direct_output cdo where cdo.path_id = ${p}.id))`;
+export function judgedSessionsSql(from: Date, to: Date): SQL {
+	return sql`select js.started_at, ${isStreamSql("js")} as stable
+		from (${sessionsSql({ from, to })}) js
+		where not (
+			js.ended_at is null
+			and js.started_at > now() - ${sql.raw(`interval '${MIN_STREAM_SECONDS} seconds'`)}
+		)`;
 }
 
-/**
- * Direct sessions of eligible users started in `[from, to)`, minus the ones
- * still connecting. Columns: `started_at`, `first_live_at`, `start_to_live`
- * (seconds, null when the session never went live).
- */
-export function directSessionsSql(from: Date, to: Date): SQL {
-	// `greatest` skips nulls, so it alone would turn "never live" into 0 s.
-	return sql`select s.started_at, s.first_live_at,
-			case when s.first_live_at is not null then
-				greatest(extract(epoch from s.first_live_at - s.started_at), 0)::float8
-			end as start_to_live
-		from relay_stream_session s
-		join "path" p on p.id = s.path_id
-		where s.started_at >= ${instant(from)}
-			and s.started_at < ${instant(to)}
-			and p.user_id in (${eligibleUserIdsSql()})
-			and ${directPathWhere("p")}
-			and not (
-				s.first_live_at is null
-				and s.ended_at is null
-				and s.started_at > now() - ${sql.raw(`interval '${STILL_CONNECTING_MINUTES} minutes'`)}
-			)`;
-}
+const STABILITY_AGGREGATES = sql`count(*)::int as started,
+	count(*) filter (where js.stable)::int as stable`;
 
-const SUCCESS_AGGREGATES = sql`count(*)::int as started,
-	count(ds.first_live_at)::int as live,
-	percentile_cont(0.5) within group (order by ds.start_to_live) as p50,
-	percentile_cont(0.95) within group (order by ds.start_to_live) as p95`;
-
-type SuccessRow = {
+type StabilityRow = {
 	started: number | string | null;
-	live: number | string | null;
-	p50: number | string | null;
-	p95: number | string | null;
+	stable: number | string | null;
 };
 
-export type SessionSuccessStats = {
-	/** Direct sessions started (still-connecting ones left out). */
+export type SessionStabilityStats = {
+	/** Sessions started (still-connecting ones left out). */
 	started: number;
-	/** Of those, sessions that reached live. */
-	live: number;
-	/** `live / started`, 0–1; null with no sessions. */
-	successRate: number | null;
-	/** Start-to-live seconds over sessions that went live; null with none. */
-	startToLiveP50Sec: number | null;
-	startToLiveP95Sec: number | null;
+	/** Of those, sessions that lasted at least `MIN_STREAM_SECONDS`. */
+	stable: number;
+	/** `stable / started`, 0–1; null with no sessions. */
+	stableRate: number | null;
 };
 
 const nullableNumber = (value: number | string | null | undefined) =>
@@ -132,23 +95,21 @@ const nullableNumber = (value: number | string | null | undefined) =>
 
 /**
  * A percentile rounded to 1/1000 of its unit. `percentile_cont` interpolates
- * in float8, so 85.5 can come back as 85.49999999999999; milliseconds of a
- * second (or microseconds of RTT) are far below what the charts show.
+ * in float8, so 85.5 can come back as 85.49999999999999; microseconds of RTT
+ * are far below what the charts show.
  */
 const percentileValue = (value: number | string | null | undefined) => {
 	const number = nullableNumber(value);
 	return number === null ? null : Math.round(number * 1000) / 1000;
 };
 
-function toStats(row: SuccessRow | undefined): SessionSuccessStats {
+function toStats(row: StabilityRow | undefined): SessionStabilityStats {
 	const started = Number(row?.started ?? 0);
-	const live = Number(row?.live ?? 0);
+	const stable = Number(row?.stable ?? 0);
 	return {
 		started,
-		live,
-		successRate: started > 0 ? live / started : null,
-		startToLiveP50Sec: percentileValue(row?.p50),
-		startToLiveP95Sec: percentileValue(row?.p95),
+		stable,
+		stableRate: started > 0 ? stable / started : null,
 	};
 }
 
@@ -175,24 +136,17 @@ type RttRow = {
 
 export const adminReliabilityRouter = router({
 	/**
-	 * Session success rate and start-to-live latency (docs/admin-kpis.md,
-	 * KPIs 9 and 10) per UTC day or ISO week of `started_at`.
+	 * Stable-session rate (docs/admin-kpis.md, KPI 9) per UTC day or ISO
+	 * week of `started_at`: of the publisher sessions started, the share that
+	 * lasted at least `MIN_STREAM_SECONDS`. Open sessions younger than that
+	 * are still connecting and left out. The name is historical: it used to
+	 * be the Direct "reached live" rate.
 	 *
-	 * Only **Direct sessions** count: sessions on paths that currently have a
-	 * Direct output (see `directPathWhere`), because `first_live_at` is only
-	 * set by Direct outputs and OBS-only sessions would all read as failures.
-	 * Open sessions that started under 10 minutes ago without going live are
-	 * still connecting and left out. Start-to-live is `first_live_at -
-	 * started_at` in seconds, p50/p95 by `percentile_cont` over the sessions
-	 * that went live.
-	 *
-	 * `from` is clamped to `METRICS_DATA_START` (older sessions have no
-	 * `first_live_at` and would all count as failures); a range wholly before
-	 * it returns no buckets. Buckets are gap-free from the bucket containing
+	 * `from` is clamped to `METRICS_DATA_START`; a range wholly before it
+	 * returns no buckets. Buckets are gap-free from the bucket containing
 	 * `from` (as `admin.metrics.series`), so a mid-week `from` shows the whole
 	 * first week. `totals` covers exactly `[from, to)` after clamping, so a
-	 * KPI tile and its comparison period count equal-length windows; it
-	 * cannot be derived from the buckets because percentiles do not add up.
+	 * KPI tile and its comparison period count equal-length windows.
 	 */
 	sessionSuccess: adminProcedure
 		.input(sessionSuccessInput)
@@ -208,24 +162,24 @@ export const adminReliabilityRouter = router({
 					from: to.toISOString(),
 					to: to.toISOString(),
 					totals: toStats(undefined),
-					buckets: [] as ({ bucket: string } & SessionSuccessStats)[],
+					buckets: [] as ({ bucket: string } & SessionStabilityStats)[],
 				};
 			}
 			const scanFrom = floorToBucket(from, interval);
 			const [series, totals] = await Promise.all([
-				db.execute<SuccessRow & { bucket: Date | string }>(sql`
-					select series.bucket, agg.started, agg.live, agg.p50, agg.p95
+				db.execute<StabilityRow & { bucket: Date | string }>(sql`
+					select series.bucket, agg.started, agg.stable
 					from (${bucketSeriesSql(interval, from, to)}) series
 					left join (
-						select ${bucketOf(interval, sql`ds.started_at`)} as bucket,
-							${SUCCESS_AGGREGATES}
-						from (${directSessionsSql(scanFrom, to)}) ds
+						select ${bucketOf(interval, sql`js.started_at`)} as bucket,
+							${STABILITY_AGGREGATES}
+						from (${judgedSessionsSql(scanFrom, to)}) js
 						group by 1
 					) agg on agg.bucket = series.bucket
 					order by series.bucket`),
-				db.execute<SuccessRow>(sql`
-					select ${SUCCESS_AGGREGATES}
-					from (${directSessionsSql(from, to)}) ds`),
+				db.execute<StabilityRow>(sql`
+					select ${STABILITY_AGGREGATES}
+					from (${judgedSessionsSql(from, to)}) js`),
 			]);
 			return {
 				...result,

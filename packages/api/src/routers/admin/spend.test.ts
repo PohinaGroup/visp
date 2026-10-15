@@ -112,12 +112,11 @@ async function seed(users: SeedUser[]) {
 			})
 			.returning();
 		if (!path) throw new Error("test path was not created");
-		for (const firstLiveAt of seedUser.live ?? []) {
+		for (const startedAt of seedUser.live ?? []) {
 			await db.insert(relayStreamSession).values({
 				pathId: path.id,
-				startedAt: new Date(at(firstLiveAt).getTime() - 60_000),
-				firstLiveAt: at(firstLiveAt),
-				endedAt: new Date(at(firstLiveAt).getTime() + HOUR_MS),
+				startedAt: at(startedAt),
+				endedAt: new Date(at(startedAt).getTime() + HOUR_MS),
 			});
 		}
 		for (const [feature, units, occurredAt] of seedUser.hosted ?? []) {
@@ -268,26 +267,27 @@ integration("admin.spend", () => {
 		});
 
 		test("clamps both windows to METRICS_DATA_START", async () => {
-			// 09-01..09-14 counts from 09-07 only: the 09-05 usage drops out.
+			// Sessions count from the data start (Jul 27, 2026), so 09-01..09-14
+			// keeps the 09-05 usage: 1.5 EUR over alice alone.
 			const clamped = await admin.perStreamer({
 				from: "2026-09-01T00:00:00Z",
 				to: "2026-09-14T00:00:00Z",
 			});
-			expect(clamped.totalCostEur).toBeCloseTo(0.5);
-			expect(clamped.value).toBeCloseTo(0.5);
+			expect(clamped.totalCostEur).toBeCloseTo(1.5);
+			expect(clamped.value).toBeCloseTo(1.5);
 
 			// A comparison starting before the data start gets no delta.
 			const legacy = await admin.perStreamer({
 				...WEEK_38,
-				compareFrom: "2026-08-31T00:00:00Z",
-				compareTo: WEEK_38.from,
+				compareFrom: "2026-07-13T00:00:00Z",
+				compareTo: "2026-07-27T00:00:00Z",
 			});
-			expect(legacy.previous).toBeCloseTo(0.5);
+			expect(legacy.previous).toBeNull();
 			expect(legacy.deltaPct).toBeNull();
 
 			const before = await admin.perStreamer({
-				from: "2026-08-01T00:00:00Z",
-				to: "2026-09-01T00:00:00Z",
+				from: "2026-07-01T00:00:00Z",
+				to: "2026-07-27T00:00:00Z",
 			});
 			expect(before).toMatchObject({
 				value: null,

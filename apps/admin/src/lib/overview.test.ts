@@ -36,7 +36,7 @@ function kpi(key: Kpi["key"], overrides: Partial<Kpi> = {}): Kpi {
 		streaming_hours: { label: "Streaming hours", unit: "hours" },
 		signups: { label: "Signups", unit: "count" },
 		signup_to_first_live_rate: {
-			label: "Signup → first live (7 days)",
+			label: "Signup → first stream (7 days)",
 			unit: "percent",
 		},
 		sessions_per_streamer: { label: "Sessions per streamer", unit: "ratio" },

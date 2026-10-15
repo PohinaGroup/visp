@@ -16,7 +16,7 @@ import {
 import { instant } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
 import { adminRelayForecastRouter } from "./relay-forecast";
-import { directSessionsSql } from "./reliability";
+import { judgedSessionsSql } from "./reliability";
 import { adminSpendRouter } from "./spend";
 
 export type { AdminAlert } from "./alerts-rules";
@@ -57,21 +57,22 @@ async function loadRelays(now: Date) {
 }
 
 /**
- * Direct sessions started and gone live in the trailing window, with the
- * Reliability page's definition (`directSessionsSql`: eligible users, Direct
- * paths, still-connecting sessions left out), clamped to
- * `METRICS_DATA_START` like every live-based KPI.
+ * Sessions started in the trailing window and how many were stable, with the
+ * Reliability page's definition (`judgedSessionsSql`: eligible users,
+ * still-connecting sessions left out), clamped to `METRICS_DATA_START` like
+ * every session-based KPI.
  */
 async function loadSessionSuccess(now: Date) {
 	let from = new Date(now.getTime() - SESSION_SUCCESS_WINDOW_MS);
 	if (from < METRICS_DATA_START) from = METRICS_DATA_START;
-	if (from >= now) return { started: 0, live: 0 };
-	const { rows } = await db.execute<{ started: unknown; live: unknown }>(sql`
-		select count(*)::int as started, count(ds.first_live_at)::int as live
-		from (${directSessionsSql(from, now)}) ds`);
+	if (from >= now) return { started: 0, stable: 0 };
+	const { rows } = await db.execute<{ started: unknown; stable: unknown }>(sql`
+		select count(*)::int as started,
+			count(*) filter (where js.stable)::int as stable
+		from (${judgedSessionsSql(from, now)}) js`);
 	return {
 		started: Number(rows[0]?.started ?? 0),
-		live: Number(rows[0]?.live ?? 0),
+		stable: Number(rows[0]?.stable ?? 0),
 	};
 }
 

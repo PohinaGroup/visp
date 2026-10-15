@@ -133,7 +133,7 @@ const HEADLINE_TILE = "p-5 ring-2 ring-primary/25";
 
 const SECONDARY_LABELS = [
 	"Signups",
-	"Signup → first live (7 days)",
+	"Signup → first stream (7 days)",
 	"Sessions per streamer",
 ];
 
@@ -242,7 +242,7 @@ function KpiTiles({ range }: { range: DateRange }) {
 			</div>
 			{maturing && (
 				<p className="mt-2 text-muted-foreground text-xs">
-					Signup → first live leaves out the last 7 days of the range, whose
+					Signup → first stream leaves out the last 7 days of the range, whose
 					signups have not had a full week yet; this range has nothing older.
 				</p>
 			)}
@@ -361,8 +361,8 @@ function Trends({ range }: { range: DateRange }) {
 				<TrendCard
 					description={
 						daily
-							? "Distinct streamers live in the 7 days ending each day."
-							: "Distinct streamers live in each ISO week."
+							? "Distinct streamers with a stream in the 7 days ending each day."
+							: "Distinct streamers with a stream in each ISO week."
 					}
 					metric="weekly_active_streamers"
 					range={range}
@@ -371,8 +371,8 @@ function Trends({ range }: { range: DateRange }) {
 				<TrendCard
 					description={
 						daily
-							? "Hours live per day, by when each session went live."
-							: "Hours live per ISO week, by when each session went live."
+							? "Hours streamed per day, by when each session started."
+							: "Hours streamed per ISO week, by when each session started."
 					}
 					metric="streaming_hours"
 					range={range}
