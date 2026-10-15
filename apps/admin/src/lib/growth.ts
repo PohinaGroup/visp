@@ -140,9 +140,9 @@ export function startsBeforeData(
 export const STAGE_LABELS: Record<FunnelStageCount["stage"], string> = {
 	signup: "Signed up",
 	device_created: "Created a device",
-	first_live: "Went live in 7 days",
+	first_live: "Streamed in 7 days",
 	week2_return: "Returned in week 2",
-	first_live_any: "Went live (any time)",
+	first_live_any: "Streamed (any time)",
 };
 
 /**
@@ -389,7 +389,7 @@ export function retentionCsvRows(cohorts: readonly RetentionCohort[]) {
 }
 
 // ---------------------------------------------------------------------------
-// Time to first live
+// Time to first stream
 // ---------------------------------------------------------------------------
 
 /** Hours as "45 min", "5.2 h" or "3.1 d", whichever reads naturally. */

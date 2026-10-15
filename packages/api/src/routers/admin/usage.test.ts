@@ -230,11 +230,10 @@ async function seed() {
 			})
 			.returning();
 		if (!path) throw new Error("test path was not created");
-		for (const [firstLiveAt, endedAt] of seedUser.live ?? []) {
+		for (const [startedAt, endedAt] of seedUser.live ?? []) {
 			await db.insert(relayStreamSession).values({
 				pathId: path.id,
-				startedAt: new Date(at(firstLiveAt).getTime() - 60_000),
-				firstLiveAt: at(firstLiveAt),
+				startedAt: at(startedAt),
 				endedAt: at(endedAt),
 			});
 		}

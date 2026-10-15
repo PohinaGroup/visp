@@ -70,7 +70,7 @@ type SeedUser = {
 	];
 	/** `app_user.first_live_at` (F). */
 	firstLiveAt?: Date | string;
-	/** Session `first_live_at`s per device; each session lasts one hour. */
+	/** Session starts per device; each session lasts one hour. */
 	devices?: (Date | string)[][];
 };
 
@@ -135,8 +135,8 @@ const USERS: SeedUser[] = [
 		firstLiveAt: "2026-09-16T03:00:00Z",
 		devices: [["2026-09-16T03:00:00Z", "2026-09-30T03:00:00Z"]],
 	},
-	// Signed up before METRICS_DATA_START: signup/device only, never a live
-	// cohort (its F is merely the first tracked live).
+	// Signed up before the September cohorts; streams from 09-08, so it is a
+	// first-stream cohort member once the range reaches its signup.
 	{
 		id: "old",
 		createdAt: "2026-08-20T10:00:00Z",
@@ -219,7 +219,7 @@ async function seed(users: SeedUser[]) {
 				const live = date(firstLiveAt);
 				await db.insert(relayStreamSession).values({
 					pathId: path.id,
-					startedAt: new Date(live.getTime() - 60_000),
+					startedAt: live,
 					firstLiveAt: live,
 					endedAt: new Date(live.getTime() + HOUR_MS),
 				});
@@ -292,7 +292,7 @@ integration("admin.growth", () => {
 			from: "2026-09-07T00:00:00.000Z",
 			to: "2026-10-05T00:00:00.000Z",
 			segment: "none",
-			dataStart: "2026-09-07T00:00:00.000Z",
+			dataStart: "2026-07-27T00:00:00.000Z",
 			liveFrom: "2026-09-07T00:00:00.000Z",
 		});
 		expect(grid(result.segments)).toEqual({
@@ -306,32 +306,40 @@ integration("admin.growth", () => {
 		});
 	});
 
-	test("live stages only count signups from the data start", async () => {
+	test("stream stages count every signup from the data start", async () => {
+		// old signed up 08-20 and first streamed 09-08: in the base, past the
+		// 7-day window, streamed at some point.
 		const result = await admin.funnel({
 			from: "2026-08-01T00:00:00Z",
 			to: RANGE.to,
 		});
-		expect(result.liveFrom).toBe("2026-09-07T00:00:00.000Z");
+		expect(result.liveFrom).toBe("2026-08-01T00:00:00.000Z");
 		expect(grid(result.segments).all).toEqual({
 			signup: [8, 8, 8],
 			device_created: [7, 8, 8],
-			first_live: [4, 7, 7],
+			first_live: [4, 8, 8],
 			week2_return: [2, 4, 4],
-			first_live_any: [5, 7, 7],
+			first_live_any: [6, 8, 8],
 		});
 
-		const legacyOnly = await admin.funnel({
+		const augustOnly = await admin.funnel({
 			from: "2026-08-01T00:00:00Z",
 			to: "2026-09-01T00:00:00Z",
 		});
-		expect(legacyOnly.liveFrom).toBeNull();
-		expect(grid(legacyOnly.segments).all).toEqual({
+		expect(augustOnly.liveFrom).toBe("2026-08-01T00:00:00.000Z");
+		expect(grid(augustOnly.segments).all).toEqual({
 			signup: [1, 1, 1],
 			device_created: [1, 1, 1],
-			first_live: [0, 0, 0],
+			first_live: [0, 1, 1],
 			week2_return: [0, 0, 0],
-			first_live_any: [0, 0, 0],
+			first_live_any: [1, 1, 1],
 		});
+
+		const beforeData = await admin.funnel({
+			from: "2026-07-01T00:00:00Z",
+			to: "2026-07-27T00:00:00Z",
+		});
+		expect(beforeData.liveFrom).toBeNull();
 	});
 
 	test("an empty range still returns the unsegmented funnel", async () => {
@@ -487,9 +495,31 @@ integration("admin.growth", () => {
 			to: "2026-09-28T00:00:00Z",
 		});
 		expect(result).toEqual({
-			dataStart: "2026-09-07T00:00:00.000Z",
+			dataStart: "2026-07-27T00:00:00.000Z",
 			cohorts: [
-				// ann 2h, ben 48h, cat 240h; dan and eve never live.
+				// old: signed up 08-20 10:00, first stream 09-08 10:00 = 19 days.
+				{
+					cohort: "2026-08-17T00:00:00.000Z",
+					signups: 1,
+					count: 1,
+					medianHours: 456,
+					p75Hours: 456,
+				},
+				{
+					cohort: "2026-08-24T00:00:00.000Z",
+					signups: 0,
+					count: 0,
+					medianHours: null,
+					p75Hours: null,
+				},
+				{
+					cohort: "2026-08-31T00:00:00.000Z",
+					signups: 0,
+					count: 0,
+					medianHours: null,
+					p75Hours: null,
+				},
+				// ann 2h, ben 48h, cat 240h; dan and eve never streamed.
 				{
 					cohort: "2026-09-07T00:00:00.000Z",
 					signups: 5,
@@ -514,11 +544,11 @@ integration("admin.growth", () => {
 				},
 			],
 		});
-		const legacy = await admin.timeToFirstLive({
-			from: "2026-08-01T00:00:00Z",
-			to: "2026-09-01T00:00:00Z",
+		const beforeData = await admin.timeToFirstLive({
+			from: "2026-07-01T00:00:00Z",
+			to: "2026-07-27T00:00:00Z",
 		});
-		expect(legacy.cohorts).toEqual([]);
+		expect(beforeData.cohorts).toEqual([]);
 	});
 
 	test("retention grid by first-live week, only ended weeks", async () => {
@@ -529,7 +559,7 @@ integration("admin.growth", () => {
 		expect(result).toMatchObject({
 			weeks: 4,
 			asOf: "2026-10-05T00:00:00.000Z",
-			dataStart: "2026-09-07T00:00:00.000Z",
+			dataStart: "2026-07-27T00:00:00.000Z",
 		});
 		const rows = result.cohorts.map((cohort) => [
 			cohort.cohort,
@@ -537,9 +567,9 @@ integration("admin.growth", () => {
 			cohort.cells.map((cell) => cell.value),
 		]);
 		expect(rows).toEqual([
-			// ann (F W1; lives W2, W4) and ben (F W1; lives W2).
-			["2026-09-07T00:00:00.000Z", 2, [1, 1, 0, 0.5]],
-			// cat (W3), fay (W3), gus (W4); old has F in W1 but is legacy.
+			// ann (F W1; streams W2, W4), ben (F W1; W2) and old (F W1; W2).
+			["2026-09-07T00:00:00.000Z", 3, [1, 1, 0, 1 / 3]],
+			// cat (W3), fay (W3), gus (W4).
 			["2026-09-14T00:00:00.000Z", 3, [1, 2 / 3, 1 / 3, null]],
 			["2026-09-21T00:00:00.000Z", 0, [null, null, null, null]],
 			["2026-09-28T00:00:00.000Z", 0, [null, null, null, null]],
@@ -564,15 +594,23 @@ integration("admin.growth", () => {
 	test("retention clamps to the data start and defaults to now", async () => {
 		const clamped = await admin.retention({ to: "2026-10-05T00:00:00Z" });
 		expect(clamped.weeks).toBe(12);
+		// 12 weeks back from 09-28 would be 07-13; the data start cuts it to 07-27.
 		expect(clamped.cohorts.map((cohort) => cohort.cohort)).toEqual([
+			"2026-07-27T00:00:00.000Z",
+			"2026-08-03T00:00:00.000Z",
+			"2026-08-10T00:00:00.000Z",
+			"2026-08-17T00:00:00.000Z",
+			"2026-08-24T00:00:00.000Z",
+			"2026-08-31T00:00:00.000Z",
 			"2026-09-07T00:00:00.000Z",
 			"2026-09-14T00:00:00.000Z",
 			"2026-09-21T00:00:00.000Z",
 			"2026-09-28T00:00:00.000Z",
 		]);
 		expect(clamped.cohorts[0]?.cells).toHaveLength(12);
-		expect(clamped.cohorts[0]?.cells[3]?.value).toBe(0.5);
-		expect(clamped.cohorts[0]?.cells[4]?.value).toBeNull();
+		expect(clamped.cohorts[0]?.size).toBe(0);
+		expect(clamped.cohorts[6]?.cells[3]?.value).toBe(1 / 3);
+		expect(clamped.cohorts[6]?.cells[4]?.value).toBeNull();
 
 		// A future `to` is capped at now; the current week has not ended.
 		const current = await admin.retention({
@@ -586,7 +624,7 @@ integration("admin.growth", () => {
 			null,
 		]);
 
-		const before = await admin.retention({ to: "2026-09-07T00:00:00Z" });
+		const before = await admin.retention({ to: "2026-07-27T00:00:00Z" });
 		expect(before.cohorts).toEqual([]);
 	});
 

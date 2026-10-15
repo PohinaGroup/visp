@@ -63,7 +63,7 @@ type SeedUser = {
 	role?: string;
 	banned?: boolean;
 	accounts?: { provider: string; createdAt: string }[];
-	/** Sessions per device: [first_live_at | null, ended_at | null, started_at?]. */
+	/** Sessions per device: [started_at, ended_at | null, started_at override?]. */
 	devices?: [string | null, string | null, string?][][];
 	/** Path state of the first device, for open sessions. */
 	state?: { publishing: boolean; lastEventAt: string };
@@ -96,8 +96,8 @@ const USERS: SeedUser[] = [
 				// Crosses midnight: wholly in the 09-09 bucket.
 				["2026-09-09T23:30:00Z", "2026-09-10T00:30:00Z"],
 				["2026-09-16T08:00:00Z", "2026-09-16T10:00:00Z"],
-				// Connected but never live: no hours, not activity.
-				[null, "2026-09-16T13:00:00Z", "2026-09-16T12:00:00Z"],
+				// A 30 s reconnect blip: no hours, not activity.
+				[null, "2026-09-16T12:00:30Z", "2026-09-16T12:00:00Z"],
 			],
 		],
 	},
@@ -112,7 +112,7 @@ const USERS: SeedUser[] = [
 		id: "legacy",
 		createdAt: "2026-08-20T10:00:00Z",
 		accounts: [{ provider: "credential", createdAt: "2026-08-20T10:00:00Z" }],
-		// Before METRICS_DATA_START: clamped away.
+		// Sessions are tracked from Jul 27, 2026, so this one counts.
 		devices: [[["2026-09-05T10:00:00Z", "2026-09-05T11:00:00Z"]]],
 	},
 	// Everyone below must be invisible to every metric.
@@ -187,7 +187,7 @@ async function seed() {
 				if (!start) throw new Error("session needs a start");
 				await db.insert(relayStreamSession).values({
 					pathId: path.id,
-					startedAt: new Date(at(start).getTime() - 60_000),
+					startedAt: at(start),
 					firstLiveAt: firstLiveAt ? at(firstLiveAt) : null,
 					endedAt: endedAt ? at(endedAt) : null,
 				});
@@ -243,9 +243,10 @@ integration("admin.metrics.series", () => {
 			metric: "weekly_active_streamers",
 			interval: "week",
 			unit: "count",
-			dataStart: "2026-09-07T00:00:00.000Z",
+			dataStart: "2026-07-27T00:00:00.000Z",
 		});
 		expect(result.buckets).toEqual([
+			{ bucket: "2026-08-31T00:00:00.000Z", value: 1 },
 			{ bucket: "2026-09-07T00:00:00.000Z", value: 2 },
 			{ bucket: "2026-09-14T00:00:00.000Z", value: 1 },
 			{ bucket: "2026-09-21T00:00:00.000Z", value: 2 },
@@ -260,13 +261,19 @@ integration("admin.metrics.series", () => {
 			from: "2026-09-01T00:00:00Z",
 			to: "2026-09-18T00:00:00Z",
 		});
-		expect(result.buckets[0]?.bucket).toBe("2026-09-07T00:00:00.000Z");
+		expect(result.buckets[0]?.bucket).toBe("2026-09-01T00:00:00.000Z");
 		expect(values(result.buckets)).toEqual([
-			0, // 09-07
-			1, // 09-08 alice
-			2, // 09-09 + bob
-			2,
-			2,
+			0, // 09-01
+			0,
+			0,
+			0,
+			1, // 09-05 legacy
+			1,
+			1, // 09-07
+			2, // 09-08 + alice
+			3, // 09-09 + bob
+			3,
+			3, // 09-11: last day with legacy (09-05) in the window
 			2,
 			2,
 			2, // through 09-14: alice 09-08/09-10, bob 09-09
@@ -276,7 +283,7 @@ integration("admin.metrics.series", () => {
 		]);
 	});
 
-	test("streaming hours bucket whole sessions by first live", async () => {
+	test("streaming hours bucket whole sessions by their start", async () => {
 		const weekly = await admin.series({
 			metric: "streaming_hours",
 			interval: "week",
@@ -314,7 +321,7 @@ integration("admin.metrics.series", () => {
 		const result = await admin.series({
 			metric: "streaming_hours",
 			interval: "week",
-			from: "2026-08-01T00:00:00Z",
+			from: "2026-07-01T00:00:00Z",
 			to: METRICS_DATA_START.toISOString(),
 		});
 		expect(result.buckets).toEqual([]);

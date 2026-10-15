@@ -3,9 +3,6 @@ import "../../test-env";
 import { db } from "@VISP/db";
 import {
 	appUser,
-	customDirectDestination,
-	customDirectOutput,
-	directDestination,
 	relay,
 	relayPath,
 	relayStreamSession,
@@ -59,17 +56,15 @@ function callerFor(id: string) {
 	});
 }
 
-/** How a path is wired to Direct: decides whether its sessions count. */
-type DirectKind = "flag" | "destination" | "custom" | "none";
-
-/** [started_at, seconds to first live (null = never live), open?]. */
-type SeedSession = [Date | string, number | null, "open"?];
+/** [started_at, seconds it lasted, or "open" (no `ended_at`, no path state)]. */
+type SeedSession = [Date | string, number | "open"];
 
 type SeedUser = {
 	id: string;
 	role?: string;
 	banned?: boolean;
-	paths?: { direct: DirectKind; sessions: SeedSession[] }[];
+	/** Sessions per path; a path can hold only one open session. */
+	paths?: SeedSession[][];
 };
 
 const now = Date.now();
@@ -78,69 +73,47 @@ const USERS: SeedUser[] = [
 	{
 		id: "alice",
 		paths: [
-			{
-				direct: "flag",
-				sessions: [
-					// Before METRICS_DATA_START: clamped away, never a failure.
-					["2026-09-05T10:00:00Z", null],
-					["2026-09-14T10:00:00Z", 30],
-					["2026-09-15T10:00:00Z", 90],
-					["2026-09-16T10:00:00Z", null],
-					["2026-09-18T10:00:00Z", 20],
-					["2026-09-22T10:00:00Z", 10],
-				],
-			},
+			[
+				// Sessions are tracked from Jul 27, 2026: this one counts.
+				["2026-09-05T10:00:00Z", 3600],
+				["2026-09-14T10:00:00Z", 30],
+				["2026-09-15T10:00:00Z", 90],
+				["2026-09-16T10:00:00Z", 20],
+				// Exactly the threshold is stable.
+				["2026-09-18T10:00:00Z", 60],
+				["2026-09-22T10:00:00Z", 10],
+			],
 		],
 	},
 	{
 		id: "bob",
 		paths: [
-			{
-				direct: "destination",
-				sessions: [
-					["2026-09-17T12:00:00Z", 60],
-					["2026-09-23T12:00:00Z", null],
-					["2026-09-24T12:00:00Z", 120],
-				],
-			},
+			[
+				["2026-09-17T12:00:00Z", 3600],
+				["2026-09-23T12:00:00Z", 45],
+				["2026-09-24T12:00:00Z", 120],
+			],
 		],
 	},
 	{
 		id: "carol",
 		paths: [
-			{ direct: "custom", sessions: [["2026-09-25T08:00:00Z", 40]] },
-			// Open, not live, 5 min old: still connecting, not counted.
-			{
-				direct: "flag",
-				sessions: [[new Date(now - 5 * MINUTE), null, "open"]],
-			},
-			// Open, not live, 20 min old: a failure.
-			{
-				direct: "custom",
-				sessions: [[new Date(now - 20 * MINUTE), null, "open"]],
-			},
+			[["2026-09-25T08:00:00Z", 40]],
+			// Open, 30 s old: still connecting, not judged.
+			[[new Date(now - 30 * SECOND), "open"]],
+			// Open and stale (no path state), 20 min old: a blip.
+			[[new Date(now - 20 * MINUTE), "open"]],
 		],
 	},
+	{ id: "dave", paths: [[["2026-09-15T09:00:00Z", 3600]]] },
 	// Everything below must be invisible.
-	{
-		// OBS-only path: never gets first_live_at, so it is not a Direct session.
-		id: "dave",
-		paths: [{ direct: "none", sessions: [["2026-09-15T09:00:00Z", null]] }],
-	},
 	{
 		id: "staff",
 		role: "user,admin",
-		paths: [{ direct: "flag", sessions: [["2026-09-15T09:00:00Z", 5]] }],
+		paths: [[["2026-09-15T09:00:00Z", 3600]]],
 	},
-	{
-		id: "break-glass-admin",
-		paths: [{ direct: "flag", sessions: [["2026-09-15T09:00:00Z", null]] }],
-	},
-	{
-		id: "spammer",
-		banned: true,
-		paths: [{ direct: "flag", sessions: [["2026-09-15T09:00:00Z", null]] }],
-	},
+	{ id: "break-glass-admin", paths: [[["2026-09-15T09:00:00Z", 5]]] },
+	{ id: "spammer", banned: true, paths: [[["2026-09-15T09:00:00Z", 5]]] },
 	{ id: "member" },
 ];
 
@@ -202,7 +175,7 @@ async function seed() {
 			createdAt: at("2026-09-01T00:00:00Z"),
 		});
 		await db.insert(appUser).values({ id: seedUser.id, handle: seedUser.id });
-		for (const [index, seedPath] of (seedUser.paths ?? []).entries()) {
+		for (const [index, sessions] of (seedUser.paths ?? []).entries()) {
 			const [path] = await db
 				.insert(relayPath)
 				.values({
@@ -211,46 +184,18 @@ async function seed() {
 					seq: index + 1,
 					slug: `${seedUser.id}-${index + 1}`,
 					label: "main",
-					// The flag columns are unique per user and provider.
-					directTwitch: seedPath.direct === "flag" && index === 0,
-					directKick: seedPath.direct === "flag" && index > 0,
 				})
 				.returning();
 			if (!path) throw new Error("test path was not created");
-			if (seedPath.direct === "destination") {
-				await db.insert(directDestination).values({
-					userId: seedUser.id,
-					pathId: path.id,
-					provider: "twitch",
-				});
-			}
-			if (seedPath.direct === "custom") {
-				const destinationId = `${seedUser.id}-dest-${index}`;
-				await db.insert(customDirectDestination).values({
-					id: destinationId,
-					userId: seedUser.id,
-					name: `dest ${index}`,
-					protocol: "rtmp",
-					encryptedUrl: "encrypted",
-					endpointSummary: "rtmp://example.test",
-				});
-				await db.insert(customDirectOutput).values({
-					id: `${seedUser.id}-output-${index}`,
-					userId: seedUser.id,
-					destinationId,
-					pathId: path.id,
-				});
-			}
-			for (const [startedAt, liveAfter, open] of seedPath.sessions) {
+			for (const [startedAt, length] of sessions) {
 				const start = new Date(startedAt);
 				await db.insert(relayStreamSession).values({
 					pathId: path.id,
 					startedAt: start,
-					firstLiveAt:
-						liveAfter === null
+					endedAt:
+						length === "open"
 							? null
-							: new Date(start.getTime() + liveAfter * SECOND),
-					endedAt: open ? null : new Date(start.getTime() + 60 * MINUTE),
+							: new Date(start.getTime() + length * SECOND),
 				});
 			}
 		}
@@ -272,13 +217,7 @@ async function seed() {
 	}
 }
 
-const EMPTY = {
-	started: 0,
-	live: 0,
-	successRate: null,
-	startToLiveP50Sec: null,
-	startToLiveP95Sec: null,
-};
+const EMPTY = { started: 0, stable: 0, stableRate: null };
 
 test("input rejects an inverted or oversized range", () => {
 	const base = { interval: "week" as const };
@@ -328,42 +267,43 @@ integration("admin.reliability", () => {
 		});
 	});
 
-	test("weekly Direct session success and start-to-live, clamped to the data start", async () => {
+	test("weekly stable-session rate over every eligible session", async () => {
 		const result = await admin.sessionSuccess({
 			from: "2026-08-31T00:00:00Z",
 			to: "2026-10-05T00:00:00Z",
 			interval: "week",
 		});
-		expect(result.dataStart).toBe("2026-09-07T00:00:00.000Z");
-		expect(result.from).toBe("2026-09-07T00:00:00.000Z");
+		expect(result.dataStart).toBe("2026-07-27T00:00:00.000Z");
+		expect(result.from).toBe("2026-08-31T00:00:00.000Z");
 		expect(result.buckets).toEqual([
-			{ bucket: "2026-09-07T00:00:00.000Z", ...EMPTY },
+			// alice 09-05.
 			{
-				// 30, 90, 20, 60 s live; one failure.
-				bucket: "2026-09-14T00:00:00.000Z",
-				started: 5,
-				live: 4,
-				successRate: 0.8,
-				startToLiveP50Sec: 45,
-				startToLiveP95Sec: 85.5,
+				bucket: "2026-08-31T00:00:00.000Z",
+				started: 1,
+				stable: 1,
+				stableRate: 1,
 			},
+			{ bucket: "2026-09-07T00:00:00.000Z", ...EMPTY },
+			// alice 30 ✗, 90 ✓, 20 ✗, 60 ✓; bob 3600 ✓; dave 3600 ✓.
 			{
-				// 10, 120, 40 s live; one failure.
+				bucket: "2026-09-14T00:00:00.000Z",
+				started: 6,
+				stable: 4,
+				stableRate: 4 / 6,
+			},
+			// alice 10 ✗; bob 45 ✗, 120 ✓; carol 40 ✗.
+			{
 				bucket: "2026-09-21T00:00:00.000Z",
 				started: 4,
-				live: 3,
-				successRate: 0.75,
-				startToLiveP50Sec: 40,
-				startToLiveP95Sec: 112,
+				stable: 1,
+				stableRate: 0.25,
 			},
 			{ bucket: "2026-09-28T00:00:00.000Z", ...EMPTY },
 		]);
 		expect(result.totals).toEqual({
-			started: 9,
-			live: 7,
-			successRate: 7 / 9,
-			startToLiveP50Sec: 40,
-			startToLiveP95Sec: 111,
+			started: 11,
+			stable: 6,
+			stableRate: 6 / 11,
 		});
 	});
 
@@ -374,37 +314,27 @@ integration("admin.reliability", () => {
 			interval: "day",
 		});
 		expect(result.buckets).toEqual([
+			// A blip-only day is a 0% rate, not "no data".
 			{
 				bucket: "2026-09-14T00:00:00.000Z",
 				started: 1,
-				live: 1,
-				successRate: 1,
-				startToLiveP50Sec: 30,
-				startToLiveP95Sec: 30,
+				stable: 0,
+				stableRate: 0,
 			},
 			{
 				bucket: "2026-09-15T00:00:00.000Z",
-				started: 1,
-				live: 1,
-				successRate: 1,
-				startToLiveP50Sec: 90,
-				startToLiveP95Sec: 90,
+				started: 2,
+				stable: 2,
+				stableRate: 1,
 			},
-			// A failure-only day is a 0% rate, not "no data".
 			{
 				bucket: "2026-09-16T00:00:00.000Z",
-				...EMPTY,
 				started: 1,
-				successRate: 0,
+				stable: 0,
+				stableRate: 0,
 			},
 		]);
-		expect(result.totals).toEqual({
-			started: 3,
-			live: 2,
-			successRate: 2 / 3,
-			startToLiveP50Sec: 60,
-			startToLiveP95Sec: 87,
-		});
+		expect(result.totals).toEqual({ started: 4, stable: 2, stableRate: 0.5 });
 	});
 
 	test("totals cover exactly [from, to) while the first week bucket is whole", async () => {
@@ -413,33 +343,27 @@ integration("admin.reliability", () => {
 			to: "2026-09-23T00:00:00Z",
 			interval: "week",
 		});
-		expect(result.buckets.map((b) => [b.bucket, b.started, b.live])).toEqual([
-			["2026-09-14T00:00:00.000Z", 5, 4],
-			["2026-09-21T00:00:00.000Z", 1, 1],
+		expect(result.buckets.map((b) => [b.bucket, b.started, b.stable])).toEqual([
+			["2026-09-14T00:00:00.000Z", 6, 4],
+			["2026-09-21T00:00:00.000Z", 1, 0],
 		]);
-		// 09-16 failure, 09-17 (60 s), 09-18 (20 s), 09-22 (10 s).
-		expect(result.totals).toEqual({
-			started: 4,
-			live: 3,
-			successRate: 0.75,
-			startToLiveP50Sec: 20,
-			startToLiveP95Sec: 56,
-		});
+		// 09-16 blip, 09-17 (3600 s), 09-18 (60 s), 09-22 blip.
+		expect(result.totals).toEqual({ started: 4, stable: 2, stableRate: 0.5 });
 	});
 
-	test("still-connecting sessions are left out, stale ones fail", async () => {
+	test("still-connecting sessions are left out, stale open ones are blips", async () => {
 		const result = await admin.sessionSuccess({
 			from: new Date(now - 24 * 60 * MINUTE).toISOString(),
 			to: new Date(now + 24 * 60 * MINUTE).toISOString(),
 			interval: "day",
 		});
-		expect(result.totals).toEqual({ ...EMPTY, started: 1, successRate: 0 });
+		expect(result.totals).toEqual({ started: 1, stable: 0, stableRate: 0 });
 	});
 
 	test("a range wholly before the data start has no buckets", async () => {
 		const result = await admin.sessionSuccess({
-			from: "2026-08-01T00:00:00Z",
-			to: "2026-09-07T00:00:00Z",
+			from: "2026-07-01T00:00:00Z",
+			to: "2026-07-27T00:00:00Z",
 			interval: "week",
 		});
 		expect(result.buckets).toEqual([]);

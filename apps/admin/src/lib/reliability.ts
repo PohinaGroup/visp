@@ -11,9 +11,9 @@ import {
  */
 
 /**
- * The share of Direct sessions that should reach live; the chart's target
- * line. Defined next to the `admin.alerts` rules so the chart and the
- * "Needs attention" alert always use the same target.
+ * The share of started sessions that should be stable (last at least a
+ * minute); the chart's target line. Defined next to the `admin.alerts` rules
+ * so the chart and the "Needs attention" alert always use the same target.
  */
 export { SUCCESS_RATE_TARGET } from "@VISP/api/routers/admin/alerts-rules";
 
@@ -29,22 +29,18 @@ export type RttResult = Awaited<
 	ReturnType<typeof trpc.admin.reliability.rtt.query>
 >;
 
-/** One bucket of the success and start-to-live charts; null is a gap. */
+/** One bucket of the stable-session chart; null is a gap. */
 export type SuccessRow = {
 	bucket: string;
 	/** Percent (0–100) so axis ticks read "90", not "0.9". */
-	successPct: number | null;
-	p50Sec: number | null;
-	p95Sec: number | null;
+	stablePct: number | null;
 };
 
 export function successRows(result: SessionSuccessResult | undefined) {
 	return (result?.buckets ?? []).map(
 		(bucket): SuccessRow => ({
 			bucket: bucket.bucket,
-			successPct: bucket.successRate === null ? null : bucket.successRate * 100,
-			p50Sec: bucket.startToLiveP50Sec,
-			p95Sec: bucket.startToLiveP95Sec,
+			stablePct: bucket.stableRate === null ? null : bucket.stableRate * 100,
 		}),
 	);
 }

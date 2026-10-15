@@ -36,24 +36,35 @@ where not ('admin' = any(string_to_array(u.role, ',')))
 - **Deleted users** disappear: `user` deletion cascades to `app_user`, `path`
   and `relay_stream_session`.
 
-**Live session.** `relay_stream_session` opens when the publisher connects
-(`started_at`, `path-hooks.ts`) and closes on disconnect (`ended_at`).
-`first_live_at` is set when a platform output first reports `live`
-(`recordPlatformLive`, `packages/api/src/activation.ts`). A connected publisher
-alone is not live.
+**Stream session.** `relay_stream_session` opens when the publisher connects
+(`started_at`, `path-hooks.ts`) and closes on disconnect (`ended_at`). A
+stream is a session that lasted at least **60 seconds**
+(`MIN_STREAM_SECONDS`, `packages/api/src/routers/admin/metrics-sql.ts`).
+Shorter sessions are reconnect blips: SRT reconnects open a new session each
+time, and in October 2026 half of all sessions were under a minute (median
+44 s). The threshold drops the blips; a long stream chopped into pieces still
+adds up, because hours are summed and streamers are counted distinct.
 
 ```sql
--- live_session: sessions that reached live, owned by eligible users
-select s.*, p.user_id, p.relay_id,
-  coalesce(s.ended_at,
-    case when ps.publishing and ps.last_event_at >= now() - interval '60 seconds'
-         then now()
-         else greatest(ps.last_event_at, s.first_live_at) end) as effective_end
-from relay_stream_session s
-join path p on p.id = s.path_id
-left join path_state ps on ps.path_id = p.id
-where s.first_live_at is not null
-  and p.user_id in (select id from eligible_user)
+-- stream_session: publisher sessions of at least 60 s, owned by eligible users
+select * from (
+  select s.*, p.user_id, p.relay_id,
+    coalesce(s.ended_at,
+      case when ps.publishing and ps.last_event_at >= now() - interval '60 seconds'
+           then now()
+           else greatest(ps.last_event_at, s.started_at) end) as effective_end
+  from relay_stream_session s
+  join path p on p.id = s.path_id
+  left join path_state ps on ps.path_id = p.id
+  where p.user_id in (select id from eligible_user)
+) s
+where s.effective_end - s.started_at >= interval '60 seconds'
+```
+
+```sql
+-- first_stream: F, each user's first stream
+select user_id, min(started_at) as first_streamed_at
+from stream_session group by user_id
 ```
 
 **Edge cases that apply everywhere:**
@@ -61,38 +72,33 @@ where s.first_live_at is not null
 - **Open sessions** (`ended_at is null`): still publishing (event within 60 s,
   as admin `isLive`) → count to `now()`; stale (missed hook, relay crash) → end
   at `path_state.last_event_at` so it doesn't grow forever.
-- **Never reached live** (`first_live_at is null`): a failure in session
-  success rate, 0 streaming hours, not WAS activity.
+- **Blips** (under 60 s): not a stream, not a streamer, 0 hours. They only
+  appear in KPI 9 as the unstable share.
 - **Revoked paths** keep their history: their sessions still count.
 - **Relay attribution** uses the path's current `relay_id`, so a reassigned
   path moves its history with it.
-- **Known gap: OBS-only streamers.** `first_live_at` is set only by Direct
-  outputs (incl. custom and portrait, and native `reportFirstLiveActivation`,
-  which also needs a live Direct output). Phone→OBS streamers never get it, so
-  every live-based KPI undercounts them until an OBS streaming signal
-  (`app_user.obs_streaming`) also sets it.
+- **`first_live_at` is not a KPI input.** See "Why not platform live" below.
 
 ## KPIs
 
 ### 1. Weekly active streamers (WAS)
-- **Plain:** how many different people went live this week.
-- **SQL:** `count(distinct user_id)` from `live_session` where
-  `first_live_at` falls in the week. One user with three devices counts once.
-- **Bucketing:** ISO week of `first_live_at` (Sunday start, Monday live →
+- **Plain:** how many different people streamed this week.
+- **SQL:** `count(distinct user_id)` from `stream_session` where `started_at`
+  falls in the week. One user with three devices counts once.
+- **Bucketing:** ISO week of `started_at` (Sunday start, Monday live →
   Monday's week). **Shown on:** Overview (headline, 12-week trend), Growth.
 
 ### 2. Weekly streaming hours
-- **Plain:** total hours VISP streams were live this week.
-- **SQL:** `sum(extract(epoch from effective_end - first_live_at)) / 3600`
-  from `live_session`. Time from `started_at` to `first_live_at` (connecting,
-  not yet live) is excluded.
-- **Bucketing:** the whole session goes to the week of `first_live_at`, never
+- **Plain:** total hours VISP publishers were connected this week.
+- **SQL:** `sum(extract(epoch from effective_end - started_at)) / 3600` from
+  `stream_session`.
+- **Bucketing:** the whole session goes to the week of `started_at`, never
   split, so past weeks stay stable. Open sessions keep growing: show the
   current week as "so far". **Shown on:** Overview (headline), Growth.
 
 ### 3. Sessions per active streamer
-- **Plain:** how often an active streamer goes live in a week.
-- **SQL:** `count(*) from live_session` in the week ÷ WAS. **Shown on:** Growth.
+- **Plain:** how often an active streamer streams in a week.
+- **SQL:** `count(*) from stream_session` in the week ÷ WAS. **Shown on:** Growth.
 
 ### 4. New signups (by auth provider)
 - **Plain:** accounts created this week, split by how they signed up.
@@ -107,59 +113,60 @@ where s.first_live_at is not null
 - **Edge:** unverified email signups are included and also counted separately.
   **Shown on:** Growth.
 
-### 5. Signup → first-live rate (7-day window)
-- **Plain:** share of a week's signups who went live within 7 days.
+### 5. Signup → first-stream rate (7-day window)
+- **Plain:** share of a week's signups who streamed within 7 days.
 - **SQL:** cohort = eligible users by signup week. Numerator =
-  `app_user.first_live_at < user.created_at + interval '7 days'`. Users with
-  no `app_user` row count as not live.
+  `first_stream.first_streamed_at < user.created_at + interval '7 days'`.
+  Users with no stream count as not converted.
 - **Edge:** a cohort is shown only once its last member is at least 7 days old
   (cohort week start + 14 days ≤ now). Younger cohorts are greyed out as
   "maturing". Funnel alongside: signup → device created (any `path`, revoked
-  or not) → first live → week-2 return. **Shown on:** Growth (funnel).
+  or not) → first stream → week-2 return. The API keeps the historical
+  `signup_to_first_live_rate` / `first_live` keys. **Shown on:** Growth
+  (funnel), Overview (tile).
 
-### 6. Time to first live (median hours)
-- **Plain:** typical wait between signing up and first going live.
+### 6. Time to first stream (median hours)
+- **Plain:** typical wait between signing up and the first stream.
 - **SQL:** `percentile_cont(0.5) within group (order by extract(epoch from
-  a.first_live_at - (u.created_at at time zone 'UTC')) / 3600)` over users in
-  the signup cohort who have gone live.
-- **Edge:** right-censored (only users who went live), so always show it next
+  fs.first_streamed_at - (u.created_at at time zone 'UTC')) / 3600)` over
+  users in the signup cohort who have streamed.
+- **Edge:** right-censored (only users who streamed), so always show it next
   to the 7-day rate. **Shown on:** Growth.
 
 ### 7. Week-2 return
-- **Plain:** share of first-time streamers who go live again in week 2.
-- **SQL:** F = `app_user.first_live_at`. Returned if a `live_session` for that
-  user has `first_live_at` in `[F + 7 days, F + 14 days)`. The cohort is the
-  ISO week of F.
-- **Edge:** mature when cohort week start + 21 days ≤ now. F usually equals
-  the user's earliest session `first_live_at`, because `recordPlatformLive`
-  sets both in one transaction. The exception is a live report with no open
-  session (see "Legacy sessions"). **Shown on:** Growth (funnel), Retention.
+- **Plain:** share of first-time streamers who stream again in week 2.
+- **SQL:** F = `first_stream.first_streamed_at`. Returned if a
+  `stream_session` for that user has `started_at` in
+  `[F + 7 days, F + 14 days)`. The cohort is the ISO week of F.
+- **Edge:** mature when cohort week start + 21 days ≤ now. **Shown on:** Growth
+  (funnel), Retention.
 
 ### 8. Week-4 retention cohort
-- **Plain:** share of a week's first-time streamers still live 4 weeks later.
-- **SQL:** cohort W = ISO week of `app_user.first_live_at`. Retained if the
-  user has a `live_session` whose ISO week is W + 4 weeks. Shown as a cohort
-  grid (rows: W; columns: weeks 0–8; cells: % live that week).
+- **Plain:** share of a week's first-time streamers still streaming 4 weeks
+  later.
+- **SQL:** cohort W = ISO week of F. Retained if the user has a
+  `stream_session` whose ISO week is W + 4 weeks. Shown as a cohort grid
+  (rows: W; columns: weeks 0–8; cells: % streaming that week).
 - **Edge:** a cell is shown only once its week has ended. **Shown on:** Retention.
 
-### 9. Session success rate
-- **Plain:** the share of publisher connections that actually went live.
-- **SQL:** sessions by ISO week of `started_at`:
-  `count(*) filter (where first_live_at is not null) / count(*)`. Exclude open
-  sessions with no `first_live_at` that started less than 10 minutes ago
-  (still connecting).
-- **Edge:** because of the OBS-only gap, every OBS-mode session counts as a
-  failure. Until that's fixed, the denominator is limited to sessions on paths
-  that currently have a Direct output configured (`path.direct_*`,
-  `direct_destination`, `custom_direct_output`), labelled "Direct sessions".
-  **Shown on:** Reliability.
+### 9. Stable-session rate
+- **Plain:** the share of publisher connections that lasted at least a minute,
+  i.e. were not reconnect blips. A connection-stability number, not a
+  "reached the platform" number.
+- **SQL:** all eligible sessions by ISO week of `started_at`:
+  `count(*) filter (where effective_end - started_at >= interval '60 seconds')
+  / count(*)`. Open sessions younger than 60 s are still connecting and left
+  out.
+- **Edge:** the API procedure is still called `admin.reliability.sessionSuccess`
+  and the alert rule `session_success`; fields are `started`, `stable`,
+  `stableRate`. **Shown on:** Reliability, Overview (needs-attention alert,
+  rule 4).
 
-### 10. Start-to-live p50 / p95
-- **Plain:** time from connecting the phone to being live on the platform.
-- **SQL:** `percentile_cont(0.5 | 0.95)` of
-  `extract(epoch from first_live_at - started_at)` in seconds, over sessions
-  with `first_live_at`, bucketed by `started_at`, split by `source_type`.
-  **Shown on:** Reliability.
+### 10. Start-to-live p50 / p95 — *dropped*
+- Measured `first_live_at - started_at`, which only Direct outputs reported.
+  No session has ever recorded `first_live_at` in production (checked
+  2026-10-14), so there was nothing to show. Reinstate from
+  `forwarder_session` if Direct latency becomes a question.
 
 ### 11. Relay RTT p50 / p95
 - **Plain:** typical and worst-case streamer→relay round-trip time.
@@ -182,8 +189,8 @@ where s.first_live_at is not null
   admission code in `direct-custom.ts` uses. Concurrent publishers =
   `path_state.publishing = true` on that relay.
 - **Peak:** the daily or weekly maximum needs a time series. Peak concurrent
-  live sessions can be rebuilt now from `relay_stream_session` intervals (a
-  sweep over start and end events per relay). Peak forwarders needs T16 or T15.
+  sessions can be rebuilt now from `relay_stream_session` intervals (a sweep
+  over start and end events per relay). Peak forwarders needs T16 or T15.
   Host load (`relay_health.load*`, memory, disk) only has the latest sample.
 - **Edge:** drained or disabled relays are shown but left out of fleet totals.
   `max_forwarders = 0` shows "n/a". **Shown on:** Relays.
@@ -213,110 +220,67 @@ where s.first_live_at is not null
 - **Edge:** flags are current state, so past weeks show today's flags until
   T17 `daily_metrics` snapshots exist. **Shown on:** Features.
 
-## Legacy data
+## Data start
 
-`relay_stream_session.first_live_at` and `app_user.first_live_at` were added in
-migration `0014_safe_thing` (2026-09-06). Sessions and accounts that went live
-before then have it null and look like "never reached live"; older activity
-may only show in `path.publish_last_connected_at` (latest connection only).
-
-### Legacy sessions (decided in T06)
-
-**Rule: no backfill.** `relay_stream_session` rows exist since migration 0000,
-so older sessions have `started_at` and `ended_at`, but nothing records whether
-a platform output went live. A phone that connected and never reached live
-looks the same as a three-hour stream. Guessing liveness from
-`started_at`/`ended_at` or `path.publish_last_connected_at` would invent data
-(session success would be 100% by construction), so old rows keep
-`first_live_at` null and no KPI infers it.
-
-**Cutoff.** `METRICS_DATA_START = 2026-09-07T00:00:00Z`, defined once in
-`packages/api/src/routers/admin/metrics-window.ts`. Migration 0014 reached
-`main` on 2026-09-06 09:56 UTC (PR #120). 2026-09-07 is the Monday that starts
-the first full ISO week in which every session could record `first_live_at`.
-The few hours between deploy and cutoff are dropped so the first week is not
-partial. The repo doesn't record the production deploy time: if production
-got 0014 later than 2026-09-06, move the constant (nothing else changes).
+`METRICS_DATA_START = 2026-07-27T00:00:00Z`, defined once in
+`packages/api/src/routers/admin/metrics-window.ts`: the Monday of the week
+migration 0000 created `relay_stream_session` (2026-07-29). Every publisher
+session there is counts, so there is no legacy rule for sessions.
 
 **How dashboards show it.**
-- Live-based queries clamp the range start to
-  `greatest(:from, METRICS_DATA_START)`. Charts start at the cutoff week and
-  don't draw zero weeks before it (no data, not zero activity).
+- Session-based queries clamp the range start to
+  `greatest(:from, METRICS_DATA_START)` and don't draw zero weeks before it
+  (no data, not zero activity).
 - When the requested range starts earlier, the chart shows the note
-  **"Data starts Sep 7, 2026"**.
-- A KPI tile whose comparison period is before the cutoff shows no delta.
+  **"Data starts Jul 27, 2026"**.
+- A KPI tile whose comparison period starts before it shows no delta.
+- Signups (KPI 4) and the signup → device stage have no clamp either way.
 
-**Per KPI:**
+**"Ever streamed" counts.** The admin user list's `everStreamed` and
+`lastStreamedAt` (`hasStreamed` in `packages/api/src/routers/admin.ts`) use
+`path.publish_last_connected_at` or any `relay_stream_session` row, blips
+included. They are lifetime facts, labelled "ever connected", never trends.
 
-| KPI | Legacy rule |
-| --- | --- |
-| 1 WAS, 2 Streaming hours, 3 Sessions per streamer | `first_live_at >= METRICS_DATA_START`; weeks start at the cutoff week. |
-| 4 New signups | All history. |
-| Funnel: signup → device created | All history (`user`, `path`). |
-| 5 Signup → first live, 6 Time to first live | Signup cohorts with `created_at >= METRICS_DATA_START` only. An older signup who went live before tracking has `app_user.first_live_at` null, or set to their first *tracked* live, which is later than their real first live. |
-| 7 Week-2 return, 8 Week-4 retention | First-live cohorts limited to users who signed up on or after the cutoff. `app_user.first_live_at` for a streamer from before 0014 is their first tracked live, so without this filter long-time streamers would show up as new streamers in the September cohorts and inflate retention. |
-| 9 Session success rate, 10 Start-to-live | Sessions with `started_at >= METRICS_DATA_START` (older sessions would all count as failures). |
-| 11 Relay RTT | Not affected (`rtt_sample`). |
-| 12 Peak relay utilisation | Peak concurrency rebuilt from `started_at`/`ended_at` intervals may use all history, but it measures connected publishers, so it is labelled that way, not as live sessions. |
-| 13 Hosted spend per streamer, 15 Feature adoption | Denominator is WAS, so they start at the cutoff too. |
-| 14 Direct encoder minutes | Not affected (T15 `forwarder_session`). |
+## Why not platform live
 
-**"Ever streamed" counts.** Lifetime per-user facts may keep using legacy
-evidence. Examples: the admin user list's `everStreamed` and `lastStreamedAt`
-(`hasStreamed` in `packages/api/src/routers/admin.ts`:
-`path.publish_last_connected_at` or any `relay_stream_session` row). They prove
-that a publisher connected, not that it went live, so they are labelled
-**"Ever connected (incl. before Sep 7, 2026)"** or similar. They are never
-mixed into the live KPIs above or drawn as trends.
-`publish_last_connected_at` keeps only the latest connection, so it can't make
-a time series anyway.
+`relay_stream_session.first_live_at` and `app_user.first_live_at` (migration
+`0014_safe_thing`, 2026-09-06) record when a platform output first reported
+`live`. The KPIs were first defined on them, and that was wrong for this
+product:
 
-**OBS-only undercount (checked against the code 2026-10-10).** Only
-`recordPlatformLive` (`packages/api/src/activation.ts`) sets `first_live_at`.
-It sets `app_user` and the path's open session in one transaction. It is called
-from:
-- `applyDirectState` in `direct.ts`: Twitch/Kick/YouTube main and portrait
-  outputs reporting `live`.
-- The custom Direct output state handler in `direct-custom.ts`.
-- `reportFirstLiveActivation` (`relay.direct.trackFirstLive`), which also
-  requires a Direct output that is already `live`.
+- Only `recordPlatformLive` (`packages/api/src/activation.ts`) sets them, from
+  Direct output state (`direct.ts`, `direct-custom.ts`,
+  `reportFirstLiveActivation`) and, since 2026-10-14, the OBS plugin's
+  streaming report (`reportObsControlState` in `obs-control.ts`, for each of
+  the user's open sessions). Most streamers pull the relay into OBS, vMix or
+  similar without the plugin and have no Direct output, so they never produce
+  the signal at all.
+- Checked on 2026-10-14: 0 sessions ever had `first_live_at`; 19 eligible
+  people had streamed in the previous 28 days. The one Direct live on record
+  arrived between two reconnects and matched no open session.
 
-`path-hooks.ts` only opens sessions (`started_at`) and closes them
-(`ended_at`). The OBS plugin's state report (`reportObsControlState` in
-`packages/api/src/obs-control.ts`, reached from `apps/server/src/obs-live.ts`
-and the 2 s `pollObsControl`) writes `app_user.obs_streaming` and never
-records live. Phone→OBS streamers are therefore missing from every live-based
-KPI. A related gap: a live report that arrives while the path has no open
-session (missed ready hook) sets only `app_user.first_live_at`. So F in KPI 7
-is usually, but not always, the user's earliest session `first_live_at`.
+So every live-based number was computed over an empty set. The columns stay
+(Direct and the OBS plugin still write them) but no KPI reads them. If a
+"reached the platform" metric is wanted later, build it from
+`forwarder_session` and label it Direct-only.
 
-*Proposed follow-up (not implemented):* in `reportObsControlState`, after the
-`app_user` update, when `input.streaming` is true, call
-`recordPlatformLive(userId, pathId, "obs")` for each of the user's paths that
-has an open `relay_stream_session` with `first_live_at` null. Requiring an
-open session means OBS streaming without the VISP phone feed connected doesn't
-count. Checking on every report (not only on the false→true change) also
-covers OBS starting before the phone connects. The `isNull` guards keep
-repeat calls idempotent. Once that ships:
-- KPI 9 can drop its "Direct sessions" restriction.
-- Start-to-live gets an `obs` split.
-- The ship week shows a step up in WAS and hours. Annotate it on the charts:
-  OBS sessions before it are not backfilled, for the same reason as above.
+`daily_metrics` rows computed under the old definition were deleted by
+migration `0034_stream_session_kpis`; the nightly job backfills them.
 
 ## Data readiness
 
 | KPI | Data source | Status |
 | --- | --- | --- |
-| WAS | `relay_stream_session.first_live_at`, `path` | partial (OBS-only gap; from Sep 7, 2026) |
-| Streaming hours | `relay_stream_session`, `path_state` | partial (OBS-only gap; from Sep 7, 2026) |
-| Sessions per active streamer | `relay_stream_session` | partial (same as WAS) |
+| WAS | `relay_stream_session`, `path`, `path_state` | ready (from Jul 27, 2026) |
+| Streaming hours | `relay_stream_session`, `path_state` | ready (from Jul 27, 2026) |
+| Sessions per active streamer | `relay_stream_session` | ready (from Jul 27, 2026) |
 | New signups by provider | `user`, `account.provider_id`, `app_user` onboarding enums | ready |
-| Signup → first-live (7d) | `user`, `app_user.first_live_at` | partial (OBS-only gap; signups from Sep 7, 2026) |
-| Time to first live | `user`, `app_user.first_live_at` | partial (OBS-only gap; signups from Sep 7, 2026) |
-| Week-2 return | `app_user.first_live_at`, `relay_stream_session` | partial (OBS-only gap; signups from Sep 7, 2026) |
-| Week-4 retention | `app_user.first_live_at`, `relay_stream_session` | partial (OBS-only gap; signups from Sep 7, 2026) |
-| Session success rate | `relay_stream_session` | partial (Direct sessions only; from Sep 7, 2026) |
-| Start-to-live p50/p95 | `relay_stream_session` | ready (from Sep 7, 2026; Direct only) |
+| Signup → first stream (7d) | `user`, `relay_stream_session` | ready |
+| Time to first stream | `user`, `relay_stream_session` | ready |
+| Week-2 return | `relay_stream_session` | ready |
+| Week-4 retention | `relay_stream_session` | ready |
+| Stable-session rate | `relay_stream_session`, `path_state` | ready |
+| Start-to-live p50/p95 | — | dropped (see KPI 10) |
 | Relay RTT p50/p95 | `rtt_sample` | ready (setup probes only) |
 | Peak relay utilisation | `relay`, `path`, `path_state`, `relay_health` | partial: current only; peaks need T16 `relay_health_sample`, T15 `forwarder_session` |
 | Hosted spend per active streamer | — | needs new tracking: T13 `hosted_usage` |

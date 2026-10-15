@@ -1,7 +1,8 @@
 import { isBanActive } from "@VISP/auth/ban";
 import { db } from "@VISP/db";
-import { appUser } from "@VISP/db/schema/index";
-import { type AnyColumn, and, eq, lte, or, sql } from "drizzle-orm";
+import { appUser, relayPath, relayStreamSession } from "@VISP/db/schema/index";
+import { type AnyColumn, and, eq, isNull, lte, or, sql } from "drizzle-orm";
+import { recordPlatformLive } from "./activation";
 import type {
 	ObsCommand,
 	ObsStateReportInput,
@@ -382,6 +383,28 @@ export async function reportObsControlState(
 		)
 		.returning();
 	if (!updated) return getObsControlCommand(userId, tokenId);
+	// OBS streaming is a live signal like a Direct output's (docs/admin-kpis.md,
+	// "OBS-only undercount"). Checked on every report, not only when streaming
+	// flips on, so OBS started before the phone connected is caught once the
+	// session opens. Only paths with an open session count: OBS streaming
+	// without the VISP feed is not a VISP stream. recordPlatformLive's isNull
+	// guards keep repeat reports idempotent.
+	if (input.streaming) {
+		const candidates = await db
+			.select({ pathId: relayStreamSession.pathId })
+			.from(relayStreamSession)
+			.innerJoin(relayPath, eq(relayPath.id, relayStreamSession.pathId))
+			.where(
+				and(
+					eq(relayPath.userId, userId),
+					isNull(relayStreamSession.endedAt),
+					isNull(relayStreamSession.firstLiveAt),
+				),
+			);
+		for (const { pathId } of candidates) {
+			await recordPlatformLive(userId, pathId, "obs");
+		}
+	}
 	obsLiveHub.publishStatus(userId, obsControlStatus(updated));
 	return controlCommand(updated);
 }

@@ -48,13 +48,6 @@ function formatRate(rate: number) {
 }
 
 const formatPct = (value: number) => `${Math.round(value * 10) / 10}%`;
-/** "4.5s", "45s", "1m 26s": start-to-live is seconds, rarely minutes. */
-function formatSeconds(value: number) {
-	if (value < 10) return `${Math.round(value * 10) / 10}s`;
-	const rounded = Math.round(value);
-	if (rounded < 60) return `${rounded}s`;
-	return `${Math.floor(rounded / 60)}m ${rounded % 60}s`;
-}
 const formatMs = (value: number) => `${Math.round(value)} ms`;
 
 function ChartCard({
@@ -141,7 +134,7 @@ export function ReliabilityPage() {
 	return (
 		<div className="grid gap-6">
 			<PageHeader
-				description="Direct session success, start-to-live latency, relay RTT and relay load."
+				description="Session stability, relay RTT and relay load."
 				title="Reliability"
 			/>
 
@@ -149,8 +142,7 @@ export function ReliabilityPage() {
 				<p className="flex items-center gap-2 text-muted-foreground text-xs">
 					<Info aria-hidden="true" className="size-3.5" />
 					Data starts {DATA_START_LABEL.format(new Date(dataStart))}. Sessions
-					before it never recorded going live, so success and start-to-live
-					begin there.
+					were not recorded before it, so stability begins there.
 				</p>
 			) : null}
 
@@ -160,29 +152,13 @@ export function ReliabilityPage() {
 			>
 				<KpiTile
 					formatValue={formatRate}
-					label="Session success rate"
+					label="Stable sessions"
 					loading={kpiLoading}
-					previous={prior?.successRate}
-					value={totals?.successRate}
+					previous={prior?.stableRate}
+					value={totals?.stableRate}
 				/>
 				<KpiTile
-					formatValue={formatSeconds}
-					invert
-					label="Start-to-live p50"
-					loading={kpiLoading}
-					previous={prior?.startToLiveP50Sec}
-					value={totals?.startToLiveP50Sec}
-				/>
-				<KpiTile
-					formatValue={formatSeconds}
-					invert
-					label="Start-to-live p95"
-					loading={kpiLoading}
-					previous={prior?.startToLiveP95Sec}
-					value={totals?.startToLiveP95Sec}
-				/>
-				<KpiTile
-					label="Direct sessions started"
+					label="Sessions started"
 					loading={kpiLoading}
 					previous={prior?.started}
 					value={totals?.started}
@@ -191,45 +167,23 @@ export function ReliabilityPage() {
 
 			{success.isError ? <ErrorText error={success.error} /> : null}
 
-			<div className="grid gap-4 xl:grid-cols-2">
-				<ChartCard
-					description={`Direct sessions that reached live, of those started; target ${TARGET_PCT}%.`}
-					title="Session success rate"
-				>
-					<TrendLineChart
-						ariaLabel="Direct session success rate per bucket"
-						categoryLabel={unit}
-						data={rows}
-						emptyMessage="No Direct sessions in this period"
-						loading={success.isPending}
-						referenceLine={{ y: TARGET_PCT, label: `Target ${TARGET_PCT}%` }}
-						series={[{ key: "successPct", label: "Success rate" }]}
-						valueFormatter={formatPct}
-						xKey="bucket"
-						xTickFormatter={formatBucket}
-					/>
-				</ChartCard>
-
-				<ChartCard
-					description="Seconds from the phone connecting to the first platform output going live."
-					title="Start-to-live"
-				>
-					<TrendLineChart
-						ariaLabel="Start-to-live p50 and p95 per bucket, seconds"
-						categoryLabel={unit}
-						data={rows}
-						emptyMessage="No Direct session went live in this period"
-						loading={success.isPending}
-						series={[
-							{ key: "p50Sec", label: "p50" },
-							{ key: "p95Sec", label: "p95" },
-						]}
-						valueFormatter={formatSeconds}
-						xKey="bucket"
-						xTickFormatter={formatBucket}
-					/>
-				</ChartCard>
-			</div>
+			<ChartCard
+				description={`Sessions that lasted at least a minute, of those started; the rest are reconnect blips. Target ${TARGET_PCT}%.`}
+				title="Stable sessions"
+			>
+				<TrendLineChart
+					ariaLabel="Stable session rate per bucket"
+					categoryLabel={unit}
+					data={rows}
+					emptyMessage="No sessions in this period"
+					loading={success.isPending}
+					referenceLine={{ y: TARGET_PCT, label: `Target ${TARGET_PCT}%` }}
+					series={[{ key: "stablePct", label: "Stable" }]}
+					valueFormatter={formatPct}
+					xKey="bucket"
+					xTickFormatter={formatBucket}
+				/>
+			</ChartCard>
 
 			<ChartCard
 				description="Setup probes from streamers to each relay: p50 and p95 across each streamer's median, so heavy probers count once."
