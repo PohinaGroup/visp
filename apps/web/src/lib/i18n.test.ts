@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { finnishUi, localizedHead, otherLocaleHref } from "./i18n";
+import { finnishUi, landingHead, localizedHead, otherLocaleHref } from "./i18n";
 import { studioStreamCopy } from "./studio-model";
 
 describe("localizedHead", () => {
@@ -56,4 +56,35 @@ test("otherLocaleHref", () => {
 	);
 	expect(otherLocaleHref("/download", "?lang=fi")).toBe("/download");
 	expect(otherLocaleHref("/privacy", "?lang=fi")).toBe("/privacy");
+});
+
+describe("landingHead", () => {
+	test("canonical, hreflang, and og:url follow the page path", () => {
+		const h = landingHead("fi", "/with-obs", "t", "d");
+		expect(h.links[0]?.href).toBe("https://visp-stream.com/fi/with-obs");
+		expect(h.links.find((l) => l.hrefLang === "en")?.href).toBe(
+			"https://visp-stream.com/with-obs",
+		);
+		expect(h.meta.find((m) => m.property === "og:url")?.content).toBe(
+			"https://visp-stream.com/fi/with-obs",
+		);
+	});
+
+	test("emits one ld+json script per entry and none without", () => {
+		expect(landingHead("en", "/", "t", "d").scripts).toEqual([]);
+		const scripts = landingHead("en", "/", "t", "d", [
+			{ "@type": "A" },
+			{ "@type": "B" },
+		]).scripts;
+		expect(scripts.map((s) => s.type)).toEqual([
+			"application/ld+json",
+			"application/ld+json",
+		]);
+		expect(JSON.parse(scripts[1]?.children ?? "")).toEqual({ "@type": "B" });
+	});
+});
+
+test("otherLocaleHref maps the new pages", () => {
+	expect(otherLocaleHref("/phone-only", "")).toBe("/fi/phone-only");
+	expect(otherLocaleHref("/fi/with-obs", "")).toBe("/with-obs");
 });
