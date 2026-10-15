@@ -388,19 +388,22 @@ html:has(dialog.mkt-menu[open]) {
 	overflow: hidden;
 }
 
-/* Sticky "Start free" bar (phones): lift the Seppo bubble above it while it shows. */
-[data-seppo-dock] {
+/*
+ * Sticky "Start free" bar (phones): the Seppo bubble and the cookie banner
+ * lift above it while it shows, never on top of it.
+ */
+:is([data-seppo-dock], [data-cookie-dock]) {
 	transition: bottom 0.2s ease-out;
 }
 
 @media (max-width: 767.98px) {
-	body[data-sticky-cta="on"] [data-seppo-dock] {
+	body[data-sticky-cta="on"] :is([data-seppo-dock], [data-cookie-dock]) {
 		bottom: calc(5rem + env(safe-area-inset-bottom));
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
-	[data-seppo-dock] {
+	:is([data-seppo-dock], [data-cookie-dock]) {
 		transition: none;
 	}
 }

@@ -36,11 +36,14 @@ export function MobileMenu({
 	locale,
 	landing = false,
 	showTheme = true,
+	triggerClassName = "lg:hidden",
 	children,
 }: {
 	locale: Locale;
 	landing?: boolean;
 	showTheme?: boolean;
+	/** Hides the menu button where the header's inline nav takes over. */
+	triggerClassName?: string;
 	children?: ReactNode;
 }) {
 	const nav = landingCopy[locale].shared.nav;
@@ -78,7 +81,7 @@ export function MobileMenu({
 					dialog.current?.showModal();
 					setOpen(true);
 				}}
-				className={`${ICON_BUTTON} -mr-2.5 lg:hidden`}
+				className={`${ICON_BUTTON} -mr-2.5 ${triggerClassName}`}
 			>
 				<MenuIcon aria-hidden className="size-6" />
 			</button>
@@ -105,7 +108,10 @@ export function MobileMenu({
 							<XIcon aria-hidden className="size-6" />
 						</button>
 					</div>
-					<nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6">
+					<nav
+						aria-label={nav.menu}
+						className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 sm:px-6"
+					>
 						<ul className="border-ink/12 border-t">
 							{children}
 							<li>

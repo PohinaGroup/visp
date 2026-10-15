@@ -105,6 +105,9 @@ const en = {
 			download: "Download",
 			docs: "Docs",
 			blog: "Blog",
+			label: "Main",
+			dashboard: "Dashboard",
+			cloudStudio: "Cloud Studio (beta)",
 			menu: "Menu",
 			close: "Close",
 			theme: {
@@ -609,6 +612,9 @@ const fi: typeof en = {
 			download: "Lataa",
 			docs: "Ohjeet",
 			blog: "Blogi",
+			label: "Päävalikko",
+			dashboard: "Hallintapaneeli",
+			cloudStudio: "Cloud Studio (beta)",
 			menu: "Valikko",
 			close: "Sulje",
 			theme: {

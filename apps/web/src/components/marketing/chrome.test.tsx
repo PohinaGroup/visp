@@ -1,12 +1,13 @@
-import { expect, mock, test } from "bun:test";
+import { expect, test } from "bun:test";
 import { renderToStaticMarkup } from "react-dom/server";
 
 import { landingCopy } from "@/lib/landing-copy";
 
 import { ThemeToggleView } from "./theme-toggle";
 
-// TryCta pulls in the auth client, which validates VITE_* env at import time.
-mock.module("@/components/try-cta", () => ({ TryCta: () => null }));
+// sticky-cta imports TryCta, whose auth client validates VITE_SERVER_URL at
+// import time. A default URL (no module mock, so nothing leaks to other files).
+process.env.VITE_SERVER_URL ??= "http://localhost:3000";
 const { StickyCtaBar, stickyVisible } = await import("./sticky-cta");
 
 const labels = landingCopy.en.shared.nav.theme;
@@ -60,6 +61,14 @@ test("theme toggle exposes pressed state", () => {
 	expect(html).toMatch(/aria-pressed="true"[^>]*>Dark</);
 });
 
+test("sheet theme segments are 48px tall and 8px apart", () => {
+	const html = renderToStaticMarkup(
+		<ThemeToggleView value="dark" labels={labels} onChange={() => {}} />,
+	);
+	expect(html).toMatch(/<fieldset[^>]*class="[^"]*\bgap-2\b/);
+	expect(html.match(/<button[^>]*class="h-12 /g)).toHaveLength(3);
+});
+
 test("theme toggle has no pressed state before the preference is read", () => {
 	const html = renderToStaticMarkup(
 		<ThemeToggleView value={null} labels={labels} onChange={() => {}} />,
@@ -81,4 +90,5 @@ test("icon theme toggle keeps an accessible name per option", () => {
 		expect(html).toContain(`aria-label="${label}"`);
 	expect(html).toContain(`aria-label="${labels.label}"`);
 	expect(html.match(/<svg/g)).toHaveLength(3);
+	expect(html).toMatch(/<fieldset[^>]*class="[^"]*\bgap-2\b/);
 });

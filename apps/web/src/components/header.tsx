@@ -16,7 +16,9 @@ import UserMenu from "./user-menu";
 
 // One header for every page. `landing` switches to the marketing tokens and
 // swaps the signed-out action from "Sign In" to the try-free CTA. The inline
-// nav starts at lg: Finnish labels, theme toggle, and CTA don't fit at md.
+// nav starts at lg (xl when signed in, for the Dashboard link and user menu):
+// Finnish labels, theme toggle, and the action don't fit any narrower. Cloud
+// Studio sits in the user menu and the sheet, never inline.
 export default function Header({ landing = false }: { landing?: boolean }) {
 	const locale = useLocale();
 	const fi = locale === "fi";
@@ -36,13 +38,11 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 		enabled: Boolean(session),
 	});
 	const link = cn(
-		"inline-flex h-11 items-center transition-colors",
+		"inline-flex h-11 shrink-0 items-center whitespace-nowrap transition-colors",
 		landing
 			? "font-medium text-ink-muted hover:text-ink"
 			: "text-muted-foreground hover:text-foreground",
 	);
-	const dashboard = fi ? "Hallintapaneeli" : "Dashboard";
-	const cloudStudio = "Cloud Studio (beta)";
 
 	return (
 		<header
@@ -66,8 +66,10 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 					<MeterMark className={landing ? "[&>span]:bg-ink" : undefined} />
 				</Link>
 				<nav
+					aria-label={nav.label}
 					className={cn(
-						"hidden items-center gap-6 lg:flex",
+						"hidden items-center gap-6",
+						session ? "xl:flex" : "lg:flex",
 						landing ? "text-[0.9375rem]" : "text-sm",
 					)}
 				>
@@ -90,12 +92,7 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 					</Link>
 					{session ? (
 						<Link to="/dashboard" search={search} className={link}>
-							{dashboard}
-						</Link>
-					) : null}
-					{studio.data?.available ? (
-						<Link to="/studio" search={search} className={link}>
-							{cloudStudio}
+							{nav.dashboard}
 						</Link>
 					) : null}
 					<a
@@ -109,7 +106,10 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 				</nav>
 				<div className="flex min-w-0 items-center gap-2 lg:gap-4">
 					{showTheme ? (
-						<ThemeToggle variant="icons" className="hidden lg:flex" />
+						<ThemeToggle
+							variant="icons"
+							className={cn("hidden", session ? "xl:flex" : "lg:flex")}
+						/>
 					) : null}
 					{landing && !session ? (
 						<TryCta
@@ -117,20 +117,27 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 							className={cn(mktButton, "h-11 px-4 text-[0.9375rem]")}
 						/>
 					) : (
-						<UserMenu />
+						<UserMenu
+							studioLabel={studio.data?.available ? nav.cloudStudio : undefined}
+						/>
 					)}
-					<MobileMenu locale={locale} landing={landing} showTheme={showTheme}>
+					<MobileMenu
+						locale={locale}
+						landing={landing}
+						showTheme={showTheme}
+						triggerClassName={session ? "xl:hidden" : "lg:hidden"}
+					>
 						{session ? (
 							<li>
 								<Link to="/dashboard" search={search} className={menuRow}>
-									{dashboard}
+									{nav.dashboard}
 								</Link>
 							</li>
 						) : null}
 						{studio.data?.available ? (
 							<li>
 								<Link to="/studio" search={search} className={menuRow}>
-									{cloudStudio}
+									{nav.cloudStudio}
 								</Link>
 							</li>
 						) : null}

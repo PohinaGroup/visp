@@ -39,8 +39,8 @@ export function ThemeToggleView({
 			aria-label={labels.label}
 			className={cn(
 				icons
-					? "flex rounded-lg"
-					: "grid h-12 grid-cols-3 gap-1 rounded-lg bg-ink/[0.07] p-1",
+					? "flex gap-2 rounded-lg"
+					: "grid grid-cols-3 gap-2 rounded-lg bg-ink/[0.07] p-1",
 				className,
 			)}
 		>
@@ -63,7 +63,7 @@ export function ThemeToggleView({
 						type="button"
 						aria-pressed={value === option}
 						onClick={() => onChange(option)}
-						className="min-w-0 truncate rounded-md px-1 font-semibold text-[0.9375rem] text-ink-muted transition-colors aria-pressed:bg-ink aria-pressed:text-paper motion-reduce:transition-none"
+						className="h-12 min-w-0 truncate rounded-md px-1 font-semibold text-[0.9375rem] text-ink-muted transition-colors aria-pressed:bg-ink aria-pressed:text-paper motion-reduce:transition-none"
 					>
 						{labels[option]}
 					</button>
