@@ -1,6 +1,6 @@
 # Plans and billing
 
-Design only. Nothing here is implemented. Decided with Joni on 2026-10-14:
+Decided with Joni on 2026-10-14:
 **Free + Plus at €9/month**, **Direct stays free and uncapped**, **Polar** as
 the payment provider.
 
@@ -146,7 +146,10 @@ Minimum visible, detail behind expanders, as the rest of the dashboard.
 - **Affiliate note wherever a price is shown.** One shared string, in
   `landing-copy.ts` and its app equivalents: *"Creators with an audience can
   apply to the Affiliate program and get every feature free.\*"*, linking to
-  `/affiliate`, the asterisk reading "Plus quotas apply." It sits under the
+  `/affiliate`, the asterisk reading "Plus quotas apply." The `/affiliate` page
+  opens with the same standing offer under the same name, "Affiliate program"
+  (also the footer label); the five founding creators are its current intake
+  window, not a separate program. It sits under the
   landing cost chart and FAQ price answer, the dashboard plan line, every
   *Plus* tag's upgrade link, the usage expander, and the native app's plan
   screen. Checkout itself is Polar's page and cannot carry it, so the note is
