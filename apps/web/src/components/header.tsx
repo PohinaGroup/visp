@@ -91,6 +91,14 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 					<Link to={fi ? "/fi/blog" : "/blog"} className={link}>
 						{nav.blog}
 					</Link>
+					<a
+						href={legalEntity.discordUrl}
+						target="_blank"
+						rel="noreferrer"
+						className={link}
+					>
+						Discord
+					</a>
 					{session ? (
 						<Link to="/dashboard" search={search} className={link}>
 							{nav.dashboard}

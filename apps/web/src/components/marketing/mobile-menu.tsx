@@ -159,6 +159,16 @@ export function MobileMenu({
 									{nav.blog}
 								</Link>
 							</li>
+							<li>
+								<a
+									href={legalEntity.discordUrl}
+									target="_blank"
+									rel="noreferrer"
+									className={menuRow}
+								>
+									Discord
+								</a>
+							</li>
 						</ul>
 					</nav>
 					<div className="flex shrink-0 flex-col gap-3 px-4 pt-2 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">

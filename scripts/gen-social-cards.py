@@ -190,6 +190,11 @@ CARDS = [
         ["Tell chat", "you dropped"],
         "Guide",
     ),
+    (
+        WEB / "content" / "blog" / "join-visp-discord" / "cover.png",
+        ["Join the", "VISP Discord"],
+        "Community",
+    ),
 ]
 
 

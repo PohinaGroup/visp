@@ -16,6 +16,7 @@ export function baseOptions(locale: "en" | "fi" = "en"): BaseLayoutProps {
             ? "https://visp-stream.com/fi/blog"
             : "https://visp-stream.com/blog",
       },
+      { text: "Discord", url: "https://discord.gg/bufTZqbn4z", external: true },
     ],
   };
 }
