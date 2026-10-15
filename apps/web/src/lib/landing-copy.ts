@@ -117,7 +117,7 @@ const en = {
 			},
 		},
 		footer: [
-			{ label: "Founding creators", href: "/affiliate", external: false },
+			{ label: "Affiliate program", href: "/affiliate", external: false },
 			{ label: "Blog", href: "/blog", external: false },
 			{ label: "Docs", href: legalEntity.docsUrl, external: true },
 			{ label: "Download", href: "/download", external: false },
@@ -128,7 +128,6 @@ const en = {
 			{ label: "Terms", href: "/terms", external: false },
 			{ label: "Cookies", href: "/cookies", external: false },
 		] as LandingLink[],
-		stickyCta: "Start free",
 		seppo: {
 			placeholder: "Ask about VISP…",
 			subtitle: "Product guide: ask what VISP can do",
@@ -291,7 +290,7 @@ const en = {
 		] satisfies Situation[],
 		studio: {
 			heading: "Sub goal on a hike.",
-			body: "You want alerts and a goal bar on screen, but there's no PC at home to run them. Build scenes in the browser with your alert widget and overlays; VISP adds them to the stream on its server. No computer needed. Cloud Studio (beta) gives you up to 3 scenes with 8 layers each. A layer can be any public web page, such as an alert widget, and one can be the VISP alert layer.",
+			body: "You want alerts and a goal bar on screen, but there's no PC at home to run them. Build scenes in the browser with your alert widget and overlays; VISP adds them to the stream on its server. No computer needed. Cloud Studio (beta) gives you up to 3 scenes with 8 layers each. Layers can show up to two public web pages, such as alert widgets, and one can be the VISP alert layer.",
 			feature: "Cloud Studio (beta)",
 			beta: "Beta",
 		} satisfies Situation & { beta: string },
@@ -632,7 +631,7 @@ const fi: typeof en = {
 			},
 		},
 		footer: [
-			{ label: "Kumppanit", href: "/fi/affiliate", external: false },
+			{ label: "Affiliate-ohjelma", href: "/fi/affiliate", external: false },
 			{ label: "Blogi", href: "/fi/blog", external: false },
 			{
 				label: "Lataa",
@@ -648,7 +647,6 @@ const fi: typeof en = {
 			{ label: "Käyttöehdot", href: "/fi/terms", external: false },
 			{ label: "Evästeet", href: "/fi/cookies", external: false },
 		],
-		stickyCta: "Aloita ilmaiseksi",
 		seppo: {
 			placeholder: "Kysy VISPistä…",
 			subtitle: "Tuoteopas: kysy, mitä VISP osaa",
@@ -811,7 +809,7 @@ const fi: typeof en = {
 		],
 		studio: {
 			heading: "Sub-tavoite vaelluksella.",
-			body: "Haluat hälytykset ja tavoitepalkin ruutuun, mutta kotona ei ole konetta pyörittämässä niitä. Rakenna näkymät selaimessa hälytyswidgetilläsi ja grafiikoilla; VISP lisää ne lähetykseen palvelimellaan. Tietokonetta ei tarvita. Cloud Studiossa (beta) on enintään 3 näkymää ja kussakin 8 tasoa. Taso voi olla mikä tahansa julkinen verkkosivu, kuten hälytyswidget, ja yksi niistä voi olla VISP-hälytys.",
+			body: "Haluat hälytykset ja tavoitepalkin ruutuun, mutta kotona ei ole konetta pyörittämässä niitä. Rakenna näkymät selaimessa hälytyswidgetilläsi ja grafiikoilla; VISP lisää ne lähetykseen palvelimellaan. Tietokonetta ei tarvita. Cloud Studiossa (beta) on enintään 3 näkymää ja kussakin 8 tasoa. Tasoina voi olla enintään kaksi julkista verkkosivua, kuten hälytyswidgetit, ja yksi taso voi olla VISP-hälytys.",
 			feature: "Cloud Studio (beta)",
 			beta: "Beta",
 		},

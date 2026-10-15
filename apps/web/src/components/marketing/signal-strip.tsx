@@ -243,7 +243,7 @@ export function SignalStrip({
 								className="pt-7 pb-8 last:pb-0 md:pt-0 md:pr-6 md:pb-0"
 							>
 								<p className="font-semibold text-ink leading-snug">{beat}</p>
-								<p className="mt-1.5 max-w-[46ch] text-ink-muted leading-normal md:text-[0.9375rem] lg:text-[1.0625rem]">
+								<p className="mt-1.5 max-w-[46ch] text-ink-muted leading-normal">
 									{copy.details[i]}
 								</p>
 							</li>

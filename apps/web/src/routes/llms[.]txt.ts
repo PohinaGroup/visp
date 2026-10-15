@@ -23,7 +23,7 @@ export const Route = createFileRoute("/llms.txt")({
 
 ## Pages
 
-- [Phone only](${legalEntity.siteUrl}/phone-only): Stream from a phone with no computer and no OBS. When mobile data drops, viewers see your BRB card instead of a dead stream, and highlight clips (Plus) are saved for you. Network bonding, multistream, and Cloud Studio overlays (beta) all run on VISP's servers.
+- [Phone only](${legalEntity.siteUrl}/phone-only): Stream from a phone with no computer and no OBS. When mobile data drops, viewers see your BRB card instead of a dead stream, or your uploaded highlight clips with Plus. Multistream and Cloud Studio overlays (beta) run on VISP's servers; Network bonding runs in the app.
 - [With OBS](${legalEntity.siteUrl}/with-obs): Use your phone as a camera in the OBS you already run, from anywhere and with no open ports, through the VISP OBS plugin.
 
 ## How VISP compares

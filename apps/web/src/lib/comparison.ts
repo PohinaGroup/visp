@@ -38,10 +38,10 @@ export const comparisonRows: readonly ComparisonRow[] = [
 		label: "Computer at home",
 		cells: [
 			"Use your own OBS, or Direct without it",
-			"Not needed — cloud OBS",
-			"Not needed — cloud OBS",
-			"Required — you run OBS",
-			"Required — you run OBS",
+			"Not needed, cloud OBS runs it",
+			"Not needed, cloud OBS runs it",
+			"Required, you run OBS",
+			"Required, you run OBS",
 		],
 	},
 	{
@@ -58,16 +58,16 @@ export const comparisonRows: readonly ComparisonRow[] = [
 		label: "Cellular bonding",
 		cells: [
 			"Optional bonding in the app: combine Wi-Fi + cellular, or send on both",
-			"Yes — SRTLA ingest",
-			"Yes — SRTLA ingest",
-			"Yes — SRTLA ingest",
-			"Yes — SRTLA, its own protocol",
+			"Yes, SRTLA ingest",
+			"Yes, SRTLA ingest",
+			"Yes, SRTLA ingest",
+			"Yes, SRTLA, its own protocol",
 		],
 	},
 	{
 		label: "Scenes and overlays",
 		cells: [
-			"Chat overlay; scenes in your own OBS",
+			"Cloud Studio (beta): up to 3 scenes in the browser, no computer needed, or your own OBS",
 			"Cloud OBS included",
 			"Cloud OBS included",
 			"Your own OBS",
@@ -101,10 +101,10 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 		label: "Kotikone",
 		cells: [
 			"Oma OBS tai Direct ilman sitä",
-			"Ei tarvita — pilvi-OBS",
-			"Ei tarvita — pilvi-OBS",
-			"Tarvitaan — ajat OBS:n itse",
-			"Tarvitaan — ajat OBS:n itse",
+			"Ei tarvita, pilvi-OBS hoitaa sen",
+			"Ei tarvita, pilvi-OBS hoitaa sen",
+			"Tarvitaan, ajat OBS:n itse",
+			"Tarvitaan, ajat OBS:n itse",
 		],
 	},
 	{
@@ -121,16 +121,16 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 		label: "Mobiiliyhteyksien niputus",
 		cells: [
 			"Valinnainen niputus sovelluksessa: yhdistä Wi-Fi ja mobiili, tai lähetä molempia pitkin",
-			"Kyllä — SRTLA",
-			"Kyllä — SRTLA",
-			"Kyllä — SRTLA",
-			"Kyllä — SRTLA, oma protokolla",
+			"Kyllä, SRTLA",
+			"Kyllä, SRTLA",
+			"Kyllä, SRTLA",
+			"Kyllä, SRTLA, oma protokolla",
 		],
 	},
 	{
 		label: "Kohtaukset ja grafiikat",
 		cells: [
-			"Chat-grafiikka; kohtaukset omassa OBS:ssä",
+			"Cloud Studio (beta): enintään 3 näkymää selaimessa ilman tietokonetta, tai oma OBS",
 			"Pilvi-OBS mukana",
 			"Pilvi-OBS mukana",
 			"Oma OBS",
