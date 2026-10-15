@@ -1264,6 +1264,11 @@ integration("relay PostgreSQL integration", () => {
 
 	test("stores, lists, restores and prunes OBS backups for their owner only", async () => {
 		await seed();
+		// Creating a backup is a Plus feature; user-b stays on the free plan.
+		await db
+			.update(appUser)
+			.set({ plan: "plus" })
+			.where(eq(appUser.id, "user-a"));
 		const objects = fakeObjectStore();
 		const pairingA = await rotateObsControlToken("user-a");
 		const pairingB = await rotateObsControlToken("user-b");
