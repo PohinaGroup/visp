@@ -11,10 +11,22 @@ const all = (o: unknown): string[] =>
 				? Object.values(o).flatMap(all)
 				: [];
 
-const noComputer = /no computer|tietokonetta ei tarvita|ei tietokonetta/i;
-const neverDropFeature =
-	/never drop|highlights|cloud studio|älä koskaan|koosteet/i;
-const overlayWord = /overlay|grafiik/i;
+// The rules below scan every string. A "claim" is a full sentence (ends with
+// a period), so labels, feature names, beats, and questions are skipped.
+const isSentence = (s: string) => /[.!]$/.test(s.trim());
+const noComputer =
+	/no computer|tietokonetta ei tarvita|ei tietokonetta|ilman tietokonetta/i;
+const neverDropClaim =
+	/BRB|highlight|clip|overlay|on air|never.drop|klip|kooste|grafiik|lähetyksessä|katkottom/i;
+const overlayWord = /overlay|grafiik|päällys/i;
+const highlightWord = /highlight|clip|klip|kooste/i;
+// Sentences about the visitor's own OBS studio, not a VISP promise.
+const ownObs =
+	/\b(your|own) OBS\b|OBS you already run|OBS:ää?si\b|OBS:ssäsi|\bomat? OBS|pyörivään OBS|kotikonee/i;
+const phoneOnlyPromise =
+	/phone only|on air|VISP's server|its own server|pelkkä puhelin|pitää sinut lähetyksessä|pelkällä puhelimella|VISPin palvelim|omalla palvelimellaan/i;
+const isVispPromise = (s: string) =>
+	!ownObs.test(s) || phoneOnlyPromise.test(s);
 
 for (const locale of ["en", "fi"] as const) {
 	const c = landingCopy[locale];
@@ -58,53 +70,40 @@ for (const locale of ["en", "fi"] as const) {
 		}
 	});
 
-	test(`${locale}: never-drop and overlay claims say no computer needed`, () => {
-		const signalFaq = c.phoneOnly.faq.items
-			.concat(c.home.faq.items)
-			.filter((i) => /signal drops|yhteys katkeaa/i.test(i.q));
-		expect(signalFaq.length).toBeGreaterThan(0);
-		const claims = [
-			c.home.stripNote,
-			c.home.strip.details[1],
-			c.home.strip.details[2],
-			...c.home.noObs.items
-				.filter((i) => neverDropFeature.test(i.feature))
-				.map((i) => i.situation),
-			...c.phoneOnly.situations
-				.filter((s) => neverDropFeature.test(s.feature))
-				.map((s) => s.body),
-			c.phoneOnly.studio.body,
-			...c.phoneOnly.versus.rows
-				.filter((r) =>
-					/air|highlight|overlay|lähetyksessä|klip|grafiik/i.test(r.label),
-				)
-				.map((r) => r.phone),
-			c.withObs.noPcNote.text,
-			...signalFaq.map((i) => i.a),
-		];
-		expect(claims.length).toBeGreaterThan(10);
+	test(`${locale}: never-drop, BRB, highlight, and overlay claims say no computer needed`, () => {
+		const claims = text.filter(
+			(s) => isSentence(s) && neverDropClaim.test(s) && isVispPromise(s),
+		);
+		expect(claims.length).toBeGreaterThan(20);
 		for (const s of claims) expect(s).toMatch(noComputer);
 	});
 
 	test(`${locale}: every overlay promise says (beta)`, () => {
-		const promises = [
-			c.home.meta.description,
-			c.home.hero.body,
-			...c.home.noObs.items.map((i) => i.situation),
-			c.phoneOnly.meta.description,
-			c.phoneOnly.hero.body,
-			c.phoneOnly.studio.body,
-			c.phoneOnly.cost.body,
-			...c.phoneOnly.versus.rows.map((r) => r.phone),
-			c.withObs.meta.description,
-			c.withObs.noPcNote.text,
-			c.withObs.cost.body,
-			...[c.home.faq, c.phoneOnly.faq, c.withObs.faq].flatMap((f) =>
-				f.items.map((i) => i.a),
-			),
-		].filter((s) => overlayWord.test(s));
-		expect(promises.length).toBeGreaterThan(5);
+		const promises = text.filter(
+			(s) => isSentence(s) && overlayWord.test(s) && isVispPromise(s),
+		);
+		expect(promises.length).toBeGreaterThan(10);
 		for (const s of promises) expect(s).toContain("(beta)");
+	});
+
+	test(`${locale}: every highlight or clip promise says Plus`, () => {
+		const promises = text.filter(
+			(s) => highlightWord.test(s) && !c.home.strip.beats.includes(s),
+		);
+		expect(promises.length).toBeGreaterThan(10);
+		for (const s of promises) expect(s).toMatch(/Plus/);
+	});
+
+	test(`${locale}: price rows say free`, () => {
+		for (const page of [c.phoneOnly, c.withObs]) {
+			expect(page.cost.rows[0].cost).toBe(
+				locale === "en" ? "Free" : "Ilmainen",
+			);
+			expect(page.cost.rows[1].cost).toBe(page.cost.rows[0].cost);
+		}
+		expect(text.join(" ")).not.toMatch(
+			/Free to start|Aloittaminen on ilmaista/,
+		);
 	});
 
 	test(`${locale}: strip beats each say what VISP does and name the feature`, () => {
