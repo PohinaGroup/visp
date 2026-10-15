@@ -80,3 +80,6 @@ prompt.md
 .humanlayer/tasks/
 .humanlayer/workspace.local.json
 /brag-output
+.claude
+.humanlayer
+Claude outputs/*
