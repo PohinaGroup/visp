@@ -12,6 +12,7 @@ export const legalEntity = {
 	releasesUrl: "https://github.com/PohinaGroup/visp/releases",
 	docsUrl: "https://docs.visp-stream.com",
 	xUrl: "https://x.com/VISPstreaming",
+	discordUrl: "https://discord.gg/bufTZqbn4z",
 	browserAppUrl: "https://stream.visp-stream.com",
 	iosAppStoreUrl:
 		"https://apps.apple.com/fi/app/visp-easy-streaming/id6791948092",

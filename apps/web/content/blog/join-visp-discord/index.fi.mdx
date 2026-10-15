@@ -1,0 +1,198 @@
+---
+title: "Liity VISPin Discordiin: yhteisö, julkaisutiedot ja apu"
+description: "VISPin Discordissa IRL-striimaajat vertaavat setuppeja, lukevat julkaisutiedot heti ja saavat apua puhelimen, relayn, OBS:n ja VISP Directin kanssa."
+publishedAt: 2026-10-15
+coverAlt: "VISPin tasomittarilogo hiusviivaisen signaaliketjun yllä ja otsikko Join the VISP Discord"
+---
+
+VISPillä on nyt Discord-palvelin. Liity osoitteessa
+[discord.gg/bufTZqbn4z](https://discord.gg/bufTZqbn4z).
+
+Avasimme sen kolmesta syystä. IRL-striimaajat oppivat eniten toisiltaan.
+Julkaisutietojen pitää tavoittaa ihmiset samana päivänä kuin versio
+julkaistaan, ei vasta kun joku sattuu avaamaan muutoslokin. Ja asennukseen
+liittyviin kysymyksiin on helpompi vastata keskustelussa kuin yhteydenottolomakkeella.
+
+Tässä kirjoituksessa kerromme, mitä palvelimella tapahtuu, mitä hyödyt
+liittymisestä ja miten kysyt apua niin, että vastaus tulee nopeasti.
+
+![VISPin Discordin kolme tarkoitusta: yhteisö, julkaisutiedot ja apu](./discord-server-map.svg)
+
+## Miksi Discord eikä pelkät ohjeet
+
+[VISPin ohjeet](https://docs.visp-stream.com/fi) kertovat, miten kukin osa
+toimii: puhelinsovellus, selainjulkaisija, VISP Direct, OBS-lisäosa,
+chat-botti ja oma palvelin. Ohjeet vastaavat hyvin kysymykseen "miten tämä
+ominaisuus toimii".
+
+Ne vastaavat huonosti kysymykseen "toimiiko tämä pyörälenkillä kaupungissa,
+jossa 4G on heikko" tai "mikä puhelinteline estää iPhonea ylikuumenemasta
+heinäkuussa". Nämä vastaukset tulevat ihmisiltä, jotka ovat tehneet sen.
+Oikeassa striimissä on paljon muuttujia, joita mikään sivu ei pysty
+luettelemaan: operaattori, puhelinmalli, suojakuori, sää, paikan Wi-Fi,
+kohdepalvelu ja se, mitä muuta puhelin tekee samaan aikaan.
+
+Discord antaa meille myös suoran yhteyden takaisin. Kun kolme ihmistä
+raportoi saman iltapäivän aikana saman oudon uudelleenyhdistämisen samalla
+Android-versiolla, näemme kuvion ja voimme korjata sen. Bugi, joka näkyy vain
+stadionilla, junassa tai vuoristolaaksossa, on vaikea toistaa pöydän ääressä.
+Kenttäraporttienne avulla löydämme ne.
+
+## Yhteisö: vertaa setuppeja ulkona striimaavien kanssa
+
+Suurin osa palvelimesta on ihmisten keskinäistä keskustelua. Odota tällaisia
+aiheita:
+
+- mitä puhelinta, telinettä, varavirtalähdettä ja mikrofonia joku kantaa
+  kävelystriimissä;
+- auttoiko Wi-Fin ja mobiiliyhteyden yhdistäminen tietyllä reitillä, vai
+  toimiko pakettien kahdentaminen paremmin;
+- miten joku rakensi OBS-scenensä puhelinsyötteen ympärille, mukaan lukien
+  odotusscene, joka näkyy kun kenttäkamera putoaa;
+- milloin VISP Direct riitti ja milloin OBS:n haluttiin silti mukaan ketjuun;
+- klippejä onnistuneista striimeistä ja rehellisiä muistiinpanoja niistä,
+  jotka eivät onnistuneet.
+
+Jaa setuppisi, vaikka se olisi yksinkertainen. Puhelin, klipsimikrofoni ja
+Direct yhteen palveluun on toimiva setuppi, ja useimmat uudet striimaajat
+aloittavat juuri sillä. Joku palvelimella ensi kuussa löytää viestisi, kun
+kysyy saman kysymyksen.
+
+Kerro myös, mikä epäonnistui. "Striimi kuoli 40 minuutin kohdalla, koska
+puhelin ylikuumeni suorassa auringossa" on seuraavalle hyödyllisempi kuin
+täydellinen suoritus. Se kertoo myös meille, missä VISPin pitää varoittaa
+aiemmin tai heikentää laatua hallitummin.
+
+## Julkaisutiedot: tiedä mikä muuttui ennen kuin menet liveen
+
+VISPissä on useita osia, jotka julkaistaan omissa tahdeissaan:
+
+- iOS- ja Android-sovellukset App Storen ja Google Playn kautta;
+- selainjulkaisija ja verkon hallintapaneeli;
+- OBS-lisäosa
+  [GitHubin julkaisusivun](https://github.com/PohinaGroup/visp/releases) kautta;
+- OBS Remote -sovellus scenejen ja lähetyksen ohjaamiseen;
+- relay, joka hoitaa vastaanoton, VISP Directin välityksen ja BRB-kortin.
+
+Muutos missä tahansa näistä voi vaikuttaa striimiisi. Uusi sovellusversio voi
+muuttaa yhteyksien yhdistämisen toimintaa. Relayn päivitys voi muuttaa sitä,
+miten Direct yrittää kohdetta uudelleen. Lisäosan julkaisu voi tuoda
+säätimen, jota olet toivonut.
+
+Julkaisemme julkaisutiedot Discordissa, kun versio tulee ulos. Jokaisessa
+kerrotaan, mikä muuttui, mitä osaa se koskee ja pitääkö sinun tehdä jotain,
+kuten päivittää OBS-lisäosa tai valtuuttaa palvelu uudelleen.
+
+Tämä on tärkeintä ennen tapahtumaa. Turvallisin tapa suunniteltuun
+striimiin on lukea uusimmat julkaisutiedot, päivittää käyttämäsi osat ja
+ajaa yksi yksityinen harjoitus uusilla versioilla. Älä huomaa muuttunutta
+oletusasetusta live-lähetyksen ensimmäisellä minuutilla.
+
+Julkaisutiedot ovat myös oikea paikka raportoida regressio. Jos jokin toimi
+edellisessä versiossa ja hajosi tässä, vastaa kyseiseen julkaisutiedotteeseen
+ja kerro laitteesi ja mikä muuttui. Silloin raportti on sen muutoksen
+vieressä, joka todennäköisesti aiheutti ongelman.
+
+## Apu: pääse jumista nopeammin
+
+Palvelimella voi kysyä mitä tahansa VISPistä. Yleisiä aiheita:
+
+- käyttöönottovelho, kirjautuminen Twitchillä, Kickillä tai Googlella ja
+  julkaisulaitteiden luominen;
+- puhelinsovelluksen tai selainjulkaisijan yhdistäminen;
+- VISP-syötteen lisääminen OBS:ään ja OBS-lisäosan parittaminen;
+- Twitchin, Kickin tai YouTuben valtuuttaminen VISP Directille;
+- BRB-näyttö ja chat-botin hälytykset;
+- yhteyksien yhdistäminen ja mitä odottaa mobiilidatalla;
+- oman relayn ja sovelluspalvelimen ylläpito.
+
+Muut striimaajat vastaavat usein ennen meitä. Se on hyvä asia ja yleensä
+nopeampaa. Luemme apuketjut ja tulemme mukaan, kun vastauksen pitää tulla
+tiimiltä, esimerkiksi tiliongelmissa, relayn kapasiteetissa tai epäillyssä
+bugissa.
+
+### Näin kysyt, jotta saat hyödyllisen vastauksen
+
+Hyvä apupyyntö vastaa kysymyksiin, jotka kysyisimme ensimmäisenä. Kerro:
+
+1. **Työnkulkusi.** VISP Direct suoraan palveluun vai puhelinsyöte omaan
+   OBS:ääsi.
+2. **Julkaisijasi.** VISPin iPhone- tai Android-sovellus, selainjulkaisija
+   tai muu SRT-, SRTLA- tai RTMP-enkooderi. Lisää sovelluksen versio ja
+   puhelinmalli.
+3. **Kohteesi.** Twitch, Kick, YouTube tai oma RTMP-, RTMPS- tai SRT-osoite.
+4. **Verkkosi.** Wi-Fi, mobiiliyhteys tai molemmat yhdistettynä. Kerro
+   suunnilleen, missä olit ja kuinka vahva signaali oli.
+5. **Mitä hallintapaneeli näytti.** Hallintapaneelin yläreunan
+   signaaliketju näyttää lähteet, relayn, OBS:n ja ulostulon. Kerro, mikä
+   osa näytti väärältä.
+6. **Mitä odotit ja mitä tapahtui sen sijaan,** sekä kellonaika. Aikaleima
+   auttaa meitä löytämään vastaavat relayn tapahtumat.
+
+Kuvakaappaus hallintapaneelista tai sovelluksen virheilmoituksesta kertoo
+usein enemmän kuin kappale tekstiä.
+
+### Älä koskaan jaa salaisuuksia
+
+Älä liitä Discordiin julkaisu-URL:ää, lukutunnusta tai palvelun
+striimiavainta, et edes kuvakaappauksessa. Julkaisu-URL:llä kuka tahansa voi
+lähettää videota laitteesi nimissä.
+
+Jos jaat sellaisen vahingossa, mitätöi laite hallintapaneelissa ja luo uusi.
+Jokaisen julkaisulaitteen voi mitätöidä erikseen, joten muu setuppisi toimii
+edelleen. Jos palvelun striimiavain vuotaa, vaihda se palvelussa.
+
+Emme koskaan pyydä salasanaa, striimiavainta tai julkaisu-URL:ää
+yksityisviestillä. Jos joku pyytää, se emme ole me. Ilmoita siitä
+moderaattoreille.
+
+### Milloin GitHub on parempi
+
+VISP on avointa lähdekoodia GPL-2.0-lisenssillä. Jos olet löytänyt koodista
+toistettavan bugin tai ylläpidät omaa palvelinta ja haluat keskustella
+muutoksesta relayhin tai sovelluspalvelimeen, issue
+[GitHubissa](https://github.com/PohinaGroup/visp) on parempi paikka. Silloin
+historia pysyy koodin vieressä. Discord on oikea paikka kysymykselle "onko
+tämä bugi vai teenkö jotain väärin" ja kaikelle, mikä vaatii nopeaa
+keskustelua.
+
+## Ominaisuustoiveet ja palaute
+
+Kerro, mitä haluat VISPin tekevän. Ominaisuudet kuten Direct useaan
+palveluun kerralla, chat-hälytykset jotka toimivat tietokone sammutettuna ja
+BRB-näyttö, joka pitää lähetyksen pystyssä puhelimen yhdistäessä uudelleen,
+lähtivät kaikki striimaajien ongelmista.
+
+Hyödyllisimmät toiveet kuvaavat ongelman, eivät vain ratkaisua. "Menetän
+katsojia, kun striimi katkeaa metrossa, koska he luulevat että lopetin"
+kertoo meille enemmän kuin "lisää nappi". Kun useampi ihminen kuvaa saman
+ongelman omin sanoin, toive nousee listalla.
+
+Jos olet mukana
+[perustajaohjelmassa](/fi/affiliate), Discord on myös helpoin tapa tavoittaa
+meidät siihen liittyen.
+
+## Säännöt
+
+Säännöt ovat lyhyet:
+
+- kohtele muita asiallisesti, myös striimauksen aloittelijoita;
+- pidä apukysymykset siellä, mistä seuraava ne löytää, eikä
+  yksityisviesteissä;
+- ei striimiavaimia, julkaisu-URL:iä tai muita salaisuuksia;
+- pidä itsemainonta poissa apuketjuista.
+
+Moderaattorit voivat poistaa sääntöjä rikkovat viestit, ja he poistavat
+kaiken, mikä paljastaa jonkun tunnuksia.
+
+## Liity
+
+Kutsulinkki on
+[discord.gg/bufTZqbn4z](https://discord.gg/bufTZqbn4z). Löydät sen myös
+[visp-stream.com](https://visp-stream.com/fi)-sivuston ylä- ja alatunnisteesta
+sekä [ohjeiden](https://docs.visp-stream.com/fi) navigaatiosta.
+
+Kun liityt, sano hei ja kerro, mitä striimaat ja missä. Jos et ole vielä
+kokeillut VISPiä, [hae sovellukset](/download?lang=fi), luo yksi testilaite ja
+tuo ensimmäinen kysymyksesi palvelimelle. Siellä on luultavasti joku, joka on
+striimannut vielä oudommasta paikasta.

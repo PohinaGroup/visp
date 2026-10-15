@@ -72,6 +72,14 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 					>
 						{fi ? "Ohjeet" : "Docs"}
 					</a>
+					<a
+						href={legalEntity.discordUrl}
+						target="_blank"
+						rel="noreferrer"
+						className={`hidden sm:inline ${LINK}`}
+					>
+						Discord
+					</a>
 					<Link
 						to={fi ? "/fi/blog" : "/blog"}
 						className={`hidden sm:inline ${LINK}`}
