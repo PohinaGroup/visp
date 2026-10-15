@@ -104,14 +104,19 @@ test("a wide comparison table gets a focusable, labelled scroll region", () => {
 	expect(html).toContain('tabindex="0"');
 });
 
-test("hero video ships poster and no autoplay attribute in SSR", () => {
+test("hero video ships poster, no autoplay attribute, and a play button in SSR", () => {
 	const html = renderToStaticMarkup(
-		<HeroVideo src="/v.m4v" poster="/p.jpg" label="l" />,
+		<HeroVideo
+			src="/v.m4v"
+			poster="/p.jpg"
+			label="l"
+			buttons={{ pause: "Pause", play: "Play" }}
+		/>,
 	);
 	expect(html).toContain('poster="/p.jpg"');
 	expect(html).not.toContain("autoplay");
-	expect(html).toMatch(/<video[^>]*\scontrols/);
-	expect(html).not.toMatch(/<video[^>]*\sloop/);
+	expect(html).not.toMatch(/<video[^>]*\scontrols/);
+	expect(html).toMatch(/<button[^>]*>.*Play<\/button>/);
 	expect(html).toContain('preload="none"');
 	expect(html).toMatch(/width="\d+"/);
 	expect(html).toMatch(/height="\d+"/);

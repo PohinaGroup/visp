@@ -32,7 +32,7 @@ export function WithObsPage({
 	locale: Locale;
 	release: ObsPluginRelease | null;
 }) {
-	const { withObs } = landingCopy[locale];
+	const { withObs, shared } = landingCopy[locale];
 
 	return (
 		<LandingPage
@@ -44,6 +44,7 @@ export function WithObsPage({
 					src="/marketing/go-live-loop.m4v"
 					poster="/marketing/go-live-loop.jpg"
 					label={withObs.hero.videoLabel}
+					buttons={shared.video}
 				/>
 			}
 			closing={withObs.closing}

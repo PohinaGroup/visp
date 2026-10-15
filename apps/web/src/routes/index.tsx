@@ -44,6 +44,7 @@ export function HomePage({ locale }: { locale: Locale }) {
 					src="/marketing/go-live-loop.m4v"
 					poster="/marketing/go-live-loop.jpg"
 					label={home.hero.videoLabel}
+					buttons={shared.video}
 				/>
 			}
 			secondary={

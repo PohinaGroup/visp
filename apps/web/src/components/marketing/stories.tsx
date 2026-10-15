@@ -18,7 +18,7 @@ export function Stories({
 				{stories.map((story) => (
 					<li key={story.channelUrl}>
 						<figure>
-							<blockquote className="mkt-display max-w-[32ch] text-[clamp(1.375rem,3vw,1.75rem)] leading-tight">
+							<blockquote className="mkt-display max-w-[32ch] text-[clamp(1.375rem,3vw,1.75rem)] normal-case leading-tight">
 								<p>{story.quote}</p>
 							</blockquote>
 							<figcaption className="mt-5 flex items-center gap-3">

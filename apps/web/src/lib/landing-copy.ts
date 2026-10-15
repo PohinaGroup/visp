@@ -98,6 +98,7 @@ const en = {
 	shared: {
 		tryCta: "Start free",
 		downloadLink: "Download the app",
+		video: { pause: "Pause", play: "Play" },
 		nav: {
 			phoneOnly: "Phone only",
 			withObs: "With OBS",
@@ -613,6 +614,7 @@ const fi: typeof en = {
 	shared: {
 		tryCta: "Aloita ilmaiseksi",
 		downloadLink: "Lataa sovellus",
+		video: { pause: "Pysäytä", play: "Toista" },
 		nav: {
 			phoneOnly: "Pelkkä puhelin",
 			withObs: "OBS:n kanssa",
