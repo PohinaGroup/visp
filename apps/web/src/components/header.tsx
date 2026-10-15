@@ -58,6 +58,7 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 			>
 				<Link
 					to={fi ? "/fi" : "/"}
+					activeOptions={{ exact: true }}
 					className="-ml-1 flex min-h-11 shrink-0 items-center gap-3 px-1"
 				>
 					<span className="font-bold font-display text-xl uppercase leading-none tracking-[0.28em]">
@@ -76,9 +77,9 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 					<Link to={fi ? "/fi/phone-only" : "/phone-only"} className={link}>
 						{nav.phoneOnly}
 					</Link>
-					<a href={fi ? "/fi/with-obs" : "/with-obs"} className={link}>
+					<Link to={fi ? "/fi/with-obs" : "/with-obs"} className={link}>
 						{nav.withObs}
-					</a>
+					</Link>
 					<a
 						href={fi ? `${legalEntity.docsUrl}/fi` : legalEntity.docsUrl}
 						target="_blank"

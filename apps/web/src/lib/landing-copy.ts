@@ -37,6 +37,7 @@ export type Story = {
 	photo?: string;
 };
 export type VersusTable = {
+	title: string;
 	caption: string;
 	columns: [string, string];
 	rows: { label: string; phone: string; obs: string }[];
@@ -326,6 +327,7 @@ const en = {
 			link: "Bring your phone into your own OBS",
 		},
 		versus: {
+			title: "Phone only vs your own OBS",
 			caption: "Phone only compared with your own OBS",
 			columns: ["Phone only", "Your own OBS"],
 			rows: [
@@ -838,6 +840,7 @@ const fi: typeof en = {
 			link: "Tuo puhelin omaan OBS:ääsi",
 		},
 		versus: {
+			title: "Pelkkä puhelin vai oma OBS",
 			caption: "Pelkkä puhelin verrattuna omaan OBS:ään",
 			columns: ["Pelkkä puhelin", "Oma OBS"],
 			rows: [

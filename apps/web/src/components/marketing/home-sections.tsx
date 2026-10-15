@@ -22,7 +22,7 @@ export function HomeSections({ locale }: { locale: Locale }) {
 	const { home, stories } = landingCopy[locale];
 	const fi = locale === "fi";
 	const phoneTo = fi ? "/fi/phone-only" : "/phone-only";
-	const obsHref = fi ? "/fi/with-obs" : "/with-obs";
+	const obsTo = fi ? "/fi/with-obs" : "/with-obs";
 
 	return (
 		<>
@@ -80,15 +80,15 @@ export function HomeSections({ locale }: { locale: Locale }) {
 							{home.chooser.phone.body}
 						</p>
 					</Link>
-					<a
-						href={obsHref}
+					<Link
+						to={obsTo}
 						className={`${TILE} border border-ink/25 hover:border-ink`}
 					>
 						<h3 className={TILE_TITLE}>{home.chooser.obs.title}</h3>
 						<p className="mt-3 max-w-[40ch] text-ink-muted leading-relaxed">
 							{home.chooser.obs.body}
 						</p>
-					</a>
+					</Link>
 				</div>
 			</section>
 

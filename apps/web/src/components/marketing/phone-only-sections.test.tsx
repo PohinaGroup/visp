@@ -1,4 +1,10 @@
 import { expect, test } from "bun:test";
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRouter,
+	RouterContextProvider,
+} from "@tanstack/react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Locale } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
@@ -7,9 +13,19 @@ import { PhoneOnlySections } from "./phone-only-sections";
 // renderToStaticMarkup escapes text, so compare against escaped copy.
 const esc = (s: string) => renderToStaticMarkup(s);
 
+// The OBS link is a router Link; a bare router is enough to build its href.
+const router = createRouter({
+	routeTree: createRootRoute(),
+	history: createMemoryHistory(),
+});
+
 for (const locale of ["en", "fi"] as Locale[]) {
 	const page = landingCopy[locale].phoneOnly;
-	const html = renderToStaticMarkup(<PhoneOnlySections locale={locale} />);
+	const html = renderToStaticMarkup(
+		<RouterContextProvider router={router}>
+			<PhoneOnlySections locale={locale} />
+		</RouterContextProvider>,
+	);
 	const fi = locale === "fi" ? "/fi" : "";
 
 	test(`${locale}: the never-drop situations follow the compact strip`, () => {
@@ -36,6 +52,9 @@ for (const locale of ["en", "fi"] as Locale[]) {
 	});
 
 	test(`${locale}: the versus table has every row with both cells`, () => {
+		const title = html.indexOf(`>${esc(page.versus.title)}</h2>`);
+		expect(title).toBeGreaterThan(-1);
+		expect(html.indexOf("<table", title)).toBeGreaterThan(title);
 		for (const column of page.versus.columns)
 			expect(html).toContain(`data-label="${esc(column)}"`);
 		for (const row of page.versus.rows) {

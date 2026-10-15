@@ -123,9 +123,12 @@ export function MobileMenu({
 								</Link>
 							</li>
 							<li>
-								<a href={fi ? "/fi/with-obs" : "/with-obs"} className={menuRow}>
+								<Link
+									to={fi ? "/fi/with-obs" : "/with-obs"}
+									className={menuRow}
+								>
 									{nav.withObs}
-								</a>
+								</Link>
 							</li>
 							<li>
 								<Link

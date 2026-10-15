@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import type { Locale } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
 
@@ -12,9 +14,10 @@ import { mktH2 } from "./styles";
 const LEAD = "mt-6 max-w-[62ch] leading-relaxed md:text-[1.1875rem]";
 
 /**
- * Phone only between the hero and the closing CTA. Router-free so it renders
- * in tests; the route page adds the hero and closing, which need the router
- * for TryCta. Children of the page's flex column.
+ * Phone only between the hero and the closing CTA. Needs only a router
+ * context for its Link (the test builds a bare one); the route page adds the
+ * hero and closing, which need the full router for TryCta. Children of the
+ * page's flex column.
  */
 export function PhoneOnlySections({ locale }: { locale: Locale }) {
 	const page = landingCopy[locale].phoneOnly;
@@ -59,14 +62,17 @@ export function PhoneOnlySections({ locale }: { locale: Locale }) {
 			</section>
 
 			<section>
-				<ComparisonTable
-					caption={versus.caption}
-					columns={versus.columns}
-					rows={versus.rows.map((r) => ({
-						label: r.label,
-						cells: [r.phone, r.obs],
-					}))}
-				/>
+				<h2 className={mktH2}>{versus.title}</h2>
+				<div className="mt-10 md:mt-12">
+					<ComparisonTable
+						caption={versus.caption}
+						columns={versus.columns}
+						rows={versus.rows.map((r) => ({
+							label: r.label,
+							cells: [r.phone, r.obs],
+						}))}
+					/>
+				</div>
 			</section>
 
 			<section className="grid gap-10 lg:grid-cols-[minmax(0,5fr)_minmax(0,7fr)] lg:gap-x-12">
@@ -80,13 +86,12 @@ export function PhoneOnlySections({ locale }: { locale: Locale }) {
 			<section>
 				<StepList title={page.steps.title} items={page.steps.items} />
 				<p className="mt-14 max-w-[62ch] leading-relaxed">{obsNote.text}</p>
-				{/* ponytail: plain <a> until /with-obs exists in the route tree. */}
-				<a
-					href={`${base}/with-obs`}
+				<Link
+					to={locale === "fi" ? "/fi/with-obs" : "/with-obs"}
 					className="mt-1 inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
 				>
 					{obsNote.link}
-				</a>
+				</Link>
 			</section>
 
 			<section>
