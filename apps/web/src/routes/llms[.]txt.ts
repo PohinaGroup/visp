@@ -19,26 +19,32 @@ export const Route = createFileRoute("/llms.txt")({
 				return new Response(
 					`# VISP
 
-> VISP sends phone and browser cameras through an authenticated relay directly to Twitch, Kick, or YouTube. The same contribution feed can optionally be read in OBS. The native app can duplicate packets over Wi-Fi and cellular without aggregating their capacity.
+> VISP sends phone and browser cameras through an authenticated relay directly to Twitch, Kick, or YouTube, with no computer needed. The same feed can optionally be read in your own OBS. The native app can combine Wi-Fi and cellular over SRTLA, send every packet over both, or keep one as a backup.
+
+## Pages
+
+- [Phone only](${legalEntity.siteUrl}/phone-only): Stream from a phone with no computer and no OBS. When mobile data drops, viewers see your BRB card instead of a dead stream, and highlight clips (Plus) are saved for you. Network bonding, multistream, and Cloud Studio overlays (beta) all run on VISP's servers.
+- [With OBS](${legalEntity.siteUrl}/with-obs): Use your phone as a camera in the OBS you already run, from anywhere and with no open ports, through the VISP OBS plugin.
 
 ## How VISP compares
 
-VISP is free during the beta and needs no computer running at home. Cloud IRL
-services include their own OBS but bill monthly; relay-only services are cheaper
-but still require you to run OBS yourself. VISP does not aggregate cellular and
-Wi-Fi bandwidth — for real bonding today, BELABOX or a service with SRTLA ingest
-is the better fit.
+VISP is free, and a computer at home is optional. The optional Plus plan (€9/month)
+adds hosted extras such as BRB highlight clips; Direct streaming stays free. Cloud
+IRL services include their own OBS but bill monthly; relay-only services are
+cheaper but still require you to run OBS yourself. VISP can combine Wi-Fi and
+cellular over SRTLA, send every packet over both connections, or use one as a
+backup. A service with SRTLA ingest or BELABOX hardware may still be the better
+fit if you want a dedicated bonding encoder.
 
 ${comparisonMarkdown()}
 
-Public list prices, checked ${COMPARISON_CHECKED}. See ${legalEntity.siteUrl}/#compare.
+Public list prices, checked ${COMPARISON_CHECKED}. See ${legalEntity.siteUrl}/with-obs#compare.
 
-## Founding creator program
+## Affiliate program
 
-Five IRL streaming creators get VISP Pro free for life in exchange for testing
-VISP on real hardware and publishing an honest verdict. There is no commission
-or revenue share today, because VISP Pro and its billing do not exist yet. See
-${legalEntity.siteUrl}/affiliate.
+Creators with an audience can apply to the Affiliate program, and founding
+creators are set up the same way: both get every feature free (Plus quotas
+apply). See ${legalEntity.siteUrl}/affiliate.
 
 ## Documentation
 

@@ -27,7 +27,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Price",
 		cells: [
-			"Free during beta",
+			"Free; Plus €9 / mo for highlights and hosted extras",
 			"$129–179 / mo",
 			"$120–180 / mo",
 			"$10–20 / mo",
@@ -57,7 +57,7 @@ export const comparisonRows: readonly ComparisonRow[] = [
 	{
 		label: "Cellular bonding",
 		cells: [
-			"Yes — SRTLA ingest, optional Wi-Fi + cellular in the app",
+			"Optional bonding in the app: combine Wi-Fi + cellular, or send on both",
 			"Yes — SRTLA ingest",
 			"Yes — SRTLA ingest",
 			"Yes — SRTLA ingest",
@@ -90,7 +90,7 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Hinta",
 		cells: [
-			"Ilmainen betan ajan",
+			"Ilmainen; Plus 9 € / kk koosteisiin ja palvelimen lisäominaisuuksiin",
 			"129–179 $ / kk",
 			"120–180 $ / kk",
 			"10–20 $ / kk",
@@ -120,7 +120,7 @@ export const comparisonRowsFi: readonly ComparisonRow[] = [
 	{
 		label: "Mobiiliyhteyksien niputus",
 		cells: [
-			"Kyllä — SRTLA, valinnainen Wi-Fi + mobiili sovelluksessa",
+			"Valinnainen niputus sovelluksessa: yhdistä Wi-Fi ja mobiili, tai lähetä molempia pitkin",
 			"Kyllä — SRTLA",
 			"Kyllä — SRTLA",
 			"Kyllä — SRTLA",

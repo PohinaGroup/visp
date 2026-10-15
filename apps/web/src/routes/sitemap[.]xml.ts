@@ -9,9 +9,11 @@ const publicPaths = [
 	"/contact",
 	"/cookies",
 	"/download",
+	"/phone-only",
 	"/privacy",
 	"/request-delete",
 	"/terms",
+	"/with-obs",
 ] as const;
 
 const localizedPaths = [
@@ -19,8 +21,10 @@ const localizedPaths = [
 	"/blog",
 	"/contact",
 	"/cookies",
+	"/phone-only",
 	"/privacy",
 	"/terms",
+	"/with-obs",
 ] as const;
 
 function alternateLinks(path: (typeof localizedPaths)[number]) {

@@ -4,14 +4,16 @@ import Header from "@/components/header";
 import { TryCta } from "@/components/try-cta";
 import { type Locale, landingHead } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
+import { faqJsonLd, softwareAppJsonLd } from "@/lib/seo";
 
 export const Route = createFileRoute("/")({
 	head: () =>
 		landingHead(
 			"en",
+			"/",
 			landingCopy.en.home.meta.title,
 			landingCopy.en.home.meta.description,
-			landingCopy.en.home.faq.items,
+			[faqJsonLd("en", landingCopy.en.home.faq.items), softwareAppJsonLd("en")],
 		),
 	component: () => <HomePage locale="en" />,
 });
