@@ -495,7 +495,7 @@ export function StudioPage() {
 	return (
 		<section
 			aria-label={t("Cloud Studio editor")}
-			className={styles.editor}
+			className={`${styles.editor} app-type`}
 			onKeyDown={(event) => {
 				if (
 					(event.target as HTMLElement).closest(
@@ -617,7 +617,25 @@ export function StudioPage() {
 					</div>
 				</div>
 				<div className={styles.statusbar}>
-					<span>{t(streamCopy.title)}</span>
+					<span className={styles.tally}>
+						<span
+							aria-hidden
+							className={`size-2 shrink-0 ${
+								streamCopy.tone === "success"
+									? "bg-signal"
+									: streamCopy.tone === "info"
+										? "border border-muted-foreground"
+										: "bg-caution"
+							}`}
+						/>
+						{t(streamCopy.title)}
+						{stream.broadcastConfirmed ? (
+							<span className={styles.onAir}>
+								<span aria-hidden className="tally-pulse size-1.5 bg-tally" />
+								{t("Live")}
+							</span>
+						) : null}
+					</span>
 					<span>
 						{cloudMode
 							? t("Saved overlays apply to your broadcast")
