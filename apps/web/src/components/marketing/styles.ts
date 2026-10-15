@@ -1,6 +1,5 @@
-/** Section heading on marketing pages: wide, heavy, sentence case. */
-export const mktH2 =
-	"mkt-display max-w-[22ch] text-[clamp(2rem,5.5vw,3.25rem)] text-ink";
+/** Section heading on marketing pages: condensed caps. */
+export const mktH2 = "mkt-display text-[clamp(2.25rem,6vw,3.75rem)] text-ink";
 
 /** Underlined text link on marketing pages, at a 44px tap height. */
 export const mktTextLink =
@@ -8,3 +7,7 @@ export const mktTextLink =
 
 /** TryCta on marketing pages: ink fill, the 0.5rem button radius. */
 export const mktButton = "rounded-lg bg-ink font-semibold text-paper";
+
+/** Phone bezel around hero footage and screenshots. Black in both themes, like the hardware. */
+export const mktPhone =
+	"rounded-[2.25rem] bg-neutral-950 p-2 ring-1 ring-neutral-700";

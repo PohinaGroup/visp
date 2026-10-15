@@ -95,6 +95,7 @@ import { useStreamAccount } from "../lib/use-stream-account";
 import { useStreamSettingsModel } from "../lib/use-stream-settings-model";
 import { useStreamSpeechFeatures } from "../lib/use-stream-speech-features";
 import { useWatchSnapshotSync } from "../lib/use-watch-snapshot-sync";
+import { useWatermark } from "../lib/use-watermark";
 
 const afterPaint = () =>
 	new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
@@ -435,6 +436,13 @@ export default function Index() {
 		);
 		setChatSpeechAudioOwner(captureOwnsAudio ? "capture" : "playback");
 	}, [appState, cameraNode, configuration]);
+
+	// The native side re-applies the mark after every prepare(), so only the
+	// node and the plan answer matter here.
+	const watermark = useWatermark(userId);
+	useEffect(() => {
+		void cameraNode?.setWatermark(watermark).catch(() => undefined);
+	}, [cameraNode, watermark]);
 
 	useWatchSnapshotSync({
 		audioTier,

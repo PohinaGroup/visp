@@ -61,7 +61,7 @@ for (const locale of ["en", "fi"] as Locale[]) {
 		expect(html).toContain(`href="${fi}/phone-only"`);
 	});
 
-	test(`${locale}: the chooser leads with the filled phone tile`, () => {
+	test(`${locale}: the chooser leads with the tallied phone tile`, () => {
 		const { chooser } = home;
 		expect(html).toContain(esc(chooser.title));
 		const phone = html.indexOf(esc(chooser.phone.title));
@@ -71,9 +71,9 @@ for (const locale of ["en", "fi"] as Locale[]) {
 		expect(html).toContain(esc(chooser.phone.badge ?? ""));
 		// Each whole tile is the link: title, body, and badge sit inside it.
 		const phoneTile = anchor(html, `${fi}/phone-only`, chooser.phone.title);
-		expect(phoneTile).toMatch(
-			/^<a [^>]*class="[^"]*\bbg-ink\b[^"]*\btext-paper\b/,
-		);
+		// The recommended route carries the on-air tally, not a filled slab.
+		expect(phoneTile).toMatch(/^<a [^>]*class="[^"]*\bborder-on-air/);
+		expect(phoneTile).toContain("bg-on-air");
 		for (const s of [chooser.phone.body, chooser.phone.badge ?? ""])
 			expect(phoneTile).toContain(esc(s));
 		const obsTile = anchor(html, `${fi}/with-obs`, chooser.obs.title);

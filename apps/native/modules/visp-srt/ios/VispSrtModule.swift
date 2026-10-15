@@ -163,6 +163,10 @@ final class VispSrtModule: Module {
         await view.clearCaptionsOverlay()
       }
 
+      AsyncFunction("setWatermark") { (view: VispSrtView, visible: Bool) in
+        await view.setWatermark(visible)
+      }
+
       AsyncFunction("startLiveCaptions") { (
         view: VispSrtView,
         language: String,

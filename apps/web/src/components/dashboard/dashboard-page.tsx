@@ -2,7 +2,6 @@ import { formatLinkStats } from "@VISP/api/link-stats";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
-import { Center } from "@astryxdesign/core/Center";
 import { Divider } from "@astryxdesign/core/Divider";
 import {
 	DropdownMenu,
@@ -18,6 +17,7 @@ import { toast } from "sonner";
 import { AgentsCard } from "@/components/auth/agent-auth/agents-card";
 import { PageHeader } from "@/components/page-header";
 import { SeppoWidget } from "@/components/seppo-widget";
+import { type ChainSlot, SignalChain } from "@/components/signal-chain";
 import { WhepPreview } from "@/components/studio/whep-preview";
 import { trackEvent } from "@/lib/analytics";
 import { dashboardHomeState } from "@/lib/dashboard-home";
@@ -336,110 +336,227 @@ export function DashboardPage() {
 		{ value: "advanced", label: t("Advanced") },
 	];
 
+	const onAirTone = {
+		live: "tally-pulse bg-tally",
+		brb: "bg-caution",
+		starting: "bg-caution",
+		failed: "bg-caution",
+		"source-connected": "bg-signal",
+		ready: "bg-signal",
+		"almost-ready": "border border-muted-foreground",
+	}[home.status];
+	const sourcePath = livePath ?? paths[0];
+	const failedOutputs = outputs.filter((o) => o.state === "failed").length;
+	const startingOutputs = outputs.filter(
+		(o) => o.state === "starting" || o.state === "retrying",
+	).length;
+	const chain: ChainSlot[] = [
+		{
+			label: fi ? "Lähde" : "Source",
+			value: sourcePath?.label ?? (fi ? "Ei laitetta" : "No device"),
+			state: livePath ? "active" : sourcePath ? "set" : "open",
+			signal: livePath
+				? "live"
+				: paths.some((path) => path.stale)
+					? "caution"
+					: undefined,
+			status: livePath
+				? fi
+					? "Lähettää"
+					: "Sending"
+				: sourcePath
+					? fi
+						? "Ei yhteyttä"
+						: "Offline"
+					: fi
+						? "Lisää laite"
+						: "Add a device",
+		},
+		{
+			label: "Relay",
+			value: "VISP",
+			state: "set",
+			status: livePath?.linkStats ? (
+				<span className="font-mono text-xs">
+					{formatLinkStats(livePath.linkStats)}
+				</span>
+			) : undefined,
+		},
+		mode === "obs"
+			? {
+					label: fi ? "Lähtö" : "Output",
+					value: "OBS",
+					state: obsQuery.data?.configured ? "set" : "open",
+					signal: obsQuery.data?.streaming
+						? "live"
+						: obsQuery.data?.connected
+							? "ok"
+							: obsQuery.data?.configured
+								? "caution"
+								: undefined,
+					status: obsQuery.data?.streaming
+						? t("Live")
+						: obsQuery.data?.connected
+							? fi
+								? "Yhdistetty"
+								: "Connected"
+							: obsQuery.data?.configured
+								? fi
+									? "Ei yhteyttä"
+									: "Not connected"
+								: t("Pair OBS"),
+				}
+			: {
+					label: fi ? "Lähdöt suorana" : "Outputs live",
+					value: desiredDestinations
+						? `${liveOutputs}/${desiredDestinations}`
+						: undefined,
+					state: desiredDestinations ? "set" : "open",
+					signal: liveOutputs
+						? "live"
+						: holding || failedOutputs || startingOutputs
+							? "caution"
+							: undefined,
+					status: liveOutputs
+						? t("Live")
+						: holding
+							? t("BRB")
+							: failedOutputs
+								? t("Output failed")
+								: startingOutputs
+									? t("Output starting")
+									: desiredDestinations
+										? t("Ready")
+										: t("Connect a platform"),
+					onSelect: () => selectView("destinations"),
+				},
+	];
+
 	return (
 		<>
-			<Center axis="horizontal" style={{ minWidth: 0 }}>
-				<VStack
-					gap={5}
-					maxWidth={960}
-					padding={4}
-					style={{ minWidth: 0 }}
-					width="100%"
-				>
-					<PageHeader
-						actions={modeMenu}
-						eyebrow={t("Show day")}
-						title={t("Dashboard")}
+			<main className="app-type mx-auto flex w-full min-w-0 max-w-[1120px] flex-col gap-6 px-4 pt-6 pb-24 sm:px-6 sm:pt-10">
+				<PageHeader actions={modeMenu} title={t("Dashboard")} />
+				{/* ponytail: TabList has no overflow handling; scroll the strip on narrow phones. */}
+				<div className="-mt-2 w-full min-w-0 overflow-x-auto">
+					<TabList
+						hasDivider
+						value={view}
+						onChange={(next) => selectView(next as DashboardView)}
+					>
+						{tabs.map((tab) => (
+							<Tab key={tab.value} label={tab.label} value={tab.value} />
+						))}
+					</TabList>
+				</div>
+				<PastDueBanner />
+				{statusError ? (
+					<Banner
+						status="warning"
+						title={t("Status unavailable")}
+						description={t("Showing last known state. Retrying automatically.")}
 					/>
-					{/* ponytail: TabList has no overflow handling; scroll the strip on narrow phones. */}
-					<div className="w-full min-w-0 overflow-x-auto">
-						<TabList
-							hasDivider
-							value={view}
-							onChange={(next) => selectView(next as DashboardView)}
-						>
-							{tabs.map((tab) => (
-								<Tab key={tab.value} label={tab.label} value={tab.value} />
-							))}
-						</TabList>
-					</div>
-					<PastDueBanner />
-					{statusError ? (
-						<Banner
-							status="warning"
-							title={t("Status unavailable")}
-							description={t(
-								"Showing last known state. Retrying automatically.",
-							)}
-						/>
-					) : null}
-					{view === "home" ? (
-						<VStack gap={4} width="100%">
-							<Card>
-								<VStack gap={1}>
-									<Heading level={2}>{t(statusLabel)}</Heading>
-									<Text color="secondary">{t(statusDescription)}</Text>
-									{livePath?.linkStats ? (
-										<Text color="secondary">
-											{formatLinkStats(livePath.linkStats)}
-										</Text>
-									) : null}
-									<PlanLine />
-								</VStack>
-							</Card>
-							{!statusError && home.nextStep ? (
-								<Banner
-									description={t(
-										home.nextStep === "connect-platform"
-											? "Authorize Twitch, Kick, or YouTube before show day."
-											: home.nextStep === "get-app"
-												? "Install VISP and add this phone as a publishing device."
-												: "Pair the VISP plugin with OBS before you stream.",
-									)}
-									status="info"
-									title={t("Next step")}
-								/>
-							) : null}
-							<HStack gap={2} wrap="wrap">
-								<Button
-									isDisabled={statusError}
-									isLoading={stopDirect.isPending || setObsStreaming.isPending}
-									label={actionLabel}
-									variant="primary"
-									onClick={primaryAction}
-								/>
-								{studioQuery.data?.settings.available ? (
-									<Button
-										href={`/studio${fi ? "?lang=fi" : ""}`}
-										label={t("Cloud Studio")}
-									/>
-								) : null}
-							</HStack>
-							<Card>
-								<VStack gap={2}>
-									<Heading level={2}>{t("Preview")}</Heading>
-									{livePath ? (
-										<WhepPreview
-											emptyHint={t("Waiting for a picture from your camera.")}
-											emptyTitle={t("Waiting for the live picture")}
-											label={`${livePath.label}: ${t("Live")}`}
-											poster={snapshot?.url ?? undefined}
-											url={studioQuery.data?.preview?.camera}
+				) : null}
+				{view === "home" ? (
+					<div className="flex flex-col gap-10">
+						{/* The desk: program monitor beside the on-air light and chain. */}
+						<div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_19rem] lg:gap-12">
+							<section
+								aria-label={t("Preview")}
+								className="flex min-w-0 flex-col gap-2"
+							>
+								<div className="flex items-center justify-between gap-4 text-muted-foreground text-xs">
+									<span className="flex items-center gap-2">
+										<span
+											aria-hidden
+											className={`size-2 ${livePath ? "tally-pulse bg-tally" : "border border-muted-foreground"}`}
 										/>
-									) : (
-										<Text color="secondary">
-											{t("Preview appears when you go live from the app.")}
-										</Text>
-									)}
-								</VStack>
-							</Card>
-							{mode !== "obs" ? (
+										{fi ? "Ohjelma" : "Program"}
+									</span>
+									{livePath ? <span>{livePath.label}</span> : null}
+								</div>
+								<div className="border border-border">
+									<WhepPreview
+										emptyHint={t(
+											livePath
+												? "Waiting for a picture from your camera."
+												: "Preview appears when you go live from the app.",
+										)}
+										emptyTitle={t(
+											livePath ? "Waiting for the live picture" : "No picture",
+										)}
+										label={
+											livePath
+												? `${livePath.label}: ${t("Live")}`
+												: t("Preview")
+										}
+										poster={snapshot?.url ?? undefined}
+										url={
+											livePath ? studioQuery.data?.preview?.camera : undefined
+										}
+									/>
+								</div>
+							</section>
+
+							<div className="flex min-w-0 flex-col gap-8">
+								<div className="flex flex-col gap-3" role="status">
+									<span className="flex items-center gap-3">
+										<span
+											aria-hidden
+											className={`size-4 shrink-0 ${onAirTone}`}
+										/>
+										<span className="font-bold font-display text-5xl uppercase leading-none tracking-tight">
+											{t(statusLabel)}
+										</span>
+									</span>
+									<p className="text-muted-foreground leading-relaxed">
+										{t(statusDescription)}
+									</p>
+								</div>
+								<HStack gap={2} wrap="wrap">
+									<Button
+										isDisabled={statusError}
+										isLoading={
+											stopDirect.isPending || setObsStreaming.isPending
+										}
+										label={actionLabel}
+										variant="primary"
+										onClick={primaryAction}
+									/>
+									{studioQuery.data?.settings.available ? (
+										<Button
+											href={`/studio${fi ? "?lang=fi" : ""}`}
+											label={t("Cloud Studio")}
+										/>
+									) : null}
+								</HStack>
+								{!statusError && home.nextStep ? (
+									<p className="border-muted-foreground border-l-2 bg-card/40 px-4 py-3 text-sm leading-relaxed">
+										{t(
+											home.nextStep === "connect-platform"
+												? "Authorize Twitch, Kick, or YouTube before show day."
+												: home.nextStep === "get-app"
+													? "Install VISP and add this phone as a publishing device."
+													: "Pair the VISP plugin with OBS before you stream.",
+										)}
+									</p>
+								) : null}
+								<SignalChain
+									label={fi ? "Signaaliketju" : "Signal chain"}
+									slots={chain}
+								/>
+								<PlanLine />
+							</div>
+						</div>
+						{mode !== "obs" ? (
+							<div className="max-w-[960px]">
 								<DestinationsSummary
 									onManage={() => selectView("destinations")}
 								/>
-							) : null}
-						</VStack>
-					) : null}
+							</div>
+						) : null}
+					</div>
+				) : null}
+				<div className="w-full max-w-[960px]">
 					{view === "destinations" ? (
 						<VStack gap={4} width="100%">
 							{mode === "obs" ? (
@@ -494,8 +611,8 @@ export function DashboardPage() {
 							<AgentsCard />
 						</VStack>
 					) : null}
-				</VStack>
-			</Center>
+				</div>
+			</main>
 			<SeppoWidget
 				context="dashboard"
 				open={seppoOpen}

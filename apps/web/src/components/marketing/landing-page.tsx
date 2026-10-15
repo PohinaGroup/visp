@@ -56,8 +56,14 @@ export function LandingPage({
 							<div className="-mb-4 lg:col-span-2 lg:mb-0">{topNote}</div>
 						) : null}
 						<div>
-							<h1 className="mkt-display text-[clamp(2.5rem,7vw,5.5rem)]">
-								{hero.title}
+							<h1 className="mkt-display text-[clamp(3rem,8.5vw,6.75rem)]">
+								{/* Each sentence starts its own line. */}
+								{hero.title.split(/(?<=\.)\s+/).map((line) => (
+									// The trailing space keeps the sentences apart in the text.
+									<span key={line} className="block">
+										{`${line} `}
+									</span>
+								))}
 							</h1>
 							<p className="mt-5 max-w-[56ch] text-[1.0625rem] leading-relaxed md:mt-7 md:text-[1.1875rem]">
 								{hero.body}

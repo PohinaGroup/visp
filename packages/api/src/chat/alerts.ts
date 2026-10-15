@@ -26,7 +26,11 @@ const ALERT_COOLDOWN_SECONDS = 60;
  * only touches the row when the last send is older than the cooldown, so two
  * instances racing the same transition produce exactly one message.
  */
-async function claimAlert(pathId: number, event: AlertEvent, cooldown: number) {
+export async function claimAlert(
+	pathId: number,
+	event: AlertEvent | "degraded",
+	cooldown: number,
+) {
 	const [claimed] = await db
 		.insert(chatBotAlert)
 		.values({ pathId, event })

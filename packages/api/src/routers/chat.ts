@@ -22,6 +22,7 @@ import {
 	enableChatConnection,
 	listChatConnections,
 } from "../chat/connections";
+import { moderatorStatus } from "../chat/moderator";
 import {
 	chatOverlayTokenStatus,
 	issueChatOverlayToken,
@@ -52,6 +53,16 @@ const botSettings = z.object({
 	}),
 	alerts: perEvent(z.boolean()),
 	messages: perEvent(alertMessage),
+	moderator: z.object({
+		enabled: z.boolean(),
+		rules: z.string().trim().max(2000),
+		// Twitch caps a timeout at two weeks.
+		maxTimeoutSeconds: z.number().int().min(1).max(1_209_600),
+		onRaid: z.boolean(),
+		onGift: z.boolean(),
+		onSignal: z.boolean(),
+		onQuestions: z.boolean(),
+	}),
 });
 
 export const chatRouter = router({
@@ -109,16 +120,18 @@ export const chatRouter = router({
 	/** Alerts, commands, and where the bot is allowed to post. */
 	bot: router({
 		get: relayProcedure.query(async ({ ctx }) => {
-			const [access, commands, canPost] = await Promise.all([
+			const [access, commands, canPost, moderator] = await Promise.all([
 				getBotSettingsAccess(ctx.relayUser.id),
 				listBotCommands(ctx.relayUser.id),
 				sendableProviders(ctx.relayUser.id),
+				moderatorStatus(ctx.relayUser.id),
 			]);
 			return {
 				settings: access.settings,
 				canSelectSender: access.canSelectSender,
 				commands,
 				canPost,
+				moderator,
 				defaultMessages: DEFAULT_ALERT_MESSAGES,
 				maxMessageLength: MAX_ALERT_MESSAGE_LENGTH,
 			};

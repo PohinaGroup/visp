@@ -363,6 +363,7 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 				async clearChatOverlay() {},
 				async clearCaptionsOverlay() {},
 				async updateCaptionsOverlay() {},
+				async setWatermark() {},
 				async startLiveCaptions() {
 					return true;
 				},

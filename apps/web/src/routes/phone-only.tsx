@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 
 import { LandingPage } from "@/components/marketing/landing-page";
 import { PhoneOnlySections } from "@/components/marketing/phone-only-sections";
+import { mktPhone } from "@/components/marketing/styles";
 import { type Locale, landingHead } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
 import { faqJsonLd, howToJsonLd } from "@/lib/seo";
@@ -31,14 +32,16 @@ export function PhoneOnlyPage({ locale }: { locale: Locale }) {
 			locale={locale}
 			hero={phoneOnly.hero}
 			media={
-				<img
-					src="/marketing/app-live.jpg"
-					alt={phoneOnly.hero.imageAlt}
-					width={IMAGE_WIDTH}
-					height={IMAGE_HEIGHT}
-					fetchPriority="high"
-					className="h-auto max-h-[60svh] w-auto max-w-full rounded-xl bg-surface"
-				/>
+				<div className={`${mktPhone} self-center lg:self-auto`}>
+					<img
+						src="/marketing/app-live.jpg"
+						alt={phoneOnly.hero.imageAlt}
+						width={IMAGE_WIDTH}
+						height={IMAGE_HEIGHT}
+						fetchPriority="high"
+						className="block h-auto max-h-[60svh] w-auto max-w-full rounded-[1.75rem] bg-black"
+					/>
+				</div>
 			}
 			closing={phoneOnly.closing}
 		>

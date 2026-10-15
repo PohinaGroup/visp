@@ -19,20 +19,34 @@ const RUNS = LEVELS.reduce<Run[]>((runs, level, i) => {
 }, []);
 
 const barFill = (level: number) =>
-	level >= 3 ? "fill-(--signal)" : "fill-(--weak)";
-const ghost = "fill-none stroke-ink-muted";
+	level >= 2.5 ? "fill-(--signal)" : "fill-(--weak)";
+// No signal: a flat stub on the baseline, like a meter at rest.
+const stub = "fill-ink-muted/50";
+const label = "font-mono uppercase tracking-[0.12em]";
 
-// Horizontal (md and up): a fixed viewBox that scales with the page. Bars and
-// gaps are equal width, like the logo's meter mark.
+// Horizontal (md and up): a fixed viewBox that scales with the page. A dense
+// meter: K thin bars per moment, bars and gaps equal width like the logo's
+// meter mark, levels eased between moments with a fixed flicker.
 const SLOT = 64;
-const BAR = 32;
+const K = 4;
+const BAR = SLOT / K / 2;
 const W = (LEVELS.length - 1) * SLOT + BAR;
+const FLICKER = [0, 0.3, -0.2, 0.15, -0.3, 0.1, 0.25];
+const METER = Array.from({ length: (LEVELS.length - 1) * K + 1 }, (_, j) => {
+	const i = Math.floor(j / K);
+	const from = LEVELS[i];
+	// A dead moment stays dead to its end, so no bar lands in the BRB run.
+	if (from === 0) return 0;
+	const to = LEVELS[i + 1] ?? from;
+	const eased = from + ((to - from) * (j % K)) / K;
+	return Math.min(MAX, Math.max(0.3, eased + FLICKER[j % FLICKER.length]));
+});
 const runX = (r: Run) => r.start * SLOT;
 const runW = (r: Run, i: number) =>
 	(RUNS[i + 1] ? runX(RUNS[i + 1]) : W) - runX(r);
-// SVG text scales with the viewBox; step it down as the strip widens so it
-// stays near body size (≥ 17px at 768px).
-const hText = "text-[18px] lg:text-[15px] xl:text-[13px]";
+// SVG text scales with the viewBox; step it down as the strip widens so the
+// mono labels render near 14px at every width.
+const hText = "text-[14px] lg:text-[11px] xl:text-[9px]";
 
 // Vertical (below md): no viewBox, px across and % down, so it stretches to
 // the caption list. The list's rows share its height in fixed ratios, which
@@ -56,7 +70,7 @@ export function SignalStrip({
 	compact?: boolean;
 }) {
 	const id = useId();
-	const unit = compact ? 14 : 22;
+	const unit = compact ? 12 : 16;
 	const barsTop = 40;
 	const base = barsTop + MAX * unit;
 	const viewerLabel = base + 40;
@@ -76,38 +90,22 @@ export function SignalStrip({
 			>
 				<title id={`${id}h-t`}>{copy.label}</title>
 				<desc id={`${id}h-d`}>{desc}</desc>
-				<text x={0} y={18} className={`fill-ink-muted font-medium ${hText}`}>
-					{copy.signalTrack}
-				</text>
 				<g className="strip-play">
-					{LEVELS.map((level, i) =>
-						level === 0 ? (
-							<rect
-								key={i}
-								x={i * SLOT + 0.75}
-								y={barsTop + 0.75}
-								width={BAR - 1.5}
-								height={MAX * unit - 1.5}
-								className={ghost}
-								strokeWidth={1.5}
-								strokeDasharray="4 4"
-							/>
-						) : (
-							<rect
-								key={i}
-								x={i * SLOT}
-								y={base - level * unit}
-								width={BAR}
-								height={level * unit}
-								className={barFill(level)}
-							/>
-						),
-					)}
+					{METER.map((level, j) => (
+						<rect
+							key={j}
+							x={j * BAR * 2}
+							y={level === 0 ? base - 2 : base - level * unit}
+							width={BAR}
+							height={level === 0 ? 2 : level * unit}
+							className={level === 0 ? stub : barFill(level)}
+						/>
+					))}
 				</g>
 				<text
 					x={0}
 					y={viewerLabel}
-					className={`fill-ink-muted font-medium ${hText}`}
+					className={`fill-ink-muted ${label} ${hText}`}
 				>
 					{copy.viewerTrack}
 				</text>
@@ -115,13 +113,12 @@ export function SignalStrip({
 					data-on-air
 					d={`M2 ${line}H${W - 2}`}
 					className="fill-none stroke-on-air"
-					strokeWidth={4}
-					strokeLinecap="round"
+					strokeWidth={3}
 				/>
 				{RUNS.map((r) => (
 					<g key={r.start} transform={`translate(${runX(r)} ${tag})`}>
 						<Dot live={r.live} r={5} cx={5} cy={-6} />
-						<text x={16} className={`fill-ink font-semibold ${hText}`}>
+						<text x={16} className={`fill-ink font-medium ${label} ${hText}`}>
 							{r.live ? copy.live : copy.brb}
 						</text>
 					</g>
@@ -156,7 +153,7 @@ export function SignalStrip({
 							height={V_THICK}
 							className="fill-(--signal)"
 						/>
-						<text x={24} y={-38} className="fill-ink-muted font-medium text-sm">
+						<text x={24} y={-38} className={`fill-ink-muted text-xs ${label}`}>
 							{copy.signalTrack}
 						</text>
 						<path
@@ -164,7 +161,7 @@ export function SignalStrip({
 							className="fill-none stroke-on-air"
 							strokeWidth={3}
 						/>
-						<text x={24} y={-11} className="fill-ink-muted font-medium text-sm">
+						<text x={24} y={-11} className={`fill-ink-muted text-xs ${label}`}>
 							{copy.viewerTrack}
 						</text>
 						<g className="strip-play strip-play-y">
@@ -175,14 +172,12 @@ export function SignalStrip({
 									return level === 0 ? (
 										<rect
 											key={r.start + k}
-											x={0.75}
+											x={0}
 											y={y}
-											transform={`translate(0 ${dy + 0.75})`}
-											width={MAX * V_UNIT - 1.5}
-											height={V_THICK - 1.5}
-											className={ghost}
-											strokeWidth={1.5}
-											strokeDasharray="3 3"
+											transform={`translate(0 ${dy})`}
+											width={2}
+											height={V_THICK}
+											className={stub}
 										/>
 									) : (
 										<rect
@@ -228,7 +223,7 @@ export function SignalStrip({
 									x={V_TEXT_X + 14}
 									y={`${vTop(ri)}%`}
 									dy={5}
-									className="fill-ink font-semibold text-sm"
+									className={`fill-ink font-medium text-xs ${label}`}
 								>
 									{r.live ? copy.live : copy.brb}
 								</text>

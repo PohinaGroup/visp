@@ -6,6 +6,7 @@ import {
 	hasScope,
 	hasStreamKeyScope,
 	hasTwitchBotChannelScope,
+	hasTwitchBotModerateScope,
 	linkScopes,
 	PROVIDER_SCOPES,
 	parseScopes,
@@ -27,6 +28,20 @@ describe("hasAlertScope", () => {
 		).toBe(false);
 		expect(hasAlertScope("kick", "")).toBe(true);
 		expect(hasAlertScope("youtube", "")).toBe(true);
+	});
+});
+
+describe("hasTwitchBotModerateScope", () => {
+	test("needs every moderation scope on the bot account", () => {
+		expect(
+			hasTwitchBotModerateScope(PROVIDER_SCOPES.twitch.botModerate.join(" ")),
+		).toBe(true);
+		expect(
+			hasTwitchBotModerateScope(
+				"moderator:manage:chat_messages moderator:manage:banned_users clips:edit",
+			),
+		).toBe(false);
+		expect(hasTwitchBotModerateScope(null)).toBe(false);
 	});
 });
 

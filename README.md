@@ -1,7 +1,7 @@
 # VISP
 
 VISP is a self-hosted SRT/SRTLA/RTMP relay and control plane for remote live
-streaming. Broadcasters sign in with Twitch, Kick, or Google, create independently
+streaming.. Broadcasters sign in with Twitch, Kick, or Google, create independently
 revocable publishing devices, and send one H.264/AAC feed to MediaMTX. Direct
 then distribution-encodes that feed to Twitch, Kick, or YouTube — one FFmpeg
 forwarder per destination (outputs with the same framing share one encode),

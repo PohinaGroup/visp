@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
+import type { ButtonHTMLAttributes, ReactNode } from "react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 
-import { EYEBROW, PageHeader } from "@/components/page-header";
+import { PageHeader } from "@/components/page-header";
 import { authClient, authRedirectURL } from "@/lib/auth-client";
 import { useLocale } from "@/lib/i18n";
 
@@ -18,7 +18,7 @@ export const Route = createFileRoute("/login")({
 	component: RouteComponent,
 });
 
-// Hairline field, matching the login page's outlined-button language.
+// Hairline field, matching the provider rows.
 const FIELD =
 	"h-11 rounded-[var(--radius)] border border-border bg-transparent px-3 text-base text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2";
 
@@ -39,7 +39,6 @@ function safeReturnPath(value: string | undefined) {
 }
 
 const en = {
-	eyebrow: "Sign in",
 	title: "Sign in to VISP",
 	subtitle:
 		"Twitch, Kick, or Google identifies your relay account. Signing in never asks for your stream key.",
@@ -51,7 +50,7 @@ const en = {
 	kickPending: "Opening Kick...",
 	google: "Continue with Google",
 	googlePending: "Opening Google...",
-	emailHeading: "Or sign in with an email address",
+	emailHeading: "Use an email address instead",
 	emailIntro:
 		"Opens an empty account: no channels connected, no devices, nothing streaming. Good for looking around first.",
 	emailLabel: "Email",
@@ -83,18 +82,22 @@ const en = {
 	terms: "Terms of Service",
 	agreeAnd: " and ",
 	privacy: "Privacy Policy",
-	assurances: [
-		{ tag: "KEY", body: "No stream key pasting — VISP fetches it over OAuth." },
-		{
-			tag: "DIRECT",
-			body: "Go live without putting a stream key on your phone.",
-		},
-		{ tag: "OAUTH", body: "Revoke access from the dashboard at any time." },
+	chainHeading: "Where your stream key goes",
+	account: "Your account",
+	providerAccount: {
+		twitch: "Twitch account",
+		kick: "Kick account",
+		google: "Google account",
+	},
+	chain: [
+		"Identifies you. Revoke VISP's access from the dashboard at any time.",
+		"Fetches your stream key over OAuth. You never paste it.",
+		"Direct goes live from your phone without putting the key on it.",
 	],
+	nodes: ["VISP relay", "OBS or Direct", "Your channel"],
 };
 
 const fiCopy: typeof en = {
-	eyebrow: "Kirjautuminen",
 	title: "Kirjaudu VISPiin",
 	subtitle:
 		"Twitchiä, Kickiä tai Googlea käytetään relay-tilisi tunnistamiseen. Lähetysavainta ei kysytä sisäänkirjautumisessa.",
@@ -106,7 +109,7 @@ const fiCopy: typeof en = {
 	kickPending: "Avataan Kickiä...",
 	google: "Jatka Googlella",
 	googlePending: "Avataan Googlea...",
-	emailHeading: "Tai kirjaudu sähköpostilla",
+	emailHeading: "Käytä sähköpostiosoitetta",
 	emailIntro:
 		"Avaa tyhjän tilin: ei yhdistettyjä kanavia, ei laitteita, ei lähetystä. Sopii ensin tutustumiseen.",
 	emailLabel: "Sähköposti",
@@ -137,17 +140,19 @@ const fiCopy: typeof en = {
 	terms: "käyttöehdot",
 	agreeAnd: " ja ",
 	privacy: "tietosuojaselosteen",
-	assurances: [
-		{
-			tag: "KEY",
-			body: "Lähetysavainta ei liitetä — VISP hakee sen OAuth-luvalla.",
-		},
-		{
-			tag: "DIRECT",
-			body: "Aloita lähetys ilman, että lähetysavain tallentuu puhelimeen.",
-		},
-		{ tag: "OAUTH", body: "Voit perua käyttöoikeuden hallintapaneelista." },
+	chainHeading: "Mihin lähetysavaimesi kulkee",
+	account: "Oma tilisi",
+	providerAccount: {
+		twitch: "Twitch-tili",
+		kick: "Kick-tili",
+		google: "Google-tili",
+	},
+	chain: [
+		"Tunnistaa sinut. Voit perua VISPin käyttöoikeuden hallintapaneelista milloin tahansa.",
+		"Hakee lähetysavaimesi OAuth-luvalla. Sinun ei tarvitse liittää sitä.",
+		"Directillä lähetät puhelimesta ilman, että avain tallentuu puhelimeen.",
 	],
+	nodes: ["VISP-relay", "OBS tai Direct", "Kanavasi"],
 };
 
 function RouteComponent() {
@@ -155,7 +160,8 @@ function RouteComponent() {
 	const locale = useLocale();
 	const fi = locale === "fi";
 	const copy = fi ? fiCopy : en;
-	const [pending, setPending] = useState<"twitch" | "kick" | "google">();
+	const [pending, setPending] = useState<Provider>();
+	const [hovered, setHovered] = useState<Provider>();
 	const [mode, setMode] = useState<"forgot" | "reset" | "sign-in" | "sign-up">(
 		token ? "reset" : "sign-in",
 	);
@@ -163,6 +169,9 @@ function RouteComponent() {
 	const [password, setPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
 	const [emailPending, setEmailPending] = useState(false);
+	const [emailOpen, setEmailOpen] = useState(
+		Boolean(token) || error === "INVALID_TOKEN",
+	);
 	const [emailMessage, setEmailMessage] = useState(
 		error === "INVALID_TOKEN" ? copy.invalidReset : "",
 	);
@@ -171,7 +180,7 @@ function RouteComponent() {
 	);
 	const errorReturnPath = `/login?redirect=${encodeURIComponent(returnPath)}${fi ? "&lang=fi" : ""}`;
 
-	const signIn = async (provider: "twitch" | "kick" | "google") => {
+	const signIn = async (provider: Provider) => {
 		setPending(provider);
 		const callbackPath = new URL(returnPath, window.location.origin);
 		callbackPath.searchParams.set("auth_method", provider);
@@ -263,15 +272,31 @@ function RouteComponent() {
 		window.location.assign(returnPath);
 	};
 
+	const submitLabel =
+		mode === "forgot"
+			? emailPending
+				? copy.sendResetPending
+				: copy.sendResetAction
+			: mode === "reset"
+				? emailPending
+					? copy.resetPending
+					: copy.resetAction
+				: mode === "sign-up"
+					? emailPending
+						? copy.signUpPending
+						: copy.signUpAction
+					: emailPending
+						? copy.signInPending
+						: copy.signInAction;
+
+	// The chain's first node follows the provider being pointed at or opened.
+	const source = pending ?? hovered;
+
 	return (
-		<main className="mx-auto w-full max-w-[900px] overflow-y-auto px-6 py-14">
-			<div className="lander-rise grid gap-10 md:grid-cols-[1fr_0.8fr] md:gap-14">
-				<div className="flex flex-col gap-8">
-					<PageHeader
-						eyebrow={copy.eyebrow}
-						title={copy.title}
-						subtitle={copy.subtitle}
-					/>
+		<main className="mx-auto w-full max-w-[1040px] overflow-y-auto px-6 py-14">
+			<div className="lander-rise grid gap-14 md:grid-cols-[minmax(0,1fr)_minmax(0,20rem)] md:gap-20">
+				<div className="flex max-w-xl flex-col gap-8">
+					<PageHeader title={copy.title} subtitle={copy.subtitle} />
 
 					{error === "account_not_linked" && (
 						<p className="border-tally border-l-2 bg-card/40 px-4 py-3 text-sm leading-relaxed">
@@ -280,183 +305,183 @@ function RouteComponent() {
 					)}
 
 					<div className="flex flex-col gap-3">
-						<ProviderButton
-							disabled={Boolean(pending)}
-							onClick={() => signIn("twitch")}
-						>
-							{pending === "twitch" ? copy.twitchPending : copy.twitch}
-						</ProviderButton>
-						<ProviderButton
-							disabled={Boolean(pending)}
-							onClick={() => signIn("kick")}
-							variant="outline"
-						>
-							{pending === "kick" ? copy.kickPending : copy.kick}
-						</ProviderButton>
-						<ProviderButton
-							disabled={Boolean(pending)}
-							onClick={() => signIn("google")}
-							variant="outline"
-						>
-							{pending === "google" ? copy.googlePending : copy.google}
-						</ProviderButton>
+						{PROVIDERS.map((provider) => (
+							<ProviderButton
+								disabled={Boolean(pending)}
+								key={provider}
+								onBlur={() => setHovered(undefined)}
+								onClick={() => signIn(provider)}
+								onFocus={() => setHovered(provider)}
+								onMouseEnter={() => setHovered(provider)}
+								onMouseLeave={() => setHovered(undefined)}
+								state={
+									pending === provider
+										? "pending"
+										: source === provider
+											? "armed"
+											: "idle"
+								}
+							>
+								{pending === provider
+									? copy[`${provider}Pending`]
+									: copy[provider]}
+							</ProviderButton>
+						))}
 					</div>
 
-					<form
-						className="flex flex-col gap-4 border-border border-t pt-8"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void signInWithEmail();
-						}}
+					<details
+						className="group border-border border-t pt-6"
+						onToggle={(event) => setEmailOpen(event.currentTarget.open)}
+						open={emailOpen}
 					>
-						<div className="flex flex-col gap-2">
-							<h2 className="font-display font-semibold text-2xl uppercase leading-none tracking-tight">
-								{mode === "forgot"
-									? copy.forgotHeading
-									: mode === "reset"
-										? copy.resetHeading
-										: copy.emailHeading}
-							</h2>
+						<summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden">
+							{copy.emailHeading}
+							<span
+								aria-hidden
+								className="font-mono text-base leading-none transition-transform group-open:rotate-45"
+							>
+								+
+							</span>
+						</summary>
+
+						<form
+							className="flex flex-col gap-4 pt-6"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void signInWithEmail();
+							}}
+						>
+							{mode === "forgot" || mode === "reset" ? (
+								<h2 className="font-display font-semibold text-2xl uppercase leading-none tracking-tight">
+									{mode === "forgot" ? copy.forgotHeading : copy.resetHeading}
+								</h2>
+							) : null}
 							{mode !== "reset" ? (
 								<p className="max-w-[60ch] text-muted-foreground text-sm leading-relaxed">
 									{mode === "forgot" ? copy.forgotIntro : copy.emailIntro}
 								</p>
 							) : null}
-						</div>
 
-						{mode !== "reset" ? (
-							<label className="flex flex-col gap-1.5 text-sm" htmlFor="email">
-								{copy.emailLabel}
-								<input
-									autoComplete="email"
-									className={FIELD}
-									id="email"
-									name="email"
-									required
-									type="email"
-									value={email}
-									onChange={(event) => setEmail(event.target.value)}
-								/>
-							</label>
-						) : null}
-
-						{mode !== "forgot" ? (
-							<label
-								className="flex flex-col gap-1.5 text-sm"
-								htmlFor="password"
-							>
-								{copy.passwordLabel}
-								<input
-									autoComplete={
-										mode === "sign-in" ? "current-password" : "new-password"
-									}
-									className={FIELD}
-									id="password"
-									minLength={10}
-									name="password"
-									required
-									type="password"
-									value={password}
-									onChange={(event) => setPassword(event.target.value)}
-								/>
-								{mode !== "sign-in" ? (
-									<span className="text-muted-foreground text-xs">
-										{copy.passwordHint}
-									</span>
-								) : null}
-							</label>
-						) : null}
-
-						{mode === "reset" ? (
-							<label
-								className="flex flex-col gap-1.5 text-sm"
-								htmlFor="confirm-password"
-							>
-								{copy.confirmPasswordLabel}
-								<input
-									autoComplete="new-password"
-									className={FIELD}
-									id="confirm-password"
-									minLength={10}
-									name="confirm-password"
-									required
-									type="password"
-									value={confirmPassword}
-									onChange={(event) => setConfirmPassword(event.target.value)}
-								/>
-							</label>
-						) : null}
-
-						{emailMessage ? (
-							<p
-								className="border-tally border-l-2 bg-card/40 px-4 py-3 text-sm leading-relaxed"
-								role="status"
-							>
-								{emailMessage}
-							</p>
-						) : null}
-
-						<ProviderButton
-							disabled={emailPending || Boolean(pending)}
-							type="submit"
-							variant="outline"
-						>
-							{mode === "forgot"
-								? emailPending
-									? copy.sendResetPending
-									: copy.sendResetAction
-								: mode === "reset"
-									? emailPending
-										? copy.resetPending
-										: copy.resetAction
-									: mode === "sign-up"
-										? emailPending
-											? copy.signUpPending
-											: copy.signUpAction
-										: emailPending
-											? copy.signInPending
-											: copy.signInAction}
-						</ProviderButton>
-
-						{mode !== "reset" ? (
-							<div className="flex flex-wrap gap-x-4 gap-y-2">
-								<button
-									className="text-muted-foreground text-sm underline underline-offset-4 transition-colors hover:text-foreground"
-									type="button"
-									onClick={() => {
-										setEmailMessage("");
-										setMode(mode === "sign-in" ? "sign-up" : "sign-in");
-									}}
+							{mode !== "reset" ? (
+								<label
+									className="flex flex-col gap-1.5 text-sm"
+									htmlFor="email"
 								>
-									{mode === "sign-in" ? copy.toSignUp : copy.toSignIn}
-								</button>
-								{mode === "sign-in" ? (
+									{copy.emailLabel}
+									<input
+										autoComplete="email"
+										className={FIELD}
+										id="email"
+										name="email"
+										required
+										type="email"
+										value={email}
+										onChange={(event) => setEmail(event.target.value)}
+									/>
+								</label>
+							) : null}
+
+							{mode !== "forgot" ? (
+								<label
+									className="flex flex-col gap-1.5 text-sm"
+									htmlFor="password"
+								>
+									{copy.passwordLabel}
+									<input
+										autoComplete={
+											mode === "sign-in" ? "current-password" : "new-password"
+										}
+										className={FIELD}
+										id="password"
+										minLength={10}
+										name="password"
+										required
+										type="password"
+										value={password}
+										onChange={(event) => setPassword(event.target.value)}
+									/>
+									{mode !== "sign-in" ? (
+										<span className="text-muted-foreground text-xs">
+											{copy.passwordHint}
+										</span>
+									) : null}
+								</label>
+							) : null}
+
+							{mode === "reset" ? (
+								<label
+									className="flex flex-col gap-1.5 text-sm"
+									htmlFor="confirm-password"
+								>
+									{copy.confirmPasswordLabel}
+									<input
+										autoComplete="new-password"
+										className={FIELD}
+										id="confirm-password"
+										minLength={10}
+										name="confirm-password"
+										required
+										type="password"
+										value={confirmPassword}
+										onChange={(event) => setConfirmPassword(event.target.value)}
+									/>
+								</label>
+							) : null}
+
+							{emailMessage ? (
+								<p
+									className="border-caution border-l-2 bg-card/40 px-4 py-3 text-sm leading-relaxed"
+									role="status"
+								>
+									{emailMessage}
+								</p>
+							) : null}
+
+							<button
+								className="inline-flex h-12 items-center justify-center rounded-[var(--radius)] bg-primary px-8 font-medium text-base text-primary-foreground transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50"
+								disabled={emailPending || Boolean(pending)}
+								type="submit"
+							>
+								{submitLabel}
+							</button>
+
+							{mode !== "reset" ? (
+								<div className="flex flex-wrap gap-x-4 gap-y-2">
 									<button
-										className="text-muted-foreground text-sm underline underline-offset-4 transition-colors hover:text-foreground"
+										className={TEXT_LINK}
 										type="button"
 										onClick={() => {
 											setEmailMessage("");
-											setMode("forgot");
+											setMode(mode === "sign-in" ? "sign-up" : "sign-in");
 										}}
 									>
-										{copy.forgotPassword}
+										{mode === "sign-in" ? copy.toSignUp : copy.toSignIn}
 									</button>
-								) : null}
-							</div>
-						) : null}
-					</form>
+									{mode === "sign-in" ? (
+										<button
+											className={TEXT_LINK}
+											type="button"
+											onClick={() => {
+												setEmailMessage("");
+												setMode("forgot");
+											}}
+										>
+											{copy.forgotPassword}
+										</button>
+									) : null}
+								</div>
+							) : null}
+						</form>
+					</details>
 
-					<p className="font-mono text-[11px] text-muted-foreground leading-relaxed">
+					<p className="text-muted-foreground text-xs leading-relaxed">
 						{copy.agreeBefore}
-						<Link
-							className="underline underline-offset-4 transition-colors hover:text-foreground"
-							to={fi ? "/fi/terms" : "/terms"}
-						>
+						<Link className={TEXT_LINK_INLINE} to={fi ? "/fi/terms" : "/terms"}>
 							{copy.terms}
 						</Link>
 						{copy.agreeAnd}
 						<Link
-							className="underline underline-offset-4 transition-colors hover:text-foreground"
+							className={TEXT_LINK_INLINE}
 							to={fi ? "/fi/privacy" : "/privacy"}
 						>
 							{copy.privacy}
@@ -465,52 +490,115 @@ function RouteComponent() {
 					</p>
 				</div>
 
-				{/* Reassurance as channel strips, matching the lander's hairline grid. */}
-				<ul className="grid h-fit gap-px border border-border bg-border">
-					{copy.assurances.map((item) => (
-						<li
-							className="flex flex-col gap-2 bg-background p-6"
-							key={item.tag}
-						>
-							<span className={EYEBROW}>{item.tag}</span>
-							<span className="text-muted-foreground text-sm leading-relaxed">
-								{item.body}
-							</span>
-						</li>
-					))}
-				</ul>
+				{/* Where the key travels: the signal chain, sign-in as its first node. */}
+				<aside aria-labelledby="chain-heading" className="md:pt-2">
+					<h2 className="pb-6 text-muted-foreground text-sm" id="chain-heading">
+						{copy.chainHeading}
+					</h2>
+					<ol className="flex flex-col">
+						<ChainNode
+							body={copy.chain[0]}
+							name={source ? copy.providerAccount[source] : copy.account}
+							state={pending ? "pending" : "here"}
+						/>
+						<ChainNode body={copy.chain[1]} name={copy.nodes[0]} />
+						<ChainNode body={copy.chain[2]} name={copy.nodes[1]} />
+						<ChainNode last name={copy.nodes[2]} />
+					</ol>
+				</aside>
 			</div>
 		</main>
 	);
 }
 
-// Auth-scale CTA: the lander's TryCta idiom at h-12, since the @VISP/ui Button
-// tops out at h-9 and reads timid as the only action on the page.
-function ProviderButton({
-	children,
-	disabled,
-	onClick,
-	type = "button",
-	variant = "primary",
+const PROVIDERS = ["twitch", "kick", "google"] as const;
+type Provider = (typeof PROVIDERS)[number];
+
+const TEXT_LINK =
+	"text-muted-foreground text-sm underline underline-offset-4 transition-colors hover:text-foreground";
+const TEXT_LINK_INLINE =
+	"underline underline-offset-4 transition-colors hover:text-foreground";
+
+// One stop on the chain: a square on a hairline rail. The first node is where
+// the visitor is now (solid), amber while a provider sign-in is opening.
+function ChainNode({
+	body,
+	last = false,
+	name,
+	state = "downstream",
 }: {
-	children: ReactNode;
-	disabled?: boolean;
-	onClick?: () => void;
-	type?: "button" | "submit";
-	variant?: "primary" | "outline";
+	body?: string;
+	last?: boolean;
+	name: string;
+	state?: "here" | "pending" | "downstream";
 }) {
 	return (
+		<li className="relative grid grid-cols-[1.25rem_minmax(0,1fr)] gap-x-4">
+			{last ? null : (
+				<span
+					aria-hidden
+					className="absolute top-3 bottom-0 left-[calc(0.625rem-0.5px)] w-px bg-border"
+				/>
+			)}
+			<span
+				aria-hidden
+				className={`relative mt-[0.4rem] size-2.5 justify-self-center ${
+					state === "pending"
+						? "tally-pulse bg-caution"
+						: state === "here"
+							? "bg-foreground"
+							: "border border-muted-foreground bg-background"
+				}`}
+			/>
+			<div className={`flex flex-col gap-1.5 ${last ? "" : "pb-8"}`}>
+				<span
+					className={`font-display font-semibold text-xl uppercase leading-tight tracking-tight ${
+						state === "downstream" ? "text-muted-foreground" : ""
+					}`}
+				>
+					{name}
+				</span>
+				{body ? (
+					<p className="text-muted-foreground text-sm leading-relaxed">
+						{body}
+					</p>
+				) : null}
+			</div>
+		</li>
+	);
+}
+
+// Auth-scale provider row: label left, a node square right that lights as the
+// row is armed, the same square the chain uses for its first stop.
+function ProviderButton({
+	children,
+	state,
+	...props
+}: {
+	children: ReactNode;
+	state: "idle" | "armed" | "pending";
+} & Omit<ButtonHTMLAttributes<HTMLButtonElement>, "children" | "type">) {
+	return (
 		<button
-			className={`inline-flex h-12 items-center justify-center rounded-[var(--radius)] px-8 font-medium text-base transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 ${
-				variant === "primary"
-					? "bg-primary text-primary-foreground hover:opacity-90"
-					: "border border-border text-foreground hover:bg-card"
+			className={`inline-flex h-14 items-center justify-between rounded-[var(--radius)] border px-5 font-medium text-base transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:cursor-default ${
+				state === "idle"
+					? "border-border text-foreground disabled:opacity-50"
+					: "border-foreground bg-card text-foreground"
 			}`}
-			disabled={disabled}
-			onClick={onClick}
-			type={type}
+			type="button"
+			{...props}
 		>
 			{children}
+			<span
+				aria-hidden
+				className={`size-2.5 ${
+					state === "pending"
+						? "tally-pulse bg-caution"
+						: state === "armed"
+							? "bg-foreground"
+							: "border border-muted-foreground"
+				}`}
+			/>
 		</button>
 	);
 }

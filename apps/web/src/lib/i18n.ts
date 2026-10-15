@@ -254,7 +254,7 @@ export const finnishUi: Record<string, string> = {
 	"Last saved program preview": "Viimeksi tallennetun ohjelman esikatselu",
 	"Add a source to build your program": "Lisää lähde rakentaaksesi ohjelmasi",
 	"Text, PNG, browser, and VISP alerts are available.":
-		"Käytettävissä ovat teksti, PNG, selain ja VISP-hälytykset.",
+		"Käytettävissä ovat teksti, PNG, selain ja VISP-alertit.",
 	"Add source": "Lisää lähde",
 	"PNG, up to 10 MB.": "PNG, enintään 10 Mt.",
 	"PNG overlay": "PNG-päällys",
@@ -330,6 +330,7 @@ export const finnishUi: Record<string, string> = {
 	"Show day": "Lähetyspäivä",
 	"Setup and controls": "Käyttöönotto ja hallinta",
 	"Almost ready": "Melkein valmis",
+	"No picture": "Ei kuvaa",
 	"Preview appears when you go live from the app.":
 		"Esikatselu näkyy, kun aloitat lähetyksen sovelluksesta.",
 	"Your stream is on air.": "Lähetyksesi on suorana.",
@@ -432,7 +433,7 @@ export const finnishUi: Record<string, string> = {
 	"YouTube broadcasts are public": "YouTube-lähetykset ovat julkisia",
 	"VISP creates a new public YouTube broadcast when this device starts publishing.":
 		"VISP luo uuden julkisen YouTube-lähetyksen, kun tämä laite aloittaa julkaisemisen.",
-	"Never drop again": "Älä koskaan katkea",
+	"Never drop again": "Never drop",
 	"When your ingest drops, VISP keeps the outgoing stream running and shows this card instead. Your hosts stay, and the VOD does not split.":
 		"Kun syöte katkeaa, VISP pitää lähtevän lähetyksen käynnissä ja näyttää tämän kortin. Hostaukset säilyvät eikä tallenne katkea kahtia.",
 	"Show a BRB card when my stream drops":
@@ -670,6 +671,33 @@ export const finnishUi: Record<string, string> = {
 	"Download OBS scene file": "Lataa OBS-kohtaustiedosto",
 	"Check for a live connection": "Tarkista suora yhteys",
 	"Chat bot": "Chat-botti",
+	"AI moderator": "Tekoälymoderaattori",
+	"Watches your Twitch chat as the VISP bot: removes rule-breaking messages, times out repeat offenders, answers when mentioned, and clips on request.":
+		"Seuraa Twitch-chattiasi VISP-bottina: poistaa sääntöjä rikkovat viestit, antaa jäähyjä toistuvista rikkeistä, vastaa kun sitä mainitaan ja tekee klippejä pyynnöstä.",
+	"Moderate my Twitch chat": "Moderoi Twitch-chattiani",
+	"Not available on this server.": "Ei saatavilla tällä palvelimella.",
+	"The shared VISP bot is not set up for moderation yet.":
+		"Jaettua VISP-bottia ei ole vielä valtuutettu moderoimaan.",
+	"Connect Twitch chat in Connections first.":
+		"Yhdistä ensin Twitch-chat Yhteydet-kortista.",
+	Type: "Kirjoita",
+	"in your Twitch chat so the bot can act.":
+		"Twitch-chattiisi, jotta botti voi toimia.",
+	"Moderating as": "Moderoi tilillä",
+	"House rules": "Talon säännöt",
+	"What to remove, what to allow, and how to sound. Twitch rules always apply.":
+		"Mitä poistetaan, mitä sallitaan ja millä äänensävyllä. Twitchin säännöt pätevät aina.",
+	"No politics, no backseating, swearing is fine. Keep replies playful.":
+		"Ei politiikkaa, ei neuvomista, kiroilu on ok. Pidä vastaukset leikkisinä.",
+	"Longest timeout (seconds)": "Pisin jäähy (sekuntia)",
+	"Welcome raids": "Toivota raidit tervetulleiksi",
+	"Thank gifted subs and cheers": "Kiitä lahjatilauksista ja biteistä",
+	"Warn chat when the signal degrades":
+		"Varoita chattia kun signaali heikkenee",
+	"Answer unanswered stream questions":
+		"Vastaa lähetystä koskeviin kysymyksiin, joihin kukaan ei vastannut",
+	"Authorize moderation scopes for the shared bot":
+		"Valtuuta jaetun botin moderointioikeudet",
 	"See what the chat bot posts and answers":
 		"Katso mitä chat-botti kirjoittaa ja mihin se vastaa",
 	"Posts to your chat when the stream goes live, drops, or comes back, and answers commands like !bitrate. Messages appear as your own account.":
@@ -899,8 +927,8 @@ export function landingHead(
 				property: "og:image:alt",
 				content:
 					locale === "fi"
-						? "VISP: lähetä puhelimesta ja pysy livenä, vaikka kenttä katoaa."
-						: "VISP: go live from your phone and stay live when the signal drops.",
+						? "VISP: Pysy livenä, vaikka kenttä katoaa."
+						: "VISP: go live and stay live when the signal drops.",
 			},
 			{ property: "og:locale", content: locale === "fi" ? "fi_FI" : "en_US" },
 			{ name: "twitter:card", content: "summary_large_image" },

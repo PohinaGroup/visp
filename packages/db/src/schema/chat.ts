@@ -70,6 +70,19 @@ export const chatBot = pgTable(
 		brbMessage: text("brb_message"),
 		backMessage: text("back_message"),
 		offlineMessage: text("offline_message"),
+		/**
+		 * The AI moderator (Plus). On by default: the plan gates it at runtime,
+		 * so a free account's row carries the default without effect.
+		 */
+		modEnabled: boolean("mod_enabled").default(true).notNull(),
+		modRules: text("mod_rules").default("").notNull(),
+		modMaxTimeoutSeconds: integer("mod_max_timeout_seconds")
+			.default(600)
+			.notNull(),
+		modOnRaid: boolean("mod_on_raid").default(true).notNull(),
+		modOnGift: boolean("mod_on_gift").default(true).notNull(),
+		modOnSignal: boolean("mod_on_signal").default(true).notNull(),
+		modOnQuestions: boolean("mod_on_questions").default(false).notNull(),
 		createdAt: timestamp("created_at", { withTimezone: true })
 			.defaultNow()
 			.notNull(),
@@ -84,6 +97,15 @@ export const chatBot = pgTable(
 			sql`char_length(${table.prefix}) between 1 and 3`,
 		),
 		check("chat_bot_sender_mode", sql`${table.senderMode} in ('visp', 'self')`),
+		check(
+			"chat_bot_mod_rules_length",
+			sql`char_length(${table.modRules}) <= 2000`,
+		),
+		// Twitch caps a timeout at two weeks.
+		check(
+			"chat_bot_mod_max_timeout_range",
+			sql`${table.modMaxTimeoutSeconds} between 1 and 1209600`,
+		),
 	],
 );
 
@@ -136,7 +158,7 @@ export const chatBotAlert = pgTable(
 		primaryKey({ columns: [table.pathId, table.event] }),
 		check(
 			"chat_bot_alert_event",
-			sql`${table.event} in ('live', 'brb', 'back', 'offline')`,
+			sql`${table.event} in ('live', 'brb', 'back', 'offline', 'degraded')`,
 		),
 	],
 );

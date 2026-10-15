@@ -25,7 +25,9 @@ captions and isolation. Plus adds every hosted feature.
 | BRB highlights | — | 25 clips (existing cap) | existing clip count |
 | Typography export | — | 10 exports/mo | `requestTypographyExport` |
 | OBS backup | — | 2 GB stored | `obs_backup.total_bytes` |
+| AI chat moderator (Claude Haiku) | — | 2M tokens/mo | `packages/api/src/chat/moderator.ts` |
 | Direct, dual output | free; dual stays an admin flag | same | not billed |
+| Stream watermark | VISP mark burned into the video | none | not billed |
 
 Quotas are initial values, kept in one constant map, tuned from the Costs
 page's per-user spend against `unit_price`.

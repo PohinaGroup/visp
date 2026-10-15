@@ -35,6 +35,11 @@ export const serverEnvSchema = {
 	CLOUD_STUDIO_ENABLED: z.stringbool().default(false),
 	CLOUD_STUDIO_DEFAULT_ENABLED: z.stringbool().default(false),
 	/**
+	 * The AI chat moderator (Plus). Optional: without the key the moderator is
+	 * a no-op and the dashboard says it is not available on this server.
+	 */
+	ANTHROPIC_API_KEY: z.string().min(1).optional(),
+	/**
 	 * Hosted text-to-speech, better audio isolation, and better captions.
 	 * Optional: without the key those routes answer 503 and the app falls back.
 	 */

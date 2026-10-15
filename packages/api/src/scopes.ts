@@ -32,6 +32,18 @@ export const PROVIDER_SCOPES = {
 		chatWrite: ["user:write:chat"],
 		/** What a broadcaster grants so VISP's shared bot may post in its chat. */
 		botChannel: ["channel:bot"],
+		/**
+		 * What the shared bot account itself holds so the AI moderator can act
+		 * in channels that made it a moderator: delete, timeout, clip, and list
+		 * the channels it moderates. Granted once by the operator, never by
+		 * streamers.
+		 */
+		botModerate: [
+			"moderator:manage:chat_messages",
+			"moderator:manage:banned_users",
+			"clips:edit",
+			"user:read:moderated_channels",
+		],
 		channelWrite: "channel:manage:broadcast",
 		/** The scope whose presence proves stream-key consent. */
 		streamKey: "channel:read:stream_key",
@@ -96,6 +108,12 @@ export function hasChatWriteScope(
 
 export function hasTwitchBotChannelScope(scope: string | null | undefined) {
 	return PROVIDER_SCOPES.twitch.botChannel.every((name) =>
+		hasScope(scope, name),
+	);
+}
+
+export function hasTwitchBotModerateScope(scope: string | null | undefined) {
+	return PROVIDER_SCOPES.twitch.botModerate.every((name) =>
 		hasScope(scope, name),
 	);
 }

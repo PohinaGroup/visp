@@ -55,7 +55,7 @@ kanavamäärällä tai näytteenottotaajuudella.
 | Lähettääkö puhelin yhden syötteen? | Kyllä, myös kahdelle alustalle lähetettäessä | Kyllä |
 | Kuka koodaa kohdelähdön? | VISP-relay | OBS |
 | Voiko OBS tarkkailla tai tallentaa syötteen? | Kyllä, mutta se lukee alkuperäisen kuvalähteen | Kyllä, ja OBS omistaa myös julkisen lähdön |
-| Ovatko OBS-kohtaukset, hälytykset, grafiikat ja paikallisäänet mukana? | Vain jos ne on jo yhdistetty puhelimen kuvaan | Kyllä |
+| Ovatko OBS-kohtaukset, alertit, grafiikat ja paikallisäänet mukana? | Vain jos ne on jo yhdistetty puhelimen kuvaan | Kyllä |
 | Voiko yhden alustan vikaantuminen jättää toisen käyntiin? | Kyllä, kohteet toimivat erikseen | Riippuu OBS:n tai monilähetyksen toteutuksesta |
 | Käyttääkö VISP useaa verkkoyhteyttä? | Valinnainen natiivisovelluksessa: Wi-Fin ja mobiiliyhteyden SRTLA-bondaus tai pakettien monistus | Sama natiivijulkaisun valinta on käytettävissä |
 | Onko toiminto yleisesti saatavilla? | Kyllä, Twitchille, Kickille, YouTubelle sekä mukautetuille RTMP-, RTMPS- ja SRT-kohteille | Kyllä, valinnaisena **Puhelimesta omaan OBS:ään** -tilana |
@@ -98,7 +98,7 @@ Valitse Direct, kun kaikki seuraavat pitävät paikkansa:
 ## Milloin OBS kannattaa pitää reitillä?
 
 Käytä VISP–OBS-työnkulkua, kun kotistudio lisää ohjelmaan jotakin
-katsojille tarpeellista. Tällaisia asioita ovat esimerkiksi hälytykset,
+katsojille tarpeellista. Tällaisia asioita ovat esimerkiksi alertit,
 paikallinen juontajamikrofoni, musiikki, selainlähteet, sponsorikuvat, useat
 kamerat, uusinnat, paikallinen tallennus ja suunniteltu varakuva.
 
@@ -110,7 +110,7 @@ tekstitykset tulevat puhelinsovelluksesta, eivät Directistä.
 Molemmat reitit selviävät mobiiliverkon katkosta. OBS voi pitää julkisen
 lähetyksen käynnissä suunnitellulla varakohtauksella puhelimen yhdistäessä
 uudelleen. Direct yrittää kohdeyhteyttä uudelleen, jos jakeluprosessi kaatuu,
-ja valinnainen **Älä koskaan katkea** -asetus (hallintapaneelin **BRB**-välilehti,
+ja valinnainen **Never drop** -asetus (hallintapaneelin **BRB**-välilehti,
 oletuksena pois päältä) pitää jokaisen lähdön BRB-kortilla, kunnes kuvalähde
 palaa. [Mobiiliverkon toimintaopas](/blog/keep-stream-live-bad-mobile-network)
 käy läpi molemmat.

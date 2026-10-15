@@ -5,7 +5,6 @@
 @import "@fontsource/barlow-condensed/700.css";
 @import "@fontsource/ibm-plex-mono/400.css";
 @import "@fontsource/ibm-plex-mono/500.css";
-@import "@fontsource-variable/archivo/wdth.css";
 
 @import "@VISP/ui/globals.css";
 
@@ -172,16 +171,16 @@
 
 /*
  * Astryx Card/body tokens default to #1b1b1b in dark — visibly lighter than
- * our desk. Pull them down so dashboard cards sit on the same deep plane.
+ * our desk. Pull them down so cards read as hairline panels on the desk.
  * Unlayered so it wins over @layer astryx-theme.
  */
 html[data-theme="dark"] [data-astryx-theme="neutral"],
 html[data-theme="dark"][data-astryx-theme="neutral"] {
 	--color-background-body: oklch(0.1 0.012 255);
-	--color-background-card: oklch(0.175 0.013 255);
+	--color-background-card: oklch(0.125 0.012 255);
 	--color-background-popover: oklch(0.175 0.013 255);
-	--color-background-muted: oklch(0.195 0.013 255);
-	--color-background-surface: oklch(0.21 0.014 255);
+	--color-background-muted: oklch(0.155 0.013 255);
+	--color-background-surface: oklch(0.18 0.014 255);
 }
 
 /*
@@ -193,11 +192,38 @@ html.dark [data-astryx-theme="neutral"] {
 	color-scheme: dark;
 }
 
+/*
+ * astryx ships Figtree and soft rounded cards. Set its components in the
+ * VISP faces (Barlow, Plex Mono code) with the identity's small radius.
+ * The theme reset also styles every raw h1–h6 with the heading font, so the
+ * condensed face is scoped to app surfaces below. Unlayered so it wins.
+ */
+[data-astryx-theme="neutral"] {
+	--font-family-body: "Barlow", ui-sans-serif, system-ui, sans-serif;
+	--font-family-heading: "Barlow", ui-sans-serif, system-ui, sans-serif;
+	--font-family-code: "IBM Plex Mono", ui-monospace, monospace;
+	/* Rack hardware corners: one small radius, not astryx's soft cards. */
+	--radius-page: 0.25rem;
+	--radius-container: 0.25rem;
+	--radius-element: 0.25rem;
+	--radius-inner: 0.125rem;
+}
+
+/* Signed-in app surfaces set headings as rack-label caps. */
+.app-type {
+	--font-family-heading:
+		"Barlow Condensed", "Barlow", ui-sans-serif, system-ui, sans-serif;
+}
+.app-type :is(h1, h2, h3, h4) {
+	text-transform: uppercase;
+	letter-spacing: -0.01em;
+	line-height: 1.05;
+}
+
 @theme inline {
 	--font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
 	--font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
 	--font-mono: "IBM Plex Mono", ui-monospace, monospace;
-	--font-marketing: "Archivo Variable", ui-sans-serif, system-ui, sans-serif;
 
 	/*
 	 * Marketing palette (vars live on .mkt). Tailwind `signal` stays the app's
@@ -220,31 +246,28 @@ html.dark [data-astryx-theme="neutral"] {
 /*
  * Marketing pages. Unlayered so the tokens and base type are not overridden by
  * astryx's layered reset; the layered rule below only undoes that reset's
- * forced font/color on text elements.
+ * forced font/color on text elements. Marketing reuses the app's
+ * control-room tokens; color is signal state only.
  */
 .mkt {
-	--paper: #e9edf0;
-	--surface: #ffffff;
-	--ink: #12263b;
-	--ink-muted: #4b5d70;
-	--on-air: #e5352b;
-	--signal: #2e9b5c;
-	--weak: #e9a23b;
+	--paper: var(--background);
+	--surface: var(--card);
+	--ink: var(--foreground);
+	--ink-muted: var(--muted-foreground);
+	--on-air: oklch(0.56 0.21 27);
+	--signal: oklch(0.55 0.14 155);
+	--weak: oklch(0.68 0.14 70);
 
 	background: var(--paper);
 	color: var(--ink);
-	font-family: var(--font-marketing);
+	font-family: var(--font-sans);
 	font-size: 1.0625rem;
 }
 
 html.dark .mkt {
-	--paper: #0e1a28;
-	--surface: #152536;
-	--ink: #e9edf0;
-	--ink-muted: #9fb0c0;
-	--on-air: #f0483d;
-	--signal: #3fbf74;
-	--weak: #f0b44c;
+	--on-air: oklch(0.63 0.21 27);
+	--signal: oklch(0.72 0.15 155);
+	--weak: oklch(0.78 0.13 80);
 }
 
 @layer components {
@@ -265,11 +288,21 @@ html.dark .mkt {
 	outline-offset: 3px;
 }
 
+/* Rack-label voice: condensed caps, set tight. */
 .mkt-display {
-	font-stretch: 118%;
-	font-weight: 800;
-	line-height: 0.98;
-	letter-spacing: -0.02em;
+	font-family: var(--font-display);
+	font-weight: 700;
+	text-transform: uppercase;
+	line-height: 0.92;
+	letter-spacing: -0.005em;
+}
+
+/* Readouts: mono caps for data the page states, never as decoration. */
+.mkt-readout {
+	font-family: var(--font-mono);
+	font-size: 0.75rem;
+	letter-spacing: 0.12em;
+	text-transform: uppercase;
 }
 
 /*
