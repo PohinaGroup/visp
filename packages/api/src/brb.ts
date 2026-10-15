@@ -21,6 +21,7 @@ import {
 	stopDirectForPaths,
 } from "./direct";
 import { recordForwarderTransition } from "./forwarder-sessions";
+import { highlightsEntitledSql } from "./plan";
 import { snapshotKey, snapshotReads, snapshotUploads } from "./snapshots";
 
 export {
@@ -206,7 +207,7 @@ export async function handleSourceGone(
 				.select({
 					pathId: relayPath.id,
 					userId: relayPath.userId,
-					enabled: appUser.brbHighlights,
+					enabled: highlightsEntitledSql,
 					muted: appUser.brbHighlightsMuted,
 					overlay: appUser.brbHighlightsOverlay,
 				})
@@ -473,7 +474,7 @@ export async function getBrbSettings(
 			message: appUser.brbMessage,
 			source: appUser.brbSource,
 			imageKey: appUser.brbImageKey,
-			highlightsEnabled: appUser.brbHighlights,
+			highlightsEnabled: highlightsEntitledSql,
 			highlightsMuted: appUser.brbHighlightsMuted,
 			highlightsOverlay: appUser.brbHighlightsOverlay,
 		})

@@ -1,6 +1,6 @@
-import { betterFeatures } from "@VISP/api/better-features";
 import { recordHostedUsage } from "@VISP/api/hosted-usage";
 import { LANGUAGE_CODES } from "@VISP/api/languages";
+import { entitlement, quotaUsedMessage } from "@VISP/api/plan";
 import { fixedWindow } from "@VISP/api/rate-limit";
 import {
 	betterTtsConfigured,
@@ -44,10 +44,13 @@ export const ttsRoutes = new Elysia({ name: "tts-routes" }).post(
 		const session = await getUserSession(request.headers);
 		if (!session) return status(401, { error: "Authentication required" });
 
-		// The client switch is an affordance; this is the gate.
-		if (!(await betterFeatures(session.user.id)).betterTts) {
-			return status(403, { error: "Hosted speech is not enabled" });
+		// The client switch is an affordance; this is the gate. Either refusal
+		// sends the app to the device voice for this message.
+		const access = await entitlement(session.user.id, "tts");
+		if (!access.entitled) {
+			return status(403, { error: "Hosted speech is part of Plus" });
 		}
+		if (!access.allowed) return status(403, { error: quotaUsedMessage() });
 
 		let body: unknown;
 		try {

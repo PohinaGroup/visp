@@ -15,6 +15,7 @@ import {
 	sql,
 } from "drizzle-orm";
 import { z } from "zod";
+import { entitlement } from "./plan";
 
 const GIB = 1024 * 1024 * 1024;
 /**
@@ -84,7 +85,7 @@ const restoreStore: Pick<ObjectStore, "read" | "presign"> = {
 /** Carries the HTTP status a machine route should answer with. */
 export class ObsBackupError extends Error {
 	constructor(
-		readonly status: 400 | 404 | 409 | 413 | 422 | 429,
+		readonly status: 400 | 403 | 404 | 409 | 413 | 422 | 429,
 		message: string,
 	) {
 		super(message);
@@ -311,6 +312,11 @@ export async function createObsBackup(
 	input: { label?: string; os?: string; obsVersion?: string } = {},
 	client: Pick<ObjectStore, "read" | "stat" | "list" | "delete"> = storage,
 ) {
+	// Only new backups need Plus: restore, download and delete keep working
+	// after a downgrade.
+	const access = await entitlement(userId, "obs_backup");
+	if (!access.entitled)
+		throw new ObsBackupError(403, "OBS backup is part of Plus");
 	await removeAbandonedObsBackups(userId, client);
 	await settlePendingObsBackups(userId, client);
 	await reconcileDueObsBackups(userId, client);

@@ -59,6 +59,7 @@ const USER_FLAGS = [
 	"betterAudioIsolation",
 	"betterSubtitles",
 	"brbHighlights",
+	"comped",
 ] as const;
 
 const pageInput = z.object({
@@ -543,6 +544,10 @@ export const adminRouter = router({
 						betterAudioIsolation: appUser.betterAudioIsolation,
 						betterSubtitles: appUser.betterSubtitles,
 						brbHighlights: appUser.brbHighlights,
+						comped: appUser.comped,
+						plan: appUser.plan,
+						planStatus: appUser.planStatus,
+						planPeriodEnd: appUser.planPeriodEnd,
 						obsStreaming: appUser.obsStreaming,
 						obsSceneCount: sql<number>`coalesce(array_length(${appUser.obsScenes}, 1), 0)`,
 						obsCurrentScene: appUser.obsCurrentScene,

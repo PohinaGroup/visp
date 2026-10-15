@@ -11,6 +11,7 @@ export type ObsPairing = Outputs["obs"]["pair"];
 export type SnapshotView = Outputs["obs"]["snapshots"][number];
 export type ChatConnection = Outputs["chat"]["connections"]["list"][number];
 export type DirectOutputs = Outputs["direct"]["list"];
+export type PlanView = Outputs["plan"]["me"];
 
 export type NetworkProfile = "wired" | "wifi" | "cellular";
 export type DashboardMode = "simple" | "advanced";
@@ -39,7 +40,7 @@ export type DashboardArea =
 	| "tuning"
 	| "setup";
 
-export type DetailSectionId = "obs-read" | "tuning" | "reference";
+export type DetailSectionId = "obs-read" | "tuning" | "reference" | "plan";
 
 // Each setup area lives on its own tab. Seppo switches to the tab, opens the
 // relevant disclosure and scrolls to the exact control.
