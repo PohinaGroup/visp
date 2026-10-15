@@ -19,7 +19,10 @@ signal drops — is buried in a four-card grid.
   home screen's first viewport.
 - The page sells what makes VISP better: the never-drop chain, multistreaming
   from one upload, no stream key on the phone, OBS control without open ports,
-  free during beta.
+  and Direct is free.
+- Pricing follows `docs/plans-and-billing.md` (Free + Plus): prices read
+  "Free", BRB highlight clips are marked "(Plus)" wherever they are promised,
+  and the shared affiliate note sits under every price.
 - SEO is at least as good as today: every page server-rendered, indexable, and
   targeting its own search intent.
 
@@ -46,7 +49,7 @@ What you get with phone only (Direct), all without OBS:
 | Feature | How |
 | --- | --- |
 | Never drop off air | Never drop again: viewers see a BRB card while the phone is offline, VISP switches back by itself |
-| Highlight clips while away | BRB highlights play your uploaded clips instead of a still card |
+| Highlight clips while away (Plus) | BRB highlights play your uploaded clips instead of a still card |
 | Overlays, scenes, alerts (beta) | Cloud Studio: up to 3 scenes, 8 layers each, browser sources such as alert widgets, one VISP alert layer |
 | Stay connected on bad networks | Network bonding in the app: combine Wi-Fi and mobile data, or send every packet over both |
 | Chat knows when you drop | Chat bot posts on drop and return |
@@ -165,7 +168,7 @@ Twitch/Kick", "stream drops on mobile data".
    only is not the lesser option. Rows where OBS is genuinely stronger
    (local microphones, complex multi-camera scenes, local recording) say so.
 7. Cost: the 12-month cost chart, with "VISP phone only" and "VISP + your
-   OBS" both at $0 during beta against cloud OBS.
+   OBS" both reading "Free" against cloud OBS, the affiliate note under it.
 8. How it works — a real three-step sequence, numbered: sign in with Twitch,
    Kick, or Google → pick where to stream → open the app and tap Go live.
 9. FAQ for this route (includes "Do I need OBS for a BRB screen or
