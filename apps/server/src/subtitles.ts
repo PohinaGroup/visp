@@ -1,9 +1,12 @@
-import { betterFeatures } from "@VISP/api/better-features";
+import { recordHostedUsage } from "@VISP/api/hosted-usage";
 import { LANGUAGE_CODES } from "@VISP/api/languages";
+import { entitlement, quotaUsedMessage } from "@VISP/api/plan";
 import { fixedWindow } from "@VISP/api/rate-limit";
 import {
 	betterSubtitlesConfigured,
 	createScribeToken,
+	SUBTITLES_PROVIDER,
+	SUBTITLES_TOKEN_SECONDS,
 	SubtitlesError,
 } from "@VISP/api/subtitles";
 import { getUserSession } from "@VISP/auth";
@@ -29,9 +32,13 @@ export const subtitlesRoutes = new Elysia({ name: "subtitles-routes" }).post(
 		const session = await getUserSession(request.headers);
 		if (!session) return status(401, { error: "Authentication required" });
 
-		if (!(await betterFeatures(session.user.id)).betterSubtitles) {
-			return status(403, { error: "Better subtitles are not enabled" });
+		// Only starting is gated: a running caption socket goes to ElevenLabs
+		// directly and is never cut off at quota zero.
+		const access = await entitlement(session.user.id, "subtitles");
+		if (!access.entitled) {
+			return status(403, { error: "Better subtitles are part of Plus" });
 		}
+		if (!access.allowed) return status(403, { error: quotaUsedMessage() });
 
 		let body: unknown;
 		try {
@@ -51,6 +58,16 @@ export const subtitlesRoutes = new Elysia({ name: "subtitles-routes" }).post(
 
 		try {
 			const token = await createScribeToken(parsed.data);
+			// The audio never passes through VISP, so each token costs its first
+			// minute up front and the app reports the rest (plan.reportSubtitles).
+			// That keeps a crashed or modified client from minting for free.
+			recordHostedUsage({
+				userId: session.user.id,
+				feature: "subtitles",
+				units: SUBTITLES_TOKEN_SECONDS,
+				unit: "seconds",
+				provider: SUBTITLES_PROVIDER,
+			});
 			return Response.json(token, {
 				headers: { "Cache-Control": "no-store" },
 			});

@@ -4,6 +4,11 @@ import { withProviderTimeout } from "./provider-timeout";
 
 export const SCRIBE_MODEL_ID = "scribe_v2_realtime";
 export const SCRIBE_AUDIO_FORMAT = "pcm_16000";
+export const SUBTITLES_PROVIDER = "elevenlabs";
+/** Charged per minted token; the app reports each further minute itself. */
+export const SUBTITLES_TOKEN_SECONDS = 60;
+/** Most one report may claim, so a stalled client cannot dump hours at once. */
+export const SUBTITLES_REPORT_MAX_SECONDS = 120;
 export type SubtitleLanguage = LanguageCode;
 export const SCRIBE_TOKEN_TIMEOUT_MS = 5_000;
 

@@ -1,4 +1,4 @@
-import { betterFeatures } from "@VISP/api/better-features";
+import { isEntitled, PlanError, planOwner } from "@VISP/api/plan";
 import { fixedWindow } from "@VISP/api/rate-limit";
 import {
 	createTypographyProject,
@@ -52,13 +52,17 @@ async function userId(headers: Headers) {
  * Typography transcribes with the same ElevenLabs Scribe account as hosted
  * subtitles, so the same admin switch admits it.
  */
+/** Typography transcribes with hosted Scribe, so the whole tool is Plus. */
 async function typographyEnabled(id: string) {
-	return (await betterFeatures(id)).betterSubtitles;
+	const owner = await planOwner(id);
+	return owner !== null && isEntitled(owner, "typography_export");
 }
 
 function failure(error: unknown, fallback: string) {
 	if (error instanceof TypographyError)
 		return { code: error.status, error: error.message };
+	if (error instanceof PlanError)
+		return { code: 403 as const, error: error.message };
 	return {
 		code: 400 as const,
 		error: error instanceof Error ? error.message : fallback,
@@ -84,7 +88,7 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 		const id = await userId(request.headers);
 		if (!id) return status(401, { error: "Authentication required" });
 		if (!(await typographyEnabled(id)))
-			return status(403, { error: "Typography is not enabled" });
+			return status(403, { error: "Typography is part of Plus" });
 		const parsed = createInput.safeParse(body);
 		if (!parsed.success) return status(400, { error: "Invalid project" });
 		if (!createRequests.take(id))
@@ -119,7 +123,7 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 			const id = await userId(request.headers);
 			if (!id) return status(401, { error: "Authentication required" });
 			if (!(await typographyEnabled(id)))
-				return status(403, { error: "Typography is not enabled" });
+				return status(403, { error: "Typography is part of Plus" });
 			const project = projectId.safeParse(params);
 			if (!project.success) return status(400, { error: "Invalid project" });
 			if (!finalizeRequests.take(id))
@@ -139,7 +143,7 @@ export const typographyRoutes = new Elysia({ name: "typography-routes" })
 			const id = await userId(request.headers);
 			if (!id) return status(401, { error: "Authentication required" });
 			if (!(await typographyEnabled(id)))
-				return status(403, { error: "Typography is not enabled" });
+				return status(403, { error: "Typography is part of Plus" });
 			const project = projectId.safeParse(params);
 			if (!project.success) return status(400, { error: "Invalid project" });
 			if (!exportRequests.take(id))

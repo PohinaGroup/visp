@@ -21,11 +21,16 @@ function signedIn(enabled: boolean) {
 			where: () => ({
 				limit: async () => [
 					{
+						plan: enabled ? "plus" : "free",
+						comped: false,
 						betterTts: false,
 						betterAudioIsolation: false,
-						betterSubtitles: enabled,
+						betterSubtitles: false,
+						brbHighlights: false,
 					},
 				],
+				// This month's hosted usage, for the export quota.
+				groupBy: async () => [],
 			}),
 		}),
 	} as never);
@@ -110,7 +115,7 @@ describe("Typography routes", () => {
 			]) {
 				expect(response.status).toBe(403);
 				expect(await response.json()).toEqual({
-					error: "Typography is not enabled",
+					error: "Typography is part of Plus",
 				});
 			}
 		} finally {

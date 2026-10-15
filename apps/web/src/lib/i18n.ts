@@ -43,6 +43,22 @@ export function otherLocaleHref(pathname: string, searchStr: string) {
 }
 
 export const finnishUi: Record<string, string> = {
+	"Plus (Affiliate)": "Plus (Affiliate)",
+	renews: "uusiutuu",
+	"Free plan": "Ilmainen",
+	Plan: "Tilaus",
+	"Plan and usage": "Tilaus ja käyttö",
+	"Monthly quotas reset on": "Kuukausikiintiöt nollautuvat",
+	"Hosted voice": "Palvelimen ääni",
+	"Live captions": "Livetekstitys",
+	"Audio isolation": "Äänen eristys",
+	"BRB highlights": "BRB-koosteet",
+	"Typography export": "Typografian vienti",
+	"OBS backup": "OBS-varmuuskopio",
+	"5 clips": "5 leikettä",
+	"10 backups, 5 GB in total": "10 varmuuskopiota, yhteensä 5 Gt",
+	included: "mukana",
+	"Loading plan…": "Ladataan tilausta…",
 	"Mode: Direct": "Tila: Suora",
 	"Mode: OBS": "Tila: OBS",
 	"Mode: not set": "Tila: valitsematta",

@@ -6,6 +6,7 @@ import { brbRouter } from "./brb";
 import { channelRouter } from "./channel";
 import { chatRouter } from "./chat";
 import { multiChatRouter } from "./multichat";
+import { planRouter } from "./plan";
 import { relayRoutes } from "./relay";
 import { studioRouter } from "./studio";
 
@@ -24,6 +25,7 @@ export const appRouter = router({
 	}),
 	chat: chatRouter,
 	multichat: multiChatRouter,
+	plan: planRouter,
 	channel: channelRouter,
 	brb: brbRouter,
 	studio: studioRouter,

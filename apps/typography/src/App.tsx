@@ -24,7 +24,7 @@ const apiUrl = import.meta.env.VITE_API_URL ?? "https://visp-stream.com";
 /** The server's refusals (gate, wrong state, limits) are worth showing as-is. */
 async function refusalMessage(response: Response, fallback: string) {
 	if (response.status === 403)
-		return "Typography is not enabled for your VISP account.";
+		return "Typography is part of VISP Plus. Upgrade on your VISP dashboard.";
 	if (response.status !== 409 && response.status !== 429) return fallback;
 	const result = (await response.json().catch(() => ({}))) as {
 		error?: string;

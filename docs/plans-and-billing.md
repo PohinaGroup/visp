@@ -25,7 +25,7 @@ and isolation. Plus adds every hosted feature.
 | Audio isolation | iOS isolation | 20 h audio/mo | isolation audio meter |
 | BRB highlights | — | 5 clips (existing `MAX_BRB_HIGHLIGHTS`) | existing clip count |
 | Typography export | — | 10 exports/mo | `requestTypographyExport` |
-| OBS backup | — | 10 backups, 2 GB each | `obs-backup.ts` limits |
+| OBS backup | — | 10 backups, 1 GiB per file, 2 GiB per backup, 5 GiB total | `obs-backup.ts` limits |
 | Direct, dual output | free; dual stays an admin flag | same | not billed |
 
 Prices are EUR only at launch. Quotas are initial values in one constant map,
@@ -90,7 +90,7 @@ reads it too, so clients only offer what is allowed.
   running continues until the stream ends. These two have no on-device
   fallback on a mid-stream failure today, so the server never ends one.
 - Highlights, typography export and OBS backup refuse with "Monthly quota
-  used, resets 1 Nov" (backup: "10 backups of 2 GB max"). No top-ups.
+  used, resets 1 Nov" (backup: its existing size caps). No top-ups.
 
 **Subtitles metering.** Minting a Scribe token records 60 s up front. The
 client then reports elapsed seconds every 60 s through a tRPC mutation, after
@@ -98,10 +98,10 @@ its first minute. A crashed or modified client under-reports, but each mint
 still costs a minute, which bounds mint spam. No anti-cheat beyond that.
 
 **OBS backup** is a stock, not a flow, and never touches `hosted_usage`. The
-existing limits become the Plus allowance: 10 retained backups, per-file limit
-lowered from 4 GB to 2 GB (`packages/api/src/obs-backup.ts`). After a
-downgrade, restore, download and delete keep working; only new uploads are
-refused. Existing backups over 2 GB are kept.
+existing limits become the Plus allowance: 10 retained backups, 1 GiB per
+file, 2 GiB per backup, 5 GiB per account (`packages/api/src/obs-backup.ts`).
+After a downgrade, restore, download and delete keep working; only new
+backups are refused.
 
 **Overrun bound.** Usage still in the in-process buffer (flushed every 60 s) is
 not counted, and a running isolation or subtitles session continues past zero.
@@ -167,14 +167,14 @@ Minimum visible, detail behind expanders, as the rest of the dashboard. Hosted
 speech features live in the native app only; the web dashboard shows plan,
 usage, typography and backup.
 
-- **One plan line** in the setup card: *Free · Upgrade to Plus*, *Plus · renews
+- **One plan line** in the Home status card: *Free · Upgrade to Plus*, *Plus · renews
   12 Nov* or *Plus (Affiliate)*. The link opens Polar checkout or portal.
   Nothing else is added above the fold.
 - **Plan and usage**: a `DetailSection` on the Advanced tab, collapsed by
   default. It lists every Plus feature with its quota, one bar per metered
   feature (used / quota, resets on date), and one upgrade link.
-- **Typography export and OBS backup** get a *Plus* tag with the upgrade link
-  where they appear on the web, in place, no modal.
+- **Typography export and OBS backup** have no web surface today, so their
+  *Plus* tags arrive with the clients that show them (PR 3).
 - **Past due**: a single banner at the top of the dashboard, nowhere else.
 - **Setup wizard**: unchanged. Direct is free, so no step asks about money.
   The completion step gains one sentence: "Hosted voice, captions and
@@ -204,7 +204,7 @@ usage, typography and backup.
 typography and OBS backup, gated with no grace (current users of those two
 lose them until they subscribe or are comped); `items` unit and typography
 metering; subtitles metering (mint charge and client report); refusal of new
-sessions at zero; OBS backup per-file limit to 2 GB; `plan.me` without
+sessions at zero; `plan.me` without
 checkout URLs; dashboard plan line, usage expander and web *Plus* tags; admin
 *Comped* toggle and relabel. Tests: entitlement truth table (plan × comped ×
 override), refusal at zero, mint charge.

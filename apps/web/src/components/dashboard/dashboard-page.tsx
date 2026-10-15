@@ -31,6 +31,7 @@ import { CredentialsCard } from "./credentials-card";
 import { DestinationsSummary, DirectCard } from "./direct-card";
 import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
+import { PlanLine, PlanUsageSection } from "./plan-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
 import { SetupCard } from "./setup-card";
 import {
@@ -382,6 +383,7 @@ export function DashboardPage() {
 											{formatLinkStats(livePath.linkStats)}
 										</Text>
 									) : null}
+									<PlanLine />
 								</VStack>
 							</Card>
 							{!statusError && home.nextStep ? (
@@ -484,6 +486,9 @@ export function DashboardPage() {
 						<VStack gap={4} width="100%">
 							<Card>
 								<GuidanceCard {...section("tuning")} />
+							</Card>
+							<Card>
+								<PlanUsageSection {...section("plan")} />
 							</Card>
 							<AgentsCard />
 						</VStack>

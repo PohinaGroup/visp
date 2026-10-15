@@ -165,6 +165,14 @@ export const appUser = pgTable(
 		// live audio, so this gates spend, not capacity.
 		betterSubtitles: boolean("better_subtitles").default(false).notNull(),
 		brbHighlights: boolean("brb_highlights").default(false).notNull(),
+		// Plus, as Polar last reported it. Only the Polar webhook and the daily
+		// plan sync write these three; see docs/plans-and-billing.md.
+		plan: text("plan").default("free").notNull(),
+		planStatus: text("plan_status"),
+		planPeriodEnd: timestamp("plan_period_end", { withTimezone: true }),
+		// Every Plus feature without paying (affiliates, founding creators).
+		// Admin-set only, so a Polar cancellation never takes it away.
+		comped: boolean("comped").default(false).notNull(),
 		brbHighlightsDeleting: boolean("brb_highlights_deleting")
 			.default(false)
 			.notNull(),
@@ -205,6 +213,11 @@ export const appUser = pgTable(
 		check(
 			"app_user_direct_production_mode_known",
 			sql`${table.directProductionMode} in ('cloud_studio', 'obs')`,
+		),
+		check("app_user_plan_known", sql`${table.plan} in ('free', 'plus')`),
+		check(
+			"app_user_plan_status_known",
+			sql`${table.planStatus} in ('active', 'past_due')`,
 		),
 	],
 );

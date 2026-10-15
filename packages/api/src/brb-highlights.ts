@@ -8,6 +8,7 @@ import {
 import type { ObjectStore } from "@VISP/object-store";
 import { createHash, randomUUID } from "node:crypto";
 import { and, count, eq, isNotNull, isNull, max, sql } from "drizzle-orm";
+import { highlightsEntitledSql } from "./plan";
 import { snapshotUploads } from "./snapshots";
 
 const UPLOAD_URL_TTL_S = 60;
@@ -137,7 +138,7 @@ export function inspectBrbHighlightMp4(bytes: Uint8Array) {
 async function highlightsEnabled(userId: string) {
 	const [row] = await db
 		.select({
-			enabled: appUser.brbHighlights,
+			enabled: highlightsEntitledSql,
 			deleting: appUser.brbHighlightsDeleting,
 		})
 		.from(appUser)
@@ -284,7 +285,7 @@ export async function confirmBrbHighlightUpload(
 			if (existing) return existing;
 			const [owner] = await tx
 				.select({
-					enabled: appUser.brbHighlights,
+					enabled: highlightsEntitledSql,
 					deleting: appUser.brbHighlightsDeleting,
 				})
 				.from(appUser)

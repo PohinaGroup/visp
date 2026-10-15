@@ -10,6 +10,8 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { and, count, desc, eq, gt, lt, lte, sql } from "drizzle-orm";
 import { z } from "zod";
+import { recordHostedUsage } from "./hosted-usage";
+import { requireEntitlement } from "./plan";
 import { captionSubtitles } from "./typography-captions";
 
 const MAX_UPLOAD_BYTES = 1024 * 1024 * 1024;
@@ -398,12 +400,19 @@ export async function requestTypographyExport(
 	userId: string,
 	projectId: string,
 ) {
+	await requireEntitlement(userId, "typography_export", "Typography export");
 	const project = await requireProject(userId, projectId);
 	if (!project) throw new TypographyError("Project not found", 404);
 	if (project.state !== "ready")
 		throw new TypographyError("Project is not ready", 409);
 	if (!(await queueTypographyJob(project.id, "export")))
 		throw new TypographyError("An export is already in progress", 409);
+	recordHostedUsage({
+		userId,
+		feature: "typography_export",
+		units: 1,
+		unit: "items",
+	});
 	return { ok: true };
 }
 

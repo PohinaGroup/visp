@@ -1,7 +1,6 @@
 import { chatBotSenderModes } from "@VISP/db/schema/index";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { betterFeatures } from "../better-features";
 import {
 	BotCommandLimitError,
 	DEFAULT_ALERT_MESSAGES,
@@ -32,6 +31,7 @@ import { sendableProviders, sendChatMessage } from "../chat/send";
 import { BotSenderSelectionError } from "../chat/sender";
 import { chatTickets } from "../chat/tickets";
 import { protectedProcedure, router } from "../index";
+import { speechAvailability } from "../plan";
 import { relayProcedure } from "./relay";
 
 const provider = z.enum(["twitch", "kick", "youtube"]);
@@ -104,7 +104,7 @@ export const chatRouter = router({
 	}),
 	/** What the read-aloud, isolation, and caption settings may offer. */
 	speech: protectedProcedure.query(({ ctx }) =>
-		betterFeatures(ctx.session.user.id),
+		speechAvailability(ctx.session.user.id),
 	),
 	/** Alerts, commands, and where the bot is allowed to post. */
 	bot: router({

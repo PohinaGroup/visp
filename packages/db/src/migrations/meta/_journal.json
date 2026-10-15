@@ -253,6 +253,13 @@
 			"when": 1792009201000,
 			"tag": "0035_stream_session_kpis",
 			"breakpoints": true
+		},
+		{
+			"idx": 36,
+			"version": "7",
+			"when": 1792053195478,
+			"tag": "0036_plus_plan",
+			"breakpoints": true
 		}
 	]
 }
