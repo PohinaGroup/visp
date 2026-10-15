@@ -142,6 +142,10 @@ remain disabled.
    - Set `STUDIO_MEDIA_PASSWORD` (32+ characters, same as the relay),
      `RESEND_API_KEY`, `AI_GATEWAY_API_KEY`, and `VISP_CHAT_BOT_USER_ID`; the
      server refuses to start without them.
+   - Optionally set `ANTHROPIC_API_KEY` for the AI chat moderator. Then sign
+     in as the shared bot user once and press **Authorize moderation scopes
+     for the shared bot** on the dashboard chat bot card, so the bot's Twitch
+     link can delete, time out, and clip in channels that `/mod` it.
 
    Then install dependencies and migrate:
 

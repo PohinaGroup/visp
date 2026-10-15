@@ -39,7 +39,7 @@ export function PhoneOnlyPage({ locale }: { locale: Locale }) {
 						width={IMAGE_WIDTH}
 						height={IMAGE_HEIGHT}
 						fetchPriority="high"
-						className="block h-auto max-h-[60svh] w-auto max-w-full rounded-[1.75rem] bg-paper"
+						className="block h-auto max-h-[60svh] w-auto max-w-full rounded-[1.75rem] bg-black"
 					/>
 				</div>
 			}

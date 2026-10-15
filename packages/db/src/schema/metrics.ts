@@ -20,14 +20,21 @@ export const HOSTED_USAGE_FEATURES = [
 	"subtitles",
 	"audio_isolation",
 	"typography_export",
+	"ai_moderator",
 ] as const;
 export type HostedUsageFeature = (typeof HOSTED_USAGE_FEATURES)[number];
 
 /**
  * How providers bill: TTS per character, transcription/isolation per second,
- * typography exports per item (counted for the Plus quota, not a provider).
+ * typography exports per item (counted for the Plus quota, not a provider),
+ * the AI moderator per model token (input and output summed).
  */
-export const HOSTED_USAGE_UNITS = ["characters", "seconds", "items"] as const;
+export const HOSTED_USAGE_UNITS = [
+	"characters",
+	"seconds",
+	"items",
+	"tokens",
+] as const;
 export type HostedUsageUnit = (typeof HOSTED_USAGE_UNITS)[number];
 
 /**
@@ -55,12 +62,12 @@ export const hostedUsage = pgTable(
 	(table) => [
 		check(
 			"hosted_usage_feature_known",
-			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation', 'typography_export')`,
+			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation', 'typography_export', 'ai_moderator')`,
 		),
 		check("hosted_usage_units_positive", sql`${table.units} > 0`),
 		check(
 			"hosted_usage_unit_known",
-			sql`${table.unit} in ('characters', 'seconds', 'items')`,
+			sql`${table.unit} in ('characters', 'seconds', 'items', 'tokens')`,
 		),
 		index("hosted_usage_user_occurred_at_idx").on(
 			table.userId,
@@ -93,11 +100,11 @@ export const unitPrice = pgTable(
 	(table) => [
 		check(
 			"unit_price_feature_known",
-			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation', 'typography_export')`,
+			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation', 'typography_export', 'ai_moderator')`,
 		),
 		check(
 			"unit_price_unit_known",
-			sql`${table.unit} in ('characters', 'seconds', 'items')`,
+			sql`${table.unit} in ('characters', 'seconds', 'items', 'tokens')`,
 		),
 		check("unit_price_nonnegative", sql`${table.eurPerUnit} >= 0`),
 		unique("unit_price_feature_unit_provider_valid_from_key")

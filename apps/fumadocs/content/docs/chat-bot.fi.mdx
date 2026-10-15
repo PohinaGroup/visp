@@ -25,7 +25,7 @@ YouTubessa viestit lähetetään aina omalla linkitetyllä tililläsi.
 | Lähetys päättyi | Lähde katoaa ja lähdöt puretaan | Stream ended after \{uptime\}. Thanks for watching! |
 
 "Signaali katkesi" ja "Lähetys päättyi" ovat eri tapahtumia. Kumman saat,
-riippuu siitä pitääkö **Älä koskaan katkea** (hallintapaneelin **BRB**-välilehti)
+riippuu siitä pitääkö **Never drop** (hallintapaneelin **BRB**-välilehti)
 lähetystä yllä: jos pitää, chat
 kuulee BRB-kortista; jos ei, chat kuulee että lähetys loppui.
 
@@ -53,6 +53,45 @@ katkaise chatin lukemista, Directiä tai otsikon muokkausta.
 | Twitch, oma tili | `user:write:chat` | Ei — yksi lisälupa |
 | Kick | `chat:write` | Ei — yksi lisälupa |
 | YouTube | `youtube.force-ssl` | Kyllä, jos käytät Directiä tai muokkaat otsikoita VISPistä |
+
+## Tekoälymoderaattori (Plus)
+
+Plus-tilauksella VISP-botti myös moderoi Twitch-chattiasi. Se lukee chattia
+lähetyksen aikana, poistaa sääntöjäsi rikkovat viestit, antaa jäähyjä
+toistuvista rikkeistä, vastaa katsojille jotka mainitsevat sen, ja tekee
+Twitch-klipin pyynnöstä. Se ei koskaan bannaa: pysyvät päätökset jäävät
+sinulle ja moderaattoreillesi.
+
+Se on Plus-tileillä oletuksena päällä ja sammutetaan **Chat-botti**-kortin
+**Tekoälymoderaattori**-osiosta. Jotta se voi toimia, kirjoita kerran
+Twitch-chattiisi `/mod` ja botin nimi (näkyy kortilla, yleensä `vispstream`).
+Twitch-chatin on oltava yhdistetty ja **Valtuuta kirjoittaminen** tehty
+VISP-botille, kuten ilmoituksissakin. Muita oikeuksia sinulta ei pyydetä:
+botti toimii omalla tilillään.
+
+Mitä se tekee ja mitä voit säätää:
+
+- **Talon säännöt.** Lyhyt vapaamuotoinen kuvaus siitä, mitä poistetaan, mitä
+  sallitaan ja millä äänensävyllä. Twitchin omat säännöt pätevät aina päälle.
+- **Pisin jäähy.** Katto jokaiselle sen antamalle jäähylle (oletuksena 10
+  minuuttia). Se ei koskaan kohdista toimia sinuun tai moderaattoreihisi, eikä
+  anna samalle katsojalle jäähyä kahdesti viidessä minuutissa.
+- **Maininnat.** `@vispstream kauanko olet ollut livenä?` saa vastauksen, jossa
+  on oikea lähetysaika, katsojamäärä, otsikko ja yhteyden tila.
+  `@vispstream klippaa tuo` postaa klippilinkin; klippi ilmestyy Twitchiin
+  muutamassa sekunnissa. Vain sinä ja moderaattorisi voitte pyytää sitä
+  poistamaan viestin tai antamaan jäähyn.
+- **Oma-aloitteiset viestit**, jokainen omalla kytkimellään: raidien
+  tervetulotoivotus, kiitokset lahjatilauksista ja biteistä, varoitus kun
+  lähetysyhteys ruuhkautuu (ennen kuin BRB-kortti ottaa vallan), ja vastaukset
+  lähetystä koskeviin kysymyksiin joihin kukaan ei tarttunut (oletuksena
+  pois, koska se on puheliain).
+
+Se lukee chattia pienissä erissä muutaman sekunnin välein, joten viesti voi
+olla noin viisi sekuntia vanha kun se poistetaan. Vastaukset ovat yhden rivin
+mittaisia chatin kielellä. Käyttö lasketaan **Tilaus ja käyttö** -kohdassa
+näkyvästä Plus-tokenkiintiöstä; kun kiintiö on käytetty, moderaattori
+hiljenee kuun vaihtumiseen asti.
 
 ## Komennot
 

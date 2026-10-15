@@ -90,9 +90,6 @@ export function SignalStrip({
 			>
 				<title id={`${id}h-t`}>{copy.label}</title>
 				<desc id={`${id}h-d`}>{desc}</desc>
-				<text x={0} y={18} className={`fill-ink-muted ${label} ${hText}`}>
-					{copy.signalTrack}
-				</text>
 				<g className="strip-play">
 					{METER.map((level, j) => (
 						<rect

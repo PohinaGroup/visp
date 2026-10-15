@@ -21,7 +21,7 @@ puhelin koko ohjelmasi vai lähde ohjelmaan, jonka rakennat jo OBS:ssä?
 | --- | --- | --- |
 | Suora lähetys puhelimesta | Ydintoiminto | Kyllä Directillä (oletus); relay koodaa jokaiselle alustalle |
 | Olemassa oleva OBS-studio ulostulona | Ei tarkoitus | Valinnainen relay–OBS-työnkulku |
-| Overlayt, hälytykset ja teemat puhelimessa | Sisäänrakennettu | Ei puhelimen kohtauseditoria; tuota OBS:ssä, jos tarvitset kohtauksia |
+| Overlayt, alertit ja teemat puhelimessa | Sisäänrakennettu | Ei puhelimen kohtauseditoria; tuota OBS:ssä, jos tarvitset kohtauksia |
 | Missä Twitch/Kick-lähetysavain on | Streamlabsin hallinnassa | OBS:ssä relay–OBS-työnkulussa; Direct hakee sen palvelimella |
 | Multistream monelle alustalle yhtä aikaa | Kyllä, maksullisella Ultralla | Direct voi lähettää erikseen Twitchiin, Kickiin, YouTubeen ja tallennettuihin mukautettuihin kohteisiin |
 | Pitokuva datan katketessa | Disconnect Protection (Ultra) | Valinnainen BRB-kortti Directissä tai OBS-varakohtaus |
@@ -43,7 +43,7 @@ jokaiselle kohteelle.
 
 [Streamlabs Mobile](https://streamlabs.com/mobile-app) on itsenäinen
 lähetyssovellus iOS:lle ja Androidille. Se on ilmainen ladata, ja se tekee
-puhelimesta koko tuotannon: määrität kohtaukset, hälytykset, overlayt ja widgetit
+puhelimesta koko tuotannon: määrität kohtaukset, alertit, overlayt ja widgetit
 sovelluksessa ja lähetät sitten suoraan Twitchiin, Kickiin, YouTubeen, TikTokiin,
 Facebookiin ja muihin kohteisiin, mukaan lukien custom RTMP -kohteet.
 
@@ -53,7 +53,7 @@ ominaisuus, joka näyttää pitokuvan, jotta lähetys ei pääty automaattisesti
 data katkeaa. Molemmat ovat sovelluksen sisällä, koska sovellus on lähettäjä.
 
 Tämä on aito vahvuus, kun puhelin on ohjelma. Mobiilipainotteinen tekijä, joka
-haluaa overlayt, hälytykset ja monen alustan ulostulon ilman tietokonetta, saa
+haluaa overlayt, alertit ja monen alustan ulostulon ilman tietokonetta, saa
 kaiken yhdestä paikasta, ja lähetysavain pysyy Streamlabsin hallinnassa
 puhelimessa.
 
@@ -70,7 +70,7 @@ polun medialähteenä, aivan kuten oppaassa
 [puhelin etäkamerana OBS:ssä](/fi/blog/use-phone-as-remote-camera-obs).
 
 Tärkeä seuraus on se, missä tuotanto sijaitsee. OBS-työnkulussa kohtaukset,
-hälytykset, grafiikat, tallennus ja Twitchin tai Kickin lähetysavain pysyvät
+alertit, grafiikat, tallennus ja Twitchin tai Kickin lähetysavain pysyvät
 OBS:ssä kotona. Direct hakee valtuutetut alustatunnukset palvelimella ja
 lähettää puhelimen ohjelman Twitchiin, Kickiin tai YouTubeen. Puhelin ei
 kummassakaan saa kohdelähetysavainta. Jokainen julkaisulaite saa erikseen peruutettavan
@@ -133,7 +133,7 @@ saapuvan syötekimpun.
 Valitse **Streamlabs Mobile**, kun:
 
 - puhelin on koko studiosi etkä halua erillistä tietokonetta;
-- haluat overlayt, hälytykset ja teemat sovelluksen sisällä;
+- haluat overlayt, alertit ja teemat sovelluksen sisällä;
 - yhtäaikainen multistream monelle alustalle on tärkeä;
 - tavoite on yksinkertainen, itsenäinen mobiililähetys.
 
@@ -141,7 +141,7 @@ Valitse **VISP**, kun:
 
 - haluat yksinkertaisen lähdön puhelimesta Twitchiin, Kickiin tai YouTubeen
   ilman lähetysavainta puhelimessa;
-- tuotat jo OBS:ssä ja haluat pitää kohtaukset, hälytykset ja lähetysavaimen;
+- tuotat jo OBS:ssä ja haluat pitää kohtaukset, alertit ja lähetysavaimen;
 - puhelimen tulee toimia nimettynä, peruutettavana kamerana viikosta toiseen;
 - haluat SRT-syötteen ja viiveen säädön olemassa olevaan tuotantoon;
 - kenttäkuvaajan pitää ohjata OBS:ää ilman sisääntulevaa porttia;
@@ -183,7 +183,7 @@ puhelin ei saa sitä.
 ### Pitääkö OBS-asetukset rakentaa uudelleen VISPiä kokeillakseen?
 
 Ei. Direct ei tarvitse OBS:ää lainkaan. Jos käytät OBS:ää, VISP lisää puhelimen
-uutena medialähteenä, joten kohtaukset, hälytykset,
+uutena medialähteenä, joten kohtaukset, alertit,
 grafiikat ja kohdeasetukset pysyvät ennallaan.
 
 ## Lähteet ja lisälukemista

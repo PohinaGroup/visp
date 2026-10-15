@@ -116,7 +116,7 @@ test("hero video ships poster, no autoplay attribute, and a play button in SSR",
 	expect(html).toContain('poster="/p.jpg"');
 	expect(html).not.toContain("autoplay");
 	expect(html).not.toMatch(/<video[^>]*\scontrols/);
-	expect(html).toMatch(/<button[^>]*>.*Play<\/button>/);
+	expect(html).toMatch(/<button[^>]*aria-label="Play"/);
 	expect(html).toContain('preload="none"');
 	expect(html).toMatch(/width="\d+"/);
 	expect(html).toMatch(/height="\d+"/);

@@ -8,8 +8,10 @@ import { SignalStrip } from "./signal-strip";
 import { Stories } from "./stories";
 import { mktH2, mktTextLink } from "./styles";
 
-const TILE = "flex flex-col rounded-xl p-6 transition-colors sm:p-8";
+const TILE =
+	"relative flex flex-col rounded-lg border p-6 transition-colors sm:p-8";
 const TILE_TITLE = "mkt-display text-[clamp(1.75rem,4.5vw,2.5rem)]";
+const TILE_BODY = "mt-3 max-w-[40ch] text-ink-muted leading-relaxed";
 
 /**
  * Home between the hero and the closing CTA: the strip, what phone only does,
@@ -67,24 +69,26 @@ export function HomeSections({ locale }: { locale: Locale }) {
 				<div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
 					<Link
 						to={phoneTo}
-						className={`${TILE} bg-ink text-paper hover:bg-ink/90`}
+						className={`${TILE} border-on-air/60 hover:border-on-air`}
 					>
-						<span className="self-start rounded-lg border border-paper/35 px-2.5 py-1 font-semibold text-sm">
+						{/* The tally light: red marks the route most creators put on air. */}
+						<span
+							aria-hidden
+							className="absolute top-0 left-8 h-1 w-12 rounded-b-sm bg-on-air"
+						/>
+						<h3 className={TILE_TITLE}>{home.chooser.phone.title}</h3>
+						<p className={TILE_BODY}>{home.chooser.phone.body}</p>
+						<span className="mt-auto inline-flex items-center gap-2 pt-8 font-semibold text-sm">
+							<span aria-hidden className="size-2 rounded-full bg-on-air" />
 							{home.chooser.phone.badge}
 						</span>
-						<h3 className={`${TILE_TITLE} mt-6`}>{home.chooser.phone.title}</h3>
-						<p className="mt-3 max-w-[40ch] leading-relaxed">
-							{home.chooser.phone.body}
-						</p>
 					</Link>
 					<Link
 						to={obsTo}
-						className={`${TILE} border border-ink/25 hover:border-ink`}
+						className={`${TILE} border-ink/20 hover:border-ink/60`}
 					>
 						<h3 className={TILE_TITLE}>{home.chooser.obs.title}</h3>
-						<p className="mt-3 max-w-[40ch] text-ink-muted leading-relaxed">
-							{home.chooser.obs.body}
-						</p>
+						<p className={TILE_BODY}>{home.chooser.obs.body}</p>
 					</Link>
 				</div>
 			</section>

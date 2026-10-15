@@ -10,6 +10,7 @@ export const HOSTED_FEATURES = [
 	{ key: "tts", label: "Hosted TTS" },
 	{ key: "audio_isolation", label: "Audio isolation" },
 	{ key: "subtitles", label: "Subtitles" },
+	{ key: "ai_moderator", label: "AI moderator" },
 ] as const;
 
 export const DESTINATIONS = [
@@ -22,6 +23,7 @@ export const DESTINATIONS = [
 export const UNIT_LABELS: Record<string, string> = {
 	characters: "characters",
 	seconds: "seconds",
+	tokens: "tokens",
 };
 
 /** Series for the keys present in the data, coloured by their fixed slot. */

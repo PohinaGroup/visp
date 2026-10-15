@@ -17,7 +17,7 @@ import {
 	publishInvalidation,
 	subscribeInvalidations,
 } from "@VISP/api/cache-bus";
-import { setBotSettings } from "@VISP/api/chat/bot";
+import { DEFAULT_MODERATOR_SETTINGS, setBotSettings } from "@VISP/api/chat/bot";
 import {
 	disableChatConnection,
 	enableChatConnection,
@@ -740,6 +740,7 @@ integration("relay PostgreSQL integration", () => {
 			targets: { twitch: true, kick: true, youtube: true },
 			alerts: { live: true, brb: true, back: true, offline: true },
 			messages: { live: null, brb: null, back: null, offline: null },
+			moderator: DEFAULT_MODERATOR_SETTINGS,
 		});
 		// The ready hook fires again on every publisher keepalive, and the
 		// reconciler re-reports the same state every ten seconds.
@@ -775,6 +776,7 @@ integration("relay PostgreSQL integration", () => {
 			targets: { twitch: true, kick: true, youtube: true },
 			alerts: { live: true, brb: true, back: true, offline: true },
 			messages: { live: null, brb: null, back: null, offline: null },
+			moderator: DEFAULT_MODERATOR_SETTINGS,
 		});
 		await applyPathHook("ready", {
 			path: data.pathB.slug,
@@ -806,6 +808,7 @@ integration("relay PostgreSQL integration", () => {
 			targets: { twitch: true, kick: true, youtube: true },
 			alerts: { live: true, brb: true, back: true, offline: true },
 			messages: { live: null, brb: null, back: null, offline: null },
+			moderator: DEFAULT_MODERATOR_SETTINGS,
 		});
 		await applyPathHook("ready", {
 			path: data.pathA.slug,

@@ -54,6 +54,43 @@ authorizing the bot never switches off chat reading, Direct, or title editing.
 | Kick | `chat:write` | No — one extra consent |
 | YouTube | `youtube.force-ssl` | Yes, if you use Direct or edit titles from VISP |
 
+## AI moderator (Plus)
+
+With Plus, the VISP bot also moderates your Twitch chat. It reads chat while
+you are on air, removes messages that break your rules, times out repeat
+offenders, answers viewers who mention it, and can make a Twitch clip when
+someone asks. It never bans: anything permanent stays with you and your
+moderators.
+
+It is on by default for Plus accounts and switched off from the **AI
+moderator** section of the **Chat bot** card. To let it act, type `/mod` and
+the bot's name (shown on the card, usually `vispstream`) in your Twitch chat
+once. Twitch chat must be connected and **Authorize posting** done for the
+VISP bot, as for alerts. No other permission is asked from you: the bot acts
+with its own account.
+
+What it does, and what you can change:
+
+- **House rules.** A short free-text description of what to remove, what to
+  allow, and how to sound. Twitch's own rules always apply on top.
+- **Longest timeout.** The cap on any timeout it hands out (10 minutes by
+  default). It never acts on you or your moderators, and never times out the
+  same viewer twice within five minutes.
+- **Mentions.** `@vispstream how long have you been live?` gets an answer with
+  the real uptime, viewers, title, and link health. `@vispstream clip that`
+  posts a clip link; the clip takes a few seconds to appear on Twitch. Only you
+  and your moderators can ask it to delete or time someone out.
+- **Unprompted lines**, each on its own switch: welcoming raids, thanking gifted
+  subs and cheers, a heads-up when your upload link is congested (before the
+  BRB card takes over), and answering stream questions nobody picked up (off by
+  default, as it is the chatty one).
+
+It reads chat in small batches every few seconds, so a message can be up to
+about five seconds old when it is removed. Replies are one line, in the
+language chat uses. Usage counts against the Plus token quota shown under
+**Plan and usage**; when the quota is used up the moderator goes quiet until
+the month resets.
+
 ## Commands
 
 By default, anyone in chat can use commands. The prefix is `!`.

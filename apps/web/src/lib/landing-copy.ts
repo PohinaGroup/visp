@@ -66,9 +66,9 @@ const enStrip = {
 		"Back in range: live again",
 	],
 	details: [
-		"The app streams over Wi-Fi and mobile data at the same time (Network bonding).",
-		'Viewers see your BRB screen or highlight clips (Plus) instead of "stream ended", and the chat bot tells chat, no computer needed (Never drop again).',
-		"VISP switches back to live by itself, no computer needed (Never drop again).",
+		"The app streams over Wi-Fi and mobile data at the same time, so one network can fade without taking you down (Network bonding).",
+		"Viewers see your BRB screen instead of \"stream ended\", or your highlight clips with Plus. The chat bot tells chat you'll be right back. VISP's server does all of it, with no computer at home (Never drop again).",
+		"When the phone reconnects, VISP cuts back to live on its own. There's no computer at home to babysit (Never drop again).",
 	],
 	live: "LIVE",
 	brb: "BRB",
@@ -150,8 +150,8 @@ const en = {
 				"Go live from your phone and stay live when the signal drops. VISP keeps your channel on air through dead zones, no computer needed. Free, with or without OBS.",
 		},
 		hero: {
-			title: "Go live from your phone. Stay live when the signal doesn't.",
-			body: "VISP streams your phone to Twitch, Kick, and YouTube and keeps you on air through dead zones. No computer needed, or bring the phone into your own OBS.",
+			title: "The better streaming software",
+			body: "VISP streams your phone to Twitch, Kick, and YouTube and keeps you on air through dead zones, with no computer at home. If you already run OBS, use phone as a video source with VISP.",
 			videoLabel: "A VISP stream goes live from the phone and arrives in OBS",
 		},
 		strip: enStrip,
@@ -163,17 +163,17 @@ const en = {
 			items: [
 				{
 					situation:
-						"Signal gone in a dead zone? Viewers see your BRB card, and VISP cuts back to live when you return. No computer needed.",
+						"Signal gone in a dead zone? Viewers see your BRB card, and VISP cuts back to live when you return, with no computer at home.",
 					feature: "Never drop again",
 				},
 				{
 					situation:
-						"Away longer than planned? With Plus, your uploaded clips play instead of a still card. No computer needed.",
+						"Away longer than planned? With Plus, your uploaded clips play instead of a still card. Still no computer.",
 					feature: "BRB highlights (Plus)",
 				},
 				{
 					situation:
-						"Want alerts and a goal bar on screen? Build overlays (beta) in the browser with your alert widget. No computer needed.",
+						"Want alerts and a goal bar on screen? Build overlays (beta) in your browser around the alert widget you already use, with no computer at home.",
 					feature: "Cloud Studio (beta)",
 				},
 				{
@@ -188,7 +188,7 @@ const en = {
 				},
 				{
 					situation:
-						"Twitch and Kick at once? Your phone sends one feed, and VISP sends it to each platform.",
+						"Stream to Twitch and Kick at once. Your phone uploads one feed and VISP copies it to each platform.",
 					feature: "Multistream",
 				},
 				{
@@ -213,7 +213,7 @@ const en = {
 			} satisfies Tile,
 			obs: {
 				title: "In my own OBS",
-				body: "Already have a studio with scenes you love? Bring your phone into it.",
+				body: "Already built your scenes and alerts in OBS? Add the phone as a camera.",
 			} satisfies Tile,
 		},
 		storiesTitle: "Creators on VISP",
@@ -222,15 +222,15 @@ const en = {
 			items: [
 				{
 					q: "What is VISP?",
-					a: "An app that streams your phone to Twitch, Kick, and YouTube. With phone only, VISP's server runs the show, so no computer is needed: it keeps you on air when the signal drops and sends one upload to every platform. If you already run OBS, VISP brings the phone into it as a camera instead.",
+					a: "An app that streams your phone to Twitch, Kick, and YouTube. With phone only, VISP's server does the job a home computer running OBS used to do, so there's no computer to leave on. It keeps you on air when the signal drops and copies one upload to every platform. If you already run OBS, VISP brings the phone into it as a camera instead.",
 				},
 				{
 					q: "Do I need OBS or a computer?",
-					a: "No. Phone only covers what people usually run OBS for: a BRB screen when the signal drops, highlight clips with Plus, and overlays and alerts (beta). No computer needed. Choose your own OBS when you already have a studio you like.",
+					a: "No. Phone only covers what most people run OBS for: a BRB screen when the signal drops, highlight clips with Plus, and overlays and alerts (beta), with no computer. Pick your own OBS if you've already built a studio there.",
 				},
 				{
 					q: "What happens when my signal drops?",
-					a: 'With Never drop again turned on, viewers see your BRB card or highlight clips (Plus) instead of "stream ended". The chat bot tells chat you\'ll be right back, and VISP switches back to live by itself when the phone reconnects. No computer needed.',
+					a: "With Never drop again turned on, viewers see your BRB card or highlight clips (Plus) instead of \"stream ended\". The chat bot tells chat you'll be right back, and VISP switches back to live by itself when the phone reconnects. VISP's server handles all of it, with no computer at home.",
 				},
 				{
 					q: "Can I use Wi-Fi and cellular at the same time?",
@@ -242,7 +242,7 @@ const en = {
 				},
 				{
 					q: "How much does VISP cost?",
-					a: "VISP is free, with or without OBS. Plus costs €9 a month. It adds hosted voice, captions, and audio isolation, and lets your BRB card play highlight clips, no computer needed. Creators with an audience can apply to the Affiliate program and get every feature free (Plus quotas apply).",
+					a: "VISP is free, with or without OBS. Plus costs €9 a month. It adds hosted voice, captions, and audio isolation, and lets your BRB card play highlight clips, still with no computer. Creators with an audience can apply to the Affiliate program and get every feature free. Plus quotas still apply.",
 				},
 				{
 					q: "Does VISP work on iPhone and Android?",
@@ -263,7 +263,7 @@ const en = {
 				"Stream from your phone to Twitch, Kick, and YouTube with no computer and no OBS. Mobile data drops? Viewers see your BRB screen. Overlays (beta) run on VISP.",
 		},
 		hero: {
-			title: "Everything OBS did for your stream. Without the computer.",
+			title: "Everything you need for your stream. With just the phone.",
 			body: "Stay on air through dead zones, play your clips while you're away with Plus, and add overlays and alerts (beta), all from one phone. No computer needed.",
 			imageAlt: "The VISP app live on a phone",
 		},
@@ -576,9 +576,9 @@ const fiStrip: StripCopy = {
 		"Kenttä palaa: taas livenä",
 	],
 	details: [
-		"Sovellus lähettää Wi-Fin ja mobiilidatan kautta yhtä aikaa (Network bonding).",
-		"Katsojat näkevät BRB-kortin tai klippisi (Plus) eivätkä ilmoitusta lähetyksen päättymisestä, ja chat-botti kertoo tilanteen chatille, kaikki ilman tietokonetta (Älä koskaan katkea).",
-		"VISP palaa liveen itsestään ilman tietokonetta (Älä koskaan katkea).",
+		"Sovellus lähettää Wi-Fin ja mobiilidatan kautta yhtä aikaa, joten toinen verkko voi heiketä ilman, että lähetys katkeaa (Network bonding).",
+		"Katsojat näkevät BRB-kortin eivätkä ilmoitusta lähetyksen päättymisestä, Plussalla myös klippisi. Chat-botti kertoo chatille, että palaat pian. VISPin palvelin hoitaa kaiken ilman tietokonetta (Never drop).",
+		"Kun puhelin saa yhteyden, VISP palaa liveen itsestään ilman tietokonetta (Never drop).",
 	],
 	live: "LIVE",
 	brb: "BRB",
@@ -668,11 +668,11 @@ const fi: typeof en = {
 		meta: {
 			title: "VISP: striimaa puhelimesta Twitchiin, Kickiin ja YouTubeen",
 			description:
-				"Lähetä puhelimesta ja pysy livenä, vaikka kenttä katoaa. VISP pitää kanavasi lähetyksessä katvealueilla ilman tietokonetta. Ilmainen, OBS:n kanssa tai ilman.",
+				"Pysy livenä, vaikka kenttä katoaa. VISP pitää kanavasi lähetyksessä katvealueillakin ilman tietokonetta. Ilmainen, OBS:n kanssa tai ilman.",
 		},
 		hero: {
-			title: "Lähetä puhelimesta. Pysy livenä, vaikka kenttä katoaa.",
-			body: "VISP lähettää puhelimesi kuvan Twitchiin, Kickiin ja YouTubeen ja pitää sinut lähetyksessä katvealueidenkin yli. Tietokonetta ei tarvita, tai voit tuoda puhelimen omaan OBS:ääsi.",
+			title: "Astetta parempi striimaus-softa",
+			body: "VISP striimaa puhelimesi Twitchiin, Kickiin ja YouTubeen ja pitää lähetyksen käynnissä katvealueillakin.",
 			videoLabel: "VISP-lähetys käynnistyy puhelimesta ja kuva saapuu OBS:ään",
 		},
 		strip: fiStrip,
@@ -684,23 +684,23 @@ const fi: typeof en = {
 			items: [
 				{
 					situation:
-						"Kenttä katoaa katvealueella? Katsojat näkevät BRB-korttisi, ja VISP palaa liveen, kun yhteys palaa. Tietokonetta ei tarvita.",
-					feature: "Älä koskaan katkea",
+						"Kenttä katoaa katvealueella? Katsojat näkevät BRB-korttisi, ja VISP palaa liveen, kun yhteys palaa, ilman tietokonetta kotona.",
+					feature: "",
 				},
 				{
 					situation:
-						"Tauko venyy? Plussalla BRB-kortin tilalla pyörivät lataamasi klipit. Tietokonetta ei tarvita.",
-					feature: "BRB-koosteet (Plus)",
+						"Tauko venyy? Plussalla BRB-kortin tilalla pyörivät lataamasi klipit, edelleen ilman tietokonetta.",
+					feature: "",
 				},
 				{
 					situation:
-						"Haluat hälytykset ja tavoitepalkin ruutuun? Rakenna grafiikat (beta) selaimessa oman hälytyswidgetisi kanssa. Tietokonetta ei tarvita.",
+						"Haluat alertit ja tavoitepalkin ruutuun? Rakenna grafiikat (beta) selaimessa sen alert-widgetin ympärille, jota jo käytät, ilman tietokonetta kotona.",
 					feature: "Cloud Studio (beta)",
 				},
 				{
 					situation:
 						"Festivaaliyleisö tukkii verkon? Sovellus lähettää Wi-Fin ja mobiilidatan kautta yhtä aikaa.",
-					feature: "Network bonding",
+					feature: "",
 				},
 				{
 					situation:
@@ -709,7 +709,7 @@ const fi: typeof en = {
 				},
 				{
 					situation:
-						"Twitch ja Kick yhtä aikaa? Puhelin lähettää yhden syötteen, ja VISP vie sen jokaiselle alustalle.",
+						"Striimaa Twitchiin ja Kickiin yhtä aikaa. Puhelin lähettää yhden syötteen, ja VISP kopioi sen jokaiselle alustalle.",
 					feature: "Multistream",
 				},
 				{
@@ -726,7 +726,7 @@ const fi: typeof en = {
 			"Yksi alusta reistailee? Sen lähtö yrittää uudelleen itsestään, ja muut pysyvät livenä.",
 		],
 		chooser: {
-			title: "Missä haluat tehdä lähetyksesi?",
+			title: "Mistä lähetetään?",
 			phone: {
 				title: "VISPissä, puhelimesta",
 				body: "Kaikki yllä oleva ilman tietokonetta.",
@@ -734,7 +734,7 @@ const fi: typeof en = {
 			},
 			obs: {
 				title: "Omassa OBS:ssäni",
-				body: "Onko sinulla jo studio ja kohtaukset, joista pidät? Tuo puhelimesi sinne.",
+				body: "Kohtaukset ja alertit jo rakennettu OBS:ään? Lisää puhelin sinne kameraksi.",
 			},
 		},
 		storiesTitle: "Tekijät VISPin parissa",
@@ -743,15 +743,15 @@ const fi: typeof en = {
 			items: [
 				{
 					q: "Mikä VISP on?",
-					a: "Sovellus, jolla striimaat puhelimesta Twitchiin, Kickiin ja YouTubeen. Pelkällä puhelimella VISPin palvelin hoitaa lähetyksen ilman tietokonetta: se pitää sinut lähetyksessä, kun yhteys katkeaa, ja vie yhden syötteen kaikille alustoille. Jos sinulla on jo OBS, VISP tuo puhelimen siihen kameraksi.",
+					a: "Sovellus, jolla striimaat puhelimesta Twitchiin, Kickiin ja YouTubeen. Pelkällä puhelimella VISPin palvelin tekee ilman tietokonetta sen työn, johon ennen tarvittiin kotona pyörivä OBS-kone. Se pitää sinut lähetyksessä, kun yhteys katkeaa, ja vie yhden syötteen kaikille alustoille. Jos sinulla on jo OBS, VISP tuo puhelimen siihen kameraksi.",
 				},
 				{
 					q: "Tarvitsenko OBS:n tai tietokoneen?",
-					a: "Et. Pelkkä puhelin hoitaa sen, mihin OBS:ää yleensä tarvitaan: BRB-kortin, kun yhteys katkeaa, omat klipit (Plus) sekä grafiikat ja hälytykset (beta). Tietokonetta ei tarvita. Valitse oma OBS, jos sinulla on jo studio, josta pidät.",
+					a: "Et. Pelkkä puhelin hoitaa sen, mihin OBS:ää yleensä tarvitaan: BRB-kortin, kun yhteys katkeaa, omat klipit (Plus) sekä grafiikat ja alertit (beta) ilman tietokonetta. Valitse oma OBS, jos olet jo rakentanut studiosi sinne.",
 				},
 				{
 					q: "Mitä tapahtuu, kun yhteys katkeaa?",
-					a: "Kun Älä koskaan katkea on päällä, katsojat näkevät BRB-korttisi tai klippisi (Plus) eivätkä ilmoitusta lähetyksen päättymisestä. Chat-botti kertoo chatille, että palaat pian, ja VISP palaa liveen itsestään, kun puhelin saa taas yhteyden. Tietokonetta ei tarvita.",
+					a: "Kun Never drop on päällä, katsojat näkevät BRB-korttisi tai klippisi (Plus) eivätkä ilmoitusta lähetyksen päättymisestä. Chat-botti kertoo chatille, että palaat pian, ja VISP palaa liveen itsestään, kun puhelin saa taas yhteyden. VISPin palvelin hoitaa kaiken ilman tietokonetta.",
 				},
 				{
 					q: "Voinko käyttää Wi-Fiä ja mobiiliverkkoa yhtä aikaa?",
@@ -763,7 +763,7 @@ const fi: typeof en = {
 				},
 				{
 					q: "Paljonko VISP maksaa?",
-					a: "VISP on ilmainen, OBS:n kanssa tai ilman. Plus maksaa 9 euroa kuukaudessa ja lisää palvelimella toimivan puheäänen, tekstityksen ja äänen eristyksen sekä BRB-kortille omat koosteet. Tietokonetta ei tarvita. Yleisöä keränneet tekijät voivat hakea Affiliate-ohjelmaan ja saada kaikki ominaisuudet ilmaiseksi (Plus-kiintiöt pätevät).",
+					a: "VISP on ilmainen, OBS:n kanssa tai ilman. Plus maksaa 9 euroa kuukaudessa ja lisää palvelimella toimivan puheäänen, tekstityksen ja äänen eristyksen sekä BRB-kortille omat koosteet, edelleen ilman tietokonetta. Yleisöä keränneet tekijät voivat hakea Affiliate-ohjelmaan ja saada kaikki ominaisuudet ilmaiseksi. Plus-kiintiöt pätevät silti.",
 				},
 				{
 					q: "Toimiiko VISP iPhonella ja Androidilla?",
@@ -784,8 +784,8 @@ const fi: typeof en = {
 				"Striimaa puhelimesta Twitchiin, Kickiin ja YouTubeen ilman tietokonetta ja OBS:ää. Mobiilidata katkeaa? Katsojat näkevät BRB-kortin. Grafiikat (beta) VISPissä.",
 		},
 		hero: {
-			title: "Kaikki, mitä OBS teki striimillesi. Ilman tietokonetta.",
-			body: "Pysy lähetyksessä katvealueiden yli, näytä omia klippejä tauolla (Plus) ja lisää grafiikat ja hälytykset (beta), kaikki yhdellä puhelimella. Tietokonetta ei tarvita.",
+			title: "Kaikki, mitä striimiin tarvitaan, pelkällä puhelimella",
+			body: "Pysy lähetyksessä katvealueiden yli, näytä omia klippejä tauolla (Plus) ja lisää grafiikat ja alertit (beta), kaikki yhdellä puhelimella. Tietokonetta ei tarvita.",
 			imageAlt: "VISP-sovellus suorassa lähetyksessä puhelimella",
 		},
 		why: {
@@ -798,7 +798,7 @@ const fi: typeof en = {
 			{
 				heading: "Subathon automatkalla.",
 				body: "Liikkuvassa autossa kenttä katoaa muutaman minuutin välein. Jokainen katko lopettaa lähetyksen, pilkkoo subathonin kymmeneksi VODiksi ja ajaa katsojat muualle. Lähetys ei katkea koskaan. Kun puhelin hakee kenttää, katsojat katsovat lataamiasi klippejä (Plus), ja VISP palaa liveen heti, kun yhteys palaa. Tietokonetta ei tarvita.",
-				feature: "Älä koskaan katkea + BRB-koosteet (Plus)",
+				feature: "Never drop + BRB-koosteet (Plus)",
 			},
 			{
 				heading: "Festivaalin tungos.",
@@ -813,7 +813,7 @@ const fi: typeof en = {
 		],
 		studio: {
 			heading: "Sub-tavoite vaelluksella.",
-			body: "Haluat hälytykset ja tavoitepalkin ruutuun, mutta kotona ei ole konetta pyörittämässä niitä. Rakenna näkymät selaimessa hälytyswidgetilläsi ja grafiikoilla; VISP lisää ne lähetykseen palvelimellaan. Tietokonetta ei tarvita. Cloud Studiossa (beta) on enintään 3 näkymää ja kussakin 8 tasoa. Tasoina voi olla enintään kaksi julkista verkkosivua, kuten hälytyswidgetit, ja yksi taso voi olla VISP-hälytys.",
+			body: "Haluat alertit ja tavoitepalkin ruutuun, mutta kotona ei ole konetta pyörittämässä niitä. Rakenna näkymät selaimessa hälytyswidgetilläsi ja grafiikoilla; VISP lisää ne lähetykseen palvelimellaan. Tietokonetta ei tarvita. Cloud Studiossa (beta) on enintään 3 näkymää ja kussakin 8 tasoa. Tasoina voi olla enintään kaksi julkista verkkosivua, kuten hälytyswidgetit, ja yksi taso voi olla VISP-hälytys.",
 			feature: "Cloud Studio (beta)",
 			beta: "Beta",
 		},
@@ -864,7 +864,7 @@ const fi: typeof en = {
 					obs: "Jos rakennat sen OBS:ääsi.",
 				},
 				{
-					label: "Grafiikat, näkymät ja hälytykset",
+					label: "Grafiikat, näkymät ja alertit",
 					phone:
 						"Cloud Studio (beta): enintään 3 näkymää, kussakin 8 tasoa, hälytyswidgetit selainlähteinä. Tietokonetta ei tarvita.",
 					obs: "Niin monta kohtausta, lähdettä ja lisäosaa kuin koneesi jaksaa.",
@@ -909,7 +909,7 @@ const fi: typeof en = {
 		},
 		cost: {
 			heading: "Säästä 1\u00a0440–2\u00a0160\u00a0$ vuodessa",
-			body: "Pilvi-OBS-palvelut veloittavat 120–180 dollaria kuussa siitä, että pysyt lähetyksessä ja grafiikkasi pyörivät. Pelkkä puhelin tekee saman VISPin palvelimella: Älä koskaan katkea, BRB-kortti ja grafiikat (beta) ilman tietokonetta ja ilman vuokrattavaa pilvi-OBS:ää. VISP on ilmainen. Plus lisää palvelimen lisäpalvelut, kuten BRB-koosteet, 9 eurolla kuukaudessa.",
+			body: "Pilvi-OBS-palvelut veloittavat 120–180 dollaria kuussa siitä, että pysyt lähetyksessä ja grafiikkasi pyörivät. Pelkkä puhelin tekee saman VISPin palvelimella: Never drop, BRB-kortti ja grafiikat (beta) ilman tietokonetta ja ilman vuokrattavaa pilvi-OBS:ää. VISP on ilmainen. Plus lisää palvelimen lisäpalvelut, kuten BRB-koosteet, 9 eurolla kuukaudessa.",
 			chartSubtitle:
 				"VISP niiden pilvi-OBS-palveluiden rinnalla, jotka se korvaa.",
 			...fiCostShared,
@@ -936,11 +936,11 @@ const fi: typeof en = {
 			items: [
 				{
 					q: "Tarvitsenko OBS:n BRB-korttiin tai grafiikoihin?",
-					a: "Et. VISP näyttää BRB-korttisi, kun olet poissa linjoilta, ja lisää grafiikat ja hälytykset (beta) omalla palvelimellaan. Tietokonetta ei tarvita.",
+					a: "Et. VISP näyttää BRB-korttisi, kun olet poissa linjoilta, ja lisää grafiikat ja alertit (beta) omalla palvelimellaan. Tietokonetta ei tarvita.",
 				},
 				{
 					q: "Mitä katsojat näkevät, kun yhteys katkeaa?",
-					a: "Kytke Älä koskaan katkea päälle hallintapaneelin BRB-välilehdeltä, niin katsojat näkevät BRB-korttisi: mustan ruudun, oman kuvasi tai lataamasi klipit (Plus). Chat-botti voi kertoa chatille, että palaat pian. Kun puhelin saa taas yhteyden, VISP palaa liveen itsestään. Tietokonetta ei tarvita.",
+					a: "Kytke Never drop päälle hallintapaneelin BRB-välilehdeltä, niin katsojat näkevät BRB-korttisi: mustan ruudun, oman kuvasi tai lataamasi klipit (Plus). Chat-botti voi kertoa chatille, että palaat pian. Kun puhelin saa taas yhteyden, VISP palaa liveen itsestään. Tietokonetta ei tarvita.",
 				},
 				{
 					q: "Voinko striimata Twitchiin ja Kickiin yhtä aikaa?",
@@ -1024,7 +1024,7 @@ const fi: typeof en = {
 			title: "Pidä studiosi",
 			items: [
 				"Omat OBS-kohtauksesi, grafiikkasi ja sponsorikuvasi pysyvät ennallaan.",
-				"Hälytykset ja OBS-lisäosat toimivat kuten ennenkin.",
+				"alertit ja OBS-lisäosat toimivat kuten ennenkin.",
 				"Tallenna paikallisesti täydellä laadulla.",
 				"Ota etävieraita mukaan selaimen kautta.",
 			],

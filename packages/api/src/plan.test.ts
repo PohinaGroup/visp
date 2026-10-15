@@ -8,6 +8,7 @@ import {
 	PLUS_QUOTAS,
 	type PlanOwner,
 	quotaUsedMessage,
+	showsWatermark,
 } from "./plan";
 
 const free: PlanOwner = {
@@ -18,7 +19,13 @@ const free: PlanOwner = {
 	betterSubtitles: false,
 	brbHighlights: false,
 };
-const none = { tts: 0, subtitles: 0, audio_isolation: 0, typography_export: 0 };
+const none = {
+	tts: 0,
+	subtitles: 0,
+	audio_isolation: 0,
+	typography_export: 0,
+	ai_moderator: 0,
+};
 
 describe("entitlement", () => {
 	test("plan, comp and override each grant; free grants nothing", () => {
@@ -34,7 +41,7 @@ describe("entitlement", () => {
 		);
 	});
 
-	test("typography export and OBS backup have no override", () => {
+	test("typography export, OBS backup and the AI moderator have no override", () => {
 		const everyOverride = {
 			...free,
 			betterTts: true,
@@ -44,6 +51,17 @@ describe("entitlement", () => {
 		};
 		expect(isEntitled(everyOverride, "typography_export")).toBe(false);
 		expect(isEntitled(everyOverride, "obs_backup")).toBe(false);
+		expect(isEntitled(everyOverride, "ai_moderator")).toBe(false);
+	});
+
+	test("the AI moderator is metered in tokens", () => {
+		expect(
+			entitlementFrom({ ...free, comped: true }, "ai_moderator", none),
+		).toEqual({
+			entitled: true,
+			allowed: true,
+			remaining: PLUS_QUOTAS.ai_moderator,
+		});
 	});
 
 	test("quota applies to overrides and refuses at zero", () => {
@@ -68,5 +86,15 @@ describe("entitlement", () => {
 		expect(quotaUsedMessage(new Date("2026-10-31T23:30:00Z"))).toBe(
 			"Monthly quota used, resets 1 Nov",
 		);
+	});
+});
+
+describe("showsWatermark", () => {
+	test("free and overrides show it; plus and comps don't", () => {
+		expect(showsWatermark(null)).toBe(true);
+		expect(showsWatermark(free)).toBe(true);
+		expect(showsWatermark({ ...free, betterTts: true })).toBe(true);
+		expect(showsWatermark({ ...free, plan: "plus" })).toBe(false);
+		expect(showsWatermark({ ...free, comped: true })).toBe(false);
 	});
 });

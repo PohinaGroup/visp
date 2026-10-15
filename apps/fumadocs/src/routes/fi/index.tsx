@@ -65,7 +65,7 @@ function Home() {
             ],
             [
               "Säilytä tuotantosi",
-              "Kohtaukset, hälytykset ja grafiikat pysyvät nykyisessä OBS-kokoonpanossasi.",
+              "Kohtaukset, alertit ja grafiikat pysyvät nykyisessä OBS-kokoonpanossasi.",
             ],
             [
               "Etäohjaus",

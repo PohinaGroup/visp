@@ -21,6 +21,7 @@ const FEATURE_LABELS: Record<PlanFeature["feature"], string> = {
 	brb_highlights: "BRB highlights",
 	typography_export: "Typography export",
 	obs_backup: "OBS backup",
+	ai_moderator: "AI moderator",
 };
 
 /** Limits that are not monthly, shown as text instead of a bar. */
@@ -40,6 +41,7 @@ function day(iso: string, locale: string) {
 function amount(feature: PlanFeature["feature"], units: number) {
 	if (feature === "tts") return `${Math.round(units / 1000)}k characters`;
 	if (feature === "typography_export") return `${units}`;
+	if (feature === "ai_moderator") return `${Math.round(units / 1000)}k tokens`;
 	return `${(units / 3600).toFixed(1)} h`;
 }
 
@@ -63,7 +65,7 @@ async function openPolar(kind: "checkout" | "portal") {
 }
 
 /** One shared affiliate line wherever a price or upgrade is offered. */
-function AffiliateNote() {
+export function AffiliateNote() {
 	const t = useT();
 	const fi = useLocale() === "fi";
 	return (
@@ -79,7 +81,7 @@ function AffiliateNote() {
 	);
 }
 
-function UpgradeButton() {
+export function UpgradeButton() {
 	const t = useT();
 	return (
 		<Button
@@ -90,7 +92,7 @@ function UpgradeButton() {
 	);
 }
 
-function usePlan() {
+export function usePlan() {
 	const trpc = useTRPC();
 	return useQuery(trpc.plan.me.queryOptions());
 }

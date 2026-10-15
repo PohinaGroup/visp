@@ -9,9 +9,15 @@ import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { Selector } from "@astryxdesign/core/Selector";
 import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
+import { TextArea } from "@astryxdesign/core/TextArea";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { MessageCircleIcon, SendIcon, Trash2Icon } from "lucide-react";
+import {
+	MessageCircleIcon,
+	SendIcon,
+	ShieldCheckIcon,
+	Trash2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
@@ -20,8 +26,18 @@ import { useLocale, useT } from "@/lib/i18n";
 import { linkProvider } from "@/lib/link-provider";
 import { useTRPC } from "@/utils/trpc";
 import { providerLabel } from "./format";
+import { AffiliateNote, UpgradeButton, usePlan } from "./plan-card";
 
 const PROVIDERS = ["twitch", "kick", "youtube"] as const;
+
+const MODERATOR_EVENTS = [
+	{ key: "onRaid", label: "Welcome raids" },
+	{ key: "onGift", label: "Thank gifted subs and cheers" },
+	{ key: "onSignal", label: "Warn chat when the signal degrades" },
+	{ key: "onQuestions", label: "Answer unanswered stream questions" },
+] as const;
+
+const MAX_TIMEOUT_SECONDS = 1_209_600;
 
 const ALERTS = [
 	{ key: "live", label: "Say when the stream goes live" },
@@ -38,6 +54,11 @@ type Settings = {
 	targets: Record<ChatProvider, boolean>;
 	alerts: Record<(typeof ALERTS)[number]["key"], boolean>;
 	messages: Record<(typeof ALERTS)[number]["key"], string | null>;
+	moderator: {
+		enabled: boolean;
+		rules: string;
+		maxTimeoutSeconds: number;
+	} & Record<(typeof MODERATOR_EVENTS)[number]["key"], boolean>;
 };
 
 export function ChatBotCard() {
@@ -47,6 +68,7 @@ export function ChatBotCard() {
 	const queryClient = useQueryClient();
 	const bot = useQuery(trpc.chat.bot.get.queryOptions());
 	const connections = useQuery(trpc.chat.connections.list.queryOptions());
+	const plan = usePlan();
 	const [draft, setDraft] = useState<Settings | null>(null);
 	const [command, setCommand] = useState({ name: "", response: "" });
 
@@ -118,6 +140,47 @@ export function ChatBotCard() {
 		}
 	};
 
+	const moderator = bot.data.moderator;
+	const moderatorEntitled = Boolean(
+		plan.data?.features.find((row) => row.feature === "ai_moderator")?.entitled,
+	);
+	const twitchGranted =
+		connections.data?.find((entry) => entry.provider === "twitch")
+			?.grantedScopes ?? [];
+	const saveModerator = (over: Partial<Settings["moderator"]>) =>
+		save({ moderator: { ...settings.moderator, ...over } });
+	const moderatorActive =
+		moderatorEntitled &&
+		settings.moderator.enabled &&
+		moderator.configured &&
+		moderator.botScopesGranted &&
+		moderator.chatConnected &&
+		moderator.canPost &&
+		moderator.botIsModerator;
+	const moderatorStatus = !moderator.configured
+		? t("Not available on this server.")
+		: !moderator.botScopesGranted
+			? t("The shared VISP bot is not set up for moderation yet.")
+			: !moderator.chatConnected
+				? t("Connect Twitch chat in Connections first.")
+				: !moderator.canPost
+					? null
+					: !moderator.botIsModerator
+						? `${t("Type")} /mod ${moderator.botLogin} ${t("in your Twitch chat so the bot can act.")}`
+						: `${t("Moderating as")} ${moderator.botLogin}.`;
+	/** Operator only: the bot account grants its own scopes from this card. */
+	const authorizeBotScopes = async () => {
+		const result = await linkProvider({
+			provider: "twitch",
+			granted: twitchGranted,
+			adding: PROVIDER_SCOPES.twitch.botModerate,
+			fi,
+		});
+		if (result.error) {
+			toast.error(result.error.message ?? t("Could not authorize posting"));
+		}
+	};
+
 	return (
 		<Card id="dashboard-chat-bot">
 			<VStack gap={4}>
@@ -137,6 +200,134 @@ export function ChatBotCard() {
 							"Posts to your chat when the stream goes live, drops, or comes back, and answers commands like !bitrate.",
 						)}
 					</Text>
+				</VStack>
+
+				<VStack gap={2}>
+					<HStack gap={2} vAlign="center" wrap="wrap">
+						<Text type="label">{t("AI moderator")}</Text>
+						<Badge label={t("Plus")} variant="info" />
+						{moderatorActive ? (
+							<Badge label={t("On")} variant="success" />
+						) : null}
+					</HStack>
+					<Text color="secondary" type="supporting">
+						{t(
+							"Watches your Twitch chat as the VISP bot: removes rule-breaking messages, times out repeat offenders, answers when mentioned, and clips on request.",
+						)}
+					</Text>
+					{moderatorEntitled ? (
+						<>
+							<Switch
+								label={t("Moderate my Twitch chat")}
+								labelSpacing="spread"
+								value={settings.moderator.enabled}
+								onChange={(value) => saveModerator({ enabled: value })}
+							/>
+							{settings.moderator.enabled ? (
+								<>
+									{moderatorStatus ? (
+										<Text color="secondary" type="supporting">
+											{moderatorStatus}
+										</Text>
+									) : null}
+									{moderator.chatConnected && !moderator.canPost ? (
+										<HStack
+											gap={2}
+											hAlign="between"
+											vAlign="center"
+											wrap="wrap"
+										>
+											<Text color="secondary" type="supporting">
+												{`Twitch: ${t("posting is not authorized yet")}`}
+											</Text>
+											<Button
+												icon={
+													<Icon
+														color="inherit"
+														icon={MessageCircleIcon}
+														size="sm"
+													/>
+												}
+												label={t("Authorize posting")}
+												onClick={() => void allowPosting("twitch")}
+											/>
+										</HStack>
+									) : null}
+									<TextArea
+										description={t(
+											"What to remove, what to allow, and how to sound. Twitch rules always apply.",
+										)}
+										label={t("House rules")}
+										maxLength={2000}
+										placeholder={t(
+											"No politics, no backseating, swearing is fine. Keep replies playful.",
+										)}
+										rows={3}
+										value={settings.moderator.rules}
+										onBlur={() => update.mutate(settings)}
+										onChange={(value) =>
+											setDraft({
+												...settings,
+												moderator: { ...settings.moderator, rules: value },
+											})
+										}
+									/>
+									<TextInput
+										label={t("Longest timeout (seconds)")}
+										value={String(settings.moderator.maxTimeoutSeconds)}
+										onBlur={() =>
+											update.mutate({
+												...settings,
+												moderator: {
+													...settings.moderator,
+													maxTimeoutSeconds: Math.min(
+														Math.max(settings.moderator.maxTimeoutSeconds, 1),
+														MAX_TIMEOUT_SECONDS,
+													),
+												},
+											})
+										}
+										onChange={(value) =>
+											setDraft({
+												...settings,
+												moderator: {
+													...settings.moderator,
+													maxTimeoutSeconds: Number.parseInt(value, 10) || 0,
+												},
+											})
+										}
+									/>
+									{MODERATOR_EVENTS.map((event) => (
+										<Switch
+											key={event.key}
+											label={t(event.label)}
+											labelSpacing="spread"
+											value={settings.moderator[event.key]}
+											onChange={(value) =>
+												saveModerator({ [event.key]: value })
+											}
+										/>
+									))}
+								</>
+							) : null}
+						</>
+					) : (
+						<VStack gap={1}>
+							<HStack>
+								<UpgradeButton />
+							</HStack>
+							<AffiliateNote />
+						</VStack>
+					)}
+					{moderator.isSharedBotAccount && !moderator.botScopesGranted ? (
+						<HStack>
+							<Button
+								icon={<Icon color="inherit" icon={ShieldCheckIcon} size="sm" />}
+								label={t("Authorize moderation scopes for the shared bot")}
+								onClick={() => void authorizeBotScopes()}
+							/>
+						</HStack>
+					) : null}
 				</VStack>
 
 				<Switch

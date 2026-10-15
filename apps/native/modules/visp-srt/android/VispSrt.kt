@@ -300,6 +300,11 @@ class VispSrt : Module() {
         view.clearCaptionsOverlay(promise)
       }
 
+      AsyncFunction("setWatermark") { view: VispSrtView, visible: Boolean, promise: Promise ->
+        remember(view)
+        view.setWatermark(visible, promise)
+      }
+
       AsyncFunction("startLiveCaptions") {
           view: VispSrtView,
           language: String,
@@ -583,6 +588,9 @@ class VispSrtView(context: Context, appContext: AppContext) :
   private var chatBitmap: Bitmap? = null
   private var chatCorner = "bottom-left"
   private var captionsBitmap: Bitmap? = null
+  private var watermarkVisible = false
+  // Rendered once: the mark never changes, only its visibility and corner.
+  private val watermarkBitmap: Bitmap by lazy { renderWatermarkOverlay() }
   private var overlayFilter: ImageObjectFilterRender? = null
   private var amplitudeEffect: PeakAmplitudeEffect? = null
   private var audioMuted = false
@@ -839,6 +847,12 @@ class VispSrtView(context: Context, appContext: AppContext) :
 
   fun clearCaptionsOverlay(promise: Promise) {
     captionsBitmap = null
+    applyOverlays()
+    promise.resolve()
+  }
+
+  fun setWatermark(visible: Boolean, promise: Promise) {
+    watermarkVisible = visible
     applyOverlays()
     promise.resolve()
   }
@@ -1483,7 +1497,7 @@ class VispSrtView(context: Context, appContext: AppContext) :
     val current = stream ?: return
     val chat = chatBitmap
     val captions = captionsBitmap
-    if (chat == null && captions == null) {
+    if (chat == null && captions == null && !watermarkVisible) {
       if (overlayFilter != null) current.getGlInterface().setFilter(NoFilterRender())
       overlayFilter = null
       return
@@ -1506,6 +1520,14 @@ class VispSrtView(context: Context, appContext: AppContext) :
       val top = frameHeight - captions.height - margin
       canvas.drawBitmap(captions, left.toFloat(), top.toFloat(), null)
     }
+    if (watermarkVisible) {
+      val mark = watermarkBitmap
+      val margin = (minOf(frameWidth, frameHeight) * 0.04f).toInt().coerceAtLeast(24)
+      // Chat defaults to a bottom corner; when it sits top-right the mark steps aside.
+      val dodgeChat = chat != null && chatCorner == "top-right"
+      val left = if (dodgeChat) margin else frameWidth - mark.width - margin
+      canvas.drawBitmap(mark, left.toFloat(), margin.toFloat(), null)
+    }
     val filter = overlayFilter ?: ImageObjectFilterRender().also {
       overlayFilter = it
       current.getGlInterface().setFilter(it)
@@ -1513,6 +1535,28 @@ class VispSrtView(context: Context, appContext: AppContext) :
     filter.setImage(composite)
     filter.setDefaultScale(frameWidth, frameHeight)
     filter.setPosition(TranslateTo.CENTER)
+  }
+
+  private fun renderWatermarkOverlay(): Bitmap {
+    val horizontalPadding = 14f
+    val verticalPadding = 8f
+    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+      color = Color.argb(230, 255, 255, 255)
+      textSize = 22f
+      typeface = android.graphics.Typeface.create(
+        android.graphics.Typeface.DEFAULT,
+        android.graphics.Typeface.BOLD,
+      )
+    }
+    val text = "VISP \u00B7 visp-stream.com"
+    val width = (paint.measureText(text) + horizontalPadding * 2).toInt()
+    val height = (paint.fontSpacing + verticalPadding * 2).toInt()
+    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+    val canvas = Canvas(bitmap)
+    val background = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.argb(128, 0, 0, 0) }
+    canvas.drawRoundRect(RectF(0f, 0f, width.toFloat(), height.toFloat()), 10f, 10f, background)
+    canvas.drawText(text, horizontalPadding, verticalPadding - paint.ascent(), paint)
+    return bitmap
   }
 
   private fun renderCaptionsOverlay(text: String): Bitmap? {

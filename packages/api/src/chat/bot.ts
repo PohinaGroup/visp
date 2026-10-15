@@ -1,5 +1,6 @@
 import { db } from "@VISP/db";
 import {
+	appUser,
 	chatBot,
 	chatBotCommand,
 	pathState,
@@ -10,6 +11,7 @@ import { and, count, desc, eq, isNotNull, isNull, or, sql } from "drizzle-orm";
 import { type AdvisoryLock, tryAdvisoryLock } from "../advisory-lock";
 import { getViewerCounts, updateStreamInfo } from "../channel/stream-info";
 import { formatLinkStats, linkStatsFromPath } from "../link-stats";
+import { moderatorEntitledSql } from "../plan";
 import {
 	type CommandIntent,
 	type CustomCommand,
@@ -19,6 +21,7 @@ import {
 } from "./commands";
 import type { ChatMessage, ChatProvider } from "./contract";
 import { chatHub } from "./hub";
+import { ChatModerator } from "./moderator";
 import { sendChatMessage } from "./send";
 import {
 	assertBotSenderModeAllowed,
@@ -82,6 +85,27 @@ export function invalidateBotConfig(userId: string) {
 	commandsCache.delete(userId);
 }
 
+export type ModeratorSettings = {
+	enabled: boolean;
+	rules: string;
+	maxTimeoutSeconds: number;
+	onRaid: boolean;
+	onGift: boolean;
+	onSignal: boolean;
+	onQuestions: boolean;
+};
+
+/** Lives here, not in moderator.ts: that module is loaded through a cycle. */
+export const DEFAULT_MODERATOR_SETTINGS: ModeratorSettings = {
+	enabled: true,
+	rules: "",
+	maxTimeoutSeconds: 600,
+	onRaid: true,
+	onGift: true,
+	onSignal: true,
+	onQuestions: false,
+};
+
 export type BotSettings = {
 	enabled: boolean;
 	commandsEnabled: boolean;
@@ -90,6 +114,8 @@ export type BotSettings = {
 	targets: Record<ChatProvider, boolean>;
 	alerts: Record<AlertEvent, boolean>;
 	messages: Record<AlertEvent, string | null>;
+	/** The AI moderator (Plus); independent of `enabled`, which is posting. */
+	moderator: ModeratorSettings;
 };
 
 const DEFAULT_SETTINGS: BotSettings = {
@@ -100,6 +126,7 @@ const DEFAULT_SETTINGS: BotSettings = {
 	targets: { twitch: true, kick: true, youtube: true },
 	alerts: { live: true, brb: true, back: true, offline: false },
 	messages: { live: null, brb: null, back: null, offline: null },
+	moderator: DEFAULT_MODERATOR_SETTINGS,
 };
 
 function toSettings(
@@ -128,6 +155,15 @@ function toSettings(
 			brb: row.brbMessage,
 			back: row.backMessage,
 			offline: row.offlineMessage,
+		},
+		moderator: {
+			enabled: row.modEnabled,
+			rules: row.modRules,
+			maxTimeoutSeconds: row.modMaxTimeoutSeconds,
+			onRaid: row.modOnRaid,
+			onGift: row.modOnGift,
+			onSignal: row.modOnSignal,
+			onQuestions: row.modOnQuestions,
 		},
 	};
 }
@@ -166,6 +202,13 @@ export async function setBotSettings(userId: string, input: BotSettings) {
 		brbMessage: trim(input.messages.brb),
 		backMessage: trim(input.messages.back),
 		offlineMessage: trim(input.messages.offline),
+		modEnabled: input.moderator.enabled,
+		modRules: input.moderator.rules.trim().slice(0, 2000),
+		modMaxTimeoutSeconds: input.moderator.maxTimeoutSeconds,
+		modOnRaid: input.moderator.onRaid,
+		modOnGift: input.moderator.onGift,
+		modOnSignal: input.moderator.onSignal,
+		modOnQuestions: input.moderator.onQuestions,
 	};
 	const [row] = await db
 		.insert(chatBot)
@@ -249,24 +292,43 @@ export async function deleteBotCommand(userId: string, name: string) {
 	return Boolean(row);
 }
 
-/** Live link stats for whichever of this account's devices is publishing. */
-async function currentLinkStats(userId: string) {
+/**
+ * Whichever of this account's devices is on air (publishing first, else a BRB
+ * hold), with its link stats when fresh.
+ */
+export async function currentPath(userId: string) {
 	const rows = await db
 		.select({
+			pathId: pathState.pathId,
 			linkBitrateKbps: pathState.linkBitrateKbps,
 			linkTargetBitrateKbps: pathState.linkTargetBitrateKbps,
 			linkRttMs: pathState.linkRttMs,
 			linkPacketLossPct: pathState.linkPacketLossPct,
 			linkStatsAt: pathState.linkStatsAt,
 			publishing: pathState.publishing,
+			brbSince: pathState.brbSince,
 		})
 		.from(pathState)
 		.innerJoin(relayPath, eq(relayPath.id, pathState.pathId))
 		.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
-	return rows.flatMap((row) => linkStatsFromPath(row) ?? []).at(0) ?? null;
+	const row =
+		rows.find((row) => row.publishing) ??
+		rows.find((row) => row.brbSince !== null);
+	if (!row) return null;
+	return {
+		pathId: row.pathId,
+		publishing: Boolean(row.publishing),
+		brbSince: row.brbSince,
+		link: linkStatsFromPath(row),
+	};
 }
 
-async function currentUptimeMs(userId: string, now: number) {
+/** Live link stats for whichever of this account's devices is publishing. */
+async function currentLinkStats(userId: string) {
+	return (await currentPath(userId))?.link ?? null;
+}
+
+export async function currentUptimeMs(userId: string, now: number) {
 	const [session] = await db
 		.select({ startedAt: relayStreamSession.startedAt })
 		.from(relayStreamSession)
@@ -324,22 +386,42 @@ class UserBot {
 	private readonly cooldowns = new Map<string, number>();
 	/** Texts this bot just posted, so its own lines never trigger it. */
 	private readonly echoes = new Map<string, number>();
+	private readonly moderator: ChatModerator;
 	private readonly unsubscribe: () => void;
 
 	constructor(
 		private readonly userId: string,
 		private readonly lock: AdvisoryLock,
 	) {
+		// Same subscription, second consumer: the moderator hears every line and
+		// every alert, and decides for itself whether it may act.
+		this.moderator = new ChatModerator(userId, {
+			settings: () =>
+				cached(settingsCache, userId, () => getBotSettings(userId)),
+			echoes: this.echoes,
+			path: () => currentPath(userId),
+			uptimeMs: (now) => currentUptimeMs(userId, now),
+		});
 		this.unsubscribe = chatHub.subscribe(userId, (event) => {
+			if (event.type === "alert") {
+				void this.moderator
+					.onAlert(event.alert)
+					.catch((error) => console.error("AI moderator failed", error));
+				return;
+			}
 			if (event.type !== "message") return;
 			void this.onMessage(event.message).catch((error) =>
 				console.error("Chat bot failed", error),
 			);
+			void this.moderator
+				.observe(event.message)
+				.catch((error) => console.error("AI moderator failed", error));
 		});
 	}
 
 	async stop() {
 		this.unsubscribe();
+		this.moderator.stop();
 		invalidateBotConfig(this.userId);
 		await this.lock.release();
 	}
@@ -384,19 +466,27 @@ class UserBot {
 const bots = new Map<string, UserBot>();
 const starting = new Set<string>();
 
-/** Accounts with the bot on and something on air — BRB counts, chat is awake. */
+/**
+ * Accounts with something on air (BRB counts, chat is awake) that either
+ * answer commands or get the AI moderator: Plus or comped, and not switched
+ * off. A missing `chat_bot` row means the defaults, so the moderator starts
+ * for an entitled account that never opened the card.
+ */
 async function liveBotUsers() {
 	const rows = await db
-		.selectDistinct({ userId: chatBot.userId })
-		.from(chatBot)
-		.innerJoin(relayPath, eq(relayPath.userId, chatBot.userId))
+		.selectDistinct({ userId: relayPath.userId })
+		.from(relayPath)
 		.innerJoin(pathState, eq(pathState.pathId, relayPath.id))
+		.innerJoin(appUser, eq(appUser.id, relayPath.userId))
+		.leftJoin(chatBot, eq(chatBot.userId, relayPath.userId))
 		.where(
 			and(
-				eq(chatBot.enabled, true),
-				eq(chatBot.commandsEnabled, true),
 				isNull(relayPath.revokedAt),
 				or(eq(pathState.publishing, true), isNotNull(pathState.brbSince)),
+				or(
+					and(eq(chatBot.enabled, true), eq(chatBot.commandsEnabled, true)),
+					and(sql`coalesce(${chatBot.modEnabled}, true)`, moderatorEntitledSql),
+				),
 			),
 		);
 	return new Set(rows.map((row) => row.userId));

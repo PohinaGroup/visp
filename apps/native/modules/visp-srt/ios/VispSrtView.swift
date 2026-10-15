@@ -182,6 +182,9 @@ final class VispSrtView: ExpoView {
   @ScreenActor private var chatScreenObject: ImageScreenObject?
   private var captionsBitmap: CGImage?
   @ScreenActor private var captionsScreenObject: ImageScreenObject?
+  private var watermarkVisible = false
+  @ScreenActor private var watermarkScreenObject: ImageScreenObject?
+  private static let watermarkBitmap = renderWatermarkOverlay()?.cgImage
   private static let chatImageCache = NSCache<NSURL, UIImage>()
   private var retryPolicy = RetryPolicy()
   private var retryTask: Task<Void, Never>?
@@ -338,6 +341,7 @@ final class VispSrtView: ExpoView {
       preview.resetPreviewTiming()
       await applyChatBitmap()
       await applyCaptionsBitmap()
+      await applyWatermark()
       if backgroundStopErrorPending {
         backgroundStopErrorPending = false
         emit(
@@ -537,6 +541,35 @@ final class VispSrtView: ExpoView {
   func clearCaptionsOverlay() async {
     captionsBitmap = nil
     await applyCaptionsBitmap()
+  }
+
+  func setWatermark(_ visible: Bool) async {
+    watermarkVisible = visible
+    await applyWatermark()
+  }
+
+  /// Rendered once: the mark never changes, only its visibility and corner.
+  nonisolated private static func renderWatermarkOverlay() -> UIImage? {
+    let horizontalPadding: CGFloat = 14
+    let verticalPadding: CGFloat = 8
+    let attributes: [NSAttributedString.Key: Any] = [
+      .font: UIFont.boldSystemFont(ofSize: 22),
+      .foregroundColor: UIColor.white.withAlphaComponent(0.9),
+    ]
+    let text = "VISP \u{00B7} visp-stream.com" as NSString
+    let textSize = text.size(withAttributes: attributes)
+    let size = CGSize(
+      width: ceil(textSize.width + horizontalPadding * 2),
+      height: ceil(textSize.height + verticalPadding * 2)
+    )
+    let format = UIGraphicsImageRendererFormat()
+    format.scale = 1
+    return UIGraphicsImageRenderer(size: size, format: format).image { context in
+      context.cgContext.clear(CGRect(origin: .zero, size: size))
+      UIColor.black.withAlphaComponent(0.5).setFill()
+      UIBezierPath(roundedRect: CGRect(origin: .zero, size: size), cornerRadius: 10).fill()
+      text.draw(at: CGPoint(x: horizontalPadding, y: verticalPadding), withAttributes: attributes)
+    }
   }
 
   private func renderCaptionsOverlay(_ text: String) -> UIImage? {
@@ -810,6 +843,36 @@ final class VispSrtView: ExpoView {
       object.layoutMargin = .init(top: 64, left: 64, bottom: 64, right: 64)
       object.horizontalAlignment = corner.hasSuffix("right") ? .right : .left
       object.verticalAlignment = corner.hasPrefix("top") ? .top : .bottom
+      object.invalidateLayout()
+    }.value
+    await applyWatermark()
+  }
+
+  private func applyWatermark() async {
+    guard let mixer else {
+      return
+    }
+    let bitmap = Self.watermarkBitmap
+    let visible = watermarkVisible && bitmap != nil
+    // Chat defaults to a bottom corner; when it sits top-right the mark steps aside.
+    let dodgeChat = chatBitmap != nil && chatCorner == "top-right"
+    let screen = await mixer.screen
+    await Task { @ScreenActor [weak self] in
+      guard let self else { return }
+      let object: ImageScreenObject
+      if let current = self.watermarkScreenObject {
+        object = current
+      } else {
+        object = ImageScreenObject()
+        try? screen.addChild(object)
+        self.watermarkScreenObject = object
+      }
+      object.cgImage = bitmap
+      object.size = bitmap.map { CGSize(width: CGFloat($0.width), height: CGFloat($0.height)) } ?? .zero
+      object.isVisible = visible
+      object.layoutMargin = .init(top: 64, left: 64, bottom: 64, right: 64)
+      object.horizontalAlignment = dodgeChat ? .left : .right
+      object.verticalAlignment = .top
       object.invalidateLayout()
     }.value
   }
@@ -1321,6 +1384,7 @@ final class VispSrtView: ExpoView {
     await Task { @ScreenActor [weak self] in
       self?.chatScreenObject = nil
       self?.captionsScreenObject = nil
+      self?.watermarkScreenObject = nil
     }.value
     mixer = nil
     videoDevice = nil

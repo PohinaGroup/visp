@@ -260,6 +260,13 @@
 			"when": 1792053195478,
 			"tag": "0036_plus_plan",
 			"breakpoints": true
+		},
+		{
+			"idx": 37,
+			"version": "7",
+			"when": 1792083588216,
+			"tag": "0037_ai_moderator",
+			"breakpoints": true
 		}
 	]
 }

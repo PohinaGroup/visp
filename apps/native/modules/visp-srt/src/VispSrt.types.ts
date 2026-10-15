@@ -142,6 +142,8 @@ export type VispSrtViewRef = {
 	clearChatOverlay(): Promise<void>;
 	updateCaptionsOverlay(text: string): Promise<void>;
 	clearCaptionsOverlay(): Promise<void>;
+	/** Burns the VISP mark into the outgoing video (free plan). */
+	setWatermark(visible: boolean): Promise<void>;
 	startLiveCaptions(
 		language: string,
 		better: boolean,

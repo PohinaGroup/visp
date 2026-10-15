@@ -46,7 +46,8 @@ export type SendDependencies = {
 	liveChatId: (userId: string) => Promise<string | null>;
 };
 
-const defaultDependencies: SendDependencies = {
+/** Exported so the AI moderator can pin the sender to the shared bot. */
+export const sendDependencies: SendDependencies = {
 	fetch: globalThis.fetch,
 	getAccessToken: (providerId, userId) =>
 		getProviderAccessToken(providerId, userId),
@@ -106,7 +107,7 @@ export async function sendChatMessage(
 	userId: string,
 	provider: ChatProvider,
 	text: string,
-	dependencies: SendDependencies = defaultDependencies,
+	dependencies: SendDependencies = sendDependencies,
 	now = Date.now(),
 ): Promise<SendResult> {
 	const message = prepareMessage(text);

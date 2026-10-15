@@ -12,6 +12,7 @@ import {
 	PLAN_FEATURES,
 	PLUS_QUOTAS,
 	planOwner,
+	showsWatermark,
 } from "../plan";
 import { fixedWindow } from "../rate-limit";
 import { SUBTITLES_PROVIDER, SUBTITLES_REPORT_MAX_SECONDS } from "../subtitles";
@@ -36,6 +37,8 @@ export const planRouter = router({
 		return {
 			plan,
 			comped,
+			/** The app burns the VISP mark into free streams. */
+			watermark: showsWatermark(owner),
 			/** Web only: POST /api/auth/checkout {slug: "plus"}. Never for comps. */
 			canCheckout: billing && plan === "free" && !comped,
 			/** Web only: /api/auth/customer/portal (card, cancel, invoices). */

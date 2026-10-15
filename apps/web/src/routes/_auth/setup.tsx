@@ -1,22 +1,21 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
-import { Banner } from "@astryxdesign/core/Banner";
-import { Button } from "@astryxdesign/core/Button";
-import { Card } from "@astryxdesign/core/Card";
-import { Center } from "@astryxdesign/core/Center";
-import { ClickableCard } from "@astryxdesign/core/ClickableCard";
-import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Grid } from "@astryxdesign/core/Grid";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
-import { List, ListItem } from "@astryxdesign/core/List";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
-import { ArrowLeftIcon, DownloadIcon, ExternalLinkIcon } from "lucide-react";
+import {
+	ArrowLeftIcon,
+	DownloadIcon,
+	ExternalLinkIcon,
+	LoaderCircleIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -30,6 +29,7 @@ import {
 	type SeppoClientToolCall,
 	SeppoWidget,
 } from "@/components/seppo-widget";
+import { type ChainSlot, SignalChain } from "@/components/signal-chain";
 import { getObsPluginRelease } from "@/functions/get-obs-releases";
 import {
 	ADVANCED_SETUP_DEFAULTS,
@@ -220,6 +220,28 @@ const DESTINATION_OPTIONS: {
 	},
 ];
 
+const PUBLISHER_SHORT: Record<Publisher, string> = {
+	visp: "VISP app",
+	web: "Browser",
+	obs: "OBS",
+	larix: "Larix",
+	moblin: "Moblin",
+	other: "Other app",
+};
+const PUBLISHER_SHORT_FI: Record<Publisher, string> = {
+	...PUBLISHER_SHORT,
+	visp: "Sovellus",
+	web: "Selain",
+	other: "Muu sovellus",
+};
+// "Somewhere else" leaves VISP through OBS.
+const DESTINATION_SHORT: Record<Destination, string> = {
+	twitch: "Twitch",
+	kick: "Kick",
+	youtube: "YouTube",
+	other: "OBS",
+};
+
 const MANUAL_PUBLISH_STEPS: Record<
 	Exclude<Publisher, "visp" | "web">,
 	{ name: string; primary: "srt" | "rtmp" | "srtla"; steps: string[] }
@@ -315,6 +337,14 @@ function stepIndex(step: WizardStep, destination: Destination): number {
 	return index === -1 ? 0 : index;
 }
 
+// Choice rows share one hairline list, with the login page's node square on
+// the right that fills as the row is pointed at.
+function OptionList({ children }: { children: ReactNode }) {
+	return (
+		<ul className="grid gap-px border border-border bg-border">{children}</ul>
+	);
+}
+
 function OptionCard({
 	title,
 	description,
@@ -327,28 +357,136 @@ function OptionCard({
 	onClick: () => void;
 }) {
 	return (
-		<ClickableCard label={title} onClick={onClick}>
-			<VStack gap={1}>
-				<HStack gap={2} vAlign="center" wrap="wrap">
-					<Text type="label">{title}</Text>
-					{badge ? (
-						<Text color="secondary" type="supporting">
-							{badge}
-						</Text>
-					) : null}
-				</HStack>
-				<Text color="secondary" type="supporting">
-					{description}
-				</Text>
-			</VStack>
-		</ClickableCard>
+		<li className="bg-background">
+			<button
+				className="group flex w-full items-center justify-between gap-6 px-5 py-4 text-left transition-colors hover:bg-card focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2"
+				type="button"
+				onClick={onClick}
+			>
+				<span className="flex min-w-0 flex-col gap-1">
+					<span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+						<span className="font-medium text-base text-foreground">
+							{title}
+						</span>
+						{badge ? (
+							<span className="text-muted-foreground text-xs">{badge}</span>
+						) : null}
+					</span>
+					<span className="text-muted-foreground text-sm leading-relaxed">
+						{description}
+					</span>
+				</span>
+				<span
+					aria-hidden
+					className="size-2.5 shrink-0 border border-muted-foreground transition-colors group-hover:border-foreground group-hover:bg-foreground group-focus-visible:border-foreground group-focus-visible:bg-foreground"
+				/>
+			</button>
+		</li>
 	);
+}
+
+// In-identity stand-ins for the astryx Banner / Button / Collapsible / Card,
+// which render in system type: notes are hairline left-rules colored by
+// signal state, buttons match the login page.
+function Note({
+	status,
+	title,
+	description,
+}: {
+	status: "info" | "success" | "warning";
+	title: string;
+	description?: string;
+}) {
+	return (
+		<div
+			className={`flex flex-col gap-1 border-l-2 bg-card/40 px-4 py-3 ${
+				status === "success"
+					? "border-signal"
+					: status === "warning"
+						? "border-caution"
+						: "border-muted-foreground"
+			}`}
+		>
+			<p className="font-medium text-sm">{title}</p>
+			{description ? (
+				<p className="text-muted-foreground text-sm leading-relaxed">
+					{description}
+				</p>
+			) : null}
+		</div>
+	);
+}
+
+function Action({
+	icon,
+	isDisabled,
+	isLoading,
+	label,
+	onClick,
+	variant = "secondary",
+}: {
+	icon?: ReactNode;
+	isDisabled?: boolean;
+	isLoading?: boolean;
+	label: string;
+	onClick: () => void;
+	variant?: "primary" | "secondary" | "ghost";
+}) {
+	return (
+		<button
+			aria-busy={isLoading || undefined}
+			className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-[var(--radius)] font-medium text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 disabled:opacity-50 ${
+				variant === "primary"
+					? "bg-primary px-6 text-primary-foreground hover:opacity-90"
+					: variant === "ghost"
+						? "px-2 text-muted-foreground hover:text-foreground"
+						: "border border-border px-5 text-foreground hover:bg-card"
+			}`}
+			disabled={isDisabled || isLoading}
+			type="button"
+			onClick={onClick}
+		>
+			{isLoading ? (
+				<LoaderCircleIcon aria-hidden className="size-4 animate-spin" />
+			) : (
+				icon
+			)}
+			{label}
+		</button>
+	);
+}
+
+function Disclosure({
+	trigger,
+	children,
+}: {
+	trigger: ReactNode;
+	children: ReactNode;
+}) {
+	return (
+		<details className="group border-border border-t">
+			<summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 text-muted-foreground text-sm transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-4 [&::-webkit-details-marker]:hidden">
+				{trigger}
+				<span
+					aria-hidden
+					className="font-mono text-base leading-none transition-transform group-open:rotate-45"
+				>
+					+
+				</span>
+			</summary>
+			<div className="pb-4">{children}</div>
+		</details>
+	);
+}
+
+function Panel({ children }: { children: ReactNode }) {
+	return <div className="border border-border p-5">{children}</div>;
 }
 
 function BackButton({ onBack }: { onBack: () => void }) {
 	const t = useT();
 	return (
-		<Button
+		<Action
 			icon={<Icon color="inherit" icon={ArrowLeftIcon} size="sm" />}
 			label={t("Back")}
 			variant="ghost"
@@ -371,29 +509,33 @@ function StepIntro({
 	return (
 		<VStack gap={1}>
 			<HStack gap={1.5} vAlign="center">
-				<Heading level={2}>{title}</Heading>
+				<h2 className="font-display font-semibold text-2xl uppercase leading-none tracking-tight sm:text-3xl">
+					{title}
+				</h2>
 				{docsHref && docsLabel ? (
 					<DocsHelpLink href={docsHref} label={docsLabel} />
 				) : null}
 			</HStack>
-			<Text color="secondary">{description}</Text>
+			<p className="max-w-[60ch] pt-2 text-muted-foreground leading-relaxed">
+				{description}
+			</p>
 		</VStack>
 	);
 }
 
 function NumberedSteps({ steps }: { steps: string[] }) {
 	return (
-		<List listStyle="decimal">
+		<ol className="flex list-decimal flex-col gap-2 pl-5 text-sm leading-relaxed marker:font-mono marker:text-muted-foreground">
 			{steps.map((step) => (
-				<ListItem key={step} label={step} />
+				<li key={step}>{step}</li>
 			))}
-		</List>
+		</ol>
 	);
 }
 
 function ExternalLinkButton({ href, label }: { href: string; label: string }) {
 	return (
-		<Button
+		<Action
 			icon={<Icon color="inherit" icon={ExternalLinkIcon} size="sm" />}
 			label={label}
 			variant="secondary"
@@ -428,27 +570,29 @@ function RedoStep({
 				}
 				title={fi ? "Tee käyttöönotto uudelleen" : "Redo setup"}
 			/>
-			<OptionCard
-				description={
-					fi
-						? "Säilytä nykyiset laitteet ja vaihda Directiin. Jatkamalla vahvistat, ettei OBS enää julkaise samaan Twitch- tai Kick-kohteeseen."
-						: "Keep current devices and switch to Direct. By continuing, you confirm OBS will stop publishing to the same Direct destination."
-				}
-				badge={fi ? "Suositus" : "Recommended"}
-				title={fi ? "Vaihda Directiin" : "Switch to Direct"}
-				onClick={onSwitch}
-			/>
-			<OptionCard
-				description={
-					fi
-						? "Peru kaikkien laitepolkujen oikeudet ja vaihda OBS-lukutunnukset. Sovellusten sidokset ja vanhat julkaisuosoitteet lakkaavat toimimasta. Tätä ei voi perua."
-						: "Revoke every device path and rotate OBS read credentials. App bindings and old publish URLs stop working. This cannot be undone."
-				}
-				title={fi ? "Tyhjennä ja aloita alusta" : "Wipe and start over"}
-				onClick={onWipe}
-			/>
+			<OptionList>
+				<OptionCard
+					description={
+						fi
+							? "Säilytä nykyiset laitteet ja vaihda Directiin. Jatkamalla vahvistat, ettei OBS enää julkaise samaan Twitch- tai Kick-kohteeseen."
+							: "Keep current devices and switch to Direct. By continuing, you confirm OBS will stop publishing to the same Direct destination."
+					}
+					badge={fi ? "Suositus" : "Recommended"}
+					title={fi ? "Vaihda Directiin" : "Switch to Direct"}
+					onClick={onSwitch}
+				/>
+				<OptionCard
+					description={
+						fi
+							? "Peru kaikkien laitepolkujen oikeudet ja vaihda OBS-lukutunnukset. Sovellusten sidokset ja vanhat julkaisuosoitteet lakkaavat toimimasta. Tätä ei voi perua."
+							: "Revoke every device path and rotate OBS read credentials. App bindings and old publish URLs stop working. This cannot be undone."
+					}
+					title={fi ? "Tyhjennä ja aloita alusta" : "Wipe and start over"}
+					onClick={onWipe}
+				/>
+			</OptionList>
 			<HStack>
-				<Button
+				<Action
 					label={fi ? "Peruuta" : "Cancel"}
 					variant="ghost"
 					onClick={onKeep}
@@ -500,14 +644,15 @@ function PublisherStep({
 				}
 				title={fi ? "Miten lähetät videon?" : "How will you send video?"}
 			/>
-			<OptionCard
-				badge={fi ? "Suositus" : "Recommended"}
-				description={recommended.description}
-				title={recommended.title}
-				onClick={() => onPick(recommended.value)}
-			/>
-			<Collapsible
-				defaultIsOpen={false}
+			<OptionList>
+				<OptionCard
+					badge={fi ? "Suositus" : "Recommended"}
+					description={recommended.description}
+					title={recommended.title}
+					onClick={() => onPick(recommended.value)}
+				/>
+			</OptionList>
+			<Disclosure
 				trigger={
 					<Text color="secondary" type="supporting">
 						{fi ? "Käytä jotain muuta" : "Use something else"}
@@ -515,16 +660,18 @@ function PublisherStep({
 				}
 			>
 				<VStack gap={3} paddingBlock={2}>
-					{others.map((option) => (
-						<OptionCard
-							key={option.value}
-							description={option.description}
-							title={option.title}
-							onClick={() => onPick(option.value)}
-						/>
-					))}
+					<OptionList>
+						{others.map((option) => (
+							<OptionCard
+								key={option.value}
+								description={option.description}
+								title={option.title}
+								onClick={() => onPick(option.value)}
+							/>
+						))}
+					</OptionList>
 				</VStack>
-			</Collapsible>
+			</Disclosure>
 			<HStack>
 				<BackButton onBack={onBack} />
 			</HStack>
@@ -574,14 +721,16 @@ function DestinationStep({
 				}
 				title={fi ? "Missä lähetät suorana?" : "Where do you go live?"}
 			/>
-			{options.map((option) => (
-				<OptionCard
-					key={option.value}
-					description={option.description}
-					title={option.title}
-					onClick={() => onPick(option.value)}
-				/>
-			))}
+			<OptionList>
+				{options.map((option) => (
+					<OptionCard
+						key={option.value}
+						description={option.description}
+						title={option.title}
+						onClick={() => onPick(option.value)}
+					/>
+				))}
+			</OptionList>
 			{onBack ? (
 				<HStack>
 					<BackButton onBack={onBack} />
@@ -682,7 +831,7 @@ function AuthorizeDirectStep({
 				}
 			/>
 			{provider?.canReadStreamKey ? (
-				<Banner
+				<Note
 					status="success"
 					title={
 						fi
@@ -691,7 +840,7 @@ function AuthorizeDirectStep({
 					}
 				/>
 			) : (
-				<Banner
+				<Note
 					description={
 						fi
 							? "Jatka palvelun lupasivulle ja hyväksy lähetysavaimen lukuoikeus."
@@ -710,7 +859,7 @@ function AuthorizeDirectStep({
 						value={youtubeTitle}
 						onChange={setYoutubeTitle}
 					/>
-					<Banner
+					<Note
 						description={
 							fi
 								? "VISP luo uuden julkisen YouTube-lähetyksen, kun julkaisu alkaa."
@@ -723,7 +872,7 @@ function AuthorizeDirectStep({
 			) : null}
 			<HStack gap={2} wrap="wrap">
 				{provider?.canReadStreamKey ? (
-					<Button
+					<Action
 						label={fi ? "Jatka" : "Continue"}
 						variant="primary"
 						onClick={() => {
@@ -737,7 +886,7 @@ function AuthorizeDirectStep({
 						}}
 					/>
 				) : (
-					<Button
+					<Action
 						isLoading={authorizing}
 						label={fi ? "Valtuuta lähetys" : "Authorize streaming"}
 						variant="primary"
@@ -750,23 +899,21 @@ function AuthorizeDirectStep({
 	);
 }
 
-function TestStreamStep({
-	destination,
-	onBack,
-	onDone,
-}: {
-	destination: Destination;
-	onBack: () => void;
-	onDone: () => void;
-}) {
-	const t = useT();
-	const fi = useLocale() === "fi";
+// The test step's live state. The chain reads the same (deduplicated) queries
+// so its nodes light as the feed and platform output come up.
+function useFeedSignal(destination: Destination, enabled = true) {
 	const trpc = useTRPC();
 	const paths = useQuery(
-		trpc.paths.list.queryOptions(undefined, pollWithBackoff(5_000)),
+		trpc.paths.list.queryOptions(undefined, {
+			...pollWithBackoff(5_000),
+			enabled,
+		}),
 	);
 	const direct = useQuery(
-		trpc.direct.list.queryOptions(undefined, pollWithBackoff(3_000)),
+		trpc.direct.list.queryOptions(undefined, {
+			...pollWithBackoff(3_000),
+			enabled,
+		}),
 	);
 	const provider = destination === "other" ? null : destination;
 	const directPath = direct.data?.paths.find((entry) =>
@@ -781,6 +928,22 @@ function TestStreamStep({
 	const outputState = provider ? directPath?.state[provider] : null;
 	const outputError = provider ? directPath?.error[provider] : null;
 	const ready = provider ? outputState === "live" : live;
+	return { live, outputError, outputState, path, provider, ready, unknown };
+}
+
+function TestStreamStep({
+	destination,
+	onBack,
+	onDone,
+}: {
+	destination: Destination;
+	onBack: () => void;
+	onDone: () => void;
+}) {
+	const t = useT();
+	const fi = useLocale() === "fi";
+	const { live, outputError, outputState, path, provider, ready, unknown } =
+		useFeedSignal(destination);
 	const outputLabel =
 		outputState === "live"
 			? fi
@@ -812,55 +975,55 @@ function TestStreamStep({
 				}
 				title={t("Test your connection")}
 			/>
-			<Card variant="muted">
-				<HStack gap={3} vAlign="center" wrap="wrap">
-					{live ? (
-						<>
-							<StatusDot isPulsing label={t("Live")} variant="error" />
-							<Text type="label">
-								{fi
-									? "Suora — VISP näkee julkaisusyötteesi"
-									: "Live — VISP sees your publish feed"}
-							</Text>
-						</>
-					) : unknown ? (
-						<>
-							<StatusDot label={t("Status unknown")} variant="warning" />
-							<Text type="label">
-								{fi
-									? "Tila ei ole tiedossa — pidä julkaisija käynnissä"
-									: "Status unknown — keep the publisher running"}
-							</Text>
-						</>
+			<ul className="grid gap-px border border-border bg-border">
+				<li className="flex flex-col gap-1 bg-background px-5 py-4">
+					<HStack gap={3} vAlign="center" wrap="wrap">
+						{live ? (
+							<>
+								<StatusDot isPulsing label={t("Live")} variant="error" />
+								<Text type="label">
+									{fi
+										? "Suora — VISP näkee julkaisusyötteesi"
+										: "Live — VISP sees your publish feed"}
+								</Text>
+							</>
+						) : unknown ? (
+							<>
+								<StatusDot label={t("Status unknown")} variant="warning" />
+								<Text type="label">
+									{fi
+										? "Tila ei ole tiedossa — pidä julkaisija käynnissä"
+										: "Status unknown — keep the publisher running"}
+								</Text>
+							</>
+						) : (
+							<>
+								<StatusDot label={t("Offline")} variant="neutral" />
+								<Text type="label">
+									{fi
+										? "Ei yhteyttä — odotetaan julkaisuyhteyttä"
+										: "Offline — waiting for a publish connection"}
+								</Text>
+							</>
+						)}
+					</HStack>
+					{path?.publishLastConnectedAt ? (
+						<Text color="secondary" type="supporting">
+							{fi ? "Yhdistetty viimeksi " : "Last connected "}
+							{new Date(path.publishLastConnectedAt)
+								.toISOString()
+								.replace("T", " ")
+								.slice(0, 19)}{" "}
+							UTC
+						</Text>
 					) : (
-						<>
-							<StatusDot label={t("Offline")} variant="neutral" />
-							<Text type="label">
-								{fi
-									? "Ei yhteyttä — odotetaan julkaisuyhteyttä"
-									: "Offline — waiting for a publish connection"}
-							</Text>
-						</>
+						<Text color="secondary" type="supporting">
+							{fi ? "Ei vielä koskaan yhdistetty" : "Never connected yet"}
+						</Text>
 					)}
-				</HStack>
-				{path?.publishLastConnectedAt ? (
-					<Text color="secondary" type="supporting">
-						{fi ? "Yhdistetty viimeksi " : "Last connected "}
-						{new Date(path.publishLastConnectedAt)
-							.toISOString()
-							.replace("T", " ")
-							.slice(0, 19)}{" "}
-						UTC
-					</Text>
-				) : (
-					<Text color="secondary" type="supporting">
-						{fi ? "Ei vielä koskaan yhdistetty" : "Never connected yet"}
-					</Text>
-				)}
-			</Card>
-			{provider ? (
-				<Card variant="muted">
-					<VStack gap={1}>
+				</li>
+				{provider ? (
+					<li className="flex flex-col gap-1 bg-background px-5 py-4">
 						<Text type="label">
 							{provider === "twitch"
 								? "Twitch"
@@ -870,11 +1033,11 @@ function TestStreamStep({
 							: {outputLabel}
 						</Text>
 						{outputError ? <Text color="secondary">{outputError}</Text> : null}
-					</VStack>
-				</Card>
-			) : null}
+					</li>
+				) : null}
+			</ul>
 			{ready ? (
-				<Banner
+				<Note
 					description={
 						fi
 							? "Olet valmis hallintapaneeliin. Lisää siellä laitteita, jos tarvitset useita kameroita."
@@ -892,7 +1055,7 @@ function TestStreamStep({
 				</Text>
 			) : null}
 			{ready ? null : (
-				<Banner
+				<Note
 					description={
 						fi
 							? "Voit ohittaa testin, mutta käyttöönotto jää vahvistamattomaksi. Hallintapaneeli näyttää suoran tilan."
@@ -903,7 +1066,7 @@ function TestStreamStep({
 				/>
 			)}
 			<HStack gap={2} wrap="wrap">
-				<Button
+				<Action
 					label={
 						ready
 							? fi
@@ -1113,33 +1276,125 @@ function SetupWizard() {
 		}
 	};
 
-	const questionNumber = step === "redo" ? 0 : stepIndex(step, destination) + 1;
-	const questionTotal = questionSteps(destination).length;
+	const testing = step === "credentials" && bundle !== null;
+	const signal = useFeedSignal(destination, testing);
+	const at = stepIndex(step, destination);
+	const answered = (question: WizardStep) =>
+		step !== "redo" &&
+		step !== "credentials" &&
+		questionSteps(destination).indexOf(question) < at;
+	const chain: ChainSlot[] = [
+		{
+			label: fi ? "Lähde" : "Source",
+			value:
+				answered("publisher") || step === "credentials"
+					? (fi ? PUBLISHER_SHORT_FI : PUBLISHER_SHORT)[publisher]
+					: undefined,
+			signal: testing
+				? signal.live
+					? "live"
+					: signal.unknown
+						? "caution"
+						: undefined
+				: undefined,
+			status: testing
+				? signal.live
+					? fi
+						? "Syöte tulee perille"
+						: "Receiving your feed"
+					: signal.unknown
+						? fi
+							? "Tila ei tiedossa"
+							: "Status unknown"
+						: fi
+							? "Odotetaan syötettä"
+							: "Waiting for your feed"
+				: undefined,
+			state:
+				step === "publisher"
+					? "active"
+					: answered("publisher") || step === "credentials"
+						? "set"
+						: "open",
+			onSelect: answered("publisher") ? () => setStep("publisher") : undefined,
+		},
+		{ label: "Relay", value: "VISP", state: "set" },
+		{
+			label: fi ? "Lähtö" : "Output",
+			value:
+				answered("destination") || step === "credentials"
+					? DESTINATION_SHORT[destination]
+					: undefined,
+			state:
+				step === "destination" || step === "authorize"
+					? "active"
+					: answered("destination") || step === "credentials"
+						? "set"
+						: "open",
+			signal:
+				testing && signal.provider
+					? signal.outputState === "live"
+						? "live"
+						: signal.outputState
+							? "caution"
+							: undefined
+					: undefined,
+			status:
+				testing && signal.provider
+					? signal.outputState === "live"
+						? fi
+							? "Suorana"
+							: "On air"
+						: signal.outputState === "failed"
+							? fi
+								? "Epäonnistui"
+								: "Failed"
+							: signal.outputState
+								? fi
+									? "Käynnistyy"
+									: "Starting"
+								: fi
+									? "Odotetaan lähtöä"
+									: "Waiting for output"
+					: undefined,
+			onSelect: answered("destination")
+				? () => setStep("destination")
+				: undefined,
+		},
+		{
+			label: fi ? "Testi" : "Test",
+			state: step === "credentials" ? "active" : "open",
+			value: testing && signal.ready ? "OK" : undefined,
+			signal: testing && signal.ready ? "ok" : undefined,
+			status:
+				testing && signal.ready
+					? fi
+						? "Käyttöönotto vahvistettu"
+						: "Setup verified"
+					: undefined,
+		},
+	];
 
 	return (
 		<>
-			{/* minWidth 0: without it long list lines widen the page past a phone screen. */}
-			<Center axis="horizontal" style={{ minWidth: 0 }}>
-				<VStack
-					className="pb-24"
-					gap={6}
-					maxWidth={720}
-					padding={4}
-					style={{ minWidth: 0 }}
-					width="100%"
+			<main className="app-type mx-auto w-full min-w-0 max-w-[1040px] px-4 pt-6 pb-24 sm:px-6 sm:pt-10">
+				<PageHeader
+					eyebrow={step === "redo" ? t("Redo setup") : undefined}
+					title={t("Let's get you streaming")}
+				/>
+				<div
+					className={`grid gap-10 pt-8 md:gap-16 md:pt-10 ${
+						step === "redo" ? "" : "md:grid-cols-[13rem_minmax(0,1fr)]"
+					}`}
 				>
-					<PageHeader
-						eyebrow={
-							step === "redo"
-								? t("Redo setup")
-								: `${fi ? "Vaihe" : "Step"} ${String(questionNumber).padStart(2, "0")} / ${String(
-										questionTotal,
-									).padStart(2, "0")}`
-						}
-						title={t("Let's get you streaming")}
-					/>
-
-					<VStack gap={4}>
+					{step === "redo" ? null : (
+						<SignalChain
+							label={fi ? "Kokoonpanosi" : "Your setup"}
+							slots={chain}
+						/>
+					)}
+					{/* minWidth 0: without it long list lines widen the page past a phone screen. */}
+					<VStack gap={4} maxWidth={640} style={{ minWidth: 0 }}>
 						{step === "redo" ? (
 							<RedoStep
 								onKeep={() =>
@@ -1167,7 +1422,7 @@ function SetupWizard() {
 						) : null}
 						{step === "destination" && !redo ? (
 							<HStack>
-								<Button
+								<Action
 									isDisabled={!status.data}
 									isLoading={openingAdvanced}
 									label={
@@ -1220,8 +1475,8 @@ function SetupWizard() {
 							/>
 						) : null}
 					</VStack>
-				</VStack>
-			</Center>
+				</div>
+			</main>
 			<SeppoWidget
 				context="setup"
 				open={seppoOpen}
@@ -1399,7 +1654,7 @@ function CredentialsStepWithCreateRef({
 				/>
 				<HStack gap={2} wrap="wrap">
 					{busy ? null : (
-						<Button
+						<Action
 							label={fi ? "Yritä uudelleen" : "Try again"}
 							variant="primary"
 							onClick={() => void createLinks()}
@@ -1471,7 +1726,7 @@ function CredentialsPrompt({
 				}
 			/>
 			{useCase === "multi_cam" && publisher !== "visp" ? (
-				<Banner
+				<Note
 					description={
 						fi
 							? "Käyttöönotto luo nyt yhden laitteen. Lisää puhelimia hallintapaneelista myöhemmin."
@@ -1486,7 +1741,7 @@ function CredentialsPrompt({
 				/>
 			) : null}
 			{redoMode === "wipe" ? (
-				<Banner
+				<Note
 					status="warning"
 					title={
 						fi
@@ -1501,7 +1756,7 @@ function CredentialsPrompt({
 				/>
 			) : null}
 			<HStack gap={2} wrap="wrap">
-				<Button
+				<Action
 					isLoading={isLoading}
 					label={
 						destination !== "other"
@@ -1565,7 +1820,7 @@ function CredentialsReady({
 
 	return (
 		<VStack gap={6}>
-			<Banner
+			<Note
 				description={
 					fi
 						? "Tunnukset pysyvät piilossa hallintapaneelissa, kunnes valitset Näytä. Jokaisen laitteen tunnuksen voi vaihtaa erikseen."
@@ -1718,8 +1973,7 @@ function CredentialsReady({
 						downloadHref={fi ? "/download?lang=fi" : "/download"}
 						release={obsRelease}
 					/>
-					<Collapsible
-						defaultIsOpen={false}
+					<Disclosure
 						trigger={
 							<Text color="secondary" type="supporting">
 								{fi
@@ -1729,7 +1983,7 @@ function CredentialsReady({
 						}
 					>
 						<Grid columns={{ minWidth: 280, repeat: "fit" }} gap={3}>
-							<Card>
+							<Panel>
 								<VStack gap={3}>
 									<Heading level={3}>{t("By hand")}</Heading>
 									<NumberedSteps
@@ -1756,10 +2010,10 @@ function CredentialsReady({
 										/>
 									) : null}
 								</VStack>
-							</Card>
+							</Panel>
 
 							{bundle.sceneCollection ? (
-								<Card>
+								<Panel>
 									<VStack gap={3}>
 										<Heading level={3}>{t("Download the scene file")}</Heading>
 										<NumberedSteps
@@ -1778,7 +2032,7 @@ function CredentialsReady({
 											}
 										/>
 										<HStack>
-											<Button
+											<Action
 												icon={
 													<Icon color="inherit" icon={DownloadIcon} size="sm" />
 												}
@@ -1789,10 +2043,10 @@ function CredentialsReady({
 											/>
 										</HStack>
 									</VStack>
-								</Card>
+								</Panel>
 							) : null}
 						</Grid>
-					</Collapsible>
+					</Disclosure>
 				</VStack>
 			) : null}
 

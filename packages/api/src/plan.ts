@@ -14,6 +14,7 @@ export const PLAN_FEATURES = [
 	"brb_highlights",
 	"typography_export",
 	"obs_backup",
+	"ai_moderator",
 ] as const;
 export type PlanFeature = (typeof PLAN_FEATURES)[number];
 
@@ -21,12 +22,14 @@ export type PlanFeature = (typeof PLAN_FEATURES)[number];
  * Monthly Plus quotas in `hosted_usage` units, per calendar month UTC. Initial
  * values, tuned from per-user spend on the admin Usage page. Highlights (5
  * clips) and OBS backup (10 backups, 5 GiB) are stock limits enforced where they live.
+ * The AI moderator is metered in model tokens, input and output summed.
  */
 export const PLUS_QUOTAS = {
 	tts: 300_000,
 	subtitles: 20 * 3600,
 	audio_isolation: 20 * 3600,
 	typography_export: 10,
+	ai_moderator: 2_000_000,
 } as const satisfies Partial<Record<PlanFeature, number>>;
 type MeteredFeature = keyof typeof PLUS_QUOTAS;
 type MonthUsage = Record<MeteredFeature, number>;
@@ -36,6 +39,7 @@ const NO_USAGE: MonthUsage = {
 	subtitles: 0,
 	audio_isolation: 0,
 	typography_export: 0,
+	ai_moderator: 0,
 };
 
 export type PlanOwner = {
@@ -64,8 +68,15 @@ export function isEntitled(owner: PlanOwner, feature: PlanFeature) {
 	);
 }
 
+/** Free streams carry the VISP mark; Plus and comps don't. Overrides alone don't lift it. */
+export function showsWatermark(owner: PlanOwner | null) {
+	return !(owner?.plan === "plus" || owner?.comped);
+}
+
 /** The same rule for highlights, inside queries that already read app_user. */
 export const highlightsEntitledSql = sql<boolean>`(${appUser.plan} = 'plus' or ${appUser.comped} or ${appUser.brbHighlights})`;
+/** The AI moderator has no legacy override: plan or comp only. */
+export const moderatorEntitledSql = sql<boolean>`(${appUser.plan} = 'plus' or ${appUser.comped})`;
 
 export function monthStart(now = new Date()) {
 	return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
