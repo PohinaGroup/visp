@@ -61,7 +61,7 @@ type SeedUser = {
 	banned?: boolean;
 	/** `app_user.first_live_at`; `false` means no `app_user` row at all. */
 	firstLiveAt?: string | false;
-	/** Sessions per device: [first_live_at | null, ended_at, started_at?]. */
+	/** Sessions per device: [started_at, ended_at, started_at override?]. */
 	devices?: [string | null, string, string?][][];
 };
 
@@ -71,11 +71,11 @@ type SeedUser = {
  *            signup   first live          live sessions (hours)
  * alice      09-08    09-08 (≤ 7 d)      09-08 2, 09-10 1.5 (2nd device), 09-22 1
  * dave       09-10    no app_user row     -
- * bob        09-15    09-16 (≤ 7 d)      09-16 2 (+ one never live), 09-23 1, 09-24 0.5
+ * bob        09-15    09-16 (≤ 7 d)      09-16 2 (+ a 30 s blip), 09-23 1, 09-24 0.5
  * carol      09-16    09-25 (9 d late)   09-25 2
  * frank      09-22    09-23 (≤ 7 d)      09-23 4
  * erin       09-30    09-30 (≤ 7 d)      09-30 1 — signup in the last 7 days
- * legacy     08-20    09-05               09-05 1 — before METRICS_DATA_START
+ * legacy     08-20    09-05               09-05 1 — before both windows
  * staff, break-glass-admin, spammer: admin / ADMIN_USER_IDS / banned, invisible.
  */
 const USERS: SeedUser[] = [
@@ -99,7 +99,7 @@ const USERS: SeedUser[] = [
 		devices: [
 			[
 				["2026-09-16T08:00:00Z", "2026-09-16T10:00:00Z"],
-				[null, "2026-09-16T13:00:00Z", "2026-09-16T12:00:00Z"],
+				[null, "2026-09-16T12:00:30Z", "2026-09-16T12:00:00Z"],
 				["2026-09-23T12:00:00Z", "2026-09-23T13:00:00Z"],
 				["2026-09-24T12:00:00Z", "2026-09-24T12:30:00Z"],
 			],
@@ -196,7 +196,7 @@ async function seed() {
 				if (!start) throw new Error("session needs a start");
 				await db.insert(relayStreamSession).values({
 					pathId: path.id,
-					startedAt: new Date(at(start).getTime() - 60_000),
+					startedAt: at(start),
 					firstLiveAt: firstLiveAt ? at(firstLiveAt) : null,
 					endedAt: at(endedAt),
 				});
@@ -248,12 +248,16 @@ integration("admin.metrics.kpis", () => {
 
 	test("values, previous values and deltas for every headline KPI", async () => {
 		const result = await admin.kpis({ ...CURRENT, ...PREVIOUS });
-		expect(result.dataStart).toBe("2026-09-07T00:00:00.000Z");
+		expect(result.dataStart).toBe("2026-07-27T00:00:00.000Z");
 		expect(result.kpis.map((kpi) => [kpi.key, kpi.label, kpi.unit])).toEqual([
 			["weekly_active_streamers", "Active streamers", "count"],
 			["streaming_hours", "Streaming hours", "hours"],
 			["signups", "Signups", "count"],
-			["signup_to_first_live_rate", "Signup → first live (7 days)", "percent"],
+			[
+				"signup_to_first_live_rate",
+				"Signup → first stream (7 days)",
+				"percent",
+			],
 			["sessions_per_streamer", "Sessions per streamer", "ratio"],
 		]);
 		expect(summary(result.kpis)).toEqual({
@@ -313,29 +317,30 @@ integration("admin.metrics.kpis", () => {
 		const result = await admin.kpis({
 			from: "2026-09-14T00:00:00Z",
 			to: "2026-09-28T00:00:00Z",
-			compareFrom: "2026-08-31T00:00:00Z",
-			compareTo: "2026-09-14T00:00:00Z",
+			compareFrom: "2026-07-13T00:00:00Z",
+			compareTo: "2026-07-27T00:00:00Z",
 		});
 		expect(summary(result.kpis)).toEqual({
-			// Previous is the clamped [09-07, 09-14): alice only.
-			weekly_active_streamers: [4, 1, null],
-			streaming_hours: [10.5, 3.5, null],
-			// Signups have full history, so they keep their delta.
-			signups: [3, 2, 50],
+			// Previous is wholly before the data start: no data, not zero.
+			weekly_active_streamers: [4, null, null],
+			streaming_hours: [10.5, null, null],
+			// Signups have full history; nobody signed up in July.
+			signups: [3, 0, null],
 			// Current cohort [09-14, 09-21): bob ✓, carol ✗; previous is empty.
 			signup_to_first_live_rate: [50, null, null],
-			sessions_per_streamer: [1.5, 2, null],
+			sessions_per_streamer: [1.5, null, null],
 		});
 
-		const legacy = await admin.kpis({
+		// Sessions are tracked from Jul 27, so a comparison in August is real
+		// data (nobody streamed: 0), and a 0 baseline has no delta.
+		const august = await admin.kpis({
 			from: "2026-09-07T00:00:00Z",
 			to: "2026-09-21T00:00:00Z",
 			compareFrom: "2026-08-17T00:00:00Z",
 			compareTo: "2026-08-31T00:00:00Z",
 		});
-		expect(summary(legacy.kpis)).toMatchObject({
-			// Wholly before the data start: no data, not zero.
-			weekly_active_streamers: [2, null, null],
+		expect(summary(august.kpis)).toMatchObject({
+			weekly_active_streamers: [2, 0, null],
 			signups: [4, 1, 300],
 		});
 	});
@@ -359,8 +364,8 @@ integration("admin.metrics.kpis", () => {
 		const result = byKey(
 			(
 				await admin.kpis({
-					from: "2026-08-01T00:00:00Z",
-					to: "2026-09-01T00:00:00Z",
+					from: "2026-07-01T00:00:00Z",
+					to: "2026-07-27T00:00:00Z",
 				})
 			).kpis,
 		);
@@ -371,7 +376,7 @@ integration("admin.metrics.kpis", () => {
 		expect(result.streaming_hours.value).toBeNull();
 		expect(result.sessions_per_streamer.value).toBeNull();
 		expect(result.signup_to_first_live_rate.value).toBeNull();
-		expect(result.signups.value).toBe(1);
+		expect(result.signups.value).toBe(0);
 	});
 
 	test("sparklines are the daily series values up to 31 days", async () => {
@@ -414,11 +419,14 @@ integration("admin.metrics.kpis", () => {
 				series.buckets.map((bucket) => bucket.value),
 			);
 		}
-		expect(result.weekly_active_streamers.sparkline).toEqual([1, 1, 4, 1]);
+		// 08-31 week: legacy's 09-05 session.
+		expect(result.weekly_active_streamers.sparkline).toEqual([1, 1, 1, 4, 1]);
 		expect(result.signups.sparkline).toEqual([0, 2, 2, 1, 1]);
-		// Weekly cohorts 09-07 (alice ✓ dave ✗), 09-14 (bob ✓ carol ✗), 09-21
-		// (frank ✓; erin is in the maturing last 7 days).
-		expect(result.signup_to_first_live_rate.sparkline).toEqual([50, 50, 100]);
+		// Weekly cohorts 08-31 (no signups), 09-07 (alice ✓ dave ✗), 09-14
+		// (bob ✓ carol ✗), 09-21 (frank ✓; erin is in the maturing last 7 days).
+		expect(result.signup_to_first_live_rate.sparkline).toEqual([
+			0, 50, 50, 100,
+		]);
 	});
 
 	test("validates the windows", async () => {

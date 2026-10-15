@@ -22,6 +22,7 @@ import { WhepPreview } from "@/components/studio/whep-preview";
 import { trackEvent } from "@/lib/analytics";
 import { dashboardHomeState } from "@/lib/dashboard-home";
 import { useLocale, useT } from "@/lib/i18n";
+import { pollWithBackoff } from "@/lib/query-resilience";
 import { useTRPC } from "@/utils/trpc";
 import { BrbCard } from "./brb-card";
 import { ChatBotCard } from "./chat-bot-card";
@@ -30,6 +31,7 @@ import { CredentialsCard } from "./credentials-card";
 import { DestinationsSummary, DirectCard } from "./direct-card";
 import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
+import { PastDueBanner, PlanLine, PlanUsageSection } from "./plan-card";
 import { PublishingDevicesCard } from "./publishing-devices-card";
 import { SetupCard } from "./setup-card";
 import {
@@ -58,18 +60,18 @@ export function DashboardPage() {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const directQuery = useQuery(
-		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3000 }),
+		trpc.direct.list.queryOptions(undefined, pollWithBackoff(3000)),
 	);
 	const pathsQuery = useQuery(
-		trpc.paths.list.queryOptions(undefined, { refetchInterval: 5000 }),
+		trpc.paths.list.queryOptions(undefined, pollWithBackoff(5000)),
 	);
 	const studioQuery = useQuery(
-		trpc.studio.get.queryOptions(undefined, { refetchInterval: 30_000 }),
+		trpc.studio.get.queryOptions(undefined, pollWithBackoff(30_000)),
 	);
 	const obsQuery = useQuery(
 		trpc.obs.status.queryOptions(undefined, {
 			enabled: directQuery.data?.mode === "obs",
-			refetchInterval: 3000,
+			...pollWithBackoff(3000),
 		}),
 	);
 	const livePath = pathsQuery.data?.find(
@@ -78,7 +80,7 @@ export function DashboardPage() {
 	const snapshotsQuery = useQuery(
 		trpc.obs.snapshots.queryOptions(undefined, {
 			enabled: Boolean(livePath),
-			refetchInterval: 30_000,
+			...pollWithBackoff(30_000),
 		}),
 	);
 	const setOperationalMode = useMutation(
@@ -361,6 +363,7 @@ export function DashboardPage() {
 							))}
 						</TabList>
 					</div>
+					<PastDueBanner />
 					{statusError ? (
 						<Banner
 							status="warning"
@@ -381,6 +384,7 @@ export function DashboardPage() {
 											{formatLinkStats(livePath.linkStats)}
 										</Text>
 									) : null}
+									<PlanLine />
 								</VStack>
 							</Card>
 							{!statusError && home.nextStep ? (
@@ -483,6 +487,9 @@ export function DashboardPage() {
 						<VStack gap={4} width="100%">
 							<Card>
 								<GuidanceCard {...section("tuning")} />
+							</Card>
+							<Card>
+								<PlanUsageSection {...section("plan")} />
 							</Card>
 							<AgentsCard />
 						</VStack>

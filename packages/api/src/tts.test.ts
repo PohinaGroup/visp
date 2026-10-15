@@ -52,6 +52,9 @@ describe("synthesizeSpeech", () => {
 			model_id: TTS_MODEL_ID,
 			language_code: "fi",
 		});
+		// A stalled provider must not hold the request open indefinitely.
+		expect(call.init.signal).toBeInstanceOf(AbortSignal);
+		expect(call.init.signal?.aborted).toBe(false);
 	});
 
 	test("reports an upstream failure without repeating what it said", async () => {

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { connectionChangeProcedure } from "../chat/connection-limit";
 import { protectedProcedure, router } from "../index";
 import {
 	MULTICHAT_PROVIDERS,
@@ -24,7 +25,7 @@ export const multiChatRouter = router({
 	get: protectedProcedure.query(({ ctx }) =>
 		getMultiChatSettings(ctx.session.user.id),
 	),
-	save: protectedProcedure
+	save: connectionChangeProcedure
 		.input(z.array(source).min(1).max(MULTICHAT_PROVIDERS.length))
 		.mutation(({ ctx, input }) => {
 			const providers = new Set(input.map((entry) => entry.provider));

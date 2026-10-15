@@ -19,11 +19,15 @@ export const HOSTED_USAGE_FEATURES = [
 	"tts",
 	"subtitles",
 	"audio_isolation",
+	"typography_export",
 ] as const;
 export type HostedUsageFeature = (typeof HOSTED_USAGE_FEATURES)[number];
 
-/** How providers bill: TTS per character, transcription/isolation per second. */
-export const HOSTED_USAGE_UNITS = ["characters", "seconds"] as const;
+/**
+ * How providers bill: TTS per character, transcription/isolation per second,
+ * typography exports per item (counted for the Plus quota, not a provider).
+ */
+export const HOSTED_USAGE_UNITS = ["characters", "seconds", "items"] as const;
 export type HostedUsageUnit = (typeof HOSTED_USAGE_UNITS)[number];
 
 /**
@@ -51,12 +55,12 @@ export const hostedUsage = pgTable(
 	(table) => [
 		check(
 			"hosted_usage_feature_known",
-			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation')`,
+			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation', 'typography_export')`,
 		),
 		check("hosted_usage_units_positive", sql`${table.units} > 0`),
 		check(
 			"hosted_usage_unit_known",
-			sql`${table.unit} in ('characters', 'seconds')`,
+			sql`${table.unit} in ('characters', 'seconds', 'items')`,
 		),
 		index("hosted_usage_user_occurred_at_idx").on(
 			table.userId,
@@ -89,11 +93,11 @@ export const unitPrice = pgTable(
 	(table) => [
 		check(
 			"unit_price_feature_known",
-			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation')`,
+			sql`${table.feature} in ('tts', 'subtitles', 'audio_isolation', 'typography_export')`,
 		),
 		check(
 			"unit_price_unit_known",
-			sql`${table.unit} in ('characters', 'seconds')`,
+			sql`${table.unit} in ('characters', 'seconds', 'items')`,
 		),
 		check("unit_price_nonnegative", sql`${table.eurPerUnit} >= 0`),
 		unique("unit_price_feature_unit_provider_valid_from_key")

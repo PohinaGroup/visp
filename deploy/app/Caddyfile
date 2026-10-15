@@ -1,5 +1,57 @@
+# Every browser-facing vhost imports these. HSTS covers subdomains because
+# every visp-stream.com host is served by Caddy over HTTPS.
+(security_headers) {
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+	}
+}
+
+(deny_framing) {
+	header {
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+}
+
+# Proxied API bodies are small JSON; uploads go straight to object storage
+# via presigned URLs. Typography saves carry a whole word-level transcript,
+# and audio isolation chunks are ISOLATION_MAX_BYTES (32 KB) of PCM.
+(api_body_limits) {
+	@json_api {
+		path /api/* /trpc/* /.well-known/agent-configuration
+		not path /api/audio-isolation /api/typography/*
+	}
+	request_body @json_api {
+		max_size 1MiB
+	}
+	request_body /api/typography/* {
+		max_size 8MiB
+	}
+	request_body /api/audio-isolation {
+		max_size 64KiB
+	}
+}
+
 {$APP_DOMAIN} {
+	import security_headers
+	# OBS loads /overlay as a top-level browser source, but the Cloud Studio
+	# editor previews browser layers in an iframe on this origin.
+	@overlay path /overlay
+	header @overlay {
+		X-Frame-Options SAMEORIGIN
+		Content-Security-Policy "frame-ancestors 'self'"
+	}
+	@not_overlay not path /overlay
+	header @not_overlay {
+		X-Frame-Options DENY
+		Content-Security-Policy "frame-ancestors 'none'"
+	}
+
 	route {
+		import api_body_limits
+
 		@machine {
 			path /api/mediamtx/auth /api/hooks/*
 			remote_ip {$RELAY_PUBLIC_IPS}
@@ -14,6 +66,12 @@
 		}
 
 		handle /api/auth/* {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /api/agent/* {
+			reverse_proxy 127.0.0.1:3000
+		}
+		handle /.well-known/agent-configuration {
 			reverse_proxy 127.0.0.1:3000
 		}
 		handle /trpc/* {
@@ -51,7 +109,7 @@
 		handle /api/audio-isolation {
 			reverse_proxy 127.0.0.1:3000
 		}
-		handle /api/webhooks/kick {
+		handle /api/webhooks/* {
 			reverse_proxy 127.0.0.1:3000
 		}
 		handle {
@@ -61,6 +119,8 @@
 }
 
 {$ADMIN_DOMAIN} {
+	import security_headers
+	import deny_framing
 	root * /opt/visp/apps/admin/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -68,6 +128,8 @@
 }
 
 {$TYPOGRAPHY_DOMAIN} {
+	import security_headers
+	import deny_framing
 	root * /opt/visp/apps/typography/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -75,6 +137,10 @@
 }
 
 {$MULTICHAT_DOMAIN} {
+	import security_headers
+	# The overlay is an OBS browser source and may be previewed in the Cloud
+	# Studio editor on the app origin; nothing else may frame it.
+	header Content-Security-Policy "frame-ancestors https://{$APP_DOMAIN}"
 	root * /opt/visp/apps/multichat/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -82,6 +148,8 @@
 }
 
 {$NATIVE_WEB_DOMAIN} {
+	import security_headers
+	import deny_framing
 	root * /opt/visp/apps/native/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -89,6 +157,8 @@
 }
 
 {$OBS_REMOTE_WEB_DOMAIN} {
+	import security_headers
+	import deny_framing
 	root * /opt/visp/apps/obs-remote/dist
 	encode zstd gzip
 	try_files {path} /index.html
@@ -96,6 +166,8 @@
 }
 
 {$DOCS_DOMAIN} {
+	import security_headers
+	import deny_framing
 	root * /opt/visp/apps/fumadocs/.output/public
 	encode zstd gzip
 

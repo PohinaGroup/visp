@@ -157,8 +157,8 @@ test("forecast: under 4 weeks to 80 % warns", () => {
 });
 
 describe("session success rule", () => {
-	const severity = (started: number, live: number) =>
-		sessionSuccessAlert({ started, live })?.severity ?? null;
+	const severity = (started: number, stable: number) =>
+		sessionSuccessAlert({ started, stable })?.severity ?? null;
 
 	test("needs at least 10 sessions", () => {
 		expect(SESSION_SUCCESS_MIN_SESSIONS).toBe(10);
@@ -173,7 +173,7 @@ describe("session success rule", () => {
 		expect(severity(20, 17)).toBe("warning"); // 85 %: exactly target − 10 pp
 		expect(severity(100, 84)).toBe("critical"); // 84 %
 		expect(severity(20, 16)).toBe("critical"); // 80 %
-		expect(sessionSuccessAlert({ started: 20, live: 18 })).toMatchObject({
+		expect(sessionSuccessAlert({ started: 20, stable: 18 })).toMatchObject({
 			id: "session_success",
 			href: "/reliability",
 		});
@@ -332,8 +332,11 @@ integration("admin.alerts.list", () => {
 	}
 
 	let directPathId: number;
-	/** Replaces the streamer's sessions: `live` of `started`, all 1–2 h old. */
-	async function seedSessions(started: number, live: number) {
+	/**
+	 * Replaces the streamer's sessions: `stable` of `started` last two
+	 * minutes, the rest 30 s; all 1–2 h old.
+	 */
+	async function seedSessions(started: number, stable: number) {
 		await db
 			.delete(relayStreamSession)
 			.where(inArray(relayStreamSession.pathId, [directPathId]));
@@ -344,9 +347,9 @@ integration("admin.alerts.list", () => {
 				return {
 					pathId: directPathId,
 					startedAt,
-					firstLiveAt:
-						index < live ? new Date(startedAt.getTime() + 10_000) : null,
-					endedAt: new Date(startedAt.getTime() + 30_000),
+					endedAt: new Date(
+						startedAt.getTime() + (index < stable ? 120_000 : 30_000),
+					),
 				};
 			}),
 		);

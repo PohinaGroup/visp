@@ -9,6 +9,11 @@ import {
 	obsLiveHub,
 	obsLiveTickets,
 } from "@VISP/api/obs-live";
+import { fixedWindow } from "@VISP/api/rate-limit";
+import { isBanActive } from "@VISP/auth/ban";
+import { db } from "@VISP/db";
+import { session, user } from "@VISP/db/schema/auth";
+import { and, eq, gt } from "drizzle-orm";
 import { Elysia, status, t } from "elysia";
 import { nodeAdapter, socketKey } from "./node-adapter";
 
@@ -20,8 +25,58 @@ const connections = new Map<
 		unsubscribe: () => void;
 		/** A state report has been received on this connection. */
 		reported: boolean;
+		close: (code?: number, reason?: string) => void;
 	}
 >();
+
+// The plugin reports every 5 s plus on OBS events; a scene-collection load
+// can burst, so the budget is averaged over a few seconds.
+const machineReports = fixedWindow(30, 3_000);
+
+/** How often open sockets are checked against their credential. */
+export const OBS_LIVE_REVALIDATE_MS = 60_000;
+
+/**
+ * There is no revocation signal for browser sessions or OBS tokens to listen
+ * to, so open sockets are re-checked on a timer: a user socket needs an
+ * unbanned user with at least one live session (sign-out everywhere, a ban or
+ * an admin revoke all delete them), a machine socket its token still current.
+ */
+export async function revalidateObsLiveSockets() {
+	const users = new Map<string, Promise<boolean>>();
+	const userAllowed = (userId: string) => {
+		let allowed = users.get(userId);
+		if (!allowed) {
+			allowed = db
+				.select({ banned: user.banned, banExpires: user.banExpires })
+				.from(user)
+				.innerJoin(session, eq(session.userId, user.id))
+				.where(and(eq(user.id, userId), gt(session.expiresAt, new Date())))
+				.limit(1)
+				.then(([row]) => Boolean(row && !isBanActive(row)));
+			users.set(userId, allowed);
+		}
+		return allowed;
+	};
+	await Promise.all(
+		[...connections.values()].map(async ({ peer, close }) => {
+			try {
+				const allowed =
+					peer.role === "user"
+						? await userAllowed(peer.userId)
+						: Boolean(await getObsControlCommand(peer.userId, peer.tokenId));
+				if (!allowed) close(1008, "OBS credential was revoked");
+			} catch {
+				// A database blip must not drop every OBS connection; retry later.
+			}
+		}),
+	);
+}
+
+setInterval(
+	() => void revalidateObsLiveSockets(),
+	OBS_LIVE_REVALIDATE_MS,
+).unref?.();
 
 function send(ws: { send(data: string): unknown }, data: unknown) {
 	try {
@@ -89,6 +144,7 @@ export const obsLiveRoutes = new Elysia({
 				reports: Promise.resolve(),
 				unsubscribe,
 				reported: false,
+				close: (code, reason) => ws.close(code, reason),
 			});
 
 			try {
@@ -115,6 +171,10 @@ export const obsLiveRoutes = new Elysia({
 			const peer = connection?.peer;
 			if (!connection || peer?.role !== "machine") {
 				ws.close(1008, "Only an OBS machine may report state");
+				return;
+			}
+			if (!machineReports.take(socketKey(ws))) {
+				ws.close(1008, "Too many OBS state reports");
 				return;
 			}
 			// Decided on arrival, not when the queued report runs, so only the

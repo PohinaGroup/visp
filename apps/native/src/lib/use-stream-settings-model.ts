@@ -116,6 +116,7 @@ export function useStreamSettingsModel({
 									);
 									return;
 								}
+								await streamAccount.clearAccountCredentials();
 								// The server session is already gone, so this request will
 								// fail — but the Expo client clears the stored cookie before
 								// sending it, which is the part that matters here.
@@ -127,6 +128,7 @@ export function useStreamSettingsModel({
 						setIsPresented(false);
 						void (async () => {
 							await camera?.stop();
+							await streamAccount.clearAccountCredentials();
 							await authClient.signOut();
 						})();
 					},

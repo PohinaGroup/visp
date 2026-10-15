@@ -294,15 +294,15 @@ export function GrowthPage() {
 		<div className="grid gap-6">
 			<PageHeader
 				actions={<SegmentControl onChange={setSegment} value={segment} />}
-				description="Signups, activation funnel, time to first live and retention cohorts."
+				description="Signups, activation funnel, time to first stream and retention cohorts."
 				title="Growth"
 			/>
 
 			{beforeData && dataStartLabel ? (
 				<p className="flex items-center gap-2 text-muted-foreground text-xs">
 					<Info aria-hidden="true" className="size-3.5" />
-					Data starts {dataStartLabel}. Going live was not recorded before it,
-					so live stages, time to first live and retention only count signups
+					Data starts {dataStartLabel}. Sessions were not recorded before it, so
+					stream stages, time to first stream and retention only count signups
 					from then on.
 				</p>
 			) : null}
@@ -373,7 +373,7 @@ export function GrowthPage() {
 						before, among users whose window has closed; the rest are not yet
 						observed.
 						{liveFromLater && funnel.data?.liveFrom
-							? ` Live stages count signups from ${LONG_DATE.format(new Date(funnel.data.liveFrom))}.`
+							? ` Stream stages count signups from ${LONG_DATE.format(new Date(funnel.data.liveFrom))}.`
 							: ""}
 						{segment === "none"
 							? ""
@@ -411,25 +411,25 @@ export function GrowthPage() {
 
 			<div className="grid gap-4 xl:grid-cols-2">
 				<ChartCard
-					description={`Hours from signup to first live, per signup week, among users who have gone live so far.${notSegmented}`}
-					title="Time to first live"
+					description={`Hours from signup to first stream, per signup week, among users who have streamed so far.${notSegmented}`}
+					title="Time to first stream"
 				>
 					{ttfl.isError ? (
 						<ErrorText error={ttfl.error} />
 					) : (
 						<TrendLineChart
-							ariaLabel="Median and p75 hours from signup to first live per signup week"
+							ariaLabel="Median and p75 hours from signup to first stream per signup week"
 							categoryLabel="Signup week"
 							data={ttflRows}
-							emptyMessage="Nobody who signed up in this period has gone live yet"
+							emptyMessage="Nobody who signed up in this period has streamed yet"
 							exportColumns={[
 								{ key: "cohort", header: "Signup week" },
 								{ key: "signups", header: "Signups" },
-								{ key: "live", header: "Gone live" },
+								{ key: "live", header: "Streamed" },
 								{ key: "medianHours", header: "Median hours" },
 								{ key: "p75Hours", header: "p75 hours" },
 							]}
-							exportFilename="growth-time-to-first-live"
+							exportFilename="growth-time-to-first-stream"
 							loading={ttfl.isPending}
 							series={[
 								{ key: "medianHours", label: "Median" },
@@ -443,16 +443,16 @@ export function GrowthPage() {
 				</ChartCard>
 
 				<ChartCard
-					description={`Share of each first-live week's cohort live again N weeks later. Last ${weeks} weeks.${notSegmented}`}
+					description={`Share of each first-stream week's cohort streaming again N weeks later. Last ${weeks} weeks.${notSegmented}`}
 					title="Retention cohorts"
 				>
 					{retention.isError ? (
 						<ErrorText error={retention.error} />
 					) : (
 						<CohortHeatmap
-							caption="Weekly retention by first-live cohort"
+							caption="Weekly retention by first-stream cohort"
 							cohorts={retention.data?.cohorts}
-							emptyMessage="No first-live cohorts in this period"
+							emptyMessage="No first-stream cohorts in this period"
 							exportFilename="growth-retention-cohorts"
 							loading={retention.isPending}
 						/>

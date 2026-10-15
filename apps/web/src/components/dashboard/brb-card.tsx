@@ -17,6 +17,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { brbRefetchInterval } from "@/lib/brb-highlights";
 import { useT } from "@/lib/i18n";
+import { backoffRefetchInterval } from "@/lib/query-resilience";
 import { useTRPC } from "@/utils/trpc";
 
 type BrbSource = "snapshot" | "image" | "color";
@@ -363,7 +364,9 @@ export function BrbCard() {
 	const queryClient = useQueryClient();
 	const brb = useQuery({
 		...trpc.brb.get.queryOptions(),
-		refetchInterval: (query) => brbRefetchInterval(query.state.data),
+		retry: false,
+		refetchInterval: (query) =>
+			backoffRefetchInterval(query, brbRefetchInterval(query.state.data)),
 	});
 	const [draft, setDraft] = useState<string | null>(null);
 	const [uploading, setUploading] = useState(false);

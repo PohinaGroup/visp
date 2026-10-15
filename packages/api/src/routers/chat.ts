@@ -1,8 +1,8 @@
 import { chatBotSenderModes } from "@VISP/db/schema/index";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { betterFeatures } from "../better-features";
 import {
+	BotCommandLimitError,
 	DEFAULT_ALERT_MESSAGES,
 	deleteBotCommand,
 	getBotSettingsAccess,
@@ -15,6 +15,7 @@ import {
 	COMMAND_NAME_PATTERN,
 	MAX_COMMAND_RESPONSE_LENGTH,
 } from "../chat/commands";
+import { connectionChangeProcedure } from "../chat/connection-limit";
 import {
 	ChatConnectionError,
 	disableChatConnection,
@@ -30,6 +31,7 @@ import { sendableProviders, sendChatMessage } from "../chat/send";
 import { BotSenderSelectionError } from "../chat/sender";
 import { chatTickets } from "../chat/tickets";
 import { protectedProcedure, router } from "../index";
+import { speechAvailability } from "../plan";
 import { relayProcedure } from "./relay";
 
 const provider = z.enum(["twitch", "kick", "youtube"]);
@@ -57,7 +59,7 @@ export const chatRouter = router({
 		list: protectedProcedure.query(({ ctx }) =>
 			listChatConnections(ctx.session.user.id),
 		),
-		enable: protectedProcedure
+		enable: connectionChangeProcedure
 			.input(z.object({ provider }))
 			.mutation(async ({ ctx, input }) => {
 				try {
@@ -79,7 +81,7 @@ export const chatRouter = router({
 					throw error;
 				}
 			}),
-		disable: protectedProcedure
+		disable: connectionChangeProcedure
 			.input(z.object({ provider }))
 			.mutation(({ ctx, input }) =>
 				disableChatConnection(ctx.session.user.id, input.provider),
@@ -102,7 +104,7 @@ export const chatRouter = router({
 	}),
 	/** What the read-aloud, isolation, and caption settings may offer. */
 	speech: protectedProcedure.query(({ ctx }) =>
-		betterFeatures(ctx.session.user.id),
+		speechAvailability(ctx.session.user.id),
 	),
 	/** Alerts, commands, and where the bot is allowed to post. */
 	bot: router({
@@ -146,10 +148,24 @@ export const chatRouter = router({
 						.regex(COMMAND_NAME_PATTERN, "Letters, numbers, - and _ only"),
 					response: z.string().trim().min(1).max(MAX_COMMAND_RESPONSE_LENGTH),
 					modOnly: z.boolean().default(false),
+					enabled: z.boolean().optional(),
 					cooldownSeconds: z.number().int().min(0).max(3600).default(10),
 				}),
 			)
-			.mutation(({ ctx, input }) => upsertBotCommand(ctx.relayUser.id, input)),
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await upsertBotCommand(ctx.relayUser.id, input);
+				} catch (error) {
+					if (error instanceof BotCommandLimitError) {
+						throw new TRPCError({
+							code: "BAD_REQUEST",
+							message: `${error.message}; delete one first`,
+							cause: error,
+						});
+					}
+					throw error;
+				}
+			}),
 		deleteCommand: relayProcedure
 			.input(z.object({ name: z.string().trim().toLowerCase() }))
 			.mutation(async ({ ctx, input }) => {

@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
+	isAllowedRelayHost,
 	sanitizedMediaError,
 	stopMediaStream,
 	webPublishTarget,
@@ -12,13 +13,45 @@ describe("web publisher helpers", () => {
 		expect(webPublishTarget(url, "https://fi.example.com").whipUrl).toBe(
 			"https://us.example.com/phone/whip",
 		);
-		expect(webPublishTarget(url).whipUrl).toBe(
-			"https://us.example.com/phone/whip",
-		);
 		expect(webPublishTarget(url, "https://us.example.com:9443").whipUrl).toBe(
 			"https://us.example.com:9443/phone/whip",
 		);
 	});
+	test("refuses relays outside the configured VISP relay domain", () => {
+		const configured = "https://relay.visp-stream.com";
+		const target = (host: string) =>
+			webPublishTarget(
+				`srt://${host}:8890?streamid=publish:phone:user:secret`,
+				configured,
+			);
+		expect(target("relay-us.visp-stream.com").publisherScriptUrl).toBe(
+			"https://relay-us.visp-stream.com/phone/publisher.js",
+		);
+		expect(() => target("attacker.example")).toThrow(
+			"does not point to a VISP relay",
+		);
+		expect(() => target("visp-stream.com.attacker.example")).toThrow(
+			"does not point to a VISP relay",
+		);
+		expect(() => target("evilvisp-stream.com")).toThrow(
+			"does not point to a VISP relay",
+		);
+		expect(() =>
+			webPublishTarget(
+				"srt://relay.visp-stream.com:8890?streamid=publish:phone:user:secret",
+			),
+		).toThrow("not configured");
+	});
+
+	test("matches IP and single-label relays exactly", () => {
+		expect(isAllowedRelayHost("10.0.0.2", "10.0.0.2")).toBe(true);
+		expect(isAllowedRelayHost("1.0.0.2", "10.0.0.2")).toBe(false);
+		expect(isAllowedRelayHost("a.example.com", "example.com")).toBe(false);
+		expect(
+			isAllowedRelayHost("RELAY.visp-stream.com", "relay.visp-stream.com"),
+		).toBe(true);
+	});
+
 	test("maps SRT credentials to the MediaMTX publisher and WHIP URLs", () => {
 		expect(
 			webPublishTarget(

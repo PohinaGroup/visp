@@ -24,7 +24,7 @@ const PERCENT = new Intl.NumberFormat("en-US", {
 const COUNT = new Intl.NumberFormat("en-US");
 
 /**
- * Retention cohort grid: one row per first-live week, one column per week
+ * Retention cohort grid: one row per first-stream week, one column per week
  * offset, each cell shaded by the share of the cohort live that week. It is a
  * real `<table>` (row and column headers, a caption) whose cells happen to be
  * coloured, so screen readers navigate it like any table and the colour is

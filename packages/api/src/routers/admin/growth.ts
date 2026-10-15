@@ -1,10 +1,11 @@
 /**
  * Admin growth routes: the activation funnel (KPIs 5 and 7), time to first
- * live (KPI 6) and the first-live retention grid (KPI 8). Every count follows
- * docs/admin-kpis.md: eligible users only, UTC ISO weeks, and the "Legacy
- * sessions" rule that live-based cohorts only contain users who signed up on
- * or after `METRICS_DATA_START` (before it, `app_user.first_live_at` is a
- * user's first *tracked* live, so long-time streamers would look new).
+ * stream (KPI 6) and the first-stream retention grid (KPI 8). Every count
+ * follows docs/admin-kpis.md: eligible users only, UTC ISO weeks, and F (a
+ * user's first stream) is `first_stream.first_streamed_at`, the start of
+ * their earliest session of at least `MIN_STREAM_SECONDS`. Stream-based
+ * cohorts only contain users who signed up on or after `METRICS_DATA_START`.
+ * The API keeps its `first_live` / `firstLive` names so clients need no change.
  */
 import { db } from "@VISP/db";
 import { type SQL, sql } from "drizzle-orm";
@@ -15,12 +16,13 @@ import {
 	bucketOf,
 	bucketSeriesSql,
 	eligibleUserWhere,
+	firstStreamSql,
 	floorToBucket,
 	fromUtcTimestamp,
 	hoursInterval,
 	instant,
-	liveSessionsSql,
 	signupProviderOf,
+	streamSessionsSql,
 	utcTimestamp,
 } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
@@ -142,16 +144,17 @@ type FunnelRow = {
 };
 
 function funnelSql(from: Date, to: Date, segment: FunnelSegment, now: Date) {
-	const sessions = liveSessionsSql({ from: METRICS_DATA_START, now });
+	const sessions = streamSessionsSql({ from: METRICS_DATA_START, now });
 	const nowTs = instant(now);
 	return sql`with cohort as (
 			select ${segmentOf(segment)} as segment,
 				${fromUtcTimestamp(sql`u.created_at`)} as signed_up_at,
-				a.first_live_at as f,
+				fs.first_streamed_at as f,
 				exists (select 1 from "path" p where p.user_id = u.id) as has_device,
 				u.id
 			from "user" u
 			left join app_user a on a.id = u.id
+			left join (${firstStreamSql()}) fs on fs.user_id = u.id
 			where ${eligibleUserWhere("u")}
 				and u.created_at >= ${utcTimestamp(from)}
 				and u.created_at < ${utcTimestamp(to)}
@@ -167,8 +170,8 @@ function funnelSql(from: Date, to: Date, segment: FunnelSegment, now: Date) {
 				exists (
 					select 1 from (${sessions}) ls
 					where ls.user_id = c.id
-						and ls.first_live_at >= c.f + ${RETURN_FROM}
-						and ls.first_live_at < c.f + ${RETURN_TO}
+						and ls.started_at >= c.f + ${RETURN_FROM}
+						and ls.started_at < c.f + ${RETURN_TO}
 				) as returned
 			from cohort c
 		),
@@ -257,7 +260,7 @@ type TimeToFirstLiveRow = {
 
 function timeToFirstLiveSql(from: Date, to: Date) {
 	const series = bucketSeriesSql("week", from, to);
-	const hours = sql`extract(epoch from a.first_live_at - ${fromUtcTimestamp(sql`u.created_at`)}) / 3600`;
+	const hours = sql`extract(epoch from fs.first_streamed_at - ${fromUtcTimestamp(sql`u.created_at`)}) / 3600`;
 	return sql`select series.bucket,
 			coalesce(agg.signups, 0) as signups,
 			coalesce(agg.live, 0) as live,
@@ -266,11 +269,11 @@ function timeToFirstLiveSql(from: Date, to: Date) {
 		left join (
 			select ${bucketOf("week", fromUtcTimestamp(sql`u.created_at`))} as bucket,
 				count(*) as signups,
-				count(a.first_live_at) as live,
+				count(fs.first_streamed_at) as live,
 				percentile_cont(0.5) within group (order by ${hours}) as median_hours,
 				percentile_cont(0.75) within group (order by ${hours}) as p75_hours
 			from "user" u
-			left join app_user a on a.id = u.id
+			left join (${firstStreamSql()}) fs on fs.user_id = u.id
 			where ${eligibleUserWhere("u")}
 				and u.created_at >= ${utcTimestamp(floorToBucket(from, "week"))}
 				and u.created_at < ${utcTimestamp(to)}
@@ -287,18 +290,18 @@ type ActivityRow = {
 };
 
 /**
- * First-live cohort members: eligible users who signed up from the data start
- * and whose `app_user.first_live_at` (F) falls in `[firstCohort, asOf)`.
+ * First-stream cohort members: eligible users who signed up from the data
+ * start and whose first stream (F) started in `[firstCohort, asOf)`.
  */
 function cohortMembersSql(firstCohort: Date, asOf: Date) {
-	return sql`select u.id, a.first_live_at as f,
-			${bucketOf("week", sql`a.first_live_at`)} as cohort
+	return sql`select u.id, fs.first_streamed_at as f,
+			${bucketOf("week", sql`fs.first_streamed_at`)} as cohort
 		from "user" u
-		join app_user a on a.id = u.id
+		join (${firstStreamSql()}) fs on fs.user_id = u.id
 		where ${eligibleUserWhere("u")}
 			and u.created_at >= ${utcTimestamp(METRICS_DATA_START)}
-			and a.first_live_at >= ${instant(firstCohort)}
-			and a.first_live_at < ${instant(asOf)}`;
+			and fs.first_streamed_at >= ${instant(firstCohort)}
+			and fs.first_streamed_at < ${instant(asOf)}`;
 }
 
 /**
@@ -307,15 +310,15 @@ function cohortMembersSql(firstCohort: Date, asOf: Date) {
  * reported without an open session (see KPI 7).
  */
 function retentionActivitySql(firstCohort: Date, asOf: Date) {
-	const sessions = liveSessionsSql({ from: firstCohort, to: asOf });
+	const sessions = streamSessionsSql({ from: firstCohort, to: asOf });
 	return sql`with members as (${cohortMembersSql(firstCohort, asOf)}),
 		activity as (
 			select m.id, m.cohort, m.cohort as week from members m
 			union
-			select m.id, m.cohort, ${bucketOf("week", sql`ls.first_live_at`)} as week
+			select m.id, m.cohort, ${bucketOf("week", sql`ls.started_at`)} as week
 			from members m
 			join (${sessions}) ls on ls.user_id = m.id
-			where ls.first_live_at >= m.cohort
+			where ls.started_at >= m.cohort
 		)
 		select cohort, week, count(distinct id) as users
 		from activity

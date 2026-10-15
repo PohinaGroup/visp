@@ -21,6 +21,18 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+# Hide other users' processes so a compromised page cannot read forwarder argv.
+ProtectProc=invisible
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+LockPersonality=true
+RestrictRealtime=true
+SystemCallArchitectures=native
+# Not set: ProcSubset=pid hides /proc/meminfo, /proc/stat and /proc/cpuinfo,
+# which Chromium, Bun and the encoders read for sizing; RestrictNamespaces and
+# PrivateUsers break Chromium's namespace sandbox; MemoryDenyWriteExecute
+# breaks the V8 and JavaScriptCore JITs.
 
 [Install]
 WantedBy=multi-user.target

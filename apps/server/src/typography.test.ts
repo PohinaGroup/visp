@@ -4,7 +4,51 @@ import { auth } from "@VISP/auth";
 import { db } from "@VISP/db";
 import { describe, expect, spyOn, test } from "bun:test";
 
-const { typographyRoutes } = await import("./typography");
+const { resetTypographyRateLimits, typographyRoutes } = await import(
+	"./typography"
+);
+
+const projectUuid = "6dd0339b-d53c-4be6-a4c3-e8b4dd628779";
+
+/** Signs in as "owner" and sets the hosted-subtitles flag typography rides on. */
+function signedIn(enabled: boolean) {
+	const session = spyOn(auth.api, "getSession").mockResolvedValue({
+		session: { token: "browser-token" },
+		user: { id: "owner" },
+	} as never);
+	const flags = spyOn(db, "select").mockReturnValue({
+		from: () => ({
+			where: () => ({
+				limit: async () => [
+					{
+						plan: enabled ? "plus" : "free",
+						comped: false,
+						betterTts: false,
+						betterAudioIsolation: false,
+						betterSubtitles: false,
+						brbHighlights: false,
+					},
+				],
+				// This month's hosted usage, for the export quota.
+				groupBy: async () => [],
+			}),
+		}),
+	} as never);
+	return () => {
+		session.mockRestore();
+		flags.mockRestore();
+	};
+}
+
+function post(path: string, body?: unknown) {
+	return typographyRoutes.handle(
+		new Request(`http://localhost/api/typography/projects${path}`, {
+			method: "POST",
+			headers: { "content-type": "application/json" },
+			body: body === undefined ? undefined : JSON.stringify(body),
+		}),
+	);
+}
 
 describe("Typography routes", () => {
 	test("reports pending exports without a 404 and exposes render failures", async () => {
@@ -55,6 +99,61 @@ describe("Typography routes", () => {
 			job.mockRestore();
 		}
 	});
+	test("refuse spending calls without the feature flag", async () => {
+		resetTypographyRateLimits();
+		const restore = signedIn(false);
+		try {
+			for (const response of [
+				await post("", {
+					filename: "clip.mp4",
+					language: "en",
+					contentType: "video/mp4",
+					byteSize: 1024,
+				}),
+				await post(`/${projectUuid}/finalize`),
+				await post(`/${projectUuid}/export`),
+			]) {
+				expect(response.status).toBe(403);
+				expect(await response.json()).toEqual({
+					error: "Typography is part of Plus",
+				});
+			}
+		} finally {
+			restore();
+		}
+	});
+
+	test("answer wrong-state calls with 409 and rate limit per user", async () => {
+		resetTypographyRateLimits();
+		const restore = signedIn(true);
+		const project = spyOn(
+			db.query.typographyProject,
+			"findFirst",
+		).mockResolvedValue({ id: projectUuid, state: "processing" } as never);
+		try {
+			for (let call = 0; call < 10; call += 1) {
+				const response = await post(`/${projectUuid}/finalize`);
+				expect(response.status).toBe(409);
+				expect(await response.json()).toEqual({
+					error: "This upload is already being processed",
+				});
+			}
+			const limited = await post(`/${projectUuid}/finalize`);
+			expect(limited.status).toBe(429);
+			expect(await limited.json()).toEqual({ error: "Too many requests" });
+
+			const notReady = await post(`/${projectUuid}/export`);
+			expect(notReady.status).toBe(409);
+			expect(await notReady.json()).toEqual({ error: "Project is not ready" });
+			project.mockResolvedValue(undefined);
+			expect((await post(`/${projectUuid}/export`)).status).toBe(404);
+		} finally {
+			project.mockRestore();
+			restore();
+			resetTypographyRateLimits();
+		}
+	});
+
 	test("refuse anonymous projects", async () => {
 		const response = await typographyRoutes.handle(
 			new Request("http://localhost/api/typography/projects"),

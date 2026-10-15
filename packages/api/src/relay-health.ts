@@ -2,6 +2,7 @@ import { db } from "@VISP/db";
 import { relay, relayHealth, relayHealthSample } from "@VISP/db/schema/index";
 import { eq, sql } from "drizzle-orm";
 import { relayOccupiedForwarderCount } from "./forwarder-sessions";
+import { fetchMediaMtxPaths, MediaMtxPathsError } from "./mediamtx-paths";
 
 type Logger = Pick<Console, "error">;
 
@@ -118,22 +119,21 @@ export async function probeRelayApi(
 ): Promise<RelayApiProbe> {
 	const startedAt = performance.now();
 	try {
-		const response = await fetch(`${apiUrl.replace(/\/$/, "")}/v3/paths/list`, {
-			signal: AbortSignal.timeout(timeoutMs),
-		});
-		const responseMs = Math.round(performance.now() - startedAt);
-		if (!response.ok) return { reachable: false, responseMs, livePaths: null };
-		const payload = (await response.json()) as {
-			items?: { ready?: boolean }[];
-		};
+		const items = await fetchMediaMtxPaths(apiUrl, timeoutMs);
 		return {
 			reachable: true,
-			responseMs,
-			livePaths: Array.isArray(payload.items)
-				? payload.items.filter((item) => item.ready).length
-				: null,
+			responseMs: Math.round(performance.now() - startedAt),
+			livePaths: items.filter((item) => item.ready).length,
 		};
-	} catch {
-		return { reachable: false, responseMs: null, livePaths: null };
+	} catch (error) {
+		if (!(error instanceof MediaMtxPathsError)) {
+			return { reachable: false, responseMs: null, livePaths: null };
+		}
+		const responseMs = Math.round(performance.now() - startedAt);
+		// The API answered but the count could not be trusted.
+		if (error.reason !== "http") {
+			return { reachable: true, responseMs, livePaths: null };
+		}
+		return { reachable: false, responseMs, livePaths: null };
 	}
 }

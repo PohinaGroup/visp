@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import type { VispSrtViewRef } from "../../modules/visp-srt";
+import { apiClient } from "./backend";
 import { startLiveCaptions, stopLiveCaptions } from "./live-captions";
 import type { SpokenCaptionLanguage } from "./speech-preferences";
 
@@ -29,8 +30,19 @@ export function useLiveCaptions(
 		}
 		const current = ++generation.current;
 		const isCurrent = () => generation.current === current;
+		let report: ReturnType<typeof setInterval> | undefined;
 		void startLiveCaptions(camera, language, better, isCurrent).then(
 			(result) => {
+				// Better captions stream to ElevenLabs directly; the token paid for
+				// the first minute and each further minute is reported for the
+				// Plus quota.
+				if (result === "started" && better && isCurrent()) {
+					report = setInterval(() => {
+						void apiClient.plan.reportSubtitles
+							.mutate({ seconds: 60 })
+							.catch(() => undefined);
+					}, 60_000);
+				}
 				if (result === "failed") {
 					onErrorRef.current?.(
 						better
@@ -42,6 +54,7 @@ export function useLiveCaptions(
 		);
 		return () => {
 			generation.current += 1;
+			if (report) clearInterval(report);
 			void stopLiveCaptions(camera);
 		};
 	}, [active, better, camera, language]);

@@ -4,6 +4,7 @@ import {
 	createAudioUsageMeters,
 	type PcmFormat,
 } from "./audio-usage";
+import { withProviderTimeout } from "./provider-timeout";
 
 /** 16 kHz mono PCM chunks keep latency and upload size bounded on mobile. */
 export const ISOLATION_SAMPLE_RATE = 16_000;
@@ -75,11 +76,13 @@ export async function isolateAudioChunk(
 
 	const response = await request(
 		"https://api.elevenlabs.io/v1/audio-isolation/stream",
-		{
+		// A chunk is at most ISOLATION_MAX_BYTES (one second of audio); one that
+		// takes longer than this is stale and the on-device fallback is better.
+		withProviderTimeout({
 			method: "POST",
 			headers: { "xi-api-key": apiKey },
 			body: form,
-		},
+		}),
 	);
 	if (!response.ok) {
 		throw new AudioIsolationError(

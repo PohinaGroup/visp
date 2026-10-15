@@ -45,6 +45,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useLocale, useT } from "@/lib/i18n";
+import { pollWithBackoff } from "@/lib/query-resilience";
 import {
 	duplicateStudioLayer,
 	type LayerRect,
@@ -84,17 +85,17 @@ export function StudioPage() {
 	const trpc = useTRPC();
 	const queryClient = useQueryClient();
 	const studio = useQuery(
-		trpc.studio.get.queryOptions(undefined, { refetchInterval: 2_000 }),
+		trpc.studio.get.queryOptions(undefined, pollWithBackoff(2_000)),
 	);
 	// Camera state drives the same banners as Studio state, so it refreshes on the
 	// same cadence — a 2s Studio poll against a never-refetched path list is how
 	// "live" went stale while the banner claimed otherwise.
 	const paths = useQuery(
-		trpc.paths.list.queryOptions(undefined, { refetchInterval: 2_000 }),
+		trpc.paths.list.queryOptions(undefined, pollWithBackoff(2_000)),
 	);
 	// Only the destination state can confirm viewers are receiving video.
 	const direct = useQuery(
-		trpc.direct.list.queryOptions(undefined, { refetchInterval: 3_000 }),
+		trpc.direct.list.queryOptions(undefined, pollWithBackoff(3_000)),
 	);
 	const history = useStudioDraft(studio.data);
 	const draft = history.graph;

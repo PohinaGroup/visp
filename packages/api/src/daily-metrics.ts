@@ -15,9 +15,9 @@ import {
 	eligibleUserWhere,
 	floorToBucket,
 	instant,
-	liveHoursOf,
-	liveSessionsSql,
 	signupProviderOf,
+	streamHoursOf,
+	streamSessionsSql,
 	utcTimestamp,
 } from "./routers/admin/metrics-sql";
 import { METRICS_DATA_START } from "./routers/admin/metrics-window";
@@ -36,11 +36,11 @@ export const DAILY_METRICS_REROLL_DAYS = 2;
 export const DAILY_METRICS = [
 	/** Eligible users by `created_at`; also one row per signup provider. */
 	"signups",
-	/** Distinct streamers with a `live_session` whose `first_live_at` is that day. */
+	/** Distinct streamers with a stream session that started that day. */
 	"live_streamers",
-	/** Live hours of sessions that went live that day (never split at midnight). */
+	/** Hours of stream sessions that started that day (never split at midnight). */
 	"streaming_hours",
-	/** `live_session` rows that went live that day. */
+	/** Stream sessions (at least `MIN_STREAM_SECONDS`) that started that day; the key is historical. */
 	"live_sessions",
 	/** Publisher connections (`started_at`) that day, live or not. */
 	"sessions_started",
@@ -49,7 +49,7 @@ export const DAILY_METRICS = [
 ] as const;
 export type DailyMetric = (typeof DAILY_METRICS)[number];
 
-/** Metrics that need `first_live_at`, so they have no rows before the data start. */
+/** Session-based metrics: no rows before the data start. */
 export const LIVE_DAILY_METRICS: readonly DailyMetric[] = [
 	"live_streamers",
 	"streaming_hours",
@@ -80,7 +80,7 @@ function metricRow(metric: DailyMetric, segment: SQL, value: SQL): SQL {
  * a segment that no longer occurs (a provider whose only signup was deleted)
  * is removed, so a re-run always leaves exactly what one run would.
  *
- * Open sessions are measured at the end of the day (`liveSessionsSql`'s
+ * Open sessions are measured at the end of the day (`streamSessionsSql`'s
  * `now`), so a snapshot doesn't depend on when the job happened to run.
  * Days before `METRICS_DATA_START` get signups only: the live-based metrics
  * have no data there, and a zero would read as "nobody streamed". The
@@ -113,8 +113,8 @@ export async function rollupDailyMetrics({
 			Math.max(dayStart.getTime() - 6 * DAY_MS, METRICS_DATA_START.getTime()),
 		);
 		ctes.push(
-			sql`ls as (${liveSessionsSql({ from: dayStart, to: dayEnd, now: dayEnd })})`,
-			sql`wau_ls as (${liveSessionsSql({ from: wauFrom, to: dayEnd, now: dayEnd })})`,
+			sql`ls as (${streamSessionsSql({ from: dayStart, to: dayEnd, now: dayEnd })})`,
+			sql`wau_ls as (${streamSessionsSql({ from: wauFrom, to: dayEnd, now: dayEnd })})`,
 		);
 		rows.push(
 			metricRow(
@@ -125,7 +125,7 @@ export async function rollupDailyMetrics({
 			metricRow(
 				"streaming_hours",
 				sql`'all'`,
-				sql`(select coalesce(sum(${liveHoursOf("ls")}), 0) from ls)`,
+				sql`(select coalesce(sum(${streamHoursOf("ls")}), 0) from ls)`,
 			),
 			metricRow("live_sessions", sql`'all'`, sql`(select count(*) from ls)`),
 			metricRow(

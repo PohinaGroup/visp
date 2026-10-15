@@ -247,8 +247,9 @@ function ensureTimer() {
 		() => void buffer.flush(),
 		HOSTED_USAGE_FLUSH_INTERVAL_MS,
 	);
-	// The meter must not be the reason a process stays up.
-	timer.unref?.();
+	// The meter must not be the reason a process stays up. Cast because DOM-lib
+	// consumers of the router types (obs-remote) see a numeric timer id.
+	(timer as { unref?: () => void }).unref?.();
 	// An idle process (tests, scripts) exits via beforeExit; flush there too.
 	process.once("beforeExit", () => void buffer.flush({ final: true }));
 }

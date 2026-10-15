@@ -125,10 +125,17 @@ export function eligibleUserIdsSql(): SQL {
 		where ${eligibleUserWhere("eligible_user")}`;
 }
 
-export type LiveSessionsOptions = {
-	/** Only sessions with `first_live_at >= from` (inclusive). */
+/**
+ * A publisher connection shorter than this is a reconnect blip, not a stream
+ * (docs/admin-kpis.md, "Stream session"). Half of all sessions are under a
+ * minute because SRT reconnects open a new session each time.
+ */
+export const MIN_STREAM_SECONDS = 60;
+
+export type SessionsOptions = {
+	/** Only sessions with `started_at >= from` (inclusive). */
 	from?: Date;
-	/** Only sessions with `first_live_at < to` (exclusive). */
+	/** Only sessions with `started_at < to` (exclusive). */
 	to?: Date;
 	/**
 	 * The instant open, still-publishing sessions run to. Defaults to `now()`;
@@ -138,26 +145,24 @@ export type LiveSessionsOptions = {
 };
 
 /**
- * `live_session`: sessions that reached live (`first_live_at` set), owned by
- * eligible users, with `effective_end`:
+ * Every publisher session of an eligible user, with `effective_end`:
  * - closed: `ended_at`;
  * - open and still publishing (event within 60 s): `now`;
  * - open and stale (missed hook, relay crash): the last path event, never
- *   before `first_live_at`, so it does not grow forever.
+ *   before `started_at`, so it does not grow forever.
  *
  * Columns: `id, path_id, user_id, relay_id, started_at, first_live_at,
- * ended_at, effective_end`. Use it as a subquery or CTE body. The `from`/`to`
- * bounds are on `first_live_at` so `relay_stream_session_first_live_idx`
- * serves the scan.
+ * ended_at, effective_end`. The `from`/`to` bounds are on `started_at`.
+ * Most callers want `streamSessionsSql`, which drops the blips.
  */
-export function liveSessionsSql(options: LiveSessionsOptions = {}): SQL {
+export function sessionsSql(options: SessionsOptions = {}): SQL {
 	const now = options.now ? instant(options.now) : sql`now()`;
 	const bounds: SQL[] = [];
 	if (options.from) {
-		bounds.push(sql`and s.first_live_at >= ${instant(options.from)}`);
+		bounds.push(sql`and s.started_at >= ${instant(options.from)}`);
 	}
 	if (options.to) {
-		bounds.push(sql`and s.first_live_at < ${instant(options.to)}`);
+		bounds.push(sql`and s.started_at < ${instant(options.to)}`);
 	}
 	return sql`select s.id, s.path_id, p.user_id, p.relay_id, s.started_at,
 			s.first_live_at, s.ended_at,
@@ -167,21 +172,49 @@ export function liveSessionsSql(options: LiveSessionsOptions = {}): SQL {
 					when ps.publishing
 						and ps.last_event_at >= ${now} - ${sql.raw(`interval '${LIVE_AFTER_SECONDS} seconds'`)}
 					then ${now}
-					else greatest(ps.last_event_at, s.first_live_at)
+					else greatest(ps.last_event_at, s.started_at)
 				end
 			) as effective_end
 		from relay_stream_session s
 		join "path" p on p.id = s.path_id
 		left join path_state ps on ps.path_id = p.id
-		where s.first_live_at is not null
-			and p.user_id in (${eligibleUserIdsSql()})
+		where p.user_id in (${eligibleUserIdsSql()})
 			${sql.join(bounds, sql` `)}`;
 }
 
-/** Hours of live time of a `live_session` row aliased `alias`, never negative. */
-export function liveHoursOf(alias: string): SQL {
+/** `effective_end - started_at >= MIN_STREAM_SECONDS` on a `sessionsSql` row. */
+export function isStreamSql(alias: string): SQL {
 	const s = sql.identifier(alias);
-	return sql`greatest(extract(epoch from ${s}.effective_end - ${s}.first_live_at), 0) / 3600`;
+	return sql`${s}.effective_end - ${s}.started_at >= ${sql.raw(`interval '${MIN_STREAM_SECONDS} seconds'`)}`;
+}
+
+/**
+ * `stream_session`: the `sessionsSql` rows that lasted at least
+ * `MIN_STREAM_SECONDS` (docs/admin-kpis.md). Every KPI that counts streamers,
+ * sessions or hours reads from this. Use it as a subquery or CTE body.
+ */
+export function streamSessionsSql(options: SessionsOptions = {}): SQL {
+	return sql`select * from (${sessionsSql(options)}) stream_session
+		where ${isStreamSql("stream_session")}`;
+}
+
+/** Hours of a `stream_session` row aliased `alias`, never negative. */
+export function streamHoursOf(alias: string): SQL {
+	const s = sql.identifier(alias);
+	return sql`greatest(extract(epoch from ${s}.effective_end - ${s}.started_at), 0) / 3600`;
+}
+
+/**
+ * `first_stream`: each eligible user's earliest stream session
+ * (`user_id, first_streamed_at`), the F of the signup-to-first-stream and
+ * retention KPIs. Left-join it onto `"user"`; a user without a row has not
+ * streamed. ponytail: scans every session; fine at tens of thousands of rows,
+ * index `started_at` or roll it up if it ever shows in a query plan.
+ */
+export function firstStreamSql(): SQL {
+	return sql`select ss.user_id, min(ss.started_at) as first_streamed_at
+		from (${streamSessionsSql()}) ss
+		group by ss.user_id`;
 }
 
 /**

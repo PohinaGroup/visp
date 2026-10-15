@@ -8,6 +8,7 @@ import {
 	REQUEST_DELETE_URL,
 	TERMS_URL,
 } from "../lib/legal";
+import { ReplayBlocked } from "./replay-blocked";
 import {
 	DirectPathSwitches,
 	type DirectSettings,
@@ -260,12 +261,14 @@ export function AdvancedSection({
 												{`${origin} · ${device.publishing ? "Live" : "Offline"}`}
 											</UI.Text>
 											{revealedUrl ? (
-												<UI.Text
-													numberOfLines={3}
-													textStyle={{ color: SUBTLE, fontSize: 11 }}
-												>
-													{revealedUrl}
-												</UI.Text>
+												<ReplayBlocked>
+													<UI.Text
+														numberOfLines={3}
+														textStyle={{ color: SUBTLE, fontSize: 11 }}
+													>
+														{revealedUrl}
+													</UI.Text>
+												</ReplayBlocked>
 											) : null}
 										</UI.Column>
 										<UI.Spacer flexible />

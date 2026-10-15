@@ -34,6 +34,11 @@ export type UserDetail = Awaited<ReturnType<typeof trpc.admin.users.get.query>>;
 // Mirrors the hosted-feature flags admin.users.setFlag accepts.
 const USER_FLAGS = [
 	{
+		key: "comped",
+		label: "Comped",
+		hint: "Every Plus feature without paying (affiliates). Plus quotas apply.",
+	},
+	{
 		key: "directDualOutput",
 		label: "Portrait Direct output",
 		hint: "Adds a separately framed portrait Direct destination and slot.",
@@ -45,22 +50,22 @@ const USER_FLAGS = [
 	},
 	{
 		key: "betterTts",
-		label: "Better TTS",
+		label: "Better TTS override",
 		hint: "Hosted speech, billed per character read out of chat.",
 	},
 	{
 		key: "betterAudioIsolation",
-		label: "Better audio isolation",
+		label: "Better audio isolation override",
 		hint: "Hosted mic isolation, billed per second of live audio.",
 	},
 	{
 		key: "betterSubtitles",
-		label: "Better subtitles",
+		label: "Better subtitles override",
 		hint: "Hosted realtime captions, billed per minute of live audio.",
 	},
 	{
 		key: "brbHighlights",
-		label: "BRB highlights",
+		label: "BRB highlights override",
 		hint: "Internal beta for uploaded highlight playlists during Direct BRB.",
 	},
 ] as const;
@@ -396,8 +401,17 @@ export function UserDetailPanel({
 								role === identity.role ||
 								(identity.id === currentUserId && role !== "admin")
 							}
-							onClick={() =>
-								run(
+							onClick={() => {
+								if (
+									!window.confirm(
+										role === "admin"
+											? `Make ${identity.name} an admin? They get full access to this console, including roles, bans and relays.`
+											: `Remove admin access from ${identity.name}?`,
+									)
+								) {
+									return;
+								}
+								void run(
 									"role",
 									() =>
 										trpc.admin.users.setRole.mutate({
@@ -405,8 +419,8 @@ export function UserDetailPanel({
 											role,
 										}),
 									"Role updated",
-								)
-							}
+								);
+							}}
 						>
 							Save role
 						</Button>
@@ -416,7 +430,14 @@ export function UserDetailPanel({
 						<div>
 							<p className="font-medium">Feature access</p>
 							<p className="text-muted-foreground text-xs">
-								Each toggle saves on its own and is recorded separately.
+								Plan: {identity.plan === "plus" ? "Plus" : "Free"}
+								{identity.planStatus ? ` · ${identity.planStatus}` : ""}
+								{identity.planPeriodEnd
+									? ` · period ends ${formatDate(identity.planPeriodEnd)}`
+									: ""}
+								. Overrides grant one feature on top of the plan. Each toggle
+								asks for confirmation, then saves on its own and is recorded
+								separately.
 							</p>
 						</div>
 						{USER_FLAGS.map(({ key, label, hint }) => (
@@ -429,7 +450,15 @@ export function UserDetailPanel({
 									checked={identity[key] ?? false}
 									disabled={pending === key}
 									id={`flag-${key}`}
-									onCheckedChange={(enabled) =>
+									onCheckedChange={(enabled) => {
+										// A stray click shouldn't change someone's billing or features.
+										if (
+											!window.confirm(
+												`${enabled ? "Enable" : "Disable"} ${label} for ${identity.name}?`,
+											)
+										) {
+											return;
+										}
 										void run(
 											key,
 											() =>
@@ -439,8 +468,8 @@ export function UserDetailPanel({
 													enabled,
 												}),
 											`${label} ${enabled ? "enabled" : "disabled"}`,
-										)
-									}
+										);
+									}}
 								/>
 								<span className="grid gap-0.5 leading-tight">
 									<span className="font-medium text-sm">{label}</span>

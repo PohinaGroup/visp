@@ -21,6 +21,20 @@ type Word = {
 
 const apiUrl = import.meta.env.VITE_API_URL ?? "https://visp-stream.com";
 
+/** The server's refusals (gate, wrong state, limits) are worth showing as-is. */
+async function refusalMessage(response: Response, fallback: string) {
+	if (response.status === 403)
+		return "Typography is part of VISP Plus. Upgrade on your VISP dashboard.";
+	if (response.status !== 409 && response.status !== 429) return fallback;
+	const result = (await response.json().catch(() => ({}))) as {
+		error?: string;
+	};
+	if (result.error && result.error !== "Too many requests") return result.error;
+	return response.status === 429
+		? "Too many requests. Try again in a little while."
+		: fallback;
+}
+
 const seedWords: Word[] = [
 	{ id: 1, text: "I", start: 3.02, end: 3.18, emphasis: 0, group: 0 },
 	{ id: 2, text: "think", start: 3.2, end: 3.42, emphasis: 0, group: 0 },
@@ -397,7 +411,13 @@ export default function App() {
 			});
 			if (projectResponse.status === 401)
 				throw new Error("Sign into VISP, then upload your video.");
-			if (!projectResponse.ok) throw new Error("Could not create the project.");
+			if (!projectResponse.ok)
+				throw new Error(
+					await refusalMessage(
+						projectResponse,
+						"Could not create the project.",
+					),
+				);
 			const created = (await projectResponse.json()) as {
 				project: { id: string };
 				uploadUrl: string;
@@ -412,7 +432,10 @@ export default function App() {
 				`${apiUrl}/api/typography/projects/${created.project.id}/finalize`,
 				{ method: "POST", credentials: "include" },
 			);
-			if (!finalized.ok) throw new Error("Could not start transcription.");
+			if (!finalized.ok)
+				throw new Error(
+					await refusalMessage(finalized, "Could not start transcription."),
+				);
 			setProjectId(created.project.id);
 			setNotice("Video uploaded. VISP is creating word-level captions.");
 			void waitForProject(created.project.id);
@@ -435,8 +458,11 @@ export default function App() {
 			method: "POST",
 			credentials: "include",
 		})
-			.then((response) => {
-				if (!response.ok) throw new Error("Export could not start.");
+			.then(async (response) => {
+				if (!response.ok)
+					throw new Error(
+						await refusalMessage(response, "Export could not start."),
+					);
 				setNotice(
 					"Export started. Your MP4 will appear when rendering finishes.",
 				);

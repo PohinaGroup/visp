@@ -124,7 +124,20 @@ disconnecting either side behaves as expected. Only then install
 	encoder slot exactly like a live forwarder, so size the cap below with the
 	worst case in mind. The forwarders keep their locks, the publisher marker
 	and the card background in `/run/visp`, created by `RuntimeDirectory=visp`
-	in the MediaMTX unit; restarting MediaMTX ends every held card.
+	in the MediaMTX unit; restarting MediaMTX ends every held card. The
+	directory is mode 0700: it also holds the per-path compositor credential
+	files, which the `visp-compositor` user never reads itself (systemd loads
+	its `EnvironmentFile` as root). BRB highlight clips are downloaded and
+	re-encoded in `/var/cache/visp` (`CacheDirectory=visp`), not the `/run`
+	tmpfs; the unit empties it on start.
+
+	`visp-relay-release` refuses to restart MediaMTX, `srtla-rec` or
+	`visp-bond` while the relay has live ingest paths or running forwarders
+	and BRB holds, or while the MediaMTX API does not answer. It prints both
+	counts and exits 75; the bootstrap then puts `/opt/visp` back on the
+	previous commit. Pass `--force` (or set `VISP_RELAY_RELEASE_FORCE=1`) to
+	restart anyway. From CI: put `[relay-force]` in the GitHub release notes,
+	or tick **force** on a manual staging run.
 
 	Deploy this relay script before enabling the per-user **BRB highlights**
 	flag. Roll back by disabling that flag: new holds use the still card, uploaded
@@ -159,6 +172,8 @@ disconnecting either side behaves as expected. Only then install
      | sudo tee -a /etc/fstab
    sudo systemctl daemon-reload
    ```
+
+   `visp-relay-release` warns on every run while `/proc` lacks `hidepid`.
 
    Do not add `gid=` unless that group already exists; the remount fails if it
    does not. This is defence in depth: with root as the only account on the
@@ -320,7 +335,16 @@ pprof stay disabled.
    TYPOGRAPHY_ORIGIN=https://typography.visp-stream.com
    ELEVENLABS_API_KEY=...
    AI_GATEWAY_API_KEY=...
+   POLAR_ACCESS_TOKEN=...
+   POLAR_WEBHOOK_SECRET=...
+   POLAR_PRODUCT_ID=...
+   POLAR_SERVER=production
    ```
+
+   Staging uses Polar's sandbox (`POLAR_SERVER=sandbox`) with its own token,
+   product and webhook secret. Point the Polar webhook at
+   `<app origin>/api/webhooks/polar`, raw format, event
+   `customer.state_changed`.
 
 3. The browser uploads directly to the signed object-storage URL: Typography
    source files, plus the dashboard's BRB images and Studio assets. Set

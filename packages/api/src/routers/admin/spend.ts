@@ -14,7 +14,7 @@ import {
 	bucketOf,
 	floorToBucket,
 	instant,
-	liveSessionsSql,
+	streamSessionsSql,
 } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
 import { priceInEffectSql } from "./usage";
@@ -107,7 +107,7 @@ async function windowSpend(w: Window): Promise<WindowSpend> {
 			(select count(cost) from usage)::int as priced_rows,
 			(select coalesce(sum(cost), 0) from usage)::float8 as cost_eur,
 			(select count(distinct ls.user_id)
-				from (${liveSessionsSql({ from: w.from, to: w.to })}) ls
+				from (${streamSessionsSql({ from: w.from, to: w.to })}) ls
 			)::int as streamers
 	`);
 	const row = rows[0];
@@ -157,8 +157,8 @@ const budgetTargetId = (feature: SpendBudgetFeature) =>
 export const adminSpendRouter = router({
 	/**
 	 * Hosted spend per active streamer: priced hosted spend (every account)
-	 * ÷ active streamers (eligible users with a `live_session` whose
-	 * `first_live_at` is in the window, docs/admin-kpis.md), for the range
+	 * ÷ active streamers (eligible users with a stream session that started
+	 * in the window, docs/admin-kpis.md), for the range
 	 * and the optional comparison. Both sides are clamped to
 	 * `METRICS_DATA_START`, like every live-based KPI.
 	 *

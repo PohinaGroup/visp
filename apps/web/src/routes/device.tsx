@@ -146,6 +146,18 @@ function DeviceApproval() {
 
 	const decide = async (decision: "approve" | "deny") => {
 		if (!userCode) return;
+		// Defence in depth against a framed page: a native dialog can't be
+		// covered by an overlay, and it names exactly what is being approved.
+		if (
+			decision === "approve" &&
+			!window.confirm(
+				fi
+					? `Hyväksytäänkö VISP-lisäosa OBS:lle koodilla ${formatDeviceCode(userCode)}? Se saa pääsyn VISP-tiliisi.`
+					: `Approve the VISP plugin for OBS with code ${formatDeviceCode(userCode)}? It will get access to your VISP account.`,
+			)
+		) {
+			return;
+		}
 		setState("checking");
 		const response = await deviceRequest(`/device/${decision}`, {
 			method: "POST",

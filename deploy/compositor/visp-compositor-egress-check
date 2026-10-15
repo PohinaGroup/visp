@@ -7,3 +7,31 @@ nft list table inet visp_compositor >/dev/null 2>&1 || {
 	echo "VISP compositor egress firewall is not active" >&2
 	exit 1
 }
+
+# The firewall only lets the worker reach DNS through the systemd-resolved stub
+# or a public resolver; loopback and private resolvers are rejected.
+resolv_conf="${1:-/etc/resolv.conf}"
+usable_resolver=false
+while read -r keyword address _ || test -n "${keyword:-}"; do
+	test "$keyword" = nameserver || continue
+	case "$address" in
+	127.0.0.53) usable_resolver=true ;;
+	127.* | 10.* | 192.168.* | 169.254.* | 0.* | ::1 | [fF][cCdD]* | [fF][eE]80:*) ;;
+	172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) ;;
+	100.6[4-9].* | 100.[7-9][0-9].* | 100.1[01][0-9].* | 100.12[0-7].*) ;;
+	*) usable_resolver=true ;;
+	esac
+done <"$resolv_conf"
+$usable_resolver || {
+	echo "VISP compositor needs systemd-resolved (127.0.0.53) or a public resolver in $resolv_conf" >&2
+	exit 1
+}
+
+# Feed ports (deploy/compositor/ports.ts) must stay out of the kernel's
+# ephemeral range so no unrelated socket is ever handed one of them.
+port_range="${2:-/proc/sys/net/ipv4/ip_local_port_range}"
+read -r ephemeral_low ephemeral_high <"$port_range"
+if test "$ephemeral_low" -le 29999 && test "$ephemeral_high" -ge 20000; then
+	echo "net.ipv4.ip_local_port_range ($ephemeral_low-$ephemeral_high) overlaps the compositor feed ports 20000-29999" >&2
+	exit 1
+fi

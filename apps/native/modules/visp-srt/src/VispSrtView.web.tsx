@@ -416,9 +416,21 @@ export default forwardRef<VispSrtViewRef, VispSrtViewProps>(
 						});
 						throw new Error("This browser cannot publish H.264 video.");
 					}
+					let target: ReturnType<typeof webPublishTarget>;
 					try {
-						const relayUrl = process.env.EXPO_PUBLIC_RELAY_WEBRTC_URL;
-						const target = webPublishTarget(streamUrl, relayUrl);
+						target = webPublishTarget(
+							streamUrl,
+							process.env.EXPO_PUBLIC_RELAY_WEBRTC_URL,
+						);
+					} catch (error) {
+						const message =
+							error instanceof Error
+								? error.message
+								: "Browser streaming is not configured.";
+						emitState({ code: "invalid-url", message, state: "error" });
+						throw new Error(message);
+					}
+					try {
 						const PublisherClass = await publisherClass(
 							target.publisherScriptUrl,
 						);

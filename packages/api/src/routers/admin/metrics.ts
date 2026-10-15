@@ -11,10 +11,10 @@ import {
 	floorToBucket,
 	fromUtcTimestamp,
 	hoursInterval,
-	liveHoursOf,
-	liveSessionsSql,
 	type MetricInterval,
 	signupProviderOf,
+	streamHoursOf,
+	streamSessionsSql,
 	utcTimestamp,
 } from "./metrics-sql";
 import { METRICS_DATA_START } from "./metrics-window";
@@ -41,7 +41,7 @@ const UNITS: Record<SeriesMetric, SeriesUnit> = {
 	sessions_per_streamer: "ratio",
 };
 
-/** Metrics built from `live_session`, which has no data before the window. */
+/** Metrics built from `stream_session`, which has no data before `METRICS_DATA_START`. */
 const LIVE_METRICS = new Set<SeriesMetric>([
 	"weekly_active_streamers",
 	"streaming_hours",
@@ -83,7 +83,7 @@ function toBuckets(rows: Row[]): SeriesBucket[] {
 }
 
 /**
- * Distinct live streamers per bucket. Daily points are a trailing 7-day
+ * Distinct streamers per bucket. Daily points are a trailing 7-day
  * window (the 7 days ending with that day), so the daily line reads in the
  * same units as the weekly headline instead of as a much smaller daily-active
  * count; weekly points are the ISO week itself. Windows never reach before
@@ -92,11 +92,14 @@ function toBuckets(rows: Row[]): SeriesBucket[] {
 function activeStreamersSql(interval: MetricInterval, from: Date, to: Date) {
 	const series = bucketSeriesSql(interval, from, to);
 	if (interval === "week") {
-		const sessions = liveSessionsSql({ from: floorToBucket(from, "week"), to });
+		const sessions = streamSessionsSql({
+			from: floorToBucket(from, "week"),
+			to,
+		});
 		return sql`select series.bucket, coalesce(agg.value, 0)::float8 as value
 			from (${series}) series
 			left join (
-				select ${bucketOf("week", sql`ls.first_live_at`)} as bucket,
+				select ${bucketOf("week", sql`ls.started_at`)} as bucket,
 					count(distinct ls.user_id) as value
 				from (${sessions}) ls
 				group by 1
@@ -109,21 +112,21 @@ function activeStreamersSql(interval: MetricInterval, from: Date, to: Date) {
 			METRICS_DATA_START.getTime(),
 		),
 	);
-	const sessions = liveSessionsSql({ from: scanFrom, to });
+	const sessions = streamSessionsSql({ from: scanFrom, to });
 	return sql`with ls as (${sessions})
 		select series.bucket, (
 			select count(distinct ls.user_id)
 			from ls
-			where ls.first_live_at >= series.bucket - ${hoursInterval(6 * 24)}
-				and ls.first_live_at < series.bucket + ${hoursInterval(24)}
+			where ls.started_at >= series.bucket - ${hoursInterval(6 * 24)}
+				and ls.started_at < series.bucket + ${hoursInterval(24)}
 		)::float8 as value
 		from (${series}) series
 		order by series.bucket`;
 }
 
 /**
- * Per-bucket aggregate over `live_session` rows (aliased `ls`), bucketed by
- * `first_live_at`, left-joined onto the series so empty buckets are 0.
+ * Per-bucket aggregate over `stream_session` rows (aliased `ls`), bucketed by
+ * `started_at`, left-joined onto the series so empty buckets are 0.
  */
 function liveAggregateSql(
 	interval: MetricInterval,
@@ -132,11 +135,14 @@ function liveAggregateSql(
 	aggregate: SQL,
 ) {
 	const series = bucketSeriesSql(interval, from, to);
-	const sessions = liveSessionsSql({ from: floorToBucket(from, interval), to });
+	const sessions = streamSessionsSql({
+		from: floorToBucket(from, interval),
+		to,
+	});
 	return sql`select series.bucket, coalesce(agg.value, 0)::float8 as value
 		from (${series}) series
 		left join (
-			select ${bucketOf(interval, sql`ls.first_live_at`)} as bucket,
+			select ${bucketOf(interval, sql`ls.started_at`)} as bucket,
 				${aggregate} as value
 			from (${sessions}) ls
 			group by 1
@@ -189,19 +195,19 @@ function signupsSql(
 export const adminMetricsRouter = router({
 	/**
 	 * One KPI as a gap-free UTC time series (see docs/admin-kpis.md):
-	 * - `weekly_active_streamers`: distinct streamers live in the bucket's
+	 * - `weekly_active_streamers`: distinct streamers with a stream session in the bucket's
 	 *   window. `week`: the ISO week. `day`: the trailing 7 days ending that
 	 *   day, so it stays comparable with the weekly headline.
-	 * - `streaming_hours`: live hours (`effective_end - first_live_at`), each
-	 *   session wholly in the bucket of its `first_live_at`, never split.
+	 * - `streaming_hours`: stream hours (`effective_end - started_at`), each
+	 *   session wholly in the bucket of its `started_at`, never split.
 	 * - `signups`: eligible users by `created_at`; `segment: "provider"` splits
 	 *   by the provider of the earliest `account` row (`unknown` if none).
-	 * - `sessions_per_streamer`: live sessions ÷ distinct streamers within the
+	 * - `sessions_per_streamer`: stream sessions ÷ distinct streamers within the
 	 *   same bucket (a calendar day for `day`), 0 when nobody streamed.
 	 *
 	 * Buckets cover `[from, to)`, the first being the day or ISO week that
 	 * contains `from`. Live-based metrics clamp `from` to `METRICS_DATA_START`
-	 * (no `first_live_at` before it), returning no buckets when the whole range
+	 * (no sessions before it), returning no buckets when the whole range
 	 * is earlier; signups have full history. `segment: "provider"` applies to
 	 * signups only. The last bucket is partial when `to` falls inside it.
 	 */
@@ -235,7 +241,7 @@ export const adminMetricsRouter = router({
 					interval,
 					from,
 					to,
-					sql`sum(${liveHoursOf("ls")})`,
+					sql`sum(${streamHoursOf("ls")})`,
 				);
 				break;
 			case "sessions_per_streamer":

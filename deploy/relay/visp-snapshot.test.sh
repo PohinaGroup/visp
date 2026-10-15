@@ -29,6 +29,7 @@ while [ $# -gt 0 ]; do
 		*) url="$1"; shift ;;
 	esac
 done
+printf '%s\n' "$url" >>"$FAKE_CURL_CALLS"
 case "$url" in
 	*/mediamtx/auth) exit 22 ;; # Older apps force the dedicated-encode fallback.
 	*/direct-destinations-v3)
@@ -171,9 +172,16 @@ case "${1:-}" in
 esac
 FAKE
 
+cat >"$work/bin/systemctl" <<'FAKE'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >>"$FAKE_SYSTEMCTL_LOG"
+FAKE
+
 chmod +x "$work/bin/"*
 
 export FAKE_FFMPEG_LOG="$work/ffmpeg.log"
+export FAKE_CURL_CALLS="$work/curl-calls.log"
+export FAKE_SYSTEMCTL_LOG="$work/systemctl.log"
 export FAKE_STATE_LOG="$work/state.log"
 export FAKE_BRB_LOG="$work/brb.log"
 export FAKE_DESTINATIONS_LOG="$work/destinations.log"
@@ -195,6 +203,7 @@ export FAKE_BRB_DELAY_DIR="$work/brb-delay"
 export FAKE_CLIP_DELAY="$work/clip-delay"
 export HOOK_SECRET=test-secret STUDIO_MEDIA_PASSWORD=test-media-secret RTSP_PORT=8554
 export VISP_RUN_DIR="$work/run"
+export VISP_CACHE_DIR="$work/cache"
 export BRB_TICK_SECONDS=1
 # Only the presence of the file is checked before drawtext is added, so a stub
 # is enough to exercise the branch that renders the message.
@@ -215,6 +224,41 @@ printf 'source path-1\n' >"$FAKE_STUDIO_PLAN_REPLY"
 printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
 
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
+
+# The reported reason is shown in the dashboard and stored. FFmpeg can echo the
+# output URL; no part of it, nor any other free text, may survive.
+eval "$(sed -n '/^safe_reason() {$/,/^}$/p' "$root/visp-snapshot")"
+check_reason() {
+	local got
+	got="$(safe_reason "$1")"
+	test "$got" = "$2" || fail "safe_reason '$1' gave '$got', expected '$2'"
+}
+check_reason 'Error opening output rtmps://live.twitch.tv/app/live_123_abc: I/O error' 'connection lost'
+check_reason 'Error opening output rtmps://auth.example/app/KEY: Connection refused' 'connection refused'
+check_reason 'srt://receiver.test:9000?streamid=CUSTOMKEY: Connection timed out' 'connection timed out'
+check_reason 'Server returned 403 Forbidden (access denied)' 'authentication failed'
+check_reason 'TLS handshake failed: certificate verify failed' 'tls error'
+check_reason 'Failed to resolve hostname live.example: Name or service not known' 'destination unreachable'
+check_reason 'something new live_123_abc?key=SECRET' 'unknown error'
+check_reason 'encoder did not exit' 'encoder did not exit'
+check_reason '' ''
+
+# MediaMTX also runs the hook for the compositor's studio/<slug> program and the
+# shared direct/<slug>/<digest> renditions. Neither is an ingest: the hook must
+# leave before any hook call, snapshot, compositor unit or run-dir file.
+: >"$FAKE_CURL_CALLS"
+: >"$FAKE_SYSTEMCTL_LOG"
+for hook_path in studio/path-1 direct/path-1/abc0123 'path*1' ''; do
+	VISP_RUN_DIR="$work/run-skip" STUDIO_COMPOSITOR_UNIT=visp-compositor@ \
+		bash "$root/visp-snapshot" http://app.test "$hook_path" rtsp ||
+		fail "hook for '$hook_path' did not exit cleanly"
+done
+test ! -e "$work/run-skip" || fail "hook for a non-ingest path touched the run directory"
+test ! -s "$FAKE_CURL_CALLS" ||
+	fail "hook for a non-ingest path called the app: $(tr '\n' '|' <"$FAKE_CURL_CALLS")"
+test ! -s "$FAKE_SYSTEMCTL_LOG" ||
+	fail "hook for a non-ingest path started a unit: $(tr '\n' '|' <"$FAKE_SYSTEMCTL_LOG")"
+test ! -s "$FAKE_FFMPEG_LOG" || fail "hook for a non-ingest path started FFmpeg"
 
 wait_for_count() {
 	local pattern="$1" expected="$2" attempts=$((${3:-10} * 5)) count
@@ -238,7 +282,7 @@ live_children() {
 wait_for_hold_cleanup() {
 	for _ in {1..40}; do
 		test "$(live_children)" -ne 0 ||
-			test -e "$VISP_RUN_DIR/path-1-highlights" || return 0
+			test -e "$VISP_CACHE_DIR/path-1-highlights" || return 0
 		sleep 0.25
 	done
 	return 1
@@ -614,7 +658,7 @@ done
 printf 'stop\n' >"$FAKE_BRB_REPLY"
 wait_for_hold_cleanup || fail "slow highlight hold did not clean up"
 sleep 6
-test ! -e "$VISP_RUN_DIR/path-1-highlights" ||
+test ! -e "$VISP_CACHE_DIR/path-1-highlights" ||
 	fail "the stopped preparation republished the shared highlight cache"
 
 # A stop-first tick must not reconnect the destination after ingest disappears.

@@ -20,6 +20,7 @@ import { evlogErrorHandler } from "evlog/nitro/v3";
 import { CookieBanner } from "../components/cookie-banner";
 import Header from "../components/header";
 import appCss from "../index.css?url";
+import { analyticsAllowed } from "../lib/analytics";
 import { useLocale } from "../lib/i18n";
 import { legalEntity } from "../lib/legal";
 
@@ -28,9 +29,9 @@ export interface RouterAppContext {
 	queryClient: QueryClient;
 }
 
-function rybbitHeadScripts() {
+function rybbitHeadScripts(pathname: string | undefined) {
 	const siteId = env.VITE_RYBBIT_SITE_ID;
-	if (!siteId) {
+	if (!siteId || !analyticsAllowed(pathname)) {
 		return [];
 	}
 
@@ -39,7 +40,8 @@ function rybbitHeadScripts() {
 			src: "https://analytics.huikaton.online/api/script.js",
 			async: true,
 			"data-site-id": siteId,
-			"data-skip-patterns": '["/auth/**", "/login"]',
+			// Also covers client-side navigation onto them after the script loaded.
+			"data-skip-patterns": '["/auth/**", "/login", "/overlay", "/device"]',
 			// Keep publish URLs and similar secrets out of session replay.
 			"data-replay-block-selector": ".rr-block, [data-rybbit-block]",
 			"data-replay-mask-text-selectors": '["[data-pii]"]',
@@ -53,7 +55,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 		middleware: [createMiddleware().server(evlogErrorHandler)],
 	},
 
-	head: () => ({
+	head: ({ matches }) => ({
 		meta: [
 			{
 				charSet: "utf-8",
@@ -78,7 +80,7 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 			},
 		],
 		scripts: [
-			...rybbitHeadScripts(),
+			...rybbitHeadScripts(matches.at(-1)?.pathname),
 			{
 				type: "application/ld+json",
 				children: JSON.stringify({

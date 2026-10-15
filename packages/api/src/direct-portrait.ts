@@ -37,6 +37,16 @@ export function portraitFilterValue(crop: DirectCrop) {
 	return buildPortraitFilter(validCrop(crop));
 }
 
+/** Hook-side check: a stored crop that no longer validates matches nothing. */
+export function portraitFilterMatches(
+	crop: DirectCrop | null | undefined,
+	filter: string | null | undefined,
+) {
+	return Boolean(
+		crop && !directCropError(crop) && buildPortraitFilter(crop) === filter,
+	);
+}
+
 export function listPortraitDestinations(userId: string) {
 	return db
 		.select({
@@ -279,8 +289,7 @@ export async function portraitDestinationActive(input: {
 		.limit(1);
 	return Boolean(
 		portrait?.state !== "stopping" &&
-			portrait?.crop &&
-			portraitFilterValue(portrait.crop) === input.filter,
+			portraitFilterMatches(portrait?.crop, input.filter),
 	);
 }
 

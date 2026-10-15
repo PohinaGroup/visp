@@ -14,6 +14,7 @@ import { evlog } from "evlog/elysia";
 import { agentRoutes } from "./agent";
 import { audioIsolationRoutes } from "./audio-isolation";
 import { handleAuthRequest } from "./auth-handler";
+import { billingRoutes } from "./billing";
 import { chatRoutes } from "./chat";
 import { machineRoutes } from "./machine";
 import { multiChatRoutes } from "./multichat";
@@ -107,6 +108,7 @@ export function createApp() {
 		.use(obsLiveRoutes)
 		.use(seppoRoutes)
 		.use(ttsRoutes)
+		.use(billingRoutes)
 		.use(audioIsolationRoutes)
 		.use(subtitlesRoutes)
 		.use(typographyRoutes)

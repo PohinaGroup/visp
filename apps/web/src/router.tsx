@@ -1,6 +1,6 @@
 import type { AppRouter } from "@VISP/api/routers/index";
 import { env } from "@VISP/env/web";
-import { QueryCache, QueryClient } from "@tanstack/react-query";
+import { MutationCache, QueryCache, QueryClient } from "@tanstack/react-query";
 import { createRouter as createTanStackRouter } from "@tanstack/react-router";
 import { setupRouterSsrQueryIntegration } from "@tanstack/react-router-ssr-query";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
@@ -8,6 +8,11 @@ import { createTRPCOptionsProxy } from "@trpc/tanstack-react-query";
 import { toast } from "sonner";
 
 import Loader from "./components/loader";
+import {
+	isProtectedPath,
+	isUnauthorizedError,
+	loginRedirectHref,
+} from "./lib/query-resilience";
 import { routeTree } from "./routeTree.gen";
 import { TRPCProvider } from "./utils/trpc";
 
@@ -41,10 +46,30 @@ function getServerUrl(url: string) {
 	return `http://localhost:3000${normalized}`;
 }
 function createQueryClient() {
-	return new QueryClient({
+	let redirecting = false;
+	// An expired or revoked session fails every poll the same way: send the
+	// user to /login once instead of toasting UNAUTHORIZED forever.
+	const handleUnauthorized = (error: unknown) => {
+		if (!isUnauthorizedError(error)) return false;
+		if (
+			!redirecting &&
+			typeof window !== "undefined" &&
+			isProtectedPath(window.location.pathname)
+		) {
+			redirecting = true;
+			queryClient.cancelQueries();
+			queryClient.clear();
+			window.location.assign(loginRedirectHref(window.location));
+		}
+		return true;
+	};
+	const queryClient: QueryClient = new QueryClient({
 		queryCache: new QueryCache({
 			onError: (error, query) => {
+				if (handleUnauthorized(error)) return;
+				// One toast per query: a failing poller updates it in place.
 				toast.error(error.message, {
+					id: query.queryHash,
 					action: {
 						label: "retry",
 						onClick: () => {
@@ -54,8 +79,21 @@ function createQueryClient() {
 				});
 			},
 		}),
-		defaultOptions: { queries: { staleTime: 60 * 1000 } },
+		// Mutations toast their own errors; only the session expiry is shared.
+		mutationCache: new MutationCache({
+			onError: (error) => {
+				handleUnauthorized(error);
+			},
+		}),
+		defaultOptions: {
+			queries: {
+				staleTime: 60 * 1000,
+				retry: (failureCount, error) =>
+					!isUnauthorizedError(error) && failureCount < 3,
+			},
+		},
 	});
+	return queryClient;
 }
 
 const trpcClient = createTRPCClient<AppRouter>({
