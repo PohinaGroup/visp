@@ -13,6 +13,7 @@ import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as RequestDeleteRouteImport } from './routes/request-delete'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PhoneOnlyRouteImport } from './routes/phone-only'
 import { Route as OverlayRouteImport } from './routes/overlay'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
@@ -27,6 +28,7 @@ import { Route as FiIndexRouteImport } from './routes/fi/index'
 import { Route as BlogIndexRouteImport } from './routes/blog.index'
 import { Route as FiTermsRouteImport } from './routes/fi/terms'
 import { Route as FiPrivacyRouteImport } from './routes/fi/privacy'
+import { Route as FiPhoneOnlyRouteImport } from './routes/fi/phone-only'
 import { Route as FiCookiesRouteImport } from './routes/fi/cookies'
 import { Route as FiContactRouteImport } from './routes/fi/contact'
 import { Route as FiAffiliateRouteImport } from './routes/fi/affiliate'
@@ -56,6 +58,11 @@ const RequestDeleteRoute = RequestDeleteRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PhoneOnlyRoute = PhoneOnlyRouteImport.update({
+  id: '/phone-only',
+  path: '/phone-only',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OverlayRoute = OverlayRouteImport.update({
@@ -127,6 +134,11 @@ const FiPrivacyRoute = FiPrivacyRouteImport.update({
   path: '/fi/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const FiPhoneOnlyRoute = FiPhoneOnlyRouteImport.update({
+  id: '/fi/phone-only',
+  path: '/fi/phone-only',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const FiCookiesRoute = FiCookiesRouteImport.update({
   id: '/fi/cookies',
   path: '/fi/cookies',
@@ -188,6 +200,7 @@ export interface FileRoutesByFullPath {
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
+  '/phone-only': typeof PhoneOnlyRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -200,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
+  '/fi/phone-only': typeof FiPhoneOnlyRoute
   '/fi/privacy': typeof FiPrivacyRoute
   '/fi/terms': typeof FiTermsRoute
   '/blog/': typeof BlogIndexRoute
@@ -217,6 +231,7 @@ export interface FileRoutesByTo {
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
+  '/phone-only': typeof PhoneOnlyRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -229,6 +244,7 @@ export interface FileRoutesByTo {
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
+  '/fi/phone-only': typeof FiPhoneOnlyRoute
   '/fi/privacy': typeof FiPrivacyRoute
   '/fi/terms': typeof FiTermsRoute
   '/blog': typeof BlogIndexRoute
@@ -248,6 +264,7 @@ export interface FileRoutesById {
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
+  '/phone-only': typeof PhoneOnlyRoute
   '/privacy': typeof PrivacyRoute
   '/request-delete': typeof RequestDeleteRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -260,6 +277,7 @@ export interface FileRoutesById {
   '/fi/affiliate': typeof FiAffiliateRoute
   '/fi/contact': typeof FiContactRoute
   '/fi/cookies': typeof FiCookiesRoute
+  '/fi/phone-only': typeof FiPhoneOnlyRoute
   '/fi/privacy': typeof FiPrivacyRoute
   '/fi/terms': typeof FiTermsRoute
   '/blog/': typeof BlogIndexRoute
@@ -279,6 +297,7 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/login'
     | '/overlay'
+    | '/phone-only'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
@@ -291,6 +310,7 @@ export interface FileRouteTypes {
     | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
+    | '/fi/phone-only'
     | '/fi/privacy'
     | '/fi/terms'
     | '/blog/'
@@ -308,6 +328,7 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/login'
     | '/overlay'
+    | '/phone-only'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
@@ -320,6 +341,7 @@ export interface FileRouteTypes {
     | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
+    | '/fi/phone-only'
     | '/fi/privacy'
     | '/fi/terms'
     | '/blog'
@@ -338,6 +360,7 @@ export interface FileRouteTypes {
     | '/llms.txt'
     | '/login'
     | '/overlay'
+    | '/phone-only'
     | '/privacy'
     | '/request-delete'
     | '/sitemap.xml'
@@ -350,6 +373,7 @@ export interface FileRouteTypes {
     | '/fi/affiliate'
     | '/fi/contact'
     | '/fi/cookies'
+    | '/fi/phone-only'
     | '/fi/privacy'
     | '/fi/terms'
     | '/blog/'
@@ -369,6 +393,7 @@ export interface RootRouteChildren {
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   OverlayRoute: typeof OverlayRoute
+  PhoneOnlyRoute: typeof PhoneOnlyRoute
   PrivacyRoute: typeof PrivacyRoute
   RequestDeleteRoute: typeof RequestDeleteRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -378,6 +403,7 @@ export interface RootRouteChildren {
   FiAffiliateRoute: typeof FiAffiliateRoute
   FiContactRoute: typeof FiContactRoute
   FiCookiesRoute: typeof FiCookiesRoute
+  FiPhoneOnlyRoute: typeof FiPhoneOnlyRoute
   FiPrivacyRoute: typeof FiPrivacyRoute
   FiTermsRoute: typeof FiTermsRoute
   BlogIndexRoute: typeof BlogIndexRoute
@@ -414,6 +440,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/phone-only': {
+      id: '/phone-only'
+      path: '/phone-only'
+      fullPath: '/phone-only'
+      preLoaderRoute: typeof PhoneOnlyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/overlay': {
@@ -512,6 +545,13 @@ declare module '@tanstack/react-router' {
       path: '/fi/privacy'
       fullPath: '/fi/privacy'
       preLoaderRoute: typeof FiPrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/fi/phone-only': {
+      id: '/fi/phone-only'
+      path: '/fi/phone-only'
+      fullPath: '/fi/phone-only'
+      preLoaderRoute: typeof FiPhoneOnlyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/fi/cookies': {
@@ -614,6 +654,7 @@ const rootRouteChildren: RootRouteChildren = {
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   OverlayRoute: OverlayRoute,
+  PhoneOnlyRoute: PhoneOnlyRoute,
   PrivacyRoute: PrivacyRoute,
   RequestDeleteRoute: RequestDeleteRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
@@ -623,6 +664,7 @@ const rootRouteChildren: RootRouteChildren = {
   FiAffiliateRoute: FiAffiliateRoute,
   FiContactRoute: FiContactRoute,
   FiCookiesRoute: FiCookiesRoute,
+  FiPhoneOnlyRoute: FiPhoneOnlyRoute,
   FiPrivacyRoute: FiPrivacyRoute,
   FiTermsRoute: FiTermsRoute,
   BlogIndexRoute: BlogIndexRoute,

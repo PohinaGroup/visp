@@ -1,4 +1,10 @@
 import { expect, test } from "bun:test";
+import {
+	createMemoryHistory,
+	createRootRoute,
+	createRouter,
+	RouterContextProvider,
+} from "@tanstack/react-router";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Locale } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
@@ -6,6 +12,12 @@ import { HomeSections } from "./home-sections";
 
 // renderToStaticMarkup escapes text, so compare against escaped copy.
 const esc = (s: string) => renderToStaticMarkup(s);
+
+// The phone-only links are router Links; a bare router is enough to build hrefs.
+const router = createRouter({
+	routeTree: createRootRoute(),
+	history: createMemoryHistory(),
+});
 
 /** The `<a href={href}>…</a>` element that contains `text`. */
 function anchor(html: string, href: string, text: string) {
@@ -18,7 +30,11 @@ function anchor(html: string, href: string, text: string) {
 
 for (const locale of ["en", "fi"] as Locale[]) {
 	const home = landingCopy[locale].home;
-	const html = renderToStaticMarkup(<HomeSections locale={locale} />);
+	const html = renderToStaticMarkup(
+		<RouterContextProvider router={router}>
+			<HomeSections locale={locale} />
+		</RouterContextProvider>,
+	);
 	const fi = locale === "fi" ? "/fi" : "";
 
 	test(`${locale}: the signal strip and its note are on the page`, () => {

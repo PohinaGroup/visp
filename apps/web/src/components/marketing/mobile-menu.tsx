@@ -115,12 +115,12 @@ export function MobileMenu({
 						<ul className="border-ink/12 border-t">
 							{children}
 							<li>
-								<a
-									href={fi ? "/fi/phone-only" : "/phone-only"}
+								<Link
+									to={fi ? "/fi/phone-only" : "/phone-only"}
 									className={menuRow}
 								>
 									{nav.phoneOnly}
-								</a>
+								</Link>
 							</li>
 							<li>
 								<a href={fi ? "/fi/with-obs" : "/with-obs"} className={menuRow}>

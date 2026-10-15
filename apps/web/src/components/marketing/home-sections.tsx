@@ -1,3 +1,5 @@
+import { Link } from "@tanstack/react-router";
+
 import type { Locale } from "@/lib/i18n";
 import { landingCopy } from "@/lib/landing-copy";
 
@@ -11,15 +13,16 @@ const TILE_TITLE = "mkt-display text-[clamp(1.75rem,4.5vw,2.5rem)]";
 
 /**
  * Home between the hero and the closing CTA: the strip, what phone only does,
- * the chooser, stories, and the FAQ. Router-free so it renders in tests; the
- * route page adds the hero and closing, which need the router for TryCta.
+ * the chooser, stories, and the FAQ. Needs only a router context for its
+ * Links (the test builds a bare one); the route page adds the hero and
+ * closing, which need the full router for TryCta.
  * Children of the page's flex column, so an empty Stories leaves no gap.
  */
 export function HomeSections({ locale }: { locale: Locale }) {
 	const { home, stories } = landingCopy[locale];
-	const base = locale === "fi" ? "/fi" : "";
-	const phoneHref = `${base}/phone-only`;
-	const obsHref = `${base}/with-obs`;
+	const fi = locale === "fi";
+	const phoneTo = fi ? "/fi/phone-only" : "/phone-only";
+	const obsHref = fi ? "/fi/with-obs" : "/with-obs";
 
 	return (
 		<>
@@ -54,19 +57,19 @@ export function HomeSections({ locale }: { locale: Locale }) {
 						<li key={line}>{line}</li>
 					))}
 				</ul>
-				<a
-					href={phoneHref}
+				<Link
+					to={phoneTo}
 					className="mt-8 inline-flex min-h-11 items-center font-semibold underline decoration-ink/30 underline-offset-4 hover:decoration-ink"
 				>
 					{home.noObs.link}
-				</a>
+				</Link>
 			</section>
 
 			<section>
 				<h2 className={mktH2}>{home.chooser.title}</h2>
 				<div className="mt-10 grid gap-4 md:grid-cols-2 md:gap-6">
-					<a
-						href={phoneHref}
+					<Link
+						to={phoneTo}
 						className={`${TILE} bg-ink text-paper hover:bg-ink/90`}
 					>
 						<span className="self-start rounded-lg border border-paper/35 px-2.5 py-1 font-semibold text-sm">
@@ -76,7 +79,7 @@ export function HomeSections({ locale }: { locale: Locale }) {
 						<p className="mt-3 max-w-[40ch] leading-relaxed">
 							{home.chooser.phone.body}
 						</p>
-					</a>
+					</Link>
 					<a
 						href={obsHref}
 						className={`${TILE} border border-ink/25 hover:border-ink`}

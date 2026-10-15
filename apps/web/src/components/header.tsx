@@ -73,9 +73,9 @@ export default function Header({ landing = false }: { landing?: boolean }) {
 						landing ? "text-[0.9375rem]" : "text-sm",
 					)}
 				>
-					<a href={fi ? "/fi/phone-only" : "/phone-only"} className={link}>
+					<Link to={fi ? "/fi/phone-only" : "/phone-only"} className={link}>
 						{nav.phoneOnly}
-					</a>
+					</Link>
 					<a href={fi ? "/fi/with-obs" : "/with-obs"} className={link}>
 						{nav.withObs}
 					</a>
