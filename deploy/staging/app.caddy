@@ -116,7 +116,7 @@ staging.visp-stream.com {
 		handle /api/audio-isolation {
 			reverse_proxy 127.0.0.1:3100
 		}
-		handle /api/webhooks/kick {
+		handle /api/webhooks/* {
 			reverse_proxy 127.0.0.1:3100
 		}
 		handle {

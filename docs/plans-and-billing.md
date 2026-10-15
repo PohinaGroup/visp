@@ -104,8 +104,9 @@ VAT-inclusive display.
 - `packages/api/src/billing.ts`: `applyCustomerState(userId, state)` (the
   update above) and `syncPlans()`: the daily job, under the advisory lock,
   that re-fetches customer state for users whose `plan_period_end` is more
-  than three days in the past and are still `plus`. That is the only guard
-  against a missed webhook.
+  than three days in the past and are still `plus`. The other guard against
+  a missed webhook is `plan.sync`: checkout returns to `/dashboard?plus=1`,
+  and the dashboard re-reads the plan from Polar right there.
 - tRPC `plan.me` returns plan, status, period end, per-feature `remaining`,
   checkout URL and portal URL. The native app and OBS plugin read this; they
   never open checkout themselves (App Store rules; web only).

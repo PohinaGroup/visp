@@ -2,8 +2,9 @@ import { polarApi } from "@VISP/auth/polar";
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { tryAdvisoryLock } from "./advisory-lock";
+import { PROVIDER_TIMEOUT_MS } from "./provider-timeout";
 
 export type PlanState = {
 	plan: "free" | "plus";
@@ -52,18 +53,27 @@ export async function fetchPlan(userId: string): Promise<PlanState> {
 	if (!polarApi || !env.POLAR_PRODUCT_ID) {
 		throw new Error("Polar is not configured");
 	}
-	const page = await polarApi.subscriptions.list({
-		external_customer_id: userId,
-		product_id: env.POLAR_PRODUCT_ID,
-		status: [...PLUS_STATUSES],
-		limit: 10,
-	});
+	// Runs under syncUserPlan's lock and pool slot, so it must not outlive the
+	// provider budget. The SDK aborts the request itself; timeout is in seconds.
+	const page = await polarApi.subscriptions.list(
+		{
+			external_customer_id: userId,
+			product_id: env.POLAR_PRODUCT_ID,
+			status: [...PLUS_STATUSES],
+			limit: 10,
+		},
+		{ timeout: PROVIDER_TIMEOUT_MS / 1000 },
+	);
 	return planFromSubscriptions(page.items, env.POLAR_PRODUCT_ID);
 }
 
 /** Writes Polar's columns only; `comped` is the admin's and never touched. */
-export async function applyPlan(userId: string, state: PlanState) {
-	const [row] = await db
+export async function applyPlan(
+	userId: string,
+	state: PlanState,
+	conn: Pick<typeof db, "update"> = db,
+) {
+	const [row] = await conn
 		.update(appUser)
 		.set({
 			plan: state.plan,
@@ -75,8 +85,17 @@ export async function applyPlan(userId: string, state: PlanState) {
 	return Boolean(row);
 }
 
+/**
+ * Read and write under one per-user lock, so a webhook racing the periodic
+ * sync (or another delivery) cannot land an older "free" over a newer "plus".
+ */
 export async function syncUserPlan(userId: string) {
-	return applyPlan(userId, await fetchPlan(userId));
+	return db.transaction(async (tx) => {
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtext(${`plan:${userId}`}))`,
+		);
+		return applyPlan(userId, await fetchPlan(userId), tx);
+	});
 }
 
 /** A renewal webhook this late has been missed. */
@@ -84,8 +103,9 @@ const STALE_PERIOD_MS = 3 * 24 * 60 * 60_000;
 export const PLAN_SYNC_INTERVAL_MS = 6 * 60 * 60_000;
 
 /**
- * The only guard against a missed webhook: Plus users whose period ended more
+ * Guard against a missed renewal webhook: Plus users whose period ended more
  * than three days ago are re-read from Polar. One instance runs it at a time.
+ * A missed first-payment webhook is covered by `plan.sync` from the dashboard.
  */
 export async function syncPlans(now = new Date()) {
 	if (!polarApi) return null;
