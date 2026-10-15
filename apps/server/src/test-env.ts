@@ -8,6 +8,7 @@ process.env.DATABASE_URL =
 process.env.BETTER_AUTH_SECRET ??= "test-secret-that-is-at-least-32-characters";
 process.env.BETTER_AUTH_URL ??= "http://127.0.0.1:3000";
 process.env.CORS_ORIGIN ??= "http://127.0.0.1:3001";
+process.env.POLAR_WEBHOOK_SECRET ??= "whsec_test-polar-webhook-secret";
 process.env.HOOK_SECRET ??= "test-hook-secret-that-is-at-least-32-characters";
 process.env.GOOGLE_CLIENT_ID ??= "test-google-client";
 process.env.GOOGLE_CLIENT_SECRET ??= "test-google-secret";

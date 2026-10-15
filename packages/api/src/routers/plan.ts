@@ -1,3 +1,4 @@
+import { polarConfigured } from "@VISP/auth/polar";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { recordHostedUsage } from "../hosted-usage";
@@ -26,9 +27,16 @@ export const planRouter = router({
 			planOwner(userId),
 			monthUsage(userId, now),
 		]);
+		const plan = owner?.plan === "plus" ? ("plus" as const) : ("free" as const);
+		const comped = owner?.comped ?? false;
+		const billing = polarConfigured();
 		return {
-			plan: owner?.plan === "plus" ? ("plus" as const) : ("free" as const),
-			comped: owner?.comped ?? false,
+			plan,
+			comped,
+			/** Web only: POST /api/auth/checkout {slug: "plus"}. Never for comps. */
+			canCheckout: billing && plan === "free" && !comped,
+			/** Web only: /api/auth/customer/portal (card, cancel, invoices). */
+			canManage: billing && plan === "plus",
 			status: owner?.planStatus ?? null,
 			periodEnd: owner?.planPeriodEnd?.toISOString() ?? null,
 			resetsAt: nextMonthStart(now).toISOString(),

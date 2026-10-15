@@ -1,4 +1,5 @@
 import { isolationUsage } from "@VISP/api/audio-isolation";
+import { PLAN_SYNC_INTERVAL_MS, syncPlans } from "@VISP/api/billing";
 import { subscribeInvalidations } from "@VISP/api/cache-bus";
 import { startChatBots } from "@VISP/api/chat/bot";
 import { startChatFanout } from "@VISP/api/chat/hub";
@@ -80,6 +81,11 @@ const rollupDailyMetricsNightly = async (startup: boolean) => {
 	}
 };
 void rollupDailyMetricsNightly(true);
+// Catches a missed Polar webhook; idempotent, and only one instance runs it.
+const syncStalePlans = () =>
+	void syncPlans().catch((error) => console.error("Plan sync failed", error));
+syncStalePlans();
+setInterval(syncStalePlans, PLAN_SYNC_INTERVAL_MS);
 setInterval(
 	() => void rollupDailyMetricsNightly(false),
 	DAILY_METRICS_CHECK_INTERVAL_MS,

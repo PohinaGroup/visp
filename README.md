@@ -104,7 +104,9 @@ in [apps/obs-plugin/README.md](apps/obs-plugin/README.md).
 
 ## Scope
 
-VISP does not host OBS or bill users. It assigns paths across capacity-managed
+VISP does not host OBS. Hosted extras (voice, captions, isolation, highlights)
+are a €9/month Plus plan billed through Polar; see
+[plans and billing](docs/plans-and-billing.md). It assigns paths across capacity-managed
 MediaMTX relays. One publisher owns a path at a time; the first connection
 remains active and later publishers are rejected.
 

@@ -335,7 +335,16 @@ pprof stay disabled.
    TYPOGRAPHY_ORIGIN=https://typography.visp-stream.com
    ELEVENLABS_API_KEY=...
    AI_GATEWAY_API_KEY=...
+   POLAR_ACCESS_TOKEN=...
+   POLAR_WEBHOOK_SECRET=...
+   POLAR_PRODUCT_ID=...
+   POLAR_SERVER=production
    ```
+
+   Staging uses Polar's sandbox (`POLAR_SERVER=sandbox`) with its own token,
+   product and webhook secret. Point the Polar webhook at
+   `<app origin>/api/webhooks/polar`, raw format, event
+   `customer.state_changed`.
 
 3. The browser uploads directly to the signed object-storage URL: Typography
    source files, plus the dashboard's BRB images and Studio assets. Set

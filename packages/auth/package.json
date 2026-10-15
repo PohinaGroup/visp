@@ -13,15 +13,17 @@
 		"check-types": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@better-auth/expo": "catalog:",
 		"@VISP/db": "workspace:*",
 		"@VISP/env": "workspace:*",
 		"@VISP/object-store": "workspace:*",
+		"@better-auth/agent-auth": "0.6.2",
+		"@better-auth/expo": "catalog:",
+		"@polar-sh/better-auth": "^2.1.0",
+		"@polar-sh/sdk": "^1.0.2",
 		"better-auth": "catalog:",
 		"dotenv": "catalog:",
 		"drizzle-orm": "^0.45.2",
-		"zod": "catalog:",
-		"@better-auth/agent-auth": "0.6.2"
+		"zod": "catalog:"
 	},
 	"devDependencies": {
 		"@VISP/config": "workspace:*",

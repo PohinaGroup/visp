@@ -134,7 +134,13 @@ function SignalPath({ copy }: { copy: Copy["path"] }) {
 	);
 }
 
-function AnnualCostChart({ copy }: { copy: Copy["cost"] }) {
+function AnnualCostChart({
+	copy,
+	affiliateHref,
+}: {
+	copy: Copy["cost"];
+	affiliateHref: string;
+}) {
 	return (
 		<figure className="mt-12 border border-border bg-card p-6 sm:p-8">
 			<figcaption className="font-display font-semibold text-2xl uppercase tracking-tight">
@@ -159,6 +165,14 @@ function AnnualCostChart({ copy }: { copy: Copy["cost"] }) {
 			</ul>
 			<p className="mt-6 font-mono text-muted-foreground text-xs">
 				{copy.chartNote}
+			</p>
+			<p className="mt-2 text-muted-foreground text-xs">
+				{copy.affiliateNote}{" "}
+				<a className="underline" href={affiliateHref}>
+					{copy.affiliateLink}
+				</a>
+				<br />
+				{copy.affiliateFootnote}
 			</p>
 		</figure>
 	);
@@ -325,7 +339,10 @@ export function HomeComponent({ locale }: { locale: Locale }) {
 						<p className="mt-6 max-w-2xl text-muted-foreground leading-relaxed">
 							{t.cost.body}
 						</p>
-						<AnnualCostChart copy={t.cost} />
+						<AnnualCostChart
+							affiliateHref={locale === "fi" ? "/fi/affiliate" : "/affiliate"}
+							copy={t.cost}
+						/>
 						<details className="mt-8 border border-border p-4">
 							<summary className="cursor-pointer font-medium">
 								{t.cost.tableToggle}

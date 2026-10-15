@@ -21,6 +21,7 @@ import { sendAuthEmail } from "./email";
 import { fetchKickAuthUser } from "./kick-user-info";
 import { isObsPairingToken, obsPairingScope } from "./obs-pairing";
 import { adminAccess, adminRoles } from "./permissions";
+import { polarPlugins } from "./polar";
 import { reservedEmailDomains } from "./reserved-email";
 import { createDatabaseSecondaryStorage } from "./secondary-storage";
 
@@ -302,6 +303,7 @@ export function createAuth() {
 				validateClient: (clientId) => clientId === "visp-obs",
 			}),
 			expo(),
+			...polarPlugins(),
 			genericOAuth({
 				config: [
 					{

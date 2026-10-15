@@ -1,7 +1,11 @@
-import { VStack } from "@astryxdesign/core/Layout";
+import { Banner } from "@astryxdesign/core/Banner";
+import { Button } from "@astryxdesign/core/Button";
+import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { ProgressBar } from "@astryxdesign/core/ProgressBar";
 import { Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { authClient } from "@/lib/auth-client";
 import { useLocale, useT } from "@/lib/i18n";
 import { useTRPC } from "@/utils/trpc";
 import { DetailSection, type DetailSectionState } from "./detail-section";
@@ -38,6 +42,53 @@ function amount(feature: PlanFeature["feature"], units: number) {
 	return `${(units / 3600).toFixed(1)} h`;
 }
 
+/**
+ * Checkout and the portal are Polar-hosted pages, reached through the Better
+ * Auth Polar plugin on the server. Web only; the apps never link to them.
+ */
+async function openPolar(kind: "checkout" | "portal") {
+	const { data, error } = await authClient.$fetch<{ url: string }>(
+		kind === "checkout" ? "/checkout" : "/customer/portal",
+		{
+			method: "POST",
+			body: kind === "checkout" ? { slug: "plus", redirect: false } : {},
+		},
+	);
+	if (error || !data?.url) {
+		toast.error("Billing is unavailable right now. Try again in a minute.");
+		return;
+	}
+	window.location.assign(data.url);
+}
+
+/** One shared affiliate line wherever a price or upgrade is offered. */
+function AffiliateNote() {
+	const t = useT();
+	const fi = useLocale() === "fi";
+	return (
+		<Text color="secondary" type="supporting">
+			{t(
+				"Creators with an audience can apply to the Affiliate program and get every feature free.*",
+			)}{" "}
+			<a className="underline" href={fi ? "/fi/affiliate" : "/affiliate"}>
+				{t("Apply")}
+			</a>{" "}
+			{t("* Plus quotas apply.")}
+		</Text>
+	);
+}
+
+function UpgradeButton() {
+	const t = useT();
+	return (
+		<Button
+			label={t("Upgrade to Plus · €9/mo")}
+			size="sm"
+			onClick={() => void openPolar("checkout")}
+		/>
+	);
+}
+
 function usePlan() {
 	const trpc = useTRPC();
 	return useQuery(trpc.plan.me.queryOptions());
@@ -55,9 +106,46 @@ export function PlanLine() {
 			? `Plus${plan.periodEnd ? ` · ${t("renews")} ${day(plan.periodEnd, locale)}` : ""}`
 			: t("Free plan");
 	return (
-		<Text color="secondary" type="supporting">
-			{label}
-		</Text>
+		<VStack gap={1}>
+			<HStack gap={2} vAlign="center" wrap="wrap">
+				<Text color="secondary" type="supporting">
+					{label}
+				</Text>
+				{plan.canCheckout ? <UpgradeButton /> : null}
+				{plan.canManage ? (
+					<Button
+						label={t("Manage plan")}
+						size="sm"
+						variant="ghost"
+						onClick={() => void openPolar("portal")}
+					/>
+				) : null}
+			</HStack>
+			{plan.canCheckout ? <AffiliateNote /> : null}
+		</VStack>
+	);
+}
+
+/** The only past-due notice: one banner at the top of the dashboard. */
+export function PastDueBanner() {
+	const t = useT();
+	const plan = usePlan().data;
+	if (plan?.status !== "past_due") return null;
+	return (
+		<Banner
+			description={t("Update your card to keep Plus.")}
+			status="warning"
+			title={t("Payment failed")}
+			endContent={
+				plan.canManage ? (
+					<Button
+						label={t("Update card")}
+						size="sm"
+						onClick={() => void openPolar("portal")}
+					/>
+				) : undefined
+			}
+		/>
 	);
 }
 
@@ -78,6 +166,14 @@ export function PlanUsageSection(open: DetailSectionState) {
 					<Text color="secondary" type="supporting">
 						{t("Monthly quotas reset on")} {day(plan.resetsAt, locale)}.
 					</Text>
+					{plan.canCheckout ? (
+						<VStack gap={1}>
+							<HStack>
+								<UpgradeButton />
+							</HStack>
+							<AffiliateNote />
+						</VStack>
+					) : null}
 					{plan.features.map((row) => {
 						const label = t(FEATURE_LABELS[row.feature]);
 						const stock = STOCK_LIMITS[row.feature];

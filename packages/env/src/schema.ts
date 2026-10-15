@@ -39,6 +39,15 @@ export const serverEnvSchema = {
 	 * Optional: without the key those routes answer 503 and the app falls back.
 	 */
 	ELEVENLABS_API_KEY: z.string().min(1).optional(),
+	/**
+	 * Polar billing for Plus (docs/plans-and-billing.md). Unset means no
+	 * checkout: plans then only change by admin comp. Sandbox and production
+	 * tokens, products and webhook secrets are separate.
+	 */
+	POLAR_ACCESS_TOKEN: z.string().min(1).optional(),
+	POLAR_WEBHOOK_SECRET: z.string().min(1).optional(),
+	POLAR_PRODUCT_ID: z.string().min(1).optional(),
+	POLAR_SERVER: z.enum(["sandbox", "production"]).default("sandbox"),
 	/** A multilingual ElevenLabs voice; one voice covers Finnish and English. */
 	ELEVENLABS_VOICE_ID: z.string().min(1).optional(),
 	/**
