@@ -2,7 +2,7 @@ import { polarApi } from "@VISP/auth/polar";
 import { db } from "@VISP/db";
 import { appUser } from "@VISP/db/schema/index";
 import { env } from "@VISP/env/server";
-import { and, eq, lt } from "drizzle-orm";
+import { and, eq, lt, sql } from "drizzle-orm";
 import { tryAdvisoryLock } from "./advisory-lock";
 
 export type PlanState = {
@@ -62,8 +62,12 @@ export async function fetchPlan(userId: string): Promise<PlanState> {
 }
 
 /** Writes Polar's columns only; `comped` is the admin's and never touched. */
-export async function applyPlan(userId: string, state: PlanState) {
-	const [row] = await db
+export async function applyPlan(
+	userId: string,
+	state: PlanState,
+	conn: Pick<typeof db, "update"> = db,
+) {
+	const [row] = await conn
 		.update(appUser)
 		.set({
 			plan: state.plan,
@@ -75,8 +79,17 @@ export async function applyPlan(userId: string, state: PlanState) {
 	return Boolean(row);
 }
 
+/**
+ * Read and write under one per-user lock, so a webhook racing the periodic
+ * sync (or another delivery) cannot land an older "free" over a newer "plus".
+ */
 export async function syncUserPlan(userId: string) {
-	return applyPlan(userId, await fetchPlan(userId));
+	return db.transaction(async (tx) => {
+		await tx.execute(
+			sql`select pg_advisory_xact_lock(hashtext(${`plan:${userId}`}))`,
+		);
+		return applyPlan(userId, await fetchPlan(userId), tx);
+	});
 }
 
 /** A renewal webhook this late has been missed. */

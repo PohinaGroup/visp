@@ -11,9 +11,12 @@ const realFetch = globalThis.fetch;
 
 /** applyPlan's one write, captured instead of hitting a database. */
 const writes: unknown[] = [];
-const update = spyOn(db, "update").mockImplementation(
-	() =>
-		({
+const transaction = spyOn(db, "transaction").mockImplementation(((
+	run: (tx: unknown) => Promise<unknown>,
+) =>
+	run({
+		execute: async () => undefined,
+		update: () => ({
 			set: (values: unknown) => ({
 				where: () => ({
 					returning: async () => {
@@ -22,8 +25,8 @@ const update = spyOn(db, "update").mockImplementation(
 					},
 				}),
 			}),
-		}) as never,
-);
+		}),
+	})) as never);
 
 function delivery(payload: unknown, secret = SECRET) {
 	const body = JSON.stringify(payload);
@@ -49,7 +52,7 @@ function delivery(payload: unknown, secret = SECRET) {
 describe("Polar webhook", () => {
 	afterAll(() => {
 		globalThis.fetch = realFetch;
-		update.mockRestore();
+		transaction.mockRestore();
 	});
 
 	test("re-reads the plan from Polar and writes Plus", async () => {
