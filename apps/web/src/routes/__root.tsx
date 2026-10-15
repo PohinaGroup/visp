@@ -23,6 +23,11 @@ import appCss from "../index.css?url";
 import { analyticsAllowed } from "../lib/analytics";
 import { useLocale } from "../lib/i18n";
 import { legalEntity } from "../lib/legal";
+import {
+	isForcedDarkPath,
+	themeInitScript,
+	useThemePreference,
+} from "../lib/theme";
 
 export interface RouterAppContext {
 	trpc: TRPCOptionsProxy<AppRouter>;
@@ -113,13 +118,24 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
 	component: RootDocument,
 });
 
+// ponytail: landing pages bring their own nav; every other route keeps app chrome
+const LANDING_PATHS = new Set([
+	"/",
+	"/fi",
+	"/phone-only",
+	"/with-obs",
+	"/fi/phone-only",
+	"/fi/with-obs",
+]);
+
 function RootDocument() {
-	// ponytail: landing brings its own nav; every other route keeps app chrome
-	const isLanding = useLocation({ select: (l) => l.pathname === "/" });
 	const locale = useLocale();
-	const isLocalizedLanding = useLocation({
-		select: (l) => l.pathname === "/fi" || l.pathname === "/fi/",
-	});
+	const pathname = useLocation({ select: (l) => l.pathname });
+	const isLandingPage = LANDING_PATHS.has(
+		pathname.length > 1 ? pathname.replace(/\/$/, "") : pathname,
+	);
+	const forcedDark = isForcedDarkPath(pathname);
+	const { resolved } = useThemePreference();
 	// The OBS browser source composites over the scene: no chrome, no theme
 	// wrapper, and nothing that paints a background. Banners, toasts, and
 	// devtools buttons would all go out on stream.
@@ -140,13 +156,18 @@ function RootDocument() {
 	}
 
 	return (
-		<html lang={locale} className="dark">
+		<html
+			lang={locale}
+			suppressHydrationWarning
+			className={forcedDark ? "dark" : undefined}
+		>
 			<head>
+				<script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
 				<HeadContent />
 			</head>
 			<body>
-				<Theme mode="dark" theme={neutralTheme}>
-					{isLanding || isLocalizedLanding ? (
+				<Theme mode={forcedDark ? "dark" : resolved} theme={neutralTheme}>
+					{isLandingPage ? (
 						<Outlet />
 					) : (
 						<div className="app-shell grid h-svh grid-rows-[auto_1fr]">

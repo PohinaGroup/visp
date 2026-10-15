@@ -183,6 +183,15 @@ html[data-theme="dark"][data-astryx-theme="neutral"] {
 	--color-background-surface: oklch(0.21 0.014 255);
 }
 
+/*
+ * Astryx's light/dark signal is color-scheme on the Theme wrapper, which SSR
+ * renders before hydration. Follow the pre-paint html.dark so the first frame
+ * matches. Unlayered so it wins over the layered astryx rules.
+ */
+html.dark [data-astryx-theme="neutral"] {
+	color-scheme: dark;
+}
+
 @theme inline {
 	--font-sans: "Barlow", ui-sans-serif, system-ui, sans-serif;
 	--font-display: "Barlow Condensed", "Barlow", ui-sans-serif, sans-serif;
