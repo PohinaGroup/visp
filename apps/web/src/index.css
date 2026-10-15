@@ -337,6 +337,74 @@ html.dark .mkt {
 	}
 }
 
+/*
+ * Menu sheet (components/marketing/mobile-menu.tsx): slides in from the right
+ * on open and back out on close; the page behind it stops scrolling.
+ */
+dialog.mkt-menu {
+	translate: 100% 0;
+	transition:
+		translate 0.32s cubic-bezier(0.32, 0.72, 0, 1),
+		overlay 0.32s allow-discrete,
+		display 0.32s allow-discrete;
+}
+
+dialog.mkt-menu[open] {
+	translate: 0 0;
+}
+
+@starting-style {
+	dialog.mkt-menu[open] {
+		translate: 100% 0;
+	}
+}
+
+dialog.mkt-menu::backdrop {
+	background: rgb(14 26 40 / 0);
+	transition:
+		background 0.32s,
+		overlay 0.32s allow-discrete,
+		display 0.32s allow-discrete;
+}
+
+dialog.mkt-menu[open]::backdrop {
+	background: rgb(14 26 40 / 0.45);
+}
+
+@starting-style {
+	dialog.mkt-menu[open]::backdrop {
+		background: rgb(14 26 40 / 0);
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	dialog.mkt-menu,
+	dialog.mkt-menu::backdrop {
+		transition: none;
+	}
+}
+
+html:has(dialog.mkt-menu[open]) {
+	overflow: hidden;
+}
+
+/* Sticky "Start free" bar (phones): lift the Seppo bubble above it while it shows. */
+[data-seppo-dock] {
+	transition: bottom 0.2s ease-out;
+}
+
+@media (max-width: 767.98px) {
+	body[data-sticky-cta="on"] [data-seppo-dock] {
+		bottom: calc(5rem + env(safe-area-inset-bottom));
+	}
+}
+
+@media (prefers-reduced-motion: reduce) {
+	[data-seppo-dock] {
+		transition: none;
+	}
+}
+
 .tally-pulse {
 	animation: tally 1.6s ease-in-out infinite;
 }

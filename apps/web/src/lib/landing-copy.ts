@@ -107,7 +107,12 @@ const en = {
 			blog: "Blog",
 			menu: "Menu",
 			close: "Close",
-			theme: { light: "Light", dark: "Dark", system: "System" },
+			theme: {
+				label: "Theme",
+				light: "Light",
+				dark: "Dark",
+				system: "System",
+			},
 		},
 		footer: [
 			{ label: "Founding creators", href: "/affiliate", external: false },
@@ -606,11 +611,16 @@ const fi: typeof en = {
 			blog: "Blogi",
 			menu: "Valikko",
 			close: "Sulje",
-			theme: { light: "Vaalea", dark: "Tumma", system: "Järjestelmä" },
+			theme: {
+				label: "Teema",
+				light: "Vaalea",
+				dark: "Tumma",
+				system: "Järjestelmä",
+			},
 		},
 		footer: [
 			{ label: "Kumppanit", href: "/fi/affiliate", external: false },
-			{ label: "Blogi", href: "/blog", external: false },
+			{ label: "Blogi", href: "/fi/blog", external: false },
 			{
 				label: "Lataa",
 				href: "/download",
@@ -619,11 +629,11 @@ const fi: typeof en = {
 			},
 			{ label: "Ohjeet", href: `${legalEntity.docsUrl}/fi`, external: true },
 			{ label: "GitHub", href: legalEntity.sourceUrl, external: true },
-			{ label: "Yhteystiedot", href: "/contact", external: false },
+			{ label: "Yhteystiedot", href: "/fi/contact", external: false },
 			{ label: "X", href: legalEntity.xUrl, external: true },
-			{ label: "Tietosuoja", href: "/privacy", external: false },
-			{ label: "Käyttöehdot", href: "/terms", external: false },
-			{ label: "Evästeet", href: "/cookies", external: false },
+			{ label: "Tietosuoja", href: "/fi/privacy", external: false },
+			{ label: "Käyttöehdot", href: "/fi/terms", external: false },
+			{ label: "Evästeet", href: "/fi/cookies", external: false },
 		],
 		stickyCta: "Aloita ilmaiseksi",
 		seppo: {

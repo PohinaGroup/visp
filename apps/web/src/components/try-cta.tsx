@@ -1,3 +1,4 @@
+import { cn } from "@VISP/ui/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
 
 import { trackEvent } from "@/lib/analytics";
@@ -8,9 +9,11 @@ import { landingCopy } from "@/lib/landing-copy";
 export function TryCta({
 	locale,
 	size = "sm",
+	className,
 }: {
 	locale: Locale;
 	size?: "sm" | "lg";
+	className?: string;
 }) {
 	const { data: session } = authClient.useSession();
 	const navigate = useNavigate();
@@ -24,9 +27,11 @@ export function TryCta({
 					? navigate({ to: "/dashboard", search: localeSearch(locale) })
 					: navigate({ to: "/login", search: localeSearch(locale) });
 			}}
-			className={`inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2 ${
-				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm"
-			}`}
+			className={cn(
+				"inline-flex items-center justify-center whitespace-nowrap rounded-[var(--radius)] bg-primary font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-2 focus-visible:outline-ring focus-visible:outline-offset-2",
+				lg ? "h-12 px-8 text-base" : "h-9 px-4 text-sm",
+				className,
+			)}
 		>
 			{landingCopy[locale].shared.tryCta}
 		</button>
