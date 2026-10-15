@@ -22,6 +22,7 @@ import {
 	test as bunTest,
 	describe,
 	expect,
+	spyOn,
 } from "bun:test";
 import { randomUUID } from "node:crypto";
 import { and, eq, like } from "drizzle-orm";
@@ -71,7 +72,7 @@ integration("typography limits", () => {
 			name: OWNER,
 			email: `${OWNER}@typography.test`,
 		});
-		await db.insert(appUser).values({ id: OWNER, handle: OWNER });
+		await db.insert(appUser).values({ id: OWNER, handle: OWNER, plan: "plus" });
 	});
 
 	afterAll(async () => {
@@ -114,6 +115,53 @@ integration("typography limits", () => {
 		expect(await refusal(finalizeTypographyUpload(OWNER, randomUUID()))).toBe(
 			404,
 		);
+	});
+
+	test("a failed job insert leaves the upload claimable again", async () => {
+		const id = await addProject("uploading");
+		// The source object's HEAD, so finalize gets as far as the claim.
+		const head = spyOn(globalThis, "fetch").mockResolvedValue(
+			new Response(null, { headers: { "content-type": "video/mp4" } }),
+		);
+		const real = db.transaction.bind(db);
+		const transaction = spyOn(db, "transaction").mockImplementation(((
+			callback: (tx: unknown) => Promise<unknown>,
+		) =>
+			real((tx) =>
+				callback(
+					Object.create(tx, {
+						insert: {
+							value: () => {
+								throw new Error("insert failed");
+							},
+						},
+					}),
+				),
+			)) as never);
+		try {
+			await expect(finalizeTypographyUpload(OWNER, id)).rejects.toThrow(
+				"insert failed",
+			);
+			const state = async () =>
+				(
+					await db
+						.select()
+						.from(typographyProject)
+						.where(eq(typographyProject.id, id))
+				)[0]?.state;
+			expect(await state()).toBe("uploading");
+			transaction.mockRestore();
+			await finalizeTypographyUpload(OWNER, id);
+			expect(await state()).toBe("processing");
+			const [job] = await db
+				.select()
+				.from(typographyJob)
+				.where(eq(typographyJob.projectId, id));
+			expect(job?.state).toBe("queued");
+		} finally {
+			transaction.mockRestore();
+			head.mockRestore();
+		}
 	});
 
 	test("export refuses while a render is queued or running", async () => {

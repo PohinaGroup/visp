@@ -116,7 +116,9 @@ integration("OBS backups (PostgreSQL)", () => {
 		await db
 			.insert(user)
 			.values({ id: userId, name: "Backup", email: `${userId}@example.test` });
-		await db.insert(appUser).values({ id: userId, handle: userId });
+		await db
+			.insert(appUser)
+			.values({ id: userId, handle: userId, plan: "plus" });
 	});
 
 	beforeEach(() => resetObsBackupSettleAttemptsForTests());
@@ -415,6 +417,32 @@ integration("OBS backups (PostgreSQL)", () => {
 			await db.query.obsBackup.findFirst({ where: eq(obsBackup.id, id) }),
 		).toBeUndefined();
 		expect(await reconcileDueObsBackups(userId, store, later)).toBe(0);
+	});
+
+	test("a check that throws stays due and runs on a later listing", async () => {
+		const { objects, store, failListing } = memoryStore();
+		const { id } = await createObsBackup(userId, { os: "linux" }, store);
+		writeLegacyBackup(objects, userId, id);
+		await completeObsBackup(userId, id, store);
+		const row = () =>
+			db.query.obsBackup.findFirst({ where: eq(obsBackup.id, id) });
+		const later = ((await row())?.reconcileAfter?.getTime() ?? 0) + 1;
+		failListing(true);
+		expect(await reconcileDueObsBackups(userId, store, later)).toBe(1);
+		// Leased rather than cleared: nobody re-checks it until the lease ends.
+		expect((await row())?.reconcileAfter?.getTime()).toBe(
+			later + OBS_BACKUP_SETTLE_RETRY_MS,
+		);
+		expect(await reconcileDueObsBackups(userId, store, later)).toBe(0);
+		failListing(false);
+		expect(
+			await reconcileDueObsBackups(
+				userId,
+				store,
+				later + OBS_BACKUP_SETTLE_RETRY_MS,
+			),
+		).toBe(1);
+		expect((await row())?.reconcileAfter).toBeNull();
 	});
 
 	test("a replaced manifest after sealing removes the backup", async () => {

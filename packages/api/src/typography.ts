@@ -77,6 +77,8 @@ const emptyDocument: TypographyDocument = {
 	captionY: 62,
 };
 
+type Transaction = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
 const objects = createObjectStore({
 	accessKeyId: env.S3_ACCESS_KEY_ID,
 	bucket: env.S3_BUCKET,
@@ -208,9 +210,13 @@ export async function finalizeTypographyUpload(
 		asset.byteSize > MAX_UPLOAD_BYTES
 	)
 		throw new TypographyError("Uploaded file is not a supported video", 400);
-	if (!(await claimTypographyUpload(userId, project.id)))
-		throw uploadAlreadyFinalized();
-	await queueTypographyJob(project.id, "transcription");
+	// One transaction: a failed job insert must not leave the project claimed
+	// as "processing" with nothing queued, which no retry could rescue.
+	await db.transaction(async (tx) => {
+		if (!(await claimTypographyUpload(userId, project.id, tx)))
+			throw uploadAlreadyFinalized();
+		await queueTypographyJob(project.id, "transcription", tx);
+	});
 }
 
 function uploadAlreadyFinalized() {
@@ -218,8 +224,12 @@ function uploadAlreadyFinalized() {
 }
 
 /** Compare-and-set so concurrent finalize calls queue one transcription. */
-export async function claimTypographyUpload(userId: string, projectId: string) {
-	const [claimed] = await db
+export async function claimTypographyUpload(
+	userId: string,
+	projectId: string,
+	tx: Transaction | typeof db = db,
+) {
+	const [claimed] = await tx
 		.update(typographyProject)
 		.set({ state: "processing", updatedAt: new Date() })
 		.where(
@@ -471,8 +481,9 @@ async function renderTypographyExport(
 async function queueTypographyJob(
 	projectId: string,
 	kind: "transcription" | "export",
+	tx: Transaction | typeof db = db,
 ) {
-	const [queued] = await db
+	const [queued] = await tx
 		.insert(typographyJob)
 		.values({ id: randomUUID(), projectId, kind, state: "queued" })
 		.onConflictDoUpdate({
