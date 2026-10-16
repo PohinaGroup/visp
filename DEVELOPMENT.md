@@ -63,11 +63,12 @@ commands still require every schema-required value. Important groups are:
 - `VISP_CHAT_BOT_USER_ID` names the Better Auth user whose linked Twitch
   account posts as the shared VISP bot. It is required; any non-empty value
   works locally until you exercise the bot.
-- Optional `ANTHROPIC_API_KEY` enables the AI chat moderator (Plus). It acts
-  as the shared bot, so that bot's Twitch link also needs the moderation
-  scopes: sign in as the bot user once and press **Authorize moderation scopes
-  for the shared bot** on the dashboard chat bot card. Without the key or the
-  scopes the moderator is a no-op and the card says so.
+- Optional `ANTHROPIC_API_KEY` enables the AI chat moderator (Plus).
+- The bot account needs its own Twitch scopes: read chat (multichat), post
+  chat, and moderate. After `VISP_CHAT_BOT_USER_ID` points at it and the server
+  restarted, sign in as that account and press **Set up this account as the
+  shared VISP bot** on the dashboard chat bot card. Do the same after switching
+  to a different bot account. Streamers then `/mod` the new bot login.
 - `STUDIO_MEDIA_USER` and `STUDIO_MEDIA_PASSWORD` authenticate the local RTSP
   reads used by Direct and Cloud Studio. The example values work locally except
   the password, which needs at least 32 characters.

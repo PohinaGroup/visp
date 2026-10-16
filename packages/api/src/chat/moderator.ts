@@ -11,7 +11,11 @@ import { recordHostedUsage } from "../hosted-usage";
 import { formatLinkStats, type LinkStatsView } from "../link-stats";
 import { entitlement } from "../plan";
 import { fixedWindow } from "../rate-limit";
-import { hasTwitchBotChannelScope, hasTwitchBotModerateScope } from "../scopes";
+import {
+	hasSharedBotScopes,
+	hasTwitchBotChannelScope,
+	hasTwitchBotModerateScope,
+} from "../scopes";
 import { claimAlert } from "./alerts";
 // Type-only: bot.ts imports this module at runtime, and alerts.ts imports
 // bot.ts, so anything used here at module load would close the cycle.
@@ -392,7 +396,7 @@ export function resetModeratorCaches() {
 
 /** What the dashboard shows next to the switch. */
 export async function moderatorStatus(userId: string) {
-	const [bot, twitch, connected] = await Promise.all([
+	const [bot, twitch, connected, botAccount] = await Promise.all([
 		botIdentity(),
 		db.query.account.findFirst({
 			columns: { accountId: true, scope: true },
@@ -405,10 +409,18 @@ export async function moderatorStatus(userId: string) {
 				eq(chatConnection.provider, "twitch"),
 			),
 		}),
+		db.query.account.findFirst({
+			columns: { scope: true },
+			where: and(
+				eq(account.userId, env.VISP_CHAT_BOT_USER_ID),
+				eq(account.providerId, "twitch"),
+			),
+		}),
 	]);
 	return {
 		configured: aiModeratorConfigured(),
-		botScopesGranted: bot !== null,
+		/** Read from the bot's own link, so it is right even without the key. */
+		botScopesGranted: hasSharedBotScopes(botAccount?.scope),
 		botLogin: bot?.login ?? null,
 		/** Twitch chat is switched on in Connections. */
 		chatConnected: Boolean(connected),
