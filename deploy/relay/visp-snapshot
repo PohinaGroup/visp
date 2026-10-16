@@ -854,7 +854,10 @@ hold_brb() {
 
 hook ready "{\"path\":\"$path\",\"sourceType\":\"$source_type\"}" || true
 
+# "$1" is "rescan" on the periodic pass, which only picks up outputs the
+# dashboard reserved after this publisher connected.
 start_destinations() {
+	local rescan="${1:-}"
 	local skip="" legacy_skip="" provider holder destinations role filter destination contract
 	local output_id kind protocol muxer lock skip_id
 	local -a locks
@@ -890,9 +893,19 @@ start_destinations() {
 			esac
 		fi
 		# The publisher is back; drop the card and return to the live encode.
-		kill -USR1 "$holder" 2>/dev/null || true
+		test -n "$rescan" || kill -USR1 "$holder" 2>/dev/null || true
 	done
-	if destinations="$(
+	if test -n "$rescan"; then
+		# No legacy fallback: those hooks mark unreserved outputs failed.
+		destinations="$(
+			curl --fail --silent --show-error --max-time 5 --request POST \
+				--header "Content-Type: application/json" \
+				--header "X-Hook-Secret: $HOOK_SECRET" \
+				--data "{\"path\":\"$path\",\"skip\":[$skip]}" \
+				"$app_url/api/hooks/direct-destinations-rescan" 2>/dev/null
+		)" || destinations='{"destinations":[]}'
+		contract=3
+	elif destinations="$(
 		curl --fail --silent --show-error --max-time 5 --request POST \
 			--header "Content-Type: application/json" \
 			--header "X-Hook-Secret: $HOOK_SECRET" \
@@ -962,6 +975,10 @@ start_destinations() {
 }
 
 start_destinations
+# ponytail: one hook call per live ingest every 10s so a dashboard "Go live"
+# reaches a publisher that is already sending. Push from the app if that load
+# ever matters.
+(while sleep 10 && kill -0 "$$" 2>/dev/null; do start_destinations rescan; done) &
 while true; do
 	# ponytail: 640 wide is a thumbnail budget, and it is also the BRB card's
 	# background — raise it here if anyone wants a crisp card, the cost is

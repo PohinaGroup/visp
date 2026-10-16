@@ -1703,6 +1703,9 @@ export async function resolveDirectDestinations(
 	// first one is still live, and hand out a destination nobody consumes.
 	skip: readonly DirectProvider[] = [],
 	roles: readonly DirectRole[] = ["landscape", "portrait"],
+	// The relay's periodic rescan: hand out only what a dashboard "Go live" just
+	// reserved, and leave everything else's state alone.
+	pendingOnly = false,
 ): Promise<{ destinations: DirectDestination[] }> {
 	const [path] = await db
 		.select({
@@ -1771,6 +1774,7 @@ export async function resolveDirectDestinations(
 	for (const entry of requested) {
 		const { provider, reservedUntil } = entry;
 		if (!reservedUntil || reservedUntil.getTime() <= Date.now()) {
+			if (pendingOnly) continue;
 			await applyDirectState({
 				slug,
 				provider,
@@ -1844,6 +1848,7 @@ export async function resolveDirectDestinationsV3(
 	slug: string,
 	dependencies: DirectDependencies = defaultDependencies,
 	skip: readonly string[] = [],
+	pendingOnly = false,
 ): Promise<{ destinations: DirectHookV3Destination[] }> {
 	const managedSkip = skip.flatMap((outputId) => {
 		const match = /^managed-(twitch|kick|youtube)-(?:landscape|portrait)$/.exec(
@@ -1855,6 +1860,8 @@ export async function resolveDirectDestinationsV3(
 		slug,
 		dependencies,
 		managedSkip,
+		undefined,
+		pendingOnly,
 	);
 	const destinations: DirectHookV3Destination[] = managed.destinations.map(
 		(destination) => ({
@@ -1911,6 +1918,7 @@ export async function resolveDirectDestinationsV3(
 			!output.reservedUntil ||
 			output.reservedUntil.getTime() <= Date.now()
 		) {
+			if (pendingOnly) continue;
 			await applyCustomDirectState({
 				slug,
 				outputId: output.id,

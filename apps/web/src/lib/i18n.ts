@@ -358,6 +358,19 @@ export const finnishUi: Record<string, string> = {
 	"Primary mode": "Ensisijainen tila",
 	"Direct to Platform": "Suoraan alustalle",
 	"Custom destinations": "Mukautetut kohteet",
+	Platforms: "Alustat",
+	Starting: "Käynnistyy",
+	Retrying: "Yritetään uudelleen",
+	Stopping: "Pysäytetään",
+	"Not routed from any device": "Ei reititetty mistään laitteesta",
+	"Connected. Streaming is not authorized yet.":
+		"Yhdistetty. Lähetystä ei ole vielä valtuutettu.",
+	"Add a publishing device on the Devices tab, then route it here.":
+		"Lisää julkaiseva laite Laitteet-välilehdellä ja reititä se sitten tänne.",
+	"Routes are locked while a device is sending. Stop it in the app to change them.":
+		"Reitit on lukittu, kun laite lähettää. Pysäytä lähetys sovelluksessa muuttaaksesi niitä.",
+	"Delete this destination? You need its full URL to add it again.":
+		"Poistetaanko kohde? Tarvitset sen koko URL-osoitteen lisätäksesi sen uudelleen.",
 	"Save RTMP, RTMPS, or SRT endpoints here. Credentials stay hidden after saving.":
 		"Tallenna RTMP-, RTMPS- tai SRT-kohteet tähän. Tunnukset piilotetaan tallennuksen jälkeen.",
 	"Add custom destination": "Lisää mukautettu kohde",
@@ -492,6 +505,7 @@ export const finnishUi: Record<string, string> = {
 		"Syöte katkesi. Katsojat näkevät BRB-korttisi.",
 	"End stream": "Lopeta lähetys",
 	"Ending the stream": "Lopetetaan lähetys",
+	"Starting your outputs": "Käynnistetään lähtöjä",
 	"showing BRB card": "näyttää BRB-korttia",
 	On: "Päällä",
 	"Optional OBS source": "Valinnainen OBS-lähde",
