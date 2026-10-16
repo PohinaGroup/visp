@@ -4658,6 +4658,56 @@ integration("VISP Direct boundaries", () => {
 		});
 	});
 
+	test("ending the broadcast from a device that handed Direct over leaves the live source alone", async () => {
+		globalThis.fetch = providerFetch;
+		const data = await seedDirect();
+		const replacement = await createPath("user-a", "Phone B");
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		await prepareDirect("user-a", data.pathA.id);
+		await applyPathHook("ready", { path: "alpha-1", sourceType: "srtConn" });
+		await resolveDirectDestinations("alpha-1", directDeps());
+		await prepareDirect("user-a", replacement.id, true);
+		await applyPathHook("ready", {
+			path: replacement.slug,
+			sourceType: "srtConn",
+		});
+		expect(await directSourceSlug("alpha-1")).toBe(replacement.slug);
+
+		// The phone stops and its stop dialog "ends" a broadcast OBS now feeds.
+		await applyPathHook("not-ready", { path: "alpha-1" });
+		expect(await stopBrb("user-a", data.pathA.id)).toBe(true);
+		expect(await directSourceSlug("alpha-1")).toBe(replacement.slug);
+		const owner = (
+			await db
+				.select()
+				.from(pathState)
+				.where(eq(pathState.pathId, data.pathA.id))
+		)[0];
+		expect(owner).toMatchObject({
+			directSourcePathId: replacement.id,
+			directTwitchState: "starting",
+		});
+		expect(owner?.directTwitchReservedUntil).toBeInstanceOf(Date);
+
+		// Ending it from the device that carries it still ends it.
+		expect(await stopBrb("user-a", replacement.id)).toBe(true);
+		expect(await directSourceSlug("alpha-1")).toBeNull();
+		expect(
+			(
+				await db
+					.select()
+					.from(pathState)
+					.where(eq(pathState.pathId, data.pathA.id))
+			)[0],
+		).toMatchObject({ directSourcePathId: null, directTwitchState: "stopped" });
+	});
+
 	test("handover rejects cross-user, cross-relay, expired, and concurrent targets", async () => {
 		const data = await seedDirect();
 		const second = await createPath("user-a", "Phone B");

@@ -8,6 +8,7 @@ import {
 	DropdownMenuItem,
 } from "@astryxdesign/core/DropdownMenu";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
+import { Selector } from "@astryxdesign/core/Selector";
 import { Tab, TabList } from "@astryxdesign/core/TabList";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -66,17 +67,23 @@ export function DashboardPage() {
 	const pathsQuery = useQuery(
 		trpc.paths.list.queryOptions(undefined, pollWithBackoff(5000)),
 	);
+	const livePaths =
+		pathsQuery.data?.filter((path) => path.publishing && !path.stale) ?? [];
+	// The Program monitor follows the Direct source, not whichever device went live first.
+	const livePath =
+		livePaths.find((path) => path.id === directQuery.data?.sourcePathId) ??
+		livePaths[0];
 	const studioQuery = useQuery(
-		trpc.studio.get.queryOptions(undefined, pollWithBackoff(30_000)),
+		trpc.studio.get.queryOptions(
+			{ previewPathId: livePath?.id },
+			pollWithBackoff(30_000),
+		),
 	);
 	const obsQuery = useQuery(
 		trpc.obs.status.queryOptions(undefined, {
 			enabled: directQuery.data?.mode === "obs",
 			...pollWithBackoff(3000),
 		}),
-	);
-	const livePath = pathsQuery.data?.find(
-		(path) => path.publishing && !path.stale,
 	);
 	const snapshotsQuery = useQuery(
 		trpc.obs.snapshots.queryOptions(undefined, {
@@ -107,6 +114,15 @@ export function DashboardPage() {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries();
 				toast.success(t("Starting your outputs"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const setSource = useMutation(
+		trpc.direct.setSource.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("Direct source switched"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -491,7 +507,24 @@ export function DashboardPage() {
 										/>
 										{fi ? "Ohjelma" : "Program"}
 									</span>
-									{livePath ? <span>{livePath.label}</span> : null}
+									{direct?.sourcePathId && livePaths.length > 1 ? (
+										<Selector
+											isDisabled={setSource.isPending}
+											isLabelHidden
+											label={t("Direct source")}
+											options={livePaths.map((path) => ({
+												value: String(path.id),
+												label: path.label,
+											}))}
+											size="sm"
+											value={livePath ? String(livePath.id) : undefined}
+											onChange={(value) =>
+												setSource.mutate({ pathId: Number(value) })
+											}
+										/>
+									) : livePath ? (
+										<span>{livePath.label}</span>
+									) : null}
 								</div>
 								<div className="border border-border">
 									<WhepPreview

@@ -98,6 +98,18 @@ export function studioReceiveUrl(
 	return `${url}&fifo_size=${packets}&overrun_nonfatal=0`;
 }
 
+// The stable publisher only copies the program, so a backlog drains instead of
+// going stale, and it starts while the renderer is already streaming: FFmpeg
+// probes the MPEG-TS for seconds before the RTSP output opens, which overran
+// the 1.5 MiB queue at every start on the relay. About 12 MiB, 8 s at the
+// 12 Mbps ceiling. Overflow stays fatal.
+export function publisherReceiveUrl(
+	url: string,
+	packets = process.env.STUDIO_PUBLISHER_FIFO_PACKETS ?? "65536",
+) {
+	return studioReceiveUrl(url, packets);
+}
+
 export function studioVideoArgs() {
 	const encoder = process.env.STUDIO_VIDEO_ENCODER ?? "libx264";
 	return [

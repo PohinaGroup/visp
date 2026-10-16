@@ -17,6 +17,7 @@ import {
 	compositorExited,
 	compositorHasPublisher,
 	publisherProbeArgs,
+	publisherReceiveUrl,
 	rendererProgressFrames,
 	STUDIO_AUDIO_PUBLISH_ARGS,
 	shouldCrossfadeScenes,
@@ -138,7 +139,7 @@ const {
 	ports: [programPort = 0, ...feedPorts],
 } = await reserveStudioPorts(3);
 const programOutputUrl = studioLoopbackUrls(programPort).output;
-const publisherInputUrl = studioReceiveUrl(
+const publisherInputUrl = publisherReceiveUrl(
 	studioLoopbackUrls(programPort).input,
 );
 

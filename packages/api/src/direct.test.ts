@@ -5,6 +5,7 @@ import "./test-env";
 const {
 	DirectError,
 	createYoutubeDestination,
+	directSourceChoice,
 	portraitFilter,
 	validateDirectCrop,
 	kickIngestDestination,
@@ -12,6 +13,30 @@ const {
 	setDirectOutputs,
 	streamKeyDestination,
 } = await import("./direct");
+
+describe("directSourceChoice", () => {
+	const owner = { id: 1, relayId: 10 };
+	test("points the owner at another live device on the same relay", () => {
+		expect(
+			directSourceChoice(owner, { id: 2, relayId: 10, publishing: true }),
+		).toBe(2);
+	});
+	test("picking the owner itself clears the override", () => {
+		expect(
+			directSourceChoice(owner, { id: 1, relayId: 10, publishing: true }),
+		).toBeNull();
+	});
+	test("refuses an offline, unknown, or cross-relay device", () => {
+		for (const target of [
+			undefined,
+			{ id: 2, relayId: 10, publishing: false },
+			{ id: 2, relayId: 10, publishing: null },
+			{ id: 2, relayId: 11, publishing: true },
+		]) {
+			expect(() => directSourceChoice(owner, target)).toThrow(DirectError);
+		}
+	});
+});
 
 describe("portrait framing", () => {
 	test("validates normalized 9:16 framing for a 16:9 contribution", () => {

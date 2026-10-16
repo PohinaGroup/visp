@@ -76,7 +76,11 @@ and a 12 Mbit rate-control buffer. Set `STUDIO_CRF`, `STUDIO_MAXRATE`, and
 `STUDIO_BUFSIZE` in a systemd drop-in to calibrate quality and CPU use.
 `STUDIO_FIFO_PACKETS` defaults to 8192 units of 188 bytes, about 1.5 MiB per UDP
 receiver, and accepts 128 to 65536. Overflow terminates the receiver so the
-worker recovers instead of continuing through an old backlog.
+worker recovers instead of continuing through an old backlog. The stable
+publisher only copies the program and starts while the renderer is already
+streaming, so its receiver uses `STUDIO_PUBLISHER_FIFO_PACKETS` instead,
+defaulting to 65536 (about 12 MiB, 8 s at the 12 Mbps ceiling); with the shared
+default its startup probe overran the queue at every start.
 
 The stable RTSP publisher retains its AAC encode. An `aac_adtstoasc` stream-copy
 experiment failed because RTSP needs the AAC configuration before writing its
