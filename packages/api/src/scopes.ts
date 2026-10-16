@@ -44,6 +44,19 @@ export const PROVIDER_SCOPES = {
 			"clips:edit",
 			"user:read:moderated_channels",
 		],
+		/**
+		 * Everything the shared bot account itself must hold: read chat
+		 * (multichat's EventSub socket), post it, and moderate. Requested in one
+		 * consent from the chat bot card when signed in as the bot.
+		 */
+		sharedBot: [
+			"user:read:chat",
+			"user:write:chat",
+			"moderator:manage:chat_messages",
+			"moderator:manage:banned_users",
+			"clips:edit",
+			"user:read:moderated_channels",
+		],
 		channelWrite: "channel:manage:broadcast",
 		/** The scope whose presence proves stream-key consent. */
 		streamKey: "channel:read:stream_key",
@@ -114,6 +127,12 @@ export function hasTwitchBotChannelScope(scope: string | null | undefined) {
 
 export function hasTwitchBotModerateScope(scope: string | null | undefined) {
 	return PROVIDER_SCOPES.twitch.botModerate.every((name) =>
+		hasScope(scope, name),
+	);
+}
+
+export function hasSharedBotScopes(scope: string | null | undefined) {
+	return PROVIDER_SCOPES.twitch.sharedBot.every((name) =>
 		hasScope(scope, name),
 	);
 }

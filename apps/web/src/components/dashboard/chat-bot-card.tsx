@@ -173,7 +173,7 @@ export function ChatBotCard() {
 		const result = await linkProvider({
 			provider: "twitch",
 			granted: twitchGranted,
-			adding: PROVIDER_SCOPES.twitch.botModerate,
+			adding: PROVIDER_SCOPES.twitch.sharedBot,
 			fi,
 		});
 		if (result.error) {
@@ -323,7 +323,7 @@ export function ChatBotCard() {
 						<HStack>
 							<Button
 								icon={<Icon color="inherit" icon={ShieldCheckIcon} size="sm" />}
-								label={t("Authorize moderation scopes for the shared bot")}
+								label={t("Set up this account as the shared VISP bot")}
 								onClick={() => void authorizeBotScopes()}
 							/>
 						</HStack>

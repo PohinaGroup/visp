@@ -4,6 +4,7 @@ import {
 	hasAlertScope,
 	hasChatScope,
 	hasScope,
+	hasSharedBotScopes,
 	hasStreamKeyScope,
 	hasTwitchBotChannelScope,
 	hasTwitchBotModerateScope,
@@ -42,6 +43,19 @@ describe("hasTwitchBotModerateScope", () => {
 			),
 		).toBe(false);
 		expect(hasTwitchBotModerateScope(null)).toBe(false);
+	});
+});
+
+describe("hasSharedBotScopes", () => {
+	test("needs chat read, chat write and every moderation scope", () => {
+		expect(hasSharedBotScopes(PROVIDER_SCOPES.twitch.sharedBot.join(" "))).toBe(
+			true,
+		);
+		// A bot that could moderate but not post or read is not set up.
+		expect(
+			hasSharedBotScopes(PROVIDER_SCOPES.twitch.botModerate.join(" ")),
+		).toBe(false);
+		expect(hasSharedBotScopes(null)).toBe(false);
 	});
 });
 

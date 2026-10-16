@@ -696,8 +696,8 @@ export const finnishUi: Record<string, string> = {
 		"Varoita chattia kun signaali heikkenee",
 	"Answer unanswered stream questions":
 		"Vastaa lähetystä koskeviin kysymyksiin, joihin kukaan ei vastannut",
-	"Authorize moderation scopes for the shared bot":
-		"Valtuuta jaetun botin moderointioikeudet",
+	"Set up this account as the shared VISP bot":
+		"Ota tämä tili käyttöön jaettuna VISP-bottina",
 	"See what the chat bot posts and answers":
 		"Katso mitä chat-botti kirjoittaa ja mihin se vastaa",
 	"Posts to your chat when the stream goes live, drops, or comes back, and answers commands like !bitrate. Messages appear as your own account.":
