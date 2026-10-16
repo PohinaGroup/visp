@@ -668,6 +668,21 @@ export async function stopBrb(userId: string, pathId: number) {
 				or exists (select 1 from custom_direct_output o where o.path_id = p.id))
 		limit 1
 	`);
-	await stopDirectForPaths([Number(owners.rows[0]?.path_id ?? pathId)]);
+	const ownerId = Number(owners.rows[0]?.path_id ?? pathId);
+	// After a handover the owner's outputs read another device. "End broadcast"
+	// on a device that is not carrying the live feed must leave it running.
+	const carrier = await db.execute<{ source_id: number; publishing: boolean }>(
+		sql`
+		select coalesce(owner.direct_source_path_id, owner.path_id) as source_id,
+			coalesce(source.publishing, false) as publishing
+		from path_state owner
+		left join path_state source
+			on source.path_id = coalesce(owner.direct_source_path_id, owner.path_id)
+		where owner.path_id = ${ownerId}
+	`,
+	);
+	const live = carrier.rows[0];
+	if (live && Number(live.source_id) !== pathId && live.publishing) return true;
+	await stopDirectForPaths([ownerId]);
 	return true;
 }

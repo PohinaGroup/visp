@@ -6,6 +6,7 @@ import {
 	compositorExited,
 	compositorHasPublisher,
 	publisherProbeArgs,
+	publisherReceiveUrl,
 	rendererProgressFrames,
 	shouldCrossfadeScenes,
 	studioReceiveUrl,
@@ -20,6 +21,10 @@ test("bounds live UDP queues and restarts on overflow", () => {
 		expect(() =>
 			studioReceiveUrl("udp://localhost:1234?pkt_size=1316", value),
 		).toThrow();
+	// The copy-only publisher survives its own startup probe without going stale.
+	expect(publisherReceiveUrl("udp://127.0.0.1:1234?pkt_size=1316")).toBe(
+		"udp://127.0.0.1:1234?pkt_size=1316&fifo_size=65536&overrun_nonfatal=0",
+	);
 });
 
 test("only a completed compositor process triggers failure fallback", () => {
