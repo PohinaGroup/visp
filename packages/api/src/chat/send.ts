@@ -115,30 +115,41 @@ export async function sendChatMessage(
 	if (throttled(userId, provider, now)) return "throttled";
 
 	const providerId = chatAuthProvider(provider);
+	// Every caller drops the result, so the reason is only ever seen here.
+	const fail = (result: SendResult, reason: string) => {
+		console.warn(`Chat send to ${provider} failed for ${userId}: ${reason}`);
+		return result;
+	};
 	try {
 		const linked = await dependencies.loadAccount(providerId, userId);
-		if (!linked) return "unauthorized";
+		if (!linked) return fail("unauthorized", `no linked ${providerId} account`);
 
 		let sender = linked;
 		let credentialUserId = userId;
 		if (provider === "twitch") {
 			const senderMode = (await dependencies.loadSenderMode(userId)) ?? "visp";
 			if (senderMode === "visp") {
-				if (!hasTwitchBotChannelScope(linked.scope)) return "unauthorized";
+				if (!hasTwitchBotChannelScope(linked.scope))
+					return fail("unauthorized", "streamer has not granted channel:bot");
 				const bot = await dependencies.loadAccount(
 					"twitch",
 					env.VISP_CHAT_BOT_USER_ID,
 				);
 				if (!bot || !hasChatWriteScope("twitch", bot.scope)) {
-					return "unauthorized";
+					return fail(
+						"unauthorized",
+						bot
+							? "shared bot account lacks user:write:chat"
+							: `no Twitch account linked to VISP_CHAT_BOT_USER_ID (${env.VISP_CHAT_BOT_USER_ID})`,
+					);
 				}
 				sender = bot;
 				credentialUserId = env.VISP_CHAT_BOT_USER_ID;
 			} else if (!hasChatWriteScope("twitch", linked.scope)) {
-				return "unauthorized";
+				return fail("unauthorized", "streamer lacks user:write:chat");
 			}
 		} else if (!hasChatWriteScope(provider, linked.scope)) {
-			return "unauthorized";
+			return fail("unauthorized", "streamer lacks the chat write scope");
 		}
 		const { accessToken } = await dependencies.getAccessToken(
 			providerId,
@@ -155,13 +166,33 @@ export async function sendChatMessage(
 			},
 			dependencies,
 		);
-		if (!response) return "unavailable";
-		if (response.ok) return "sent";
-		return response.status === 401 || response.status === 403
-			? "unauthorized"
-			: "unavailable";
-	} catch {
-		return "unavailable";
+		if (!response) return fail("unavailable", "no active live chat");
+		if (response.ok) {
+			if (provider !== "twitch") return "sent";
+			// Twitch answers 200 even when it drops the line (AutoMod, shield
+			// mode, a bot it does not trust here); only `is_sent` says it posted.
+			const sent = (await response
+				.clone()
+				.json()
+				.catch(() => null)) as {
+				data?: { is_sent?: boolean; drop_reason?: { message?: string } }[];
+			} | null;
+			const row = sent?.data?.[0];
+			if (row?.is_sent !== false) return "sent";
+			return fail(
+				"unavailable",
+				`Twitch dropped it: ${row.drop_reason?.message ?? "no reason given"}`,
+			);
+		}
+		const body = await response.text().catch(() => "");
+		return fail(
+			response.status === 401 || response.status === 403
+				? "unauthorized"
+				: "unavailable",
+			`HTTP ${response.status} ${body.slice(0, 300)}`,
+		);
+	} catch (error) {
+		return fail("unavailable", String(error));
 	}
 }
 

@@ -14,6 +14,7 @@ function dependencies(
 		channelScope?: string;
 		senderMode?: "visp" | "self";
 		status?: number;
+		body?: unknown;
 	} = {},
 ) {
 	const calls: Call[] = [];
@@ -30,7 +31,10 @@ function dependencies(
 					body: JSON.parse(String(init?.body)),
 					authorization: new Headers(init?.headers).get("Authorization") ?? "",
 				});
-				return new Response(null, { status: over.status ?? 200 });
+				return new Response(
+					over.body === undefined ? null : JSON.stringify(over.body),
+					{ status: over.status ?? 200 },
+				);
 			}) as typeof fetch,
 			getAccessToken: async (providerId: string, userId: string) => {
 				tokenLoads.push({ providerId, userId });
@@ -70,6 +74,17 @@ describe("chat send", () => {
 		const long = prepareMessage("x".repeat(500));
 		expect(long).toHaveLength(MAX_SEND_LENGTH);
 		expect(long.endsWith("…")).toBe(true);
+	});
+
+	test("a Twitch 200 with is_sent false is not sent", async () => {
+		const dropped = dependencies({
+			body: {
+				data: [{ is_sent: false, drop_reason: { message: "AutoMod held it" } }],
+			},
+		});
+		expect(await sendChatMessage("user", "twitch", "hello", dropped.deps)).toBe(
+			"unavailable",
+		);
 	});
 
 	test("posts the shape each provider expects", async () => {

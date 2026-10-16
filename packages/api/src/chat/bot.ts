@@ -508,7 +508,17 @@ async function syncBots() {
 				void bots.get(userId)?.stop();
 				bots.delete(userId);
 			});
-			if (lock) bots.set(userId, new UserBot(userId, lock));
+			if (lock) {
+				bots.set(userId, new UserBot(userId, lock));
+				// Commands answer only when both switches are on; say which is off.
+				void getBotSettings(userId)
+					.then((s) =>
+						console.info(
+							`Chat bot started for ${userId}: posting ${s.enabled ? "on" : "off"}, commands ${s.commandsEnabled ? "on" : "off"}, twitch ${s.targets.twitch ? "on" : "off"}, sender ${s.senderMode}, AI moderator ${s.moderator.enabled ? "on" : "off"}`,
+						),
+					)
+					.catch(() => undefined);
+			}
 		} finally {
 			starting.delete(userId);
 		}

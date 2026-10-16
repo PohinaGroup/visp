@@ -349,7 +349,12 @@ async function loadIdentity(): Promise<BotIdentity | null> {
 		return null;
 	}
 	const user = await helixUser(defaultHelix(bot.accountId), bot.accountId);
-	if (!user) return null;
+	if (!user) {
+		console.warn(
+			`AI moderator: Twitch user lookup failed for bot ${bot.accountId}`,
+		);
+		return null;
+	}
 	return { accountId: bot.accountId, scope: bot.scope, ...user };
 }
 
@@ -605,8 +610,19 @@ export class ChatModerator {
 	}
 
 	private async loadContext(): Promise<Ready | null> {
+		// Rechecked every READY_TTL_MS while chat flows, so each reason logs at
+		// most that often.
+		const silent = (reason: string) => {
+			console.warn(`AI moderator idle for ${this.userId}: ${reason}`);
+			return null;
+		};
 		const bot = await botIdentity();
-		if (!bot) return null;
+		if (!bot)
+			return silent(
+				aiModeratorConfigured()
+					? "no shared bot identity (bot link missing scopes, or its Twitch user lookup failed)"
+					: "ANTHROPIC_API_KEY is not set",
+			);
 		const [settings, allowed, twitch] = await Promise.all([
 			this.deps.settings(),
 			entitlement(this.userId, "ai_moderator"),
@@ -618,9 +634,13 @@ export class ChatModerator {
 				),
 			}),
 		]);
-		if (!settings.moderator.enabled || !allowed.allowed) return null;
-		if (!twitch || !hasTwitchBotChannelScope(twitch.scope)) return null;
-		if (!(await botIsModeratorOf(twitch.accountId))) return null;
+		if (!settings.moderator.enabled) return silent("switched off");
+		if (!allowed.allowed) return silent("not entitled (needs Plus)");
+		if (!twitch) return silent("no linked Twitch account");
+		if (!hasTwitchBotChannelScope(twitch.scope))
+			return silent("streamer has not granted channel:bot");
+		if (!(await botIsModeratorOf(twitch.accountId)))
+			return silent(`bot ${bot.login} is not a moderator (/mod ${bot.login})`);
 		const helix = this.deps.helix(bot.accountId);
 		const channel = await helixChannel(helix, twitch.accountId).catch(
 			() => null,
