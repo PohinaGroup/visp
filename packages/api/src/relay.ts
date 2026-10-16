@@ -511,18 +511,24 @@ export function buildStudioPreviewUrls(
 
 export function selectStudioPreviewPath<
 	T extends { id: number; publishing: boolean | null },
->(paths: T[]) {
+>(paths: T[], preferredId?: number | null) {
 	return [...paths].sort(
-		(a, b) => Number(b.publishing) - Number(a.publishing) || a.id - b.id,
+		(a, b) =>
+			Number(b.id === preferredId) - Number(a.id === preferredId) ||
+			Number(b.publishing) - Number(a.publishing) ||
+			a.id - b.id,
 	)[0];
 }
 
-export async function getStudioPreviewUrls(userId: string) {
+export async function getStudioPreviewUrls(
+	userId: string,
+	previewPathId?: number | null,
+) {
 	const owner = await db.query.appUser.findFirst({
 		where: eq(appUser.id, userId),
 	});
 	if (!owner) return null;
-	const path = selectStudioPreviewPath(await listPaths(userId));
+	const path = selectStudioPreviewPath(await listPaths(userId), previewPathId);
 	if (!path) return null;
 	let readSecret: string;
 	if (!owner.readSecretHash) {

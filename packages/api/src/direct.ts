@@ -530,6 +530,7 @@ export async function listDirectOutputs(userId: string) {
 				youtube: relayPath.directYoutube,
 				lowLatency: relayPath.lowLatency,
 				publishing: pathState.publishing,
+				directSourcePathId: pathState.directSourcePathId,
 				twitchState: pathState.directTwitchState,
 				twitchError: pathState.directTwitchError,
 				kickState: pathState.directKickState,
@@ -551,8 +552,17 @@ export async function listDirectOutputs(userId: string) {
 		kick: owners[0]?.kick ?? false,
 		youtube: owners[0]?.youtube ?? false,
 	};
+	const owner =
+		paths.find((path) => path.twitch || path.kick || path.youtube) ??
+		paths.find((path) =>
+			[...portraits, ...customOutputs].some(
+				(output) => output.pathId === path.id,
+			),
+		);
 	return {
 		directDualOutput: owners[0]?.directDualOutput ?? false,
+		// The device the forwarders read right now; null until a device goes live for Direct.
+		sourcePathId: owner ? (owner.directSourcePathId ?? owner.id) : null,
 		studio: {
 			available: env.CLOUD_STUDIO_ENABLED,
 			mode: (owners[0]?.productionMode ?? "obs") as "cloud_studio" | "obs",
@@ -1444,6 +1454,66 @@ export async function directSourceSlug(ownerSlug: string) {
 		return null;
 	}
 	return owner.publishing ? ownerSlug : null;
+}
+
+/** Which device feeds Direct after the user picks one; null means the owner's own feed. */
+export function directSourceChoice(
+	owner: { id: number; relayId: number },
+	target:
+		| { id: number; relayId: number; publishing: boolean | null }
+		| undefined,
+) {
+	if (!target?.publishing) {
+		throw new DirectError("invalid", "That device is not live");
+	}
+	if (target.relayId !== owner.relayId) {
+		throw new DirectError(
+			"invalid",
+			"The Direct source must be on the same relay as the device that went live",
+		);
+	}
+	return target.id === owner.id ? null : target.id;
+}
+
+/**
+ * Points the running forwarders at another live device. The relay re-reads the
+ * source plan every few seconds, so the switch needs no restart; when the chosen
+ * device drops, directSourceSlug falls back to the owner's own feed.
+ */
+export async function setDirectSource(userId: string, pathId: number) {
+	return db.transaction(async (tx) => {
+		await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${userId}))`);
+		const paths = await tx
+			.select({
+				id: relayPath.id,
+				relayId: relayPath.relayId,
+				publishing: pathState.publishing,
+				owner: sql<boolean>`${relayPath.directTwitch} or ${relayPath.directKick} or ${relayPath.directYoutube}
+					or exists (select 1 from ${directDestination} where ${directDestination.pathId} = ${relayPath.id})
+					or exists (select 1 from ${customDirectOutput} where ${customDirectOutput.pathId} = ${relayPath.id})`,
+			})
+			.from(relayPath)
+			.leftJoin(pathState, eq(pathState.pathId, relayPath.id))
+			.where(and(eq(relayPath.userId, userId), isNull(relayPath.revokedAt)));
+		const owner = paths.find((path) => path.owner);
+		if (!owner) {
+			throw new DirectError("not-found", "No device is live for Direct");
+		}
+		const source = directSourceChoice(
+			owner,
+			paths.find((path) => path.id === pathId),
+		);
+		const state = {
+			directSourcePathId: source,
+			directHandoverTargetPathId: null,
+			directHandoverUntil: null,
+		};
+		await tx
+			.insert(pathState)
+			.values({ pathId: owner.id, ...state })
+			.onConflictDoUpdate({ target: pathState.pathId, set: state });
+		return { pathId: owner.id, sourcePathId: source ?? owner.id };
+	});
 }
 
 /** A revoked path owns no provider, which frees the owner's slot. */

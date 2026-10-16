@@ -30,6 +30,7 @@ describe("relay guidance", () => {
 			{ id: 1, publishing: true },
 		];
 		expect(selectStudioPreviewPath(paths)?.id).toBe(1);
+		expect(selectStudioPreviewPath(paths, 3)?.id).toBe(3);
 		expect(
 			selectStudioPreviewPath(
 				paths.map((path) => ({ ...path, publishing: false })),

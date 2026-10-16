@@ -12,6 +12,7 @@ import {
 	saveDirectPreferences,
 	setDirectOutputs,
 	setDirectRole,
+	setDirectSource,
 	setYoutubeSettings,
 } from "../direct";
 import {
@@ -650,6 +651,15 @@ export const relayRoutes = {
 						input.pathId,
 						input.handover,
 					);
+				} catch (error) {
+					directError(error);
+				}
+			}),
+		setSource: relayProcedure
+			.input(pathIdInput)
+			.mutation(async ({ ctx, input }) => {
+				try {
+					return await setDirectSource(ctx.relayUser.id, input.pathId);
 				} catch (error) {
 					directError(error);
 				}

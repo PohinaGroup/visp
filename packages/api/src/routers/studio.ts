@@ -42,11 +42,20 @@ function studioError(error: unknown): never {
 }
 
 export const studioRouter = router({
-	get: relayProcedure.query(async ({ ctx }) => ({
-		graph: await getStudioGraph(ctx.relayUser.id),
-		preview: await getStudioPreviewUrls(ctx.relayUser.id),
-		settings: await getStudioSettings(ctx.relayUser.id),
-	})),
+	get: relayProcedure
+		.input(
+			z
+				.object({ previewPathId: z.number().int().positive().optional() })
+				.optional(),
+		)
+		.query(async ({ ctx, input }) => ({
+			graph: await getStudioGraph(ctx.relayUser.id),
+			preview: await getStudioPreviewUrls(
+				ctx.relayUser.id,
+				input?.previewPathId,
+			),
+			settings: await getStudioSettings(ctx.relayUser.id),
+		})),
 	save: relayProcedure
 		.input(
 			z.object({

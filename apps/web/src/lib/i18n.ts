@@ -69,6 +69,8 @@ export const finnishUi: Record<string, string> = {
 	"Update your card to keep Plus.": "Päivitä korttisi, niin Plus jatkuu.",
 	"Payment failed": "Maksu epäonnistui",
 	"Update card": "Päivitä kortti",
+	"Direct source": "Suoran lähde",
+	"Direct source switched": "Suoran lähde vaihdettu",
 	"Mode: Direct": "Tila: Suora",
 	"Mode: OBS": "Tila: OBS",
 	"Mode: not set": "Tila: valitsematta",
