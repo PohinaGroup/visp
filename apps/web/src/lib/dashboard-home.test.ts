@@ -24,6 +24,18 @@ describe("dashboard home readiness", () => {
 		expect(dashboardHomeState(input({ holding: true })).primaryAction).toBe(
 			"end-stream",
 		);
+		const sending = [{ publishing: true, stale: false }];
+		expect(dashboardHomeState(input({ paths: sending })).primaryAction).toBe(
+			"go-live",
+		);
+		expect(
+			dashboardHomeState(input({ paths: sending, liveOutputs: 1 }))
+				.primaryAction,
+		).toBe("end-stream");
+		expect(
+			dashboardHomeState(input({ paths: sending, desiredDestinations: 0 }))
+				.primaryAction,
+		).toBe("end-stream");
 	});
 
 	test("covers OBS pairing, ready, and live states", () => {

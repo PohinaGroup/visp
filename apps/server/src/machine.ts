@@ -713,6 +713,37 @@ export const machineRoutes = new Elysia({ name: "machine-routes" })
 		},
 	)
 	.post(
+		"/api/hooks/direct-destinations-rescan",
+		async ({ body, headers }) => {
+			if (!matchesHookSecret(headers["x-hook-secret"])) {
+				return status(401, "unauthorized");
+			}
+			try {
+				const { destinations } = await resolveDirectDestinationsV3(
+					body.path,
+					undefined,
+					body.skip,
+					true,
+				);
+				return directDestinationJsonResponse(
+					await formatV3DirectDestinations(destinations),
+				);
+			} catch {
+				return status(503, "direct destinations unavailable");
+			}
+		},
+		{
+			body: t.Object({
+				path: t.String({ minLength: 1 }),
+				skip: t.Optional(
+					t.Array(t.String({ minLength: 1, maxLength: 128 }), {
+						maxItems: 32,
+					}),
+				),
+			}),
+		},
+	)
+	.post(
 		"/api/hooks/direct-destinations",
 		async ({ body, headers }) => {
 			if (!matchesHookSecret(headers["x-hook-secret"])) {

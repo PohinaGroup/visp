@@ -29,6 +29,7 @@ import { ChatBotCard } from "./chat-bot-card";
 import { ConnectionsCard } from "./connections-card";
 import { CredentialsCard } from "./credentials-card";
 import { DestinationsSummary, DirectCard } from "./direct-card";
+import { providerLabel } from "./format";
 import { GuidanceCard } from "./guidance-card";
 import { ObsControlCard } from "./obs-control-card";
 import { PastDueBanner, PlanLine, PlanUsageSection } from "./plan-card";
@@ -97,6 +98,15 @@ export function DashboardPage() {
 			onSuccess: async () => {
 				await queryClient.invalidateQueries();
 				toast.success(t("Ending the stream"));
+			},
+			onError: (error) => toast.error(error.message),
+		}),
+	);
+	const goLive = useMutation(
+		trpc.direct.prepare.mutationOptions({
+			onSuccess: async () => {
+				await queryClient.invalidateQueries();
+				toast.success(t("Starting your outputs"));
 			},
 			onError: (error) => toast.error(error.message),
 		}),
@@ -232,6 +242,9 @@ export function DashboardPage() {
 				if (pathId) stopDirect.mutate({ pathId });
 				break;
 			}
+			case "go-live":
+				if (livePath) goLive.mutate({ pathId: livePath.id });
+				break;
 			case "start-obs":
 				setObsStreaming.mutate({ streaming: true });
 				break;
@@ -246,6 +259,12 @@ export function DashboardPage() {
 		"get-app": t("Get the VISP app"),
 		"open-app": t("Open the app to go live"),
 		"end-stream": t("End stream"),
+		"go-live": `${fi ? "Aloita lähetys:" : "Go live on"} ${[
+			...(["twitch", "kick", "youtube"] as const)
+				.filter((provider) => direct?.desired[provider])
+				.map(providerLabel),
+			...(direct?.customOutputs ?? []).map((output) => output.name),
+		].join(", ")}`,
 		"pair-obs": t("Pair OBS"),
 		"start-obs": t("Start OBS stream"),
 		"stop-obs": t("Stop OBS stream"),
@@ -516,7 +535,9 @@ export function DashboardPage() {
 									<Button
 										isDisabled={statusError}
 										isLoading={
-											stopDirect.isPending || setObsStreaming.isPending
+											stopDirect.isPending ||
+											goLive.isPending ||
+											setObsStreaming.isPending
 										}
 										label={actionLabel}
 										variant="primary"
@@ -572,7 +593,7 @@ export function DashboardPage() {
 								</>
 							) : (
 								<>
-									<DirectCard advanced />
+									<DirectCard />
 									{/* OBS can still read the Direct feed for monitoring or recording. */}
 									<Card>
 										<CredentialsCard {...section("obs-read")} />

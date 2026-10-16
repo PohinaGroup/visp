@@ -1,10 +1,7 @@
-import { Badge } from "@astryxdesign/core/Badge";
 import { Button } from "@astryxdesign/core/Button";
-import { Card } from "@astryxdesign/core/Card";
 import { Dialog, DialogHeader } from "@astryxdesign/core/Dialog";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
-import { Switch } from "@astryxdesign/core/Switch";
-import { Heading, Text } from "@astryxdesign/core/Text";
+import { Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -16,6 +13,7 @@ import {
 	customDestinationUpdateInput,
 } from "@/lib/custom-direct-destinations";
 import {
+	type CustomDirectOutput,
 	customOutputStatus,
 	customOutputsForPath,
 } from "@/lib/custom-direct-output";
@@ -26,6 +24,14 @@ import {
 	DirectPortraitFraming,
 	type PortraitCrop,
 } from "./direct-portrait-framing";
+import {
+	Crosspoint,
+	ROUTE_STATE_LABEL,
+	RouteName,
+	RouteRow,
+	type RouteState,
+	RowAction,
+} from "./routing";
 
 type Editor = {
 	destination?: CustomDestinationMetadata;
@@ -107,167 +113,194 @@ export function DirectCustomDestinations() {
 			(editor.destination || editor?.draft.url.trim()),
 	);
 
+	const paths = direct.data?.paths ?? [];
+	const stateLabel = (output?: CustomDirectOutput) => {
+		const state = output?.state as RouteState | undefined;
+		return (
+			output?.error ??
+			t(ROUTE_STATE_LABEL[state ?? "stopped"] ?? customOutputStatus(output))
+		);
+	};
+
 	return (
-		<VStack gap={3}>
-			<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
-				<VStack gap={1}>
-					<Heading level={3}>{t("Custom destinations")}</Heading>
-					<Text color="secondary" type="supporting">
-						{t(
-							"Save RTMP, RTMPS, or SRT endpoints here. Credentials stay hidden after saving.",
-						)}
-					</Text>
-				</VStack>
-				<Button
-					label={t("Add custom destination")}
-					onClick={() => setEditor({ draft: customDestinationDraft() })}
-				/>
-			</HStack>
-			{list.data?.destinations.length ? (
-				<VStack gap={2}>
-					{list.data.destinations.map((destination) => (
-						<Card key={destination.id} padding={3} variant="muted">
-							<VStack gap={2}>
-								<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
-									<VStack gap={1}>
-										<HStack gap={2} vAlign="center">
-											<Text type="label">{destination.name}</Text>
-											<Badge
-												label={destination.protocol.toUpperCase()}
-												variant="neutral"
-											/>
-										</HStack>
-										<Text color="secondary" type="code">
-											{destination.endpointSummary}
-										</Text>
-									</VStack>
-									<HStack gap={2}>
-										<Button
-											isDisabled={direct.data?.customOutputs.some(
-												(output) =>
-													output.destinationId === destination.id &&
-													direct.data?.paths.find(
-														(path) => path.id === output.pathId,
-													)?.publishing,
-											)}
-											label={t("Edit")}
-											variant="ghost"
-											onClick={() =>
-												setEditor({
-													destination,
-													draft: customDestinationDraft(destination),
-												})
+		<>
+			<div className="col-span-full flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pt-10 pb-3">
+				<span className="text-muted-foreground text-sm">
+					{t("Custom destinations")}
+				</span>
+				<span className="-mr-2">
+					<RowAction
+						label={t("Add custom destination")}
+						onClick={() => setEditor({ draft: customDestinationDraft() })}
+					/>
+				</span>
+			</div>
+			{list.data && list.data.destinations.length === 0 ? (
+				<p className="col-span-full max-w-[60ch] border-border border-t py-4 text-muted-foreground text-sm">
+					{t(
+						"Save RTMP, RTMPS, or SRT endpoints here. Credentials stay hidden after saving.",
+					)}
+				</p>
+			) : null}
+			{list.data?.destinations.map((destination) => {
+				const routes = paths.flatMap((path) => {
+					const outputs = customOutputsForPath(
+						direct.data?.customOutputs ?? [],
+						destination.id,
+						path.id,
+					);
+					return outputs.landscape ? [{ path, ...outputs }] : [];
+				});
+				const live = routes.some(({ path }) => path.publishing);
+				return (
+					<RouteRow key={destination.id}>
+						<RouteName
+							actions={
+								<>
+									<RowAction
+										disabled={live}
+										label={t("Edit")}
+										onClick={() =>
+											setEditor({
+												destination,
+												draft: customDestinationDraft(destination),
+											})
+										}
+									/>
+									<RowAction
+										disabled={remove.isPending}
+										label={t("Delete")}
+										onClick={() => {
+											if (
+												window.confirm(
+													t(
+														"Delete this destination? You need its full URL to add it again.",
+													),
+												)
+											) {
+												remove.mutate({ destinationId: destination.id });
 											}
-										/>
-										<Button
-											isDisabled={remove.isPending}
-											label={t("Delete")}
-											variant="ghost"
-											onClick={() =>
-												remove.mutate({ destinationId: destination.id })
-											}
-										/>
-									</HStack>
-								</HStack>
-								{direct.data?.paths.map((path) => {
-									const { landscape, portrait } = customOutputsForPath(
-										direct.data.customOutputs,
-										destination.id,
-										path.id,
-									);
-									const enabled = Boolean(landscape);
-									return (
-										<VStack key={path.id} gap={1}>
-											<Switch
-												disabledMessage={t(
-													"Stop this device before changing its Direct outputs",
-												)}
-												isDisabled={
-													assign.isPending || (path.publishing && !enabled)
-												}
-												label={path.label}
-												labelSpacing="spread"
-												value={enabled}
-												onChange={(value) =>
-													assign.mutate({
-														destinationId: destination.id,
+										}}
+									/>
+								</>
+							}
+							meta={
+								<span className="break-all font-mono text-muted-foreground text-xs">
+									{destination.endpointSummary}
+								</span>
+							}
+							name={destination.name}
+							status={
+								routes.length === 0
+									? t("Not routed from any device")
+									: routes
+											.map(({ path, landscape }) =>
+												paths.length > 1
+													? `${path.label}: ${stateLabel(landscape)}`
+													: stateLabel(landscape),
+											)
+											.join(", ")
+							}
+						/>
+						{paths.map((path) => {
+							const { landscape } = customOutputsForPath(
+								direct.data?.customOutputs ?? [],
+								destination.id,
+								path.id,
+							);
+							const enabled = Boolean(landscape);
+							return (
+								<Crosspoint
+									disabled={assign.isPending || (path.publishing && !enabled)}
+									hint={t(
+										"Stop this device before changing its Direct outputs",
+									)}
+									key={path.id}
+									label={`${destination.name}: ${path.label}`}
+									on={enabled}
+									state={(landscape?.state as RouteState) ?? null}
+									onChange={(value) =>
+										assign.mutate({
+											destinationId: destination.id,
+											pathId: path.id,
+											enabled: value,
+										})
+									}
+								/>
+							);
+						})}
+						{direct.data?.directDualOutput && routes.length ? (
+							<div className="col-span-full flex flex-col gap-1 border-border border-l pl-4">
+								{routes.map(({ path, landscape, portrait }) =>
+									portrait ? (
+										<span
+											className="flex flex-wrap items-center gap-x-2 text-sm"
+											key={path.id}
+										>
+											<span>
+												{t("Portrait")}
+												{paths.length > 1 ? ` · ${path.label}` : ""}:{" "}
+												<span className="text-muted-foreground">
+													{stateLabel(portrait)}
+												</span>
+											</span>
+											<RowAction
+												disabled={path.publishing}
+												label={t("Edit framing")}
+												onClick={() =>
+													setFraming({
+														outputId: portrait.id,
 														pathId: path.id,
-														enabled: value,
+														crop: portrait.crop ?? DEFAULT_PORTRAIT_CROP,
 													})
 												}
 											/>
-											{enabled && landscape?.state ? (
-												<Text color="secondary" type="supporting">
-													{t(customOutputStatus(landscape))}
-												</Text>
-											) : null}
-											{direct.data.directDualOutput && landscape ? (
-												portrait ? (
-													<HStack gap={2} vAlign="center" wrap="wrap">
-														<Badge label={t("Portrait")} variant="neutral" />
-														<Text type="supporting">
-															{t(customOutputStatus(portrait))}
-														</Text>
-														<Button
-															isDisabled={path.publishing}
-															label={t("Edit framing")}
-															variant="ghost"
-															onClick={() =>
-																setFraming({
-																	outputId: portrait.id,
-																	pathId: path.id,
-																	crop: portrait.crop ?? DEFAULT_PORTRAIT_CROP,
-																})
-															}
-														/>
-														<Button
-															isDisabled={setRole.isPending}
-															label={t("Remove portrait")}
-															variant="ghost"
-															onClick={() =>
-																setRole.mutate({
-																	outputId: portrait.id,
-																	pathId: path.id,
-																	role: "landscape",
-																})
-															}
-														/>
-													</HStack>
-												) : (
-													<Button
-														isDisabled={path.publishing || setRole.isPending}
-														label={t("Add portrait output")}
-														variant="ghost"
-														onClick={() => {
-															void setRole
-																.mutateAsync({
-																	outputId: landscape.id,
-																	pathId: path.id,
-																	role: "portrait",
-																})
-																.then((result) =>
-																	setFraming({
-																		outputId: result.outputId,
-																		pathId: path.id,
-																		crop: DEFAULT_PORTRAIT_CROP,
-																	}),
-																);
-														}}
-													/>
-												)
-											) : null}
-										</VStack>
-									);
-								})}
-							</VStack>
-						</Card>
-					))}
-				</VStack>
-			) : (
-				<Text color="secondary" type="supporting">
-					{t("No custom destinations saved")}
-				</Text>
-			)}
+											<RowAction
+												disabled={setRole.isPending}
+												label={t("Remove portrait")}
+												onClick={() =>
+													setRole.mutate({
+														outputId: portrait.id,
+														pathId: path.id,
+														role: "landscape",
+													})
+												}
+											/>
+										</span>
+									) : (
+										<span className="-ml-2" key={path.id}>
+											<RowAction
+												disabled={path.publishing || setRole.isPending}
+												label={
+													paths.length > 1
+														? `${t("Add portrait output")} · ${path.label}`
+														: t("Add portrait output")
+												}
+												onClick={() => {
+													if (!landscape) return;
+													void setRole
+														.mutateAsync({
+															outputId: landscape.id,
+															pathId: path.id,
+															role: "portrait",
+														})
+														.then((result) =>
+															setFraming({
+																outputId: result.outputId,
+																pathId: path.id,
+																crop: DEFAULT_PORTRAIT_CROP,
+															}),
+														);
+												}}
+											/>
+										</span>
+									),
+								)}
+							</div>
+						) : null}
+					</RouteRow>
+				);
+			})}
 			{editor ? (
 				<Dialog
 					isOpen
@@ -364,6 +397,6 @@ export function DirectCustomDestinations() {
 					}
 				/>
 			) : null}
-		</VStack>
+		</>
 	);
 }

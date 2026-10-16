@@ -28,6 +28,7 @@ export type DashboardHomeState = {
 		| "get-app"
 		| "open-app"
 		| "end-stream"
+		| "go-live"
 		| "pair-obs"
 		| "start-obs"
 		| "stop-obs";
@@ -65,7 +66,15 @@ export function dashboardHomeState(
 						input.liveOutputs === 0 &&
 						!input.startingOutputs
 							? "inspect-output"
-							: "end-stream",
+							: // The device was already sending when its platforms were
+								// picked, so nothing claimed them at connect time.
+								livePath &&
+									!input.holding &&
+									input.liveOutputs === 0 &&
+									!input.startingOutputs &&
+									input.desiredDestinations > 0
+								? "go-live"
+								: "end-stream",
 					nextStep: null,
 				};
 			}

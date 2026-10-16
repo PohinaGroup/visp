@@ -1,6 +1,5 @@
 import { linkScopes, PROVIDER_SCOPES } from "@VISP/api/scopes";
 import { LOW_LATENCY_DIRECT_WARNING } from "@VISP/api/srt-latency";
-import { Badge } from "@astryxdesign/core/Badge";
 import { Banner } from "@astryxdesign/core/Banner";
 import { Button } from "@astryxdesign/core/Button";
 import { Card } from "@astryxdesign/core/Card";
@@ -8,11 +7,10 @@ import { Collapsible } from "@astryxdesign/core/Collapsible";
 import { Icon } from "@astryxdesign/core/Icon";
 import { HStack, VStack } from "@astryxdesign/core/Layout";
 import { StatusDot } from "@astryxdesign/core/StatusDot";
-import { Switch } from "@astryxdesign/core/Switch";
 import { Heading, Text } from "@astryxdesign/core/Text";
 import { TextInput } from "@astryxdesign/core/TextInput";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { LinkIcon, ShieldIcon } from "lucide-react";
+import { LinkIcon } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { DocsHelpLink } from "@/components/docs-help-link";
@@ -28,6 +26,15 @@ import {
 	type PortraitCrop,
 } from "./direct-portrait-framing";
 import { providerLabel } from "./format";
+import {
+	Crosspoint,
+	NoCrosspoint,
+	ROUTE_STATE_LABEL,
+	RouteName,
+	RouteRow,
+	RowAction,
+	routingColumns,
+} from "./routing";
 
 const STATE_TONE = {
 	live: "success",
@@ -40,42 +47,6 @@ const STATE_TONE = {
 	failed: "error",
 	stopped: "neutral",
 } as const;
-
-function ProviderState({
-	provider,
-	outputRole,
-	state,
-	error,
-}: {
-	provider: "twitch" | "kick" | "youtube";
-	outputRole?: "landscape" | "portrait";
-	state: keyof typeof STATE_TONE | null;
-	error: string | null;
-}) {
-	const t = useT();
-	if (!state) return null;
-	return (
-		<HStack gap={2} vAlign="center" wrap="wrap">
-			<StatusDot
-				isPulsing={state === "live"}
-				label={`${providerLabel(provider)} ${state}`}
-				variant={STATE_TONE[state]}
-			/>
-			<Text type="supporting">
-				{providerLabel(provider)}
-				{outputRole
-					? ` · ${t(outputRole === "portrait" ? "Portrait" : "Landscape")}`
-					: ""}
-				: {t(state === "brb" ? "showing BRB card" : state)}
-			</Text>
-			{error ? (
-				<Text color="secondary" type="supporting">
-					{error}
-				</Text>
-			) : null}
-		</HStack>
-	);
-}
 
 function YoutubeTitle({
 	title,
@@ -105,7 +76,7 @@ function YoutubeTitle({
 	);
 }
 
-export function DirectCard({ advanced = false }: { advanced?: boolean }) {
+export function DirectCard() {
 	const t = useT();
 	const fi = useLocale() === "fi";
 	const trpc = useTRPC();
@@ -212,307 +183,347 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 		}
 	};
 
-	const anyYoutube = direct.data?.paths.some((path) => path.youtube) ?? false;
-	const anyTwitch = direct.data?.paths.some((path) => path.twitch) ?? false;
-	const anyBoth =
-		direct.data?.paths.some((path) => path.twitch && path.kick) ?? false;
+	const data = direct.data;
+	const paths = data?.paths ?? [];
+	const anyYoutube = paths.some((path) => path.youtube);
+	const anyTwitch = paths.some((path) => path.twitch);
+	const anyBoth = paths.some((path) => path.twitch && path.kick);
+	const lockedPaths = paths.filter((path) => path.publishing);
+	const lowLatencyPaths = paths.filter(
+		(path) =>
+			path.lowLatency &&
+			(path.twitch ||
+				path.kick ||
+				path.youtube ||
+				data?.customOutputs.some((output) => output.pathId === path.id)),
+	);
+	// With one device the column says it all; with several, name the device.
+	const onDevice = (label: string, text: string) =>
+		paths.length > 1 ? `${label}: ${text}` : text;
 
 	return (
-		<Card id="dashboard-direct">
-			<VStack gap={4}>
-				<VStack gap={1}>
-					<HStack gap={1.5} vAlign="center">
-						<Heading level={2}>
-							{t(advanced ? "Direct to Platform" : "Destinations")}
-						</Heading>
-						<DocsHelpLink
-							href={docs.directOutput}
-							label={t("See how Direct output works")}
-						/>
-					</HStack>
-					<Text color="secondary" type="supporting">
-						{t(
-							"Send a publishing device straight to Twitch, Kick, or YouTube without OBS. The relay encodes for each platform.",
-						)}
-					</Text>
-				</VStack>
-
-				{direct.data?.mode === "unconfigured" ? (
-					<Banner
-						description={t(
-							"Your existing OBS workflow is unchanged. Authorize a destination and select it below when you are ready to switch to Direct.",
-						)}
-						status="info"
-						title={t("Switch to Direct when you are ready")}
+		<section className="flex flex-col gap-8" id="dashboard-direct">
+			<div className="flex flex-col gap-2">
+				<span className="flex items-center gap-2">
+					<h2 className="font-bold font-display text-4xl uppercase leading-none tracking-tight">
+						{t("Destinations")}
+					</h2>
+					<DocsHelpLink
+						href={docs.directOutput}
+						label={t("See how Direct output works")}
 					/>
-				) : null}
+				</span>
+				<p className="max-w-[60ch] text-muted-foreground leading-relaxed">
+					{t(
+						"Send a publishing device straight to Twitch, Kick, or YouTube without OBS. The relay encodes for each platform.",
+					)}
+				</p>
+			</div>
 
-				{direct.data ? (
-					<>
-						{direct.data.providers.map((provider) => (
-							<Card key={provider.provider} padding={3} variant="muted">
-								<HStack gap={3} hAlign="between" vAlign="center" wrap="wrap">
-									<HStack gap={2} vAlign="center">
-										<Text type="label">{providerLabel(provider.provider)}</Text>
-										<Badge
-											label={t(provider.linked ? "Linked" : "Not linked")}
-											variant="neutral"
-										/>
-										{provider.canReadStreamKey ? (
-											<Badge label={t("Authorized")} variant="success" />
-										) : null}
-									</HStack>
-									<Button
-										icon={
-											<Icon
-												color="inherit"
-												icon={provider.linked ? ShieldIcon : LinkIcon}
-												size="sm"
-											/>
-										}
-										label={
-											provider.canReadStreamKey
-												? t("Reauthorize")
-												: t("Authorize streaming")
-										}
-										variant={
-											advanced && !provider.canReadStreamKey
-												? "primary"
-												: "ghost"
-										}
-										onClick={() => authorize(provider.provider)}
-									/>
-								</HStack>
-							</Card>
+			{data?.mode === "unconfigured" ? (
+				<Banner
+					description={t(
+						"Your existing OBS workflow is unchanged. Authorize a destination and select it below when you are ready to switch to Direct.",
+					)}
+					status="info"
+					title={t("Switch to Direct when you are ready")}
+				/>
+			) : null}
+
+			{data && paths.length === 0 ? (
+				<p className="border-muted-foreground border-l-2 px-4 py-3 text-sm">
+					{t("Add a publishing device on the Devices tab, then route it here.")}
+				</p>
+			) : null}
+
+			{data && paths.length > 0 ? (
+				<div
+					className="grid border-border border-b"
+					style={routingColumns(paths.length)}
+				>
+					{/* Column heads: one per device, lit while it sends. */}
+					<div className="col-span-full grid grid-cols-subgrid items-end pb-3">
+						<span className="text-muted-foreground text-sm">
+							{t("Platforms")}
+						</span>
+						{paths.map((path) => (
+							<span
+								className="flex min-w-0 flex-col items-center gap-1.5 text-center text-xs"
+								key={path.id}
+							>
+								<span
+									aria-hidden
+									className={`size-2 ${path.publishing ? "tally-pulse bg-tally" : "border border-muted-foreground"}`}
+								/>
+								<span className="line-clamp-2 break-words">{path.label}</span>
+							</span>
 						))}
+					</div>
 
-						{advanced ? <DirectCustomDestinations /> : null}
-
-						{direct.data.paths.map((path) => (
-							<Card key={path.id} padding={3} variant="muted">
-								<VStack gap={2}>
-									<HStack gap={2} vAlign="center" wrap="wrap">
-										<Text type="label">{path.label}</Text>
-										{path.publishing ? (
-											<Badge label={t("Publishing")} variant="success" />
-										) : null}
-										{path.lowLatency ? (
-											<Badge label={t("Low latency")} variant="info" />
-										) : null}
-									</HStack>
-									{path.lowLatency &&
-									(path.twitch ||
-										path.kick ||
-										path.youtube ||
-										direct.data.customOutputs.some(
-											(output) => output.pathId === path.id,
-										)) ? (
-										<Banner
-											description={t(LOW_LATENCY_DIRECT_WARNING)}
-											status="warning"
-											title={t("Direct runs on a low-latency feed")}
+					{data.providers.map((provider) => {
+						const name = providerLabel(provider.provider);
+						const routes = paths.filter((path) => path[provider.provider]);
+						const portraits = data.directDualOutput
+							? data.destinations.filter(
+									(destination) =>
+										destination.provider === provider.provider &&
+										destination.role === "portrait",
+								)
+							: [];
+						const portraitCandidates =
+							data.directDualOutput &&
+							provider.canReadStreamKey &&
+							portraits.length === 0
+								? paths.filter((path) => !path[provider.provider])
+								: [];
+						const status = !provider.linked
+							? t("Not connected")
+							: !provider.canReadStreamKey
+								? t("Connected. Streaming is not authorized yet.")
+								: routes.length === 0
+									? t("Not routed from any device")
+									: routes
+											.map((path) => {
+												const state = path.state[provider.provider];
+												const error = path.error[provider.provider];
+												return onDevice(
+													path.label,
+													`${t(ROUTE_STATE_LABEL[state ?? "stopped"])}${error ? ` (${error})` : ""}`,
+												);
+											})
+											.join(", ");
+						return (
+							<RouteRow key={provider.provider}>
+								<RouteName
+									actions={
+										provider.canReadStreamKey ? (
+											<RowAction
+												label={t("Reauthorize")}
+												onClick={() => authorize(provider.provider)}
+											/>
+										) : (
+											<span className="pl-2">
+												<Button
+													icon={
+														<Icon color="inherit" icon={LinkIcon} size="sm" />
+													}
+													label={t("Authorize streaming")}
+													size="sm"
+													variant="primary"
+													onClick={() => authorize(provider.provider)}
+												/>
+											</span>
+										)
+									}
+									name={name}
+									status={status}
+								/>
+								{paths.map((path) => {
+									const on = path[provider.provider];
+									if (!provider.canReadStreamKey && !on)
+										return <NoCrosspoint key={path.id} />;
+									const lastOutput =
+										on &&
+										Number(path.twitch) +
+											Number(path.kick) +
+											Number(path.youtube) ===
+											1;
+									return (
+										<Crosspoint
+											disabled={
+												lastOutput || path.publishing || setOutputs.isPending
+											}
+											hint={t(
+												lastOutput
+													? "Switch Mode to Phone to your OBS to turn off Direct output"
+													: "Stop this device before changing its Direct outputs",
+											)}
+											key={path.id}
+											label={`${name}: ${path.label}`}
+											on={on}
+											state={path.state[provider.provider]}
+											onChange={(value) =>
+												setOutputs.mutate({
+													pathId: path.id,
+													twitch:
+														provider.provider === "twitch"
+															? value
+															: path.twitch,
+													kick:
+														provider.provider === "kick" ? value : path.kick,
+													youtube:
+														provider.provider === "youtube"
+															? value
+															: path.youtube,
+												})
+											}
 										/>
-									) : null}
-									<VStack gap={2}>
-										{(["twitch", "kick", "youtube"] as const).map(
-											(provider) => {
-												const lastOutput =
-													path[provider] &&
-													Number(path.twitch) +
-														Number(path.kick) +
-														Number(path.youtube) ===
-														1;
-												return (
-													<Switch
-														key={provider}
-														disabledMessage={t(
-															lastOutput
-																? "Switch Mode to Phone to your OBS to turn off Direct output"
-																: "Stop this device before changing its Direct outputs",
-														)}
-														isDisabled={
-															lastOutput ||
-															path.publishing ||
-															setOutputs.isPending
-														}
-														label={providerLabel(provider)}
-														labelSpacing="spread"
-														value={path[provider]}
-														onChange={(value) =>
-															setOutputs.mutate({
-																pathId: path.id,
-																twitch:
-																	provider === "twitch" ? value : path.twitch,
-																kick: provider === "kick" ? value : path.kick,
-																youtube:
-																	provider === "youtube" ? value : path.youtube,
+									);
+								})}
+								{provider.provider === "youtube" && anyYoutube ? (
+									<div className="col-span-full">
+										<YoutubeTitle
+											saving={setYoutubeSettings.isPending}
+											title={data.youtubeTitle}
+											onSave={(title) => setYoutubeSettings.mutate({ title })}
+										/>
+									</div>
+								) : null}
+								{portraits.length || portraitCandidates.length ? (
+									<div className="col-span-full flex flex-col gap-1 border-border border-l pl-4">
+										{portraits.map((destination) => {
+											const path = paths.find(
+												(entry) => entry.id === destination.pathId,
+											);
+											return (
+												<span
+													className="flex flex-wrap items-center gap-x-2 text-sm"
+													key={destination.id}
+												>
+													<span>
+														{t("Portrait")}
+														{path && paths.length > 1 ? ` · ${path.label}` : ""}
+														:{" "}
+														<span className="text-muted-foreground">
+															{t(
+																ROUTE_STATE_LABEL[
+																	destination.state ?? "stopped"
+																],
+															)}
+															{destination.error
+																? ` (${destination.error})`
+																: ""}
+														</span>
+													</span>
+													<RowAction
+														label={t("Edit framing")}
+														onClick={() =>
+															setFraming({
+																pathId: destination.pathId,
+																provider: destination.provider,
+																crop: destination.crop ?? DEFAULT_PORTRAIT_CROP,
 															})
 														}
 													/>
-												);
-											},
-										)}
-									</VStack>
-									{advanced && direct.data.directDualOutput ? (
-										<VStack gap={2}>
-											{direct.data.destinations
-												.filter(
-													(destination) =>
-														destination.pathId === path.id &&
-														destination.role === "portrait",
-												)
-												.map((destination) => (
-													<HStack
-														key={destination.id}
-														gap={2}
-														vAlign="center"
-														wrap="wrap"
-													>
-														<Badge label={t("Portrait")} variant="neutral" />
-														<Text type="supporting">
-															{providerLabel(destination.provider)}
-														</Text>
-														<ProviderState
-															error={destination.error}
-															provider={destination.provider}
-															outputRole="portrait"
-															state={destination.state}
-														/>
-														<Button
-															label={t("Edit framing")}
-															variant="ghost"
-															onClick={() =>
+													<RowAction
+														disabled={setRole.isPending}
+														label={t("Remove portrait")}
+														onClick={() =>
+															setRole.mutate({
+																pathId: destination.pathId,
+																provider: destination.provider,
+																role: "landscape",
+															})
+														}
+													/>
+												</span>
+											);
+										})}
+										{portraitCandidates.map((path) => (
+											<span className="-ml-2" key={path.id}>
+												<RowAction
+													disabled={setRole.isPending}
+													label={
+														paths.length > 1
+															? `${t("Add portrait output")} · ${path.label}`
+															: t("Add portrait output")
+													}
+													onClick={() => {
+														void setRole
+															.mutateAsync({
+																pathId: path.id,
+																provider: provider.provider,
+																role: "portrait",
+															})
+															.then(() =>
 																setFraming({
 																	pathId: path.id,
-																	provider: destination.provider,
-																	crop:
-																		destination.crop ?? DEFAULT_PORTRAIT_CROP,
-																})
-															}
-														/>
-														<Button
-															isDisabled={setRole.isPending}
-															label={t("Remove portrait")}
-															variant="ghost"
-															onClick={() =>
-																setRole.mutate({
-																	pathId: path.id,
-																	provider: destination.provider,
-																	role: "landscape",
-																})
-															}
-														/>
-													</HStack>
-												))}
-											{direct.data.providers
-												.filter(
-													(entry) =>
-														entry.canReadStreamKey &&
-														!path[entry.provider] &&
-														!direct.data.destinations.some(
-															(destination) =>
-																destination.provider === entry.provider &&
-																destination.role === "portrait",
-														),
-												)
-												.map((entry) => (
-													<Button
-														key={entry.provider}
-														isDisabled={setRole.isPending}
-														label={`${t("Add portrait output")} · ${providerLabel(entry.provider)}`}
-														variant="ghost"
-														onClick={() => {
-															void setRole
-																.mutateAsync({
-																	pathId: path.id,
-																	provider: entry.provider,
-																	role: "portrait",
-																})
-																.then(() =>
-																	setFraming({
-																		pathId: path.id,
-																		provider: entry.provider,
-																		crop: DEFAULT_PORTRAIT_CROP,
-																	}),
-																);
-														}}
-													/>
-												))}
-										</VStack>
-									) : null}
-									<ProviderState
-										error={path.error.twitch}
-										provider="twitch"
-										state={path.state.twitch}
-									/>
-									<ProviderState
-										error={path.error.youtube}
-										provider="youtube"
-										state={path.state.youtube}
-									/>
-									<ProviderState
-										error={path.error.kick}
-										provider="kick"
-										state={path.state.kick}
-									/>
-								</VStack>
-							</Card>
-						))}
+																	provider: provider.provider,
+																	crop: DEFAULT_PORTRAIT_CROP,
+																}),
+															);
+													}}
+												/>
+											</span>
+										))}
+									</div>
+								) : null}
+							</RouteRow>
+						);
+					})}
 
-						{advanced && anyYoutube ? (
-							<YoutubeTitle
-								saving={setYoutubeSettings.isPending}
-								title={direct.data.youtubeTitle}
-								onSave={(title) => setYoutubeSettings.mutate({ title })}
+					<DirectCustomDestinations />
+				</div>
+			) : null}
+
+			{lockedPaths.length || lowLatencyPaths.length ? (
+				<div className="flex flex-col gap-3">
+					{lockedPaths.length ? (
+						<p className="flex items-center gap-2 text-muted-foreground text-sm">
+							<span aria-hidden className="tally-pulse size-2 bg-tally" />
+							{t(
+								"Routes are locked while a device is sending. Stop it in the app to change them.",
+							)}
+						</p>
+					) : null}
+					{lowLatencyPaths.map((path) => (
+						<Banner
+							description={t(LOW_LATENCY_DIRECT_WARNING)}
+							key={path.id}
+							status="warning"
+							title={onDevice(
+								path.label,
+								t("Direct runs on a low-latency feed"),
+							)}
+						/>
+					))}
+				</div>
+			) : null}
+
+			{data ? (
+				<Collapsible
+					defaultIsOpen={false}
+					trigger={<Text type="label">{t("Platform rules")}</Text>}
+				>
+					<VStack gap={3} paddingBlock={2}>
+						{anyYoutube ? (
+							<Banner
+								description={t(
+									"VISP creates a new public YouTube broadcast when this device starts publishing.",
+								)}
+								status="warning"
+								title={t("YouTube broadcasts are public")}
 							/>
 						) : null}
-
-						{advanced ? (
-							<Collapsible
-								defaultIsOpen={false}
-								trigger={<Text type="label">{t("Platform rules")}</Text>}
-							>
-								<VStack gap={3} paddingBlock={2}>
-									{anyYoutube ? (
-										<Banner
-											description={t(
-												"VISP creates a new public YouTube broadcast when this device starts publishing.",
-											)}
-											status="warning"
-											title={t("YouTube broadcasts are public")}
-										/>
-									) : null}
-									{anyTwitch ? (
-										<Banner
-											description={t(
-												"Twitch's simulcasting terms prohibit showing activity from another platform on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
-											)}
-											status="warning"
-											title={t("Do not put Kick chat on the Twitch stream")}
-										/>
-									) : null}
-									{anyBoth ? (
-										<Banner
-											description={t(
-												"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout for the duration of a multistreaming session.",
-											)}
-											status="warning"
-											title={t("Kick Partners: enable Multistreaming")}
-										/>
-									) : null}
-									<Text type="label">{t("Using OBS alongside Direct")}</Text>
-									<Text color="secondary" type="supporting">
-										{t(
-											"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
-										)}
-									</Text>
-								</VStack>
-							</Collapsible>
+						{anyTwitch ? (
+							<Banner
+								description={t(
+									"Twitch's simulcasting terms prohibit showing activity from another platform on the Twitch stream, so do not burn Kick chat into the video. Floating chat stays fine — only you see it.",
+								)}
+								status="warning"
+								title={t("Do not put Kick chat on the Twitch stream")}
+							/>
 						) : null}
-					</>
-				) : null}
-			</VStack>
-			{advanced && framing ? (
+						{anyBoth ? (
+							<Banner
+								description={t(
+									"Kick Partners must switch on Kick's own Multistreaming toggle. Kick currently reduces Partner Program payout for the duration of a multistreaming session.",
+								)}
+								status="warning"
+								title={t("Kick Partners: enable Multistreaming")}
+							/>
+						) : null}
+						<Text type="label">{t("Using OBS alongside Direct")}</Text>
+						<Text color="secondary" type="supporting">
+							{t(
+								"OBS can still read this feed for monitoring or recording, but do not let OBS stream to a provider VISP Direct already owns — that is two publishers on one stream key. What OBS reads is the contribution feed from your device, not the encode the platform receives.",
+							)}
+						</Text>
+					</VStack>
+				</Collapsible>
+			) : null}
+
+			{framing ? (
 				<DirectPortraitFraming
 					crop={framing.crop}
 					isOpen
@@ -532,7 +543,7 @@ export function DirectCard({ advanced = false }: { advanced?: boolean }) {
 					}
 				/>
 			) : null}
-		</Card>
+		</section>
 	);
 }
 
