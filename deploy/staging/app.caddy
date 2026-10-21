@@ -40,14 +40,13 @@
 
 staging.visp-stream.com {
 	import staging_security_headers
-	# OBS loads /overlay as a top-level browser source, but the Cloud Studio
-	# editor previews browser layers in an iframe on this origin.
-	@overlay path /overlay
+	# The Studio editor previews the overlay and broadcast page on this origin.
+	@overlay path /overlay /live /live/
 	header @overlay {
 		X-Frame-Options SAMEORIGIN
 		Content-Security-Policy "frame-ancestors 'self'"
 	}
-	@not_overlay not path /overlay
+	@not_overlay not path /overlay /live /live/
 	header @not_overlay {
 		X-Frame-Options DENY
 		Content-Security-Policy "frame-ancestors 'none'"

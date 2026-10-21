@@ -96,6 +96,21 @@ export function studioPreviewUrls(
 	};
 }
 
+export function studioBrowserSandbox(url: string, appOrigin: string) {
+	try {
+		const target = new URL(url);
+		// Our broadcast page needs its own origin to load modules and fonts.
+		if (
+			target.origin === appOrigin &&
+			["/live", "/live/"].includes(target.pathname)
+		)
+			return "allow-scripts allow-same-origin";
+	} catch {
+		// Invalid drafts retain the restrictive sandbox.
+	}
+	return "allow-scripts";
+}
+
 /** How long a fresh ingest may go without a healthy worker before it is a fallback. */
 export const STUDIO_STARTUP_GRACE_MS = 20_000;
 

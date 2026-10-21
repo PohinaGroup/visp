@@ -15,6 +15,7 @@ import {
 	renameStudioScene,
 	selectStudioScene,
 	shouldEnterStudio,
+	studioBrowserSandbox,
 	studioErrorHint,
 	studioLayerDisplayState,
 	studioPreviewPanes,
@@ -27,6 +28,25 @@ import {
 } from "./studio-model";
 
 describe("Studio editor model", () => {
+	test("only the app's public broadcast page gets same-origin script access", () => {
+		for (const path of ["/live", "/live/", "/live?lang=fi"]) {
+			expect(
+				studioBrowserSandbox(`https://visp.test${path}`, "https://visp.test"),
+			).toBe("allow-scripts allow-same-origin");
+		}
+		for (const url of [
+			"https://widgets.test/live",
+			"https://visp.test/dashboard",
+			"https://visp.test/live/private",
+			"https://visp.test/live-other",
+			"http://visp.test/live",
+			"not a URL",
+		]) {
+			expect(studioBrowserSandbox(url, "https://visp.test")).toBe(
+				"allow-scripts",
+			);
+		}
+	});
 	test("sends a new cloud-mode user to Studio on first Direct entry", () => {
 		expect(
 			shouldEnterStudio({

@@ -24,6 +24,7 @@ import { trackEvent } from "@/lib/analytics";
 import { dashboardHomeState } from "@/lib/dashboard-home";
 import { useLocale, useT } from "@/lib/i18n";
 import { pollWithBackoff } from "@/lib/query-resilience";
+import { studioPreviewUrls } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
 import { BrbCard } from "./brb-card";
 import { ChatBotCard } from "./chat-bot-card";
@@ -164,6 +165,13 @@ export function DashboardPage() {
 	} = useDashboardSeppo(selectView);
 
 	const direct = directQuery.data;
+	const preview = studioPreviewUrls(
+		studioQuery.data?.preview,
+		Boolean(livePath),
+		direct?.mode !== "direct" ||
+			studioQuery.data?.settings.effectiveMode !== "cloud_studio" ||
+			studioQuery.data.settings.passthrough,
+	);
 	const paths = pathsQuery.data ?? [];
 	const outputs = [
 		...(direct?.destinations ?? []),
@@ -542,9 +550,7 @@ export function DashboardPage() {
 												: t("Preview")
 										}
 										poster={snapshot?.url ?? undefined}
-										url={
-											livePath ? studioQuery.data?.preview?.camera : undefined
-										}
+										url={preview.program ?? preview.camera}
 									/>
 								</div>
 							</section>
