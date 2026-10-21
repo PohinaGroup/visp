@@ -5,6 +5,7 @@ import { agentRouter } from "./agent";
 import { brbRouter } from "./brb";
 import { channelRouter } from "./channel";
 import { chatRouter } from "./chat";
+import { liveRouter } from "./live";
 import { multiChatRouter } from "./multichat";
 import { planRouter } from "./plan";
 import { relayRoutes } from "./relay";
@@ -24,6 +25,7 @@ export const appRouter = router({
 		};
 	}),
 	chat: chatRouter,
+	live: liveRouter,
 	multichat: multiChatRouter,
 	plan: planRouter,
 	channel: channelRouter,

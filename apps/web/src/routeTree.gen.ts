@@ -18,6 +18,7 @@ import { Route as PhoneOnlyRouteImport } from './routes/phone-only'
 import { Route as OverlayRouteImport } from './routes/overlay'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LlmsDottxtRouteImport } from './routes/llms[.]txt'
+import { Route as LiveRouteImport } from './routes/live'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as DeviceRouteImport } from './routes/device'
 import { Route as CookiesRouteImport } from './routes/cookies'
@@ -85,6 +86,11 @@ const LoginRoute = LoginRouteImport.update({
 const LlmsDottxtRoute = LlmsDottxtRouteImport.update({
   id: '/llms.txt',
   path: '/llms.txt',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LiveRoute = LiveRouteImport.update({
+  id: '/live',
+  path: '/live',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DownloadRoute = DownloadRouteImport.update({
@@ -209,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
+  '/live': typeof LiveRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
@@ -242,6 +249,7 @@ export interface FileRoutesByTo {
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
+  '/live': typeof LiveRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
@@ -277,6 +285,7 @@ export interface FileRoutesById {
   '/cookies': typeof CookiesRoute
   '/device': typeof DeviceRoute
   '/download': typeof DownloadRoute
+  '/live': typeof LiveRoute
   '/llms.txt': typeof LlmsDottxtRoute
   '/login': typeof LoginRoute
   '/overlay': typeof OverlayRoute
@@ -312,6 +321,7 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/device'
     | '/download'
+    | '/live'
     | '/llms.txt'
     | '/login'
     | '/overlay'
@@ -345,6 +355,7 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/device'
     | '/download'
+    | '/live'
     | '/llms.txt'
     | '/login'
     | '/overlay'
@@ -379,6 +390,7 @@ export interface FileRouteTypes {
     | '/cookies'
     | '/device'
     | '/download'
+    | '/live'
     | '/llms.txt'
     | '/login'
     | '/overlay'
@@ -414,6 +426,7 @@ export interface RootRouteChildren {
   CookiesRoute: typeof CookiesRoute
   DeviceRoute: typeof DeviceRoute
   DownloadRoute: typeof DownloadRoute
+  LiveRoute: typeof LiveRoute
   LlmsDottxtRoute: typeof LlmsDottxtRoute
   LoginRoute: typeof LoginRoute
   OverlayRoute: typeof OverlayRoute
@@ -501,6 +514,13 @@ declare module '@tanstack/react-router' {
       path: '/llms.txt'
       fullPath: '/llms.txt'
       preLoaderRoute: typeof LlmsDottxtRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/live': {
+      id: '/live'
+      path: '/live'
+      fullPath: '/live'
+      preLoaderRoute: typeof LiveRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/download': {
@@ -691,6 +711,7 @@ const rootRouteChildren: RootRouteChildren = {
   CookiesRoute: CookiesRoute,
   DeviceRoute: DeviceRoute,
   DownloadRoute: DownloadRoute,
+  LiveRoute: LiveRoute,
   LlmsDottxtRoute: LlmsDottxtRoute,
   LoginRoute: LoginRoute,
   OverlayRoute: OverlayRoute,

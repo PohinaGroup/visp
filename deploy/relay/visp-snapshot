@@ -397,8 +397,11 @@ forward() {
 		( sleep 10; report_state "$output_id" live "" "$role" "$kind" "$provider" ) &
 		watcher="$!"
 		if distribution_url="$(distribution_source "$source_url" "$role" "$filter")"; then
+			# Tiny AAC frames (muted mic) get several access units per RTP
+			# packet; ffmpeg's RTSP demuxer leaves PTS unset on all but the
+			# first, and the FLV muxer rejects them. genpts fills them in.
 			ffmpeg -nostdin -hide_banner -loglevel error \
-				-rtsp_transport tcp -timeout 15000000 -i "$distribution_url" \
+				-rtsp_transport tcp -timeout 15000000 -fflags +genpts -i "$distribution_url" \
 				-map 0:v:0 -map '0:a:0?' -c copy -f "$muxer" "$destination" 2>"$log" &
 		elif test "$role" = portrait; then
 			encode_to exec "$destination" "$log" \

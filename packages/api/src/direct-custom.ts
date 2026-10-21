@@ -23,7 +23,10 @@ import {
 	DIRECT_RUNNING_STATES,
 	type DirectState,
 } from "./direct-model";
-import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
+import {
+	DIRECT_OCCUPIED_STATES_SQL,
+	releasedReservation,
+} from "./direct-occupancy";
 import {
 	DEFAULT_PORTRAIT_CROP,
 	portraitFilterMatches,
@@ -659,9 +662,18 @@ export async function applyCustomDirectState(input: {
 						.trim()
 						.slice(0, 200) || null
 				: null,
-			...(input.state === "failed" || input.state === "stopped"
-				? { reservedRelayId: null, reservedUntil: null }
-				: {}),
+			...(input.state === "stopped"
+				? {
+						// The relay id travels with the reservation it belongs to.
+						reservedRelayId: sql`case when ${customDirectOutput.reservedUntil} > now() then ${customDirectOutput.reservedRelayId} else null end`,
+						reservedUntil: releasedReservation(
+							customDirectOutput.reservedUntil,
+							input.state,
+						),
+					}
+				: input.state === "failed"
+					? { reservedRelayId: null, reservedUntil: null }
+					: {}),
 		})
 		.where(eq(customDirectOutput.id, row.id));
 	await recordForwarderTransition([row.pathId]);

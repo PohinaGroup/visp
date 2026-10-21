@@ -1,0 +1,28 @@
+[Unit]
+Description=VISP always-on heartbeat feed (keeps the showcase channel's ingest alive)
+After=network-online.target mediamtx.service
+Wants=network-online.target
+Requires=mediamtx.service
+
+[Service]
+Type=simple
+DynamicUser=true
+EnvironmentFile=/etc/visp/always-on.env
+# A silent black program: Cloud Studio replaces the picture with the browser
+# layer, so this only has to exist. Direct shows this black feed if the
+# compositor is down.
+ExecStart=/usr/bin/ffmpeg -nostdin -loglevel warning -re \
+  -f lavfi -i color=c=black:s=1920x1080:r=30 \
+  -f lavfi -i anullsrc=channel_layout=stereo:sample_rate=48000 \
+  -c:v libx264 -preset ultrafast -tune stillimage -b:v 500k -g 60 -pix_fmt yuv420p \
+  -c:a aac -b:a 64k \
+  -f mpegts "${ALWAYS_ON_PUBLISH_URL}"
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

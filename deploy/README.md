@@ -445,6 +445,41 @@ by Kick's RSA signature, timestamp window, and replay detection. Caddy proxies
 the native chat WebSocket directly to the API; no special WebSocket directive is
 needed.
 
+## Always-on showcase channel (optional)
+
+The VISP bot's own Twitch channel can stay live around the clock showing a
+rendered status page, the way 24/7 bot channels do. Nothing new runs on the
+app host: the bot account is an ordinary broadcaster, Cloud Studio renders the
+page, and Direct forwards it. Requires `CLOUD_STUDIO_ENABLED=true` and a relay
+with the compositor installed.
+
+1. Sign in to the portal as the bot account (`VISP_CHAT_BOT_USER_ID`). Create a
+   publishing device, enable Direct to Twitch and grant the stream-key scope,
+   and set the title and category. In Studio, add one scene with a 1920x1080
+   browser layer pointing at `https://<portal>/live`.
+2. Reveal the device's SRT publish URL and put it on the relay in a root-only
+   file:
+
+   ```text
+   # /etc/visp/always-on.env (mode 0600)
+   ALWAYS_ON_PUBLISH_URL=srt://relay.example.com:8890?streamid=publish:...
+   ```
+
+3. Install the heartbeat unit. It publishes a silent black program forever;
+   the compositor replaces the picture.
+
+   ```bash
+   sudo install -D -m 0644 deploy/systemd/visp-always-on.service \
+     /etc/systemd/system/visp-always-on.service
+   sudo systemctl daemon-reload
+   sudo systemctl enable --now visp-always-on.service
+   ```
+
+4. Pin a "how to add VISP" message in the channel's chat by hand.
+
+Cost: one compositor (Chromium plus two FFmpeg processes) and one Direct
+encoder slot on that relay, permanently. Stop the unit to free them.
+
 ## Adding relay N
 
 To add a relay in a new region (US East, Singapore, Tokyo, …), follow
