@@ -36,9 +36,10 @@
 
 {$APP_DOMAIN} {
 	import security_headers
-	# OBS loads /overlay as a top-level browser source, but the Cloud Studio
-	# editor previews browser layers in an iframe on this origin.
-	@overlay path /overlay
+	# OBS loads /overlay as a top-level browser source, and /live is the
+	# always-on broadcast page; the Cloud Studio editor previews browser
+	# layers in an iframe on this origin, so both allow same-origin framing.
+	@overlay path /overlay /live
 	header @overlay {
 		X-Frame-Options SAMEORIGIN
 		Content-Security-Policy "frame-ancestors 'self'"
