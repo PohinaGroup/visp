@@ -87,6 +87,8 @@ describe("session expiry", () => {
 describe("analytics exclusions", () => {
 	test("skips routes with a secret in the URL", () => {
 		expect(analyticsAllowed("/overlay")).toBe(false);
+		// The compositor disables a browser layer on any off-host request.
+		expect(analyticsAllowed("/live")).toBe(false);
 		expect(analyticsAllowed("/device")).toBe(false);
 		expect(analyticsAllowed("/device/")).toBe(false);
 		expect(analyticsAllowed("/dashboard")).toBe(true);

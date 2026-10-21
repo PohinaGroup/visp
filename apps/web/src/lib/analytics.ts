@@ -5,8 +5,10 @@ declare global {
 }
 
 // Routes that carry a secret in the URL: the overlay token (?t=) and the
-// OBS pairing code. Analytics never loads on them.
-const ANALYTICS_EXCLUDED_PATHS = new Set(["/overlay", "/device"]);
+// OBS pairing code. Analytics never loads on them. /live is rendered by the
+// Cloud Studio compositor, which disables a browser layer on any request to
+// a host other than the page's own.
+const ANALYTICS_EXCLUDED_PATHS = new Set(["/overlay", "/device", "/live"]);
 
 export function analyticsAllowed(pathname: string | undefined) {
 	if (!pathname) return true;
