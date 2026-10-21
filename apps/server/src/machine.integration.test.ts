@@ -4027,6 +4027,54 @@ integration("VISP Direct boundaries", () => {
 		);
 	});
 
+	test("a forwarder stopping after a drop keeps the reconnecting publisher's reservation", async () => {
+		const data = await seedDirect();
+		const caller = await callerFor("user-a");
+		await caller.direct.setOutputs({
+			pathId: data.pathA.id,
+			twitch: true,
+			kick: false,
+			youtube: false,
+		});
+		// The phone re-prepares right before reconnecting; the forwarder from
+		// the dropped publish is still winding down and reports stopped after.
+		await prepareDirect("user-a", data.pathA.id);
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "twitch",
+			state: "stopped",
+		});
+
+		const { destinations } = await resolveDirectDestinations(
+			"alpha-1",
+			directDeps(),
+		);
+		expect(destinations).toMatchObject([
+			{ provider: "twitch", role: "landscape" },
+		]);
+		const [state] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(state?.directTwitchError).toBeNull();
+
+		// A reservation that has already lapsed is still released.
+		await db
+			.update(pathState)
+			.set({ directTwitchReservedUntil: new Date(Date.now() - 1000) })
+			.where(eq(pathState.pathId, data.pathA.id));
+		await applyDirectState({
+			slug: "alpha-1",
+			provider: "twitch",
+			state: "stopped",
+		});
+		const [lapsed] = await db
+			.select()
+			.from(pathState)
+			.where(eq(pathState.pathId, data.pathA.id));
+		expect(lapsed?.directTwitchReservedUntil).toBeNull();
+	});
+
 	test("returns reserved destination URLs and never a bare key", async () => {
 		const data = await seedDirect();
 		const caller = await callerFor("user-a");

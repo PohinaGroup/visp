@@ -17,7 +17,10 @@ import {
 	type DirectRole,
 	type DirectState,
 } from "./direct-model";
-import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
+import {
+	DIRECT_OCCUPIED_STATES_SQL,
+	releasedReservation,
+} from "./direct-occupancy";
 
 export const DEFAULT_PORTRAIT_CROP: DirectCrop = {
 	x: 0.3418,
@@ -320,7 +323,12 @@ export async function applyPortraitState(
 			state: input.state,
 			error: sanitizeError(input.error),
 			...(input.state === "failed" || input.state === "stopped"
-				? { reservedUntil: null }
+				? {
+						reservedUntil: releasedReservation(
+							directDestination.reservedUntil,
+							input.state,
+						),
+					}
 				: {}),
 		})
 		.where(

@@ -36,7 +36,10 @@ import {
 	type DirectRole,
 	type DirectState,
 } from "./direct-model";
-import { DIRECT_OCCUPIED_STATES_SQL } from "./direct-occupancy";
+import {
+	DIRECT_OCCUPIED_STATES_SQL,
+	releasedReservation,
+} from "./direct-occupancy";
 import {
 	applyPortraitState,
 	listPortraitDestinations,
@@ -1558,29 +1561,46 @@ export async function applyDirectState(input: {
 			? {
 					directTwitchState: input.state,
 					directTwitchError: sanitizeDirectError(input.error),
-					...(input.state === "failed" || input.state === "stopped"
-						? { directTwitchReservedUntil: null }
-						: {}),
 				}
 			: input.provider === "kick"
 				? {
 						directKickState: input.state,
 						directKickError: sanitizeDirectError(input.error),
-						...(input.state === "failed" || input.state === "stopped"
-							? { directKickReservedUntil: null }
-							: {}),
 					}
 				: {
 						directYoutubeState: input.state,
 						directYoutubeError: sanitizeDirectError(input.error),
-						...(input.state === "failed" || input.state === "stopped"
-							? { directYoutubeReservedUntil: null }
-							: {}),
 					};
+	const released =
+		input.state === "failed" || input.state === "stopped"
+			? input.provider === "twitch"
+				? {
+						directTwitchReservedUntil: releasedReservation(
+							pathState.directTwitchReservedUntil,
+							input.state,
+						),
+					}
+				: input.provider === "kick"
+					? {
+							directKickReservedUntil: releasedReservation(
+								pathState.directKickReservedUntil,
+								input.state,
+							),
+						}
+					: {
+							directYoutubeReservedUntil: releasedReservation(
+								pathState.directYoutubeReservedUntil,
+								input.state,
+							),
+						}
+			: {};
 	await db
 		.insert(pathState)
 		.values({ pathId: path.id, lastEventAt: new Date(), ...columns })
-		.onConflictDoUpdate({ target: pathState.pathId, set: columns });
+		.onConflictDoUpdate({
+			target: pathState.pathId,
+			set: { ...columns, ...released },
+		});
 	await recordForwarderTransition([path.id]);
 	if (input.state === "live")
 		await recordPlatformLive(path.userId, path.id, input.provider);
