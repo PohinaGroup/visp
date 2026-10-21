@@ -21,14 +21,24 @@ export PATH="$work/bin:$PATH"
 
 cat >"$work/bin/curl" <<'FAKE'
 #!/usr/bin/env bash
-url=""; data=""; output=""
+url=""; data=""; output=""; writeout=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--data) data="$2"; shift 2 ;;
-		-*) case "$1" in --output) output="$2"; shift 2 ;; --header|--max-time|--upload-file|--request) shift 2 ;; *) shift ;; esac ;;
+		-*) case "$1" in --output) output="$2"; shift 2 ;; --write-out) writeout="$2"; shift 2 ;; --header|--max-time|--upload-file|--request) shift 2 ;; *) shift ;; esac ;;
 		*) url="$1"; shift ;;
 	esac
 done
+# The desired-state poll reads the HTTP status: 204 keeps the output, 410
+# stops it, anything else (an app restart) is a transient miss.
+active_code() {
+	test -n "$writeout" || return 0
+	if test -f "$FAKE_ACTIVE_OUTAGE"; then printf '502'
+	elif test "$1" = removed; then printf '410'
+	else printf '204'
+	fi
+	exit 0
+}
 printf '%s\n' "$url" >>"$FAKE_CURL_CALLS"
 case "$url" in
 	*/mediamtx/auth) exit 22 ;; # Older apps force the dedicated-encode fallback.
@@ -55,10 +65,12 @@ JSON
 	*/direct-active)
 		test "${FAKE_SERVER_VERSION:-new}" != old || exit 22
 		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
-		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
+		case "$data" in *'"role":"portrait"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || active_code removed ;; esac
+		active_code ;;
 	*/direct-active-v3)
 		printf '%s\n' "$data" >>"$FAKE_ACTIVE_LOG"
-		case "$data" in *'"outputId":"260b40b3-4e27-4773-9941-1c93ec895906"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || exit 1 ;; esac ;;
+		case "$data" in *'"outputId":"260b40b3-4e27-4773-9941-1c93ec895906"'*) test ! -f "$FAKE_PORTRAIT_REMOVED" || active_code removed ;; esac
+		active_code ;;
 	*/hooks/brb-v3)
 		printf '%s\n' "$data" >>"$FAKE_BRB_LOG"
 		cat "$FAKE_BRB_REPLY" ;;
@@ -195,6 +207,7 @@ export FAKE_BRB_REPLY="$work/brb-reply"
 export FAKE_PID_DIR="$work/pids"
 export FAKE_LIVE_MARKER="$work/run/path-1.live"
 export FAKE_ACTIVE_LOG="$work/active.log"
+export FAKE_ACTIVE_OUTAGE="$work/active-outage"
 export FAKE_STOP_ACK_LOG="$work/stop-ack.log"
 export FAKE_PORTRAIT_REMOVED="$work/portrait-removed"
 export FAKE_IGNORE_TERM="$work/ignore-term"
@@ -494,9 +507,30 @@ rm -f "$FAKE_LIVE_MARKER"
 rm -f "$FAKE_IGNORE_TERM"
 sleep 5
 
+# The app restarting for a release answers 502 for a few seconds. That is not
+# a stop order: every output must ride it out and still be live afterwards.
+rm -f "$FAKE_PORTRAIT_REMOVED"
+touch "$FAKE_LIVE_MARKER"
+: >"$FAKE_STATE_LOG"
+start_script
+script_pid=$!
+wait_for_live_children 3 ||
+	fail "outage fixture started $(live_children) encoders instead of 3"
+touch "$FAKE_ACTIVE_OUTAGE"
+sleep 7
+rm -f "$FAKE_ACTIVE_OUTAGE"
+sleep 3
+test "$(live_children)" -eq 3 ||
+	fail "an app outage stopped $((3 - $(live_children))) forwarder(s)"
+! grep -q '"state":"stopped"' "$FAKE_STATE_LOG" ||
+	fail "an app outage was reported as a stop"
+kill -TERM "$script_pid" 2>/dev/null || true
+wait "$script_pid" 2>/dev/null || true
+rm -f "$FAKE_LIVE_MARKER"
+sleep 5
+
 # A new relay rolling out before the app must consume the old two-field
 # landscape contract and must not require the new desired-state hook.
-rm -f "$FAKE_PORTRAIT_REMOVED"
 printf 'brb QmUgcmlnaHQgYmFjaw== - color\n' >"$FAKE_BRB_REPLY"
 export FAKE_SERVER_VERSION=old
 before_forwards="$(grep -c -- '-f flv' "$FAKE_FFMPEG_LOG" || true)"

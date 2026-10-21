@@ -349,6 +349,7 @@ forward() {
 	trap 'resume=1; test -z "$brb_pid" || kill "$brb_pid" 2>/dev/null; test -z "$analytics_pid" || kill "$analytics_pid" 2>/dev/null' USR1
 	if test "$desired_state" = 1; then
 		(
+			misses=0
 			while sleep 2; do
 				if test "$kind" = custom; then
 					active_endpoint=direct-active-v3
@@ -357,11 +358,22 @@ forward() {
 					active_endpoint=direct-active
 					active_payload="{\"path\":\"$path\",\"provider\":\"$provider\",\"role\":\"$role\",\"filter\":\"$filter\"}"
 				fi
-				curl --fail --silent --max-time 2 --request POST \
+				code="$(curl --silent --max-time 2 --output /dev/null \
+					--write-out '%{http_code}' --request POST \
 					--header "Content-Type: application/json" \
 					--header "X-Hook-Secret: $HOOK_SECRET" \
 					--data "$active_payload" \
-					"$app_url/api/hooks/$active_endpoint" >/dev/null && continue
+					"$app_url/api/hooks/$active_endpoint")" || code=000
+				# Only an explicit 410 is a stop order. An app release answers
+				# 502/503 or times out for a few seconds, and that used to end
+				# every running output. Thirty seconds of silence still stops
+				# it: nobody should stay live by accident, and an app that is
+				# down longer than a restart cannot deliver a stop anyway.
+				case "$code" in
+					2*) misses=0; continue ;;
+					410) ;;
+					*) misses=$((misses + 1)); test "$misses" -ge 15 || continue ;;
+				esac
 				touch "$lock/stop"
 				encoder_pid="$(cat "$lock/encoder-pid" 2>/dev/null)" || break
 				kill -TERM "$encoder_pid" 2>/dev/null
