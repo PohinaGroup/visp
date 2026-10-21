@@ -26,6 +26,7 @@ import {
 	studioVideoArgs,
 	studioXfadeFilter,
 } from "./state";
+import { renderStudioTextPng } from "./text";
 
 const [appUrl, path, inputUrl, outputUrl] = process.argv.slice(2);
 if (
@@ -127,6 +128,7 @@ async function retainBrowsers(ids: Set<string>) {
 }
 
 let alertTextCache: { key: string; bytes: Buffer } | undefined;
+const textCache = new Map<string, { key: string; bytes: Buffer }>();
 const pipeline = new CompositorPipeline();
 let applied = "";
 let appliedSceneId: string | undefined;
@@ -261,6 +263,10 @@ async function apply(desired: Desired, crossfade: boolean) {
 						studioAlertEvents(layer).includes(desired.alert.event))),
 		)
 		.sort((a, b) => a.zIndex - b.zIndex);
+	for (const id of textCache.keys()) {
+		if (!layers.some((layer) => layer.type === "text" && layer.id === id))
+			textCache.delete(id);
+	}
 	const nextSlot: 0 | 1 = activeFeedSlot === 0 ? 1 : 0;
 	const nextFeed = rendererFeed(nextSlot);
 	const previousFeed =
@@ -361,15 +367,34 @@ async function apply(desired: Desired, crossfade: boolean) {
 				console.warn("Styled alert unavailable; showing plain text");
 			}
 		}
-		if (layer.type === "text" || layer.type === "alert") {
-			const file = `${work}/${safeId(layer.id)}-${nextSlot}.txt`;
-			await writeFile(
-				file,
-				layer.type === "alert"
-					? (desired.alert?.label ?? "Alert")
-					: (layer.text ?? ""),
-				{ mode: 0o600 },
+		if (layer.type === "text") {
+			const file = `${work}/${safeId(layer.id)}-${nextSlot}.png`;
+			const key = JSON.stringify([layer.width, layer.height, layer.text]);
+			let cached = textCache.get(layer.id);
+			if (cached?.key !== key) {
+				cached = {
+					key,
+					bytes: await renderStudioTextPng({
+						...layer,
+						text: layer.text ?? "",
+					}),
+				};
+				textCache.set(layer.id, cached);
+			}
+			await writeFile(file, cached.bytes, { mode: 0o600 });
+			args.push("-loop", "1", "-i", file);
+			filters.push(
+				`[${++inputs}:v]crop=${layer.width}:${layer.height}:0:0[${output}text]`,
 			);
+			filters.push(
+				`${current}[${output}text]overlay=${layer.x}:${layer.y}[${output}]`,
+			);
+			current = `[${output}]`;
+			continue;
+		}
+		if (layer.type === "alert") {
+			const file = `${work}/${safeId(layer.id)}-${nextSlot}.txt`;
+			await writeFile(file, desired.alert?.label ?? "Alert", { mode: 0o600 });
 			filters.push(
 				`${current}drawtext=textfile='${file}':expansion=none:x=${Number(layer.x)}:y=${Number(layer.y)}:fontsize=${Math.max(12, Math.min(layer.height, 200))}:fontcolor=white:box=1:boxcolor=black@0.45[${output}]`,
 			);

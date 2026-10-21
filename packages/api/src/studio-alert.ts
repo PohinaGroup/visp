@@ -90,7 +90,7 @@ export function studioAlertLayout(
 	};
 }
 
-const escapeHtml = (text: string) =>
+export const escapeHtml = (text: string) =>
 	text.replace(
 		/[&<>"']/g,
 		(char) =>

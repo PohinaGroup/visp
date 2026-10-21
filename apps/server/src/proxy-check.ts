@@ -92,13 +92,24 @@ try {
 					home.headers.get("strict-transport-security") ?? "",
 					/max-age=31536000/,
 				);
-				// The Cloud Studio editor previews the chat overlay in a same-origin iframe.
-				const overlay = await fetch(`${base}/overlay?t=x`);
-				assert.equal(overlay.headers.get("x-frame-options"), "SAMEORIGIN");
-				assert.equal(
-					overlay.headers.get("content-security-policy"),
-					"frame-ancestors 'self'",
-				);
+				// Both browser sources must load inside the Studio editor.
+				for (const path of ["/overlay?t=x", "/live", "/live/"]) {
+					const overlay = await fetch(`${base}${path}`);
+					assert.equal(
+						overlay.headers.get("x-frame-options"),
+						"SAMEORIGIN",
+						path,
+					);
+					assert.equal(
+						overlay.headers.get("content-security-policy"),
+						"frame-ancestors 'self'",
+						path,
+					);
+				}
+				for (const path of ["/dashboard", "/studio", "/live/private"]) {
+					const page = await fetch(`${base}${path}`);
+					assert.equal(page.headers.get("x-frame-options"), "DENY", path);
+				}
 				const discovery = await fetch(
 					`${base}/.well-known/agent-configuration`,
 				);

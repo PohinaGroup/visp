@@ -39,12 +39,12 @@
 	# OBS loads /overlay as a top-level browser source, and /live is the
 	# always-on broadcast page; the Cloud Studio editor previews browser
 	# layers in an iframe on this origin, so both allow same-origin framing.
-	@overlay path /overlay /live
+	@overlay path /overlay /live /live/
 	header @overlay {
 		X-Frame-Options SAMEORIGIN
 		Content-Security-Policy "frame-ancestors 'self'"
 	}
-	@not_overlay not path /overlay
+	@not_overlay not path /overlay /live /live/
 	header @not_overlay {
 		X-Frame-Options DENY
 		Content-Security-Policy "frame-ancestors 'none'"

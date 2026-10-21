@@ -1,4 +1,5 @@
 import { DEFAULT_ALERT_APPEARANCE } from "@VISP/api/studio-alert";
+import { studioTextHtml } from "@VISP/api/studio-text";
 import { Button } from "@astryxdesign/core/Button";
 import { Text } from "@astryxdesign/core/Text";
 import { useQuery } from "@tanstack/react-query";
@@ -16,6 +17,7 @@ import {
 	draggedLayerPosition,
 	type StudioLayer,
 	type StudioScene,
+	studioBrowserSandbox,
 	studioLayerDisplayState,
 } from "@/lib/studio-model";
 import { useTRPC } from "@/utils/trpc";
@@ -94,7 +96,10 @@ function BrowserLayerFrame({
 			// Widget hosts that gate on Referer see visp-stream.com; the path,
 			// which is the only part worth hiding, never leaves.
 			referrerPolicy="strict-origin"
-			sandbox="allow-scripts"
+			sandbox={studioBrowserSandbox(
+				loaded,
+				typeof window === "undefined" ? "" : window.location.origin,
+			)}
 			src={loaded}
 			style={{
 				border: 0,
@@ -131,18 +136,27 @@ function LayerBody({
 	switch (layer.type) {
 		case "text":
 			return (
-				<span
+				<iframe
+					title={layer.name}
+					sandbox="allow-same-origin"
+					srcDoc={studioTextHtml({
+						...layer,
+						fontUrl: "/fonts/studio/barlow-600.woff2",
+					})}
 					style={{
-						fontSize: "5cqh",
-						fontWeight: 600,
-						lineHeight: 1.2,
-						overflow: "hidden",
-						textShadow: "0 1px 3px rgba(0,0,0,0.85)",
-						width: "100%",
+						colorScheme: "normal",
+						background: "transparent",
+						position: "absolute",
+						left: 0,
+						top: 0,
+						border: 0,
+						width: layer.width,
+						height: layer.height,
+						transform: `scale(${scale})`,
+						transformOrigin: "top left",
+						pointerEvents: "none",
 					}}
-				>
-					{layer.text || t("Empty text")}
-				</span>
+				/>
 			);
 		case "png":
 			return <PngLayerImage assetId={layer.assetId} name={layer.name} />;
