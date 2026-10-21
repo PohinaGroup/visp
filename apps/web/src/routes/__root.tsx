@@ -46,7 +46,8 @@ function rybbitHeadScripts(pathname: string | undefined) {
 			async: true,
 			"data-site-id": siteId,
 			// Also covers client-side navigation onto them after the script loaded.
-			"data-skip-patterns": '["/auth/**", "/login", "/overlay", "/device"]',
+			"data-skip-patterns":
+				'["/auth/**", "/login", "/overlay", "/device", "/live"]',
 			// Keep publish URLs and similar secrets out of session replay.
 			"data-replay-block-selector": ".rr-block, [data-rybbit-block]",
 			"data-replay-mask-text-selectors": '["[data-pii]"]',
