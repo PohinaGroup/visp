@@ -28,3 +28,41 @@ export async function validateBrowserRequest(
 	)
 		throw new Error("Browser request must resolve to a public address");
 }
+
+export type PausedRequest = {
+	requestId: string;
+	request: { url: string };
+	resourceType?: string;
+	frameId?: string;
+};
+
+/**
+ * Gate one `Fetch.requestPaused` event. Anything off policy is failed with
+ * `BlockedByClient` so the page keeps rendering without it (an analytics
+ * script, a CDN font, a widget). Only a blocked top-level navigation is
+ * fatal to the layer; that error is returned for `capture()` to raise.
+ */
+export async function gateBrowserRequest(
+	event: PausedRequest,
+	allowedHost: string,
+	mainFrameId: string,
+	command: (method: string, params?: object) => Promise<unknown>,
+	resolve?: Resolve,
+): Promise<Error | undefined> {
+	try {
+		await validateBrowserRequest(event.request.url, allowedHost, resolve);
+	} catch (error) {
+		await command("Fetch.failRequest", {
+			requestId: event.requestId,
+			errorReason: "BlockedByClient",
+		}).catch(() => undefined);
+		if (event.resourceType !== "Document" || event.frameId !== mainFrameId)
+			return;
+		return error instanceof Error
+			? error
+			: new Error("browser request blocked");
+	}
+	await command("Fetch.continueRequest", { requestId: event.requestId }).catch(
+		() => undefined,
+	);
+}

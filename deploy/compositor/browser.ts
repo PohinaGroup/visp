@@ -4,7 +4,7 @@ import {
 	isPublicAddress,
 	validateBrowserSourceUrl,
 } from "../../packages/api/src/studio-browser-url";
-import { validateBrowserRequest } from "./browser-security";
+import { gateBrowserRequest, type PausedRequest } from "./browser-security";
 import { openCdpPipe } from "./cdp-pipe";
 
 export type BrowserLayer = {
@@ -59,6 +59,9 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 	};
 	try {
 		let sessionId = "";
+		let mainFrameId = "";
+		// Set only when the top-level navigation itself is blocked. Blocked
+		// subresources are failed in the page and never reach capture().
 		let blocked: Error | undefined;
 		const command = (method: string, params: object = {}) =>
 			cdp.send(method, params, sessionId);
@@ -67,24 +70,15 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 				event.sessionId === sessionId &&
 				event.method === "Fetch.requestPaused" &&
 				event.params
-			) {
-				const { requestId, request } = event.params as {
-					requestId: string;
-					request: { url: string };
-				};
-				void validateBrowserRequest(request.url, url.hostname)
-					.then(() => command("Fetch.continueRequest", { requestId }))
-					.catch((error) => {
-						blocked =
-							error instanceof Error
-								? error
-								: new Error("browser request blocked");
-						return command("Fetch.failRequest", {
-							requestId,
-							errorReason: "BlockedByClient",
-						}).catch(() => undefined);
-					});
-			}
+			)
+				void gateBrowserRequest(
+					event.params as PausedRequest,
+					url.hostname,
+					mainFrameId,
+					command,
+				).then((fatal) => {
+					blocked ??= fatal;
+				});
 		});
 		const { targetId } = (await cdp.send("Target.createTarget", {
 			url: "about:blank",
@@ -93,8 +87,15 @@ export async function openBrowser(work: string, layer: BrowserLayer) {
 			targetId,
 			flatten: true,
 		})) as { sessionId: string });
-		await command("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
 		await command("Page.enable");
+		({
+			frameTree: {
+				frame: { id: mainFrameId },
+			},
+		} = (await command("Page.getFrameTree")) as {
+			frameTree: { frame: { id: string } };
+		});
+		await command("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
 		await command("Emulation.setDeviceMetricsOverride", {
 			width: layer.width,
 			height: layer.height,

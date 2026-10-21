@@ -50,7 +50,10 @@ the RTSP program has become readable. Direct forwarders use that program while
 the rollout flag, account mode, and health all permit it; otherwise they use raw
 ingest. Chromium keeps its OS sandbox and gets a DNS-pinned public host with all
 other host resolution blocked. The worker drives it over
-`--remote-debugging-pipe`, so there is no local debugging port.
+`--remote-debugging-pipe`, so there is no local debugging port. A subresource
+that fails that policy (an off-host analytics script, CDN font, or widget) is
+failed in the page with `BlockedByClient` and the layer keeps rendering without
+it; only a blocked top-level navigation disables the layer.
 
 `visp-compositor.nft` denies the service account private-network egress and
 all of loopback except the systemd-resolved stub (`127.0.0.53:53`), RTSP
