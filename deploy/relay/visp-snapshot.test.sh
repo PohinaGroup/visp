@@ -401,6 +401,12 @@ while read -r args; do
 		*) fail "no stereo audio encode: $args" ;;
 	esac
 done <<<"$(grep -- '-f flv' "$FAKE_FFMPEG_LOG")"
+# The shared-rendition copy is not reachable here (auth forces the fallback),
+# so pin its arguments at the source: a muted mic packs several AAC access
+# units per RTP packet, ffmpeg leaves PTS unset on all but the first, and the
+# FLV muxer rejects the copy without genpts ("Packet is missing PTS").
+grep -q -- '-fflags +genpts -i ' "$root/visp-snapshot" ||
+	fail "the distribution copy into FLV runs without -fflags +genpts"
 
 if grep -q 'TWITCHKEY\|KICKKEY\|YOUTUBEKEY' "$FAKE_STATE_LOG"; then
 	fail "a stream key reached the state hook"
