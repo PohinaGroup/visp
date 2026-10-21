@@ -139,11 +139,24 @@ function RootDocument() {
 	// The OBS browser source composites over the scene: no chrome, no theme
 	// wrapper, and nothing that paints a background. Banners, toasts, and
 	// devtools buttons would all go out on stream.
-	const isOverlay = useLocation({ select: (l) => l.pathname === "/overlay" });
+	// /live is the always-on broadcast page: same no-chrome rule, but it
+	// paints its own dark background.
+	const chromeless = useLocation({
+		select: (l) =>
+			l.pathname === "/overlay"
+				? "overlay"
+				: l.pathname === "/live"
+					? "live"
+					: null,
+	});
 
-	if (isOverlay) {
+	if (chromeless) {
 		return (
-			<html lang={locale} data-overlay="">
+			<html
+				lang={locale}
+				data-overlay={chromeless === "overlay" ? "" : undefined}
+				className={chromeless === "live" ? "dark" : undefined}
+			>
 				<head>
 					<HeadContent />
 				</head>
