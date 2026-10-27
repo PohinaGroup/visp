@@ -1,0 +1,80 @@
+---
+title: "How to Use AI as Your IRL Stream Manager"
+description: "Use VISP Agent Access to check stream health and prepare OBS or title changes, while keeping every live action under your approval."
+publishedAt: 2026-10-08
+coverAlt: "An IRL creator prepares a phone camera while a teammate checks stream status indicators on a laptop"
+---
+
+An AI assistant can take a few stream-manager chores off your hands: check whether your phone is publishing, summarize a stale connection report, or prepare a scene change for you to approve. It cannot watch your platform player, hear your mix, or make the call that your stream is ready. You still need the human checks.
+
+VISP Agent Access gives an approved AI client selected access to your VISP status. You can start with read-only permissions, then separately allow the assistant to propose a title or category update, an OBS scene change, or an OBS start or stop. VISP asks you to approve each proposed action.
+
+![An IRL creator prepares a phone camera while a teammate checks stream status indicators on a laptop](./cover.png)
+
+![A stream manager flow showing an AI assistant reading VISP status and sending proposed actions to the creator for approval](./stream-manager-flow.svg)
+
+## What an AI stream manager can do
+
+Start with the read permissions that match your broadcast path:
+
+| Permission | What the assistant can check |
+| --- | --- |
+| `streams:read` | Whether your publishing devices are sending, their reader counts, and their latest event times. |
+| `stream-health:read` | Recent bitrate, round-trip time, packet loss, link count, and whether the report is stale. |
+| `direct:read` | VISP Direct mode and output states or errors. |
+| `obs:read` | OBS connection and stream state, pending command state, and active scene. |
+
+Ask for a short report with the component, reported state, observation time, and next manual check. For example:
+
+> Check my field phone, recent connection health, Direct outputs, and OBS. Report the state and observation time for each. Call out stale data. Do not change anything. Tell me what I should verify in the Twitch or Kick preview.
+
+The assistant can only report what VISP has recorded. A phone marked as publishing does not prove that the platform player has good video and sound. A recent connection report is one sample, not a promise that the mobile network will stay steady on your route.
+
+## Give it only the access it needs
+
+Open **Advanced** in the VISP dashboard, choose **Connect an agent**, then enroll an Agent Auth compatible client. Review the requested capabilities before approving them. The enrollment code expires, so create a new one if it is no longer valid.
+
+For a stream-manager check, begin with reads only. You may not need every read permission. If you stream through VISP Direct and do not use OBS, skip `obs:read`. If OBS produces the show, check OBS state and use the platform preview yourself.
+
+The agent has its own identity. It does not receive your VISP password, platform tokens, stream keys, or Direct destination URLs. You can review successful calls in **Recent activity** and revoke a permission from the dashboard.
+
+See the [VISP Agent Access guide](https://docs.visp-stream.com/docs/agent-access) for enrollment steps and the full capability list. Better Auth's [Agent Auth documentation](https://better-auth.com/docs/plugins/agent-auth) explains the protocol clients use to request and receive scoped access.
+
+## Let it prepare changes, not make them
+
+If you want help with a title or category, add `channel:update`. For an OBS scene, start, or stop request, add the matching capability: `obs:scene:set`, `obs:stream:start`, or `obs:stream:stop`.
+
+These permissions let the assistant submit a request. They do not give it an unattended control loop. VISP shows the exact proposed change in **Action requests**. Read it, then approve or reject it. Pending requests expire after five minutes, and approval applies to that one request.
+
+For example, you might ask the assistant to prepare a title update before you walk into a new location. Check the exact title and platform in the request before approving. If it suggests an OBS scene, confirm that the scene is the one you want on air. Keep start and stop permissions disabled unless you have a clear reason to approve those requests during a show.
+
+VISP Agent Access does not currently read or moderate live chat, inspect the video or audio, change bitrate, or continuously watch the broadcast for you. It reads VISP account status and can submit the specific proposals listed in the guide. Use a human moderator, OBS controls, and platform preview for the jobs that need live judgment.
+
+## Use it before and during a stream
+
+Before leaving home, ask for a preflight report. Then verify the actual platform preview and listen to the sound yourself. If you use OBS, check its preview and audio meters. If you use Direct, check the platform output that viewers will see.
+
+During the stream, request another status summary when you need one. Include the route or device you mean, and ask for observation times. Do not treat an old answer as a live alarm. Agent Access responds to capability calls; it is not a continuous monitoring or notification service.
+
+If the report finds a problem, ask the assistant to separate facts from suggestions. A useful answer might say that the phone is publishing, its last health report is stale, and OBS is disconnected. You can then decide whether to refresh the report, reconnect the studio, or check Direct. The assistant should not collapse those separate conditions into a green “ready” verdict.
+
+Give each request one job. Ask for a status summary when you need a snapshot. If you want to change your title, ask for a proposed title and the platform it will affect. If you need a scene change, name the scene you want and review the exact request in the dashboard. This makes it easier to spot when an assistant has misunderstood the stream path or picked a scene that should stay off air.
+
+You can also use the assistant to prepare a short handoff for a moderator or home producer. Ask it to list what VISP reports, what remains unverified, and which manual check comes next. Keep private information out of that handoff. VISP does not return stream keys or Direct destination URLs through these read permissions, but the text you copy into another chat may still contain channel details or a location you do not want to share.
+
+Treat an action request as a prompt for your attention, not a button the assistant has already pressed. A request to stop OBS can interrupt the show, and a scene change can put the wrong content on air. If you cannot review the request in time, let it expire and use a control method you can see directly. The five-minute expiry is a useful safety window, not a substitute for knowing what the proposed action will do.
+
+For a repeatable rehearsal, follow the [IRL stream test checklist](/blog/test-irl-stream-before-going-live). If you need to operate OBS remotely, see [how to control OBS from your phone without port forwarding](/blog/control-obs-phone-without-port-forwarding). Those controls are separate from an AI agent's approved action requests.
+
+## Keep a person in charge
+
+An AI stream manager works best as a status reader and a second set of eyes for routine requests. It can gather VISP state into one report and prepare an exact change for review. You remain responsible for the picture, sound, privacy, platform preview, and decision to go live.
+
+To try this workflow, [set up VISP](https://docs.visp-stream.com/docs/get-started), connect an Agent Auth compatible client, and begin with read-only permissions. Add action permissions only when you are ready to review each request in the dashboard.
+
+### Sources and further reading
+
+- [VISP Agent Access documentation](https://docs.visp-stream.com/docs/agent-access)
+- [Better Auth Agent Auth documentation](https://better-auth.com/docs/plugins/agent-auth)
+- [VISP IRL stream test checklist](/blog/test-irl-stream-before-going-live)
+- [VISP OBS remote control documentation](https://docs.visp-stream.com/docs/obs-remote-control)
