@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>New VISP relay in Singapore</title>
+  <rect width="1200" height="630" fill="#0b0d10"/>
+  <g fill="#f2f3f5">
+    <rect x="70" y="64" width="8" height="30"/><rect x="84" y="56" width="8" height="38"/><rect x="98" y="70" width="8" height="24"/><rect x="112" y="60" width="8" height="34"/>
+  </g>
+  <text x="140" y="88" fill="#9299a3" font-family="monospace" font-size="22" letter-spacing="4">VISP RELAY NETWORK</text>
+  <text x="70" y="200" fill="#f2f3f5" font-family="Arial" font-size="64" font-weight="700">NEW RELAY:</text>
+  <text x="70" y="280" fill="#f2f3f5" font-family="Arial" font-size="64" font-weight="700">SINGAPORE</text>
+  <path d="M150 430H1050" stroke="#59616d" stroke-width="5"/>
+  <g fill="#0b0d10" stroke-width="5"><circle cx="180" cy="430" r="58" stroke="#72d7ff"/><circle cx="560" cy="430" r="66" stroke="#d8ff52"/><circle cx="1020" cy="430" r="58" stroke="#72d7ff"/></g>
+  <g fill="#f2f3f5" font-family="monospace" font-size="20" text-anchor="middle"><text x="180" y="438">PHONE</text><text x="560" y="438">SIN</text><text x="1020" y="438">LIVE</text></g>
+  <text x="90" y="565" fill="#9299a3" font-family="monospace" font-size="21">INGEST AND DIRECT ENCODING, NOW IN ASIA</text>
+</svg>
