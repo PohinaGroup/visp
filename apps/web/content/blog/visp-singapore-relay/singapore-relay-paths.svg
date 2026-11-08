@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">Stream paths before and after the Singapore relay</title>
+  <desc id="desc">Before: a phone in Southeast Asia sends video to the Finland relay, which encodes and sends it to the platform. After: the phone sends to the Singapore relay, which encodes and sends to the platform from Singapore. Only the connection check goes to the VISP app in Finland.</desc>
+  <rect width="1600" height="900" fill="#0b1017"/>
+  <g font-family="'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace">
+
+    <text x="96" y="96" fill="#8b97a6" font-size="24" letter-spacing="6">VISP RELAY PATHS</text>
+    <rect x="96" y="122" width="1408" height="2" fill="#22303f"/>
+
+    <!-- before -->
+    <text x="96" y="200" fill="#8b97a6" font-size="20" letter-spacing="4">BEFORE</text>
+    <rect x="96" y="226" width="300" height="130" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="128" y="282" fill="#e8edf2" font-size="30">Phone</text>
+    <text x="128" y="320" fill="#8b97a6" font-size="20">Bangkok</text>
+
+    <line x1="396" y1="291" x2="636" y2="291" stroke="#ff9d66" stroke-width="3" stroke-dasharray="10 8"/>
+    <polygon points="636,291 620,283 620,299" fill="#ff9d66"/>
+    <text x="410" y="270" fill="#ff9d66" font-size="18">long cellular leg</text>
+
+    <rect x="636" y="226" width="360" height="130" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="668" y="282" fill="#e8edf2" font-size="30">Relay Finland</text>
+    <text x="668" y="320" fill="#8b97a6" font-size="20">ingest · Direct encode</text>
+
+    <line x1="996" y1="291" x2="1204" y2="291" stroke="#ff9d66" stroke-width="3" stroke-dasharray="10 8"/>
+    <polygon points="1204,291 1188,283 1188,299" fill="#ff9d66"/>
+
+    <rect x="1204" y="226" width="300" height="130" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="1236" y="282" fill="#e8edf2" font-size="30">Platform</text>
+    <text x="1236" y="320" fill="#8b97a6" font-size="17">Twitch · Kick · YouTube</text>
+
+    <rect x="96" y="420" width="1408" height="2" fill="#22303f"/>
+
+    <!-- after -->
+    <text x="96" y="498" fill="#8b97a6" font-size="20" letter-spacing="4">AFTER</text>
+    <rect x="96" y="524" width="300" height="130" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="128" y="580" fill="#e8edf2" font-size="30">Phone</text>
+    <text x="128" y="618" fill="#8b97a6" font-size="20">Bangkok</text>
+
+    <line x1="396" y1="589" x2="636" y2="589" stroke="#7fd99a" stroke-width="3"/>
+    <polygon points="636,589 620,581 620,597" fill="#7fd99a"/>
+    <text x="410" y="568" fill="#7fd99a" font-size="18">short hop</text>
+
+    <rect x="636" y="524" width="360" height="130" rx="8" fill="#111a24" stroke="#7fd99a" stroke-width="2"/>
+    <text x="668" y="580" fill="#e8edf2" font-size="30">Relay Singapore</text>
+    <text x="668" y="618" fill="#8b97a6" font-size="20">ingest · Direct encode</text>
+
+    <line x1="996" y1="589" x2="1204" y2="589" stroke="#7fd99a" stroke-width="3"/>
+    <polygon points="1204,589 1188,581 1188,597" fill="#7fd99a"/>
+
+    <rect x="1204" y="524" width="300" height="130" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="1236" y="580" fill="#e8edf2" font-size="30">Platform</text>
+    <text x="1236" y="618" fill="#8b97a6" font-size="20">nearby ingest</text>
+
+    <!-- auth check to Finland -->
+    <line x1="816" y1="654" x2="816" y2="736" stroke="#3d5468" stroke-width="3" stroke-dasharray="6 8"/>
+    <polygon points="816,736 808,720 824,720" fill="#3d5468"/>
+    <rect x="636" y="736" width="360" height="100" rx="8" fill="#111a24" stroke="#2c3c4d" stroke-width="2"/>
+    <text x="668" y="782" fill="#e8edf2" font-size="26">VISP app, Finland</text>
+    <text x="668" y="816" fill="#8b97a6" font-size="18">accounts · connection check</text>
+    <text x="1030" y="782" fill="#8b97a6" font-size="18">only the check goes to Finland,</text>
+    <text x="1030" y="810" fill="#8b97a6" font-size="18">video stays in Singapore</text>
+  </g>
+</svg>
