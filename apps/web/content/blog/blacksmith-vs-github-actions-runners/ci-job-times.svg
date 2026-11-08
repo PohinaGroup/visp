@@ -1,0 +1,64 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="900" viewBox="0 0 1600 900" role="img" aria-labelledby="title desc">
+  <title id="title">VISP CI job time on GitHub-hosted and Blacksmith runners</title>
+  <desc id="desc">Two pairs of horizontal bars. The web pipeline job takes 339 seconds on a GitHub-hosted ubuntu-24.04 runner and 241 seconds on a Blacksmith 4 vCPU runner. Integration tests are the longest segment on both, about 210 and 177 seconds. Type-check, build and dependency install are each about twice as fast on Blacksmith. The OBS plugin build takes 75 seconds on GitHub and 57 seconds on Blacksmith.</desc>
+  <rect width="1600" height="900" fill="#0b1017"/>
+  <g font-family="'IBM Plex Mono', 'SFMono-Regular', Menlo, monospace">
+
+    <text x="96" y="96" fill="#8b97a6" font-size="24" letter-spacing="6">CI JOB TIME, SAME STEPS, TWO RUNNERS</text>
+    <rect x="96" y="122" width="1408" height="2" fill="#22303f"/>
+
+    <!-- scale: 1 s = 3.2 px, bars start at x=400 -->
+    <text x="96" y="200" fill="#8b97a6" font-size="20" letter-spacing="4">WEB PIPELINE</text>
+    <text x="96" y="228" fill="#5b6978" font-size="17">install · unit tests · integration tests · type-check · build</text>
+
+    <!-- GitHub web: 18 / 9 / 210 / 60 / 33 (+9 setup) = 339 s -->
+    <text x="96" y="302" fill="#e8edf2" font-size="24">GitHub-hosted</text>
+    <text x="96" y="330" fill="#8b97a6" font-size="17">ubuntu-24.04, 4 vCPU</text>
+    <g>
+      <rect x="400" y="270" width="58" height="64" fill="#2c3c4d"/>
+      <rect x="458" y="270" width="29" height="64" fill="#3a4c5f"/>
+      <rect x="487" y="270" width="672" height="64" fill="#2c3c4d"/>
+      <rect x="1159" y="270" width="192" height="64" fill="#3a4c5f"/>
+      <rect x="1351" y="270" width="106" height="64" fill="#2c3c4d"/>
+      <rect x="1457" y="270" width="29" height="64" fill="#1c2733"/>
+      <text x="823" y="309" fill="#e8edf2" font-size="20" text-anchor="middle">integration 210 s</text>
+      <text x="1255" y="309" fill="#e8edf2" font-size="18" text-anchor="middle">types 60 s</text>
+      <text x="1404" y="309" fill="#e8edf2" font-size="16" text-anchor="middle">build 33</text>
+      <text x="429" y="309" fill="#e8edf2" font-size="15" text-anchor="middle">18</text>
+    </g>
+    <text x="1486" y="364" fill="#8b97a6" font-size="20" text-anchor="end">5 min 39 s</text>
+
+    <!-- Blacksmith web: 6 / 7 / 177 / 27 / 16 (+8 setup) = 241 s -->
+    <text x="96" y="432" fill="#e8edf2" font-size="24">Blacksmith</text>
+    <text x="96" y="460" fill="#8b97a6" font-size="17">blacksmith-4vcpu-ubuntu-2404</text>
+    <g>
+      <rect x="400" y="400" width="19" height="64" fill="#5fae7b"/>
+      <rect x="419" y="400" width="22" height="64" fill="#7fd99a"/>
+      <rect x="441" y="400" width="566" height="64" fill="#5fae7b"/>
+      <rect x="1007" y="400" width="86" height="64" fill="#7fd99a"/>
+      <rect x="1093" y="400" width="51" height="64" fill="#5fae7b"/>
+      <rect x="1144" y="400" width="27" height="64" fill="#3f7a56"/>
+      <text x="724" y="439" fill="#0b1017" font-size="20" text-anchor="middle">integration 177 s</text>
+      <text x="1050" y="439" fill="#0b1017" font-size="18" text-anchor="middle">27 s</text>
+      <text x="1119" y="439" fill="#0b1017" font-size="15" text-anchor="middle">16</text>
+    </g>
+    <text x="1171" y="494" fill="#7fd99a" font-size="20" text-anchor="start" dx="16">4 min 1 s</text>
+    <line x1="1171" y1="400" x2="1171" y2="464" stroke="#e8edf2" stroke-width="2" stroke-dasharray="4 6"/>
+
+    <rect x="96" y="540" width="1408" height="2" fill="#22303f"/>
+
+    <!-- OBS plugin, same scale -->
+    <text x="96" y="612" fill="#8b97a6" font-size="20" letter-spacing="4">OBS PLUGIN, UBUNTU BUILD</text>
+    <text x="96" y="640" fill="#5b6978" font-size="17">apt install · cmake build · package</text>
+
+    <text x="96" y="708" fill="#e8edf2" font-size="24">GitHub-hosted</text>
+    <rect x="400" y="676" width="240" height="48" fill="#2c3c4d"/>
+    <text x="656" y="708" fill="#8b97a6" font-size="20">75 s</text>
+
+    <text x="96" y="788" fill="#e8edf2" font-size="24">Blacksmith</text>
+    <rect x="400" y="756" width="182" height="48" fill="#5fae7b"/>
+    <text x="598" y="788" fill="#7fd99a" font-size="20">57 s</text>
+
+    <text x="1504" y="860" fill="#5b6978" font-size="16" text-anchor="end">mean of 3 runs each, 2026-11-08, PohinaGroup/visp</text>
+  </g>
+</svg>
