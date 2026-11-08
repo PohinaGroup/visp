@@ -20,7 +20,8 @@ const portal = Bun.serve({
 	fetch: () => new Response("portal"),
 });
 const directory = await mkdtemp(join(tmpdir(), "visp-proxy-"));
-const container = `visp-proxy-${process.pid}`;
+// `docker run --rm` removes the container asynchronously, so reusing one name races.
+let run = 0;
 async function docker(...args: string[]) {
 	const result = Bun.spawn(["docker", ...args], {
 		stdout: "pipe",
@@ -62,6 +63,7 @@ try {
 						`remote_ip ${allow ? "0.0.0.0/0 ::/0" : "192.0.2.1"}`,
 					),
 			);
+			const container = `visp-proxy-${process.pid}-${run++}`;
 			await docker(
 				"run",
 				"--detach",
