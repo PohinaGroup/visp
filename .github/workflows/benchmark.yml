@@ -1,16 +1,23 @@
 name: Runner benchmark
 
-# Same steps as the Staging check job plus the Release build step, run on
-# GitHub-hosted and Blacksmith runners so the two can be compared like for like.
+# Same steps as the Staging check job plus the Release build step, and the OBS
+# plugin Ubuntu build, run on GitHub-hosted and Blacksmith runners so the two
+# can be compared like for like.
 on:
+  push:
+    branches: [bench/**]
   workflow_dispatch:
 
 permissions:
   contents: read
 
+env:
+  OBS_TEMPLATE_REF: 3e7d7ac3b5342cd7d9b88890b9c70b472d1520fc
+  PLUGIN_DIR: apps/obs-plugin
+
 jobs:
-  bench:
-    name: ${{ matrix.runner }} (${{ matrix.n }})
+  web:
+    name: web ${{ matrix.runner }} (${{ matrix.n }})
     strategy:
       fail-fast: false
       matrix:
@@ -38,3 +45,50 @@ jobs:
 
       - name: Build API, portal, admin, multi-chat, and Typography
         run: bun x turbo run build -F server -F web -F admin -F multichat -F typography
+
+  obs:
+    name: obs ${{ matrix.runner }} (${{ matrix.n }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, blacksmith-4vcpu-ubuntu-2404]
+        n: [1, 2, 3]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+
+      - name: Fetch pinned OBS build helpers
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          repository: obsproject/obs-plugintemplate
+          ref: ${{ env.OBS_TEMPLATE_REF }}
+          path: .obs-template
+
+      - name: Stage OBS build helpers
+        shell: bash
+        run: |
+          mkdir -p "$PLUGIN_DIR/.github/actions"
+          cp -R .obs-template/.github/scripts "$PLUGIN_DIR/.github/scripts"
+          if [[ -d "$PLUGIN_DIR/.github/script-overrides" ]]; then
+            cp -R "$PLUGIN_DIR/.github/script-overrides/." "$PLUGIN_DIR/.github/scripts/"
+          fi
+          chmod +x "$PLUGIN_DIR"/.github/scripts/{build,package}-*
+
+      - name: Install Ubuntu build tools
+        run: sudo apt-get update && sudo apt-get install --yes zsh ccache
+
+      - name: Build Ubuntu
+        shell: zsh --no-rcs --errexit --pipefail {0}
+        working-directory: apps/obs-plugin
+        run: .github/scripts/build-ubuntu --target ubuntu-x86_64 --config Release
+
+      - name: Test
+        shell: bash
+        run: |
+          cmake --build "$PLUGIN_DIR/build_x86_64" --config Release
+          ctest --test-dir "$PLUGIN_DIR/build_x86_64" -C Release --output-on-failure
+
+      - name: Package Ubuntu
+        shell: zsh --no-rcs --errexit --pipefail {0}
+        working-directory: apps/obs-plugin
+        run: .github/scripts/package-ubuntu --target ubuntu-x86_64 --config Release --package
