@@ -57,7 +57,9 @@ sudo install -m 0755 deploy/visp-release-bootstrap /usr/local/sbin/visp-release
 
 The bootstrap checks out the requested release, installs that release's helper
 under `/usr/local/libexec`, and executes it. Helper fixes therefore take effect
-in the same release run without reinstalling the bootstrap.
+in the same release run without reinstalling the bootstrap. Reinstall the
+bootstrap itself when it changes; it last changed to pass the CI-built site
+bundle through as a third argument.
 
 Create these root-owned, mode `0600` files:
 
@@ -68,7 +70,8 @@ Create these root-owned, mode `0600` files:
   `ADMIN_ORIGIN=https://admin.visp-stream.com`,
   `MULTICHAT_ORIGIN=https://multichat.visp-stream.com`, and comma-separated
   `ADMIN_USER_IDS`.
-- `/etc/visp/web.env`, containing the portal's build-time `VITE_*` values.
+- `/etc/visp/web.env`, containing the portal's `VITE_*` values. `visp-web`
+  reads it at runtime.
 - `/etc/visp/native-web.env`, containing
   `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN` and
   `EXPO_PUBLIC_RELAY_WEBRTC_URL=https://RELAY_DOMAIN`.
@@ -76,6 +79,15 @@ Create these root-owned, mode `0600` files:
   `EXPO_PUBLIC_SERVER_URL=https://APP_DOMAIN`.
 - `/etc/visp/typography-web.env`, containing
   `VITE_API_URL=https://visp-stream.com`.
+
+The sites are no longer built from these files. They are compiled once in CI
+from the production environment's `APP_URL`, `RELAY_WEBRTC_URL`, and
+`RYBBIT_SITE_ID` variables, and the release helper refuses a bundle whose
+compiled values differ from `VITE_SERVER_URL` and `VITE_RYBBIT_SITE_ID` in
+`web.env`, both `EXPO_PUBLIC_*` values in `native-web.env`,
+`EXPO_PUBLIC_SERVER_URL` in `obs-remote-web.env`, and `VITE_API_URL` in
+`typography-web.env`. Keep the variables and these files identical, character
+for character.
 - `/etc/visp/caddy.env`, containing `APP_DOMAIN`,
   `ADMIN_DOMAIN=admin.visp-stream.com`,
   `MULTICHAT_DOMAIN=multichat.visp-stream.com`,
@@ -109,11 +121,17 @@ Configure these environment variables:
 - `DEPLOY_HOST`: app server Tailscale hostname or address.
 - `RELAY_DEPLOY_HOST`: relay server Tailscale hostname or address.
 - `DEPLOY_USER`: `root`.
-- `APP_URL`: public portal origin, including `https://`.
+- `APP_URL`: public portal origin, including `https://`. Compiled into the
+  portal, admin, and multi-chat builds as `VITE_SERVER_URL`, into Typography
+  as `VITE_API_URL`, and into the native web and OBS Remote builds as
+  `EXPO_PUBLIC_SERVER_URL`.
+- `RYBBIT_SITE_ID`: optional; the portal's `VITE_RYBBIT_SITE_ID`. Leave it
+  unset when `/etc/visp/web.env` has none.
 - `ADMIN_URL`: `https://admin.visp-stream.com`.
 - `MULTICHAT_URL`: `https://multichat.visp-stream.com`.
 - `TYPOGRAPHY_URL`: `https://typography.visp-stream.com`.
-- `RELAY_WEBRTC_URL`: public relay WebRTC origin.
+- `RELAY_WEBRTC_URL`: public relay WebRTC origin. Compiled into the native
+  web build as `EXPO_PUBLIC_RELAY_WEBRTC_URL`.
 - `NATIVE_WEB_URL`: `https://stream.visp-stream.com`.
 - `OBS_REMOTE_WEB_URL`: `https://remote.visp-stream.com`.
 - `DOCS_URL`: `https://docs.visp-stream.com`.
@@ -156,16 +174,30 @@ Before tagging, set the same `X.Y.Z` in:
 
 Create `vX.Y.Z` from a commit on `main`, then publish its GitHub Release. Draft
 and prerelease publications are ignored. The workflow serializes releases and
-first runs the repository tests, type checks, and all production builds.
+first runs the repository tests, type checks, and all production builds. It
+bundles the build directories named by `deploy/visp-build-outputs` into the
+`sites-vX.Y.Z` workflow artifact (kept for 7 days), copies it over Tailscale
+to the app server as `/var/tmp/visp-sites-vX.Y.Z.tar.gz`, and runs the
+bootstrap with the tag, SHA, and bundle path. The app server builds nothing.
 
 The app-server bootstrap verifies the tag and 40-character commit SHA, locks the
 host, refuses tracked changes, checks out the exact release, and executes that
-release's helper. The helper installs frozen dependencies, migrates the database,
-and builds every app-server artifact
-before restarting any service. It validates Caddy before installing its
+release's helper. The helper refuses a bundle with entries outside
+`apps/*/dist` and `apps/*/.output`, one missing a file from
+`deploy/visp-build-outputs`, or one compiled with other public origins than
+`/etc/visp/*.env` name. It then installs frozen dependencies (`visp-server`
+loads `@node-rs/argon2` and `sharp` from `node_modules`), migrates the
+database, and swaps each build directory in with a single rename before
+restarting any service. It validates Caddy before installing its
 configuration, then restarts `visp-server`, `visp-web`, and
-`visp-typography-worker`, reloads Caddy, and runs local smoke checks. Install, migration, or build failures therefore leave
-the currently running services untouched. Database rollback remains manual and
+`visp-typography-worker`, reloads Caddy, and runs local smoke checks. Bundle,
+install, or migration failures therefore leave the currently running services
+untouched. Re-running the failed deploy job reuses the same bundle while the
+artifact exists; to redeploy by hand, download it, copy it to the host, and run
+`sudo visp-release vX.Y.Z <sha> /var/tmp/visp-sites-vX.Y.Z.tar.gz`. Tags
+from before the bundle still build on the host and take two arguments.
+Staging (`visp-staging-release`) still builds on the host from `main`.
+Database rollback remains manual and
 migrations must stay backward-compatible. All pending migrations apply in one
 transaction with a 5 s `lock_timeout` (so a blocked `ALTER` cannot queue live
 queries behind it) and are retried up to 3 times; tune with
