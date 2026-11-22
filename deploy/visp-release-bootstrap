@@ -18,7 +18,10 @@ assert_clean() {
 }
 
 [[ $EUID -eq 0 ]] || fail "run as root"
-[[ $# -eq 2 ]] || fail "usage: visp-release <vX.Y.Z> <40-character-commit-sha>"
+# Releases since the CI-built site bundle take its path as a third argument;
+# older tags' helpers build on the host and take two.
+[[ $# -eq 2 || $# -eq 3 ]] ||
+	fail "usage: visp-release <vX.Y.Z> <40-character-commit-sha> [visp-sites.tar.gz]"
 
 readonly tag=$1
 readonly expected_sha=$2
@@ -36,7 +39,8 @@ assert_clean "$repo has tracked changes before checkout; run" \
 
 git -C "$repo" fetch --force --prune origin \
 	"refs/tags/$tag:refs/tags/$tag"
-readonly actual_sha=$(git -C "$repo" rev-parse "$tag^{commit}")
+actual_sha=$(git -C "$repo" rev-parse "$tag^{commit}")
+readonly actual_sha
 [[ $actual_sha == "$expected_sha" ]] ||
 	fail "$tag resolves to $actual_sha, expected $expected_sha"
 
@@ -45,4 +49,4 @@ assert_clean "$repo checkout left tracked changes;" \
 	"repair its ownership and permissions"
 
 install -D -m 0755 "$repo/deploy/visp-release" "$helper"
-exec "$helper" "$tag" "$expected_sha"
+exec "$helper" "$@"

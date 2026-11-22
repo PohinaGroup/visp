@@ -262,8 +262,8 @@ pprof stay disabled.
 	   after compositor acceptance; `CLOUD_STUDIO_DEFAULT_ENABLED` separately
 	   opts newly created Direct users into Cloud Studio. Existing users remain
 	   in OBS mode.
-3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; build with those public
-   values available to Vite. Put the native web app's public build values in the
+3. Fill `/etc/visp/web.env` from `apps/web/.env.example`; `visp-web` reads it
+   at runtime. Put the native web app's public build values in the
    root-owned, mode `0600` file `/etc/visp/native-web.env`:
 
    ```text
@@ -283,6 +283,12 @@ pprof stay disabled.
    ```text
    VITE_API_URL=https://visp-stream.com
    ```
+
+   Releases do not build on this box. The sites arrive as a tarball compiled
+   in CI from the GitHub production variables `APP_URL`, `RELAY_WEBRTC_URL`,
+   and `RYBBIT_SITE_ID`; the release helper checks the compiled origins
+   against these files and refuses a bundle that disagrees (see
+   [`UPDATE.md`](UPDATE.md)).
 4. Install and enable `visp-server.service` and `visp-web.service`. Use Caddy's
    packaged unit with `app/Caddyfile`; install `systemd/caddy-app.conf` as its
    `caddy.service.d/visp.conf` drop-in and set `APP_DOMAIN`,

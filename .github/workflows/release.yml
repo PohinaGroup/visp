@@ -154,9 +154,18 @@ jobs:
           bun run check-types
           bun run --cwd apps/fumadocs types:check
 
+      # These values are compiled into the shipped sites. They must equal the
+      # host's /etc/visp/{web,typography-web}.env; visp-release refuses a
+      # bundle whose literals disagree with them.
       - name: Build API, portal, admin, multi-chat, and Typography
+        env:
+          VITE_SERVER_URL: ${{ vars.APP_URL }}
+          VITE_API_URL: ${{ vars.APP_URL }}
+          VITE_RYBBIT_SITE_ID: ${{ vars.RYBBIT_SITE_ID }}
         run: |
+          test -n "$VITE_SERVER_URL"
           bun x turbo run build -F server -F web -F admin -F multichat -F typography
+          test -f apps/web/.output/server/index.mjs
           test -f apps/admin/dist/index.html
           test -f apps/multichat/dist/index.html
           test -f apps/typography/dist/index.html
@@ -199,6 +208,28 @@ jobs:
           test -f apps/fumadocs/.output/public/llms.txt
           test -f apps/fumadocs/.output/public/llms-full.txt
 
+      # The app host installs these instead of rebuilding; visp-release swaps
+      # in each apps/*/dist and apps/*/.output directory whole.
+      - name: Bundle site builds
+        shell: bash
+        run: |
+          set -euo pipefail
+          while IFS= read -r output; do
+            test -f "$output"
+          done < deploy/visp-build-outputs
+          sed -E 's#^(apps/[^/]+/(dist|\.output))/.*#\1#' deploy/visp-build-outputs | sort -u |
+            tar -czf "$RUNNER_TEMP/visp-sites.tar.gz" -T -
+          ls -l "$RUNNER_TEMP/visp-sites.tar.gz"
+
+      - name: Upload site builds
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: sites-${{ steps.release.outputs.tag }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+          path: ${{ runner.temp }}/visp-sites.tar.gz
+
   deploy_app_server:
     name: Deploy app server
     needs: verify
@@ -211,6 +242,11 @@ jobs:
           oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
           tags: tag:ci
+
+      - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          name: sites-${{ needs.verify.outputs.tag }}
+          path: ${{ runner.temp }}
 
       - name: Deploy exact release
         env:
@@ -229,8 +265,11 @@ jobs:
           printf '%s\n' "$DEPLOY_KEY" > "$HOME/.ssh/deploy_key"
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > "$HOME/.ssh/known_hosts"
           chmod 0600 "$HOME/.ssh/deploy_key" "$HOME/.ssh/known_hosts"
+          bundle="/var/tmp/visp-sites-$RELEASE_TAG.tar.gz"
+          scp -i "$HOME/.ssh/deploy_key" "$RUNNER_TEMP/visp-sites.tar.gz" \
+            "$DEPLOY_USER@$DEPLOY_HOST:$bundle"
           ssh -i "$HOME/.ssh/deploy_key" "$DEPLOY_USER@$DEPLOY_HOST" \
-            sudo /usr/local/sbin/visp-release "$RELEASE_TAG" "$RELEASE_SHA"
+            sudo /usr/local/sbin/visp-release "$RELEASE_TAG" "$RELEASE_SHA" "$bundle"
 
       - name: Smoke-check public sites
         env:

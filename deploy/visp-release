@@ -24,13 +24,20 @@ assert_clean() {
 }
 
 [[ $EUID -eq 0 ]] || fail "run as root"
-[[ $# -eq 2 ]] || fail "usage: visp-release <vX.Y.Z> <40-character-commit-sha>"
+# The sites are built once by release.yml's verify job and shipped as a
+# tarball of apps/*/dist and apps/*/.output. A two-argument call means
+# /usr/local/sbin/visp-release is the pre-bundle bootstrap: reinstall
+# deploy/visp-release-bootstrap.
+[[ $# -eq 3 ]] ||
+	fail "usage: visp-release <vX.Y.Z> <40-character-commit-sha> <visp-sites.tar.gz>"
 
 readonly tag=$1
 readonly expected_sha=$2
+readonly bundle=$3
 
 [[ $tag =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || fail "invalid release tag: $tag"
 [[ $expected_sha =~ ^[0-9a-f]{40}$ ]] || fail "invalid commit SHA"
+[[ -f $bundle ]] || fail "missing site bundle: $bundle"
 
 for path in "$repo/.git" "$bun" "$app_env" "$web_env" "$native_web_env" \
 	"$obs_remote_web_env" "$typography_web_env" "$caddy_env"; do
@@ -49,11 +56,58 @@ run_with_env() (
 	"$@"
 )
 
-readonly actual_sha=$(git -C "$repo" rev-parse HEAD)
+# The public origins are compiled into the static sites as string literals.
+# A bundle built against another origin is a silent outage, so every value the
+# host env files name must appear in the shipped files, character for
+# character. The GitHub production variables are the build input; these files
+# are the host's record of what they must equal.
+assert_baked() (
+	local env_file=$1 dir=$2
+	shift 2
+	set -a
+	# shellcheck disable=SC1090
+	source "$env_file"
+	set +a
+	local key
+	for key; do
+		[[ -n ${!key:-} ]] || continue
+		grep -rqF -- "${!key}" "$dir" ||
+			fail "$dir was not built with $key=${!key} from $env_file"
+	done
+)
+
+actual_sha=$(git -C "$repo" rev-parse HEAD)
+readonly actual_sha
 [[ $actual_sha == "$expected_sha" ]] ||
 	fail "$repo is at $actual_sha, expected $expected_sha"
 assert_clean "$repo has tracked changes"
 
+# The bundle is extracted as root into $repo: refuse anything outside the
+# build output directories.
+tar -tzf "$bundle" >/dev/null || fail "cannot read $bundle"
+if tar -tzf "$bundle" | grep -Ev '^apps/[^/]+/(dist|\.output)(/|$)'; then
+	fail "$bundle has entries outside apps/*/dist and apps/*/.output"
+fi
+# Unpack next to the targets so the swap below is a rename on one filesystem.
+unpack=$(mktemp -d "$repo/.visp-sites.XXXXXX")
+trap 'rm -rf "$unpack"' EXIT
+tar -xzf "$bundle" --no-same-owner -C "$unpack"
+
+while IFS= read -r output; do
+	[[ -f "$unpack/$output" ]] || fail "$bundle does not contain $output"
+done < "$repo/deploy/visp-build-outputs"
+
+assert_baked "$web_env" "$unpack/apps/web/.output" VITE_SERVER_URL VITE_RYBBIT_SITE_ID
+assert_baked "$web_env" "$unpack/apps/admin/dist" VITE_SERVER_URL
+assert_baked "$web_env" "$unpack/apps/multichat/dist" VITE_SERVER_URL
+assert_baked "$native_web_env" "$unpack/apps/native/dist" \
+	EXPO_PUBLIC_SERVER_URL EXPO_PUBLIC_RELAY_WEBRTC_URL
+assert_baked "$obs_remote_web_env" "$unpack/apps/obs-remote/dist" EXPO_PUBLIC_SERVER_URL
+assert_baked "$typography_web_env" "$unpack/apps/typography/dist" VITE_API_URL
+
+# visp-server keeps @node-rs/argon2 and sharp external to its bundle, the
+# migrator runs from packages/db, and the env check below imports the
+# workspace: node_modules still has to match the lockfile on the host.
 "$bun" install --cwd "$repo" --frozen-lockfile
 
 # Fail before migrating or swapping the live service if app.env no longer
@@ -61,7 +115,7 @@ assert_clean "$repo has tracked changes"
 # Reuses the same createEnv the server runs at boot, so it can't drift.
 (cd "$repo" && run_with_env "$app_env" "$bun" -e 'await import("@VISP/env/server")')
 
-# Migrate before building or restarting anything: on failure the old services
+# Migrate before installing or restarting anything: on failure the old services
 # keep running untouched. The migrator gives up on a lock after
 # MIGRATION_LOCK_TIMEOUT_MS (default 5000) and retries MIGRATION_LOCK_ATTEMPTS
 # (default 3) times; each failed attempt rolls back completely. Runs the
@@ -70,18 +124,17 @@ assert_clean "$repo has tracked changes"
 if ! run_with_env "$app_env" "$bun" run --cwd "$repo/packages/db" db:migrate; then
 	fail "database migration failed; services were not restarted"
 fi
-(
-	cd "$repo"
-	run_with_env "$web_env" "$bun" x turbo run build -F server -F web -F admin -F multichat
-)
-run_with_env "$native_web_env" "$bun" run --cwd "$repo/apps/native" build:web
-run_with_env "$obs_remote_web_env" "$bun" run --cwd "$repo/apps/obs-remote" build:web
-run_with_env "$typography_web_env" "$bun" run --cwd "$repo/apps/typography" build
-"$bun" run --cwd "$repo/apps/fumadocs" build
 
-while IFS= read -r output; do
-	[[ -f "$repo/$output" ]] || fail "build did not produce $output"
-done < "$repo/deploy/visp-build-outputs"
+# Each output directory is replaced with one rename, so Caddy never serves a
+# half-written site. The previous build moves into the unpack directory and
+# goes with it on exit.
+for dir in "$unpack"/apps/*/dist "$unpack"/apps/*/.output; do
+	[[ -d $dir ]] || continue
+	target=$repo/${dir#"$unpack/"}
+	install -d "${target%/*}"
+	[[ -e $target ]] && mv "$target" "$dir.previous"
+	mv "$dir" "$target"
+done
 
 (
 	set -a
